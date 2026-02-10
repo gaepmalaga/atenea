@@ -11,6 +11,7 @@ interface IntelChatProps {
   user: any;
 }
 
+
 type Message = {
   role: 'ai' | 'user';
   content: string;
