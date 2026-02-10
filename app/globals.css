@@ -1,26 +1,301 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* =========================================
+   FASE 1: EL NÚCLEO (FÍSICA Y MATERIALES)
+   ========================================= */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* --- MODO DÍA: "CERAMIC & PLATINUM" (Oficina Ejecutiva) --- */
+  
+  /* Fondos Vivos */
+  --bg-app: #f1f5f9; /* Slate 100 - Base sólida */
+  --bg-gradient-start: #f8fafc; /* Slate 50 */
+  --bg-gradient-end: #e0f2fe; /* Sky 100 - Luz ambiental sutil */
+  
+  /* Textos de Alto Contraste */
+  --text-primary: #0f172a; /* Slate 900 - Tinta pura */
+  --text-secondary: #475569; /* Slate 600 - Grafito */
+  --text-tertiary: #94a3b8; /* Slate 400 */
+
+  /* Materiales: Cerámica Pulida */
+  --glass-bg: rgba(255, 255, 255, 0.7); /* Blanco lechoso translúcido */
+  --glass-border: rgba(255, 255, 255, 0.8); /* Borde blanco puro */
+  --glass-shine: rgba(255, 255, 255, 0.5); /* Brillo especular */
+
+  /* Sombras de Color (Levitación Magnética) */
+  /* En lugar de sombra negra, usamos sombra azulada profunda para dar aire */
+  --shadow-elevation-low: 0px 2px 4px -1px rgba(30, 58, 138, 0.05);
+  --shadow-elevation-medium: 0px 8px 16px -4px rgba(30, 58, 138, 0.08);
+  --shadow-elevation-high: 0px 24px 48px -12px rgba(30, 58, 138, 0.15);
+
+  /* Acentos de Marca (Azul Real Institucional) */
+  --brand-primary: #2563eb; /* Blue 600 */
+  --brand-secondary: #4f46e5; /* Indigo 600 */
+  --brand-glow: rgba(37, 99, 235, 0.3); /* Resplandor azul */
+  
+  /* Estados Semánticos */
+  --success: #059669; /* Emerald 600 */
+  --error: #dc2626; /* Red 600 */
+  --warning: #d97706; /* Amber 600 */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* --- MODO NOCHE: "CARBON & HUD" (Centro de Mando) --- */
+
+    /* Fondos Profundos */
+    --bg-app: #020617; /* Slate 950 - Negro profundo */
+    --bg-gradient-start: #0f172a; /* Slate 900 */
+    --bg-gradient-end: #1e1b4b; /* Indigo 950 - Matiz nocturno */
+
+    /* Textos Luminosos */
+    --text-primary: #f8fafc; /* Slate 50 - Blanco proyección */
+    --text-secondary: #94a3b8; /* Slate 400 - Gris HUD */
+    --text-tertiary: #475569; /* Slate 600 */
+
+    /* Materiales: Fibra de Carbono y Cristal Ahumado */
+    --glass-bg: rgba(15, 23, 42, 0.6); /* Oscuro translúcido */
+    --glass-border: rgba(255, 255, 255, 0.08); /* Borde sutil */
+    --glass-shine: rgba(255, 255, 255, 0.05);
+
+    /* Iluminación (Glows en lugar de Sombras) */
+    --shadow-elevation-low: 0 0 0 1px rgba(255,255,255,0.05);
+    --shadow-elevation-medium: 0 0 20px -5px rgba(0, 0, 0, 0.5), 0 0 10px rgba(99, 102, 241, 0.1); 
+    --shadow-elevation-high: 0 0 40px -10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(99, 102, 241, 0.2);
+
+    /* Acentos Neón (Electric Blue & Cyan) */
+    --brand-primary: #6366f1; /* Indigo 500 - Neón principal */
+    --brand-secondary: #06b6d4; /* Cyan 500 - Acento secundario */
+    --brand-glow: rgba(99, 102, 241, 0.5); /* Luz intensa */
+
+    /* Estados Semánticos (Versiones Neón) */
+    --success: #34d399; /* Emerald 400 */
+    --error: #f87171; /* Red 400 */
+    --warning: #fbbf24; /* Amber 400 */
   }
 }
 
+/* Clase manual para forzar Dark Mode (El Interruptor) */
+.dark {
+    --bg-app: #020617;
+    --bg-gradient-start: #0f172a;
+    --bg-gradient-end: #1e1b4b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #475569;
+    --glass-bg: rgba(15, 23, 42, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shine: rgba(255, 255, 255, 0.05);
+    --shadow-elevation-low: 0 0 0 1px rgba(255,255,255,0.05);
+    --shadow-elevation-medium: 0 0 20px -5px rgba(0, 0, 0, 0.5), 0 0 10px rgba(99, 102, 241, 0.1); 
+    --shadow-elevation-high: 0 0 40px -10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(99, 102, 241, 0.2);
+    --brand-primary: #6366f1;
+    --brand-secondary: #06b6d4;
+    --brand-glow: rgba(99, 102, 241, 0.5);
+    --success: #34d399;
+    --error: #f87171;
+    --warning: #fbbf24;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-bg-app: var(--bg-app);
+}
+
+/* =========================================
+   BASE & RESET
+   ========================================= */
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  /* El suavizado de fuentes es CRÍTICO para el look premium */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background-color 0.5s ease, color 0.3s ease;
+}
+
+/* Fondo "Vivo" (Mesh Gradient Animado) */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(circle at 15% 50%, var(--bg-gradient-end), transparent 25%),
+              radial-gradient(circle at 85% 30%, var(--bg-gradient-end), transparent 25%);
+  z-index: -1;
+  opacity: 0.6;
+  filter: blur(80px); /* Difumina los orbes de luz */
+  animation: breathe 10s infinite alternate ease-in-out;
+}
+
+/* Textura de Ruido (Noise) para Modo Noche (Efecto Carbono) */
+.dark body::after {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.4;
+}
+
+
+/* =========================================
+   COMPONENTES UI "VIP"
+   ========================================= */
+
+/* 1. EL PANEL DE CRISTAL (Base de todo) */
+.vip-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px); /* El efecto "Glassmorphism" real */
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-elevation-medium);
+  border-radius: 24px; /* Bordes muy redondeados (Estilo Apple) */
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Brillo especular superior (Luz cenital) */
+.vip-card::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-shine), transparent);
+  opacity: 0.6;
+}
+
+.vip-card:hover {
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: var(--shadow-elevation-high);
+  border-color: var(--brand-glow);
+}
+
+/* 2. TIPOGRAFÍA CINEMÁTICA */
+.text-display {
+  font-weight: 800;
+  letter-spacing: -0.04em; /* Tight tracking para títulos */
+  line-height: 1.1;
+  background: linear-gradient(to bottom right, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent; /* Texto con gradiente sutil */
+}
+.dark .text-display {
+    background: linear-gradient(to bottom right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.text-hud {
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* 3. INPUTS "Tesla Style" */
+.vip-input {
+  background: rgba(255,255,255,0.05); /* Casi transparente */
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+.vip-input:focus {
+  outline: none;
+  background: rgba(255,255,255,0.1);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); /* Anillo de enfoque suave */
+}
+
+/* 4. BOTONES HÁPTICOS */
+.vip-button {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  color: white;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Efecto rebote suave */
+  box-shadow: 0 4px 12px var(--brand-glow);
+}
+
+.vip-button:active {
+  transform: scale(0.96); /* Efecto de presión física */
+  box-shadow: 0 2px 6px var(--brand-glow);
+}
+
+/* Efecto de brillo al pasar el ratón */
+.vip-button::before {
+  content: "";
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+  z-index: -1;
+}
+.vip-button:hover::before {
+  left: 100%;
+}
+
+
+/* =========================================
+   ANIMACIONES (Motion Design)
+   ========================================= */
+
+@keyframes breathe {
+  0% { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(1.1); opacity: 0.6; }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Utilidad para animar elementos al cargar */
+.animate-enter {
+  animation: enter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+@keyframes enter {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   UTILIDADES ESPECÍFICAS
+   ========================================= */
+
+/* Scrollbar invisible pero funcional (Estilo móvil) */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Estilo Zen Mode (Ocultar distracciones) */
+.zen-active header, .zen-active .dock {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease;
 }
