@@ -620,18 +620,25 @@ export async function deleteTopic(adminId: string, topicName: string) {
     } catch (e: any) { return { success: false, error: e.message }; }
 }
 
+// En app/actions.ts
 export async function getTopicsList(adminId: string) {
-    const role = await getUserRole(adminId);
-    if (role !== 'admin') throw new Error("Acceso denegado");
-    
-    const { data } = await supabase.from('documents').select('article_ref');
-    const counts: any = {};
-    data?.forEach((d:any) => {
-        const name = d.article_ref.split(' - ')[0];
-        counts[name] = (counts[name]||0)+1;
-    });
-    
-    return { success: true, topics: Object.entries(counts).map(([name, count]) => ({ name, count })) };
+    try {
+        const role = await getUserRole(adminId);
+        if (role !== 'admin') throw new Error("Acceso denegado");
+        
+        const { data } = await supabase.from('documents').select('article_ref');
+        const counts: any = {};
+        data?.forEach((d:any) => {
+            const name = d.article_ref.split(' - ')[0];
+            counts[name] = (counts[name]||0)+1;
+        });
+        
+        // Devolvemos success:true y error:null para consistencia
+        return { success: true, topics: Object.entries(counts).map(([name, count]) => ({ name, count })), error: null };
+    } catch (e: any) { 
+        // Devolvemos success:false y el mensaje de error
+        return { success: false, topics: [], error: e.message }; 
+    }
 }
 
 // Stubs para funciones administrativas menores (Health Check, etc.)

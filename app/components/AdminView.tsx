@@ -50,14 +50,15 @@ export default function AdminView({ user, onLogout }: { user: any, onLogout: () 
     setLoading(false);
   }
 
-  async function loadTopics() {
-    const topicsRes = await getTopicsList(user.id);
-    if (topicsRes.success) {
-      setTopicsList(topicsRes.topics || []);
-    } else {
-      console.error("Error cargando temas:", topicsRes.error);
-    }
+async function loadTopics() {
+  const topicsRes = await getTopicsList(user.id);
+  if (topicsRes.success) {
+    setTopicsList(topicsRes.topics || []);
+  } else {
+    // Añadimos (topicsRes as any) para saltar la validación de tipo
+    console.error("Error cargando temas:", (topicsRes as any).error);
   }
+}
 
   // --- EJECUTAR DIAGNÓSTICO ---
   async function runDiagnosis() {
