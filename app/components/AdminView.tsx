@@ -60,6 +60,7 @@ async function loadTopics() {
   }
 }
 
+  
   // --- EJECUTAR DIAGNÓSTICO ---
   async function runDiagnosis() {
       setLoading(true);
