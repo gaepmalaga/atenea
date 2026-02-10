@@ -51,7 +51,7 @@ export default function IntelChat({ user }: IntelChatProps) {
       if (res.success) {
         setMessages(prev => [...prev, { 
             role: 'ai', 
-            content: res.answer, 
+            content: res.answer || '', 
             sources: res.sources 
         }]);
       } else {
