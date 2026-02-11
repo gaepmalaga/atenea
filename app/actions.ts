@@ -502,13 +502,26 @@ export async function saveFlashcardProgress(userId: string, cardData: any, ratin
     }
 
     // Registrar actividad para las gráficas
-    await saveTestResult(
-        userId, 
-        cardData.topic, 
-        `[FLASHCARD] ${cardData.front}`, 
-        rating !== 'fail', 
-        rating === 'fail' ? 'flashcard_fallo' : null
-    );
+// Registrar resultado de flashcard (NO en test_results)
+const subject_id = subjectIdFromTopic(cardData.topic);
+
+const grade =
+  rating === 'fail' ? 'again' :
+  rating === 'hard' ? 'hard' :
+  'easy';
+
+await supabase.from('flashcard_results').insert({
+  user_id: userId,
+  subject_id,
+  topic: cardData.topic,
+  front: cardData.front,
+  back: cardData.back,
+  grade,
+  box_before: cardData.box ?? 1,
+  box_after: newBox,
+  next_review: nextDate
+});
+
 
     return { success: true };
   } catch (e: any) { return { success: false, error: e.message }; }
