@@ -366,22 +366,46 @@ export async function generateTestQuestion(topic: string) {
 /**
  * Guarda el resultado de un test individual, incluyendo la Taxonomía del Error.
  */
-export async function saveTestResult(
-    userId: string, topic: string, question: string, isCorrect: boolean, errorType: string | null
+function subjectIdFromTopic(topic: string): number | null {
+  const key = (topic || '').trim().toUpperCase();
+
+  if (key === 'CONSTITUCION') return 1;
+  if (key === 'TEMA 40') return 2;
+
+  // Si quieres meter "OTROS" también aquí:
+  if (key === 'INFORMACIÓN' || key === 'CORONA' || key === 'DEEP WEB') return 3;
+
+  return null;
+}
+
+async function saveTestResult(
+  userId: string,
+  topic: string,
+  question: string,
+  isCorrect: boolean,
+  errorType: string | null
 ) {
   try {
-      if (!userId) throw new Error("Usuario anónimo");
-      
-      await supabase.from('test_results').insert({ 
-        user_id: userId, 
-        topic, 
-        question_text: question, 
-        is_correct: isCorrect, 
-        error_type: errorType // 'olvido', 'trampa', 'desconocimiento', etc.
-      });
-      return { success: true };
-  } catch (e) { console.error("Error guardando resultado:", e); return { success: false }; }
+    if (!userId) throw new Error("Usuario anónimo");
+
+    const subject_id = subjectIdFromTopic(topic);
+
+    await supabase.from('test_results').insert({
+      user_id: userId,
+      subject_id, // 👈 NUEVO
+      topic,      // lo dejamos por compatibilidad
+      question_text: question,
+      is_correct: isCorrect,
+      error_type: errorType
+    });
+
+    return { success: true };
+  } catch (e) {
+    console.error("Error guardando resultado:", e);
+    return { success: false };
+  }
 }
+
 
 /**
  * Guardado masivo para modo Examen (Simulacro).
