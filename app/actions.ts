@@ -856,3 +856,35 @@ export async function completeTrainingDay(userId: string, planId: string, dayInd
         return { success: false, error: e.message };
     }
 }
+
+export async function saveFlashcardResult(
+  userId: string,
+  topic: string,
+  front: string,
+  back: string,
+  grade: 'again' | 'hard' | 'good' | 'easy',
+  boxBefore?: number,
+  boxAfter?: number,
+  nextReview?: string
+) {
+  const subjectId = subjectIdFromTopic(topic); // usa tu helper actual
+
+  const { error } = await supabase.from('flashcard_results').insert({
+    user_id: userId,
+    subject_id: subjectId,
+    topic,
+    front,
+    back,
+    grade,
+    box_before: boxBefore ?? null,
+    box_after: boxAfter ?? null,
+    next_review: nextReview ?? null,
+  });
+
+  if (error) {
+    console.error('saveFlashcardResult error:', error);
+    throw error;
+  }
+
+  return { success: true };
+}
