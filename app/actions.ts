@@ -3,6 +3,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import PDFParser from 'pdf2json';
+import crypto from 'crypto';
+
 
 // ==========================================
 //  0. CONFIGURACIÓN Y SEGURIDAD BLINDADA
@@ -295,88 +297,251 @@ export async function askAtenea(query: string) {
   } catch (e: any) { return { success: false, error: "Error en el sistema de consulta: " + e.message }; }
 }
 
+
 // ==========================================
 //  5. MOTOR DE TEST ADVERSARIO (FASE 2)
+//  + SEED DE QUESTION_BANK (BATCH)
 // ==========================================
 
+type GeneratedQ = {
+  question: string;
+  options: { id: 'a' | 'b' | 'c'; text: string }[];
+  correctOptionId: 'a' | 'b' | 'c';
+  explanation: string;
+  source_refs?: any;
+};
+
+function normalizeText(s: string): string {
+  return (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function correctIndexFromId(id: 'a' | 'b' | 'c'): number {
+  return id === 'a' ? 0 : id === 'b' ? 1 : 2;
+}
+
+function computeQuestionHash(subjectId: number, questionText: string, options: string[], correctIndex: number): string {
+  const payload = JSON.stringify({
+    subjectId,
+    q: normalizeText(questionText),
+    o: options.map(normalizeText),
+    c: correctIndex,
+  });
+  return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, idx: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runner() {
+    while (true) {
+      const idx = nextIndex++;
+      if (idx >= items.length) break;
+      results[idx] = await worker(items[idx], idx);
+    }
+  }
+
+  const runners = Array.from({ length: Math.max(1, concurrency) }, () => runner());
+  await Promise.all(runners);
+  return results;
+}
+
+/**
+ * Genera UNA pregunta tipo test (CNP): 3 opciones (A/B/C), 1 correcta, explicación.
+ * Está anclada a texto indexado (RAG) usando article_ref como filtro por topic.
+ */
 export async function generateTestQuestion(topic: string) {
   try {
     if (!topic) return { success: false, error: "Tema no especificado." };
 
-    // 1. Búsqueda de "Carne" para la pregunta (RAG)
+    // 1) RAG: buscar contenido relacionado (pool amplio para variedad)
     const { data: chunks } = await supabase
       .from('documents')
       .select('content, article_ref')
-      .ilike('article_ref', `%${topic}%`) 
-      .limit(40); // Buscamos en un pool amplio para variedad
+      .ilike('article_ref', `%${topic}%`)
+      .limit(40);
 
-    if (!chunks || chunks.length === 0) return { success: false, error: "No hay contenido indexado para este tema." };
+    if (!chunks || chunks.length === 0) {
+      return { success: false, error: "No hay contenido indexado para este tema." };
+    }
 
     const selectedChunk = chunks[Math.floor(Math.random() * chunks.length)];
 
-    // 2. Prompt Adversario "Tenor Literal"
+    // 2) Prompt alineado a examen CNP (3 opciones)
     const prompt = `
-      Actúa como un TRIBUNAL CALIFICADOR DE OPOSICIÓN despiadado.
-      Genera una pregunta de test de ALTA DIFICULTAD basada en el "Tenor Literal" de la ley.
-      
-      TEXTO BASE (LA LEY):
-      "${selectedChunk.article_ref}"
-      ${selectedChunk.content}
+Actúa como TRIBUNAL CALIFICADOR de Policía Nacional (tipo test).
+Genera UNA pregunta de dificultad media/alta basada en el tenor literal del texto.
 
-      MECÁNICA DE LA TRAMPA (Aplica una):
-      - Cambia plazos (ej. 24h por 48h).
-      - Cambia la autoridad (ej. Juez por Fiscal).
-      - Cambia el verbo rector (Podrá por Deberá).
-      - Usa conceptos muy similares pero erróneos.
+TEXTO BASE (LEY / ARTÍCULO):
+"${selectedChunk.article_ref}"
+${selectedChunk.content}
 
-      OUTPUT JSON OBLIGATORIO:
-      {
-        "question": "Enunciado técnico y preciso...",
-        "options": [
-          {"id":"a","text":"Opción A..."}, 
-          {"id":"b","text":"Opción B..."}, 
-          {"id":"c","text":"Opción C..."}, 
-          {"id":"d","text":"Opción D..."}
-        ],
-        "correctOptionId": "Letra de la correcta (a,b,c,d)",
-        "explanation": "Justificación jurídica breve citando el error de las otras."
-      }
-    `;
+REGLAS:
+- 3 opciones (A, B, C). SOLO UNA correcta.
+- Estilo examen: literalidad, excepciones, competencias, plazos, conceptos.
+- Las incorrectas deben ser plausibles, pero claramente incorrectas según el texto.
+- Evita ambigüedad.
+
+OUTPUT JSON OBLIGATORIO (SIN TEXTO EXTRA):
+{
+  "question": "Enunciado...",
+  "options": [
+    {"id":"a","text":"Opción A"},
+    {"id":"b","text":"Opción B"},
+    {"id":"c","text":"Opción C"}
+  ],
+  "correctOptionId": "a|b|c",
+  "explanation": "Explicación breve citando el artículo/idea del texto y por qué las otras son falsas."
+}
+`;
 
     const result = await chatModel.generateContent(prompt);
     const rawText = cleanAIResponse(result.response.text());
-    
-    // Validación JSON defensiva
-    let jsonData;
+
+    let jsonData: GeneratedQ;
     try {
-        jsonData = JSON.parse(rawText);
-        // Validar estructura mínima
-        if (!jsonData.question || !Array.isArray(jsonData.options) || jsonData.options.length !== 4 || !jsonData.correctOptionId) {
-            throw new Error("Estructura JSON inválida");
-        }
-    } catch (parseError) {
-        console.error("Fallo generación JSON:", rawText);
-        return { success: false, error: "Error interno generando la pregunta. Reintentar." };
+      jsonData = JSON.parse(rawText);
+
+      if (
+        !jsonData.question ||
+        !Array.isArray(jsonData.options) ||
+        jsonData.options.length !== 3 ||
+        !jsonData.correctOptionId ||
+        !jsonData.explanation
+      ) {
+        throw new Error("Estructura JSON inválida");
+      }
+
+      const ids = jsonData.options.map(o => o?.id);
+      if (!ids.includes('a') || !ids.includes('b') || !ids.includes('c')) {
+        throw new Error("IDs de opciones inválidos");
+      }
+
+      if (!['a', 'b', 'c'].includes(jsonData.correctOptionId)) {
+        throw new Error("correctOptionId inválido");
+      }
+    } catch (e) {
+      console.error("Fallo generación JSON:", rawText);
+      return { success: false, error: "Error interno generando la pregunta. Reintentar." };
     }
 
-    return { success: true, data: jsonData };
-  } catch (e: any) { return { success: false, error: "Error motor de test: " + e.message }; }
+    return {
+      success: true,
+      data: {
+        ...jsonData,
+        source_refs: [{ article_ref: selectedChunk.article_ref }],
+      }
+    };
+  } catch (e: any) {
+    return { success: false, error: "Error motor de test: " + e.message };
+  }
+}
+
+async function generateOneWithRetries(topic: string, retries: number) {
+  for (let attempt = 1; attempt <= Math.max(1, retries); attempt++) {
+    const q = await generateTestQuestion(topic);
+    if (q.success && q.data?.question && Array.isArray(q.data.options) && q.data.options.length === 3) {
+      return { ok: true as const, data: q.data as GeneratedQ };
+    }
+  }
+  return { ok: false as const, error: `No se pudo generar JSON válido (${topic})` };
 }
 
 /**
- * Guarda el resultado de un test individual, incluyendo la Taxonomía del Error.
+ * Genera preguntas en lote y las guarda en public.question_bank con:
+ * - dedupe por question_hash (sha256)
+ * - concurrency controlada
+ * - retries por pregunta
  */
-function subjectIdFromTopic(topic: string): number | null {
-  const key = (topic || '').trim().toUpperCase();
+export async function seedQuestionBank(params: {
+  subjectId: number;
+  topic: string;
+  count: number;
+  difficulty?: number;   // default 2
+  concurrency?: number;  // default 2
+  retries?: number;      // default 3
+}) {
+  const {
+    subjectId,
+    topic,
+    count,
+    difficulty = 2,
+    concurrency = 2,
+    retries = 3,
+  } = params;
 
-  if (key === 'CONSTITUCION') return 1;
-  if (key === 'TEMA 40') return 2;
+  if (!subjectId || !topic || !count || count < 1) {
+    return { success: false, error: "Parámetros inválidos." };
+  }
 
-  // Si quieres meter "OTROS" también aquí:
-  if (key === 'INFORMACIÓN' || key === 'CORONA' || key === 'DEEP WEB') return 3;
+  const tasks = Array.from({ length: count }, (_, i) => i);
 
-  return null;
+  const genResults = await runWithConcurrency(tasks, concurrency, async () => {
+    return generateOneWithRetries(topic, retries);
+  });
+
+  let generatedOk = 0;
+  let inserted = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const g of genResults) {
+    if (!g.ok) {
+      failed++;
+      if (errors.length < 10) errors.push(g.error);
+      continue;
+    }
+
+    generatedOk++;
+
+    const d = g.data;
+    const optionsTexts = d.options.map(o => o.text);
+    const correctIndex = correctIndexFromId(d.correctOptionId);
+    const question_hash = computeQuestionHash(subjectId, d.question, optionsTexts, correctIndex);
+
+    const row = {
+      subject_id: subjectId,
+      topic,
+      difficulty,
+      question_text: d.question,
+      options: optionsTexts,        // jsonb array de strings
+      correct_index: correctIndex,  // 0..2
+      explanation: d.explanation,
+      source_refs: d.source_refs ?? null,
+      question_hash,
+      status: 'active',
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('question_bank')
+      .upsert(row, { onConflict: 'question_hash' });
+
+    if (error) {
+      failed++;
+      if (errors.length < 10) errors.push(error.message);
+    } else {
+      inserted++;
+    }
+  }
+
+  return {
+    success: true,
+    topic,
+    subjectId,
+    requested: count,
+    generatedOk,
+    inserted,
+    failed,
+    errors,
+  };
 }
+
+
 
 export async function saveTestResult(
   userId: string,
