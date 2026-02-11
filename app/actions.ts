@@ -378,7 +378,7 @@ function subjectIdFromTopic(topic: string): number | null {
   return null;
 }
 
-async function saveTestResult(
+export async function saveTestResult(
   userId: string,
   topic: string,
   question: string,
