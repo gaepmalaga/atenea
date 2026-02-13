@@ -5,7 +5,7 @@ import {
   Play, Trophy, Flame, Zap, Sparkles, 
   ArrowRight, Activity, Calendar 
 } from 'lucide-react';
-import { getUserStats, getStudentTopics } from '../../../../actions';
+import { getUserStats, getStudentTopics } from '@/actions';
 import { TabId } from '../../StudentDashboard';
 
 interface DashboardHomeProps {

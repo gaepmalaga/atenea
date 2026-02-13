@@ -2,34 +2,40 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { 
-  Send, Bot, User, FileText, ChevronRight, 
-  Search, AlertCircle, Copy 
+  Send, Bot, User, FileText, Search, X, BookOpen, 
+  Terminal, Loader2, Copy, Check, ChevronRight,
+  ShieldAlert, Target, Zap, Cpu
 } from 'lucide-react';
-import { askAtenea } from '../../../../actions';
+import { askAtenea } from '@/actions';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-interface IntelChatProps {
-  user: any;
-}
-
+interface IntelChatProps { user: any; }
 
 type Message = {
   role: 'ai' | 'user';
   content: string;
   sources?: any[];
   isError?: boolean;
+  timestamp: Date;
 };
 
 export default function IntelChat({ user }: IntelChatProps) {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'ai', content: 'SISTEMA INTEL ONLINE.\nConectado a la Base Legislativa Oficial.\nEsperando órdenes...' }
+    { 
+      role: 'ai', 
+      content: '# SISTEMA ATENEA INTEL\nConexión segura establecida. Base legislativa sincronizada. Esperando entrada de datos para análisis táctico.', 
+      timestamp: new Date() 
+    }
   ]);
   const [loading, setLoading] = useState(false);
+  const [activeSource, setActiveSource] = useState<any | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll al recibir mensajes
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => { 
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); 
   }, [messages, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,153 +44,180 @@ export default function IntelChat({ user }: IntelChatProps) {
 
     const userText = query.trim();
     setQuery('');
-    
-    // 1. Añadir mensaje usuario
-    setMessages(prev => [...prev, { role: 'user', content: userText }]);
+    setMessages(prev => [...prev, { role: 'user', content: userText, timestamp: new Date() }]);
     setLoading(true);
 
     try {
-      // 2. Llamada al Server Action (RAG)
       const res = await askAtenea(userText);
-      
       setLoading(false);
-      
       if (res.success) {
+        // Limpiamos etiquetas <br> que la IA pueda inyectar por error
+        const cleanAnswer = res.answer?.replace(/<br\s*\/?>/gi, '\n') || '';
         setMessages(prev => [...prev, { 
             role: 'ai', 
-            content: res.answer || '', 
-            sources: res.sources 
+            content: cleanAnswer, 
+            sources: res.sources, 
+            timestamp: new Date() 
         }]);
       } else {
-        setMessages(prev => [...prev, { 
-            role: 'ai', 
-            content: `Error de Sistema: ${res.error}`,
-            isError: true 
-        }]);
+        setMessages(prev => [...prev, { role: 'ai', content: `⚠️ ERROR DE PROTOCOLO: ${res.error}`, isError: true, timestamp: new Date() }]);
       }
-
     } catch (error) {
       setLoading(false);
-      setMessages(prev => [...prev, { 
-          role: 'ai', 
-          content: "Fallo crítico de conexión. Inténtelo de nuevo.",
-          isError: true
-      }]);
+      setMessages(prev => [...prev, { role: 'ai', content: "🚨 FALLO CRÍTICO DE TRANSMISIÓN.", isError: true, timestamp: new Date() }]);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-160px)] max-w-5xl mx-auto">
+    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-160px)] max-w-6xl mx-auto font-sans">
       
-      {/* 1. ÁREA DE CHAT (SCROLLABLE) */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 scrollbar-hide">
-        {messages.map((m, i) => (
-          <div 
-            key={i} 
-            className={`flex gap-4 animate-in slide-in-from-bottom-2 duration-300 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            {/* AVATAR IA */}
-            {m.role === 'ai' && (
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex-shrink-0 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-                <Bot size={20} />
+      {/* HEADER TÁCTICO */}
+      <div className="flex items-center justify-between px-6 py-3 bg-slate-900 border-x border-t border-slate-800 rounded-t-[2rem]">
+          <div className="flex items-center gap-3">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </div>
-            )}
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Cpu size={12} className="text-indigo-500"/> Atenea Intel v3.0
+              </span>
+          </div>
+          <div className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-mono text-indigo-400">
+                USR_{user.id?.substring(0,6).toUpperCase() || 'ROOT'}
+          </div>
+      </div>
 
-            {/* BURBUJA DE MENSAJE */}
-            <div className={`max-w-[85%] md:max-w-[75%] p-5 rounded-2xl shadow-sm relative group ${
-                m.role === 'user' 
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-tr-none' 
-                : m.isError 
-                    ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-600 rounded-tl-none'
-                    : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none'
+      {/* ÁREA DE CHAT */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-10 py-10 space-y-10 scrollbar-hide border-x border-slate-800 bg-white dark:bg-slate-950">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex gap-6 animate-in fade-in slide-in-from-bottom-5 duration-500 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            
+            <div className={`w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center shadow-lg ${
+                m.role === 'ai' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
             }`}>
-                {/* Texto del mensaje (Markdown simple) */}
-                <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed font-medium">
-                    {m.content}
-                </div>
-
-                {/* FUENTES (CITAS) */}
-                {m.sources && m.sources.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                            <Search size={10} /> Fuentes Oficiales
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                            {m.sources.map((s, idx) => (
-                                <span 
-                                    key={idx} 
-                                    className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded border border-indigo-100 dark:border-indigo-500/20 flex items-center gap-1"
-                                    title={s.content} // Tooltip simple con el contenido
-                                >
-                                    <FileText size={10}/> 
-                                    {s.article_ref.split(' - ')[0]} 
-                                    {/* Muestra solo la parte relevante del nombre si es muy largo */}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {m.role === 'ai' ? <Bot size={24} /> : <User size={24} />}
             </div>
 
-            {/* AVATAR USUARIO */}
-            {m.role === 'user' && (
-              <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center text-slate-500 dark:text-slate-300">
-                <User size={20} />
-              </div>
-            )}
+            <div className={`max-w-[85%] md:max-w-[80%] space-y-2 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className={`p-8 rounded-[2.5rem] shadow-sm relative overflow-hidden ${
+                    m.role === 'user' 
+                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
+                }`}>
+                    
+                    {/* RENDERIZADO MARKDOWN LIMPIO */}
+                    <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none 
+                        prose-p:leading-relaxed prose-p:text-slate-600 dark:prose-p:text-slate-300
+                        prose-strong:text-indigo-600 dark:prose-strong:text-indigo-400 prose-strong:font-black
+                        prose-table:w-full prose-table:my-6 prose-table:border-collapse
+                        prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-th:p-3 prose-th:text-[10px] prose-th:uppercase prose-th:tracking-widest prose-th:border prose-th:border-slate-200 dark:prose-th:border-slate-700
+                        prose-td:p-3 prose-td:border prose-td:border-slate-100 dark:prose-td:border-slate-800 prose-td:text-sm">
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            // Detección visual de "FOCO EXAMEN"
+                            strong: ({node, ...props}) => {
+                              if (props.children?.toString().includes("🎯 FOCO EXAMEN")) {
+                                return (
+                                  <span className="block my-6 p-6 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-500 rounded-r-2xl">
+                                    <span className="flex items-center gap-2 text-amber-600 dark:text-amber-500 text-sm font-black uppercase tracking-tighter mb-2">
+                                      <ShieldAlert size={18}/> Alerta de Tribunal
+                                    </span>
+                                    <span className="text-slate-700 dark:text-slate-200 font-bold italic">{props.children}</span>
+                                  </span>
+                                )
+                              }
+                              return <strong {...props} />
+                            }
+                          }}
+                        >
+                            {m.content}
+                        </ReactMarkdown>
+                    </div>
+
+                    {/* FUENTES */}
+                    {m.sources && m.sources.length > 0 && (
+                        <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-800">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                                <Target size={14} className="text-indigo-500" /> Evidencia Documental
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                                {m.sources.map((s, idx) => (
+                                    <button 
+                                        key={idx} 
+                                        onClick={() => setActiveSource(s)}
+                                        className="px-3 py-1.5 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-xl border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-2 hover:scale-105 transition-all"
+                                    >
+                                        <FileText size={12}/> {s.filename}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2">
+                    {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+            </div>
           </div>
         ))}
-
-        {/* INDICADOR DE CARGA (Thinking) */}
         {loading && (
-            <div className="flex gap-4 animate-in fade-in duration-300">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex-shrink-0 flex items-center justify-center text-white">
-                    <Bot size={20} />
-                </div>
-                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-4 rounded-2xl rounded-tl-none flex items-center gap-3">
-                    <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider animate-pulse">Consultando Legislación...</span>
+            <div className="flex gap-6 animate-pulse">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white"><Bot size={24} /></div>
+                <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-[2.5rem] rounded-tl-none border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                    <Loader2 size={18} className="animate-spin text-indigo-500" />
+                    <span className="text-xs font-black text-indigo-500 uppercase tracking-widest">Analizando...</span>
                 </div>
             </div>
         )}
-        
-        {/* Ancla para scroll */}
         <div ref={scrollRef} />
       </div>
 
-      {/* 2. ÁREA DE INPUT (TERMINAL) */}
-      <div className="p-4 md:p-6 bg-slate-50/50 dark:bg-slate-950/50 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 rounded-b-3xl">
-        <form onSubmit={handleSubmit} className="relative max-w-4xl mx-auto group">
-            
+      {/* INPUT */}
+      <div className="p-8 bg-slate-50 dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800 rounded-b-[2.5rem] shadow-xl">
+        <form onSubmit={handleSubmit} className="relative max-w-5xl mx-auto">
             <input 
                 value={query} 
                 onChange={e => setQuery(e.target.value)} 
-                placeholder="Pregunta sobre Artículos, Plazos o Procedimientos..." 
-                className="w-full pl-6 pr-14 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl text-sm md:text-base outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-slate-900 dark:text-white shadow-sm placeholder:text-slate-400"
+                placeholder="Introduzca consulta..." 
+                className="w-full pl-6 pr-16 py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
                 disabled={loading}
             />
-            
             <button 
                 type="submit" 
                 disabled={loading || !query.trim()} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed transition-colors shadow-md shadow-indigo-500/20"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 active:scale-95 transition-all shadow-lg"
             >
-                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Send size={20}/>}
+                <Send size={24}/>
             </button>
-
-            {/* Hint visual */}
-            <div className="absolute -top-6 left-2 flex items-center gap-2 opacity-0 group-focus-within:opacity-100 transition-opacity duration-500">
-                <div className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded uppercase tracking-wider">
-                    TIP
-                </div>
-                <span className="text-[10px] text-slate-400">Sé preciso con el artículo si lo conoces.</span>
-            </div>
         </form>
       </div>
+
+      {/* MODAL FUENTE */}
+      {activeSource && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-[#020617] w-full max-w-4xl rounded-[3rem] shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="p-8 bg-indigo-600 text-white flex justify-between items-center">
+                    <div className="flex items-center gap-5">
+                        <BookOpen size={30}/>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Consulta Legislativa</p>
+                            <h4 className="text-2xl font-black">{activeSource.filename}</h4>
+                        </div>
+                    </div>
+                    <button onClick={() => setActiveSource(null)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={28}/></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-10 bg-slate-50 dark:bg-slate-950/50">
+                    <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-lg md:text-xl leading-relaxed italic shadow-inner">
+                        "{activeSource.content_chunk}"
+                    </div>
+                </div>
+                <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-center">
+                    <button onClick={() => setActiveSource(null)} className="px-12 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95">Cerrar Visor</button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

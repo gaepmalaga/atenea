@@ -8,7 +8,7 @@ import {
     generateWeeklyPlan, 
     getActiveTrainingPlan,
     completeTrainingDay // <--- ASEGÚRATE DE TENER ESTO EN ACTIONS.TS
-} from '../../../../actions';
+} from '@/actions';
 
 // IMPORTACIÓN DE COMPONENTES
 import SetupWizard from './components/SetupWizard';

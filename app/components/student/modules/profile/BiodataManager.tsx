@@ -7,7 +7,7 @@ import {
   Loader2, ChevronRight, User, Activity, 
   Target, ArrowLeft 
 } from 'lucide-react';
-import { getBiodata, saveBiodata } from '../../../../actions';
+import { getBiodata, saveBiodata } from '@/actions';
 
 interface BiodataManagerProps {
   user: any;

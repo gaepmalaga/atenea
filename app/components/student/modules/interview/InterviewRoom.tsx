@@ -5,7 +5,7 @@ import {
   Mic, LogOut, Volume2, Activity, AlertTriangle, 
   Wifi, Loader2, BrainCircuit, VolumeX 
 } from 'lucide-react';
-import { processInterviewTurn } from '../../../../actions';
+import { processInterviewTurn } from '@/actions';
 
 type InterviewPhase = 'intro' | 'speaking' | 'listening' | 'processing' | 'error';
 

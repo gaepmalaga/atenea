@@ -1,87 +1,169 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   ChevronRight, CheckCircle2, XCircle, Brain, 
-  BookX, AlertTriangle, Eye, ArrowLeft 
+  BookX, AlertTriangle, Eye, ArrowLeft,
+  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning
 } from 'lucide-react';
 import { Question } from './ExamManager';
-import { saveTestResult } from '../../../../actions';
+import { saveTestResult, voteQuestion, reportQuestion } from '@/actions';
 
 interface ActiveTestProps {
   questions: Question[];
   mode: 'practice' | 'exam';
   userId: string;
-  topicName: string; // Para guardar resultado en modo práctica
+  topicName: string;
   onFinish: (qs: Question[]) => void;
   onExit: () => void;
 }
 
+// Tipos de Reporte disponibles
+const REPORT_TYPES = [
+  { id: 'wrong_correct_answer', label: 'Respuesta Correcta Errónea' },
+  { id: 'ambiguous_question', label: 'Pregunta Ambigua / Confusa' },
+  { id: 'bad_explanation', label: 'Explicación Mala o Incompleta' },
+  { id: 'out_of_syllabus', label: 'Fuera de Temario / Derogada' },
+  { id: 'typo_or_format', label: 'Error Ortográfico / Formato' },
+  { id: 'other', label: 'Otro' }
+];
+
 export default function ActiveTest({ questions, mode, userId, topicName, onFinish, onExit }: ActiveTestProps) {
-  // Estado local para manejar las respuestas del usuario
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [errorTagged, setErrorTagged] = useState(false); // Evita doble tag
+  const [errorTagged, setErrorTagged] = useState(false); 
+
+  // Métricas VIP (Tiempos y Dudas)
+  const startTimeRef = useRef<number>(Date.now());
+  const [optionChanges, setOptionChanges] = useState(0);
+
+  // Estados para Votos y Reportes
+  const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportData, setReportData] = useState({ type: '', message: '' });
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const currentQ = localQuestions[currentIndex];
   const isAnswered = !!currentQ.userAnswer;
   const isCorrect = currentQ.userAnswer === currentQ.correctOptionId;
 
-  // MANEJO DE RESPUESTA
+  // Reiniciar cronómetro al cambiar de pregunta
+  useEffect(() => {
+      startTimeRef.current = Date.now();
+      setOptionChanges(0);
+  }, [currentIndex]);
+
+  // --- MANEJO DE RESPUESTA ---
   const handleAnswer = async (optionId: string) => {
-    // Si ya respondió y es práctica, no hacer nada (o permitir cambiar si es examen)
     if (mode === 'practice' && isAnswered) return;
     
+    // Registrar duda si cambia de opción antes de confirmar
+    setOptionChanges(prev => prev + 1);
+
     const updated = [...localQuestions];
     updated[currentIndex].userAnswer = optionId;
     setLocalQuestions(updated);
 
-    // En modo práctica, guardamos resultado inmediato
     if (mode === 'practice') {
         const correct = optionId === currentQ.correctOptionId;
-        setErrorTagged(correct); // Si acierta, no necesita tag de error
+        setErrorTagged(correct); 
         
-        // Guardado silencioso
+        // Calcular tiempo real
+        const timeSpent = Date.now() - startTimeRef.current;
+
+        // GUARDADO CORRECTO: Enviamos ID y métricas VIP
         await saveTestResult(
             userId, 
             topicName, 
-            currentQ.question, 
+            currentQ.id, // <--- CORREGIDO: ID ÚNICO
             correct, 
-            null
+            { 
+                timeMs: timeSpent, 
+                changes: optionChanges 
+            }
         );
     }
   };
 
-  // MANEJO DE TAXONOMÍA DE ERROR (Solo Práctica)
+  // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
       if (errorTagged) return;
-      
       const updated = [...localQuestions];
       updated[currentIndex].errorType = type;
       setLocalQuestions(updated);
       setErrorTagged(true);
-
-      // Actualizar el registro en base de datos con el tipo de error
+      
+      // Actualizamos el fallo con la etiqueta específica
       await saveTestResult(
           userId, 
           topicName, 
-          currentQ.question, 
+          currentQ.id, // <--- CORREGIDO: ID ÚNICO
           false, 
-          type
+          { errorType: type }
       );
   };
 
-  const handleNext = () => {
+  // --- MANEJO DE VOTOS ---
+  const handleVote = async (vote: 'up' | 'down') => {
+    if (!currentQ.id) return;
+    
+    const currentVote = votes[currentQ.id];
+    const newVote = currentVote === vote ? null : vote;
+    setVotes(prev => ({ ...prev, [currentQ.id]: newVote }));
+
+    await voteQuestion({
+      questionId: currentQ.id,
+      userId,
+      vote: vote === 'up' ? 1 : -1
+    });
+  };
+
+  // --- MANEJO DE REPORTES ---
+  const submitReport = async () => {
+    if (!reportData.type || !currentQ.id) return;
+    setIsSubmittingReport(true);
+    
+    try {
+      await reportQuestion({
+        questionId: currentQ.id,
+        userId,
+        reportType: reportData.type,
+        message: reportData.message
+      });
+      setIsReportModalOpen(false);
+      setReportData({ type: '', message: '' });
+      alert("Reporte enviado. Gracias por ayudar a mejorar Atenea.");
+    } catch (e) {
+      alert("Error enviando reporte.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+const handleNext = () => {
+      // 1. Empaquetamos las métricas de la pregunta actual antes de movernos
+      const timeSpent = Date.now() - startTimeRef.current;
+      const updated = [...localQuestions];
+      
+      updated[currentIndex] = {
+          ...updated[currentIndex],
+          // @ts-ignore - Inyectamos métricas para el algoritmo Atenea
+          timeMs: timeSpent,
+          changes: optionChanges
+      };
+      setLocalQuestions(updated);
+
       if (currentIndex < localQuestions.length - 1) {
           setCurrentIndex(currentIndex + 1);
           setErrorTagged(false);
       } else {
-          onFinish(localQuestions);
+          // 2. Enviamos el array completo con los datos de comportamiento incrustados
+          onFinish(updated);
       }
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col justify-center max-w-3xl mx-auto animate-in fade-in zoom-in duration-300">
+    <div className="min-h-[80vh] flex flex-col justify-center max-w-3xl mx-auto animate-in fade-in zoom-in duration-300 relative">
       
       {/* BARRA DE PROGRESO */}
       <div className="mb-8 flex items-center gap-4">
@@ -100,10 +182,29 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
       </div>
 
       {/* TARJETA DE PREGUNTA */}
-      <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
           
           {/* Marca de agua decorativa */}
           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+
+          {/* TOOLBAR DE CALIDAD */}
+          <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
+            <button onClick={() => handleVote('up')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
+            <button onClick={() => handleVote('down')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
+            <div className="w-px h-4 bg-slate-200 mx-1"></div>
+            <button onClick={() => setIsReportModalOpen(true)} className="p-2 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
+          </div>
+
+          {/* Etiqueta de Origen */}
+          <div className="mb-4">
+             <span className={`text-[10px] font-mono uppercase px-2 py-1 rounded border ${
+               currentQ.origin === 'live_ai' 
+                 ? 'bg-purple-50 text-purple-600 border-purple-200' 
+                 : 'bg-slate-50 text-slate-400 border-slate-200'
+             }`}>
+               {currentQ.origin === 'live_ai' ? '🤖 GENERADA (AI)' : '📚 BANCO OFICIAL'}
+             </span>
+          </div>
 
           <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-10 leading-snug relative z-10">
               {currentQ.question}
@@ -114,7 +215,6 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
                   const isSelected = currentQ.userAnswer === opt.id;
                   const isCorrectOpt = opt.id === currentQ.correctOptionId;
                   
-                  // ESTILOS DINÁMICOS
                   let style = "border-slate-200 dark:border-slate-800 hover:border-indigo-400 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300";
                   
                   if (mode === 'practice' && isAnswered) {
@@ -146,40 +246,26 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
       {mode === 'practice' && isAnswered && (
           <div className="mt-6 animate-in slide-in-from-bottom-4 fade-in duration-500">
               {isCorrect ? (
-                  // FEEDBACK POSITIVO
                   <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg flex items-start gap-4 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-16 bg-white/10 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2"></div>
-                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                          <CheckCircle2 size={28} />
-                      </div>
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><CheckCircle2 size={28} /></div>
                       <div className="relative z-10">
                           <p className="font-black text-lg uppercase tracking-wide">¡Correcto!</p>
-                          <p className="text-emerald-50 font-medium mt-1 leading-relaxed text-sm opacity-90">
-                              {currentQ.explanation}
-                          </p>
+                          <p className="text-emerald-50 font-medium mt-1 leading-relaxed text-sm opacity-90">{currentQ.explanation}</p>
                       </div>
                   </div>
               ) : (
-                  // FEEDBACK NEGATIVO + TAXONOMÍA
                   <div className="bg-white dark:bg-slate-900 border-2 border-red-100 dark:border-red-900/30 p-6 rounded-3xl shadow-xl">
                       <div className="flex items-start gap-4 mb-6">
-                          <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl">
-                              <XCircle size={28} />
-                          </div>
+                          <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl"><XCircle size={28} /></div>
                           <div>
                               <p className="font-black text-red-500 uppercase tracking-wide text-sm">Respuesta Incorrecta</p>
-                              <p className="text-slate-600 dark:text-slate-300 text-sm mt-2 font-medium leading-relaxed">
-                                  {currentQ.explanation}
-                              </p>
+                              <p className="text-slate-600 dark:text-slate-300 text-sm mt-2 font-medium leading-relaxed">{currentQ.explanation}</p>
                           </div>
                       </div>
 
-                      {/* SELECTOR DE TAXONOMÍA */}
                       {!errorTagged ? (
                         <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
-                                Diagnóstico del Error (Obligatorio)
-                            </p>
+                            <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Diagnóstico del Error (Obligatorio)</p>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[
                                     {id:'olvido',label:'OLVIDO',icon:Brain},
@@ -187,11 +273,7 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
                                     {id:'trampa',label:'TRAMPA',icon:AlertTriangle},
                                     {id:'fallo_procesamiento',label:'LECTURA',icon:Eye}
                                 ].map((e)=>(
-                                    <button 
-                                        key={e.id} 
-                                        onClick={()=>handleErrorTag(e.id)} 
-                                        className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl flex flex-col items-center gap-2 transition-all group"
-                                    >
+                                    <button key={e.id} onClick={()=>handleErrorTag(e.id)} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl flex flex-col items-center gap-2 transition-all group">
                                         <e.icon size={20} className="text-slate-400 group-hover:text-indigo-500 transition-colors"/>
                                         <span className="text-[10px] font-bold text-slate-500 group-hover:text-indigo-600 transition-colors">{e.label}</span>
                                     </button>
@@ -200,10 +282,7 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
                         </div>
                       ) : (
                         <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-center border border-dashed border-slate-300 dark:border-slate-700">
-                            <p className="text-xs font-bold text-slate-500 flex items-center justify-center gap-2">
-                                <CheckCircle2 size={14} className="text-indigo-500"/> 
-                                Error diagnosticado y archivado.
-                            </p>
+                            <p className="text-xs font-bold text-slate-500 flex items-center justify-center gap-2"><CheckCircle2 size={14} className="text-indigo-500"/> Error archivado.</p>
                         </div>
                       )}
                   </div>
@@ -216,7 +295,7 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
           {(mode === 'exam' || isAnswered) && (
               <button 
                 onClick={handleNext} 
-                disabled={mode === 'practice' && !errorTagged && !isCorrect} // Obligar a taggear error
+                disabled={mode === 'practice' && !errorTagged && !isCorrect} 
                 className="bg-slate-900 dark:bg-white text-white dark:text-black px-8 py-4 rounded-xl font-black text-sm shadow-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed flex items-center gap-3"
               >
                   {currentIndex < localQuestions.length - 1 ? 'SIGUIENTE' : 'FINALIZAR'} 
@@ -225,6 +304,28 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
           )}
       </div>
 
+      {/* MODAL REPORTE */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><MessageSquareWarning className="text-amber-500"/> Reportar</h3>
+              <button onClick={() => setIsReportModalOpen(false)} className="text-slate-400 hover:text-slate-900"><X size={20} /></button>
+            </div>
+            <div className="space-y-3 mb-6 max-h-48 overflow-y-auto">
+                {REPORT_TYPES.map((type) => (
+                  <button key={type.id} onClick={() => setReportData({ ...reportData, type: type.id })} className={`w-full text-left text-sm px-4 py-3 rounded-xl border transition-all ${reportData.type === type.id ? 'bg-amber-50 border-amber-500 text-amber-700 font-bold' : 'border-slate-100 hover:border-slate-300 text-slate-600'}`}>
+                    {type.label}
+                  </button>
+                ))}
+            </div>
+            <textarea placeholder="Detalles (opcional)..." className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none mb-6" rows={3} value={reportData.message} onChange={(e) => setReportData({ ...reportData, message: e.target.value })}/>
+            <button onClick={submitReport} disabled={!reportData.type || isSubmittingReport} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 disabled:opacity-50 flex justify-center gap-2 items-center">
+                {isSubmittingReport ? 'Enviando...' : 'Enviar Reporte'} {!isSubmittingReport && <Send size={14} />}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

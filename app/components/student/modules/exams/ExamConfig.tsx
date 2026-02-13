@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getStudentTopics } from '../../../../actions';
+import { getStudentTopics } from '@/actions';
 import { ExamSettings } from './ExamManager';
 import { 
   Crosshair, BookOpen, Clock, AlertTriangle, 

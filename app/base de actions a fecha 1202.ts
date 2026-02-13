@@ -5,35 +5,39 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import PDFParser from 'pdf2json';
 import crypto from 'crypto';
 
-
 // ==========================================
 //  0. CONFIGURACIÓN Y SEGURIDAD BLINDADA
 // ==========================================
 
+// 1. Lectura de variables (Nombres consistentes)
 const API_KEY = process.env.GEMINI_API_KEY;
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SB_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SB_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!API_KEY || !SB_URL || !SB_KEY) {
-  throw new Error("❌ ERROR CRÍTICO DE SERVIDOR: Faltan claves de entorno (API_KEY, SB_URL, SB_KEY). Revise su archivo .env.local");
+// 2. Verificación de seguridad
+if (!API_KEY || !SB_URL || !SB_SERVICE_KEY || !SB_ANON_KEY) {
+  throw new Error("❌ ERROR CRÍTICO: Faltan claves en .env (API_KEY, URL, SERVICE_KEY, ANON_KEY)");
 }
 
-// Inicialización de Clientes
+// 3. Inicialización de IA
 const genAI = new GoogleGenerativeAI(API_KEY);
-const supabase = createClient(SB_URL, SB_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
-});
-
-// Modelos de IA optimizados para cada tarea
-const embeddingModel = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
-// Usamos el modelo que TU CUENTA TIENE ACTIVO: gemini-2.5-flash
-// Lo usamos para todo porque es rápido y suficientemente inteligente para el MVP.
+// Usamos gemini-2.5-flash para todo (rápido y barato)
 const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 const smartModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const embeddingModel = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
+
+// 4. Inicialización de Clientes Supabase
+
+// A) Cliente ADMIN (Service Role): Poder total.
+const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+});
+// Alias 'supabase' para compatibilidad con tu código existente
+const supabase = supabaseAdmin; 
+
+// B) Cliente ANON (Anon Key): Respeta RLS (para votos/reportes desde servidor actuando como usuario)
+const supabaseAnon = createClient(SB_URL, SB_ANON_KEY);
 
 // ==========================================
 //  1. UTILIDADES INTERNAS ROBUSTAS
@@ -41,20 +45,27 @@ const smartModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
  * Limpia respuestas de la IA para asegurar que el JSON sea válido.
- * Extrae el bloque JSON {} ignorando texto introductorio o Markdown.
+ * 1. Quita Markdown.
+ * 2. Extrae solo el bloque JSON.
+ * 3. ELIMINA COMAS SOBRANTES (Trailing Commas) que rompen JSON.parse.
  */
 function cleanAIResponse(text: string): string {
   if (!text) return "{}";
+  
   // 1. Eliminar bloques de código Markdown
   let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
   
-  // 2. Buscar el primer '{' y el último '}' para ignorar "Aquí tienes el JSON:"
+  // 2. Buscar el primer '{' y el último '}'
   const firstBrace = clean.indexOf('{');
   const lastBrace = clean.lastIndexOf('}');
   
   if (firstBrace !== -1 && lastBrace !== -1) {
       clean = clean.substring(firstBrace, lastBrace + 1);
   }
+
+  // 3. CIRUGÍA: Eliminar comas traicioneras al final de arrays y objetos
+  // Reemplaza ",]" por "]" y ",}" por "}"
+  clean = clean.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}');
   
   return clean;
 }
@@ -350,6 +361,33 @@ async function runWithConcurrency<T, R>(
   return results;
 }
 
+
+export async function getQuestionsFromBank(params: {
+  topic: string;
+  difficulty?: number; // 1..3
+  limit: number;
+}) {
+  const { topic, difficulty = 2, limit } = params;
+
+  if (!topic || !limit || limit < 1) {
+    return { success: false, error: 'Parámetros inválidos.' };
+  }
+
+  const { data, error } = await supabase
+    .from('question_bank')
+    .select('id, subject_id, topic, difficulty, question_text, options, correct_index, explanation')
+    .eq('topic', topic)
+    .eq('status', 'active')
+    .gte('difficulty', Math.max(1, Math.min(3, difficulty)) - 1) // un pelín flexible
+    .lte('difficulty', Math.max(1, Math.min(3, difficulty)) + 1)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data || [] };
+}
+
+
 /**
  * Genera UNA pregunta tipo test (CNP): 3 opciones (A/B/C), 1 correcta, explicación.
  * Está anclada a texto indexado (RAG) usando article_ref como filtro por topic.
@@ -513,7 +551,7 @@ export async function seedQuestionBank(params: {
       explanation: d.explanation,
       source_refs: d.source_refs ?? null,
       question_hash,
-      status: 'active',
+      status: 'candidate',
       updated_at: new Date().toISOString(),
     };
 
@@ -553,7 +591,7 @@ export async function saveTestResult(
   try {
     if (!userId) throw new Error("Usuario anónimo");
 
-    const subject_id = subjectIdFromTopic(topic);
+    const subject_id = await getSubjectIdByName(topic);
 
     await supabase.from('test_results').insert({
       user_id: userId,
@@ -569,6 +607,63 @@ export async function saveTestResult(
     console.error("Error guardando resultado:", e);
     return { success: false };
   }
+}
+
+export async function voteQuestion(params: {
+  questionId: string;
+  userId: string;
+  vote: 1 | -1;
+}) {
+  const { questionId, userId, vote } = params;
+
+  if (!questionId || !userId || ![1, -1].includes(vote)) {
+    return { success: false, error: 'Parámetros inválidos.' };
+  }
+
+  // upsert para permitir cambiar voto
+  const { error } = await supabaseAnon
+    .from('question_votes')
+    .upsert(
+      { question_id: questionId, user_id: userId, vote },
+      { onConflict: 'question_id,user_id' }
+    );
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function reportQuestion(params: {
+  questionId: string;
+  userId: string;
+  reportType:
+    | 'wrong_correct_answer'
+    | 'ambiguous_question'
+    | 'bad_explanation'
+    | 'out_of_syllabus'
+    | 'bad_options'
+    | 'typo_or_format'
+    | 'source_mismatch'
+    | 'other';
+  message: string;
+}) {
+  const { questionId, userId, reportType, message } = params;
+
+  if (!questionId || !userId || !reportType || !message?.trim()) {
+    return { success: false, error: 'Parámetros inválidos.' };
+  }
+
+  const { error } = await supabaseAnon
+    .from('question_reports')
+    .insert({
+      question_id: questionId,
+      user_id: userId,
+      report_type: reportType,
+      message: message.trim(),
+      status: 'open',
+    });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
 
 
@@ -1045,7 +1140,7 @@ export async function saveFlashcardResult(
   boxAfter?: number,
   nextReview?: string
 ) {
-  const subjectId = subjectIdFromTopic(topic); // usa tu helper actual
+  const subject_id = await getSubjectIdByName(topic);
 
   const { error } = await supabase.from('flashcard_results').insert({
     user_id: userId,
@@ -1065,4 +1160,251 @@ export async function saveFlashcardResult(
   }
 
   return { success: true };
+}
+
+// --- AÑADIR O SUSTITUIR EN ACTIONS.TS ---
+
+/**
+ * Helper para mapear Topics (texto) a IDs numéricos (subjects).
+ * Lo hacemos simple basado en tus datos actuales.
+ */
+async function getSubjectIdByName(topicName: string): Promise<number | null> {
+  // Normalización básica
+  const search = topicName.trim().toUpperCase();
+  
+  // Mapeo rápido basado en tu tabla (puedes ampliarlo)
+  if (search.includes("CONSTITUCION")) return 1;
+  if (search.includes("TEMA 40")) return 2;
+  
+  // Fallback: búsqueda en DB
+  const { data } = await supabase
+    .from('subjects')
+    .select('id')
+    .ilike('title', `%${topicName}%`) // Busca coincidencia parcial
+    .limit(1)
+    .single();
+    
+  return data ? data.id : 3; // 3 = 'Otros' por defecto
+}
+
+/**
+ * NUEVA FUNCIÓN CORE: Genera IA -> Guarda 'Candidate' -> Devuelve
+ */
+export async function generateAndSaveCandidate(topic: string) {
+  // 1. Generar la pregunta (usamos la lógica que ya tenías)
+  const genResult = await generateTestQuestion(topic);
+  
+  if (!genResult.success || !genResult.data) {
+    return genResult; // Devuelve el error tal cual
+  }
+
+  const qData = genResult.data;
+  
+  // 2. Calcular Hash para evitar duplicados exactos
+  const subjectId = await getSubjectIdByName(topic);
+  const correctIndex = qData.correctOptionId === 'a' ? 0 : qData.correctOptionId === 'b' ? 1 : 2;
+  const optionsTexts = qData.options.map(o => o.text);
+  
+  // Recalculamos hash (usando tu función interna si es exportada, o una copia local aquí)
+  // NOTA: Asegúrate de que computeQuestionHash esté accesible o cópiala dentro de esta función.
+  const payload = JSON.stringify({
+    subjectId,
+    q: qData.question.trim().toLowerCase().replace(/\s+/g, ' '),
+    o: optionsTexts.map(t => t.trim().toLowerCase().replace(/\s+/g, ' ')),
+    c: correctIndex,
+  });
+  const questionHash = crypto.createHash('sha256').update(payload).digest('hex');
+
+  // 3. Guardar en DB como CANDIDATE
+  // Intentamos guardar. Si ya existe el hash, devolvemos la existente.
+  const row = {
+    subject_id: subjectId,
+    topic: topic,
+    difficulty: 2, // Default medio
+    question_text: qData.question,
+    options: optionsTexts,
+    correct_index: correctIndex,
+    explanation: qData.explanation,
+    source_refs: qData.source_refs || null,
+    question_hash: questionHash,
+    status: 'candidate', // <--- CLAVE: Nace como candidata
+    origin: 'live_ai',   // <--- CLAVE: Origen IA en vivo
+    created_at: new Date().toISOString()
+  };
+
+  const { data: saved, error } = await supabase
+    .from('question_bank')
+    .upsert(row, { onConflict: 'question_hash' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error guardando candidate:", error);
+    // Fallback: devolvemos la generada aunque no se guardara (mejor que fallar)
+    return { success: true, data: { ...qData, id: null, status: 'unsaved' } };
+  }
+
+  // 4. Devolver estructura compatible con el Frontend
+  return {
+    success: true,
+    data: {
+      ...qData,
+      id: saved.id, // ¡AHORA SÍ TIENE ID!
+      subject_id: saved.subject_id,
+      status: saved.status
+    }
+  };
+}
+
+// ==========================================
+//  8. MODERACIÓN Y GESTIÓN DE BANCO (NUEVO)
+// ==========================================
+
+/**
+ * Obtiene la cola de trabajo para el administrador:
+ * 1. Preguntas "candidate" (generadas por IA esperando revisión).
+ * 2. Reportes "open" (quejas de usuarios).
+ */
+export async function getModerationQueue(adminId: string) {
+  try {
+    const role = await getUserRole(adminId);
+    if (role !== 'admin') throw new Error("Acceso denegado");
+
+    // 1. Traer Candidatos (Limitado a 50 para no saturar UI)
+    const { data: candidates, error: errCand } = await supabase
+      .from('question_bank')
+      .select('*')
+      .eq('status', 'candidate')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (errCand) throw errCand;
+
+    // 2. Traer Reportes Abiertos + Datos de la Pregunta asociada
+    // NOTA: Esto requiere que exista Foreign Key en question_reports.question_id -> question_bank.id
+    const { data: reports, error: errRep } = await supabase
+      .from('question_reports')
+      .select('*, question:question_bank(*)') // <--- Traemos TODO para poder editarlo 
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+
+    if (errRep) throw errRep;
+
+    return { 
+        success: true, 
+        data: { 
+            candidates: candidates || [], 
+            reports: reports || [] 
+        } 
+    };
+
+  } catch (e: any) {
+    console.error("Error fetching moderation queue:", e);
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Aprueba una pregunta candidata -> Pasa a 'active'.
+ * Ahora los alumnos podrán verla en sus tests.
+ */
+export async function approveQuestion(adminId: string, questionId: string) {
+  try {
+    const role = await getUserRole(adminId);
+    if (role !== 'admin') throw new Error("Acceso denegado");
+
+    const { error } = await supabase
+      .from('question_bank')
+      .update({ status: 'active' }) // <--- ¡A LA VIDA PÚBLICA!
+      .eq('id', questionId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Desactiva una pregunta (ya sea desde candidato o por un reporte).
+ * Pasa a 'disabled'. No se borra para mantener integridad referencial.
+ */
+export async function disableQuestion(adminId: string, questionId: string) {
+  try {
+    const role = await getUserRole(adminId);
+    if (role !== 'admin') throw new Error("Acceso denegado");
+
+    const { error } = await supabase
+      .from('question_bank')
+      .update({ status: 'disabled' })
+      .eq('id', questionId);
+
+    if (error) throw error;
+    
+    // Opcional: Si venía de un reporte, marcar los reportes asociados como resueltos (closed)
+    // para limpiar la cola.
+    await supabase
+        .from('question_reports')
+        .update({ status: 'resolved', admin_notes: 'Pregunta desactivada tras revisión.' })
+        .eq('question_id', questionId)
+        .eq('status', 'open');
+
+    return { success: true };
+
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Marca un reporte como resuelto sin borrar la pregunta (ej: era un reporte falso).
+ */
+export async function resolveReport(adminId: string, reportId: string) {
+    try {
+        const role = await getUserRole(adminId);
+        if (role !== 'admin') throw new Error("Acceso denegado");
+    
+        const { error } = await supabase
+          .from('question_reports')
+          .update({ status: 'dismissed' })
+          .eq('id', reportId);
+    
+        if (error) throw error;
+        return { success: true };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+}
+
+/**
+ * Permite al Admin editar una pregunta (texto, opciones, explicación)
+ * antes de aprobarla o incluso si ya está activa.
+ */
+export async function updateQuestion(adminId: string, questionId: string, data: {
+  question_text: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+}) {
+  try {
+    const role = await getUserRole(adminId);
+    if (role !== 'admin') throw new Error("Acceso denegado");
+
+    const { error } = await supabase
+      .from('question_bank')
+      .update({
+        question_text: data.question_text,
+        options: data.options,
+        correct_index: data.correct_index,
+        explanation: data.explanation,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', questionId);
+
+    if (error) throw error;
+    return { success: true };
+
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
 }

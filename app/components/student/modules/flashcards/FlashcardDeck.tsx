@@ -5,7 +5,7 @@ import {
   Zap, Brain, CheckCircle2, 
   HelpCircle, AlertTriangle, MousePointerClick, Loader2 
 } from 'lucide-react';
-import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '../../../../actions';
+import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '@/actions';
 
 interface FlashcardDeckProps {
   user: any;

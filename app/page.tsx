@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js'; 
-import { getUserRole } from './actions'; // Asegúrate de que actions.ts esté en app/ o usa '../actions' si está fuera
+import { getUserRole } from '@/actions';
 import { BookOpen, User, Lock, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
 
 // CORRECCIÓN AQUÍ: Nombre exacto y ruta relativa exacta
 import StudentDashboard from './components/student/StudentDashboard';
-import AdminView from './components/AdminView'; // Asegúrate de que este archivo exista también
+import AdminView from './components/Admin/AdminView'; // Asegúrate de que este archivo exista también
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
