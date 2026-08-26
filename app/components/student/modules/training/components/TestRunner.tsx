@@ -37,7 +37,10 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
 
     // Audio Context para los pitidos de salida (Semáforo)
     const playCountdownBeep = (type: 'get_ready' | 'go') => {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        // Safari antiguo solo expone el constructor con prefijo.
+        const AudioContext =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
         const osc = ctx.createOscillator();
@@ -96,7 +99,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
     const parsed = toNumberOrNull(result);
     const canConfirm = parsed !== null && parsed >= 0 && !saving;
 
-    const confirm = (extra: BaselineMetrics = {}) => {
+    const confirmarMarca = (extra: BaselineMetrics = {}) => {
         if (parsed === null) return;
         onSave({ [TEST_METRIC_FIELD[testId]]: parsed, ...extra });
     };
@@ -190,7 +193,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                             <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-7xl font-black text-center bg-transparent outline-none placeholder-slate-200 text-slate-900 dark:text-white p-2" placeholder="0"/>
                         </div>
                         {confirmHint}
-                        <button onClick={() => confirm({ pullups_method: method })} disabled={!canConfirm} className={confirmClass(canConfirm)}>
+                        <button onClick={() => confirmarMarca({ pullups_method: method })} disabled={!canConfirm} className={confirmClass(canConfirm)}>
                             {saving ? 'GUARDANDO…' : 'CONFIRMAR FUERZA'}
                         </button>
                     </div>
@@ -256,7 +259,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                         </div>
 
                         {confirmHint}
-                        <button onClick={() => confirm()} disabled={!canConfirm} className={confirmClass(canConfirm)}>
+                        <button onClick={() => confirmarMarca()} disabled={!canConfirm} className={confirmClass(canConfirm)}>
                             {saving ? 'GUARDANDO…' : 'CONFIRMAR RESULTADO'}
                         </button>
                     </div>

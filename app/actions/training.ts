@@ -8,13 +8,41 @@ import {
     readMaxPullups,
     type PhysicalProfile,
 } from '../lib/physical';
-import { normalizePlan, PLAN_SHAPE, type WeeklyPlan } from '../lib/training-plan';
+import {
+    normalizePlan,
+    summarizeWeek,
+    progressionBrief,
+    PLAN_SHAPE,
+    type WeeklyPlan,
+    type TrainingDayLog,
+} from '../lib/training-plan';
 
-/** Lo que el alumno anota al terminar un dia de entrenamiento. */
-export type TrainingDayLog = Record<string, unknown>;
+export type { TrainingDayLog };
 
 function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
     return e instanceof Error ? e.message : fallback;
+}
+
+/**
+ * Parte del prompt que describe al alumno. La comparten la semana 1 y las
+ * siguientes: tenerla en dos sitios es como el plan acabo pidiendo unos campos
+ * y la UI leyendo otros.
+ */
+function athleteBrief(profile: PhysicalProfile): string {
+    const pullupScore = readMaxPullups(profile) ?? 0;
+    let pullupStrategy = "";
+    if (pullupScore < 1) pullupStrategy = "Fase 0: Excéntricas y Gomas.";
+    else if (pullupScore < 10) pullupStrategy = "Fase 1: Volumen y series largas.";
+    else pullupStrategy = "Fase 2: Lastre y Fuerza Máxima.";
+
+    const daysAvailable = profile.availability || 5;
+    const equipmentText = profile.equipment === 'gym' ? "Gimnasio Comercial" : "Parque/Calistenia";
+    const age = profile.birth_year ? new Date().getFullYear() - profile.birth_year : 25;
+
+    return `PERFIL: ${JSON.stringify(profile)}
+            EDAD: ${age}
+            LOGÍSTICA: ${daysAvailable} días/sem. Equipo: ${equipmentText}.
+            NIVEL FUERZA: ${pullupStrategy}.`;
 }
 
 export async function generateWeeklyPlan(profile: PhysicalProfile) {
@@ -25,27 +53,10 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     try {
         if (!profile || !profile.baseline_metrics) throw new Error("Faltan datos físicos.");
         
-        // --- LÓGICA COMPLEJA RESTAURADA ---
-        // `?? 0` y no `|| 0`: son distintos solo si el alumno tiene 0 dominadas,
-        // que es precisamente el caso que decide la Fase 0 del plan.
-        const pullupScore = readMaxPullups(profile) ?? 0;
-        let pullupStrategy = "";
-        if (pullupScore < 1) pullupStrategy = "Fase 0: Excéntricas y Gomas.";
-        else if (pullupScore < 10) pullupStrategy = "Fase 1: Volumen y series largas.";
-        else pullupStrategy = "Fase 2: Lastre y Fuerza Máxima.";
-
-        const daysAvailable = profile.availability || 5;
-        const equipmentText = profile.equipment === 'gym' ? "Gimnasio Comercial" : "Parque/Calistenia";
-        const currentYear = new Date().getFullYear();
-        const age = profile.birth_year ? currentYear - profile.birth_year : 25;
-
         const prompt = `
             ACTÚA COMO: Preparador Físico CNP.
-            PERFIL: ${JSON.stringify(profile)}
-            EDAD: ${age}
-            LOGÍSTICA: ${daysAvailable} días/sem. Equipo: ${equipmentText}.
-            NIVEL FUERZA: ${pullupStrategy}.
-            
+            ${athleteBrief(profile)}
+
             OBJETIVO: Plan semanal (Semana 1) JSON PURO.
             ESTRUCTURA: ${PLAN_SHAPE}
         `;
@@ -121,6 +132,84 @@ export async function completeTrainingDay(
 
     const { error } = await supabase.from('training_plans').update({ plan_data: updated }).eq('id', planId);
     return { success: !error, error: error?.message };
+}
+
+/**
+ * Genera la semana siguiente a partir de lo que el alumno registro en la actual.
+ *
+ * Era un `alert("Procesando tus metricas...")` que no hacia nada. No hace falta
+ * tabla nueva: el registro de cada dia vive dentro del JSON del plan, que es
+ * donde lo deja `completeTrainingDay`.
+ */
+export async function generateNextWeek() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error, plan: null };
+    const userId = auth.user.id;
+
+    try {
+        const { data: current, error: readError } = await supabase
+            .from('training_plans')
+            .select('id, plan_data')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (readError) throw new Error(readError.message);
+        if (!current) throw new Error('No hay ningún plan activo del que partir.');
+
+        const { data: profile } = await supabase
+            .from('profiles_physical').select('*').eq('user_id', userId).single();
+        if (!profile) throw new Error('Faltan los datos físicos.');
+
+        // Se normaliza al leer: la semana que se resume puede ser anterior a la
+        // fase 2.7 y no traer las garantias de forma.
+        const previous = normalizePlan(current.plan_data);
+        const summary = summarizeWeek(previous);
+
+        // Cuantas semanas lleva ya, para numerar la nueva.
+        const { count } = await supabase
+            .from('training_plans')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId);
+        const weekNumber = (count ?? 1) + 1;
+
+        const prompt = `
+            ACTÚA COMO: Preparador Físico CNP.
+            ${athleteBrief(profile as PhysicalProfile)}
+
+            ${progressionBrief(summary)}
+
+            OBJETIVO: Plan semanal (Semana ${weekNumber}) JSON PURO, continuando el anterior.
+            ESTRUCTURA: ${PLAN_SHAPE}
+        `;
+        const result = await planModel.generateContent(prompt);
+        const plan = normalizePlan(parseAIJson(result.response.text()));
+        if (!plan) throw new Error('La IA no devolvió un plan utilizable.');
+
+        // Primero se cierra la semana anterior: si el insert fallara despues,
+        // el alumno se queda sin plan activo, que se ve. Al reves quedarian dos
+        // activos y `getActiveTrainingPlan` elegiria uno en silencio.
+        const { error: closeError } = await supabase
+            .from('training_plans')
+            .update({ status: 'completed' })
+            .eq('id', current.id)
+            .eq('user_id', userId);
+        if (closeError) throw new Error(closeError.message);
+
+        const { data: inserted, error } = await supabase.from('training_plans').insert({
+            user_id: userId,
+            week_start: new Date().toISOString(),
+            plan_data: plan,
+            status: 'active',
+        }).select().single();
+        if (error || !inserted) throw new Error(error?.message || 'No se pudo guardar el plan.');
+
+        return { success: true as const, plan: { id: inserted.id as string, plan_data: plan } };
+    } catch (e) {
+        return { success: false as const, error: errorMessage(e), plan: null };
+    }
 }
 
 export async function getPhysicalProfile() {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Activity, Dumbbell, Timer, Play, Settings, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
+import { Calendar, Activity, Dumbbell, Timer, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2 } from 'lucide-react';
 import { planProgress, type TrainingDay, type WeeklyPlan } from '@/app/lib/training-plan';
 
 interface TrainingDashboardProps {
@@ -8,10 +8,12 @@ interface TrainingDashboardProps {
     onStartSession: (day: TrainingDay) => void;
     onReportIssue: (day: TrainingDay) => void;
     onReconfigure: () => void;
-    onGenerateNextWeek: () => void; // <--- NUEVO: Acción para generar
+    onGenerateNextWeek: () => void;
+    generating?: boolean;
+    error?: string | null;
 }
 
-export default function TrainingDashboard({ plan, onStartSession, onReportIssue, onReconfigure, onGenerateNextWeek }: TrainingDashboardProps) {
+export default function TrainingDashboard({ plan, onStartSession, onReportIssue, onReconfigure, onGenerateNextWeek, generating, error }: TrainingDashboardProps) {
     if (!plan) return <div className="text-center p-10 opacity-50">Cargando plan...</div>;
 
     // 1. CÁLCULO DE PROGRESO EN TIEMPO REAL
@@ -112,7 +114,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                     {/* Botón de Acción Final */}
                     <button 
                         onClick={onGenerateNextWeek}
-                        disabled={!isWeekComplete}
+                        disabled={!isWeekComplete || generating}
                         className={`
                             px-8 py-4 rounded-xl font-black uppercase tracking-widest flex items-center gap-3 transition-all
                             ${isWeekComplete 
@@ -120,10 +122,18 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-70'}
                         `}
                     >
-                        {isWeekComplete ? <Activity size={20}/> : <Lock size={20}/>}
-                        {isWeekComplete ? "GENERAR SEMANA 2" : "FASE BLOQUEADA"}
+                        {generating ? <Loader2 size={20} className="animate-spin"/> : isWeekComplete ? <Activity size={20}/> : <Lock size={20}/>}
+                        {/* El número de semana lo decide el servidor contando los planes
+                            del alumno: aquí estaba fijo en "SEMANA 2" para siempre. */}
+                        {generating ? "GENERANDO…" : isWeekComplete ? "GENERAR SIGUIENTE SEMANA" : "FASE BLOQUEADA"}
                     </button>
                 </div>
+
+                {error && (
+                    <p className="mt-3 text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 text-center">
+                        {error}
+                    </p>
+                )}
             </div>
 
         </div>

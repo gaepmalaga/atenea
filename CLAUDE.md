@@ -60,7 +60,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~74 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~50 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -315,7 +315,24 @@ escritura deja desprotegido todo el histórico.
 `PLAN_SHAPE` (la estructura que se le pide al modelo) vive en el mismo fichero que el
 tipo. Separarlos es cómo el prompt acabó pidiendo unos campos y la UI leyendo otros.
 
-### 18 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 18 · La progresión del entrenamiento decide antes de preguntarle a la IA
+
+`decideProgression` (`app/lib/training-plan.ts`) resuelve en código si la semana
+siguiente sube, mantiene, baja o se repite; el modelo solo redacta el plan. **El
+orden de las reglas importa y no es negociable:** una molestia declarada manda
+sobre cualquier RPE, y no haber terminado la semana manda sobre haberla
+encontrado fácil. Sin esa precedencia, un alumno que completó dos de cinco días
+"porque le dolía el hombro" recibiría *más* carga sobre la zona que le duele.
+
+La media de esfuerzo cuenta **solo los días que traen dato** (regla 8). Contar
+como 0 los que no lo traen la hunde, y la semana siguiente sale más fácil de lo
+que toca.
+
+Y ojo con `Object.entries` sobre algo que no has comprobado que es un objeto:
+`Object.entries('texto')` enumera los **caracteres**. Un `feedback` corrupto
+generaba una anotación por letra, y eso acababa dentro del prompt.
+
+### 19 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -340,8 +357,14 @@ tests/chat.test.ts              memoria del chat y reconstrucción de la búsque
 tests/interview.test.ts         transcripción, informe final y máquina de estados
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
-tests/training-plan.test.ts     forma del plan semanal y progreso de la semana
+tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
 ```
+
+`.github/workflows/check.yml` ejecuta `npm run check` en cada push. Las guardas
+estáticas solo sirven si corren solas: depender de que alguien se acuerde de
+lanzarlas es lo mismo que no tenerlas. El `build` no está en CI a propósito —
+`core.ts` construye los clientes al importarse, así que el prerender exige las
+cuatro variables reales.
 
 `srs.test.ts` cubre la repetición espaciada; el resto de la tabla sigue igual.
 

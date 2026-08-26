@@ -113,3 +113,136 @@ export function planProgress(plan: WeeklyPlan | null | undefined): {
     isWeekComplete: total > 0 && completed >= total,
   };
 }
+
+// ============================================================
+// REGISTRO DE LA SESION Y PROGRESION SEMANAL
+// ============================================================
+
+/**
+ * Lo que el alumno anota al terminar un dia.
+ *
+ * Cruza la frontera cliente-servidor, asi que tiene tipo compartido (regla 6):
+ * `ActiveSession` lo compone y `completeTrainingDay` lo guarda. Era
+ * `Record<string, unknown>` en la accion, que es otra forma de decir `any`.
+ */
+export type TrainingDayLog = {
+  day_title?: string | null;
+  status?: 'completed' | 'skipped' | null;
+  /** Molestia declarada por el alumno, si la hubo. */
+  issue?: string | null;
+  pain_location?: string | null;
+  /** Esfuerzo percibido, 1-10. */
+  rpe?: number | null;
+  /** Lo que escribio en cada ejercicio: nombre del ejercicio -> texto libre. */
+  feedback?: Record<string, string> | null;
+  timestamp?: string | null;
+};
+
+export type WeekSummary = {
+  total: number;
+  completed: number;
+  skipped: number;
+  /** `null` si ningun dia trae RPE: "sin datos" no es "esfuerzo cero" (regla 8). */
+  avgRpe: number | null;
+  /** Molestias declaradas, sin repetir. */
+  issues: string[];
+  /** Lo que anoto en los ejercicios: para que el modelo sepa con que cargas trabajo. */
+  notes: { exercise: string; note: string }[];
+};
+
+function readLog(day: TrainingDay): TrainingDayLog | null {
+  const log = day.log;
+  return log && typeof log === 'object' ? (log as TrainingDayLog) : null;
+}
+
+/** Resume la semana que acaba de terminar, para alimentar la siguiente. */
+export function summarizeWeek(plan: WeeklyPlan | null | undefined): WeekSummary {
+  const days = plan?.days ?? [];
+  const rpes: number[] = [];
+  const issues: string[] = [];
+  const notes: { exercise: string; note: string }[] = [];
+  let completed = 0;
+  let skipped = 0;
+
+  for (const day of days) {
+    const log = readLog(day);
+    if (day.isCompleted) completed++;
+    if (log?.status === 'skipped') skipped++;
+
+    if (typeof log?.rpe === 'number' && Number.isFinite(log.rpe)) rpes.push(log.rpe);
+
+    const molestia = [log?.issue, log?.pain_location].filter(Boolean).join(': ');
+    if (molestia && !issues.includes(molestia)) issues.push(molestia);
+
+    // `Object.entries('texto')` enumera los CARACTERES de la cadena. Sin
+    // comprobar que es un objeto, un feedback corrupto producia una anotacion
+    // por letra y eso acababa dentro del prompt.
+    const feedback = log?.feedback;
+    if (feedback && typeof feedback === 'object' && !Array.isArray(feedback)) {
+      for (const [exercise, note] of Object.entries(feedback)) {
+        if (typeof note === 'string' && note.trim()) notes.push({ exercise, note: note.trim() });
+      }
+    }
+  }
+
+  return {
+    total: days.length,
+    completed,
+    skipped,
+    // Media solo de los dias que TRAEN dato. Meter los que no lo traen como 0
+    // la hundiria y el plan siguiente saldria mas facil de lo que toca.
+    avgRpe: rpes.length ? Math.round((rpes.reduce((a, b) => a + b, 0) / rpes.length) * 10) / 10 : null,
+    issues,
+    notes,
+  };
+}
+
+/** Umbrales de RPE que deciden si la semana siguiente sube, mantiene o baja. */
+export const RPE_EASY = 6;
+export const RPE_HARD = 8.5;
+
+export type Progression = 'subir' | 'mantener' | 'bajar' | 'repetir';
+
+/**
+ * Que hacer con la semana siguiente.
+ *
+ * El orden importa: una molestia manda sobre cualquier RPE, y no haber
+ * terminado la semana manda sobre haberla encontrado facil. Sin esto, un alumno
+ * que completo dos de cinco dias "porque le dolia el hombro" recibiria mas carga.
+ */
+export function decideProgression(summary: WeekSummary): Progression {
+  if (summary.issues.length > 0) return 'bajar';
+  if (summary.total > 0 && summary.completed < Math.ceil(summary.total / 2)) return 'repetir';
+  if (summary.avgRpe === null) return 'mantener'; // sin RPE no hay con que decidir
+  if (summary.avgRpe >= RPE_HARD) return 'bajar';
+  if (summary.avgRpe < RPE_EASY) return 'subir';
+  return 'mantener';
+}
+
+const PROGRESSION_BRIEF: Record<Progression, string> = {
+  subir: 'La semana se le quedó corta: sube volumen o carga entre un 5 y un 10 %.',
+  mantener: 'El esfuerzo fue el adecuado: mantén la estructura y progresa ligeramente.',
+  bajar: 'Baja la carga y el volumen. Evita todo lo que cargue la zona molesta y sustitúyelo por trabajo alternativo.',
+  repetir: 'No completó la semana: repite el mismo nivel con menos días y sesiones más cortas, para que pueda terminarla.',
+};
+
+/** Traduce el resumen a instrucciones para el modelo. */
+export function progressionBrief(summary: WeekSummary): string {
+  const decision = decideProgression(summary);
+  const lineas = [
+    `SEMANA ANTERIOR: ${summary.completed} de ${summary.total} días completados` +
+      (summary.skipped ? `, ${summary.skipped} abandonados.` : '.'),
+    summary.avgRpe === null
+      ? 'ESFUERZO PERCIBIDO: sin registrar.'
+      : `ESFUERZO PERCIBIDO MEDIO: ${summary.avgRpe}/10.`,
+    `DECISIÓN: ${PROGRESSION_BRIEF[decision]}`,
+  ];
+  if (summary.issues.length) lineas.push(`MOLESTIAS DECLARADAS: ${summary.issues.join(' · ')}.`);
+  if (summary.notes.length) {
+    lineas.push(
+      'ANOTACIONES DEL ALUMNO: ' +
+        summary.notes.slice(0, 12).map((n) => `${n.exercise} → ${n.note}`).join(' · '),
+    );
+  }
+  return lineas.join('\n');
+}

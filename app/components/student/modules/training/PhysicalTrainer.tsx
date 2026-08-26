@@ -7,7 +7,8 @@ import {
     savePhysicalProfile, 
     generateWeeklyPlan, 
     getActiveTrainingPlan,
-    completeTrainingDay // <--- ASEGÚRATE DE TENER ESTO EN ACTIONS.TS
+    generateNextWeek,
+    completeTrainingDay
 } from '@/actions';
 
 // IMPORTACIÓN DE COMPONENTES
@@ -32,6 +33,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // se quedaba convencido de que sus datos estaban en el servidor.
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   
   // ESTADOS DEL PLAN
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
@@ -102,8 +104,6 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
       persist({ baseline_metrics: { ...profile?.baseline_metrics, ...testData } });
 
   // --- 3. GENERADOR DE PLANES ---
-  const [generating, setGenerating] = useState(false);
-
   const handleGenerate = async () => {
       if (!profile) return;
       setGenerating(true);
@@ -123,10 +123,17 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   };
 
   const handleGenerateNextWeek = async () => {
-      // AQUÍ IRÍA LA LÓGICA DE PROGRESIÓN (Semana 2)
-      // Por ahora, un placeholder funcional
-      alert("¡Felicidades! Procesando tus métricas para generar la Fase 2...");
-      // const res = await generateNextWeek(user.id, activePlanId); ...
+      setGenerating(true);
+      setSaveError(null);
+      const res = await generateNextWeek();
+      setGenerating(false);
+
+      if (!res.success || !res.plan) {
+          setSaveError(res.error || 'No se pudo generar la semana siguiente.');
+          return;
+      }
+      setWeeklyPlan(res.plan.plan_data);
+      setActivePlanId(res.plan.id);
   };
   
   // --- 4. GESTIÓN DE SESIÓN (START / REPORT) ---
@@ -231,8 +238,10 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             plan={weeklyPlan} 
             onStartSession={handleStartSession} 
             onReportIssue={handleReportIssue} 
-            onReconfigure={() => setView('hub')} 
+            onReconfigure={() => { setSaveError(null); setView('hub'); }} 
             onGenerateNextWeek={handleGenerateNextWeek}
+            generating={generating}
+            error={saveError}
           />
       );
   }

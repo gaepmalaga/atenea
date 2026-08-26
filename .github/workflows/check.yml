@@ -1,0 +1,38 @@
+# Las guardas de `tests/` solo sirven si corren solas. Varias de ellas leen el
+# código fuente y fallan si vuelve un patrón peligroso (un userId por parámetro,
+# un upsert que expande el objeto del cliente, una conversión con `Number()`);
+# tenerlas dependiendo de que alguien se acuerde de ejecutarlas es lo mismo que
+# no tenerlas.
+name: check
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # typecheck + tests. No necesita Supabase ni Gemini: todo lo que se prueba
+      # es lógica pura o lectura estática del código.
+      - run: npm run check
+
+      # `npm run build` NO está aquí a propósito: `core.ts` construye los
+      # clientes en tiempo de importación, así que el prerender exige las cuatro
+      # variables de entorno reales. Cuando dejen de construirse en el módulo
+      # (o se pongan como secrets del repositorio), añadir el paso.
+
+      # El lint todavía no es puerta de calidad: quedan errores heredados de la
+      # fase 5. Se ejecuta para verlo, pero no tumba la ejecución.
+      - run: npm run lint
+        continue-on-error: true

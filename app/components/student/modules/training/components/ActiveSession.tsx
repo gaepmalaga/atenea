@@ -1,10 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  X, CheckCircle2, AlertTriangle, Activity, 
-  Dumbbell, Timer, MapPin 
-} from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, Activity } from 'lucide-react';
 
 // Los tipos del plan viven en `app/lib/training-plan.ts`: los escribe la IA y
 // los lee tanto esta pantalla como el panel, asi que una sola definicion.

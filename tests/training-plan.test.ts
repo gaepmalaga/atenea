@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { normalizePlan, planProgress, PLAN_SHAPE } from '../app/lib/training-plan';
+import {
+  normalizePlan,
+  planProgress,
+  summarizeWeek,
+  decideProgression,
+  progressionBrief,
+  PLAN_SHAPE,
+  RPE_EASY,
+  RPE_HARD,
+  type WeekSummary,
+} from '../app/lib/training-plan';
 
 const planIA = {
   week_focus: 'Adaptación anatómica',
@@ -117,6 +127,121 @@ describe('planProgress', () => {
 });
 
 // ============================================================
+// PROGRESION SEMANAL
+// ============================================================
+
+const semana = (dias: unknown[]) => normalizePlan({ days: dias });
+
+describe('summarizeWeek', () => {
+  it('cuenta dias completados, abandonados y promedia el esfuerzo', () => {
+    const plan = semana([
+      { day: 'Lunes', exercises: [], isCompleted: true, log: { status: 'completed', rpe: 6 } },
+      { day: 'Martes', exercises: [], isCompleted: true, log: { status: 'completed', rpe: 8 } },
+      { day: 'Jueves', exercises: [], isCompleted: true, log: { status: 'skipped', rpe: 4 } },
+    ]);
+    const s = summarizeWeek(plan);
+    expect(s.total).toBe(3);
+    expect(s.completed).toBe(3);
+    expect(s.skipped).toBe(1);
+    expect(s.avgRpe).toBe(6);
+  });
+
+  it('la media solo cuenta los dias que traen RPE', () => {
+    // Meter los dias sin dato como 0 hundiria la media, y el plan siguiente
+    // saldria mas facil de lo que toca (regla 8: misma muestra arriba y abajo).
+    const plan = semana([
+      { day: 'Lunes', exercises: [], log: { rpe: 8 } },
+      { day: 'Martes', exercises: [] },
+      { day: 'Jueves', exercises: [], log: {} },
+    ]);
+    expect(summarizeWeek(plan).avgRpe).toBe(8);
+  });
+
+  it('sin ningun RPE la media es null, no cero', () => {
+    expect(summarizeWeek(semana([{ day: 'Lunes', exercises: [] }])).avgRpe).toBeNull();
+    expect(summarizeWeek(null).avgRpe).toBeNull();
+  });
+
+  it('recoge las molestias sin repetirlas', () => {
+    const plan = semana([
+      { day: 'Lunes', exercises: [], log: { issue: 'dolor', pain_location: 'hombro' } },
+      { day: 'Martes', exercises: [], log: { issue: 'dolor', pain_location: 'hombro' } },
+      { day: 'Jueves', exercises: [], log: { issue: 'dolor', pain_location: 'rodilla' } },
+    ]);
+    expect(summarizeWeek(plan).issues).toEqual(['dolor: hombro', 'dolor: rodilla']);
+  });
+
+  it('recoge lo que el alumno anoto en cada ejercicio', () => {
+    const plan = semana([
+      { day: 'Lunes', exercises: [], log: { feedback: { Dominadas: '6 reps', Sentadilla: '  ' } } },
+    ]);
+    expect(summarizeWeek(plan).notes).toEqual([{ exercise: 'Dominadas', note: '6 reps' }]);
+  });
+
+  it('un log corrupto no tumba el resumen', () => {
+    const plan = semana([
+      { day: 'Lunes', exercises: [], log: 'texto suelto' },
+      { day: 'Martes', exercises: [], log: { rpe: 'siete', feedback: 'nada' } },
+    ]);
+    const s = summarizeWeek(plan);
+    expect(s.avgRpe).toBeNull();
+    expect(s.notes).toEqual([]);
+  });
+});
+
+const resumen = (parcial: Partial<WeekSummary> = {}): WeekSummary => ({
+  total: 5, completed: 5, skipped: 0, avgRpe: 7, issues: [], notes: [], ...parcial,
+});
+
+describe('decideProgression', () => {
+  it('sube si la semana se le quedo corta', () => {
+    expect(decideProgression(resumen({ avgRpe: RPE_EASY - 1 }))).toBe('subir');
+  });
+
+  it('mantiene con un esfuerzo intermedio', () => {
+    expect(decideProgression(resumen({ avgRpe: 7 }))).toBe('mantener');
+  });
+
+  it('baja si el esfuerzo fue excesivo', () => {
+    expect(decideProgression(resumen({ avgRpe: RPE_HARD }))).toBe('bajar');
+  });
+
+  it('una molestia manda sobre cualquier RPE', () => {
+    // Sin esta precedencia, quien completo la semana "facil" pero con dolor de
+    // hombro recibiria MAS carga sobre la zona que le duele.
+    expect(decideProgression(resumen({ avgRpe: 2, issues: ['dolor: hombro'] }))).toBe('bajar');
+  });
+
+  it('no completar la semana manda sobre haberla encontrado facil', () => {
+    expect(decideProgression(resumen({ total: 5, completed: 2, avgRpe: 3 }))).toBe('repetir');
+  });
+
+  it('sin RPE registrado no hay con que decidir: mantiene', () => {
+    expect(decideProgression(resumen({ avgRpe: null }))).toBe('mantener');
+  });
+
+  it('una semana vacia no se marca como incompleta', () => {
+    // `completed < ceil(0/2)` es `0 < 0`: falso. Sin el guarda de `total > 0`
+    // un plan sin dias entraria en "repetir".
+    expect(decideProgression(resumen({ total: 0, completed: 0, avgRpe: null }))).toBe('mantener');
+  });
+});
+
+describe('progressionBrief', () => {
+  it('le dice al modelo que paso y que hacer', () => {
+    const texto = progressionBrief(resumen({ completed: 3, total: 5, avgRpe: 9, issues: ['dolor: hombro'] }));
+    expect(texto).toContain('3 de 5');
+    expect(texto).toContain('9/10');
+    expect(texto).toContain('hombro');
+    expect(texto).toContain('DECISIÓN');
+  });
+
+  it('dice "sin registrar" en vez de inventarse un cero', () => {
+    expect(progressionBrief(resumen({ avgRpe: null }))).toContain('sin registrar');
+  });
+});
+
+// ============================================================
 // GUARDAS ESTATICAS
 // ============================================================
 
@@ -131,6 +256,16 @@ const session = stripComments(read('app/components/student/modules/training/comp
 describe('el plan se valida antes de guardarlo y al releerlo', () => {
   it('generateWeeklyPlan normaliza lo que devuelve el modelo', () => {
     expect(training).toContain('normalizePlan(parseAIJson');
+  });
+
+  it('generateNextWeek cierra la semana anterior filtrando por usuario', () => {
+    // Sin el `.eq('user_id')`, un id de plan ajeno cerraria la semana de otro.
+    const cuerpo = training.slice(
+      training.indexOf('export async function generateNextWeek'),
+      training.indexOf('export async function getPhysicalProfile'),
+    );
+    expect(cuerpo).toMatch(/status: 'completed'[\s\S]*?\.eq\('user_id', userId\)/);
+    expect(cuerpo).toContain('progressionBrief');
   });
 
   it('getActiveTrainingPlan normaliza lo que lee de la BD', () => {

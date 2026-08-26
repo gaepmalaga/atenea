@@ -330,11 +330,37 @@ podía votar ni reportar, y se guardaba en `test_results` con `question_id` null
 **Cerrado** junto con §2.1: si el hash choca, se recupera la fila existente y la pregunta
 llega a la UI con su id real. Si además está descartada, ya no se sirve.
 
-### 2.11 · MEDIO — El log de entrenamiento no se persiste
+### 2.11 · MEDIO — El log de entrenamiento no se persiste en tabla propia
 
 `completeTrainingDay` recibía `logData` y lo ignoraba por completo: solo marcaba
-`isCompleted`. Las series, repeticiones y sensaciones que introduce el usuario se pierden al
-recargar. *(La firma ya está corregida y documentada; falta la tabla de destino.)*
+`isCompleted`. Las series, repeticiones y sensaciones que introduce el usuario se perdían al
+recargar. **Corregido:** el log se guarda dentro del JSON del plan, y de ahí lo lee
+`summarizeWeek` para generar la semana siguiente. Falta una tabla consultable si algún día
+se quiere comparar la progresión entre meses sin recorrer todos los planes.
+
+### 2.11b · ~~MEDIO~~ ✅ CERRADO — La semana siguiente del plan físico no existía
+
+`handleGenerateNextWeek` era un `alert("Procesando tus métricas…")` que no hacía nada, y el
+botón decía "GENERAR SEMANA 2" para siempre. El alumno terminaba su semana y se quedaba ahí.
+
+**Cerrado sin necesidad de tabla nueva:** el registro de cada día ya vive dentro del JSON del
+plan. `summarizeWeek` lo resume (días completados, esfuerzo medio, molestias, anotaciones) y
+`decideProgression` decide **en código** si la semana siguiente sube, mantiene, baja o se
+repite; el modelo solo redacta.
+
+El orden de las reglas es lo que importa: una molestia declarada manda sobre cualquier RPE, y
+no haber terminado la semana manda sobre haberla encontrado fácil. Sin esa precedencia, un
+alumno que completó dos de cinco días *"porque le dolía el hombro"* recibiría **más carga**
+sobre la zona que le duele.
+
+Tres detalles que salieron al escribirlo:
+- La media de esfuerzo cuenta **solo los días que traen dato**. Contar como 0 los que no lo
+  traen la hunde, y la semana siguiente sale más fácil de lo que toca.
+- La semana anterior se cierra **antes** de insertar la nueva y filtrando por `user_id`: al
+  revés quedarían dos planes activos y `getActiveTrainingPlan` elegiría uno en silencio.
+- `Object.entries('texto')` enumera los **caracteres** de la cadena. Un `feedback` corrupto
+  generaba una anotación por letra, y eso acababa dentro del prompt. Lo encontró su propio
+  test.
 
 ### 2.12 · ~~MEDIO~~ ✅ CERRADO — Variedad nula en las flashcards
 

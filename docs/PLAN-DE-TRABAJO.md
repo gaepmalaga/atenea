@@ -345,7 +345,23 @@ Ahora que los datos son fiables, que sirvan para algo.
 - **Tabla propia para el log de entrenamiento §2.11.** `completeTrainingDay` ya guarda el
   log dentro del JSON del plan (antes lo recibía y lo tiraba), pero para comparar la
   progresión entre semanas hace falta una tabla consultable.
-- **Semana 2 del plan físico.** `handleGenerateNextWeek` es hoy un `alert()`.
+- [x] **Semana siguiente del plan físico.** Era un `alert("Procesando tus métricas…")` que
+      no hacía nada, y el botón decía "GENERAR SEMANA 2" para siempre. **No hacía falta la
+      tabla nueva:** el registro de cada día ya vive dentro del JSON del plan, que es donde
+      lo deja `completeTrainingDay`.
+
+      Lo que decide la progresión es código, no el prompt (`decideProgression`): el modelo
+      solo redacta. **El orden de las reglas importa**: una molestia declarada manda sobre
+      cualquier RPE, y no haber terminado la semana manda sobre haberla encontrado fácil —
+      sin esa precedencia, quien completó dos de cinco días "porque le dolía el hombro"
+      recibiría *más* carga sobre la zona que le duele. La media de esfuerzo cuenta solo
+      los días que traen dato: contar como 0 los que no lo traen la hunde.
+
+      `generateNextWeek` cierra la semana anterior **antes** de insertar la nueva y
+      filtrando por `user_id`: al revés quedarían dos planes activos y
+      `getActiveTrainingPlan` elegiría uno en silencio. Y un fallo que encontró su propio
+      test: `Object.entries('texto')` enumera los **caracteres** de la cadena, así que un
+      `feedback` corrupto generaba una anotación por letra dentro del prompt.
 - [x] **Evaluación de la entrevista.** `evaluateInterview` genera un informe estructurado
       (puntuación, veredicto, fortalezas, **contradicciones detectadas** y qué preparar) a
       partir de la transcripción, con modo JSON y esquema. Antes se presionaba al aspirante
@@ -373,9 +389,9 @@ Ahora que los datos son fiables, que sirvan para algo.
 Baja urgencia, alto efecto compuesto. Se puede ir haciendo en paralelo.
 
 - **Los `any` que quedan.** No es cosmética: son la razón de que §2.3 y §2.7 pasaran
-  inadvertidos. El módulo de entrenamiento se tipó entero en la 2.7 (74 → 51 errores de
-  lint). Para el resto, empezar por tipar las filas de la base de datos
-  (`supabase gen types typescript`).
+  inadvertidos. El módulo de entrenamiento está ya **limpio de lint entero** (74 → 50
+  errores en el repositorio). Para el resto, empezar por tipar las filas de la base de
+  datos (`supabase gen types typescript`).
 - Las 41 variables sin usar y los 12 `react/no-unescaped-entities`.
 - Las 11 dependencias de efectos incompletas. (Las mutaciones de estado de §2.9 se
   cerraron en la fase 2.3, dentro de `ActiveTest`.)
@@ -386,9 +402,16 @@ Baja urgencia, alto efecto compuesto. Se puede ir haciendo en paralelo.
       deriva de marcas de reloj. `playBeep('milestone')` estaba en el tipo y no tenía rama:
       pedirlo no hacía nada.
 - [x] Borrados `VipButton.tsx` / `VipCard.tsx` (vacíos y huérfanos).
-- Sustituir los `alert()` / `confirm()` por componentes de UI propios.
-- Reescribir el `README.md` (sigue siendo el de `create-next-app`).
-- CI en GitHub Actions: `typecheck` + `lint` + `test` en cada push.
+- Sustituir los `alert()` / `confirm()` que quedan por componentes de UI propios. Los del
+  entrenador físico ya son estado de React, con el error pintado en la propia pantalla;
+  quedan los del panel de administración y los de biodata.
+- [x] **`README.md` reescrito.** Era el de `create-next-app`: no decía ni qué es el
+      proyecto. Ahora explica el arranque, las cuatro variables obligatorias, el mapa del
+      código, las dos clases de test y lo que sigue bloqueado por la consola de Supabase.
+- [x] **CI en GitHub Actions** (`.github/workflows/check.yml`): `npm run check` en cada
+      push, más `lint` informativo. Las guardas estáticas solo sirven si corren solas.
+      El `build` queda fuera a propósito: `core.ts` construye los clientes al importarse,
+      así que el prerender exige las cuatro variables reales.
 - [x] Fisher-Yates en lugar de `sort(() => Math.random() - 0.5)`, con test de reparto.
 
 ---
