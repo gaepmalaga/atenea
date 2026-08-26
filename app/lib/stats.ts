@@ -13,6 +13,18 @@ export type TestResultRow = {
   topic?: string | null;
 };
 
+/**
+ * Una fila del registro de actividad del panel de administracion.
+ *
+ * Es `TestResultRow` con lo que identifica la fila. El componente la tipaba
+ * como `any[]` y pintaba `log.question_text`, que la tabla no guarda: siempre
+ * salia "Pregunta sin texto" y nadie se entero, porque `any` no se queja.
+ */
+export type ActivityRow = TestResultRow & {
+  id?: string | null;
+  user_id?: string | null;
+};
+
 export const ERROR_TYPES = ['olvido', 'trampa', 'desconocimiento', 'fallo_procesamiento'] as const;
 export type ErrorType = (typeof ERROR_TYPES)[number];
 

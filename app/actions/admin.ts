@@ -5,6 +5,7 @@ import { cleanLegalText, chunkLegalText } from '../lib/text';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
+import type { ActivityRow } from '../lib/stats';
 
 // --- TIPOS DEL TEMARIO ---
 // Reflejan la forma que devuelve el `select` anidado de Supabase.
@@ -242,8 +243,31 @@ export async function getGlobalActivity() {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
-    const { data } = await supabase.from('question_attempts').select('*').order('created_at', {ascending:false}).limit(20);
-    return { success: true as const, activity: data || [] };
+    // El enunciado NO esta en la tabla: se trae por join, igual que en
+    // `getUserStats`. Antes se pedia `select('*')` y el panel pintaba
+    // `log.question_text` sin que existiera, asi que siempre decia "Pregunta
+    // sin texto". El join resuelve porque la FK question_id -> question_bank
+    // quedo declarada en la fase 2.8.
+    const { data, error } = await supabase
+      .from('question_attempts')
+      .select('*, question:question_bank(question_text)')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('getGlobalActivity:', error.message);
+      return { success: false as const, error: 'No se pudo cargar la actividad.' };
+    }
+
+    // Se aplana a la clave que espera la UI, como hace `getUserStats`.
+    const activity: ActivityRow[] = (data ?? []).map((fila) => {
+      const { question, ...resto } = fila as Record<string, unknown> & {
+        question?: { question_text?: string | null } | null;
+      };
+      return { ...resto, question_text: question?.question_text ?? null } as ActivityRow;
+    });
+
+    return { success: true as const, activity };
 }
 
 // --- GESTIÓN DEL BANCO (VISOR OPTIMIZADO) ---

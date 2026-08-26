@@ -1,25 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Activity, Layers, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { getGlobalActivity } from '@/actions';
+import type { ActivityRow } from '@/app/lib/stats';
 
 export default function AdminActivity() {
-  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Sin `setLoading(true)` aqui dentro: `loading` ya arranca en true, y un
+  // setState sincrono dentro de un efecto dispara un render en cascada. Los
+  // dos que quedan van DESPUES del await, que es lo correcto.
+  //
+  // `useCallback` y no una funcion suelta porque el efecto depende de ella:
+  // declarada suelta cambia de identidad en cada render.
+  const cargar = useCallback(async () => {
+    const res = await getGlobalActivity();
+    if (res.success) setActivityLog(res.activity ?? []);
+    setLoading(false);
   }, []);
 
-  async function loadData() {
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  /** El boton de recargar si vuelve a poner el indicador. */
+  function recargar() {
     setLoading(true);
-    const res = await getGlobalActivity();
-    if (res.success) {
-      setActivityLog(res.activity || []);
-    }
-    setLoading(false);
+    cargar();
   }
 
   return (
@@ -36,7 +45,7 @@ export default function AdminActivity() {
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Fallo</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Flashcard</span>
             </div>
-            <button onClick={loadData} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+            <button onClick={recargar} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
         </div>
@@ -44,7 +53,7 @@ export default function AdminActivity() {
 
       {/* Lista de Logs */}
       <div className="space-y-2">
-        {activityLog.map((log: any) => {
+        {activityLog.map((log) => {
             const isFlashcard = log.error_type === 'flashcard'; 
             const isCorrect = log.is_correct;
             const typeLabel = isFlashcard ? 'MEMORIA' : 'TEST';
