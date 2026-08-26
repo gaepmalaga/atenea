@@ -3,6 +3,7 @@
 import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { QUESTION_STATUS } from '../lib/questions';
+import { validateGeneratedQuestion } from '../lib/ai-output';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -89,15 +90,31 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
     return { success: !error, error: error?.message };
 }
 
-export async function updateQuestion(questionId: string, data: any): Promise<ModerationResult> {
+/**
+ * Edita una pregunta del banco desde el panel de administracion.
+ *
+ * El parametro era `any` y lo que llegaba se escribia tal cual. Una Server
+ * Action es un endpoint publico, asi que se valida con la MISMA funcion que la
+ * salida del modelo: una edicion a mano puede dejar un `correct_index` fuera de
+ * rango igual de bien que la IA, y el efecto es identico — el alumno estudia un
+ * dato falso sin que nada avise (regla 10). Tambien cubre opciones repetidas,
+ * vacias, y enunciados en blanco.
+ */
+export async function updateQuestion(questionId: string, data: unknown): Promise<ModerationResult> {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
+    if (!questionId) return { success: false, error: 'Falta el id de la pregunta.' };
 
+    const check = validateGeneratedQuestion(data);
+    if (!check.ok) return { success: false, error: `Edición rechazada: ${check.reason}` };
+
+    // Se escriben los valores YA normalizados, no los de entrada: es lo que
+    // recorta espacios y deja el indice como numero.
     const { error } = await supabaseAdmin.from('question_bank').update({
-        question_text: data.question_text,
-        options: data.options,
-        correct_index: data.correct_index,
-        explanation: data.explanation
+        question_text: check.value.question,
+        options: check.value.options,
+        correct_index: check.value.correctIndex,
+        explanation: check.value.explanation,
     }).eq('id', questionId);
     return { success: !error, error: error?.message };
 }

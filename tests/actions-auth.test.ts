@@ -23,7 +23,12 @@ function stripComments(src: string): string {
 
 const files = readdirSync(ACTIONS_DIR)
   .filter((f) => f.endsWith('.ts') && f !== 'index.ts' && f !== 'core.ts')
-  .map((f) => ({ name: f, src: stripComments(readFileSync(join(ACTIONS_DIR, f), 'utf-8')) }));
+  // Se normaliza CRLF: en Windows los cortes por salto de linea de los tests
+  // de mas abajo no encajarian con lo que hay en disco.
+  .map((f) => ({
+    name: f,
+    src: stripComments(readFileSync(join(ACTIONS_DIR, f), 'utf-8').replace(/\r\n/g, '\n')),
+  }));
 
 /** Extrae `nombre(params)` de cada `export async function`. */
 function exportedActions(src: string) {
@@ -109,5 +114,42 @@ describe('uso de la clave de servicio', () => {
     // supabaseAdmin salta RLS. Debe crearse en un solo punto y no replicarse.
     const otros = files.filter((f) => /createClient\(\s*SB_URL/.test(f.src)).map((f) => f.name);
     expect(otros).toEqual([]);
+  });
+});
+
+/**
+ * Ninguna Server Action acepta `any`.
+ *
+ * No es cosmetica de lint: el desajuste de nombres que dejo `response_time_ms`
+ * y `option_changes` a 0 en TODOS los examenes durante meses (fase 2.3) pudo
+ * pasar precisamente porque el parametro era `any[]`. Los dos lados compilaban
+ * tan tranquilos escribiendo campos distintos.
+ */
+describe('la frontera cliente-servidor esta tipada', () => {
+  it('ninguna accion exportada declara un parametro `any`', () => {
+    const culpables: string[] = [];
+    for (const { name, src } of files) {
+      // `: any` o `: any[]` en la lista de parametros de una funcion exportada.
+      const re = /export async function (\w+)\s*\(([^)]*)\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        if (/:\s*any\b/.test(m[2])) culpables.push(`${name}: ${m[1]}`);
+      }
+    }
+    expect(culpables).toEqual([]);
+  });
+
+  it('editar una pregunta pasa por la misma validacion que la salida del modelo', () => {
+    // Un `correct_index` fuera de rango metido a mano por un admin tiene el
+    // mismo efecto que uno inventado por la IA: el alumno estudia un dato
+    // falso. Antes `updateQuestion` recibia `any` y escribia lo que llegara.
+    const moderation = files.find((f) => f.name === 'moderation.ts')!.src;
+    const fn = moderation.slice(moderation.indexOf('export async function updateQuestion'));
+    const cuerpo = fn.slice(0, fn.indexOf('\n}\n') + 3);
+
+    expect(cuerpo).toContain('validateGeneratedQuestion');
+    // Y se escriben los valores ya normalizados, no los de entrada.
+    expect(cuerpo).toContain('check.value.correctIndex');
+    expect(cuerpo).not.toMatch(/correct_index:\s*data\./);
   });
 });
