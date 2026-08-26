@@ -389,7 +389,7 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 2.4 · Un resultado por respuesta | ✅ cerrada en código (§2.4) |
 | **2.6 · Indexado de PDFs** | ✅ **cerrada** (§2.6) |
 | 3 · Calidad de la IA + memoria del chat | ✅ cerrada (§2.12, §2.13) |
-| **4 · Repetición espaciada y analítica** | ✅ **cerrada en parte** |
+| **4 · SRS, analítica e informe de entrevista** | ✅ **cerrada en parte** |
 | **1.3 · Activar RLS** | 📄 **SQL escrito, falta ejecutarlo** |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |

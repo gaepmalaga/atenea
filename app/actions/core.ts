@@ -66,6 +66,24 @@ export const flashcardModel = genAI.getGenerativeModel({
   },
 });
 
+export const reportModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        score: { type: SchemaType.INTEGER },
+        veredicto: { type: SchemaType.STRING },
+        fortalezas: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        contradicciones: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        recomendaciones: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+      },
+      required: ["score", "veredicto", "fortalezas", "contradicciones", "recomendaciones"],
+    },
+  },
+});
+
 export const planModel = genAI.getGenerativeModel({
   model: TEXT_MODEL,
   generationConfig: { responseMimeType: "application/json" },

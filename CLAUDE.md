@@ -26,7 +26,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| **4** | **Repetición espaciada + analítica de flashcards** | ✅ **cerrada en parte** |
+| **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | 2.5, 2.7, 5 | Dificultad, perfil físico, higiene | ⬜ |
 
 ### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
@@ -58,7 +58,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~90 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~79 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -243,7 +243,21 @@ de 3 a 30 días de golpe.
 
 **"Duda" baja una caja.** Fallar vuelve a la 1, acertar sube una. Nada más.
 
-### 13 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 13 · Un `setState` no se puede leer en la línea siguiente
+
+El actualizador de `setState` **no se ejecuta de forma síncrona**. En
+`InterviewRoom` el historial se lleva además en un `historyRef` que se actualiza
+a la vez; leer el estado justo después de llamarlo devolvía el valor anterior y
+se perdían turnos de la conversación.
+
+Mismo motivo por el que el contador de cambios de opción vive en un ref
+(regla 6) y por el que el transcripción del micro se lee de `transcriptRef`.
+
+**Las capacidades del navegador no son estado de React.** El soporte de
+reconocimiento de voz se lee con `useSyncExternalStore`, no dentro de un efecto:
+así no hay render en cascada ni desajuste de hidratación.
+
+### 14 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -265,6 +279,7 @@ tests/exam-results.test.ts      contrato de resultados cliente↔servidor
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
+tests/interview.test.ts         transcripción, informe final y máquina de estados
 ```
 
 `srs.test.ts` cubre la repetición espaciada; el resto de la tabla sigue igual.

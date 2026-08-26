@@ -328,8 +328,22 @@ Ahora que los datos son fiables, que sirvan para algo.
   log dentro del JSON del plan (antes lo recibía y lo tiraba), pero para comparar la
   progresión entre semanas hace falta una tabla consultable.
 - **Semana 2 del plan físico.** `handleGenerateNextWeek` es hoy un `alert()`.
-- **Evaluación de la entrevista.** No se guarda ninguna transcripción ni se genera informe
-  final. Es el módulo con más potencial y menos cerrado.
+- [x] **Evaluación de la entrevista.** `evaluateInterview` genera un informe estructurado
+      (puntuación, veredicto, fortalezas, **contradicciones detectadas** y qué preparar) a
+      partir de la transcripción, con modo JSON y esquema. Antes se presionaba al aspirante
+      toda la sesión y al terminar no quedaba nada.
+      Se exige un mínimo de respuestas: un informe sobre una sola respuesta sería inventárselo.
+
+      De paso, tres fallos de la máquina de estados de la sala:
+      - Un navegador sin reconocimiento de voz mostraba un `alert()` y dejaba la pantalla
+        congelada en "TRIBUNAL HABLANDO" sin salida. Ahora tiene su propia pantalla, detectada
+        con `useSyncExternalStore` (es una capacidad del navegador, no estado de React).
+      - El manejador `onend` se reasignaba desde un efecto en cada cambio de transcripción; el
+        envío se decide ahora leyendo un ref, y un `onend` tardío no puede reenviar.
+      - El historial se leía del cierre y podían perderse turnos.
+
+- [ ] **Persistir la transcripción y los informes.** Hoy el informe se ve y se pierde al
+      cerrar: guardarlo necesita una tabla.
 - **Arreglar la estadística que miente.** Índice de incertidumbre (muestras distintas en
   numerador y denominador), "progreso al ascenso" (nunca llega al 100%), barra del 65%
   cableada, columnas de `AdminUsers` siempre a cero.

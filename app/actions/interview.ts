@@ -1,5 +1,14 @@
 'use server'
-import { supabaseAdmin as supabase, chatModel, smartModel } from './core';
+import { supabaseAdmin as supabase, chatModel, smartModel, reportModel } from './core';
+import { parseAIJson } from '../lib/ai-output';
+import {
+  canEvaluate,
+  formatTranscript,
+  normalizeReport,
+  trimContext,
+  MIN_TURNS_FOR_REPORT,
+  type InterviewTurn,
+} from '../lib/interview';
 import { requireUser } from '../lib/auth';
 
 export async function getBiodata() {
@@ -10,6 +19,28 @@ export async function getBiodata() {
     return { success: true as const, data: data || null };
 }
 
+/** Perfil psicometrico calculado por el cuestionario del alumno. */
+export type PsychProfile = {
+    sincerity: number;
+    stability: number;
+    normativity: number;
+    leadership: number;
+};
+
+/** Biodata tal y como la escribe `saveBiodata`. Todo opcional: se rellena a trozos. */
+export type BiodataInput = {
+    family_background?: string;
+    studies_motivation?: string;
+    work_history?: string;
+    leisure_activities?: string;
+    police_motivation?: string;
+    fears_concerns?: string;
+    strengths_weaknesses?: string;
+    legal_issues?: string;
+    psych_answers?: Record<string, number>;
+    psych_profile?: PsychProfile;
+};
+
 /** Campos que el cliente puede escribir en `profiles_biodata`. */
 const BIODATA_FIELDS = [
     'family_background', 'studies_motivation', 'work_history', 'leisure_activities',
@@ -17,7 +48,7 @@ const BIODATA_FIELDS = [
     'psych_answers', 'psych_profile',
 ] as const;
 
-export async function saveBiodata(formData: any) {
+export async function saveBiodata(formData: BiodataInput) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
 
@@ -46,8 +77,8 @@ export async function getPsychProfile() {
     return { success: true as const, data };
 }
 
-// --- LOGICA COMPLEX RESTAURADA ---
-async function generateInspectorReport(biodata: any) {
+/** Instrucciones de presion para el inspector, a partir del perfil del aspirante. */
+async function generateInspectorReport(biodata: BiodataInput | null) {
     if (!biodata) return "EL CANDIDATO NO TIENE DATOS. ACÚSALE DE FALTA DE INTERÉS.";
     const psych = biodata.psych_profile || { sincerity: 5, stability: 5, normativity: 5, leadership: 5 };
 
@@ -65,33 +96,93 @@ async function generateInspectorReport(biodata: any) {
     return result.response.text();
 }
 
-export async function processInterviewTurn(history: {role: string, text: string}[], userAudioText: string) {
+export async function processInterviewTurn(history: InterviewTurn[], userAudioText: string) {
     const auth = await requireUser();
-    if (!auth.ok) return { success: false, error: auth.error };
+    if (!auth.ok) return { success: false as const, error: auth.error };
 
     try {
         const { data: biodata } = await supabase.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
-        
+
         let inspectorStrategy = "Mantén la presión.";
         if (history.length < 2 && biodata) {
              inspectorStrategy = await generateInspectorReport(biodata);
         }
 
         const profileContext = biodata ? JSON.stringify(biodata) : "SIN DATOS.";
-        
+        const contexto = formatTranscript(trimContext(history));
+
         const systemPrompt = `
             ACTÚA COMO: Inspector Jefe del Tribunal (CNP).
             SITUACIÓN: Entrevista Oficial.
             BIODATA CANDIDATO: ${profileContext}
             ESTRATEGIA PSICOLÓGICA: ${inspectorStrategy}
-            
+
             OBJETIVO: Presionar, buscar contradicciones.
             REGLAS: Respuestas CORTAS y HABLADAS.
-            
-            HISTORIAL: ${history.slice(-4).map(h => h.text).join(' | ')}
+
+            TRANSCRIPCIÓN HASTA AHORA:
+            ${contexto || '(la entrevista acaba de empezar)'}
+
             CANDIDATO DICE: "${userAudioText}"
         `;
         const result = await chatModel.generateContent(systemPrompt);
-        return { success: true, response: result.response.text() };
-    } catch (e: any) { return { success: false, error: e.message }; }
+        return { success: true as const, response: result.response.text() };
+    } catch (e) {
+        return { success: false as const, error: e instanceof Error ? e.message : 'Error desconocido' };
+    }
+}
+
+/**
+ * Informe final de la entrevista.
+ *
+ * Es lo que le faltaba al modulo: se presionaba al aspirante durante toda la
+ * sesion y al terminar no quedaba nada. Aqui se le devuelve una lectura de su
+ * propio desempenio.
+ */
+export async function evaluateInterview(history: InterviewTurn[]) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+
+    if (!canEvaluate(history)) {
+        return {
+            success: false as const,
+            error: `Hacen falta al menos ${MIN_TURNS_FOR_REPORT} respuestas para que el informe diga algo.`,
+        };
+    }
+
+    try {
+        const transcripcion = formatTranscript(history);
+
+        const prompt = `
+            ACTÚA COMO: Psicólogo del Tribunal Calificador del CNP.
+            TAREA: Evaluar el desempeño del aspirante en esta entrevista personal.
+
+            TRANSCRIPCIÓN:
+            """
+            ${transcripcion}
+            """
+
+            CRITERIOS:
+            - Coherencia del discurso y contradicciones entre respuestas.
+            - Motivación: ¿es concreta y creíble, o son frases hechas?
+            - Autoconocimiento y reconocimiento de límites.
+            - Manejo de la presión: evasivas, respuestas vacías, nerviosismo.
+
+            NORMAS:
+            - Evalúa SOLO lo que aparece en la transcripción. Nada de suponer.
+            - 'score' de 0 a 100.
+            - Sé concreto: cita lo que dijo el aspirante en vez de generalizar.
+            - Si no detectas contradicciones, devuelve una lista vacía. No las inventes.
+            - Las recomendaciones son accionables: qué preparar antes de la entrevista real.
+        `;
+
+        const result = await reportModel.generateContent(prompt);
+        const report = normalizeReport(parseAIJson(result.response.text()));
+        if (!report) return { success: false as const, error: 'El informe no se pudo generar. Inténtalo otra vez.' };
+
+        return { success: true as const, report, transcript: transcripcion };
+    } catch (e) {
+        console.error('evaluateInterview:', e);
+        return { success: false as const, error: 'Fallo al generar el informe.' };
+    }
 }

@@ -61,10 +61,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       {/* Se monta sobre toda la interfaz cuando se activa el modo entrevista */}
       {interviewMode && (
          <div className="fixed inset-0 z-[200] bg-black animate-in fade-in duration-300">
-             <InterviewRoom 
-                 user={user} 
-                 onExit={() => setInterviewMode(false)} 
-             />
+             <InterviewRoom onExit={() => setInterviewMode(false)} />
          </div>
       )}
 
