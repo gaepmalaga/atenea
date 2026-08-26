@@ -317,15 +317,36 @@ blancas. Ese test encontró solo el desajuste que quedaba vivo.
 
 `test_results` se deja en pie a propósito: no se borra nada todavía.
 
-### 2.5 Que la dificultad sirva de algo §2.5
+### 2.5 Que la dificultad sirva de algo §2.5 ✅ HECHA (26 ago 2026)
 
-1. Añadir columna `difficulty` a `question_bank`.
-2. Que el prompt de generación reciba la dificultad (hoy está fija en "Media/Alta").
-3. Aplicar el filtro en `getQuestionsFromBank` y **quitar el comentario "PENDIENTE"** que
-   dejé en la firma.
+> **El punto 1 de este plan estaba mal.** No hacía falta añadir ninguna columna:
+> `question_bank` ya tenía `difficulty_level integer default 2`. El comentario del código
+> afirmaba lo contrario (*"no tiene todavía columna de dificultad"*) y se le creyó. Se vio
+> al volcar por fin el esquema al repositorio.
 
-Alternativa honesta si esto se pospone: ocultar el selector en la UI. Un control que no
-hace nada es peor que no tenerlo.
+Lo que faltaba no era la columna, era que alguien la escribiera y la leyera. Las 55
+preguntas del banco están en el nivel 2 porque es el valor por defecto: nadie escribió
+nunca esa columna.
+
+- [x] El prompt recibe la dificultad, con una descripción por nivel (`DIFFICULTY_BRIEF`).
+      Vive junto al número en `app/lib/questions.ts`, no dentro del prompt: separarlos es
+      como el prompt acabó pidiendo siempre "Media/Alta" mientras la UI ofrecía tres
+      opciones (regla 17).
+- [x] Las **dos** escrituras del banco guardan `difficulty_level` — la del generador en
+      vivo y la del seed masivo. Si solo lo hiciera una, medio banco se quedaría con el
+      valor por defecto.
+- [x] `toDifficultyLevel` normaliza lo que llega del cliente: sin eso se podría guardar un
+      nivel 99, que ninguna consulta encontraría después.
+- [x] Quitado el comentario "PENDIENTE".
+
+**El filtro es PREFERENTE, no excluyente, y es deliberado.** Con todo el banco en el nivel
+2, un filtro estricto dejaría "fácil" y "difícil" con **cero** preguntas y el módulo
+generaría el examen entero con IA: lento y de pago, justo lo que arregló la fase 2.1. Se
+sirven primero las del nivel pedido y se completa con el resto solo si no llegan. A medida
+que el banco se llene de preguntas etiquetadas, el relleno dejará de hacer falta solo.
+
+Pendiente menor: el panel de admin no ofrece elegir dificultad al sembrar. El parámetro ya
+está en la acción; sin pasarlo se comporta como hasta ahora.
 
 ### 2.6 Indexado de PDFs §2.6 ✅ HECHA
 
@@ -533,9 +554,8 @@ base de datos (1.5), esquema volcado al repo y resultados movidos a `question_at
    punta, que Firebase Hosting a secas no ejecuta). Hacen falta las cuatro variables de
    `.env.example` y añadir la URL resultante en Supabase → Authentication → URL
    Configuration, o el login no funcionará.
-3. **Fase 2.5** (que la dificultad sirva de algo) o **fase 1.2** (mover consultas al
-   cliente del usuario). La 1.2 ya no está bloqueada: RLS está activa, que era su
-   condición.
+3. **Fase 1.2** (mover consultas al cliente del usuario). Ya no está bloqueada: RLS está
+   activa, que era su condición.
 4. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee. Hoy
    sigue en pie y vacía.
 

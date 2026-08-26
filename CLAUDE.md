@@ -30,7 +30,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
 | **5** | **Higiene** | 🔄 **en curso** (cronómetro, barajado, huérfanos) |
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
-| 2.5 | Dificultad | ⬜ (necesita una columna nueva) |
+| **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | — | **Despliegue** | ⬜ **no hay nada en producción** |
 
 ### Lo que solo puedes hacer tú
@@ -553,10 +553,7 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    tener RLS activa, y lo está desde el 26 ago 2026. Cada consulta que se mueva al
    cliente del usuario queda cubierta desde el primer momento.
 
-4. **Fase 2.5** (que la dificultad sirva de algo). Necesita una columna nueva en
-   `question_bank`; con el esquema ya versionado, el cambio se ve en el diff.
-
-5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
+4. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
 
 **Antes de tocar cualquier tabla, mira `supabase/schema.json`.** Es el esquema real,
 volcado del proyecto. Casi todos los fallos graves de este repo han sido el código
