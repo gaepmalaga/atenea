@@ -89,7 +89,9 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
         const aiPromises = Array.from({ length: missing }).map(async () => {
           const randomTopic = newSettings.selectedTopics[Math.floor(Math.random() * newSettings.selectedTopics.length)];
           // El tema viaja con la respuesta: hace falta para etiquetar la fila.
-          return { topic: randomTopic, resultado: await generateAndSaveCandidate(randomTopic) };
+          // La dificultad tambien va al relleno por IA: si no, un examen
+          // "dificil" mezclaria preguntas del nivel pedido con otras medias.
+          return { topic: randomTopic, resultado: await generateAndSaveCandidate(randomTopic, difficultyNum) };
         });
         const aiResults = await Promise.all(aiPromises);
         // flatMap en vez de filter+map: `filter` no estrecha el tipo, así que

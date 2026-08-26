@@ -3,6 +3,10 @@ import {
   shuffle,
   indexToOptionId,
   difficultyToNumber,
+  toDifficultyLevel,
+  DIFFICULTY,
+  DIFFICULTY_BRIEF,
+  DIFFICULTY_DEFAULT,
   mapBankRowToQuestion,
   mapCandidateToQuestion,
   scoreExam,
@@ -162,6 +166,56 @@ describe('shuffle', () => {
     for (const veces of vecesEnPrimeraPosicion) {
       expect(veces).toBeGreaterThan(900);
       expect(veces).toBeLessThan(1500);
+    }
+  });
+});
+
+/**
+ * La dificultad dejo de ser decorativa (fase 2.5).
+ *
+ * La columna `difficulty_level` existia desde siempre, con `default 2`. Lo que
+ * faltaba era que alguien la escribiera y la leyera: el prompt pedia siempre
+ * "Dificultad Media/Alta" y el filtro no se aplicaba, asi que las tres opciones
+ * del selector daban exactamente el mismo examen.
+ */
+describe('dificultad de las preguntas', () => {
+  it('los tres nombres se traducen a los niveles de la columna', () => {
+    expect(difficultyToNumber('easy')).toBe(DIFFICULTY.easy);
+    expect(difficultyToNumber('medium')).toBe(DIFFICULTY.medium);
+    expect(difficultyToNumber('hard')).toBe(DIFFICULTY.hard);
+  });
+
+  it('el nivel por defecto es el mismo que el de la columna', () => {
+    // `difficulty_level integer default 2`. Si esto se separa, las preguntas
+    // anteriores dejan de encajar con lo que el codigo considera "media".
+    expect(DIFFICULTY_DEFAULT).toBe(2);
+    expect(DIFFICULTY.medium).toBe(2);
+  });
+
+  it('hay descripcion para los tres niveles, y son distintas', () => {
+    // El texto viaja al prompt. Si faltara uno, el modelo recibiria `undefined`
+    // dentro de las reglas y generaria con un criterio cualquiera.
+    const textos = [1, 2, 3].map((n) => DIFFICULTY_BRIEF[n as 1 | 2 | 3]);
+    for (const t of textos) {
+      expect(typeof t).toBe('string');
+      expect(t.length).toBeGreaterThan(20);
+    }
+    expect(new Set(textos).size).toBe(3);
+  });
+
+  it('toDifficultyLevel acepta los tres niveles validos', () => {
+    expect(toDifficultyLevel(1)).toBe(1);
+    expect(toDifficultyLevel(2)).toBe(2);
+    expect(toDifficultyLevel(3)).toBe(3);
+    // Una Server Action es un endpoint publico: llega texto, no numeros.
+    expect(toDifficultyLevel('3')).toBe(3);
+  });
+
+  it('cualquier otra cosa cae al nivel por defecto, nunca a NaN ni fuera de rango', () => {
+    // Un `difficulty_level` fuera de 1-3 se guardaria igual (la columna es un
+    // integer suelto) y ninguna consulta lo encontraria despues.
+    for (const basura of [0, 4, -1, 99, null, undefined, '', 'dificil', NaN, {}, []]) {
+      expect(toDifficultyLevel(basura), String(basura)).toBe(DIFFICULTY_DEFAULT);
     }
   });
 });

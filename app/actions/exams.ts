@@ -4,7 +4,17 @@ import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjec
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
-import { QUESTION_STATUS, indexToOptionId, shuffle, type QuestionStatus } from '../lib/questions';
+import {
+  QUESTION_STATUS,
+  indexToOptionId,
+  shuffle,
+  toDifficultyLevel,
+  DIFFICULTY_BRIEF,
+  DIFFICULTY_DEFAULT,
+  type QuestionStatus,
+  type DifficultyLevel,
+  type BankRow,
+} from '../lib/questions';
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 
 // ==========================================
@@ -27,7 +37,14 @@ type SavedQuestion = { id: string; subject_id: number; status: string } | null;
 // Helper interno. NO se exporta como Server Action: era un endpoint publico
 // que llamaba a Gemini sin ninguna comprobacion. Sus dos consumidores
 // (`generateAndSaveCandidate` y `seedQuestionBank`) ya validan la sesion.
-async function generateTestQuestion(subjectId: number) {
+/**
+ * Genera UNA pregunta con la dificultad pedida.
+ *
+ * `nivel` no es decorativo: viaja al prompt y se guarda en la fila. Antes el
+ * prompt decia siempre "Dificultad Media/Alta" y la columna se quedaba con su
+ * valor por defecto, asi que las tres opciones de la interfaz daban lo mismo.
+ */
+async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = DIFFICULTY_DEFAULT) {
   try {
     if (!subjectId) return { success: false, error: "ID de tema inválido." };
 
@@ -57,7 +74,7 @@ async function generateTestQuestion(subjectId: number) {
 
       REGLAS:
       1. Exactamente 3 opciones, y solo UNA correcta.
-      2. Dificultad Media/Alta: detalles, plazos, excepciones.
+      2. Dificultad: ${DIFFICULTY_BRIEF[nivel]}
       3. Las tres opciones deben ser distintas y plausibles.
       4. 'correctIndex' es la posición de la opción correcta: 0, 1 o 2.
       5. 'explanation' justifica la respuesta citando el texto.
@@ -109,7 +126,7 @@ function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
   };
 }
 
-export async function generateAndSaveCandidate(topicNameOrId: string | number) {
+export async function generateAndSaveCandidate(topicNameOrId: string | number, difficulty?: number) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
@@ -126,7 +143,9 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
     }
 
     // B. Generar Pregunta
-    const genResult = await generateTestQuestion(subjectId);
+    // `toDifficultyLevel` normaliza lo que llegue: es un endpoint publico.
+    const nivel = toDifficultyLevel(difficulty);
+    const genResult = await generateTestQuestion(subjectId, nivel);
     // Se construye la respuesta de error en vez de reenviar `genResult`: aquel
     // no traía `id`, así que el tipo de retorno era una unión que la UI no podía
     // consumir sin comprobaciones.
@@ -160,6 +179,7 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
           correct_index: qData.correctIndex,
           explanation: qData.explanation,
           question_hash: qHash,
+          difficulty_level: nivel,
           status: QUESTION_STATUS.CANDIDATE,
           origin: 'live_ai',
           created_at: new Date().toISOString()
@@ -224,6 +244,8 @@ export async function seedQuestionBank(params: {
   topic: string;
   count: number;
   concurrency?: number;
+  /** 1 facil, 2 media, 3 alta. Por defecto media, que es el valor de la columna. */
+  difficulty?: number;
   /**
    * Publicar directamente en el banco (estado 'active') en vez de mandarlo a
    * moderacion. Por defecto si: sembrar es un acto deliberado del admin sobre
@@ -250,9 +272,11 @@ export async function seedQuestionBank(params: {
 
   console.log(`🚀 Generando ${count} preguntas para Subject ${subjectId}...`);
 
+  const nivel = toDifficultyLevel(params.difficulty);
+
   const worker = async () => {
     for (let i = 0; i < 3; i++) {
-        const res = await generateTestQuestion(subjectId);
+        const res = await generateTestQuestion(subjectId, nivel);
         if (res.success && res.data) return { ok: true, data: res.data };
         await new Promise(r => setTimeout(r, 500));
     }
@@ -286,6 +310,7 @@ export async function seedQuestionBank(params: {
           correct_index: d.correctIndex,
           explanation: d.explanation,
           question_hash: qHash,
+          difficulty_level: nivel,
           status,
           origin: 'bank_seed',
           created_at: new Date().toISOString()
@@ -312,10 +337,8 @@ export async function getQuestionsFromBank(params: {
   limit: number;
   userId?: string;
   /**
-   * PENDIENTE (ver PLAN, Fase 4): la UI ya envía la dificultad elegida por el
-   * alumno, pero `question_bank` no tiene todavía columna de dificultad, así
-   * que el filtro NO se aplica. Se acepta el parámetro para que el contrato
-   * sea explícito en vez de fallar en tiempo de compilación.
+   * 1 facil, 2 media, 3 alta. Se aplica de forma PREFERENTE, no excluyente:
+   * ver abajo.
    */
   difficulty?: number;
 }) {
@@ -330,17 +353,41 @@ export async function getQuestionsFromBank(params: {
   
   if (ids.length === 0) return { success: false as const, error: "Sin temas" };
 
-  const { data, error } = await supabase
-    .from('question_bank')
-    .select('*')
-    .in('subject_id', ids)
-    .eq('status', QUESTION_STATUS.ACTIVE) 
-    .limit(params.limit * 3); 
+  // La dificultad es PREFERENTE, no excluyente, y es una decision deliberada:
+  // hoy las 55 preguntas del banco tienen el nivel 2 por defecto, asi que un
+  // filtro estricto dejaria "facil" y "dificil" con CERO preguntas. El modulo
+  // caeria en generar el examen entero con IA — lento y de pago, justo lo que
+  // la fase 2.1 arreglo. Se sirven primero las del nivel pedido y se completa
+  // con el resto solo si no llegan.
+  const consulta = () =>
+    supabase
+      .from('question_bank')
+      .select('*')
+      .in('subject_id', ids)
+      .eq('status', QUESTION_STATUS.ACTIVE);
 
-  if (error) return { success: false as const, error: error.message };
+  const nivel = params.difficulty ? toDifficultyLevel(params.difficulty) : null;
 
-  const shuffled = shuffle(data || []).slice(0, params.limit);
-  return { success: true as const, data: shuffled };
+  let elegidas: BankRow[] = [];
+  if (nivel) {
+    const preferentes = await consulta()
+      .eq('difficulty_level', nivel)
+      .limit(params.limit * 3);
+    if (preferentes.error) return { success: false as const, error: preferentes.error.message };
+    elegidas = shuffle(preferentes.data ?? []).slice(0, params.limit);
+  }
+
+  if (elegidas.length < params.limit) {
+    const resto = await consulta().limit(params.limit * 3);
+    if (resto.error) return { success: false as const, error: resto.error.message };
+
+    // Sin el Set se repetirian las que ya entraron por el nivel pedido.
+    const yaEstan = new Set(elegidas.map((q) => q.id));
+    const relleno = shuffle((resto.data ?? []).filter((q: BankRow) => !yaEstan.has(q.id)));
+    elegidas = [...elegidas, ...relleno.slice(0, params.limit - elegidas.length)];
+  }
+
+  return { success: true as const, data: elegidas };
 }
 
 /**

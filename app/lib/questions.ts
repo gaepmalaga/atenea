@@ -57,11 +57,44 @@ export function indexToOptionId(index: number): string {
   return OPTION_IDS[index] ?? OPTION_IDS[OPTION_IDS.length - 1];
 }
 
-export function difficultyToNumber(d: 'easy' | 'medium' | 'hard'): number {
-  if (d === 'easy') return 1;
-  if (d === 'hard') return 3;
-  return 2;
+/**
+ * Dificultad de una pregunta, tal y como la guarda `question_bank`.
+ *
+ * La columna es `difficulty_level integer default 2`. Existia desde siempre;
+ * lo que faltaba era que alguien la escribiera y la leyera: el generador nunca
+ * la mandaba y el filtro nunca se aplicaba, asi que el selector de la interfaz
+ * no hacia absolutamente nada.
+ */
+export const DIFFICULTY = { easy: 1, medium: 2, hard: 3 } as const;
+
+export type DifficultyName = keyof typeof DIFFICULTY;
+export type DifficultyLevel = (typeof DIFFICULTY)[DifficultyName];
+
+/** El valor por defecto de la columna. Lo que tienen las preguntas anteriores. */
+export const DIFFICULTY_DEFAULT: DifficultyLevel = DIFFICULTY.medium;
+
+export function difficultyToNumber(d: DifficultyName): DifficultyLevel {
+  return DIFFICULTY[d] ?? DIFFICULTY_DEFAULT;
 }
+
+/** Un nivel valido, o el de por defecto. Protege de lo que llegue del cliente. */
+export function toDifficultyLevel(valor: unknown): DifficultyLevel {
+  const n = Number(valor);
+  return ([1, 2, 3] as number[]).includes(n) ? (n as DifficultyLevel) : DIFFICULTY_DEFAULT;
+}
+
+/**
+ * Lo que se le pide al modelo para cada nivel.
+ *
+ * Vive aqui, junto al numero, y no dentro del prompt: separarlos es como el
+ * prompt acabo pidiendo siempre "Dificultad Media/Alta" mientras la interfaz
+ * ofrecia tres opciones (regla 17).
+ */
+export const DIFFICULTY_BRIEF: Record<DifficultyLevel, string> = {
+  1: 'Asequible: el dato principal del articulo, redactado sin rodeos. Quien se ha leido el tema una vez debe acertarla.',
+  2: 'Media: detalles, plazos y excepciones. Exige haber estudiado el tema, no solo leido.',
+  3: 'Alta: matices finos, supuestos limite y distinciones entre articulos parecidos. Las tres opciones deben ser defendibles a primera vista.',
+};
 
 /**
  * Fila de `question_bank` tal y como llega de Supabase.

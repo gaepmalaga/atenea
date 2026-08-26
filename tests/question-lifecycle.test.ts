@@ -112,3 +112,58 @@ describe('destino del seed', () => {
     expect(fn).toContain('inserted, duplicated, failed');
   });
 });
+
+/**
+ * La dificultad tiene que llegar hasta la base de datos (fase 2.5).
+ *
+ * El fallo original no fue que faltara la columna —existia, con `default 2`—
+ * sino que nadie la escribia ni la leia. El selector de la interfaz ofrecia
+ * tres opciones y las tres daban el mismo examen.
+ */
+describe('la dificultad no se queda por el camino', () => {
+  const exams = readFileSync(join(__dirname, '..', 'app', 'actions', 'exams.ts'), 'utf-8')
+    .replace(/\r\n/g, '\n');
+  const src = stripComments(exams);
+
+  it('ya no queda el PENDIENTE que decia que la columna no existia', () => {
+    // Decia: "`question_bank` no tiene todavia columna de dificultad". Era falso.
+    expect(exams).not.toContain('PENDIENTE (ver PLAN, Fase 4)');
+    expect(exams).not.toContain('no tiene todavía columna de dificultad');
+  });
+
+  it('las dos escrituras del banco guardan difficulty_level', () => {
+    // Una por el generador en vivo y otra por el seed masivo. Si solo una lo
+    // guardara, medio banco quedaria con el valor por defecto.
+    const escrituras = [...src.matchAll(/question_hash:\s*qHash,/g)];
+    expect(escrituras.length, 'se esperaban dos escrituras sobre question_bank').toBe(2);
+
+    for (const m of escrituras) {
+      const bloque = src.slice(m.index!, m.index! + 200);
+      expect(bloque, 'falta difficulty_level en una de las escrituras').toContain('difficulty_level');
+    }
+  });
+
+  it('el prompt recibe la descripcion del nivel, no un texto fijo', () => {
+    expect(src).toContain('DIFFICULTY_BRIEF[nivel]');
+    expect(src).not.toContain('Dificultad Media/Alta');
+  });
+
+  it('lo que llega del cliente se normaliza antes de tocar la BD', () => {
+    // Una Server Action es un endpoint publico: sin esto se podria guardar un
+    // difficulty_level de 99, que ninguna consulta encontraria despues.
+    expect(src).toContain('toDifficultyLevel');
+  });
+
+  it('el filtro de dificultad es preferente, no excluyente', () => {
+    // Con filtro estricto, "facil" y "dificil" devolverian CERO preguntas: hoy
+    // todo el banco esta en el nivel 2. El examen se generaria entero con IA.
+    const fn = src.slice(src.indexOf('export async function getQuestionsFromBank'));
+    const cuerpo = fn.slice(0, fn.indexOf('\n}\n') + 3);
+
+    expect(cuerpo).toContain("eq('difficulty_level'");
+    // La segunda consulta, la de relleno, NO filtra por dificultad.
+    const consultas = [...cuerpo.matchAll(/consulta\(\)/g)];
+    expect(consultas.length, 'se esperaban dos consultas: preferente y relleno').toBeGreaterThanOrEqual(2);
+    expect(cuerpo, 'el relleno debe deduplicar contra las ya elegidas').toContain('yaEstan');
+  });
+});
