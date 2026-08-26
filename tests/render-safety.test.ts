@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 /**
  * Guardas estaticas sobre el render.
@@ -20,10 +20,15 @@ function walk(dir: string): string[] {
   });
 }
 
-const files = walk(COMPONENTS).map((path) => ({
-  name: path.slice(path.indexOf('app/components')),
-  src: readFileSync(path, 'utf-8'),
-}));
+const files = walk(COMPONENTS).map((path) => {
+  // En Windows `join` separa con la barra invertida, asi que buscar la ruta
+  // en forma POSIX daba -1. Normalizamos para no depender del sistema.
+  const norm = path.split(sep).join('/');
+  return {
+    name: norm.slice(norm.indexOf('app/components')),
+    src: readFileSync(path, 'utf-8').replace(/\r\n/g, '\n'),
+  };
+});
 
 describe('llamadas a metodos sobre datos de la BD', () => {
   it('ningun componente llama a .replace() sobre un campo sin proteger', () => {

@@ -11,7 +11,10 @@ import { join } from 'node:path';
  * permanente y las estadisticas del alumno mentian.
  */
 
-const read = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf-8');
+// Normalizamos CRLF: en Windows los cortes por salto de linea de mas abajo
+// no encajarian con lo que hay en disco.
+const read = (rel: string) =>
+  readFileSync(join(__dirname, '..', rel), 'utf-8').replace(/\r\n/g, '\n');
 const stripComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
