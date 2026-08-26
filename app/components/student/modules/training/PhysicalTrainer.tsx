@@ -16,21 +16,29 @@ import AssessmentHub from './components/AssessmentHub';
 import TestRunner from './components/TestRunner';
 import TrainingDashboard from './components/TrainingDashboard';
 import ActiveSession from './components/ActiveSession';
+import { hasBiometrics, type BaselineMetrics, type PhysicalProfile, type TestId } from '@/app/lib/physical';
+import type { TrainingDay, WeeklyPlan } from '@/app/lib/training-plan';
+import type { TrainingDayLog } from '@/actions';
 
-interface PhysicalTrainerProps { user: any; }
+interface PhysicalTrainerProps { user: { id: string } }
 
 export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // ESTADOS PRINCIPALES
   const [view, setView] = useState('loading'); // 'loading' | 'setup' | 'hub' | 'runner' | 'dashboard' | 'session'
-  const [profile, setProfile] = useState<any>(null);
-  const [activeTestId, setActiveTestId] = useState<any>(null);
+  const [profile, setProfile] = useState<PhysicalProfile | null>(null);
+  const [activeTestId, setActiveTestId] = useState<TestId>('force');
+
+  // Guardado: sin esto la pantalla avanzaba pasara lo que pasara, y el alumno
+  // se quedaba convencido de que sus datos estaban en el servidor.
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   // ESTADOS DEL PLAN
-  const [weeklyPlan, setWeeklyPlan] = useState<any>(null);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null); // ID real de la base de datos para guardar progresos
 
   // ESTADOS DE SESIÓN ACTIVA
-  const [activeDay, setActiveDay] = useState<any>(null);
+  const [activeDay, setActiveDay] = useState<TrainingDay | null>(null);
   const [isReporting, setIsReporting] = useState(false); // Controla si abrimos directo en modo reporte
 
   // --- 1. CARGA INICIAL DE DATOS ---
@@ -48,7 +56,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             setProfile(profileData || {});
 
             // Lógica de Redirección Inteligente
-            if (!profileData?.height) {
+            if (!hasBiometrics(profileData)) {
                 // Si no hay datos biométricos, vamos al Setup
                 setView('setup');
             } else if (activePlanRow) {
@@ -69,28 +77,49 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   }, [user.id]);
 
   // --- 2. GESTORES DE PERFIL Y TESTS ---
-  const handleSaveBio = async (data: any) => {
-      await savePhysicalProfile(data);
-      setProfile({ ...profile, ...data });
+  /**
+   * Guarda y solo entonces avanza. Devuelve si fue bien, por si quien llama
+   * necesita saberlo.
+   */
+  const persist = async (payload: PhysicalProfile): Promise<boolean> => {
+      setSaving(true);
+      setSaveError(null);
+      const res = await savePhysicalProfile(payload);
+      setSaving(false);
+
+      if (!res.success) {
+          setSaveError(res.error || 'Error desconocido al guardar.');
+          return false;
+      }
+      setProfile(prev => ({ ...prev, ...payload }));
       setView('hub');
+      return true;
   };
 
-  const handleSaveTest = async (testData: any) => {
-      const newMetrics = { ...profile.baseline_metrics, ...testData };
-      const payload = { baseline_metrics: newMetrics };
-      await savePhysicalProfile(payload);
-      setProfile({ ...profile, ...payload });
-      setView('hub');
-  };
+  const handleSaveBio = (data: PhysicalProfile) => persist(data);
+
+  const handleSaveTest = (testData: BaselineMetrics) =>
+      persist({ baseline_metrics: { ...profile?.baseline_metrics, ...testData } });
 
   // --- 3. GENERADOR DE PLANES ---
+  const [generating, setGenerating] = useState(false);
+
   const handleGenerate = async () => {
+      if (!profile) return;
+      setGenerating(true);
+      setSaveError(null);
       const res = await generateWeeklyPlan(profile);
-      if (res.success) {
-          setWeeklyPlan(res.plan.plan_data);
-          setActivePlanId(res.plan.id); // Guardamos el nuevo ID generado
-          setView('dashboard');
+      setGenerating(false);
+
+      // El fallo de la IA se pinta: antes se descartaba en silencio y el boton
+      // simplemente no hacia nada.
+      if (!res.success || !res.plan) {
+          setSaveError(res.error || 'No se pudo generar el plan.');
+          return;
       }
+      setWeeklyPlan(res.plan.plan_data);
+      setActivePlanId(res.plan.id); // Guardamos el nuevo ID generado
+      setView('dashboard');
   };
 
   const handleGenerateNextWeek = async () => {
@@ -102,25 +131,25 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   
   // --- 4. GESTIÓN DE SESIÓN (START / REPORT) ---
   
-  const handleStartSession = (day: any) => {
+  const handleStartSession = (day: TrainingDay) => {
       setActiveDay(day);
       setIsReporting(false); // Modo normal (ver ejercicios)
       setView('session');
   };
 
-  const handleReportIssue = (day: any) => {
+  const handleReportIssue = (day: TrainingDay) => {
       setActiveDay(day);
       setIsReporting(true); // Modo reporte directo (pantalla roja)
       setView('session');
   };
 
   // --- 5. COMPLETAR SESIÓN (PERSISTENCIA Y UI) ---
-  const handleCompleteSession = async (logData: any) => {
+  const handleCompleteSession = async (logData: TrainingDayLog) => {
       if (!weeklyPlan || !activeDay) return;
 
       // A) ACTUALIZACIÓN OPTIMISTA (UI)
       // Buscamos el índice del día en el array para marcarlo como completado localmente
-      const dayIndex = weeklyPlan.days.findIndex((d: any) => d.day === activeDay.day);
+      const dayIndex = weeklyPlan.days.findIndex((d) => d.day === activeDay.day);
       
       if (dayIndex !== -1) {
           // Creamos una copia profunda del plan para no mutar estado directamente
@@ -150,8 +179,14 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   };
 
   // --- 6. ROUTER DE VISTAS ---
+
+  // El tipo saca a la luz un camino real: sin dia activo, `ActiveSession` leia
+  // `day.title` y `day.exercises.map` sobre null y dejaba la pantalla en blanco.
+  // Se DERIVA la vista en vez de corregirla con un setState (regla 14).
+  const currentView = view === 'session' && !activeDay ? 'dashboard' : view;
+
   
-  if (view === 'loading') {
+  if (currentView === 'loading') {
       return (
           <div className="h-96 w-full flex flex-col items-center justify-center gap-4 animate-pulse">
               <Loader2 className="animate-spin text-emerald-500 w-12 h-12"/>
@@ -160,33 +195,37 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
       );
   }
 
-  if (view === 'setup') {
-      return <SetupWizard initialData={profile} onSave={handleSaveBio} />;
+  if (currentView === 'setup') {
+      return <SetupWizard initialData={profile} onSave={handleSaveBio} saving={saving} error={saveError} />;
   }
 
-  if (view === 'hub') {
+  if (currentView === 'hub') {
       return (
           <AssessmentHub 
             profile={profile} 
-            onSelectTest={(id) => { setActiveTestId(id); setView('runner'); }} 
+            onSelectTest={(id) => { setSaveError(null); setActiveTestId(id); setView('runner'); }} 
             onGenerate={handleGenerate} 
-            onEditBio={() => setView('setup')} 
+            generating={generating}
+            error={saveError}
+            onEditBio={() => { setSaveError(null); setView('setup'); }} 
           />
       );
   }
 
-  if (view === 'runner') {
+  if (currentView === 'runner') {
       return (
           <TestRunner 
             testId={activeTestId} 
             initialData={profile?.baseline_metrics} 
             onSave={handleSaveTest} 
-            onExit={() => setView('hub')} 
+            onExit={() => { setSaveError(null); setView('hub'); }} 
+            saving={saving}
+            error={saveError}
           />
       );
   }
   
-  if (view === 'dashboard') {
+  if (currentView === 'dashboard') {
       return (
           <TrainingDashboard 
             plan={weeklyPlan} 
@@ -198,7 +237,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
       );
   }
 
-  if (view === 'session') {
+  if (currentView === 'session' && activeDay) {
       return (
           <ActiveSession 
             day={activeDay} 

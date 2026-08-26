@@ -150,30 +150,13 @@ export function progressToNextRank(winRate: number): number {
 // PERFIL FISICO
 // ============================================================
 
-export type PhysicalProfile = {
-  baseline_metrics?: { pullups_score?: number | string | null; pullups?: number | string | null } | null;
-  /** Ruta antigua, conservada por si hay filas historicas con ese formato. */
-  baseline_test?: { pullups?: number | string | null } | null;
-} | null | undefined;
-
-/**
- * Maximo de dominadas del perfil fisico.
- *
- * `savePhysicalProfile` y `generateWeeklyPlan` escriben y leen
- * `baseline_metrics.pullups_score`, pero el panel leia
- * `baseline_test.pullups`, que no lo escribe nadie: el KPI marcaba siempre 0.
- * Se acepta la ruta antigua por si hubiera filas historicas con ese formato.
- * Unificar del todo es la fase 2.7.
- */
-export function readMaxPullups(profile: PhysicalProfile): number | null {
-  const candidates = [
-    profile?.baseline_metrics?.pullups_score,
-    profile?.baseline_metrics?.pullups,
-    profile?.baseline_test?.pullups,
-  ];
-  for (const v of candidates) {
-    const n = Number(v);
-    if (Number.isFinite(n) && n >= 0) return n;
-  }
-  return null;
-}
+// La forma del perfil y la lectura de las dominadas viven en `physical.ts`
+// desde la fase 2.7: alli esta tambien la normalizacion que usa el servidor,
+// y tener dos definiciones del mismo tipo fue justo lo que dejo al panel
+// leyendo una ruta que no escribia nadie. Se reexportan para no romper a
+// quien ya importaba desde aqui.
+export {
+  readMaxPullups,
+  type PhysicalProfile,
+  type BaselineMetrics,
+} from './physical';

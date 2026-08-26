@@ -46,7 +46,7 @@ const ERROR_LABEL: Record<string, string> = {
 
 export default function StatsPanel({ user }: StatsPanelProps) {
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [physProfile, setPhysProfile] = useState<PhysicalProfile>(null);
+  const [physProfile, setPhysProfile] = useState<PhysicalProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {

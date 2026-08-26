@@ -27,8 +27,9 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
+| **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
 | **5** | **Higiene** | 🔄 **en curso** (cronómetro, barajado, huérfanos) |
-| 2.5, 2.7 | Dificultad, perfil físico | ⬜ |
+| 2.5 | Dificultad | ⬜ (necesita una columna nueva) |
 
 ### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
 
@@ -286,7 +287,35 @@ efecto que vigila el reloj.
 el resultado depende del algoritmo de ordenación del motor: unas posiciones
 salen mucho más que otras, así que el alumno veía siempre las mismas preguntas.
 
-### 16 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 16 · Un campo en blanco es `null`, nunca `0`
+
+`Number('')` es `0`. Un `<input type="number">` devuelve **cadenas**, y `''` cuando el
+alumno deja el campo vacío. Así llegaba `"180"` a una columna numérica, y `0` donde no
+había dato: 0 cm de altura, 0 dominadas para quien aún no ha hecho el test.
+
+`toNumberOrNull` (`app/lib/physical.ts`) es la única conversión. Y se aplica **también en
+el servidor**: una Server Action es un endpoint público, así que normalizar solo en el
+formulario no basta.
+
+El mismo error, en su versión más cara: confirmar una prueba física con el campo vacío
+guardaba `Number('') === 0`, el hub daba la prueba por superada y el plan de entrenamiento
+salía de una marca que el alumno nunca hizo.
+
+### 17 · Lo que escribe la IA se normaliza al guardarlo **y al releerlo**
+
+El plan semanal lo escribe Gemini y lo lee la UI: exactamente el payload de la regla 6.
+`normalizePlan` (`app/lib/training-plan.ts`) garantiza que `exercises` sea siempre un
+array y compone un `title` si el modelo no lo manda — la UI lo pintaba en tres sitios y el
+prompt nunca lo pedía.
+
+Se normaliza también **al leer de la base de datos**, no solo al escribir: hay filas
+anteriores a la fase 2.7 guardadas sin esas garantías. Una validación que solo corre en la
+escritura deja desprotegido todo el histórico.
+
+`PLAN_SHAPE` (la estructura que se le pide al modelo) vive en el mismo fichero que el
+tipo. Separarlos es cómo el prompt acabó pidiendo unos campos y la UI leyendo otros.
+
+### 18 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -310,6 +339,8 @@ tests/ai-output.test.ts         parseo y validación de lo que devuelve el model
 tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
 tests/interview.test.ts         transcripción, informe final y máquina de estados
 tests/timer.test.ts             cronómetro de las pruebas físicas
+tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
+tests/training-plan.test.ts     forma del plan semanal y progreso de la semana
 ```
 
 `srs.test.ts` cubre la repetición espaciada; el resto de la tabla sigue igual.
@@ -375,12 +406,19 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 
 ## Cómo continuar
 
-1. **Probar 1.1, 2.1, 2.2 y 2.3 contra el Supabase real.** Entrar como alumno y
+1. **Probar 1.1, 2.1, 2.2, 2.3 y 2.7 contra el Supabase real.** Entrar como alumno y
    como admin; sembrar un tema y comprobar que las preguntas llegan a un test;
    hacer un simulacro y mirar que `test_results` guarda `response_time_ms` y
    `option_changes` distintos de 0, y que Inicio y Estadísticas cargan. Fallar
    una pregunta en entrenamiento y etiquetar el error debe dejar **una** fila.
-2. **`supabase db pull`** para versionar el esquema.
+   De la 2.7: rellenar el perfil físico y comprobar que `profiles_physical`
+   guarda `height` y `weight` como **números** y no como cadenas; dejar un campo
+   en blanco debe dejar `null`, no `0`. Generar un plan y mirar que las tarjetas
+   del panel tienen título.
+2. **`supabase db pull`** para versionar el esquema. Al tener el esquema delante,
+   comprobar de qué tipo son las columnas de `profiles_physical`: si son `text`,
+   la normalización de la 2.7 sigue valiendo, pero conviene pasarlas a numéricas
+   para que la base de datos rechace lo que la aplicación ya no manda.
 3. **Fase 1.2** (acotar la clave de servicio) — pero **solo después** de ejecutar
    el SQL de la 1.3. Mover consultas al cliente del usuario sin RLS puesta las
    dejaría sin ninguna protección; con RLS ya activa, cada consulta que se mueva

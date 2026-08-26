@@ -2,18 +2,13 @@
 import { supabaseAdmin as supabase, planModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
-
-/** Perfil fisico tal y como lo guarda `savePhysicalProfile`. */
-export type PhysicalProfileInput = {
-    height?: number | null;
-    weight?: number | null;
-    birth_year?: number | null;
-    gender?: string | null;
-    availability?: number | null;
-    equipment?: string | null;
-    injuries?: string | null;
-    baseline_metrics?: Record<string, number | string | null> | null;
-};
+import {
+    normalizeProfileInput,
+    normalizeMetrics,
+    readMaxPullups,
+    type PhysicalProfile,
+} from '../lib/physical';
+import { normalizePlan, PLAN_SHAPE, type WeeklyPlan } from '../lib/training-plan';
 
 /** Lo que el alumno anota al terminar un dia de entrenamiento. */
 export type TrainingDayLog = Record<string, unknown>;
@@ -22,7 +17,7 @@ function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
     return e instanceof Error ? e.message : fallback;
 }
 
-export async function generateWeeklyPlan(profile: PhysicalProfileInput) {
+export async function generateWeeklyPlan(profile: PhysicalProfile) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
     const userId = auth.user.id;
@@ -31,7 +26,9 @@ export async function generateWeeklyPlan(profile: PhysicalProfileInput) {
         if (!profile || !profile.baseline_metrics) throw new Error("Faltan datos físicos.");
         
         // --- LÓGICA COMPLEJA RESTAURADA ---
-        const pullupScore = Number(profile.baseline_metrics.pullups_score) || 0;
+        // `?? 0` y no `|| 0`: son distintos solo si el alumno tiene 0 dominadas,
+        // que es precisamente el caso que decide la Fase 0 del plan.
+        const pullupScore = readMaxPullups(profile) ?? 0;
         let pullupStrategy = "";
         if (pullupScore < 1) pullupStrategy = "Fase 0: Excéntricas y Gomas.";
         else if (pullupScore < 10) pullupStrategy = "Fase 1: Volumen y series largas.";
@@ -50,29 +47,43 @@ export async function generateWeeklyPlan(profile: PhysicalProfileInput) {
             NIVEL FUERZA: ${pullupStrategy}.
             
             OBJETIVO: Plan semanal (Semana 1) JSON PURO.
-            ESTRUCTURA: { "week_focus": "...", "days": [{ "day": "Lunes", "type": "Fuerza", "exercises": [...] }] }
+            ESTRUCTURA: ${PLAN_SHAPE}
         `;
         const result = await planModel.generateContent(prompt);
-        const plan = parseAIJson<{ week_focus?: string; days?: unknown[] }>(result.response.text());
-        if (!plan?.days?.length) throw new Error('La IA no devolvió un plan utilizable.');
+        // Se valida ANTES de guardar (regla 10): un dia sin ejercicios o sin
+        // titulo tumbaba el panel, y ya estaba escrito en la BD.
+        const plan = normalizePlan(parseAIJson(result.response.text()));
+        if (!plan) throw new Error('La IA no devolvió un plan utilizable.');
 
-        const { data: inserted } = await supabase.from('training_plans').insert({
+        const { data: inserted, error } = await supabase.from('training_plans').insert({
             user_id: userId,
             week_start: new Date().toISOString(),
             plan_data: plan,
             status: 'active'
         }).select().single();
-        return { success: true, plan: inserted };
+        // Sin esto, un fallo al insertar devolvia `success: true` con `plan: null`
+        // y el entrenador se quedaba en blanco sin decir por que.
+        if (error || !inserted) throw new Error(error?.message || 'No se pudo guardar el plan.');
+        return { success: true, plan: { id: inserted.id as string, plan_data: plan } };
     } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
 
-export async function getActiveTrainingPlan() {
+export type StoredPlan = { id: string; plan_data: WeeklyPlan | null };
+
+export async function getActiveTrainingPlan(): Promise<
+    { success: false; error: string; plan: null } | { success: true; plan: StoredPlan | null }
+> {
     const auth = await requireUser();
-    if (!auth.ok) return { success: false as const, error: auth.error, plan: null };
+    if (!auth.ok) return { success: false, error: auth.error, plan: null };
     const userId = auth.user.id;
 
     const { data } = await supabase.from('training_plans').select('*').eq('user_id', userId).eq('status', 'active').order('created_at', {ascending:false}).limit(1).single();
-    return { success: true as const, plan: data };
+    if (!data) return { success: true, plan: null };
+
+    // El plan guardado se normaliza al leerlo, no solo al escribirlo: en la BD
+    // hay filas anteriores a esta fase, generadas sin `title` y sin garantia de
+    // que `exercises` sea un array.
+    return { success: true, plan: { id: data.id, plan_data: normalizePlan(data.plan_data) } };
 }
 
 export async function completeTrainingDay(
@@ -94,8 +105,8 @@ export async function completeTrainingDay(
     if (readError) return { success: false, error: readError.message };
     if (!plan) return { success: false, error: 'Plan no encontrado.' };
 
-    const updated = { ...plan.plan_data };
-    if (!updated.days?.[dayIndex]) return { success: false, error: 'Día inexistente en el plan.' };
+    const updated = normalizePlan(plan.plan_data);
+    if (!updated?.days?.[dayIndex]) return { success: false, error: 'Día inexistente en el plan.' };
 
     // El log (series, repeticiones, sensaciones) se guarda dentro del JSON del
     // plan. Antes se recibía y se descartaba: el alumno lo anotaba y desaparecía
@@ -126,16 +137,26 @@ const PHYSICAL_FIELDS = [
     'availability', 'equipment', 'injuries', 'baseline_metrics',
 ] as const;
 
-export async function savePhysicalProfile(data: PhysicalProfileInput) {
+export async function savePhysicalProfile(data: PhysicalProfile) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+
+    // Normalizar AQUI, no solo en el formulario: una Server Action es un
+    // endpoint publico, asi que lo que llega puede no haber pasado por la UI.
+    // Los `<input type="number">` devuelven cadenas: sin esto, a columnas
+    // numericas les llegaba `"180"` o `""` y el upsert fallaba entero.
+    const raw = (data ?? {}) as Record<string, unknown>;
+    const clean: Record<string, unknown> = { ...normalizeProfileInput(raw) };
+    if (raw.baseline_metrics && typeof raw.baseline_metrics === 'object') {
+        clean.baseline_metrics = normalizeMetrics(raw.baseline_metrics as Record<string, unknown>);
+    }
 
     // Lista blanca: antes se hacia `upsert({ user_id, ...data })`, y como el
     // objeto del cliente se expandia DESPUES de la clave, un `user_id` propio
     // sobrescribia el del servidor y permitia escribir en la fila de otro.
     const payload: Record<string, unknown> = { user_id: auth.user.id };
     for (const field of PHYSICAL_FIELDS) {
-        if (data?.[field] !== undefined) payload[field] = data[field];
+        if (clean[field] !== undefined) payload[field] = clean[field];
     }
 
     const { error } = await supabase.from('profiles_physical').upsert(payload);

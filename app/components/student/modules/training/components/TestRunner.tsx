@@ -3,26 +3,33 @@
 import { useState, useEffect } from 'react';
 import { Dumbbell, Timer, CheckCircle2, Activity, ChevronRight, Info } from 'lucide-react';
 import TacticalTimer from './TacticalTimer';
+import {
+    toNumberOrNull,
+    TEST_METRIC_FIELD,
+    type BaselineMetrics,
+    type TestId,
+} from '@/app/lib/physical';
 
 interface TestRunnerProps {
-    testId: 'force' | 'cooper' | 'agility';
-    initialData: any; 
-    onSave: (data: any) => void;
+    testId: TestId;
+    initialData?: BaselineMetrics | null;
+    onSave: (data: BaselineMetrics) => void;
     onExit: () => void;
+    saving?: boolean;
+    error?: string | null;
 }
 
-export default function TestRunner({ testId, initialData, onSave, onExit }: TestRunnerProps) {
+export default function TestRunner({ testId, initialData, onSave, onExit, saving, error }: TestRunnerProps) {
+    // `?? ''` y no `|| ''`: con `||`, un resultado guardado de 0 (cero
+    // dominadas es un dato legitimo) volvia a salir como campo vacio.
     const getValueFromMetrics = () => {
-        if (!initialData) return '';
-        if (testId === 'force') return initialData.pullups_score || '';
-        if (testId === 'cooper') return initialData.cooper_distance || '';
-        if (testId === 'agility') return initialData.agility_time || '';
-        return '';
+        const guardado = initialData?.[TEST_METRIC_FIELD[testId]];
+        return toNumberOrNull(guardado)?.toString() ?? '';
     };
 
     const [phase, setPhase] = useState<'setup' | 'countdown' | 'running'>('setup'); 
     const [startCount, setStartCount] = useState(5);
-    const [result, setResult] = useState<string | number>(getValueFromMetrics());
+    const [result, setResult] = useState<string>(getValueFromMetrics());
     const [method, setMethod] = useState<'reps' | 'suspension'>(initialData?.pullups_method || 'reps'); 
     
     // Toggle para modo bolsillo
@@ -82,6 +89,38 @@ export default function TestRunner({ testId, initialData, onSave, onExit }: Test
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault();
     };
+
+    // Sin esto, confirmar con el campo en blanco guardaba `Number('') === 0`:
+    // el hub daba la prueba por hecha y el plan se generaba sobre un dato
+    // inventado. "Sin medir" y "cero" no son lo mismo.
+    const parsed = toNumberOrNull(result);
+    const canConfirm = parsed !== null && parsed >= 0 && !saving;
+
+    const confirm = (extra: BaselineMetrics = {}) => {
+        if (parsed === null) return;
+        onSave({ [TEST_METRIC_FIELD[testId]]: parsed, ...extra });
+    };
+
+    const confirmHint = (
+        <>
+            {error && (
+                <p className="text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center mb-4">
+                    No se pudo guardar: {error}
+                </p>
+            )}
+            {!error && parsed === null && (
+                <p className="text-xs text-slate-400 text-center mb-4 font-medium">
+                    Introduce tu marca para poder confirmarla.
+                </p>
+            )}
+        </>
+    );
+
+    const confirmClass = (ok: boolean) =>
+        `w-full py-5 font-black uppercase rounded-xl shadow-lg transition-colors ${
+            ok ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+               : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+        }`;
 
     return (
         <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-10 py-8 pb-20">
@@ -150,7 +189,10 @@ export default function TestRunner({ testId, initialData, onSave, onExit }: Test
                             <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Paso 3: Introduce {method === 'reps' ? 'Repeticiones' : 'Segundos'}</label>
                             <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-7xl font-black text-center bg-transparent outline-none placeholder-slate-200 text-slate-900 dark:text-white p-2" placeholder="0"/>
                         </div>
-                        <button onClick={() => onSave({ pullups_score: Number(result), pullups_method: method })} className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase rounded-xl shadow-lg">CONFIRMAR FUERZA</button>
+                        {confirmHint}
+                        <button onClick={() => confirm({ pullups_method: method })} disabled={!canConfirm} className={confirmClass(canConfirm)}>
+                            {saving ? 'GUARDANDO…' : 'CONFIRMAR FUERZA'}
+                        </button>
                     </div>
 
                 ) : (
@@ -213,7 +255,10 @@ export default function TestRunner({ testId, initialData, onSave, onExit }: Test
                             {testId === 'cooper' && <p className="text-center text-[10px] text-slate-400 mt-2">Ej: Si diste 6 vueltas a una pista de 400m = 2400m</p>}
                         </div>
 
-                        <button onClick={() => onSave({ [testId === 'cooper' ? 'cooper_distance' : 'agility_time']: Number(result) })} className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase rounded-xl shadow-lg">CONFIRMAR RESULTADO</button>
+                        {confirmHint}
+                        <button onClick={() => confirm()} disabled={!canConfirm} className={confirmClass(canConfirm)}>
+                            {saving ? 'GUARDANDO…' : 'CONFIRMAR RESULTADO'}
+                        </button>
                     </div>
                 )}
             </div>

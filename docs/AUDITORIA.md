@@ -237,12 +237,55 @@ tomado del contenido anterior sin acumularse. Además `uploadTopicPDF` distingue
 indexado completo de uno parcial y dice cuántos fragmentos fallaron: antes pintaba el mismo
 `✅` en los dos casos.
 
-### 2.7 · MEDIO — Perfil físico: nombres de campo que no casan
+### 2.7 · ~~MEDIO~~ ✅ CERRADO — Perfil físico: nombres de campo que no casan
 
-`StatsPanel` lee `physProfile.baseline_test.pullups`, pero `savePhysicalProfile` y
+`StatsPanel` leía `physProfile.baseline_test.pullups`, pero `savePhysicalProfile` y
 `generateWeeklyPlan` escriben y leen `baseline_metrics.pullups_score`. El KPI "Dominadas
-Máximas" muestra siempre `0`. La barra de progreso de esa tarjeta está además cableada al
-`65%`.
+Máximas" mostraba siempre `0`. La barra de progreso de esa tarjeta estaba además cableada
+al `65%`.
+
+**Cerrado.** La lectura del KPI ya se arregló en §2.2 (`readMaxPullups`) y la barra se
+retiró. Al abrirlo del todo aparecieron **cuatro fallos que no estaban documentados**, y
+todos venían de lo mismo: el perfil cruzaba la frontera cliente-servidor sin tipo.
+
+1. **Números guardados como cadenas.** `SetupWizard` mandaba `height`, `weight` y
+   `birth_year` tal y como salen del `<input>`: `"180"`, o `""` si el campo se dejaba en
+   blanco. A columnas numéricas les llegaba una cadena vacía. Ahora la conversión ocurre
+   en un solo sitio (`normalizeProfileInput`, `app/lib/physical.ts`) y `''` se convierte en
+   `null`, **no en `0`**: "sin dato" y "cero" no son lo mismo para el alumno.
+2. **La pantalla avanzaba aunque el guardado fallara.** `handleSaveBio` hacía
+   `await savePhysicalProfile(data); setView('hub')` sin mirar el resultado (regla 4). El
+   alumno se quedaba convencido de que sus datos estaban en el servidor.
+3. **Confirmar una prueba en blanco registraba un 0.** `TestRunner` hacía
+   `onSave({ pullups_score: Number(result) })`, y `Number('')` es `0`: el hub daba la
+   prueba por superada y el plan se generaba sobre una marca inventada. El botón ahora
+   está deshabilitado hasta que hay una marca real.
+4. **La normalización estaba solo en el formulario.** Una Server Action es un endpoint
+   público: `savePhysicalProfile` normaliza también en el servidor.
+
+`app/lib/physical.ts` es ahora la única definición del perfil; `stats.ts` la reexporta.
+28 tests en `tests/physical.test.ts`, cuatro de ellos guardas estáticas verificadas
+rompiendo el código a propósito.
+
+### 2.7b · MEDIO ✅ CERRADO — El plan semanal se leía sin garantizar su forma
+
+Salió al tipar el módulo, y no estaba documentado:
+
+- **`day.title` se pintaba en tres sitios y el prompt nunca lo pedía.** La estructura que
+  se le mandaba a Gemini era `{ "day", "type", "exercises" }`. Las tarjetas del panel
+  salían sin encabezado y el registro de la sesión guardaba `day_title: undefined`.
+- **`day.exercises.length` y `day.exercises.map` sin proteger** (regla 5): un día sin
+  ejercicios dejaba el módulo en blanco.
+- **`ActiveSession` recibía `day` sin comprobar que hubiera día activo**, así que un
+  `view === 'session'` con `activeDay` a null reventaba al leer `day.title`.
+- **`generateWeeklyPlan` devolvía `{ success: true, plan: null }`** si el insert fallaba
+  (regla 4), y el entrenador se quedaba en blanco sin decir por qué.
+
+`app/lib/training-plan.ts` define el plan y lo normaliza **al escribirlo y al releerlo de
+la BD** — hay filas anteriores a esta fase generadas sin `title`. `PLAN_SHAPE` vive junto
+al tipo para que el prompt no se separe de lo que la UI lee. El progreso de la semana sale
+de `planProgress` (regla 8): `completed / total` con `total: 0` pintaba `NaN%`.
+16 tests en `tests/training-plan.test.ts`.
 
 ### 2.8 · ~~MEDIO~~ ✅ CERRADO — Fuga de AudioContext en el cronómetro
 

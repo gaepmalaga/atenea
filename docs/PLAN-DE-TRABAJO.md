@@ -163,7 +163,7 @@ sin proteger. Con un solo resultado guardado, la app era inusable desde el arran
 - [x] Fuera la barra de progreso cableada al **65 %**. El KPI de dominadas lee ahora el campo
       que de verdad se escribe (`baseline_metrics.pullups_score`) y distingue **"sin datos"**
       de **"cero dominadas"**, que no son lo mismo para el alumno. Unificar del todo los dos
-      nombres de campo sigue siendo la fase 2.7.
+      nombres de campo se cerró después, en la fase 2.7.
 - [x] 22 tests nuevos (17 de aritmética + 5 estáticos de render), verificados reintroduciendo
       los fallos a propósito.
 
@@ -264,10 +264,28 @@ hace nada es peor que no tenerlo.
 
 Verificado restaurando el troceador antiguo: cuatro tests lo señalan.
 
-### 2.7 Perfil físico §2.7
+### 2.7 Perfil físico §2.7 ✅ HECHA
 
-Unificar `baseline_test.pullups` vs `baseline_metrics.pullups_score`. Elegir uno, migrar
-los datos existentes y tipar la estructura del perfil.
+- [x] **Una sola definición del perfil**: `app/lib/physical.ts`. `stats.ts` la reexporta,
+      las acciones y las cuatro pantallas del entrenador la importan. La duplicación era
+      justo lo que dejó al panel leyendo una ruta que no escribía nadie.
+- [x] **`toNumberOrNull` en vez de `Number()`.** Un `<input>` devuelve cadenas: `"180"`
+      llegaba a una columna numérica, y `""` se convertía en `0`. Ahora un campo en blanco
+      es `null`, y el `0` escrito a propósito sigue siendo un dato.
+- [x] **Normalización también en el servidor.** Una Server Action es un endpoint público:
+      normalizar solo en el formulario no basta.
+- [x] **La pantalla ya no avanza sin comprobar el guardado** (regla 4), y el error se
+      pinta. Igual con el generador de planes, que fallaba en silencio.
+- [x] **No se puede confirmar una prueba en blanco.** `Number('')` es `0`: el hub daba la
+      prueba por hecha y el plan salía de una marca inventada.
+- [x] **El plan semanal, tipado y normalizado** (`app/lib/training-plan.ts`): `title` que
+      el prompt nunca pedía, `exercises` que podía no ser un array, progreso con `NaN%`.
+- [x] 44 tests nuevos (`physical`, `training-plan`), seis de ellos guardas estáticas.
+- [x] 23 `any` menos: el lint baja de 74 a 51 errores.
+
+Queda fuera, porque necesita la consola: migrar las filas históricas que tengan
+`baseline_test.pullups` o cadenas vacías en las columnas numéricas. La lectura las tolera
+(`readMaxPullups` acepta las tres rutas), así que no corre prisa.
 
 ---
 
@@ -354,8 +372,10 @@ Ahora que los datos son fiables, que sirvan para algo.
 
 Baja urgencia, alto efecto compuesto. Se puede ir haciendo en paralelo.
 
-- **Los 126 `any`.** No es cosmética: son la razón de que §2.3 y §2.7 pasaran inadvertidos.
-  Empezar por tipar las filas de la base de datos (`supabase gen types typescript`).
+- **Los `any` que quedan.** No es cosmética: son la razón de que §2.3 y §2.7 pasaran
+  inadvertidos. El módulo de entrenamiento se tipó entero en la 2.7 (74 → 51 errores de
+  lint). Para el resto, empezar por tipar las filas de la base de datos
+  (`supabase gen types typescript`).
 - Las 41 variables sin usar y los 12 `react/no-unescaped-entities`.
 - Las 11 dependencias de efectos incompletas. (Las mutaciones de estado de §2.9 se
   cerraron en la fase 2.3, dentro de `ActiveTest`.)
