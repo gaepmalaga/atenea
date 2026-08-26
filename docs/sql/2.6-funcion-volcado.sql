@@ -30,18 +30,21 @@ returns jsonb language sql security definer set search_path = public as $fn$
                is_nullable, column_default, character_maximum_length, numeric_precision
         from information_schema.columns where table_schema='public'
         order by table_name, ordinal_position) c),
+    -- La definicion literal, de pg_constraint. `information_schema` NO vale:
+    -- para las claves ajenas que apuntan a `auth.users` deja la tabla destino
+    -- a NULL (esta en otro esquema), y la migracion salia con
+    --   references public.null(null)
+    -- que no se puede ejecutar. `pg_get_constraintdef` da el texto exacto.
     'constraints', (select jsonb_agg(to_jsonb(x)) from (
-        select tc.table_name, tc.constraint_name, tc.constraint_type,
-               kcu.column_name, kcu.ordinal_position,
-               ccu.table_name as ref_table, ccu.column_name as ref_column
-        from information_schema.table_constraints tc
-        left join information_schema.key_column_usage kcu
-          on kcu.constraint_name = tc.constraint_name and kcu.table_schema='public'
-        left join information_schema.constraint_column_usage ccu
-          on ccu.constraint_name = tc.constraint_name and tc.constraint_type='FOREIGN KEY'
-        where tc.table_schema='public'
-          and tc.constraint_type in ('PRIMARY KEY','FOREIGN KEY','UNIQUE')
-        order by tc.table_name, tc.constraint_name, kcu.ordinal_position) x),
+        select rel.relname as tabla,
+               con.conname as nombre,
+               con.contype as tipo,
+               pg_get_constraintdef(con.oid) as definicion
+        from pg_constraint con
+        join pg_class rel on rel.oid = con.conrelid
+        where rel.relnamespace = 'public'::regnamespace
+          and con.contype in ('p','f','u','c')
+        order by rel.relname, con.conname) x),
     'indices', (select jsonb_agg(to_jsonb(i)) from (
         select tablename, indexname, indexdef from pg_indexes
         where schemaname='public' order by tablename, indexname) i),

@@ -2,8 +2,8 @@
 -- Esquema de Atenea — volcado del proyecto real
 -- =============================================================================
 --
--- Generado por `node scripts/dump-migration.mjs`. NO editar a mano: los cambios
--- se hacen en la base de datos y luego se vuelve a volcar.
+-- Generado por `npm run schema:migration`. NO editar a mano: los cambios se
+-- hacen en la base de datos y luego se vuelve a volcar.
 --
 -- Este fichero existe porque el esquema solo vivia dentro de Supabase. Sin una
 -- copia en el repo, el codigo y la base de datos derivaron sin que nada lo
@@ -11,26 +11,28 @@
 -- escritura entera en silencio.
 --
 -- Fecha del volcado: 2026-08-26
--- Tablas: 22
+-- Tablas: 22   ·   Politicas: 26
 -- =============================================================================
 
 create extension if not exists "uuid-ossp";
 create extension if not exists vector;
+
+-- ==========================================================================
+-- Tablas
+-- ==========================================================================
 
 -- --------------------------------------------------------------------------
 create table if not exists public.ai_quota (
   user_id uuid not null,
   bucket text not null,
   count integer not null default 0,
-  reset_at timestamp with time zone not null,
-  primary key (user_id, bucket)
+  reset_at timestamp with time zone not null
 );
 
 -- --------------------------------------------------------------------------
 create table if not exists public.blocks (
   id integer not null default nextval('blocks_id_seq'::regclass),
-  name text not null,
-  primary key (id)
+  name text not null
 );
 
 -- --------------------------------------------------------------------------
@@ -43,8 +45,7 @@ create table if not exists public.content_documents (
   version text,
   published_at date,
   status text not null default 'active'::text,
-  created_at timestamp with time zone not null default timezone('utc'::text, now()),
-  primary key (id)
+  created_at timestamp with time zone not null default timezone('utc'::text, now())
 );
 
 -- --------------------------------------------------------------------------
@@ -52,8 +53,7 @@ create table if not exists public.document_chunks (
   id bigint not null default nextval('document_chunks_id_seq'::regclass),
   document_id uuid,
   content_chunk text,
-  embedding vector,
-  primary key (id)
+  embedding vector
 );
 
 -- --------------------------------------------------------------------------
@@ -62,16 +62,14 @@ create table if not exists public.documents (
   subject_id integer,
   filename text not null,
   full_text text,
-  uploaded_at timestamp with time zone default now(),
-  primary key (id)
+  uploaded_at timestamp with time zone default now()
 );
 
 -- --------------------------------------------------------------------------
 create table if not exists public.exam_questions (
   exam_id uuid not null,
   position integer not null,
-  question_id uuid not null,
-  primary key (exam_id, position)
+  question_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -83,8 +81,7 @@ create table if not exists public.exams (
   total_questions integer not null,
   started_at timestamp with time zone not null default timezone('utc'::text, now()),
   finished_at timestamp with time zone,
-  meta jsonb default '{}'::jsonb,
-  primary key (id)
+  meta jsonb default '{}'::jsonb
 );
 
 -- --------------------------------------------------------------------------
@@ -96,8 +93,7 @@ create table if not exists public.flashcard_bank (
   source_refs jsonb,
   card_hash text not null,
   status text not null default 'active'::text,
-  created_at timestamp with time zone not null default timezone('utc'::text, now()),
-  primary key (id)
+  created_at timestamp with time zone not null default timezone('utc'::text, now())
 );
 
 -- --------------------------------------------------------------------------
@@ -110,8 +106,7 @@ create table if not exists public.flashcard_progress (
   box integer default 1,
   next_review timestamp with time zone default now(),
   created_at timestamp with time zone default now(),
-  card_id uuid,
-  primary key (id)
+  card_id uuid
 );
 
 -- --------------------------------------------------------------------------
@@ -126,8 +121,7 @@ create table if not exists public.flashcard_results (
   box_before integer,
   box_after integer,
   next_review timestamp with time zone,
-  created_at timestamp with time zone not null default timezone('utc'::text, now()),
-  primary key (id)
+  created_at timestamp with time zone not null default timezone('utc'::text, now())
 );
 
 -- --------------------------------------------------------------------------
@@ -135,8 +129,7 @@ create table if not exists public.profiles (
   id uuid not null,
   email text,
   role text default 'student'::text,
-  created_at timestamp with time zone not null default timezone('utc'::text, now()),
-  primary key (id)
+  created_at timestamp with time zone not null default timezone('utc'::text, now())
 );
 
 -- --------------------------------------------------------------------------
@@ -152,8 +145,7 @@ create table if not exists public.profiles_biodata (
   legal_issues text,
   updated_at timestamp with time zone not null default timezone('utc'::text, now()),
   psych_answers jsonb default '{}'::jsonb,
-  psych_profile jsonb default '{"sincerity": 5, "stability": 5, "leadership": 5, "normativity": 5}'::jsonb,
-  primary key (user_id)
+  psych_profile jsonb default '{"sincerity": 5, "stability": 5, "leadership": 5, "normativity": 5}'::jsonb
 );
 
 -- --------------------------------------------------------------------------
@@ -171,8 +163,7 @@ create table if not exists public.profiles_physical (
   training_level text,
   baseline_metrics jsonb,
   availability integer default 5,
-  equipment text default 'gym'::text,
-  primary key (user_id)
+  equipment text default 'gym'::text
 );
 
 -- --------------------------------------------------------------------------
@@ -184,8 +175,7 @@ create table if not exists public.profiles_psych (
   factor_vigilancia integer default 5,
   factor_ansiedad integer default 5,
   sinceridad_score integer default 100,
-  last_test_date timestamp with time zone,
-  primary key (user_id)
+  last_test_date timestamp with time zone
 );
 
 -- --------------------------------------------------------------------------
@@ -200,8 +190,7 @@ create table if not exists public.question_attempts (
   error_type text,
   response_time_ms integer,
   created_at timestamp with time zone not null default timezone('utc'::text, now()),
-  option_changes integer not null default 0,
-  primary key (id)
+  option_changes integer not null default 0
 );
 
 -- --------------------------------------------------------------------------
@@ -218,8 +207,7 @@ create table if not exists public.question_bank (
   status text default 'candidate'::text,
   origin text default 'bank'::text,
   global_success_rate double precision default 0,
-  created_at timestamp with time zone default now(),
-  primary key (id)
+  created_at timestamp with time zone default now()
 );
 
 -- --------------------------------------------------------------------------
@@ -230,16 +218,14 @@ create table if not exists public.question_reports (
   report_type text,
   message text,
   status text default 'open'::text,
-  created_at timestamp with time zone default now(),
-  primary key (id)
+  created_at timestamp with time zone default now()
 );
 
 -- --------------------------------------------------------------------------
 create table if not exists public.question_votes (
   question_id uuid not null,
   user_id uuid not null,
-  vote integer,
-  primary key (question_id, user_id)
+  vote integer
 );
 
 -- --------------------------------------------------------------------------
@@ -248,8 +234,7 @@ create table if not exists public.subjects (
   block_id integer,
   topic_number integer not null,
   title text not null,
-  description text,
-  primary key (id)
+  description text
 );
 
 -- --------------------------------------------------------------------------
@@ -260,8 +245,7 @@ create table if not exists public.test_results (
   is_correct boolean,
   response_time_ms integer,
   option_changes integer default 0,
-  created_at timestamp with time zone default now(),
-  primary key (id)
+  created_at timestamp with time zone default now()
 );
 
 -- --------------------------------------------------------------------------
@@ -271,8 +255,7 @@ create table if not exists public.training_plans (
   week_start date,
   plan_data jsonb,
   status text default 'active'::text,
-  created_at timestamp with time zone default timezone('utc'::text, now()),
-  primary key (id)
+  created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
 -- --------------------------------------------------------------------------
@@ -285,68 +268,111 @@ create table if not exists public.workout_logs (
   metrics jsonb,
   rpe integer,
   notes text,
-  created_at timestamp with time zone default timezone('utc'::text, now()),
-  primary key (id)
+  created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
 -- ==========================================================================
--- Claves ajenas y restricciones de unicidad
+-- Claves primarias, ajenas, unicidad y checks
 -- ==========================================================================
 
-alter table public.ai_quota drop constraint if exists ai_quota_user_id_fkey;
-alter table public.ai_quota add constraint ai_quota_user_id_fkey foreign key (user_id) references public.null(null);
+alter table public.ai_quota drop constraint if exists ai_quota_pkey;
+alter table public.ai_quota add constraint ai_quota_pkey PRIMARY KEY (user_id, bucket);
+alter table public.blocks drop constraint if exists blocks_pkey;
+alter table public.blocks add constraint blocks_pkey PRIMARY KEY (id);
+alter table public.content_documents drop constraint if exists content_documents_pkey;
+alter table public.content_documents add constraint content_documents_pkey PRIMARY KEY (id);
+alter table public.document_chunks drop constraint if exists document_chunks_pkey;
+alter table public.document_chunks add constraint document_chunks_pkey PRIMARY KEY (id);
+alter table public.documents drop constraint if exists documents_pkey;
+alter table public.documents add constraint documents_pkey PRIMARY KEY (id);
+alter table public.exam_questions drop constraint if exists exam_questions_pkey;
+alter table public.exam_questions add constraint exam_questions_pkey PRIMARY KEY (exam_id, "position");
+alter table public.exams drop constraint if exists exams_pkey;
+alter table public.exams add constraint exams_pkey PRIMARY KEY (id);
+alter table public.flashcard_bank drop constraint if exists flashcard_bank_pkey;
+alter table public.flashcard_bank add constraint flashcard_bank_pkey PRIMARY KEY (id);
+alter table public.flashcard_progress drop constraint if exists flashcard_progress_pkey;
+alter table public.flashcard_progress add constraint flashcard_progress_pkey PRIMARY KEY (id);
+alter table public.flashcard_results drop constraint if exists flashcard_results_pkey;
+alter table public.flashcard_results add constraint flashcard_results_pkey PRIMARY KEY (id);
+alter table public.profiles drop constraint if exists profiles_pkey;
+alter table public.profiles add constraint profiles_pkey PRIMARY KEY (id);
+alter table public.profiles_biodata drop constraint if exists profiles_biodata_pkey;
+alter table public.profiles_biodata add constraint profiles_biodata_pkey PRIMARY KEY (user_id);
+alter table public.profiles_physical drop constraint if exists profiles_physical_pkey;
+alter table public.profiles_physical add constraint profiles_physical_pkey PRIMARY KEY (user_id);
+alter table public.profiles_psych drop constraint if exists profiles_psych_pkey;
+alter table public.profiles_psych add constraint profiles_psych_pkey PRIMARY KEY (user_id);
+alter table public.question_attempts drop constraint if exists question_attempts_pkey;
+alter table public.question_attempts add constraint question_attempts_pkey PRIMARY KEY (id);
+alter table public.question_bank drop constraint if exists question_bank_pkey;
+alter table public.question_bank add constraint question_bank_pkey PRIMARY KEY (id);
+alter table public.question_reports drop constraint if exists question_reports_pkey;
+alter table public.question_reports add constraint question_reports_pkey PRIMARY KEY (id);
+alter table public.question_votes drop constraint if exists question_votes_pkey;
+alter table public.question_votes add constraint question_votes_pkey PRIMARY KEY (question_id, user_id);
+alter table public.subjects drop constraint if exists subjects_pkey;
+alter table public.subjects add constraint subjects_pkey PRIMARY KEY (id);
+alter table public.test_results drop constraint if exists test_results_pkey;
+alter table public.test_results add constraint test_results_pkey PRIMARY KEY (id);
+alter table public.training_plans drop constraint if exists training_plans_pkey;
+alter table public.training_plans add constraint training_plans_pkey PRIMARY KEY (id);
+alter table public.workout_logs drop constraint if exists workout_logs_pkey;
+alter table public.workout_logs add constraint workout_logs_pkey PRIMARY KEY (id);
 alter table public.blocks drop constraint if exists blocks_name_key;
-alter table public.blocks add constraint blocks_name_key unique (name);
-alter table public.document_chunks drop constraint if exists document_chunks_document_id_fkey;
-alter table public.document_chunks add constraint document_chunks_document_id_fkey foreign key (document_id) references public.documents(id);
-alter table public.documents drop constraint if exists documents_subject_id_fkey;
-alter table public.documents add constraint documents_subject_id_fkey foreign key (subject_id) references public.subjects(id);
-alter table public.exam_questions drop constraint if exists exam_questions_exam_id_fkey;
-alter table public.exam_questions add constraint exam_questions_exam_id_fkey foreign key (exam_id) references public.exams(id);
-alter table public.flashcard_progress drop constraint if exists flashcard_progress_card_id_fkey;
-alter table public.flashcard_progress add constraint flashcard_progress_card_id_fkey foreign key (card_id) references public.flashcard_bank(id);
-alter table public.flashcard_progress drop constraint if exists flashcard_progress_user_id_fkey;
-alter table public.flashcard_progress add constraint flashcard_progress_user_id_fkey foreign key (user_id) references public.null(null);
-alter table public.profiles drop constraint if exists profiles_id_fkey;
-alter table public.profiles add constraint profiles_id_fkey foreign key (id) references public.null(null);
-alter table public.profiles_biodata drop constraint if exists profiles_biodata_user_id_fkey;
-alter table public.profiles_biodata add constraint profiles_biodata_user_id_fkey foreign key (user_id) references public.null(null);
-alter table public.profiles_physical drop constraint if exists profiles_physical_user_id_fkey;
-alter table public.profiles_physical add constraint profiles_physical_user_id_fkey foreign key (user_id) references public.null(null);
-alter table public.profiles_psych drop constraint if exists profiles_psych_user_id_fkey;
-alter table public.profiles_psych add constraint profiles_psych_user_id_fkey foreign key (user_id) references public.null(null);
-alter table public.question_attempts drop constraint if exists question_attempts_exam_id_fkey;
-alter table public.question_attempts add constraint question_attempts_exam_id_fkey foreign key (exam_id) references public.exams(id);
-alter table public.question_attempts drop constraint if exists question_attempts_question_id_fkey;
-alter table public.question_attempts add constraint question_attempts_question_id_fkey foreign key (question_id) references public.question_bank(id);
-alter table public.question_bank drop constraint if exists question_bank_document_id_fkey;
-alter table public.question_bank add constraint question_bank_document_id_fkey foreign key (document_id) references public.documents(id);
+alter table public.blocks add constraint blocks_name_key UNIQUE (name);
 alter table public.question_bank drop constraint if exists question_bank_question_hash_key;
-alter table public.question_bank add constraint question_bank_question_hash_key unique (question_hash);
-alter table public.question_bank drop constraint if exists question_bank_subject_id_fkey;
-alter table public.question_bank add constraint question_bank_subject_id_fkey foreign key (subject_id) references public.subjects(id);
-alter table public.question_reports drop constraint if exists question_reports_question_id_fkey;
-alter table public.question_reports add constraint question_reports_question_id_fkey foreign key (question_id) references public.question_bank(id);
-alter table public.question_reports drop constraint if exists question_reports_user_id_fkey;
-alter table public.question_reports add constraint question_reports_user_id_fkey foreign key (user_id) references public.null(null);
-alter table public.question_votes drop constraint if exists question_votes_question_id_fkey;
-alter table public.question_votes add constraint question_votes_question_id_fkey foreign key (question_id) references public.question_bank(id);
-alter table public.question_votes drop constraint if exists question_votes_user_id_fkey;
-alter table public.question_votes add constraint question_votes_user_id_fkey foreign key (user_id) references public.null(null);
-alter table public.subjects drop constraint if exists subjects_block_id_fkey;
-alter table public.subjects add constraint subjects_block_id_fkey foreign key (block_id) references public.blocks(id);
+alter table public.question_bank add constraint question_bank_question_hash_key UNIQUE (question_hash);
 alter table public.subjects drop constraint if exists subjects_topic_number_key;
-alter table public.subjects add constraint subjects_topic_number_key unique (topic_number);
+alter table public.subjects add constraint subjects_topic_number_key UNIQUE (topic_number);
+alter table public.ai_quota drop constraint if exists ai_quota_user_id_fkey;
+alter table public.ai_quota add constraint ai_quota_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+alter table public.document_chunks drop constraint if exists document_chunks_document_id_fkey;
+alter table public.document_chunks add constraint document_chunks_document_id_fkey FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+alter table public.documents drop constraint if exists documents_subject_id_fkey;
+alter table public.documents add constraint documents_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE;
+alter table public.exam_questions drop constraint if exists exam_questions_exam_id_fkey;
+alter table public.exam_questions add constraint exam_questions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE;
+alter table public.flashcard_progress drop constraint if exists flashcard_progress_card_id_fkey;
+alter table public.flashcard_progress add constraint flashcard_progress_card_id_fkey FOREIGN KEY (card_id) REFERENCES flashcard_bank(id);
+alter table public.flashcard_progress drop constraint if exists flashcard_progress_user_id_fkey;
+alter table public.flashcard_progress add constraint flashcard_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.profiles drop constraint if exists profiles_id_fkey;
+alter table public.profiles add constraint profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+alter table public.profiles_biodata drop constraint if exists profiles_biodata_user_id_fkey;
+alter table public.profiles_biodata add constraint profiles_biodata_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.profiles_physical drop constraint if exists profiles_physical_user_id_fkey;
+alter table public.profiles_physical add constraint profiles_physical_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.profiles_psych drop constraint if exists profiles_psych_user_id_fkey;
+alter table public.profiles_psych add constraint profiles_psych_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.question_attempts drop constraint if exists question_attempts_exam_id_fkey;
+alter table public.question_attempts add constraint question_attempts_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE;
+alter table public.question_attempts drop constraint if exists question_attempts_question_id_fkey;
+alter table public.question_attempts add constraint question_attempts_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE SET NULL;
+alter table public.question_bank drop constraint if exists question_bank_document_id_fkey;
+alter table public.question_bank add constraint question_bank_document_id_fkey FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL;
+alter table public.question_bank drop constraint if exists question_bank_subject_id_fkey;
+alter table public.question_bank add constraint question_bank_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE;
+alter table public.question_reports drop constraint if exists question_reports_question_id_fkey;
+alter table public.question_reports add constraint question_reports_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id);
+alter table public.question_reports drop constraint if exists question_reports_user_id_fkey;
+alter table public.question_reports add constraint question_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.question_votes drop constraint if exists question_votes_question_id_fkey;
+alter table public.question_votes add constraint question_votes_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE CASCADE;
+alter table public.question_votes drop constraint if exists question_votes_user_id_fkey;
+alter table public.question_votes add constraint question_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+alter table public.subjects drop constraint if exists subjects_block_id_fkey;
+alter table public.subjects add constraint subjects_block_id_fkey FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE;
 alter table public.test_results drop constraint if exists test_results_question_id_fkey;
-alter table public.test_results add constraint test_results_question_id_fkey foreign key (question_id) references public.question_bank(id);
+alter table public.test_results add constraint test_results_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE CASCADE;
 alter table public.test_results drop constraint if exists test_results_user_id_fkey;
-alter table public.test_results add constraint test_results_user_id_fkey foreign key (user_id) references public.null(null);
+alter table public.test_results add constraint test_results_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.training_plans drop constraint if exists training_plans_user_id_fkey;
-alter table public.training_plans add constraint training_plans_user_id_fkey foreign key (user_id) references public.null(null);
+alter table public.training_plans add constraint training_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
 alter table public.workout_logs drop constraint if exists workout_logs_plan_id_fkey;
-alter table public.workout_logs add constraint workout_logs_plan_id_fkey foreign key (plan_id) references public.training_plans(id);
+alter table public.workout_logs add constraint workout_logs_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES training_plans(id);
 alter table public.workout_logs drop constraint if exists workout_logs_user_id_fkey;
-alter table public.workout_logs add constraint workout_logs_user_id_fkey foreign key (user_id) references public.null(null);
+alter table public.workout_logs add constraint workout_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
 
 -- ==========================================================================
 -- Indices
@@ -378,7 +404,7 @@ create index if not exists idx_results_user_algo ON public.test_results USING bt
 -- ==========================================================================
 -- Row Level Security
 -- ==========================================================================
---
+
 -- Las tablas de contenido salen con RLS activa y SIN politicas: es a proposito.
 -- Significa acceso directo DENEGADO con la clave publica; la aplicacion las lee
 -- con la clave de servicio, que salta RLS. Ver docs/sql/1.3-activar-rls.sql.
