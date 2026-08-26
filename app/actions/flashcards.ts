@@ -1,5 +1,6 @@
 'use server'
 import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
+import { scheduleCard, nextReviewDate } from '../lib/srs';
 
 export async function generateFlashcard(userId: string, topicNameOrId: string | number) {
   try {
@@ -41,17 +42,8 @@ export async function generateFlashcard(userId: string, topicNameOrId: string | 
 
 export async function saveFlashcardProgress(userId: string, cardData: any, rating: 'fail' | 'hard' | 'easy') {
     try {
-        let newBox = cardData.box || 1;
-        let days = 0;
-        if (rating === 'fail') { newBox = 1; days = 1; }
-        else if (rating === 'hard') { days = 3; }
-        else { 
-            newBox = Math.min(newBox + 1, 5); 
-            days = newBox === 2 ? 3 : newBox === 3 ? 7 : newBox === 4 ? 15 : 30; 
-        }
-
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + days);
+        const { box: newBox, days } = scheduleCard(cardData.box, rating);
+        const nextDate = nextReviewDate(new Date(), days);
 
         const payload = {
             user_id: userId,

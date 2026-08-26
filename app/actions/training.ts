@@ -45,14 +45,31 @@ export async function getActiveTrainingPlan(userId: string) {
     return { success: true, plan: data };
 }
 
-export async function completeTrainingDay(userId: string, planId: string, dayIndex: number, logData: any) {
-    const { data: plan } = await supabase.from('training_plans').select('plan_data').eq('id', planId).single();
-    if (plan) {
-        const updated = { ...plan.plan_data };
-        if (updated.days[dayIndex]) updated.days[dayIndex].isCompleted = true;
-        await supabase.from('training_plans').update({ plan_data: updated }).eq('id', planId);
-    }
-    return { success: true };
+export async function completeTrainingDay(
+    userId: string, planId: string, dayIndex: number, logData: any
+): Promise<{ success: boolean; error?: string }> {
+    // Nota: el filtro por user_id evita que un usuario marque como completado
+    // el plan de otro (antes `userId` se recibía y se ignoraba).
+    const { data: plan, error: readError } = await supabase
+        .from('training_plans')
+        .select('plan_data')
+        .eq('id', planId)
+        .eq('user_id', userId)
+        .single();
+
+    if (readError) return { success: false, error: readError.message };
+    if (!plan) return { success: false, error: 'Plan no encontrado.' };
+
+    const updated = { ...plan.plan_data };
+    if (!updated.days?.[dayIndex]) return { success: false, error: 'Día inexistente en el plan.' };
+
+    // PENDIENTE (ver PLAN, Fase 4): `logData` (series, repeticiones, sensaciones)
+    // sigue sin persistirse en una tabla propia; hoy solo se guarda la marca de
+    // completado dentro del JSON del plan.
+    updated.days[dayIndex].isCompleted = true;
+
+    const { error } = await supabase.from('training_plans').update({ plan_data: updated }).eq('id', planId);
+    return { success: !error, error: error?.message };
 }
 
 export async function getPhysicalProfile(userId: string) {

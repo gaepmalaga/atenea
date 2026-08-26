@@ -223,7 +223,17 @@ export async function seedQuestionBank(params: {
 // ==========================================
 
 export async function getQuestionsFromBank(params: {
-  subjectIds?: number[]; topic?: string; limit: number; userId?: string;
+  subjectIds?: number[];
+  topic?: string;
+  limit: number;
+  userId?: string;
+  /**
+   * PENDIENTE (ver PLAN, Fase 4): la UI ya envía la dificultad elegida por el
+   * alumno, pero `question_bank` no tiene todavía columna de dificultad, así
+   * que el filtro NO se aplica. Se acepta el parámetro para que el contrato
+   * sea explícito en vez de fallar en tiempo de compilación.
+   */
+  difficulty?: number;
 }) {
   let ids = params.subjectIds || [];
   if (params.topic && ids.length === 0) {

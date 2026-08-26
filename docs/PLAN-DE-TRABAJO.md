@@ -1,0 +1,232 @@
+# Plan de trabajo — Atenea Policial
+
+Orden de ataque para retomar el proyecto. Cada fase es autónoma y deja el repositorio en
+verde: `npm run check` (typecheck + tests) debe pasar al terminar cada una.
+
+Referencias `§x.y` → [`AUDITORIA.md`](./AUDITORIA.md).
+
+**Regla de oro:** los tests marcados `BUG:` describen el comportamiento *actual*, no el
+deseado. Al corregir un fallo, ese test **debe** fallar: se invierte la aserción y se le
+quita el prefijo. Es el aviso de que el arreglo ha surtido efecto.
+
+---
+
+## Fase 0 — Recuperar el terreno ✅ HECHA
+
+Objetivo: poder ejecutar, compilar y probar. Sin esto no se puede validar nada de lo demás.
+
+- [x] Arreglar los 7 errores de TypeScript que impedían `npm run build`.
+- [x] Que las acciones de moderación y entrenamiento propaguen los errores de Supabase.
+- [x] Extraer la lógica pura a `app/lib/` (`text.ts`, `srs.ts`, `questions.ts`).
+- [x] Montar Vitest + 35 tests de caracterización.
+- [x] `.env.example` y scripts `typecheck` / `test` / `check`.
+
+**Comandos:** `npm run build` · `npm run typecheck` · `npm test` · `npm run check`
+
+---
+
+## Fase 1 — Seguridad *(bloqueante: no publicar hasta cerrarla)*
+
+> Aquí está el riesgo real. Mientras esta fase no esté cerrada, cualquiera puede leer los
+> datos de cualquier alumno y gastar la cuota de Gemini de la cuenta. §1.
+
+### 1.1 Sesión de verdad en el servidor
+
+1. Añadir `@supabase/ssr` y crear un cliente de servidor que lea la cookie de sesión.
+2. Crear `app/lib/auth.ts`:
+   ```ts
+   // Devuelve el usuario autenticado o lanza. Ninguna acción vuelve a
+   // aceptar userId como parámetro.
+   export async function requireUser(): Promise<{ id: string; email: string }>
+   export async function requireAdmin(): Promise<{ id: string; email: string }>
+   ```
+3. Recorrer **las 37 Server Actions** y sustituir el `userId`/`adminId` del parámetro por
+   el de `requireUser()`. Borrar el parámetro de la firma, no dejarlo ignorado: si se queda,
+   alguien lo volverá a usar.
+4. Actualizar las llamadas en los componentes (quitar el `user.id` de los argumentos).
+
+**Verificación:** con `curl`, invocar una acción con el UUID de otro usuario y comprobar
+que devuelve 401/denegado en vez de datos.
+
+### 1.2 Reducir el uso de la clave de servicio
+
+`supabaseAdmin` salta RLS. Debe quedar reservado a lo que de verdad lo necesita
+(indexado de PDFs, seed masivo). El resto pasa a un cliente con el token del usuario, para
+que RLS actúe como segunda barrera.
+
+### 1.3 Activar y documentar RLS
+
+- Escribir las políticas de `profiles`, `test_results`, `flashcard_progress`,
+  `flashcard_results`, `profiles_biodata`, `profiles_psych`, `profiles_physical`,
+  `training_plans`, `question_votes`, `question_reports`.
+- Volcarlas al repositorio en `supabase/migrations/` (hoy el esquema **solo existe dentro
+  del proyecto de Supabase**: si se pierde, se pierde entero).
+
+### 1.4 Cerrar la asignación masiva §1.2
+
+En `saveBiodata` y `savePhysicalProfile`, poner una lista blanca de campos en vez de
+`{ user_id, ...formData }`. Nunca expandir un objeto del cliente sobre una fila.
+
+### 1.5 Límite de frecuencia en las rutas de IA
+
+Cuota por usuario y día sobre `askAtenea`, `generateAndSaveCandidate`, `generateFlashcard`,
+`processInterviewTurn`, `generateWeeklyPlan`. `seedQuestionBank` además debe topar `count`.
+
+### 1.6 Decidir qué se manda a Gemini §1.3
+
+Elegir explícitamente qué campos de la biodata viajan en el prompt de la entrevista. Hoy va
+todo, incluido `legal_issues`.
+
+**Salida de la fase:** un documento corto `docs/SEGURIDAD.md` con el modelo de amenazas y
+las políticas RLS aplicadas.
+
+---
+
+## Fase 2 — Que el producto haga lo que dice
+
+Los fallos que hacen que un alumno tenga una experiencia rota. Ordenados por impacto.
+
+### 2.1 Ciclo de vida de las preguntas §2.1
+
+**El fallo de producto más caro que hay.** Hoy ningún test usa el banco.
+
+Decidir el modelo y aplicarlo de forma coherente en los cuatro sitios:
+
+- **Opción A (recomendada):** `seedQuestionBank` guarda `active` (es una acción deliberada
+  del admin sobre su propio temario); la generación en vivo sigue guardando `candidate`.
+- **Opción B:** todo pasa por moderación, pero entonces hay que añadir aprobación en lote
+  a la pestaña de Moderación, porque aprobar de una en una es inviable.
+
+Además: la pestaña "Banco Maestro" debe poder filtrar por estado, no filtrar `active` en
+duro — hoy un admin siembra 500 preguntas y ve una lista vacía.
+
+### 2.2 Arreglar el panel de estadísticas §2.2
+
+1. Decidir de dónde sale el texto de la pregunta: `join` con `question_bank` en
+   `getUserStats`, o desnormalizar `question_text` en `test_results`.
+2. Blindar el render (`item.question_text ?? '—'`) y proteger las divisiones que dan `NaN`.
+3. Añadir `app/error.tsx` + un Error Boundary por módulo, para que un fallo en una pestaña
+   no deje toda la app en blanco.
+
+### 2.3 Recuperar las métricas de comportamiento §2.3
+
+Unificar los nombres de campo entre `ExamManager.handleFinish` y `saveExamResults`
+(`response_time_ms` / `option_changes`). **Definir un tipo compartido en `app/lib/` para el
+payload y usarlo en ambos lados**: si el tipo hubiera existido, el desajuste no habría
+llegado a producción.
+
+### 2.4 Un resultado por respuesta §2.4
+
+`saveTestResult` debe hacer `upsert` sobre `(user_id, question_id, session_id)` en vez de
+`insert`, para que etiquetar el error actualice la fila en lugar de crear otra. Requiere
+introducir un identificador de sesión de test, que hoy no existe.
+
+> Ojo: hay datos históricos ya duplicados. Contar cuántos antes de tocar nada, y decidir si
+> se limpian o se marcan.
+
+### 2.5 Que la dificultad sirva de algo §2.5
+
+1. Añadir columna `difficulty` a `question_bank`.
+2. Que el prompt de generación reciba la dificultad (hoy está fija en "Media/Alta").
+3. Aplicar el filtro en `getQuestionsFromBank` y **quitar el comentario "PENDIENTE"** que
+   dejé en la firma.
+
+Alternativa honesta si esto se pospone: ocultar el selector en la UI. Un control que no
+hace nada es peor que no tenerlo.
+
+### 2.6 Indexado de PDFs §2.6
+
+Reescribir `chunkLegalText` para: no emitir nunca fragmentos vacíos, partir párrafos que
+excedan el máximo, y calcular el solape sobre el texto original y no sobre el fragmento ya
+solapado. **Los tres tests `BUG:` de `tests/text.test.ts` deben invertirse aquí.**
+
+Además: `uploadTopicPDF` debe informar al admin de cuántos fragmentos fallaron, no
+tragárselo en `console.error`.
+
+### 2.7 Perfil físico §2.7
+
+Unificar `baseline_test.pullups` vs `baseline_metrics.pullups_score`. Elegir uno, migrar
+los datos existentes y tipar la estructura del perfil.
+
+---
+
+## Fase 3 — Calidad de la IA
+
+El corazón del producto. Merece una fase propia.
+
+- **Memoria en el chat §2.13.** Pasar el historial a `askAtenea` y persistir las
+  conversaciones. Sin esto no se puede repreguntar.
+- **Variedad en las flashcards §2.12.** Desplazamiento aleatorio en el texto fuente (como
+  ya hace `generateTestQuestion`) y hash de deduplicación.
+- **Validar la salida del modelo.** `cleanAIResponse` es un apaño de regex que corrompe el
+  contenido en los casos límite (dos tests lo demuestran). Sustituir por salida
+  estructurada / JSON mode, y validar el resultado con un esquema antes de guardarlo.
+- **Verificar `correctIndex`.** Hoy cualquier índice fuera de rango se convierte en `'c'` en
+  silencio (test en `questions.test.ts`). Debe rechazarse la pregunta.
+- **Repasar los modelos.** `core.ts` usa el mismo modelo para `chatModel` y `smartModel`;
+  el comentario sobre embeddings admite dudas sobre cuál funciona. Medir y decidir.
+- **Coste.** Instrumentar el gasto por módulo antes de optimizar nada.
+
+---
+
+## Fase 4 — Pedagogía y datos
+
+Ahora que los datos son fiables, que sirvan para algo.
+
+- **Repetición espaciada de verdad §SRS.** Los tests de `srs.test.ts` documentan que
+  "Duda" y "Bien" son indistinguibles desde la caja 1 y que "Duda" nunca mueve de caja.
+  Evaluar pasar a SM-2 / FSRS.
+- **Analítica de flashcards.** `saveFlashcardResult` existe, la tabla `flashcard_results`
+  existe, y nadie la llama nunca. Conectarla o borrarla.
+- **Persistir el log de entrenamiento §2.11.** Crear la tabla y guardar `logData`; quitar el
+  "PENDIENTE" de `completeTrainingDay`.
+- **Semana 2 del plan físico.** `handleGenerateNextWeek` es hoy un `alert()`.
+- **Evaluación de la entrevista.** No se guarda ninguna transcripción ni se genera informe
+  final. Es el módulo con más potencial y menos cerrado.
+- **Arreglar la estadística que miente.** Índice de incertidumbre (muestras distintas en
+  numerador y denominador), "progreso al ascenso" (nunca llega al 100%), barra del 65%
+  cableada, columnas de `AdminUsers` siempre a cero.
+
+---
+
+## Fase 5 — Higiene
+
+Baja urgencia, alto efecto compuesto. Se puede ir haciendo en paralelo.
+
+- **Los 126 `any`.** No es cosmética: son la razón de que §2.3 y §2.7 pasaran inadvertidos.
+  Empezar por tipar las filas de la base de datos (`supabase gen types typescript`).
+- Las 41 variables sin usar y los 12 `react/no-unescaped-entities`.
+- Las 11 dependencias de efectos incompletas y las 4 mutaciones de estado §2.9.
+- Fuga de `AudioContext` y efectos secundarios dentro del actualizador de estado §2.8.
+- Borrar `VipButton.tsx` / `VipCard.tsx` (vacíos y huérfanos) y las acciones muertas.
+- Sustituir los `alert()` / `confirm()` por componentes de UI propios.
+- Reescribir el `README.md` (sigue siendo el de `create-next-app`).
+- CI en GitHub Actions: `typecheck` + `lint` + `test` en cada push.
+- Fisher-Yates en lugar de `sort(() => Math.random() - 0.5)`.
+
+---
+
+## Cómo trabajar cada fase
+
+```bash
+npm ci
+cp .env.example .env.local     # y rellenar las 4 variables
+npm run dev
+
+npm run check                  # typecheck + tests, antes de cada commit
+npm run build                  # requiere las variables de entorno definidas
+```
+
+Sugerencia de ritmo: una rama por fase, y dentro de cada fase un commit por punto. Las
+fases 1 y 2 conviene no mezclarlas: la primera cambia la firma de casi todas las acciones
+y va a tocar todos los ficheros.
+
+---
+
+## Lo primero que haría mañana
+
+1. **Sacar el esquema de la base de datos a `supabase/migrations/`.** Hoy solo vive dentro
+   del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
+2. **Fase 1.1** (sesión en el servidor). Todo lo demás se construye encima.
+3. **Fase 2.1** (ciclo de vida de las preguntas). Es un cambio pequeño con el mayor efecto
+   sobre lo que percibe el alumno: tests instantáneos en vez de esperas de IA.

@@ -2,25 +2,22 @@
 
 import { useState } from 'react';
 import { generateAndSaveCandidate, saveExamResults, getQuestionsFromBank } from '@/actions';
+import {
+  type Question as ExamQuestion,
+  difficultyToNumber,
+  mapBankRowToQuestion,
+  mapCandidateToQuestion,
+} from '@/app/lib/questions';
 import { Loader2 } from 'lucide-react';
 
 import ExamConfig from './ExamConfig';
 import ActiveTest from './ActiveTest';
 import ExamResults from './ExamResults';
 
-export type Question = {
-  id: string; // ID Obligatorio
-  question: string;
-  options: { id: string; text: string }[];
-  correctOptionId: string;
-  explanation: string;
-  userAnswer?: string | null;
-  errorType?: string | null;
-  subject_id?: number | null;
-  origin?: 'bank' | 'live_ai' | 'candidate';
-timeMs?: number; // Para el algoritmo Atenea
-  changes?: number; // Para el algoritmo Atenea
-};
+// Los tipos y el mapeo DB/IA -> UI viven en app/lib/questions.ts (modulo puro
+// y cubierto por tests). Se reexporta Question porque otros modulos lo importan
+// desde aqui.
+export type { Question } from '@/app/lib/questions';
 
 export type ExamSettings = {
   mode: 'practice' | 'exam';
@@ -34,68 +31,11 @@ interface ExamManagerProps {
   onZenToggle: (active: boolean) => void;
 }
 
-function difficultyToNumber(d: 'easy' | 'medium' | 'hard') {
-  if (d === 'easy') return 1;
-  if (d === 'hard') return 3;
-  return 2;
-}
-
-// Helper: Mapeo DB -> Frontend
-function mapBankRowToQuestion(row: any): Question {
-  const opts = Array.isArray(row.options) 
-    ? row.options.map((text: string, idx: number) => ({
-        id: idx === 0 ? 'a' : idx === 1 ? 'b' : 'c',
-        text: typeof text === 'string' ? text : JSON.stringify(text)
-      }))
-    : [];
-
-  const correctOptionId = row.correct_index === 0 ? 'a' : row.correct_index === 1 ? 'b' : 'c';
-
-  return {
-    id: row.id,
-    subject_id: row.subject_id ?? null,
-    question: row.question_text,
-    options: opts,
-    correctOptionId,
-    explanation: row.explanation,
-    userAnswer: null,
-    errorType: null,
-    origin: row.origin || 'bank'
-  };
-}
-
-// Helper: Mapeo IA Live -> Frontend
-function mapCandidateToQuestion(data: any): Question {
-  let formattedOptions;
-  if (data.options && data.options[0] && typeof data.options[0] === 'object') {
-    formattedOptions = data.options;
-  } else if (Array.isArray(data.options)) {
-     formattedOptions = data.options.map((text: string, idx: number) => ({
-        id: idx === 0 ? 'a' : idx === 1 ? 'b' : 'c',
-        text
-      }));
-  } else {
-    formattedOptions = [];
-  }
-
-  return {
-    id: data.id,
-    subject_id: data.subject_id ?? null,
-    question: data.question || data.question_text,
-    options: formattedOptions,
-    correctOptionId: data.correctOptionId || (data.correct_index === 0 ? 'a' : data.correct_index === 1 ? 'b' : 'c'),
-    explanation: data.explanation,
-    userAnswer: null,
-    errorType: null,
-    origin: 'candidate'
-  };
-}
-
 export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
   const [step, setStep] = useState<'config' | 'active' | 'results'>('config');
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando..."); 
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [settings, setSettings] = useState<ExamSettings>({
     mode: 'practice',
     questionCount: 5,
@@ -124,7 +64,7 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
         )
       );
 
-      let loadedQuestions: Question[] = bankFetches
+      let loadedQuestions: ExamQuestion[] = bankFetches
         .flatMap((r) => (r.success ? r.data : []))
         .map(mapBankRowToQuestion);
 
@@ -165,7 +105,7 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
     }
   };
 
-const handleFinish = async (finalQuestions: Question[]) => {
+const handleFinish = async (finalQuestions: ExamQuestion[]) => {
     setQuestions(finalQuestions);
     setStep('results');
     onZenToggle(false);

@@ -1,6 +1,7 @@
 'use server'
 import PDFParser from 'pdf2json';
-import { supabaseAdmin as supabase, embeddingModel, cleanLegalText } from './core';
+import { supabaseAdmin as supabase, embeddingModel } from './core';
+import { cleanLegalText, chunkLegalText } from '../lib/text';
 import { getUserRole } from './user';
 
 // --- GESTIÓN DE TEMARIO OFICIAL ---
@@ -97,19 +98,7 @@ export async function uploadTopicPDF(adminId: string, formData: FormData) {
     if (docError) throw docError;
     const documentId = docData.id;
 
-    const paragraphs = cleanText.split(/\n\s*\n/);
-    let chunksToIndex: string[] = [];
-    let currentChunk = "";
-
-    for (const p of paragraphs) {
-        if ((currentChunk.length + p.length) > 1000) {
-            chunksToIndex.push(currentChunk);
-            currentChunk = currentChunk.slice(-200) + "\n" + p; 
-        } else {
-            currentChunk += (currentChunk ? "\n\n" : "") + p;
-        }
-    }
-    if (currentChunk) chunksToIndex.push(currentChunk);
+    const chunksToIndex = chunkLegalText(cleanText);
 
     const BATCH_SIZE = 5;
     let processedChunks = 0;
@@ -229,15 +218,15 @@ export async function getAdminQuestionBank(params: {
 
     if (error) throw error;
 
-    return { 
-      success: true, 
-      data: data || [], 
+    return {
+      success: true as const,
+      data: data || [],
       total: count || 0,
       page,
       totalPages: Math.ceil((count || 0) / limit)
     };
 
   } catch (e: any) {
-    return { success: false, error: e.message };
+    return { success: false as const, error: e.message as string };
   }
 }

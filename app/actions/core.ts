@@ -34,27 +34,9 @@ export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, {
 export const supabaseAnon = createClient(SB_URL, SB_ANON_KEY);
 
 // --- UTILIDADES COMPARTIDAS (SÍNCRONAS) ---
-
-export function cleanAIResponse(text: string): string {
-  if (!text) return "{}";
-  let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  const firstBrace = clean.indexOf('{');
-  const lastBrace = clean.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1) {
-      clean = clean.substring(firstBrace, lastBrace + 1);
-  }
-  return clean.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}');
-}
-
-export function cleanLegalText(raw: string): string {
-  return raw
-    .replace(/%[0-9A-F]{2}/g, (match) => { try { return decodeURIComponent(match); } catch { return match; } })
-    .replace(/----------------Page \(\d+\) Break----------------/g, '\n')
-    .replace(/\n\s*\d+\s*\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[]/g, '')
-    .trim();
-}
+// Viven en app/lib/text.ts (módulo puro y testeado). Se reexportan aquí para
+// no romper los imports existentes.
+export { cleanAIResponse, cleanLegalText, chunkLegalText } from '../lib/text';
 
 export async function getSubjectIdByName(topicName: string): Promise<number> {
   const search = topicName.trim();

@@ -1,6 +1,7 @@
 'use client';
 
 import { Question } from './ExamManager';
+import { scoreExam } from '@/app/lib/questions';
 import { CheckCircle2, XCircle, RotateCcw, Award } from 'lucide-react';
 
 interface ExamResultsProps {
@@ -9,9 +10,7 @@ interface ExamResultsProps {
 }
 
 export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
-  const correctCount = questions.filter(q => q.userAnswer === q.correctOptionId).length;
-  const total = questions.length;
-  const percentage = Math.round((correctCount / total) * 100);
+  const { total, correct: correctCount, wrong, percentage } = scoreExam(questions);
   const isPass = percentage >= 50;
 
   return (
@@ -44,7 +43,7 @@ export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
              </div>
              <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl">
                  <p className="text-[10px] font-bold text-red-600/60 uppercase">Fallos</p>
-                 <p className="text-2xl font-black text-red-600">{total - correctCount}</p>
+                 <p className="text-2xl font-black text-red-600">{wrong}</p>
              </div>
         </div>
 
