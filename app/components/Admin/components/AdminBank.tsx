@@ -6,12 +6,26 @@ import {
   Database, Loader2, BookOpen, Save, X, CheckCircle2, 
   MoreHorizontal, AlertTriangle, Copy
 } from 'lucide-react';
-import { 
-  getAdminQuestionBank, 
-  getOfficialSyllabus, 
-  disableQuestion, 
-  updateQuestion 
+import {
+  getAdminQuestionBank,
+  getOfficialSyllabus,
+  disableQuestion,
+  approveQuestions,
+  updateQuestion
 } from '@/actions';
+import {
+  QUESTION_STATUS,
+  QUESTION_STATUS_LABEL,
+  QUESTION_STATUSES,
+  type QuestionStatus,
+} from '@/app/lib/questions';
+
+// --- UTILIDAD VISUAL: ESTADO DE LA PREGUNTA ---
+const STATUS_STYLE: Record<QuestionStatus, string> = {
+  [QUESTION_STATUS.ACTIVE]: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  [QUESTION_STATUS.CANDIDATE]: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  [QUESTION_STATUS.DISABLED]: 'bg-slate-700/40 text-slate-500 border-slate-600/30',
+};
 
 // --- UTILIDAD VISUAL: COLORES POR BLOQUE ---
 const getTopicStyle = (num: number) => {
@@ -29,6 +43,10 @@ export default function AdminBank({ userId }: { userId: string }) {
   // Filtros
   const [selectedSubject, setSelectedSubject] = useState<number | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
+  // 'all' por defecto: filtrar 'active' en duro era lo que hacia que un admin
+  // sembrara cientos de preguntas y viera la lista vacia.
+  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all');
+  const [bulkRunning, setBulkRunning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -54,7 +72,7 @@ export default function AdminBank({ userId }: { userId: string }) {
     const timer = setTimeout(() => { loadQuestions(1); }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSubject, searchTerm]);
+  }, [selectedSubject, searchTerm, statusFilter]);
 
   // --- CARGA DE DATOS ---
   async function loadSyllabus() {
@@ -67,9 +85,10 @@ export default function AdminBank({ userId }: { userId: string }) {
 
   async function loadQuestions(page = 1) {
     setLoading(true);
-    const res = await getAdminQuestionBank({ 
-        subjectId: selectedSubject, 
-        search: searchTerm, 
+    const res = await getAdminQuestionBank({
+        subjectId: selectedSubject,
+        search: searchTerm,
+        status: statusFilter,
         page,
         limit: 15 // Menos preguntas por página para diseño más aireado
     });
@@ -83,14 +102,40 @@ export default function AdminBank({ userId }: { userId: string }) {
 
   // --- ACCIONES ---
   async function handleDisable(id: string) {
-      if(!confirm("⚠️ ¿Eliminar del Banco Activo?\nEsta acción retirará la pregunta de los exámenes de los alumnos.")) return;
+      if(!confirm("¿Descartar esta pregunta?\nDejará de aparecer en los exámenes de los alumnos. No se borra: queda marcada como descartada y no vuelve al banco aunque se resiembre el tema.")) return;
       setIsDeleting(id);
       const res = await disableQuestion(id);
       if (res.success) {
-          setQuestions(prev => prev.filter(q => q.id !== id));
-          setStats(prev => ({ ...prev, total: prev.total - 1 }));
+          // Si estamos viendo todos los estados, la pregunta sigue ahi pero
+          // descartada; si hay filtro, ya no pertenece a esta vista.
+          if (statusFilter === 'all') {
+              setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: QUESTION_STATUS.DISABLED } : q));
+          } else {
+              await loadQuestions(stats.page);
+          }
+      } else {
+          alert('No se pudo descartar: ' + res.error);
       }
       setIsDeleting(null);
+  }
+
+  const visibleCandidates = questions.filter(q => q.status === QUESTION_STATUS.CANDIDATE);
+
+  async function handleApproveVisible() {
+      const ids = visibleCandidates.map(q => q.id);
+      if (!ids.length) return;
+      if (!confirm(`Se publicaran ${ids.length} preguntas en el banco de los alumnos. ¿Continuar?`)) return;
+
+      setBulkRunning(true);
+      const res = await approveQuestions(ids);
+      if (res.success) {
+          setQuestions(prev => prev.map(q =>
+              ids.includes(q.id) ? { ...q, status: QUESTION_STATUS.ACTIVE } : q
+          ));
+      } else {
+          alert('No se pudieron aprobar: ' + res.error);
+      }
+      setBulkRunning(false);
   }
 
   function openEditor(q: any) {
@@ -133,7 +178,7 @@ export default function AdminBank({ userId }: { userId: string }) {
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         <p className="text-xs font-mono text-slate-400">
-                            {stats.total} activos
+                            {stats.total} {statusFilter === 'all' ? 'preguntas' : QUESTION_STATUS_LABEL[statusFilter].toLowerCase()}
                         </p>
                     </div>
                 </div>
@@ -149,6 +194,22 @@ export default function AdminBank({ userId }: { userId: string }) {
                         placeholder="Buscar por contenido..." 
                         className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-600"
                     />
+                </div>
+
+                <div className="relative group w-full sm:w-48">
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as QuestionStatus | 'all')}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer"
+                    >
+                        <option value="all">Todos los estados</option>
+                        {QUESTION_STATUSES.map(st => (
+                            <option key={st} value={st}>{QUESTION_STATUS_LABEL[st]}</option>
+                        ))}
+                    </select>
+                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-600">
+                        <MoreHorizontal size={14}/>
+                    </div>
                 </div>
 
                 <div className="relative group w-full sm:w-64">
@@ -169,6 +230,24 @@ export default function AdminBank({ userId }: { userId: string }) {
                 </div>
             </div>
         </div>
+
+        {/* --- APROBACIÓN EN LOTE --- */}
+        {!loading && visibleCandidates.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-amber-500/5 border border-amber-500/20 rounded-2xl px-6 py-4 animate-in fade-in">
+                <p className="text-sm text-amber-200/80">
+                    <span className="font-black text-amber-400">{visibleCandidates.length}</span> preguntas pendientes en esta página.
+                    Los alumnos no las reciben hasta que se publiquen.
+                </p>
+                <button
+                    onClick={handleApproveVisible}
+                    disabled={bulkRunning}
+                    className="shrink-0 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95"
+                >
+                    {bulkRunning ? <Loader2 className="animate-spin" size={14}/> : <CheckCircle2 size={14}/>}
+                    Publicar las {visibleCandidates.length}
+                </button>
+            </div>
+        )}
 
         {/* --- GRID DE PREGUNTAS (Estilo Tarjetas Pro) --- */}
         {loading ? (
@@ -197,6 +276,9 @@ export default function AdminBank({ userId }: { userId: string }) {
                                         <BookOpen size={10}/>
                                         TEMA {topicNum}
                                     </span>
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_STYLE[q.status as QuestionStatus] ?? STATUS_STYLE[QUESTION_STATUS.DISABLED]}`}>
+                                        {QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}
+                                    </span>
                                     {q.difficulty === 3 && (
                                         <span className="text-[10px] font-bold bg-red-500/10 text-red-400 px-2 py-1 rounded-full border border-red-500/20 flex items-center gap-1">
                                             <AlertTriangle size={10}/> DIFÍCIL
@@ -222,8 +304,9 @@ export default function AdminBank({ userId }: { userId: string }) {
                                     </button>
                                     <button 
                                         onClick={() => handleDisable(q.id)}
-                                        className="p-2 bg-slate-800 text-slate-400 border border-slate-700 hover:border-red-500 hover:text-red-500 rounded-xl transition-colors"
-                                        title="Eliminar"
+                                        disabled={q.status === QUESTION_STATUS.DISABLED}
+                                        className="p-2 bg-slate-800 text-slate-400 border border-slate-700 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-700 disabled:hover:text-slate-400 rounded-xl transition-colors"
+                                        title="Descartar del banco"
                                     >
                                         {isDeleting === q.id ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16}/>}
                                     </button>

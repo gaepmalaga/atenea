@@ -119,7 +119,7 @@ filtra estructura interna de la base de datos.
 
 ## 2. Fallos funcionales
 
-### 2.1 · CRÍTICO — El banco de preguntas nunca se sirve
+### 2.1 · ~~CRÍTICO~~ ✅ CERRADO — El banco de preguntas nunca se servía
 
 | Dónde | Qué hace |
 |---|---|
@@ -135,8 +135,20 @@ El único camino a `active` es aprobar una a una en la pestaña de Moderación. 
 - La pestaña "Banco Maestro" del admin aparece **vacía** aunque se hayan sembrado miles de
   preguntas, porque también filtra por `active`.
 
-El comentario del código dice lo contrario de lo que hace: *"En seed masivo, asumimos
+El comentario del código decía lo contrario de lo que hacía: *"En seed masivo, asumimos
 activas"* justo encima de `status: 'candidate'`.
+
+**Cerrado.** Los estados salen ahora de `QUESTION_STATUS` (`app/lib/questions.ts`), el seed
+publica en el banco por defecto con un interruptor **Destino** visible en la UI, y el
+"Banco Maestro" filtra por estado en vez de fijar `active`. Al mirarlo de cerca aparecieron
+dos fallos más, corregidos en el mismo cambio:
+
+- **Resembrar corrompía el banco.** El `upsert` sobre `question_hash` no llevaba
+  `ignoreDuplicates`, así que reescribía la fila existente **incluido el estado**: una
+  pregunta aprobada volvía a `candidate` y salía del banco de los alumnos; una descartada
+  resucitaba en moderación; y las ediciones manuales del admin se perdían.
+- **Aprobar de una en una no daba abasto** con la generación en vivo alimentando la cola.
+  Añadida `approveQuestions` en lote, que solo toca las que están en `candidate`.
 
 ### 2.2 · CRÍTICO — El panel de estadísticas revienta
 
@@ -222,12 +234,14 @@ En la misma función, `saveTestResult` envía `optionChanges` justo después de
 `setOptionChanges(prev => prev + 1)`: por el cierre obsoleto siempre guarda el valor
 anterior.
 
-### 2.10 · MEDIO — Preguntas duplicadas llegan con `id: null`
+### 2.10 · ~~MEDIO~~ ✅ CERRADO — Preguntas duplicadas llegaban con `id: null`
 
-Cuando el `upsert` por `question_hash` choca, `generateAndSaveCandidate` devuelve
-`{ ...qData, id: null, status: 'unsaved' }`. Esa pregunta se muestra igual, pero no se
-puede votar ni reportar, y se guarda en `test_results` con `question_id` null. Cubierto en
-`tests/questions.test.ts`.
+Cuando el `upsert` por `question_hash` chocaba, `generateAndSaveCandidate` devolvía
+`{ ...qData, id: null, status: 'unsaved' }`. Esa pregunta se mostraba igual, pero no se
+podía votar ni reportar, y se guardaba en `test_results` con `question_id` null.
+
+**Cerrado** junto con §2.1: si el hash choca, se recupera la fila existente y la pregunta
+llega a la UI con su id real. Si además está descartada, ya no se sirve.
 
 ### 2.11 · MEDIO — El log de entrenamiento no se persiste
 
@@ -317,12 +331,13 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 0 · Recuperar el terreno | ✅ cerrada |
 | 1.1 · Sesión en el servidor | ✅ cerrada |
 | 1.4 · Asignación masiva | ✅ cerrada |
+| **2.1 · Ciclo de vida de las preguntas** | ✅ **cerrada** (§2.1 y §2.10) |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |
-| 2 – 5 | pendiente |
+| 2.2 – 5 | pendiente |
 
-Los hallazgos de §1.1, §1.2 y §1.5 quedan cerrados en código; **falta verificarlos contra el
-proyecto real de Supabase**. Ningún fallo funcional de §2 se ha tocado todavía.
+Los hallazgos de §1.1, §1.2, §1.5, §2.1 y §2.10 quedan cerrados en código; **falta
+verificarlos contra el proyecto real de Supabase**.
 
 ---
 

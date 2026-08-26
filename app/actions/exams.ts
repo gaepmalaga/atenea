@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
+import { QUESTION_STATUS, indexToOptionId, type QuestionStatus } from '../lib/questions';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -87,6 +88,18 @@ async function generateTestQuestion(subjectId: number) {
 // ==========================================
 // Esta es la función que te faltaba y causaba el error
 
+/** Da forma de UI a una pregunta recien generada, con o sin fila en la BD. */
+function toUiQuestion(qData: any, saved: any) {
+  return {
+    ...qData,
+    id: saved?.id ?? null,
+    subject_id: saved?.subject_id ?? null,
+    status: saved?.status ?? 'unsaved',
+    options: qData.options.map((text: string, i: number) => ({ id: indexToOptionId(i), text })),
+    correctOptionId: indexToOptionId(qData.correctIndex),
+  };
+}
+
 export async function generateAndSaveCandidate(topicNameOrId: string | number) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
@@ -114,8 +127,13 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
     });
     const qHash = crypto.createHash('sha256').update(payload).digest('hex');
 
-    // D. Guardar en BD como 'candidate'
-    const { data: saved, error } = await supabase
+    // D. Guardar en el banco como candidata.
+    //
+    // `ignoreDuplicates` es imprescindible: con un upsert normal, volver a
+    // generar una pregunta que ya existia REESCRIBIA su fila, incluido el
+    // estado. Una pregunta ya aprobada volvia a 'candidate' (saliendo del banco
+    // de los alumnos) y una descartada resucitaba en la cola de moderacion.
+    const { data: inserted, error } = await supabase
       .from('question_bank')
       .upsert({
           subject_id: subjectId,
@@ -125,35 +143,38 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
           correct_index: qData.correctIndex,
           explanation: qData.explanation,
           question_hash: qHash,
-          status: 'candidate', // Se guarda para moderación futura
-          origin: 'live_ai',   // Marcada como generada en vivo
+          status: QUESTION_STATUS.CANDIDATE,
+          origin: 'live_ai',
           created_at: new Date().toISOString()
-      }, { onConflict: 'question_hash' })
+      }, { onConflict: 'question_hash', ignoreDuplicates: true })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
        console.error("Error guardando candidate:", error.message);
-       // Si falla el guardado (ej: duplicada), devolvemos la generada sin ID
-       return { success: true, data: { ...qData, id: null, status: 'unsaved' } };
+       return { success: true as const, data: toUiQuestion(qData, null) };
     }
 
-    // E. Retorno compatible con UI
-    return {
-      success: true,
-      data: {
-        ...qData,
-        id: saved.id,
-        subject_id: saved.subject_id,
-        status: saved.status,
-        // Adaptamos el formato para que el frontend lo entienda si espera objetos
-        options: qData.options.map((text:string, i:number) => ({
-            id: i===0?'a':i===1?'b':'c',
-            text
-        })),
-        correctOptionId: qData.correctIndex===0?'a':qData.correctIndex===1?'b':'c'
-      }
-    };
+    // Si era duplicada no se ha insertado nada: recuperamos la fila existente
+    // para que la pregunta llegue a la UI con su id real. Antes se devolvia
+    // `id: null` y esa pregunta no se podia votar ni reportar, y se guardaba en
+    // test_results sin referencia.
+    let saved = inserted;
+    if (!saved) {
+      const { data: existing } = await supabase
+        .from('question_bank')
+        .select()
+        .eq('question_hash', qHash)
+        .maybeSingle();
+      saved = existing;
+    }
+
+    // Una pregunta ya descartada en moderacion no debe volver a servirse.
+    if (saved?.status === QUESTION_STATUS.DISABLED) {
+      return { success: false as const, error: 'La pregunta generada ya fue descartada.' };
+    }
+
+    return { success: true as const, data: toUiQuestion(qData, saved) };
   } catch (e: any) {
       return { success: false, error: e.message };
   }
@@ -182,12 +203,23 @@ async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker:
 }
 
 export async function seedQuestionBank(params: {
-  subjectId: number; topic: string; count: number; concurrency?: number;
+  subjectId: number;
+  topic: string;
+  count: number;
+  concurrency?: number;
+  /**
+   * Publicar directamente en el banco (estado 'active') en vez de mandarlo a
+   * moderacion. Por defecto si: sembrar es un acto deliberado del admin sobre
+   * su propio temario. La UI lo expone como interruptor para que quien quiera
+   * revisar antes pueda hacerlo.
+   */
+  autoApprove?: boolean;
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const { subjectId, concurrency = 2 } = params;
+  const { subjectId, concurrency = 2, autoApprove = true } = params;
+  const status: QuestionStatus = autoApprove ? QUESTION_STATUS.ACTIVE : QUESTION_STATUS.CANDIDATE;
   if (!subjectId) return { success: false as const, error: "Falta ID de tema" };
 
   // Tope duro: `count` venia del cliente sin limite y cada unidad es una
@@ -209,30 +241,43 @@ export async function seedQuestionBank(params: {
   const results = await runWithConcurrency(tasks, concurrency, worker);
 
   let inserted = 0;
+  let duplicated = 0;
+  let failed = 0;
+
   for (const r of results) {
-    if (!r.ok || !r.data) continue;
-    
+    if (!r.ok || !r.data) { failed++; continue; }
+
     const d: any = r.data;
     const payload = JSON.stringify({ s: subjectId, q: d.question.trim(), c: d.correctIndex });
     const qHash = crypto.createHash('sha256').update(payload).digest('hex');
 
-    const { error } = await supabase.from('question_bank').upsert({
-        subject_id: subjectId,
-        document_id: d.document_id,
-        question_text: d.question,
-        options: d.options,
-        correct_index: d.correctIndex,
-        explanation: d.explanation,
-        question_hash: qHash,
-        status: 'candidate', // En seed masivo, asumimos activas (o cambiar a candidate si prefieres moderar todo)
-        origin: 'bank_seed',
-        created_at: new Date().toISOString()
-    }, { onConflict: 'question_hash' });
+    // `ignoreDuplicates`: resembrar un tema no debe tocar las filas que ya
+    // existen. Con un upsert normal, una pregunta descartada en moderacion
+    // volvia al banco y una editada a mano perdia las correcciones.
+    const { data, error } = await supabase
+      .from('question_bank')
+      .upsert({
+          subject_id: subjectId,
+          document_id: d.document_id,
+          question_text: d.question,
+          options: d.options,
+          correct_index: d.correctIndex,
+          explanation: d.explanation,
+          question_hash: qHash,
+          status,
+          origin: 'bank_seed',
+          created_at: new Date().toISOString()
+      }, { onConflict: 'question_hash', ignoreDuplicates: true })
+      .select('id');
 
-    if (!error) inserted++;
+    if (error) failed++;
+    else if (data && data.length > 0) inserted++;
+    else duplicated++;
   }
 
-  return { success: true as const, inserted, requested: count };
+  // Se devuelve el desglose completo: antes solo se informaba de `inserted` y
+  // un lote que fallara entero se veia igual que uno duplicado.
+  return { success: true as const, inserted, duplicated, failed, requested: count, status };
 }
 
 // ==========================================
@@ -267,7 +312,7 @@ export async function getQuestionsFromBank(params: {
     .from('question_bank')
     .select('*')
     .in('subject_id', ids)
-    .eq('status', 'active') 
+    .eq('status', QUESTION_STATUS.ACTIVE) 
     .limit(params.limit * 3); 
 
   if (error) return { success: false as const, error: error.message };

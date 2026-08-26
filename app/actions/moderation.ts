@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
+import { QUESTION_STATUS } from '../lib/questions';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -38,7 +39,7 @@ export async function getModerationQueue() {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
-    const { data: cand } = await supabaseAdmin.from('question_bank').select('*').eq('status', 'candidate').limit(50);
+    const { data: cand } = await supabaseAdmin.from('question_bank').select('*').eq('status', QUESTION_STATUS.CANDIDATE).limit(50);
     const { data: rep } = await supabaseAdmin.from('question_reports').select('*, question:question_bank(*)').eq('status', 'open');
     return { success: true as const, data: { candidates: cand || [], reports: rep || [] } };
 }
@@ -47,15 +48,36 @@ export async function approveQuestion(questionId: string): Promise<ModerationRes
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
 
-    const { error } = await supabaseAdmin.from('question_bank').update({ status: 'active' }).eq('id', questionId);
+    const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.ACTIVE }).eq('id', questionId);
     return { success: !error, error: error?.message };
+}
+
+/**
+ * Aprueba varias preguntas de una vez.
+ *
+ * La generacion en vivo alimenta la cola de candidatas de forma continua:
+ * aprobarlas de una en una no da abasto.
+ */
+export async function approveQuestions(questionIds: string[]): Promise<ModerationResult & { approved?: number }> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (!questionIds.length) return { success: true, approved: 0 };
+
+    const { data, error } = await supabaseAdmin
+        .from('question_bank')
+        .update({ status: QUESTION_STATUS.ACTIVE })
+        .in('id', questionIds)
+        .eq('status', QUESTION_STATUS.CANDIDATE)  // nunca resucita una descartada
+        .select('id');
+
+    return { success: !error, error: error?.message, approved: data?.length ?? 0 };
 }
 
 export async function disableQuestion(questionId: string): Promise<ModerationResult> {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
 
-    const { error } = await supabaseAdmin.from('question_bank').update({ status: 'disabled' }).eq('id', questionId);
+    const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.DISABLED }).eq('id', questionId);
     return { success: !error, error: error?.message };
 }
 

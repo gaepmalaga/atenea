@@ -48,6 +48,9 @@ export default function AdminContent({ userId }: { userId: string }) {
   // Estado del Generador (IA)
   const [genSubject, setGenSubject] = useState<Subject | null>(null);
   const [genCount, setGenCount] = useState(20);
+  // Publicar directo en el banco o mandar a moderacion. Antes era una constante
+  // oculta en el servidor, y estaba puesta al reves de lo que decia su comentario.
+  const [genAutoApprove, setGenAutoApprove] = useState(true);
 
   // Control de acordeón (Bloques abiertos)
   const [openBlocks, setOpenBlocks] = useState<Record<number, boolean>>({ 1: true });
@@ -187,10 +190,12 @@ export default function AdminContent({ userId }: { userId: string }) {
         </div>
 
         {/* --- 3. GENERADOR IA (PANEL INTERACTIVO) --- */}
-        <SeedBankPanel 
-            subject={genSubject} 
+        <SeedBankPanel
+            subject={genSubject}
             count={genCount}
             setCount={setGenCount}
+            autoApprove={genAutoApprove}
+            setAutoApprove={setGenAutoApprove}
         />
 
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
@@ -359,7 +364,13 @@ export default function AdminContent({ userId }: { userId: string }) {
 }
 
 // --- SUBCOMPONENTE: PANEL GENERADOR ---
-function SeedBankPanel({ subject, count, setCount }: { subject: Subject | null, count: number, setCount: (n: number) => void }) {
+function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }: {
+  subject: Subject | null,
+  count: number,
+  setCount: (n: number) => void,
+  autoApprove: boolean,
+  setAutoApprove: (v: boolean) => void
+}) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -369,10 +380,11 @@ function SeedBankPanel({ subject, count, setCount }: { subject: Subject | null, 
     setResult(null);
     
     // Llamada a la Action
-    const res = await seedQuestionBank({ 
-        subjectId: subject.id, 
-        topic: subject.title, 
-        count 
+    const res = await seedQuestionBank({
+        subjectId: subject.id,
+        topic: subject.title,
+        count,
+        autoApprove
     });
     
     setResult(res);
@@ -413,7 +425,19 @@ function SeedBankPanel({ subject, count, setCount }: { subject: Subject | null, 
                         />
                     </div>
                     
-                    <button 
+                    <button
+                        type="button"
+                        onClick={() => setAutoApprove(!autoApprove)}
+                        className="flex flex-col px-3 border-r border-slate-800 text-left group/toggle"
+                        title="Decide si las preguntas entran directas al banco o pasan por moderación"
+                    >
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Destino</span>
+                        <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${autoApprove ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {autoApprove ? 'Banco' : 'Moderación'}
+                        </span>
+                    </button>
+
+                    <button
                         onClick={run}
                         disabled={running || !subject}
                         className="h-14 px-8 bg-white hover:bg-indigo-50 text-slate-900 rounded-xl font-black uppercase text-xs tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 hover:scale-105 active:scale-95 shadow-xl hover:shadow-indigo-500/20"
@@ -432,7 +456,15 @@ function SeedBankPanel({ subject, count, setCount }: { subject: Subject | null, 
                         </div>
                         <div>
                             <p className="font-bold text-sm mb-0.5">{result.success ? 'GENERACIÓN COMPLETADA' : 'ERROR EN PROCESO'}</p>
-                            <p className="opacity-80">{result.success ? `${result.inserted} preguntas generadas y añadidas al banco.` : result.error}</p>
+                            <p className="opacity-80">
+                                {result.success
+                                  ? [
+                                      `${result.inserted} nuevas en ${result.status === 'active' ? 'el banco' : 'moderación'}`,
+                                      result.duplicated ? `${result.duplicated} ya existían` : null,
+                                      result.failed ? `${result.failed} fallaron` : null,
+                                    ].filter(Boolean).join(' · ')
+                                  : result.error}
+                            </p>
                         </div>
                     </div>
                 </div>

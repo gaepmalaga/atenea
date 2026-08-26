@@ -91,19 +91,41 @@ las políticas RLS aplicadas.
 
 Los fallos que hacen que un alumno tenga una experiencia rota. Ordenados por impacto.
 
-### 2.1 Ciclo de vida de las preguntas §2.1
+### 2.1 Ciclo de vida de las preguntas §2.1 ✅ HECHA
 
-**El fallo de producto más caro que hay.** Hoy ningún test usa el banco.
+Era el fallo de producto más caro: ningún test usaba el banco.
 
-Decidir el modelo y aplicarlo de forma coherente en los cuatro sitios:
+- [x] Modelo de estados en un solo sitio: `QUESTION_STATUS` en `app/lib/questions.ts`.
+      Se acabaron los literales sueltos que no casaban entre ficheros.
+- [x] **Opción A aplicada, pero como decisión visible.** `seedQuestionBank` acepta
+      `autoApprove` (por defecto `true`) y la UI lo expone como interruptor
+      **Destino: Banco / Moderación**. Sembrar es un acto deliberado del admin sobre su
+      propio temario, pero quien quiera revisar antes puede hacerlo sin tocar código.
+- [x] "Banco Maestro" filtra por estado (por defecto **todos**) y cada pregunta lleva su
+      chip de estado. Antes filtraba `active` en duro: se sembraban 500 preguntas y la
+      lista salía vacía, sin forma de llegar a las pendientes desde esa pantalla.
+- [x] Aprobación en lote (`approveQuestions`) con botón "Publicar las N" sobre las
+      pendientes visibles. Filtra por `status = candidate`, así que un id de una pregunta
+      descartada no la resucita.
 
-- **Opción A (recomendada):** `seedQuestionBank` guarda `active` (es una acción deliberada
-  del admin sobre su propio temario); la generación en vivo sigue guardando `candidate`.
-- **Opción B:** todo pasa por moderación, pero entonces hay que añadir aprobación en lote
-  a la pestaña de Moderación, porque aprobar de una en una es inviable.
+**Dos fallos más que aparecieron al mirar de cerca, corregidos aquí:**
 
-Además: la pestaña "Banco Maestro" debe poder filtrar por estado, no filtrar `active` en
-duro — hoy un admin siembra 500 preguntas y ve una lista vacía.
+- [x] **Resembrar corrompía el banco.** El `upsert` sobre `question_hash` no llevaba
+      `ignoreDuplicates`, así que reescribía la fila existente **incluido el estado**: una
+      pregunta ya aprobada volvía a `candidate` (saliendo del banco de los alumnos) y una
+      descartada resucitaba en moderación. También se perdían las ediciones manuales del
+      admin. Ahora ningún upsert toca una fila que ya existe.
+- [x] **Las preguntas duplicadas llegaban con `id: null`** (era §2.10): no se podían votar
+      ni reportar y se guardaban en `test_results` sin referencia. Ahora, si el hash choca,
+      se recupera la fila existente y la pregunta llega con su id real.
+
+- [x] El seed informa del desglose real (`inserted` / `duplicated` / `failed`). Antes solo
+      devolvía `inserted`: un lote que fallaba entero se veía igual que uno duplicado.
+- [x] 13 tests en `tests/question-lifecycle.test.ts`, verificados reintroduciendo los dos
+      fallos a propósito.
+
+**Pendiente de verificar contra el proyecto real:** sembrar un tema y comprobar que las
+preguntas aparecen en el banco y llegan a un test de alumno.
 
 ### 2.2 Arreglar el panel de estadísticas §2.2
 
@@ -230,11 +252,14 @@ y va a tocar todos los ficheros.
 
 ## Siguiente paso
 
-1. **Probar el login contra el Supabase real.** El cambio de `localStorage` a cookies es el
-   punto que hay que ver funcionando con credenciales de verdad: entrar como alumno, entrar
-   como admin y comprobar que las pestañas cargan.
+1. **Probar 1.1 y 2.1 contra el Supabase real.** Entrar como alumno y como admin; sembrar
+   un tema y comprobar que las preguntas aparecen en el banco y llegan a un test. Si algo
+   falla, lo más probable es el login (la sesión pasó de `localStorage` a cookies).
 2. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
    del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
-3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS), o saltar a **2.1**
-   (ciclo de vida de las preguntas) si se quiere un resultado visible antes: es un cambio
-   pequeño con el mayor efecto sobre lo que percibe el alumno.
+3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS) para cerrar seguridad,
+   o **2.2** (panel de estadísticas) si se prefiere un resultado visible: hoy esa pestaña
+   se queda en blanco.
+
+> El estado vivo del proyecto está en [`CLAUDE.md`](../CLAUDE.md), en la raíz. Al cerrar una
+> fase, actualiza los dos.

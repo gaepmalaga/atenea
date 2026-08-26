@@ -90,3 +90,47 @@ export function scoreExam(questions: Pick<Question, 'userAnswer' | 'correctOptio
   const percentage = total === 0 ? 0 : Math.round((correct / total) * 100);
   return { total, correct, wrong: total - correct, percentage };
 }
+
+// ============================================================
+// CICLO DE VIDA DE UNA PREGUNTA
+// ============================================================
+
+/**
+ * Estados posibles de una fila de `question_bank`.
+ *
+ * Antes estos literales estaban esparcidos por cuatro ficheros y no casaban:
+ * todo lo generado se guardaba como 'candidate' y los alumnos solo leian
+ * 'active', asi que el banco nunca llegaba a servirse.
+ */
+export const QUESTION_STATUS = {
+  /**
+   * Generada en vivo durante un test. Se sirve a quien la pidio, pero no entra
+   * en el banco reutilizable hasta que un administrador la revisa.
+   */
+  CANDIDATE: 'candidate',
+  /** En el banco: reutilizable en los tests de cualquier alumno. */
+  ACTIVE: 'active',
+  /** Descartada en moderacion. No vuelve a servirse ni se resucita al resembrar. */
+  DISABLED: 'disabled',
+} as const;
+
+export type QuestionStatus = (typeof QUESTION_STATUS)[keyof typeof QUESTION_STATUS];
+
+export const QUESTION_STATUSES: QuestionStatus[] = [
+  QUESTION_STATUS.CANDIDATE,
+  QUESTION_STATUS.ACTIVE,
+  QUESTION_STATUS.DISABLED,
+];
+
+export const QUESTION_STATUS_LABEL: Record<QuestionStatus, string> = {
+  [QUESTION_STATUS.CANDIDATE]: 'Pendiente',
+  [QUESTION_STATUS.ACTIVE]: 'En el banco',
+  [QUESTION_STATUS.DISABLED]: 'Descartada',
+};
+
+export function isQuestionStatus(value: unknown): value is QuestionStatus {
+  return typeof value === 'string' && (QUESTION_STATUSES as string[]).includes(value);
+}
+
+/** Estados que un alumno puede recibir en un test desde el banco. */
+export const SERVABLE_STATUSES: QuestionStatus[] = [QUESTION_STATUS.ACTIVE];

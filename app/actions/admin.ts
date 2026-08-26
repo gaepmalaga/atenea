@@ -3,6 +3,7 @@ import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
 import { cleanLegalText, chunkLegalText } from '../lib/text';
 import { requireAdmin, requireUser } from '../lib/auth';
+import { QUESTION_STATUS, isQuestionStatus, type QuestionStatus } from '../lib/questions';
 
 // --- GESTIÓN DE TEMARIO OFICIAL ---
 
@@ -199,26 +200,34 @@ export async function getGlobalActivity() {
 
 // --- GESTIÓN DEL BANCO (VISOR OPTIMIZADO) ---
 
-export async function getAdminQuestionBank(params: { 
-  subjectId?: number; 
-  search?: string; 
-  page?: number; 
-  limit?: number 
+export async function getAdminQuestionBank(params: {
+  subjectId?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+  /**
+   * Estado a mostrar, o 'all' para todos. Por defecto 'all': antes filtraba
+   * 'active' en duro, asi que un admin sembraba 500 preguntas y veia una lista
+   * vacia, sin ninguna forma de llegar a las pendientes desde esta pantalla.
+   */
+  status?: QuestionStatus | 'all';
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   try {
-    const { subjectId, search, page = 1, limit = 20 } = params;
+    const { subjectId, search, page = 1, limit = 20, status = 'all' } = params;
     const offset = (page - 1) * limit;
 
     let query = supabase
       .from('question_bank')
-      // CAMBIO CLAVE AQUÍ: Añadimos 'topic_number' a la selección de subjects 👇
-      .select('*, subjects(id, title, topic_number)', { count: 'exact' }) 
-      .eq('status', 'active')
+      .select('*, subjects(id, title, topic_number)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    if (isQuestionStatus(status)) {
+      query = query.eq('status', status);
+    }
 
     if (subjectId) {
       query = query.eq('subject_id', subjectId);
@@ -237,7 +246,8 @@ export async function getAdminQuestionBank(params: {
       data: data || [],
       total: count || 0,
       page,
-      totalPages: Math.ceil((count || 0) / limit)
+      totalPages: Math.ceil((count || 0) / limit),
+      status
     };
 
   } catch (e: any) {
