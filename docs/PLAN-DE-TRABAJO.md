@@ -60,7 +60,7 @@ que RLS actúe como segunda barrera.
 **No empezar hasta que la 1.3 esté ejecutada:** cada consulta que se mueva al cliente del
 usuario antes de tener RLS activa se queda sin ninguna protección.
 
-### 1.3 Activar y documentar RLS ⬅️ **SQL listo, falta ejecutarlo**
+### 1.3 Activar y documentar RLS ✅ HECHA (26 ago 2026)
 
 > **Va ANTES que la 1.2**, al revés de como estaba numerado aquí. Todas las consultas de
 > la aplicación usan la clave de servicio, que salta RLS: activarla hoy **no puede romper
@@ -74,16 +74,32 @@ usuario antes de tener RLS activa se queda sin ninguna protección.
       pública sin tocar lo que hace la aplicación.
 - [x] Empieza con un PASO 0 que comprueba que el esquema coincide con lo deducido del
       código, y trae la comprobación real con `curl` y la vuelta atrás.
-- [ ] **Ejecutarlo.** Hoy cualquiera con la clave pública puede volcar `question_bank`
-      con las respuestas correctas.
-- [ ] Volcar el esquema a `supabase/migrations/` (`supabase db pull`).
+- [x] **Ejecutado.** Las 21 tablas quedan con RLS activa. Comprobado desde fuera: con
+      la clave pública, `question_bank`, `flashcard_bank`, `test_results`, `profiles` y
+      `workout_logs` devuelven `[]`. Antes el banco entero era volcable **con las
+      respuestas correctas** por cualquiera que supiera la URL.
+- [x] Volcado del esquema en [`supabase/migrations/0001_esquema_actual.sql`](../supabase/migrations/0001_esquema_actual.sql).
+      Sin `supabase db pull`, que pide la contraseña de la base de datos: lo genera
+      `node scripts/dump-migration.mjs` a partir de una función instalada en el propio
+      proyecto ([`2.6-funcion-volcado.sql`](sql/2.6-funcion-volcado.sql)).
+
+**Lo que apareció al contrastarlo con la base de datos real**, y por qué el PASO 0
+existía:
+
+- `workout_logs` tiene `user_id` y no estaba en ninguna lista. Habría quedado abierta.
+- `content_documents` y `flashcard_bank` faltaban en el paso de contenido, y el segundo
+  guarda las respuestas.
+- Siete tablas **ya tenían RLS** con políticas correctas. La versión anterior del guion
+  les habría añadido una política `FOR ALL` por encima y, como las permisivas se
+  combinan con OR, eso **ampliaba** el acceso: `flashcard_results`, `profiles_psych` y
+  `profiles_biodata` no dejan borrar, y habrían pasado a dejarlo. Se quedan intactas.
 
 ### 1.4 Cerrar la asignación masiva §1.2 ✅ HECHA
 
 Hecha junto con 1.1: lista blanca de campos (`BIODATA_FIELDS`, `PHYSICAL_FIELDS`) en vez de
 `{ user_id, ...formData }`. Nunca expandir un objeto del cliente sobre una fila.
 
-### 1.5 Límite de frecuencia en las rutas de IA ✅ HECHA (con matiz)
+### 1.5 Límite de frecuencia en las rutas de IA ✅ HECHA
 
 - [x] Cuota **por usuario y por ruta** en las nueve llamadas a Gemini
       (`app/lib/rate-limit.ts`). Por ruta y no global: si el contador fuera compartido, un
@@ -95,11 +111,15 @@ Hecha junto con 1.1: lista blanca de campos (`BIODATA_FIELDS`, `PHYSICAL_FIELDS`
 - [x] Segunda guarda, menos obvia: **sin `await`**, `checkQuota` devuelve una promesa,
       `.ok` es `undefined` y la comprobación deja pasar **todo** sin fallar de forma visible.
 
-**El matiz, y va por delante:** el contador vive en memoria del proceso. Con varias
-instancias el límite real se multiplica por el número de instancias vivas. Sirve para un
-bucle desde una pestaña, no como control de gasto exacto. La versión duradera está escrita
-en [`docs/sql/1.4-cuota-ia.sql`](sql/1.4-cuota-ia.sql) y el cambio se queda dentro de
-`rate-limit.ts`, porque las llamadas ya la esperan.
+**El matiz ya no aplica (26 ago 2026).** La cuota la lleva ahora la base de datos:
+`consume_ai_quota` incrementa la fila de forma atómica en una sola sentencia, así que dos
+peticiones simultáneas del mismo usuario no pueden leer el mismo contador y escribir
+ambas. Probado contra el proyecto real: con límite 2, la tercera llamada devuelve
+`allowed = false`.
+
+El contador en memoria se queda como **respaldo**: se consume siempre, también cuando la
+base de datos responde. Es lo que sostiene el límite si la BD deja de contestar a mitad
+de una ventana, y contar de más en ese caso es justo lo que se busca.
 
 ### 1.6 Decidir qué se manda a Gemini §1.3 ✅ HECHA
 
@@ -252,10 +272,50 @@ y volvería a insertar. `handleErrorTag` espera al guardado en vuelo antes de de
 
 - [x] 10 tests en `tests/single-result.test.ts`, verificados reintroduciendo el doble insert.
 
-**Pendiente, y solo puedes hacerlo tú:** los duplicados que ya están en la base de datos
-siguen hundiendo el porcentaje de acierto. No puedo contarlos sin credenciales, así que el
-guion está en [`docs/sql/2.4-duplicados-test-results.sql`](sql/2.4-duplicados-test-results.sql):
-va por pasos, empieza contando, crea copia de seguridad y fusiona antes de borrar.
+**El guion de duplicados NO hay que ejecutarlo (26 ago 2026).** Al lanzar su PASO 1
+contra el proyecto real falló: `test_results` no tiene columna `error_type`. Y la tabla
+estaba **vacía**, así que no había histórico que reparar.
+
+Lo que sí había era peor, y sale en la fase 2.8.
+
+### 2.8 Los resultados se guardaban en la tabla equivocada ✅ HECHA (26 ago 2026)
+
+Había **dos tablas para lo mismo** y el código escribía en la que no era:
+
+| | columnas |
+|---|---|
+| `test_results` | id, user_id, question_id, is_correct, response_time_ms, option_changes, created_at |
+| `question_attempts` | id, user_id, exam_id, question_id, **topic**, is_correct, selected_index, **error_type**, response_time_ms, created_at |
+
+`toResultRow` mandaba `subject_id` y `error_type` a `test_results`, que no tiene ninguna
+de las dos. **PostgREST rechaza la inserción entera si una sola columna no existe**, y el
+error solo se registraba en consola: la pantalla seguía como si nada.
+
+Resultado: **nunca se guardó un resultado de test**. Cero filas.
+
+No era una regresión de la fase 2.4 — el código anterior al merge escribía esas mismas
+dos columnas (`git show 343393a:app/actions/exams.ts`). Venía de antes.
+
+- [x] Se elige `question_attempts` y no ampliar `test_results`: `user_id`, `topic` e
+      `is_correct` son NOT NULL (en `test_results` `user_id` admite nulos, que en una
+      tabla de resultados por usuario no tiene sentido), ya tenía RLS con tres políticas
+      correctas, y guarda `topic` como texto, que es lo que el historial pinta.
+- [x] [`docs/sql/2.5-question-attempts.sql`](sql/2.5-question-attempts.sql), ejecutado:
+      la columna `option_changes` que le faltaba, la clave ajena hacia `question_bank`
+      (sin declararla PostgREST no resuelve el join y las estadísticas se quedan sin el
+      enunciado) y el índice `(user_id, created_at desc)`.
+- [x] Cada pregunta se etiqueta con el tema del que salió, tanto las del banco como las
+      generadas por IA: `question_bank` guarda `subject_id` y `question_attempts` guarda
+      `topic`, así que sin arrastrarlo no había forma de saberlo al terminar el examen.
+- [x] Verificado contra el proyecto real: insert, join y update de `error_type`.
+
+**La causa de fondo, y ya está cerrada:** el esquema solo vivía dentro de Supabase. Sin
+copia en el repo, el código y la base de datos derivaron sin que nada lo cantara. Ahora
+`supabase/schema.json` lo versiona y [`tests/schema-drift.test.ts`](../tests/schema-drift.test.ts)
+compara contra él las columnas que el código escribe, los filtros `.eq` y las listas
+blancas. Ese test encontró solo el desajuste que quedaba vivo.
+
+`test_results` se deja en pie a propósito: no se borra nada todavía.
 
 ### 2.5 Que la dificultad sirva de algo §2.5
 
@@ -458,17 +518,26 @@ y va a tocar todos los ficheros.
 
 ## Siguiente paso
 
-1. **Probar 1.1, 2.1, 2.2 y 2.3 contra el Supabase real.** Entrar como alumno y como admin;
-   sembrar un tema y comprobar que las preguntas llegan a un test; hacer un simulacro y
-   mirar que `test_results` guarda `response_time_ms` y `option_changes` distintos de 0;
-   fallar una pregunta en entrenamiento y etiquetar el error debe dejar **una** fila.
-2. **Ejecutar `docs/sql/2.4-duplicados-test-results.sql`** para reparar el histórico. Si algo falla, lo más probable es el login (la sesión
-   pasó de `localStorage` a cookies).
-3. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
-   del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
-3. **Ejecutar `docs/sql/1.3-activar-rls.sql`** (fase 1.3). Es la deuda con más riesgo real
-   y ya está escrita: solo hay que pegarla en el editor SQL de Supabase.
-4. **Fase 1.2** después, nunca antes.
+Lo de la lista anterior ya está hecho: RLS ejecutada (1.3), cuota de IA enchufada a la
+base de datos (1.5), esquema volcado al repo y resultados movidos a `question_attempts`
+(2.8). El guion de duplicados no aplicaba.
+
+1. **Hacer un test completo entrando como alumno.** Es lo único que no se ha podido
+   probar de punta a punta: hace falta una sesión de verdad. Comprobar que
+   `question_attempts` recibe la fila con `response_time_ms` y `option_changes`
+   distintos de 0, y que al fallar en entrenamiento y etiquetar el error queda **una**
+   sola fila con su `error_type`. Las tres operaciones están verificadas por separado
+   contra la base de datos real, pero no encadenadas desde la interfaz.
+2. **Desplegar.** No hay nada en producción: el repo no tiene configuración de
+   despliegue. Vercel es el camino natural (la aplicación son Server Actions de punta a
+   punta, que Firebase Hosting a secas no ejecuta). Hacen falta las cuatro variables de
+   `.env.example` y añadir la URL resultante en Supabase → Authentication → URL
+   Configuration, o el login no funcionará.
+3. **Fase 2.5** (que la dificultad sirva de algo) o **fase 1.2** (mover consultas al
+   cliente del usuario). La 1.2 ya no está bloqueada: RLS está activa, que era su
+   condición.
+4. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee. Hoy
+   sigue en pie y vacía.
 
 > El estado vivo del proyecto está en [`CLAUDE.md`](../CLAUDE.md), en la raíz. Al cerrar una
 > fase, actualiza los dos.

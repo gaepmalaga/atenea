@@ -20,39 +20,47 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 2.1 | Ciclo de vida de las preguntas | ✅ cerrada |
 | 2.2 | Panel de estadísticas + Error Boundaries | ✅ cerrada |
 | 2.3 | Métricas de comportamiento | ✅ cerrada |
-| 2.4 | Un resultado por respuesta | ✅ cerrada (falta reparar el histórico) |
+| 2.4 | Un resultado por respuesta | ✅ cerrada (el histórico no existía: ver 2.8) |
 | 2.6 | Indexado de PDFs | ✅ cerrada |
 | **3** | **Calidad de la IA + memoria del chat** | ✅ **cerrada** |
-| **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
-| 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
-| **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, en memoria: regla 20) |
+| **1.3** | **Activar RLS** | ✅ **cerrada** (ejecutada el 26 ago 2026) |
+| 1.2 | Acotar la clave de servicio | ⬜ ya desbloqueada: la 1.3 está hecha |
+| **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, ya en la BD: regla 20) |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
 | **5** | **Higiene** | 🔄 **en curso** (cronómetro, barajado, huérfanos) |
+| **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | 2.5 | Dificultad | ⬜ (necesita una columna nueva) |
+| — | **Despliegue** | ⬜ **no hay nada en producción** |
 
-### Lo que solo puedes hacer tú (necesita la consola de Supabase)
+### Lo que solo puedes hacer tú
 
-1. **Activar RLS** — [`docs/sql/1.3-activar-rls.sql`](docs/sql/1.3-activar-rls.sql).
-   Hoy cualquiera con la clave pública puede volcar `question_bank` **con las respuestas
-   correctas**, y leer los datos personales de los alumnos.
-   **Es seguro ejecutarlo ya:** todas las consultas de la app van con la clave de servicio,
-   que salta RLS, así que activarla no puede romper nada.
-2. **Reparar los duplicados de la fase 2.4** —
-   [`docs/sql/2.4-duplicados-test-results.sql`](docs/sql/2.4-duplicados-test-results.sql).
-   Hunden el porcentaje de acierto de los alumnos. Va por pasos y con copia de seguridad.
-3. **Cuota de IA duradera** (opcional, cuando quieras) —
-   [`docs/sql/1.4-cuota-ia.sql`](docs/sql/1.4-cuota-ia.sql). La cuota ya funciona, pero el
-   contador vive en memoria del proceso: con varias instancias el límite real se multiplica
-   por el número de instancias vivas. Va **después** de la 1.3.
+Los tres guiones de Supabase que estaban pendientes **ya están ejecutados** (RLS, cuota
+de IA y `question_attempts`). Lo que queda necesita algo que no se puede hacer desde
+aquí:
 
-**Sin verificar contra el Supabase real:** las fases 1.1, 2.1, 2.2, 2.3 y 2.4 están cerradas
-en código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
-credenciales de verdad. Puntos de riesgo, por orden: el login (la sesión pasó de
-`localStorage` a cookies), el estado de las preguntas sembradas, y el join de
-`getUserStats` (necesita que las FK de `test_results` estén declaradas en la BD;
-si no lo están hay un respaldo que degrada a consulta plana y lo deja en el log).
+1. **Desplegar.** No hay nada en producción y el repo no tiene configuración de
+   despliegue. Vercel es el camino natural: la aplicación son Server Actions de punta a
+   punta, y Firebase Hosting a secas no las ejecuta (haría falta App Hosting). Hacen
+   falta las cuatro variables de [`.env.example`](.env.example) y **añadir la URL
+   resultante en Supabase → Authentication → URL Configuration**, o el login no
+   funcionará.
+2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
+   código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
+   pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
+3. **Hacer un test entrando como alumno.** Es lo único del flujo de resultados que no se
+   ha probado encadenado desde la interfaz.
 
+> **Cuidado con `Confirm email`:** está activado. Quien se registre no podrá entrar hasta
+> pulsar el enlace del correo, y en el plan Free el envío es limitado.
+
+**Verificado contra el Supabase real (26 ago 2026):** RLS cierra el acceso anónimo a las
+21 tablas (comprobado con `curl` y la clave pública); `consume_ai_quota` corta a la
+tercera llamada con límite 2; e `question_attempts` acepta el insert, resuelve el join
+con `question_bank` y admite el update de `error_type`.
+
+**Sin verificar:** el flujo completo desde la interfaz con una sesión de alumno. El punto
+de más riesgo es el login, porque la sesión pasó de `localStorage` a cookies.
 ---
 
 ## Comandos
@@ -65,7 +73,20 @@ npm run dev
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
 npm run lint                   # ~50 errores heredados, fase 5. No es puerta de calidad todavía.
+
+node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
+node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
 ```
+
+**`npm run dev` usa webpack, no Turbopack.** Turbopack infiere mal la raíz del proyecto
+en modo desarrollo y se va al directorio padre, desde donde no resuelve el
+`@import "tailwindcss"` de `app/globals.css`; la página no compila. `next build` no lo
+sufre. Queda `npm run dev:turbo` para reintentarlo cuando lo arreglen aguas arriba.
+
+Los dos guiones de esquema se apoyan en `public.__esquema_json()`, instalada en el
+proyecto ([`docs/sql/2.6-funcion-volcado.sql`](docs/sql/2.6-funcion-volcado.sql)). Solo
+lee catálogos y solo la alcanza la clave de servicio; así no hace falta la contraseña de
+la base de datos que pediría `supabase db pull`.
 
 ---
 
@@ -143,11 +164,15 @@ el tipo — así aparecieron 3 de los 7 errores de compilación originales.
 
 ### 5 · Nada de leer una columna sin comprobar que existe
 
-`test_results` guarda `question_id`, no el enunciado. La UI pintaba
+`question_attempts` guarda `question_id`, no el enunciado. La UI pintaba
 `item.question_text.replace(...)` y reventaba con un solo resultado guardado —
-en **dos** módulos, incluido el de inicio. Los enunciados y el nombre del tema se
-traen por **join** (`getUserStats`), no desnormalizados: sin migración y sin
-copias que se queden obsoletas si un admin edita la pregunta.
+en **dos** módulos, incluido el de inicio. El enunciado se trae por **join**
+(`getUserStats`), no desnormalizado: sin copias que se queden obsoletas si un admin
+edita la pregunta. El nombre del tema sí viaja en la propia fila, en `topic`.
+
+Y el join solo resuelve si la **clave ajena está declarada** en la base de datos.
+`question_attempts.question_id -> question_bank.id` se declaró en la fase 2.8; antes de
+eso PostgREST devolvía error y las estadísticas se quedaban sin enunciado.
 
 Todo módulo va envuelto en `ModuleErrorBoundary`. Sin él, una excepción de render
 deja la aplicación entera en blanco, porque todo el dashboard vive en una sola
@@ -169,7 +194,10 @@ no cuenta y volver a marcar la misma tampoco. Ojo con los datos anteriores a la
 fase 2.3 — la columna valía 0 en todas las filas, así que no hay histórico que
 preservar.
 
-### 7 · Una fila de `test_results` por respuesta
+### 7 · Una fila de `question_attempts` por respuesta
+
+> La tabla de resultados es **`question_attempts`**, no `test_results` (fase 2.8).
+> `test_results` sigue en pie y vacía; no la uses.
 
 En entrenamiento se insertaba dos veces por cada fallo etiquetado (una al
 responder y otra al diagnosticar), así que cada error contaba doble y el
@@ -183,6 +211,12 @@ viaja, y sin esa espera un clic rápido volvía a duplicar.
 Se descartó el `upsert` sobre `(user_id, question_id, session_id)` que proponía
 el plan: exige una columna y una restricción única que no existen, y además
 colapsaría intentos legítimos de la misma pregunta en tests distintos.
+
+**El tema viaja como TÍTULO en `topic`, no como `subject_id`.** `question_bank` guarda
+`subject_id` y `question_attempts` guarda `topic`, así que cada pregunta se etiqueta con
+su tema al cargarla: sin arrastrarlo, al terminar el examen ya no hay forma de saber a
+qué tema pertenecía cada respuesta. Si entras por id, resuélvelo con `getSubjectNameById`
+— guardar el número deja un `topic` que ninguna consulta encuentra.
 
 ### 8 · La aritmética que se muestra al alumno va en `app/lib/stats.ts`
 
@@ -359,19 +393,28 @@ El nombre de la variable es parte de la guarda: `biodata` es la fila y no sale d
 Y en la pantalla de biodata hay un aviso de qué sale de ahí. El alumno tiene derecho a
 saberlo **antes** de escribirlo.
 
-### 20 · La cuota de IA es por usuario y por ruta, y hoy vive en memoria
+### 20 · La cuota de IA es por usuario y por ruta, y la lleva la base de datos
 
-`app/lib/rate-limit.ts`. Dos decisiones y una limitación:
+`app/lib/rate-limit.ts`. Tres decisiones:
 
 - **Por usuario**, no global: un contador compartido dejaría sin servicio a todos los
   alumnos porque uno esté activo. Es peor fallo que no tener cuota.
 - **Por ruta**: agotar el chat no puede dejar al alumno sin flashcards.
-- **En memoria del proceso.** Con varias instancias, el límite real se multiplica por el
-  número de instancias vivas. Sirve para un bucle desde una pestaña; **no** es control de
-  gasto exacto. La versión duradera está en `docs/sql/1.4-cuota-ia.sql` y el cambio se
-  queda dentro de `rate-limit.ts`.
+- **En la base de datos**, con `consume_ai_quota` (`docs/sql/1.4-cuota-ia.sql`). Una sola
+  sentencia atómica: dos peticiones simultáneas del mismo usuario no pueden leer el mismo
+  contador y escribir ambas. En memoria no bastaba — con varias instancias el límite real
+  se multiplicaba por el número de instancias vivas, y cada llamada a Gemini se paga.
 
-`checkQuota` es **`async`** aunque hoy no espere nada, precisamente para eso. Y ojo: **sin
+**El contador en memoria se queda como respaldo**, y se consume siempre, también cuando
+la base de datos responde: es lo que sostiene el límite si la BD deja de contestar a
+mitad de una ventana. Contar de más ahí es justo lo que se busca. Si la consulta falla,
+se registra y se cae al de memoria; nunca se deja la acción sin límite.
+
+El import de `actions/core` dentro de `rate-limit.ts` es **dinámico** a propósito: ese
+módulo es `server-only` y arrastra el cliente de Gemini, así que cargarlo arriba obligaría
+a tener entorno de servidor solo para importar la aritmética de cuotas.
+
+`checkQuota` es **`async`**. Y ojo: **sin
 `await` la comprobación no falla, deja pasar todo** — el resultado es una promesa y `.ok`
 es `undefined`. Hay una guarda estática que lo vigila, y otra que recorre las acciones
 siguiendo la cadena de llamadas, porque en `exams.ts` el modelo se invoca desde un ayudante
@@ -404,7 +447,17 @@ tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
 tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
+tests/schema-drift.test.ts      el código no escribe columnas que no existen
 ```
+
+**`schema-drift` es el guardián más importante de la lista.** Compara contra
+`supabase/schema.json` las columnas que el código escribe, los filtros `.eq`/`.in` y las
+listas blancas `BIODATA_FIELDS` y `PHYSICAL_FIELDS`. Existe porque el esquema vivía solo
+dentro de Supabase y el código derivó sin que nada lo cantara: `test_results` recibía
+`subject_id` y `error_type`, y `flashcard_progress` recibía `subject_id`. Ninguna de las
+tres columnas existe. **PostgREST rechaza la escritura entera si una sola columna no
+existe**, y el error solo se registraba en consola, así que ni un resultado de test ni un
+repaso llegaron a guardarse nunca.
 
 `.github/workflows/check.yml` ejecuta `npm run check` en cada push. Las guardas
 estáticas solo sirven si corren solas: depender de que alguien se acuerde de
@@ -462,11 +515,18 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
   lo que toques: al tipar `StatsPanel` el compilador señaló solo las lecturas
   nulas que causaban el crash.
 - **El orden de la fase 1 está invertido respecto al plan.** La 1.3 (activar RLS)
-  va antes que la 1.2 (acotar la clave de servicio), por lo explicado arriba.
-- **`getUserStats` hace un join que puede no resolver.** PostgREST necesita que
-  las FK estén declaradas. Hay un respaldo que degrada a consulta plana y lo
-  registra en el log; al versionar el esquema (fase 1.3), confirma las FK y
-  quita el respaldo.
+  fue antes que la 1.2 (acotar la clave de servicio), por lo explicado arriba.
+- **Un error de escritura de Supabase no se ve en pantalla.** Se registra en consola y
+  la acción devuelve `success: false`, pero si la UI no lo cuenta, el alumno cree que
+  guardó. Así estuvieron rotos meses el guardado de tests y el de repasos. Cuando algo
+  "no se guarda", mira el log del servidor antes que el navegador.
+- **Los ficheros de `docs/sql/` se escribieron deduciendo el esquema del código.** Los
+  ejecutados ya están corregidos contra la base de datos real, pero si escribes uno
+  nuevo, contrástalo con `supabase/schema.json` antes. Los tres primeros nombraban
+  columnas y tablas que no existían.
+- **`getUserStats` hace un join que necesita la FK declarada.** PostgREST no resuelve
+  un join sin ella. `question_attempts.question_id -> question_bank.id` se declaró en la
+  fase 2.8. El respaldo que degrada a consulta plana sigue ahí como red.
 - **Los comentarios del código mienten a veces.** El del seed decía "asumimos
   activas" justo encima de `status: 'candidate'`. Fíate del código, no del
   comentario, y corrige el comentario cuando lo veas.
@@ -475,23 +535,32 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 
 ## Cómo continuar
 
-1. **Probar 1.1, 2.1, 2.2, 2.3 y 2.7 contra el Supabase real.** Entrar como alumno y
-   como admin; sembrar un tema y comprobar que las preguntas llegan a un test;
-   hacer un simulacro y mirar que `test_results` guarda `response_time_ms` y
-   `option_changes` distintos de 0, y que Inicio y Estadísticas cargan. Fallar
-   una pregunta en entrenamiento y etiquetar el error debe dejar **una** fila.
-   De la 2.7: rellenar el perfil físico y comprobar que `profiles_physical`
-   guarda `height` y `weight` como **números** y no como cadenas; dejar un campo
-   en blanco debe dejar `null`, no `0`. Generar un plan y mirar que las tarjetas
-   del panel tienen título.
-2. **`supabase db pull`** para versionar el esquema. Al tener el esquema delante,
-   comprobar de qué tipo son las columnas de `profiles_physical`: si son `text`,
-   la normalización de la 2.7 sigue valiendo, pero conviene pasarlas a numéricas
-   para que la base de datos rechace lo que la aplicación ya no manda.
-3. **Fase 1.2** (acotar la clave de servicio) — pero **solo después** de ejecutar
-   el SQL de la 1.3. Mover consultas al cliente del usuario sin RLS puesta las
-   dejaría sin ninguna protección; con RLS ya activa, cada consulta que se mueva
-   queda cubierta desde el primer momento.
+1. **Hacer un test completo entrando como alumno.** Es lo único del flujo de resultados
+   que no se ha podido probar encadenado: hace falta una sesión de verdad. Comprobar que
+   `question_attempts` recibe la fila con `response_time_ms` y `option_changes` distintos
+   de 0, que Inicio y Estadísticas cargan, y que fallar una pregunta en entrenamiento y
+   etiquetar el error deja **una** sola fila con su `error_type`. Las tres operaciones
+   están verificadas por separado contra la base de datos real (insert, join y update),
+   pero no encadenadas desde la interfaz.
 
+   De la 2.7: rellenar el perfil físico y comprobar que `profiles_physical` guarda
+   `height` y `weight` como **números** y no como cadenas; dejar un campo en blanco debe
+   dejar `null`, no `0`. Generar un plan y mirar que las tarjetas del panel tienen título.
+
+2. **Desplegar.** No hay nada en producción. Ver *Lo que solo puedes hacer tú*, arriba.
+
+3. **Fase 1.2** (acotar la clave de servicio). **Ya está desbloqueada:** su condición era
+   tener RLS activa, y lo está desde el 26 ago 2026. Cada consulta que se mueva al
+   cliente del usuario queda cubierta desde el primer momento.
+
+4. **Fase 2.5** (que la dificultad sirva de algo). Necesita una columna nueva en
+   `question_bank`; con el esquema ya versionado, el cambio se ve en el diff.
+
+5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
+
+**Antes de tocar cualquier tabla, mira `supabase/schema.json`.** Es el esquema real,
+volcado del proyecto. Casi todos los fallos graves de este repo han sido el código
+escribiendo columnas que no existen, y PostgREST rechaza la escritura **entera** cuando
+eso pasa. Para refrescarlo: `node scripts/schema-snapshot.mjs`.
 Al cerrar una fase: actualiza la tabla de estado de este fichero, marca la fase
 en `docs/PLAN-DE-TRABAJO.md` y el hallazgo en `docs/AUDITORIA.md`.
