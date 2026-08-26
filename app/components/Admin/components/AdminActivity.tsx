@@ -76,7 +76,7 @@ export default function AdminActivity({ userId }: { userId: string }) {
                   </div>
                 </div>
                 <span className="text-slate-600 text-xs font-mono whitespace-nowrap bg-slate-900 px-2 py-1 rounded border border-white/5 ml-2">
-                  {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                 </span>
               </div>
             );

@@ -143,7 +143,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
                 <div key={q.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
                     <div className="flex justify-between items-start mb-3">
                         <span className="text-[10px] font-black tracking-wider text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
-                        <span className="text-[10px] font-mono text-slate-500">{new Date(q.created_at).toLocaleDateString()}</span>
+                        <span className="text-[10px] font-mono text-slate-500">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
                     </div>
                     
                     <p className="font-bold text-slate-200 text-sm mb-4 leading-relaxed">{q.question_text}</p>

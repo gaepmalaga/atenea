@@ -1,20 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Play, Trophy, Flame, Zap, Sparkles, 
-  ArrowRight, Activity, Calendar 
+import {
+  Play, Trophy, Flame, Zap, Sparkles, ArrowRight, Activity
 } from 'lucide-react';
-import { getUserStats, getStudentTopics } from '@/actions';
+import { getUserStats } from '@/actions';
 import { TabId } from '../../StudentDashboard';
+import type { StatsSummary, TestResultRow } from '@/app/lib/stats';
+
+type RecentItem = TestResultRow & { created_at?: string | null };
+type UserStats = StatsSummary & { lastItems: RecentItem[] };
 
 interface DashboardHomeProps {
-  user: any;
+  user: { id: string; email?: string };
   onNavigate: (tab: TabId) => void;
 }
 
 export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
 
@@ -154,16 +157,16 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
         
         <div className="space-y-3">
             {stats && stats.lastItems && stats.lastItems.length > 0 ? (
-                stats.lastItems.map((item: any, i: number) => (
+                stats.lastItems.map((item: RecentItem, i: number) => (
                     <div key={i} className="flex justify-between items-center py-2 group cursor-default">
                         <div className="flex items-center gap-4 overflow-hidden">
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${item.is_correct ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
                             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-indigo-500 transition-colors">
-                                {item.question_text.replace('[FLASHCARD] ', '')}
+                                {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
                             </p>
                         </div>
                         <span className="text-[10px] font-mono text-slate-400 opacity-50">
-                            {new Date(item.created_at).toLocaleDateString()}
+                            {item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}
                         </span>
                     </div>
                 ))

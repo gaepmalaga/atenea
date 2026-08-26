@@ -150,7 +150,7 @@ dos fallos más, corregidos en el mismo cambio:
 - **Aprobar de una en una no daba abasto** con la generación en vivo alimentando la cola.
   Añadida `approveQuestions` en lote, que solo toca las que están en `candidate`.
 
-### 2.2 · CRÍTICO — El panel de estadísticas revienta
+### 2.2 · ~~CRÍTICO~~ ✅ CERRADO — El panel de estadísticas reventaba
 
 ```tsx
 // StatsPanel.tsx:460
@@ -159,9 +159,19 @@ dos fallos más, corregidos en el mismo cambio:
 
 `item` es una fila de `test_results`, y nada en el código escribe `question_text` en esa
 tabla (se insertan `user_id`, `question_id`, `subject_id`, `is_correct`, `created_at`,
-`response_time_ms`, `option_changes`, `error_type`). En cuanto el usuario tenga un solo
-resultado guardado, `undefined.replace(...)` lanza y la pestaña se queda en blanco.
-`item.topic` (línea 462) tampoco existe.
+`response_time_ms`, `option_changes`, `error_type`). En cuanto el usuario tenía un solo
+resultado guardado, `undefined.replace(...)` lanzaba y la pestaña se quedaba en blanco.
+`item.topic` tampoco existía.
+
+**Y estaba en dos módulos, no en uno.** `DashboardHome` —la pestaña de inicio, lo primero
+que ve un alumno al entrar— hacía exactamente la misma lectura. Con un solo resultado
+guardado, la aplicación era inusable desde el arranque.
+
+**Cerrado.** El enunciado y el tema se traen por *join* en `getUserStats` (sin migración y
+sin copias que se queden obsoletas si un admin edita la pregunta), el render está blindado
+en ambos módulos, y cada pestaña va envuelta en `ModuleErrorBoundary`: una excepción de
+render ya no puede llevarse por delante toda la aplicación. El test estático encontró
+además dos fechas sin proteger en `AdminActivity` y `AdminModeration`.
 
 ### 2.3 · ALTO — Las métricas de comportamiento se pierden en modo examen
 
@@ -262,18 +272,25 @@ deduplicación como en las preguntas.
 pero nunca lo envía, así que no se puede preguntar "¿y en ese caso, qué plazo aplica?".
 Tampoco se persiste ninguna conversación.
 
-### 2.14 · BAJO — Varios
+### 2.14 · ~~BAJO~~ ✅ PARCIALMENTE CERRADO — Varios
+
+Cerradas en la fase 2.2 las cuatro estadísticas que mentían (marcadas abajo). La
+aritmética vive ahora en `app/lib/stats.ts`, se agrega en el servidor sobre la muestra
+completa y está cubierta por 17 tests.
 
 - `AdminUsers` pinta `u.total_tests` y `u.win_rate`, que no están en `profiles`
   (`select('*')`): las columnas "Tests" y "Efectividad" salen siempre a `0`.
 - `ExamResults` dividía entre `questions.length` sin protección → `NaN%` con 0 preguntas.
   *(Corregido vía `scoreExam`, con test.)*
+- ✅ La media de tiempo contaba como `0 ms` las respuestas sin medir, hundiéndola a la mitad.
 - `cleanLegalText` contenía `.replace(/[]/g, '')`. Una clase de caracteres **vacía** en JS
   no casa con nada: la línea nunca hizo nada. Con test que lo documenta.
-- El índice de incertidumbre divide los cambios de las **5** últimas preguntas entre el
-  total de hasta **100**: el número no significa lo que dice significar.
-- `PROGRESO AL ASCENSO` calcula `winRate / (min + 20)`; en rango Inspector (min 90) el
-  denominador es 110 y nunca llega al 100%.
+- ✅ El índice de incertidumbre dividía los cambios de las **5** últimas preguntas entre el
+  total de hasta **100**: el número no significaba lo que decía significar.
+- ✅ `PROGRESO AL ASCENSO` calculaba `winRate / (min + 20)`; en rango Inspector (min 90) el
+  denominador era 110 y nunca llegaba al 100%. Ahora mide el tramo real entre rangos.
+- ✅ La barra del KPI físico estaba cableada al 65%. Retirada: el KPI lee el campo que de
+  verdad se escribe y distingue "sin datos" de "cero dominadas".
 - `indexToOptionId` (antes un ternario en línea) colapsa **cualquier** índice fuera de
   rango en `'c'`. Si la IA devuelve `correctIndex: 3`, la respuesta buena pasa a ser "c" en
   silencio. Con test.
@@ -331,13 +348,14 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 0 · Recuperar el terreno | ✅ cerrada |
 | 1.1 · Sesión en el servidor | ✅ cerrada |
 | 1.4 · Asignación masiva | ✅ cerrada |
-| **2.1 · Ciclo de vida de las preguntas** | ✅ **cerrada** (§2.1 y §2.10) |
+| 2.1 · Ciclo de vida de las preguntas | ✅ cerrada (§2.1 y §2.10) |
+| **2.2 · Estadísticas y Error Boundaries** | ✅ **cerrada** (§2.2 y §2.14) |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |
 | 2.2 – 5 | pendiente |
 
-Los hallazgos de §1.1, §1.2, §1.5, §2.1 y §2.10 quedan cerrados en código; **falta
-verificarlos contra el proyecto real de Supabase**.
+Los hallazgos de §1.1, §1.2, §1.5, §2.1, §2.2, §2.10 y §2.14 quedan cerrados en código;
+**falta verificarlos contra el proyecto real de Supabase**.
 
 ---
 

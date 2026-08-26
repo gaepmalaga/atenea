@@ -5,7 +5,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 
 > **Empieza leyendo esto.** El proyecto estuvo abandonado un tiempo y se está
 > recuperando por fases. Aquí está dónde estamos y qué reglas se aplican.
-> El detalle vive en [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (30 hallazgos con
+> El detalle vive en [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (32 hallazgos con
 > fichero y línea) y [`docs/PLAN-DE-TRABAJO.md`](docs/PLAN-DE-TRABAJO.md) (6 fases).
 
 ---
@@ -17,15 +17,18 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 0 | Recuperar el terreno: build, typecheck, tests | ✅ cerrada |
 | 1.1 | Sesión verificada en el servidor | ✅ cerrada |
 | 1.4 | Asignación masiva en perfiles | ✅ cerrada |
-| **2.1** | **Ciclo de vida de las preguntas** | ✅ **cerrada** |
+| 2.1 | Ciclo de vida de las preguntas | ✅ cerrada |
+| **2.2** | **Panel de estadísticas + Error Boundaries** | ✅ **cerrada** |
 | 1.2 / 1.3 | Acotar la clave de servicio · activar RLS | ⬜ siguiente |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| 2.2 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
+| 2.3 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
 
-**Sin verificar contra el Supabase real:** las fases 1.1 y 2.1 están cerradas en
-código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
-credenciales de verdad. Si algo falla, lo más probable es el login (la sesión
-pasó de `localStorage` a cookies) y el estado de las preguntas sembradas.
+**Sin verificar contra el Supabase real:** las fases 1.1, 2.1 y 2.2 están cerradas
+en código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
+credenciales de verdad. Puntos de riesgo, por orden: el login (la sesión pasó de
+`localStorage` a cookies), el estado de las preguntas sembradas, y el join de
+`getUserStats` (necesita que las FK de `test_results` estén declaradas en la BD;
+si no lo están hay un respaldo que degrada a consulta plana y lo deja en el log).
 
 ---
 
@@ -38,7 +41,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # 145 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~130 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -115,7 +118,26 @@ Para uniones discriminadas, marca los literales: `success: true as const`.
 Sin el `as const`, TypeScript infiere `boolean` y `if (res.success)` no estrecha
 el tipo — así aparecieron 3 de los 7 errores de compilación originales.
 
-### 5 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 5 · Nada de leer una columna sin comprobar que existe
+
+`test_results` guarda `question_id`, no el enunciado. La UI pintaba
+`item.question_text.replace(...)` y reventaba con un solo resultado guardado —
+en **dos** módulos, incluido el de inicio. Los enunciados y el nombre del tema se
+traen por **join** (`getUserStats`), no desnormalizados: sin migración y sin
+copias que se queden obsoletas si un admin edita la pregunta.
+
+Todo módulo va envuelto en `ModuleErrorBoundary`. Sin él, una excepción de render
+deja la aplicación entera en blanco, porque todo el dashboard vive en una sola
+ruta con pestañas y `app/error.tsx` solo cubre la ruta completa.
+
+### 6 · La aritmética que se muestra al alumno va en `app/lib/stats.ts`
+
+Numerador y denominador de la misma muestra. El índice de incertidumbre sumaba
+los cambios de las 5 últimas preguntas y dividía entre el total de hasta 100; el
+"progreso al ascenso" usaba `winRate / (min + 20)` y nunca llegaba al 100 %.
+Distingue siempre **"sin datos"** de **"cero"**: no son lo mismo para el alumno.
+
+### 7 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -131,6 +153,8 @@ tests/srs.test.ts               repetición espaciada (Leitner)
 tests/questions.test.ts         mapeo BD/IA → UI, puntuación de examen
 tests/actions-auth.test.ts      guardas estáticas sobre las 37 Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
+tests/stats.test.ts             agregación de resultados, rangos, perfil físico
+tests/render-safety.test.ts     lecturas sin proteger y aislamiento de módulos
 ```
 
 **Dos convenciones importantes:**
@@ -178,8 +202,10 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 - **Los 126 `any`** son la razón por la que dos desajustes de nombres de campo
   (`response_time_ms` vs `time`, `baseline_test` vs `baseline_metrics`) llegaron
   a producción sin que nadie se enterara. Al tocar un módulo, tipa lo que toques.
-- **No hay Error Boundary.** Una excepción de render deja la app en blanco. Hoy
-  `StatsPanel` revienta seguro (lee una columna que no existe) — es la fase 2.2.
+- **`getUserStats` hace un join que puede no resolver.** PostgREST necesita que
+  las FK estén declaradas. Hay un respaldo que degrada a consulta plana y lo
+  registra en el log; al versionar el esquema (fase 1.3), confirma las FK y
+  quita el respaldo.
 - **Los comentarios del código mienten a veces.** El del seed decía "asumimos
   activas" justo encima de `status: 'candidate'`. Fíate del código, no del
   comentario, y corrige el comentario cuando lo veas.
@@ -188,13 +214,14 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 
 ## Cómo continuar
 
-1. **Probar 1.1 y 2.1 contra el Supabase real.** Entrar como alumno y como
-   admin; sembrar un tema y comprobar que las preguntas aparecen en el banco y
-   llegan a un test.
+1. **Probar 1.1, 2.1 y 2.2 contra el Supabase real.** Entrar como alumno y como
+   admin; sembrar un tema y comprobar que las preguntas llegan a un test; hacer
+   un test y mirar que Inicio y Estadísticas cargan con datos reales.
 2. **`supabase db pull`** para versionar el esquema.
 3. **Fases 1.2 y 1.3** (acotar la clave de servicio, activar RLS) para cerrar
-   seguridad, o **2.2** (arreglar el panel de estadísticas) si se prefiere un
-   resultado visible: hoy esa pestaña se queda en blanco.
+   seguridad, o **2.3** (métricas de comportamiento) si se prefiere seguir en
+   funcional: hoy el tiempo y los cambios de opción se pierden en modo examen,
+   y el panel ya está preparado para mostrarlos en cuanto lleguen.
 
 Al cerrar una fase: actualiza la tabla de estado de este fichero, marca la fase
 en `docs/PLAN-DE-TRABAJO.md` y el hallazgo en `docs/AUDITORIA.md`.

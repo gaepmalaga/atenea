@@ -127,13 +127,35 @@ Era el fallo de producto más caro: ningún test usaba el banco.
 **Pendiente de verificar contra el proyecto real:** sembrar un tema y comprobar que las
 preguntas aparecen en el banco y llegan a un test de alumno.
 
-### 2.2 Arreglar el panel de estadísticas §2.2
+### 2.2 Arreglar el panel de estadísticas §2.2 ✅ HECHA
 
-1. Decidir de dónde sale el texto de la pregunta: `join` con `question_bank` en
-   `getUserStats`, o desnormalizar `question_text` en `test_results`.
-2. Blindar el render (`item.question_text ?? '—'`) y proteger las divisiones que dan `NaN`.
-3. Añadir `app/error.tsx` + un Error Boundary por módulo, para que un fallo en una pestaña
-   no deje toda la app en blanco.
+Al abrirlo apareció que **el fallo estaba en dos módulos, no en uno**: `DashboardHome`
+—la pestaña de inicio, lo primero que ve un alumno— hacía exactamente la misma lectura
+sin proteger. Con un solo resultado guardado, la app era inusable desde el arranque.
+
+- [x] **Join en vez de desnormalizar.** `getUserStats` trae el enunciado de `question_bank`
+      y el nombre del tema de `subjects`. Sin migración y sin copias que se queden obsoletas
+      si un admin edita la pregunta. Lleva un respaldo que degrada a consulta plana si las
+      FK no están declaradas en la BD, con aviso en el log (quitar al cerrar 1.3).
+- [x] Render blindado en los dos módulos, más dos fechas sin proteger que encontró el propio
+      test (`AdminActivity`, `AdminModeration`).
+- [x] `ModuleErrorBoundary` envolviendo cada pestaña del alumno y del admin, más
+      `app/error.tsx`. Antes, cualquier excepción de render dejaba la app entera en blanco:
+      todo el dashboard vive en una sola ruta, así que `error.tsx` por sí solo no basta.
+- [x] **La aritmética se movió a `app/lib/stats.ts`** y se agrega en el servidor sobre la
+      muestra completa. Corregidos: el índice de incertidumbre (sumaba los cambios de las 5
+      últimas y dividía entre el total de hasta 100), el progreso al ascenso (`winRate /
+      (min + 20)`, que nunca llegaba al 100 %), el denominador de la taxonomía de errores y
+      la media de tiempo (contaba como 0 ms las respuestas sin medir, hundiéndola).
+- [x] Fuera la barra de progreso cableada al **65 %**. El KPI de dominadas lee ahora el campo
+      que de verdad se escribe (`baseline_metrics.pullups_score`) y distingue **"sin datos"**
+      de **"cero dominadas"**, que no son lo mismo para el alumno. Unificar del todo los dos
+      nombres de campo sigue siendo la fase 2.7.
+- [x] 22 tests nuevos (17 de aritmética + 5 estáticos de render), verificados reintroduciendo
+      los fallos a propósito.
+
+**Pendiente de verificar contra el proyecto real:** hacer un test y comprobar que Inicio y
+Estadísticas cargan con datos reales; si el join no resuelve, saldrá el aviso en el log.
 
 ### 2.3 Recuperar las métricas de comportamiento §2.3
 
@@ -252,14 +274,16 @@ y va a tocar todos los ficheros.
 
 ## Siguiente paso
 
-1. **Probar 1.1 y 2.1 contra el Supabase real.** Entrar como alumno y como admin; sembrar
-   un tema y comprobar que las preguntas aparecen en el banco y llegan a un test. Si algo
-   falla, lo más probable es el login (la sesión pasó de `localStorage` a cookies).
+1. **Probar 1.1, 2.1 y 2.2 contra el Supabase real.** Entrar como alumno y como admin;
+   sembrar un tema y comprobar que las preguntas llegan a un test; hacer un test y mirar
+   que Inicio y Estadísticas cargan. Si algo falla, lo más probable es el login (la sesión
+   pasó de `localStorage` a cookies).
 2. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
    del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
 3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS) para cerrar seguridad,
-   o **2.2** (panel de estadísticas) si se prefiere un resultado visible: hoy esa pestaña
-   se queda en blanco.
+   o **2.3** (métricas de comportamiento) si se prefiere seguir en funcional: hoy el tiempo
+   y los cambios de opción se pierden en modo examen, y el panel ya está preparado para
+   mostrarlos en cuanto lleguen de verdad.
 
 > El estado vivo del proyecto está en [`CLAUDE.md`](../CLAUDE.md), en la raíz. Al cerrar una
 > fase, actualiza los dos.

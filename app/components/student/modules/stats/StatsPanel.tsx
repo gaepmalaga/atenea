@@ -1,28 +1,52 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  BarChart2, TrendingUp, Shield, Crown, Medal, 
-  Target, Calendar, Activity, RefreshCw, ChevronDown, 
-  Dumbbell, Timer, HeartPulse, Brain, AlertTriangle, 
-  Zap, MousePointer2, Gauge
+import {
+  Shield, Crown, Medal, Target, Activity, RefreshCw, HeartPulse, Brain, AlertTriangle, Zap, MousePointer2, Gauge
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { getUserStats, getPhysicalProfile } from '@/actions';
+import {
+  rankFor,
+  nextRankAfter,
+  progressToNextRank,
+  readMaxPullups,
+  ERROR_TYPES,
+  type StatsSummary,
+  type TestResultRow,
+  type PhysicalProfile,
+  HESITATION_THRESHOLD,
+  type Rank,
+} from '@/app/lib/stats';
+
+/** Fila del historial: lo que devuelve getUserStats tras aplanar el join. */
+type RecentItem = TestResultRow & { created_at?: string | null };
+
+type UserStats = StatsSummary & { lastItems: RecentItem[] };
 
 interface StatsPanelProps {
-  user: any;
+  user: { id: string };
 }
 
-const RANKS = [
-  { id: 'cadet', label: 'Cadete', min: 0, icon: Shield, color: 'text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
-  { id: 'officer', label: 'Oficial', min: 40, icon: Medal, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-  { id: 'subinspector', label: 'Subinspector', min: 70, icon: Medal, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-  { id: 'inspector', label: 'Inspector Jefe', min: 90, icon: Crown, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-];
+// Solo presentacion: los umbrales y el calculo de progreso viven en
+// app/lib/stats.ts, donde se pueden testear.
+const RANK_STYLE: Record<Rank['id'], { icon: LucideIcon; color: string; bg: string }> = {
+  cadet:        { icon: Shield, color: 'text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800' },
+  officer:      { icon: Medal,  color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+  subinspector: { icon: Medal,  color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+  inspector:    { icon: Crown,  color: 'text-amber-500',  bg: 'bg-amber-50 dark:bg-amber-900/20' },
+};
+
+const ERROR_LABEL: Record<string, string> = {
+  olvido: 'Olvido',
+  trampa: 'Trampas',
+  desconocimiento: 'Lagunas',
+  fallo_procesamiento: 'Lectura',
+};
 
 export default function StatsPanel({ user }: StatsPanelProps) {
-  const [stats, setStats] = useState<any>(null);
-  const [physProfile, setPhysProfile] = useState<any>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [physProfile, setPhysProfile] = useState<PhysicalProfile>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -45,25 +69,22 @@ export default function StatsPanel({ user }: StatsPanelProps) {
 
   if (loading || !stats) return <div className="p-20 text-center animate-pulse text-slate-500">Sincronizando expediente...</div>;
 
-  // --- LÓGICA DE INTELIGENCIA ATENEA MIND ---
-  
-  // 1. Análisis de Incertidumbre (Basado en cambios de opción)
-  const totalChanges = stats.lastItems?.reduce((acc: number, curr: any) => acc + (curr.option_changes || 0), 0);
-  const uncertaintyIndex = Math.min(100, (totalChanges / (stats.total || 1)) * 50);
+  // Las metricas llegan ya agregadas del servidor, sobre la muestra completa.
+  // Antes se calculaban aqui sobre las 5 ultimas preguntas y se dividian entre
+  // el total de hasta 100: numerador y denominador de muestras distintas.
+  const { winRate, total, avgTimeMs, timedCount, uncertaintyIndex, changesCount, errorBreakdown, taggedErrors } = stats;
 
-  // 2. Perfil Cronométrico (Velocidad media)
-  const avgTime = stats.lastItems?.reduce((acc: number, curr: any) => acc + (curr.response_time_ms || 0), 0) / (stats.lastItems?.length || 1);
-  const speedLabel = avgTime < 10000 ? 'Francotirador' : avgTime < 30000 ? 'Táctico' : 'Analista Lento';
+  const currentRank = rankFor(winRate);
+  const nextRank = nextRankAfter(currentRank);
+  const rankStyle = RANK_STYLE[currentRank.id];
+  const RankIcon = rankStyle.icon;
+  const ascentProgress = progressToNextRank(winRate);
 
-  // 3. Distribución de Errores (Taxonomía)
-  const errorMap = stats.lastItems?.reduce((acc: any, item: any) => {
-    if (!item.is_correct && item.error_type) {
-      acc[item.error_type] = (acc[item.error_type] || 0) + 1;
-    }
-    return acc;
-  }, {});
+  const speedLabel = timedCount === 0
+    ? 'Sin datos'
+    : avgTimeMs < 10000 ? 'Francotirador' : avgTimeMs < 30000 ? 'Táctico' : 'Analista Lento';
 
-  const currentRank = [...RANKS].reverse().find(r => stats.winRate >= r.min) || RANKS[0];
+  const maxPullups = readMaxPullups(physProfile);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-700">
@@ -74,22 +95,24 @@ export default function StatsPanel({ user }: StatsPanelProps) {
             <div className={`absolute -right-20 -top-20 w-64 h-64 blur-[100px] opacity-20 rounded-full ${currentRank.id === 'inspector' ? 'bg-amber-500' : 'bg-indigo-600'}`}></div>
             
             <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
-                <div className={`w-40 h-40 rounded-3xl flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-0 transition-transform duration-500 ${currentRank.bg}`}>
-                    <currentRank.icon size={80} className={`${currentRank.color} drop-shadow-2xl`}/>
+                <div className={`w-40 h-40 rounded-3xl flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-0 transition-transform duration-500 ${rankStyle.bg}`}>
+                    <RankIcon size={80} className={`${rankStyle.color} drop-shadow-2xl`}/>
                 </div>
                 <div className="flex-1 text-center md:text-left">
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-2 italic">
                         {currentRank.label.toUpperCase()}
                     </h2>
                     <p className="text-slate-500 font-bold flex items-center justify-center md:justify-start gap-2 uppercase text-xs tracking-[0.2em]">
-                        <Zap size={14} className="text-yellow-500"/> Efectividad: {stats.winRate}% en {stats.total} operaciones
+                        <Zap size={14} className="text-yellow-500"/> Efectividad: {winRate}% en {total} {total === 1 ? 'operación' : 'operaciones'}
                     </p>
                     <div className="mt-6 flex flex-wrap gap-3">
                         <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-black text-slate-500 border border-slate-200 dark:border-slate-700">
                             ID: {user.id.substring(0,8).toUpperCase()}
                         </div>
                         <div className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-[10px] font-black shadow-lg shadow-indigo-500/20">
-                            PROGRESO AL ASCENSO: {Math.min(100, (stats.winRate / (currentRank.min + 20)) * 100).toFixed(0)}%
+                            {nextRank
+                              ? `PROGRESO A ${nextRank.label.toUpperCase()}: ${ascentProgress}%`
+                              : 'RANGO MÁXIMO ALCANZADO'}
                         </div>
                     </div>
                 </div>
@@ -102,7 +125,9 @@ export default function StatsPanel({ user }: StatsPanelProps) {
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Perfil de Respuesta</p>
             <h4 className="text-2xl font-black mb-2">{speedLabel}</h4>
             <div className="text-4xl font-black text-indigo-400">
-                {(avgTime / 1000).toFixed(1)}<span className="text-lg text-white">s</span>
+                {timedCount === 0
+                  ? <span className="text-lg text-slate-500">Sin medir</span>
+                  : <>{(avgTimeMs / 1000).toFixed(1)}<span className="text-lg text-white">s</span></>}
             </div>
         </div>
       </div>
@@ -124,9 +149,11 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                   ></div>
               </div>
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                  {uncertaintyIndex < 20 
-                    ? "Decisión firme. Alta confianza en la marcación de opciones." 
-                    : "Inseguridad detectada. Tiendes a cambiar de opción antes de confirmar."}
+                  {changesCount === 0
+                    ? "Aún no hay datos de marcación. Se registran durante los tests."
+                    : uncertaintyIndex < 20
+                      ? `Decisión firme sobre ${changesCount} respuestas. Alta confianza al marcar.`
+                      : `Inseguridad detectada en ${changesCount} respuestas. Tiendes a cambiar de opción antes de confirmar.`}
               </p>
           </div>
 
@@ -136,22 +163,29 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                   <Brain size={16} className="text-red-500"/> Origen de tus Fallos
               </h3>
               <div className="space-y-3">
-                  {['olvido', 'trampa', 'desconocimiento', 'fallo_procesamiento'].map(type => {
-                      const count = errorMap?.[type] || 0;
-                      const percentage = (count / (stats.lastItems?.filter((x:any)=>!x.is_correct).length || 1)) * 100;
-                      const labels: any = { olvido: 'Olvido', trampa: 'Trampas', desconocimiento: 'Lagunas', fallo_procesamiento: 'Lectura' };
+                  {ERROR_TYPES.map(type => {
+                      const count = errorBreakdown[type] ?? 0;
+                      // Denominador: fallos ETIQUETADOS, que es lo que suma el
+                      // desglose. Antes se dividia entre todos los fallos de las
+                      // 5 ultimas y las barras no sumaban el 100%.
+                      const percentage = taggedErrors === 0 ? 0 : (count / taggedErrors) * 100;
                       return (
                         <div key={type}>
                             <div className="flex justify-between text-[10px] font-black uppercase mb-1 text-slate-500">
-                                <span>{labels[type]}</span>
+                                <span>{ERROR_LABEL[type]}</span>
                                 <span>{count}</span>
                             </div>
                             <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full">
-                                <div className="h-full bg-slate-900 dark:bg-white rounded-full" style={{ width: `${percentage}%` }}></div>
+                                <div className="h-full bg-slate-900 dark:bg-white rounded-full transition-all duration-700" style={{ width: `${percentage}%` }}></div>
                             </div>
                         </div>
                       );
                   })}
+                  {taggedErrors === 0 && (
+                    <p className="text-[11px] text-slate-400 pt-2">
+                        Aún no has etiquetado ningún fallo. Se pide al fallar en modo entrenamiento.
+                    </p>
+                  )}
               </div>
           </div>
 
@@ -162,11 +196,17 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                   <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded">ESTADO FÍSICO</span>
               </div>
               <div>
-                  <p className="text-4xl font-black mb-1">{physProfile?.baseline_test?.pullups || 0}</p>
-                  <p className="text-xs font-bold opacity-80 uppercase">Dominadas Máximas</p>
-              </div>
-              <div className="h-1 w-full bg-white/20 rounded-full">
-                  <div className="h-full bg-white rounded-full" style={{ width: '65%' }}></div>
+                  {maxPullups === null ? (
+                    <>
+                      <p className="text-2xl font-black mb-1 opacity-70">Sin datos</p>
+                      <p className="text-xs font-bold opacity-80 uppercase">Haz el test en Prep. Física</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-4xl font-black mb-1">{maxPullups}</p>
+                      <p className="text-xs font-bold opacity-80 uppercase">Dominadas Máximas</p>
+                    </>
+                  )}
               </div>
           </div>
       </div>
@@ -182,7 +222,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
               </button>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {stats.lastItems?.map((item: any, i: number) => (
+              {stats.lastItems?.map((item: RecentItem, i: number) => (
                   <div key={i} className="p-5 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                       <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-transform group-hover:scale-110 ${
@@ -191,11 +231,17 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                               {item.is_correct ? <Target size={20}/> : <AlertTriangle size={20}/>}
                           </div>
                           <div>
-                              <p className="text-sm font-black text-slate-800 dark:text-slate-200 line-clamp-1">{item.question_text.replace('[FLASHCARD] ', '')}</p>
+                              <p className="text-sm font-black text-slate-800 dark:text-slate-200 line-clamp-1">
+                                  {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
+                              </p>
                               <div className="flex gap-3 mt-1">
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.topic}</span>
-                                  <span className="text-[10px] font-mono text-indigo-500 font-bold">{(item.response_time_ms / 1000).toFixed(1)}s</span>
-                                  {item.option_changes > 1 && (
+                                  {item.topic && (
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.topic}</span>
+                                  )}
+                                  {(item.response_time_ms ?? 0) > 0 && (
+                                      <span className="text-[10px] font-mono text-indigo-500 font-bold">{((item.response_time_ms ?? 0) / 1000).toFixed(1)}s</span>
+                                  )}
+                                  {(item.option_changes ?? 0) >= HESITATION_THRESHOLD && (
                                       <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
                                           <MousePointer2 size={10}/> DUDÓ
                                       </span>
@@ -204,7 +250,9 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                           </div>
                       </div>
                       <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase">{new Date(item.created_at).toLocaleDateString()}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">
+                              {item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}
+                          </p>
                           <p className={`text-xs font-black ${item.is_correct ? 'text-emerald-500' : 'text-red-500'}`}>
                               {item.is_correct ? '+10 XP' : 'FALLO'}
                           </p>
