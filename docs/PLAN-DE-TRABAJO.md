@@ -309,11 +309,21 @@ Pendiente de esta fase:
 
 Ahora que los datos son fiables, que sirvan para algo.
 
-- **Repetición espaciada de verdad §SRS.** Los tests de `srs.test.ts` documentan que
-  "Duda" y "Bien" son indistinguibles desde la caja 1 y que "Duda" nunca mueve de caja.
-  Evaluar pasar a SM-2 / FSRS.
-- **Analítica de flashcards.** `saveFlashcardResult` existe, la tabla `flashcard_results`
-  existe, y nadie la llama nunca. Conectarla o borrarla.
+- [x] **Repetición espaciada de verdad.** `BOX_INTERVALS` fija el intervalo por caja y
+      **"Duda" baja una caja**. Eso resuelve las tres rarezas de golpe: ya no coincide con
+      "Bien" desde la caja 1, ya no deja tarjetas atascadas, y desde la caja 5 la progresión
+      es continua en vez de saltar de 3 a 30 días. Los tres tests `BUG:` se reescribieron
+      (dos fallaron al arreglarlo; el tercero pasaba por el motivo equivocado).
+      SM-2 / FSRS queda descartado de momento: necesita columnas nuevas (factor de facilidad,
+      número de repeticiones) y Leitner bien hecho ya cubre el caso.
+- [x] **Analítica de flashcards conectada.** `saveFlashcardResult` estaba exportada y sin un
+      solo consumidor: la tabla `flashcard_results` existía y nunca se escribía. Ahora
+      `saveFlashcardProgress` apunta el repaso en el mismo paso, best-effort: si la tabla
+      falla, el progreso ya está guardado y no tiene sentido tumbar la sesión por una fila
+      de estadísticas.
+- [x] El guardado del repaso deja de darse por bueno a ciegas, y una tarjeta de repaso se
+      normaliza a camelCase en el servidor (venía con `subject_id` y el guardado esperaba
+      `subjectId`, así que cada repaso hacía una consulta de más).
 - **Tabla propia para el log de entrenamiento §2.11.** `completeTrainingDay` ya guarda el
   log dentro del JSON del plan (antes lo recibía y lo tiraba), pero para comparar la
   progresión entre semanas hace falta una tabla consultable.

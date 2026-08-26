@@ -362,9 +362,10 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 
 - `app/components/student/shared/VipButton.tsx` y `VipCard.tsx` están **vacíos** (0 bytes)
   y nadie los importa.
-- Cinco acciones exportadas sin ningún consumidor: `deleteTopic`, `generateTestQuestion`,
-  `getPsychProfile`, `getTopicsList`, `saveFlashcardResult`. Ojo con la última: existe la
-  tabla de analítica `flashcard_results` y **nunca se escribe en ella**.
+- Acciones exportadas sin consumidor: `deleteTopic`, `getPsychProfile`. ✅ Resueltas:
+  `generateTestQuestion` pasó a helper interno (fase 1.1), `getTopicsList` se eliminó
+  (fase 1.1) y `saveFlashcardResult` se conectó (fase 4) — la tabla de analítica
+  `flashcard_results` existía y **nunca se escribía**.
 - No hay `middleware.ts`, ni `error.tsx`, ni `loading.tsx`, ni Error Boundaries: cualquier
   excepción de render (§2.2) deja la pantalla en blanco.
 - El esquema de la base de datos no está en el repositorio. No hay migraciones ni
@@ -387,7 +388,8 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 2.3 · Métricas de comportamiento | ✅ cerrada (§2.3 y §2.9) |
 | 2.4 · Un resultado por respuesta | ✅ cerrada en código (§2.4) |
 | **2.6 · Indexado de PDFs** | ✅ **cerrada** (§2.6) |
-| **3 · Calidad de la IA** | ✅ **cerrada** (§2.12, §2.14 correctIndex y limpieza) |
+| 3 · Calidad de la IA + memoria del chat | ✅ cerrada (§2.12, §2.13) |
+| **4 · Repetición espaciada y analítica** | ✅ **cerrada en parte** |
 | **1.3 · Activar RLS** | 📄 **SQL escrito, falta ejecutarlo** |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |

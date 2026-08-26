@@ -43,7 +43,24 @@ export async function generateFlashcard(topicNameOrId: string | number) {
         .lte('next_review', new Date().toISOString())
         .limit(1);
 
-    if (due && due.length > 0) return { success: true, data: { ...due[0], db_id: due[0].id, isReview: true } };
+    if (due && due.length > 0) {
+        const card = due[0];
+        // Se normaliza a camelCase antes de devolverla: la fila viene con
+        // `subject_id` y el guardado espera `subjectId`. Sin esto, cada repaso
+        // hacía una consulta de más para resolver el tema por su nombre.
+        return {
+            success: true as const,
+            data: {
+                db_id: card.id,
+                front: card.front,
+                back: card.back,
+                topic: card.topic ?? topicName,
+                subjectId: card.subject_id ?? subjectId,
+                box: card.box ?? 1,
+                isReview: true,
+            },
+        };
+    }
 
     const { data: docs } = await supabase.from('documents')
         .select('full_text').eq('subject_id', subjectId).limit(5);
@@ -86,41 +103,75 @@ export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'f
     const userId = auth.user.id;
 
     try {
-        const { box: newBox, days } = scheduleCard(cardData.box ?? undefined, rating);
+        const boxBefore = cardData.box ?? 1;
+        const { box: newBox, days } = scheduleCard(boxBefore, rating);
         const nextDate = nextReviewDate(new Date(), days);
+        const subjectId = cardData.subjectId ?? await getSubjectIdByName(cardData.topic);
 
         const payload = {
             user_id: userId,
-            subject_id: cardData.subjectId ?? await getSubjectIdByName(cardData.topic),
+            subject_id: subjectId,
             front: cardData.front,
             back: cardData.back,
             box: newBox,
             next_review: nextDate,
-            topic: cardData.topic 
+            topic: cardData.topic
         };
 
-        if (cardData.db_id) {
-             await supabase.from('flashcard_progress').update(payload).eq('id', cardData.db_id);
-        } else {
-             await supabase.from('flashcard_progress').insert(payload);
+        const { error } = cardData.db_id
+            ? await supabase.from('flashcard_progress').update(payload).eq('id', cardData.db_id).eq('user_id', userId)
+            : await supabase.from('flashcard_progress').insert(payload);
+
+        // Antes no se comprobaba: la UI pasaba a la tarjeta siguiente dando por
+        // buena una escritura que podía haber fallado.
+        if (error) {
+            console.error('saveFlashcardProgress:', error.message);
+            return { success: false, error: error.message };
         }
-        return { success: true };
+
+        // Histórico para la analítica. La tabla `flashcard_results` existía y
+        // NADIE escribía en ella: `saveFlashcardResult` estaba exportada y sin
+        // un solo consumidor. Va en el mismo paso para no exigir dos llamadas
+        // desde el cliente.
+        await recordFlashcardResult({
+            userId, subjectId, topic: cardData.topic,
+            front: cardData.front, back: cardData.back,
+            grade: rating, boxBefore, boxAfter: newBox,
+            nextReview: nextDate.toISOString(),
+        });
+
+        return { success: true, box: newBox, nextReview: nextDate.toISOString() };
     } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
 
-// Faltaba el guardado de histórico (analytics)
-export async function saveFlashcardResult(
-  topic: string, front: string, back: string, grade: string,
-  boxBefore?: number, boxAfter?: number, nextReview?: string
-) {
-  const auth = await requireUser();
-  if (!auth.ok) return { success: false };
-  const userId = auth.user.id;
-
-  const subjectId = await getSubjectIdByName(topic);
-  const { error } = await supabase.from('flashcard_results').insert({
-    user_id: userId, subject_id: subjectId, topic, front, back, grade,
-    box_before: boxBefore, box_after: boxAfter, next_review: nextReview
-  });
-  return { success: !error };
+/**
+ * Apunta el repaso en el historico de analitica.
+ *
+ * Es best-effort a proposito: si la tabla no existe o falla la insercion, el
+ * progreso del alumno ya esta guardado y no tiene sentido tumbar la sesion de
+ * repaso por no poder escribir una fila de estadisticas.
+ */
+async function recordFlashcardResult(entry: {
+    userId: string;
+    subjectId: number;
+    topic: string;
+    front: string;
+    back: string;
+    grade: string;
+    boxBefore: number;
+    boxAfter: number;
+    nextReview: string;
+}) {
+    const { error } = await supabase.from('flashcard_results').insert({
+        user_id: entry.userId,
+        subject_id: entry.subjectId,
+        topic: entry.topic,
+        front: entry.front,
+        back: entry.back,
+        grade: entry.grade,
+        box_before: entry.boxBefore,
+        box_after: entry.boxAfter,
+        next_review: entry.nextReview,
+    });
+    if (error) console.error('flashcard_results (no bloqueante):', error.message);
 }

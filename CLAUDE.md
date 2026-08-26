@@ -26,7 +26,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| 2.5, 2.7, 4, 5 | Dificultad, perfil físico, pedagogía, higiene | ⬜ |
+| **4** | **Repetición espaciada + analítica de flashcards** | ✅ **cerrada en parte** |
+| 2.5, 2.7, 5 | Dificultad, perfil físico, higiene | ⬜ |
 
 ### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
 
@@ -57,7 +58,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~92 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~90 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -232,7 +233,17 @@ arrastrar contexto de más mete ruido si el alumno cambia de tema.
 Es una **heurística a propósito**, no una llamada extra al modelo: reescribir la
 pregunta con la IA costaría una petición de pago por cada mensaje.
 
-### 12 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 12 · El intervalo de repaso depende solo de la caja
+
+`BOX_INTERVALS` en `app/lib/srs.ts`: `[1, 3, 7, 15, 30]` días, indexado por
+`box - 1`. Antes cada valoración calculaba su intervalo por separado, y de ahí
+venían tres rarezas: "Duda" y "Bien" daban lo mismo desde la caja 1, "Duda"
+nunca movía de caja (tarjeta atascada de por vida) y desde la caja 5 se saltaba
+de 3 a 30 días de golpe.
+
+**"Duda" baja una caja.** Fallar vuelve a la 1, acertar sube una. Nada más.
+
+### 13 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -256,13 +267,15 @@ tests/ai-output.test.ts         parseo y validación de lo que devuelve el model
 tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
 ```
 
+`srs.test.ts` cubre la repetición espaciada; el resto de la tabla sigue igual.
+
 **Dos convenciones importantes:**
 
 1. **Los tests marcados `BUG:` describen el comportamiento *actual*, no el
    deseado.** Al corregir ese fallo, el test **debe** fallar: se invierte la
    aserción y se le quita el prefijo. Es el aviso de que el arreglo surtió efecto.
-   Ya se invirtieron los del troceado (fase 2.6) y los del parseo de la IA (fase 3).
-   Quedan los de `srs.test.ts` (fase 4).
+   Ya se invirtieron todos: troceado (2.6), parseo de la IA (3) y repetición
+   espaciada (4). No queda ninguno marcado `BUG:`.
 
 2. **Los tests estáticos leen el código fuente** y fallan si vuelve un patrón
    peligroso. No necesitan Supabase. Si añades uno, recuerda quitar los

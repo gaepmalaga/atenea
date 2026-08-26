@@ -113,7 +113,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
             {activeTab === 'cards' && (
                 <ModuleErrorBoundary moduleName="Drills">
-                    <FlashcardDeck user={user} />
+                    <FlashcardDeck />
                 </ModuleErrorBoundary>
             )}
 
