@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { consume, sweep, buckets, QUOTAS, type QuotaName } from '../app/lib/rate-limit';
+import { consume, sweep, buckets, QUOTAS, interpretarCuota, type QuotaName } from '../app/lib/rate-limit';
 
 const T0 = 1_700_000_000_000;
 
@@ -194,5 +194,67 @@ describe('ninguna llamada al modelo se hace sin cuota', () => {
         expect(validos.has(m[1] as QuotaName), `${name}: ${m[1]}`).toBe(true);
       }
     }
+  });
+});
+
+/**
+ * La cuota de verdad la lleva `consume_ai_quota` en la base de datos: el
+ * contador en memoria solo sostiene el limite si la BD deja de contestar.
+ *
+ * Aqui se prueba el mapeo de su respuesta, que es donde esta la unica logica
+ * de esa ruta. La atomicidad la garantiza la propia sentencia SQL (una sola
+ * INSERT ... ON CONFLICT DO UPDATE), y eso no se puede testear sin Postgres.
+ */
+describe('interpretarCuota: la respuesta de consume_ai_quota', () => {
+  const AHORA = Date.parse('2026-08-26T12:00:00Z');
+
+  it('permitida devuelve lo que queda', () => {
+    const r = interpretarCuota(
+      { allowed: true, remaining: 7, reset_at: '2026-08-26T13:00:00Z' },
+      AHORA,
+    );
+    expect(r).toEqual({ ok: true, remaining: 7 });
+  });
+
+  it('un remaining negativo se recorta a 0, nunca se muestra en negativo', () => {
+    const r = interpretarCuota(
+      { allowed: true, remaining: -3, reset_at: '2026-08-26T13:00:00Z' },
+      AHORA,
+    );
+    expect(r).toEqual({ ok: true, remaining: 0 });
+  });
+
+  it('agotada dice cuanto falta para el reinicio', () => {
+    const r = interpretarCuota(
+      { allowed: false, remaining: 0, reset_at: '2026-08-26T12:45:00Z' },
+      AHORA,
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.retryAfterMs).toBe(45 * 60_000);
+    expect(r.error).toContain('45 min');
+  });
+
+  it('un reset_at ya pasado no da un retryAfter negativo', () => {
+    const r = interpretarCuota(
+      { allowed: false, remaining: 0, reset_at: '2026-08-26T11:00:00Z' },
+      AHORA,
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.retryAfterMs).toBe(0);
+    // El mensaje nunca dice "0 min": el minimo que se enseña es 1.
+    expect(r.error).toContain('1 min');
+  });
+
+  it('un reset_at ilegible cae a la ventana completa, no a NaN', () => {
+    const r = interpretarCuota(
+      { allowed: false, remaining: 0, reset_at: 'no es una fecha' },
+      AHORA,
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(Number.isFinite(r.retryAfterMs)).toBe(true);
+    expect(r.retryAfterMs).toBe(60 * 60_000);
   });
 });
