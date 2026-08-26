@@ -23,19 +23,27 @@ Estado al empezar la auditoría:
 | `npm run lint` | ⚠️ 145 errores + 52 avisos |
 | `npm test` | ❌ No existía suite de tests |
 
-Estado tras esta sesión: build ✅, typecheck ✅, 35 tests ✅ (ver `docs/PLAN-DE-TRABAJO.md`).
+Estado a 26 ago 2026: build ✅, typecheck ✅, **303 tests** ✅, RLS activa, y la aplicación
+arranca y guarda contra el Supabase real (ver `docs/PLAN-DE-TRABAJO.md`).
 
-**Los tres asuntos que hay que mirar antes que nada:**
+**Los tres asuntos que había que mirar antes que nada, y todos están cerrados:**
 
-1. **No hay autenticación real en el servidor.** Todas las Server Actions reciben el
-   `userId` como argumento desde el cliente y ninguna verifica una sesión. Como además
-   usan la clave de servicio de Supabase (que salta RLS), cualquiera puede leer y
-   escribir datos de cualquier usuario. §1.
-2. **El banco de preguntas nunca llega a los alumnos.** Todo lo generado se guarda con
-   `status: 'candidate'` y los alumnos solo leen `status: 'active'`. Cada test se genera
-   en vivo con IA: lento y caro. §2.1.
-3. **El panel de estadísticas casi con seguridad revienta en blanco** por leer una
-   columna que no existe. §2.2.
+1. ~~**No hay autenticación real en el servidor.**~~ Todas las Server Actions recibían el
+   `userId` como argumento desde el cliente y ninguna verificaba una sesión. Como además
+   usan la clave de servicio de Supabase (que salta RLS), cualquiera podía leer y
+   escribir datos de cualquier usuario. §1. **Cerrado**, y RLS ya está activa (§1.6).
+2. ~~**El banco de preguntas nunca llega a los alumnos.**~~ Todo lo generado se guardaba
+   con `status: 'candidate'` y los alumnos solo leen `status: 'active'`. §2.1.
+3. ~~**El panel de estadísticas revienta en blanco**~~ por leer una columna que no existe.
+   §2.2.
+
+> **Lo que esta auditoría no pudo ver, y era lo más grave.** Los hallazgos se sacaron
+> leyendo el código, porque el esquema de la base de datos no estaba en el repositorio.
+> Al ejecutar por fin contra el Supabase real aparecieron dos fallos que ningún análisis
+> del código podía delatar: **no se guardaba ni un resultado de test** (§2.15) **ni un
+> repaso de flashcards** (§2.16), porque el código escribía columnas que no existen y
+> PostgREST rechaza la escritura entera cuando eso pasa — registrándolo solo en consola.
+> La causa de fondo y su cierre, en §2.18.
 
 ---
 
@@ -43,6 +51,9 @@ Estado tras esta sesión: build ✅, typecheck ✅, 35 tests ✅ (ver `docs/PLAN
 
 > Estos hallazgos son de lectura estática. Antes de dar ninguno por resuelto conviene
 > reproducirlos contra el proyecto real de Supabase.
+>
+> **Y no es retórico:** al hacerlo aparecieron §2.15, §2.16 y §2.17, que la lectura del
+> código no podía ver. Si vas a cerrar un hallazgo, ejecútalo.
 
 ### 1.1 · CRÍTICO — Las Server Actions no autentican a nadie
 
@@ -126,7 +137,7 @@ lugar del año de nacimiento.
 Y en la pantalla de biodata, un aviso: el alumno tiene derecho a saber qué sale de ahí
 **antes** de escribirlo.
 
-### 1.4 · ~~MEDIO~~ ✅ CERRADO (con una limitación escrita por delante) — Sin límite de frecuencia en las rutas de IA
+### 1.4 · ~~MEDIO~~ ✅ CERRADO DEL TODO (26 ago 2026) — Sin límite de frecuencia en las rutas de IA
 
 Ocho acciones llamaban a Gemini sin ningún control de cuota. Combinado con §1.1, la factura
 la marcaba cualquiera.
@@ -135,18 +146,21 @@ la marcaba cualquiera.
 dejar al alumno sin flashcards, y el contador no es global — si lo fuera, un alumno activo
 dejaría sin servicio a todos los demás, que es peor fallo que no tener cuota.
 
-**El contador vive en memoria del proceso.** Con varias instancias —Vercel levanta y recicla
-procesos— cada una lleva su cuenta, así que el límite real es el configurado multiplicado
-por el número de instancias vivas. Sirve para lo que más duele (un bucle desde una pestaña,
-un script contra una acción) y **no** como control de gasto exacto. La versión duradera está
-escrita y lista en [`docs/sql/1.4-cuota-ia.sql`](sql/1.4-cuota-ia.sql), con la función
-atómica para que dos peticiones simultáneas del mismo usuario no puedan leer el mismo
-contador y escribir las dos.
+**La limitación que llevaba escrita por delante ya no aplica.** El contador vivía en
+memoria del proceso, así que con varias instancias el límite real se multiplicaba por el
+número de instancias vivas. Desde el 26 ago 2026 la cuota la lleva la base de datos:
+`consume_ai_quota` incrementa la fila en una sola sentencia atómica, de modo que dos
+peticiones simultáneas del mismo usuario no pueden leer el mismo contador y escribir las
+dos. Probado contra el proyecto real: con límite 2, la tercera llamada devuelve
+`allowed = false`.
 
-`checkQuota` ya es `async` y las nueve llamadas la esperan con `await`, así que ese cambio
-se queda dentro de un solo fichero. Hay una guarda que lo vigila: sin `await`, el resultado
-es una promesa, `.ok` es `undefined` y la comprobación dejaría pasar **todo** sin fallar de
-forma visible.
+El contador en memoria se queda como **respaldo** y se consume siempre, también cuando la
+base de datos responde: es lo que sostiene el límite si la BD deja de contestar a mitad de
+una ventana. Si la consulta falla se registra y se cae a él; nunca se deja la acción sin
+límite.
+
+La guarda del `await` sigue en pie, y sigue importando: sin él el resultado es una promesa,
+`.ok` es `undefined` y la comprobación dejaría pasar **todo** sin fallar de forma visible.
 
 ### 1.5 · ~~BAJO~~ ✅ CERRADO — Mensajes de error crudos hacia el cliente
 
@@ -248,8 +262,82 @@ pregunta en tests distintos. Se cerró además una carrera que no estaba documen
 botones de diagnóstico aparecen mientras el insert viaja, así que un clic rápido volvía a
 duplicar.
 
-⚠️ **Los duplicados ya guardados siguen ahí.** Guion de reparación por pasos en
-`docs/sql/2.4-duplicados-test-results.sql`.
+**No había duplicados que reparar.** Al lanzar el guion contra el proyecto real (26 ago
+2026) falló: `test_results` no tiene columna `error_type`. Y la tabla estaba vacía. Lo que
+sí había era mucho peor: §2.15.
+
+### 2.15 · CRÍTICO ✅ CERRADO (26 ago 2026) — Ningún resultado de test se guardaba, nunca
+
+Había **dos tablas para lo mismo** y el código escribía en la que no era.
+
+| | columnas reales |
+|---|---|
+| `test_results` | id, user_id, question_id, is_correct, response_time_ms, option_changes, created_at |
+| `question_attempts` | id, user_id, exam_id, question_id, **topic**, is_correct, selected_index, **error_type**, response_time_ms, created_at |
+
+`toResultRow` mandaba `subject_id` y `error_type` a `test_results`, que no tiene ninguna de
+las dos. **PostgREST rechaza la inserción entera si una sola columna no existe**, y el
+error solo se registraba en consola: la pantalla seguía como si nada.
+
+Los tres caminos —`saveTestResult`, `saveExamResults`, `setResultErrorType`— fallaban en
+silencio. La tabla llevaba **0 filas**.
+
+No era regresión de §2.4: el código anterior escribía esas mismas dos columnas
+(`git show 343393a:app/actions/exams.ts`). Venía de antes de la auditoría, y esta no lo
+detectó porque los hallazgos eran de lectura estática **contra el código, no contra el
+esquema**, que no estaba en el repositorio.
+
+**Cerrado** moviendo el guardado a `question_attempts` (mejor tabla: `user_id`, `topic` e
+`is_correct` son NOT NULL, ya tenía RLS con políticas correctas, y guarda el tema como
+texto, que es lo que el historial pinta). Ver `docs/sql/2.5-question-attempts.sql`.
+
+### 2.16 · ALTO ✅ CERRADO (26 ago 2026) — Los repasos de flashcards tampoco se guardaban
+
+El mismo fallo, en otra tabla. `saveFlashcardProgress` escribía `subject_id` en
+`flashcard_progress`, que tampoco tiene esa columna — la que sí la tiene es
+`flashcard_results`, que es otra. El alumno veía:
+
+> No se pudo guardar el repaso: Could not find the 'subject_id' column of
+> 'flashcard_progress' in the schema cache
+
+Y había un tercer efecto más callado: la búsqueda de tarjetas pendientes filtraba por
+`.eq('subject_id', ...)` sobre esa misma tabla, así que **nunca podía devolver nada**.
+Los datos anteriores a febrero de 2026 que hay en la tabla confirman que esto funcionaba
+antes y se rompió después.
+
+### 2.17 · CRÍTICO ✅ CERRADO (26 ago 2026) — La aplicación no arrancaba
+
+No pasaba de la pantalla de carga. Tres fallos encadenados:
+
+1. `ReferenceError: TrainingDayLog is not defined`. `app/actions/training.ts` es
+   `'use server'`, y Next exige que un módulo así exporte solo funciones async. El
+   `export type { TrainingDayLog }` —reexportación de un tipo **importado**, no una
+   declaración— acababa siendo una referencia real en el bundle y el servidor reventaba al
+   evaluar el módulo. Con eso caía `getCurrentUser` y con ella la página entera.
+2. `checkSession` no tenía `try/catch`: al fallar, `loadingUser` se quedaba en `true` para
+   siempre y no había ni pantalla de login a la que volver. Este fallo **tapaba** al
+   anterior, y habría tapado cualquier otro.
+3. `next dev` no compilaba: Turbopack infiere mal la raíz del proyecto en desarrollo y se
+   va al directorio padre, desde donde no resuelve el `@import "tailwindcss"`. `next build`
+   no lo sufre. `npm run dev` pasa a `--webpack`.
+
+### 2.18 · LA CAUSA DE FONDO ✅ CERRADA (26 ago 2026) — El esquema no estaba en el repositorio
+
+§2.15 y §2.16 son el mismo fallo, y ninguno de los dos lo habría dejado pasar un test.
+Pero no había con qué escribirlo: **el esquema vivía solo dentro de Supabase**. Por eso
+los guiones de `docs/sql/` se escribieron deduciendo los nombres del código —y de ahí que
+el de RLS dejara `workout_logs` fuera y el de duplicados nombrara una columna inexistente.
+
+Cerrado con tres piezas:
+
+- `supabase/schema.json` — el esquema real, versionado.
+- `tests/schema-drift.test.ts` — compara contra él las columnas que el código escribe, los
+  filtros `.eq`/`.in` y las listas blancas. Al añadirlo detectó solo el desajuste que
+  quedaba vivo.
+- `npm run smoke` — inserta una fila de verdad por cada camino de escritura y la borra.
+  Coge lo que el test estático no ve: tipos, NOT NULL y claves ajenas.
+
+Ninguna de las tres necesita la contraseña de la base de datos.
 
 ### 2.5 · ALTO — La dificultad elegida no hace nada
 
