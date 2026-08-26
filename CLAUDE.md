@@ -19,12 +19,18 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 1.4 | Asignación masiva en perfiles | ✅ cerrada |
 | 2.1 | Ciclo de vida de las preguntas | ✅ cerrada |
 | 2.2 | Panel de estadísticas + Error Boundaries | ✅ cerrada |
-| **2.3** | **Métricas de comportamiento** | ✅ **cerrada** |
+| 2.3 | Métricas de comportamiento | ✅ cerrada |
+| **2.4** | **Un resultado por respuesta** | ✅ **cerrada** (falta reparar el histórico) |
 | 1.2 / 1.3 | Acotar la clave de servicio · activar RLS | ⬜ siguiente |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| 2.4 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
+| 2.5 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
 
-**Sin verificar contra el Supabase real:** las fases 1.1, 2.1, 2.2 y 2.3 están cerradas
+**Pendiente que solo puedes hacer tú:** los duplicados que dejó el fallo de la fase 2.4
+siguen en la base de datos y hunden el porcentaje de acierto de los alumnos. El guion está
+en [`docs/sql/2.4-duplicados-test-results.sql`](docs/sql/2.4-duplicados-test-results.sql),
+por pasos y con copia de seguridad.
+
+**Sin verificar contra el Supabase real:** las fases 1.1, 2.1, 2.2, 2.3 y 2.4 están cerradas
 en código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
 credenciales de verdad. Puntos de riesgo, por orden: el login (la sesión pasó de
 `localStorage` a cookies), el estado de las preguntas sembradas, y el join de
@@ -147,14 +153,29 @@ no cuenta y volver a marcar la misma tampoco. Ojo con los datos anteriores a la
 fase 2.3 — la columna valía 0 en todas las filas, así que no hay histórico que
 preservar.
 
-### 7 · La aritmética que se muestra al alumno va en `app/lib/stats.ts`
+### 7 · Una fila de `test_results` por respuesta
+
+En entrenamiento se insertaba dos veces por cada fallo etiquetado (una al
+responder y otra al diagnosticar), así que cada error contaba doble y el
+porcentaje de acierto quedaba sesgado a la baja para siempre.
+
+`saveTestResult` devuelve el **id** de la fila; `setResultErrorType` la
+**actualiza**. Nada de un segundo insert. Y `handleErrorTag` espera al guardado
+en vuelo antes de decidir: los botones de diagnóstico aparecen mientras el insert
+viaja, y sin esa espera un clic rápido volvía a duplicar.
+
+Se descartó el `upsert` sobre `(user_id, question_id, session_id)` que proponía
+el plan: exige una columna y una restricción única que no existen, y además
+colapsaría intentos legítimos de la misma pregunta en tests distintos.
+
+### 8 · La aritmética que se muestra al alumno va en `app/lib/stats.ts`
 
 Numerador y denominador de la misma muestra. El índice de incertidumbre sumaba
 los cambios de las 5 últimas preguntas y dividía entre el total de hasta 100; el
 "progreso al ascenso" usaba `winRate / (min + 20)` y nunca llegaba al 100 %.
 Distingue siempre **"sin datos"** de **"cero"**: no son lo mismo para el alumno.
 
-### 8 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 9 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -173,6 +194,7 @@ tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger y aislamiento de módulos
 tests/exam-results.test.ts      contrato de resultados cliente↔servidor
+tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 ```
 
 **Dos convenciones importantes:**
@@ -236,13 +258,12 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 1. **Probar 1.1, 2.1, 2.2 y 2.3 contra el Supabase real.** Entrar como alumno y
    como admin; sembrar un tema y comprobar que las preguntas llegan a un test;
    hacer un simulacro y mirar que `test_results` guarda `response_time_ms` y
-   `option_changes` distintos de 0, y que Inicio y Estadísticas cargan.
+   `option_changes` distintos de 0, y que Inicio y Estadísticas cargan. Fallar
+   una pregunta en entrenamiento y etiquetar el error debe dejar **una** fila.
 2. **`supabase db pull`** para versionar el esquema.
-3. **Fases 1.2 y 1.3** (acotar la clave de servicio, activar RLS) para cerrar
-   seguridad, o **2.4** (un resultado por respuesta) si se prefiere seguir en
-   funcional: hoy etiquetar un fallo inserta una segunda fila y cada fallo cuenta
-   doble en el porcentaje de acierto. Está marcado con un `PENDIENTE (fase 2.4)`
-   en `ActiveTest.handleErrorTag`.
+3. **Fases 1.2 y 1.3** (acotar la clave de servicio, activar RLS). Llevan cinco
+   fases funcionales seguidas sin moverse y son la única deuda con riesgo real
+   para los datos de los alumnos.
 
 Al cerrar una fase: actualiza la tabla de estado de este fichero, marca la fase
 en `docs/PLAN-DE-TRABAJO.md` y el hallazgo en `docs/AUDITORIA.md`.

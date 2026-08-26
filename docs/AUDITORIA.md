@@ -196,11 +196,21 @@ en ningún modo.
 `useRef` y `option_changes` cuenta cambios **reales** (la primera respuesta no cuenta, ni
 volver a marcar la misma). Los umbrales de `stats.ts` se ajustaron a la nueva semántica.
 
-### 2.4 · ALTO — Modo práctica: dos filas por cada fallo
+### 2.4 · ~~ALTO~~ ✅ CERRADO EN CÓDIGO — Modo práctica: dos filas por cada fallo
 
-En `ActiveTest`, al fallar se llama a `saveTestResult` en `handleAnswer` y **otra vez** en
-`handleErrorTag` al etiquetar el error. Ambas hacen `INSERT`. Cada fallo cuenta doble y el
-`winRate` queda sesgado hacia abajo de forma permanente.
+En `ActiveTest`, al fallar se llamaba a `saveTestResult` en `handleAnswer` y **otra vez** en
+`handleErrorTag` al etiquetar el error. Ambas hacían `INSERT`. Cada fallo contaba doble y el
+`winRate` quedaba sesgado hacia abajo de forma permanente.
+
+**Cerrado.** `saveTestResult` devuelve el id de la fila y `setResultErrorType` la actualiza.
+Se descartó el `upsert` sobre una clave compuesta que proponía el plan: exigía una columna y
+una restricción únicas inexistentes, y habría colapsado intentos legítimos de la misma
+pregunta en tests distintos. Se cerró además una carrera que no estaba documentada: los
+botones de diagnóstico aparecen mientras el insert viaja, así que un clic rápido volvía a
+duplicar.
+
+⚠️ **Los duplicados ya guardados siguen ahí.** Guion de reparación por pasos en
+`docs/sql/2.4-duplicados-test-results.sql`.
 
 ### 2.5 · ALTO — La dificultad elegida no hace nada
 
@@ -363,13 +373,14 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 1.4 · Asignación masiva | ✅ cerrada |
 | 2.1 · Ciclo de vida de las preguntas | ✅ cerrada (§2.1 y §2.10) |
 | 2.2 · Estadísticas y Error Boundaries | ✅ cerrada (§2.2 y §2.14) |
-| **2.3 · Métricas de comportamiento** | ✅ **cerrada** (§2.3 y §2.9) |
+| 2.3 · Métricas de comportamiento | ✅ cerrada (§2.3 y §2.9) |
+| **2.4 · Un resultado por respuesta** | ✅ **cerrada** en código (§2.4) |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |
 | 2.2 – 5 | pendiente |
 
-Los hallazgos de §1.1, §1.2, §1.5, §2.1, §2.2, §2.3, §2.9, §2.10 y §2.14 quedan cerrados
-en código;
+Los hallazgos de §1.1, §1.2, §1.5, §2.1, §2.2, §2.3, §2.4, §2.9, §2.10 y §2.14 quedan
+cerrados en código;
 **falta verificarlos contra el proyecto real de Supabase**.
 
 ---

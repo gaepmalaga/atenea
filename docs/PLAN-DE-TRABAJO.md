@@ -192,14 +192,34 @@ ambas métricas en vez de contaminar la media con el tiempo de la pantalla de di
 **Pendiente de verificar contra el proyecto real:** hacer un simulacro y comprobar que
 `test_results` guarda `response_time_ms` y `option_changes` distintos de 0.
 
-### 2.4 Un resultado por respuesta §2.4
+### 2.4 Un resultado por respuesta §2.4 ✅ HECHA
 
-`saveTestResult` debe hacer `upsert` sobre `(user_id, question_id, session_id)` en vez de
-`insert`, para que etiquetar el error actualice la fila en lugar de crear otra. Requiere
-introducir un identificador de sesión de test, que hoy no existe.
+**Se descartó el `upsert` sobre `(user_id, question_id, session_id)` que proponía este
+plan.** Exige una columna y una restricción única que no existen y que no se pueden crear
+sin acceso a la base de datos; y además colapsaría intentos legítimos de la misma pregunta
+en tests distintos, que sí deben ser filas separadas.
 
-> Ojo: hay datos históricos ya duplicados. Contar cuántos antes de tocar nada, y decidir si
-> se limpian o se marcan.
+En su lugar, insertar y actualizar por id:
+
+- [x] `saveTestResult` devuelve el **id** de la fila que crea.
+- [x] `setResultErrorType(resultId, errorType)` **actualiza** esa fila. Solo toca
+      `error_type`: reescribir el tiempo aquí lo sustituiría por el de la pantalla de
+      diagnóstico, que no es el de la respuesta.
+- [x] Filtra por `user_id`, así que no se puede etiquetar el resultado de otro aunque se
+      conozca su id.
+- [x] Si el guardado de la respuesta falló, se inserta la fila completa con la etiqueta
+      incluida: ahí no hay nada que duplicar.
+
+**Una carrera que no estaba en el plan:** los botones de diagnóstico aparecen en cuanto se
+marca la respuesta, mientras el insert sigue viajando. Un clic rápido leería el id a `null`
+y volvería a insertar. `handleErrorTag` espera al guardado en vuelo antes de decidir.
+
+- [x] 10 tests en `tests/single-result.test.ts`, verificados reintroduciendo el doble insert.
+
+**Pendiente, y solo puedes hacerlo tú:** los duplicados que ya están en la base de datos
+siguen hundiendo el porcentaje de acierto. No puedo contarlos sin credenciales, así que el
+guion está en [`docs/sql/2.4-duplicados-test-results.sql`](sql/2.4-duplicados-test-results.sql):
+va por pasos, empieza contando, crea copia de seguridad y fusiona antes de borrar.
 
 ### 2.5 Que la dificultad sirva de algo §2.5
 
@@ -305,13 +325,15 @@ y va a tocar todos los ficheros.
 
 1. **Probar 1.1, 2.1, 2.2 y 2.3 contra el Supabase real.** Entrar como alumno y como admin;
    sembrar un tema y comprobar que las preguntas llegan a un test; hacer un simulacro y
-   mirar que `test_results` guarda `response_time_ms` y `option_changes` distintos de 0. Si algo falla, lo más probable es el login (la sesión
+   mirar que `test_results` guarda `response_time_ms` y `option_changes` distintos de 0;
+   fallar una pregunta en entrenamiento y etiquetar el error debe dejar **una** fila.
+2. **Ejecutar `docs/sql/2.4-duplicados-test-results.sql`** para reparar el histórico. Si algo falla, lo más probable es el login (la sesión
    pasó de `localStorage` a cookies).
-2. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
+3. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
    del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
-3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS) para cerrar seguridad,
-   o **2.4** (un resultado por respuesta) si se prefiere seguir en funcional: hoy etiquetar
-   un fallo inserta una segunda fila y cada fallo cuenta doble en el porcentaje de acierto.
+3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS). Llevan cinco fases
+   funcionales seguidas sin moverse, y son la única deuda con riesgo real sobre los datos
+   de los alumnos.
 
 > El estado vivo del proyecto está en [`CLAUDE.md`](../CLAUDE.md), en la raíz. Al cerrar una
 > fase, actualiza los dos.

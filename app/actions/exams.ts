@@ -336,14 +336,22 @@ export async function getQuestionsFromBank(params: {
   return { success: true as const, data: shuffled };
 }
 
+/**
+ * Guarda UNA respuesta del modo entrenamiento y devuelve el id de la fila.
+ *
+ * El id es lo que permite que etiquetar el fallo despues ACTUALICE esta fila en
+ * vez de insertar otra. Antes se insertaba dos veces por cada fallo etiquetado
+ * (una al responder y otra al diagnosticar), asi que cada error contaba doble
+ * en el porcentaje de acierto de por vida.
+ */
 export async function saveTestResult(
   topicOrId: string | number,
   questionId: string | null,
   isCorrect: boolean,
   metrics?: Partial<AnswerMetrics>
-) {
+): Promise<{ success: boolean; id: string | null }> {
   const auth = await requireUser();
-  if (!auth.ok) return { success: false };
+  if (!auth.ok) return { success: false, id: null };
 
   try {
     const subjectId = typeof topicOrId === 'number'
@@ -355,18 +363,48 @@ export async function saveTestResult(
     // por eso los nombres pudieron divergir entre los dos caminos.
     const row = toResultRow({ questionId, subjectId, isCorrect, ...metrics });
 
-    const { error } = await supabase.from('test_results').insert({
-      ...row,
-      user_id: auth.user.id,
-      created_at: new Date().toISOString(),
-    });
+    const { data, error } = await supabase
+      .from('test_results')
+      .insert({ ...row, user_id: auth.user.id, created_at: new Date().toISOString() })
+      .select('id')
+      .single();
 
-    if (error) console.error('saveTestResult:', error.message);
-    return { success: !error };
+    if (error) {
+      console.error('saveTestResult:', error.message);
+      return { success: false, id: null };
+    }
+    return { success: true, id: data?.id ?? null };
   } catch (e) {
     console.error('saveTestResult:', e instanceof Error ? e.message : e);
-    return { success: false };
+    return { success: false, id: null };
   }
+}
+
+/**
+ * Anade la taxonomia del fallo a una respuesta ya guardada.
+ *
+ * Es un UPDATE sobre la fila que devolvio `saveTestResult`, no una insercion
+ * nueva. Solo toca `error_type`: el tiempo y los cambios de opcion son los de la
+ * respuesta, no los de la pantalla de diagnostico, y no deben reescribirse.
+ */
+export async function setResultErrorType(
+  resultId: string,
+  errorType: string
+): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, error: auth.error };
+  if (!resultId) return { success: false, error: 'Falta el id del resultado.' };
+
+  // El filtro por user_id impide etiquetar el resultado de otro usuario aunque
+  // se conozca su id.
+  const { error } = await supabase
+    .from('test_results')
+    .update({ error_type: errorType })
+    .eq('id', resultId)
+    .eq('user_id', auth.user.id);
+
+  if (error) console.error('setResultErrorType:', error.message);
+  return { success: !error, error: error?.message };
 }
 
 export async function saveExamResults(results: ExamResultPayload[]) {

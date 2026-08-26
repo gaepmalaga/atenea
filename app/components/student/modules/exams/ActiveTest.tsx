@@ -7,7 +7,7 @@ import {
   ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning
 } from 'lucide-react';
 import { Question } from './ExamManager';
-import { saveTestResult, voteQuestion, reportQuestion } from '@/actions';
+import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
 import { countChange } from '@/app/lib/exam-results';
 
 interface ActiveTestProps {
@@ -39,6 +39,14 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   // `useState` el cierre devolvia el valor anterior, asi que en modo
   // entrenamiento se guardaba siempre 0 cambios.
   const optionChangesRef = useRef(0);
+  // Id de la fila de `test_results` que guardo la respuesta actual. Etiquetar el
+  // fallo actualiza ESA fila; antes se insertaba una segunda y cada error
+  // etiquetado contaba doble en el porcentaje de acierto.
+  const resultIdRef = useRef<string | null>(null);
+  // El guardado en vuelo. Los botones de diagnóstico aparecen en cuanto se
+  // marca la respuesta, mientras el insert sigue viajando: sin esperarlo, un
+  // clic rápido leería `resultIdRef` a null y volvería a insertar.
+  const savePromiseRef = useRef<Promise<{ success: boolean; id: string | null }> | null>(null);
 
   // Estados para Votos y Reportes
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
@@ -54,6 +62,8 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   useEffect(() => {
       startTimeRef.current = Date.now();
       optionChangesRef.current = 0;
+      resultIdRef.current = null;
+      savePromiseRef.current = null;
   }, [currentIndex]);
 
   // --- MANEJO DE RESPUESTA ---
@@ -78,7 +88,7 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
         const correct = optionId === currentQ.correctOptionId;
         setErrorTagged(correct);
 
-        await saveTestResult(
+        savePromiseRef.current = saveTestResult(
             topicName,
             currentQ.id,
             correct,
@@ -87,6 +97,8 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
                 optionChanges: optionChangesRef.current
             }
         );
+        const saved = await savePromiseRef.current;
+        resultIdRef.current = saved.id;
     }
   };
 
@@ -98,16 +110,27 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
       ));
       setErrorTagged(true);
       
-      // Actualizamos el fallo con la etiqueta específica
-      // PENDIENTE (fase 2.4): esto inserta una SEGUNDA fila para la misma
-      // pregunta, así que cada fallo etiquetado cuenta doble en el porcentaje
-      // de acierto. Se arregla con un upsert por sesión de test.
-      //
-      // A propósito NO se envían aquí tiempo ni cambios: serían los de la
-      // pantalla de diagnóstico, no los de la respuesta, y contaminarían la
-      // media. Al ir a 0, `summarizeResults` descarta esta fila de ambas
-      // métricas y solo cuenta la que sí midió.
-      await saveTestResult(topicName, currentQ.id, false, { errorType: type });
+      // UNA fila por respuesta: se actualiza la que creó handleAnswer, no se
+      // inserta otra. Solo se toca `error_type`; el tiempo y los cambios son
+      // los de la respuesta, no los de esta pantalla de diagnóstico.
+      // Esperamos al guardado de la respuesta antes de decidir si actualizar
+      // o insertar. Sin esto, un clic rápido crearía la segunda fila.
+      if (savePromiseRef.current) await savePromiseRef.current;
+      const resultId = resultIdRef.current;
+
+      if (resultId) {
+          const res = await setResultErrorType(resultId, type);
+          if (!res.success) console.error('No se pudo etiquetar el fallo:', res.error);
+      } else {
+          // El guardado de la respuesta falló, así que aquí no hay nada que
+          // duplicar: se inserta la fila completa con la etiqueta incluida.
+          const saved = await saveTestResult(topicName, currentQ.id, false, {
+              errorType: type,
+              responseTimeMs: Date.now() - startTimeRef.current,
+              optionChanges: optionChangesRef.current,
+          });
+          resultIdRef.current = saved.id;
+      }
   };
 
   // --- MANEJO DE VOTOS ---
