@@ -2,7 +2,7 @@
 
 import { Question } from './ExamManager';
 import { scoreExam } from '@/app/lib/questions';
-import { CheckCircle2, XCircle, RotateCcw, Award } from 'lucide-react';
+import { XCircle, RotateCcw, Award } from 'lucide-react';
 
 interface ExamResultsProps {
   questions: Question[];
@@ -10,7 +10,7 @@ interface ExamResultsProps {
 }
 
 export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
-  const { total, correct: correctCount, wrong, percentage } = scoreExam(questions);
+  const { correct: correctCount, wrong, percentage } = scoreExam(questions);
   const isPass = percentage >= 50;
 
   return (

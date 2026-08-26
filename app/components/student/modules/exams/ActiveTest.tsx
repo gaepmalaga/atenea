@@ -8,11 +8,11 @@ import {
 } from 'lucide-react';
 import { Question } from './ExamManager';
 import { saveTestResult, voteQuestion, reportQuestion } from '@/actions';
+import { countChange } from '@/app/lib/exam-results';
 
 interface ActiveTestProps {
   questions: Question[];
   mode: 'practice' | 'exam';
-  userId: string;
   topicName: string;
   onFinish: (qs: Question[]) => void;
   onExit: () => void;
@@ -28,14 +28,17 @@ const REPORT_TYPES = [
   { id: 'other', label: 'Otro' }
 ];
 
-export default function ActiveTest({ questions, mode, userId, topicName, onFinish, onExit }: ActiveTestProps) {
+export default function ActiveTest({ questions, mode, topicName, onFinish, onExit }: ActiveTestProps) {
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errorTagged, setErrorTagged] = useState(false); 
 
   // Métricas VIP (Tiempos y Dudas)
   const startTimeRef = useRef<number>(Date.now());
-  const [optionChanges, setOptionChanges] = useState(0);
+  // Un ref, no estado: se escribe y se lee dentro del mismo manejador. Con
+  // `useState` el cierre devolvia el valor anterior, asi que en modo
+  // entrenamiento se guardaba siempre 0 cambios.
+  const optionChangesRef = useRef(0);
 
   // Estados para Votos y Reportes
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
@@ -50,35 +53,38 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
   // Reiniciar cronómetro al cambiar de pregunta
   useEffect(() => {
       startTimeRef.current = Date.now();
-      setOptionChanges(0);
+      optionChangesRef.current = 0;
   }, [currentIndex]);
 
   // --- MANEJO DE RESPUESTA ---
   const handleAnswer = async (optionId: string) => {
     if (mode === 'practice' && isAnswered) return;
-    
-    // Registrar duda si cambia de opción antes de confirmar
-    setOptionChanges(prev => prev + 1);
 
-    const updated = [...localQuestions];
-    updated[currentIndex].userAnswer = optionId;
+    // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
+    // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
+    // no cambios, y la primera respuesta ya valía 1.
+    if (countChange(currentQ.userAnswer, optionId)) {
+        optionChangesRef.current += 1;
+    }
+
+    // Copia del objeto, no solo del array: la copia superficial mutaba la misma
+    // pregunta que tiene el componente padre en su estado.
+    const updated = localQuestions.map((q, i) =>
+        i === currentIndex ? { ...q, userAnswer: optionId } : q
+    );
     setLocalQuestions(updated);
 
     if (mode === 'practice') {
         const correct = optionId === currentQ.correctOptionId;
-        setErrorTagged(correct); 
-        
-        // Calcular tiempo real
-        const timeSpent = Date.now() - startTimeRef.current;
+        setErrorTagged(correct);
 
-        // GUARDADO CORRECTO: Enviamos ID y métricas VIP
         await saveTestResult(
             topicName,
             currentQ.id,
             correct,
             {
-                timeMs: timeSpent,
-                changes: optionChanges
+                responseTimeMs: Date.now() - startTimeRef.current,
+                optionChanges: optionChangesRef.current
             }
         );
     }
@@ -87,18 +93,21 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
   // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
       if (errorTagged) return;
-      const updated = [...localQuestions];
-      updated[currentIndex].errorType = type;
-      setLocalQuestions(updated);
+      setLocalQuestions(prev => prev.map((q, i) =>
+          i === currentIndex ? { ...q, errorType: type } : q
+      ));
       setErrorTagged(true);
       
       // Actualizamos el fallo con la etiqueta específica
-      await saveTestResult(
-          topicName,
-          currentQ.id,
-          false,
-          { errorType: type }
-      );
+      // PENDIENTE (fase 2.4): esto inserta una SEGUNDA fila para la misma
+      // pregunta, así que cada fallo etiquetado cuenta doble en el porcentaje
+      // de acierto. Se arregla con un upsert por sesión de test.
+      //
+      // A propósito NO se envían aquí tiempo ni cambios: serían los de la
+      // pantalla de diagnóstico, no los de la respuesta, y contaminarían la
+      // media. Al ir a 0, `summarizeResults` descarta esta fila de ambas
+      // métricas y solo cuenta la que sí midió.
+      await saveTestResult(topicName, currentQ.id, false, { errorType: type });
   };
 
   // --- MANEJO DE VOTOS ---
@@ -129,7 +138,7 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
       setIsReportModalOpen(false);
       setReportData({ type: '', message: '' });
       alert("Reporte enviado. Gracias por ayudar a mejorar Atenea.");
-    } catch (e) {
+    } catch {
       alert("Error enviando reporte.");
     } finally {
       setIsSubmittingReport(false);
@@ -137,16 +146,14 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
   };
 
 const handleNext = () => {
-      // 1. Empaquetamos las métricas de la pregunta actual antes de movernos
-      const timeSpent = Date.now() - startTimeRef.current;
-      const updated = [...localQuestions];
-      
-      updated[currentIndex] = {
-          ...updated[currentIndex],
-          // @ts-ignore - Inyectamos métricas para el algoritmo Atenea
-          timeMs: timeSpent,
-          changes: optionChanges
-      };
+      // Empaquetamos las métricas de la pregunta actual antes de movernos.
+      // `timeMs` y `changes` son campos del tipo Question, así que ya no hace
+      // falta el @ts-ignore que ocultaba el desajuste con el servidor.
+      const updated = localQuestions.map((q, i) =>
+          i === currentIndex
+              ? { ...q, timeMs: Date.now() - startTimeRef.current, changes: optionChangesRef.current }
+              : q
+      );
       setLocalQuestions(updated);
 
       if (currentIndex < localQuestions.length - 1) {

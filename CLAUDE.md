@@ -18,12 +18,13 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 1.1 | Sesión verificada en el servidor | ✅ cerrada |
 | 1.4 | Asignación masiva en perfiles | ✅ cerrada |
 | 2.1 | Ciclo de vida de las preguntas | ✅ cerrada |
-| **2.2** | **Panel de estadísticas + Error Boundaries** | ✅ **cerrada** |
+| 2.2 | Panel de estadísticas + Error Boundaries | ✅ cerrada |
+| **2.3** | **Métricas de comportamiento** | ✅ **cerrada** |
 | 1.2 / 1.3 | Acotar la clave de servicio · activar RLS | ⬜ siguiente |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| 2.3 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
+| 2.4 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
 
-**Sin verificar contra el Supabase real:** las fases 1.1, 2.1 y 2.2 están cerradas
+**Sin verificar contra el Supabase real:** las fases 1.1, 2.1, 2.2 y 2.3 están cerradas
 en código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
 credenciales de verdad. Puntos de riesgo, por orden: el login (la sesión pasó de
 `localStorage` a cookies), el estado de las preguntas sembradas, y el join de
@@ -130,14 +131,30 @@ Todo módulo va envuelto en `ModuleErrorBoundary`. Sin él, una excepción de re
 deja la aplicación entera en blanco, porque todo el dashboard vive en una sola
 ruta con pestañas y `app/error.tsx` solo cubre la ruta completa.
 
-### 6 · La aritmética que se muestra al alumno va en `app/lib/stats.ts`
+### 6 · El cliente habla camelCase, la base de datos snake_case
+
+Y la traducción ocurre en **un solo sitio**: `toResultRow` en
+`app/lib/exam-results.ts`. El fallo original: `ExamManager` enviaba
+`response_time_ms` / `option_changes` y `saveExamResults` leía `r.time` /
+`r.changes`. Como el parámetro era `any[]`, ambos lados compilaban tan tranquilos
+y las dos métricas se guardaban a 0 en **todos** los exámenes.
+
+Ninguna Server Action recibe `any[]`. Si un payload cruza la frontera
+cliente-servidor, tiene un tipo compartido en `app/lib/`.
+
+**`option_changes` cuenta cambios reales**, no pulsaciones: la primera respuesta
+no cuenta y volver a marcar la misma tampoco. Ojo con los datos anteriores a la
+fase 2.3 — la columna valía 0 en todas las filas, así que no hay histórico que
+preservar.
+
+### 7 · La aritmética que se muestra al alumno va en `app/lib/stats.ts`
 
 Numerador y denominador de la misma muestra. El índice de incertidumbre sumaba
 los cambios de las 5 últimas preguntas y dividía entre el total de hasta 100; el
 "progreso al ascenso" usaba `winRate / (min + 20)` y nunca llegaba al 100 %.
 Distingue siempre **"sin datos"** de **"cero"**: no son lo mismo para el alumno.
 
-### 7 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 8 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -155,6 +172,7 @@ tests/actions-auth.test.ts      guardas estáticas sobre las 37 Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger y aislamiento de módulos
+tests/exam-results.test.ts      contrato de resultados cliente↔servidor
 ```
 
 **Dos convenciones importantes:**
@@ -199,9 +217,10 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 - **`npm run build` necesita las 4 variables de entorno.** `core.ts` lanza en
   tiempo de importación si falta alguna, y `page.tsx` crea el cliente en el
   módulo, así que el prerender falla.
-- **Los 126 `any`** son la razón por la que dos desajustes de nombres de campo
-  (`response_time_ms` vs `time`, `baseline_test` vs `baseline_metrics`) llegaron
-  a producción sin que nadie se enterara. Al tocar un módulo, tipa lo que toques.
+- **Los `any` que quedan** son la razón por la que los desajustes de nombres de
+  campo llegaron a producción sin que nadie se enterara. Al tocar un módulo, tipa
+  lo que toques: al tipar `StatsPanel` el compilador señaló solo las lecturas
+  nulas que causaban el crash.
 - **`getUserStats` hace un join que puede no resolver.** PostgREST necesita que
   las FK estén declaradas. Hay un respaldo que degrada a consulta plana y lo
   registra en el log; al versionar el esquema (fase 1.3), confirma las FK y
@@ -214,14 +233,16 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 
 ## Cómo continuar
 
-1. **Probar 1.1, 2.1 y 2.2 contra el Supabase real.** Entrar como alumno y como
-   admin; sembrar un tema y comprobar que las preguntas llegan a un test; hacer
-   un test y mirar que Inicio y Estadísticas cargan con datos reales.
+1. **Probar 1.1, 2.1, 2.2 y 2.3 contra el Supabase real.** Entrar como alumno y
+   como admin; sembrar un tema y comprobar que las preguntas llegan a un test;
+   hacer un simulacro y mirar que `test_results` guarda `response_time_ms` y
+   `option_changes` distintos de 0, y que Inicio y Estadísticas cargan.
 2. **`supabase db pull`** para versionar el esquema.
 3. **Fases 1.2 y 1.3** (acotar la clave de servicio, activar RLS) para cerrar
-   seguridad, o **2.3** (métricas de comportamiento) si se prefiere seguir en
-   funcional: hoy el tiempo y los cambios de opción se pierden en modo examen,
-   y el panel ya está preparado para mostrarlos en cuanto lleguen.
+   seguridad, o **2.4** (un resultado por respuesta) si se prefiere seguir en
+   funcional: hoy etiquetar un fallo inserta una segunda fila y cada fallo cuenta
+   doble en el porcentaje de acierto. Está marcado con un `PENDIENTE (fase 2.4)`
+   en `ActiveTest.handleErrorTag`.
 
 Al cerrar una fase: actualiza la tabla de estado de este fichero, marca la fase
 en `docs/PLAN-DE-TRABAJO.md` y el hallazgo en `docs/AUDITORIA.md`.

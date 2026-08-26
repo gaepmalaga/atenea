@@ -3,10 +3,24 @@ import crypto from 'crypto';
 import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { QUESTION_STATUS, indexToOptionId, type QuestionStatus } from '../lib/questions';
+import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
 // ==========================================
+
+/** Lo que devuelve el generador de preguntas antes de tocar la base de datos. */
+type GeneratedQuestion = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  document_id: string;
+  filename: string;
+};
+
+/** Fila de `question_bank` recien insertada o recuperada. */
+type SavedQuestion = { id: string; subject_id: number; status: string } | null;
 
 // Helper interno. NO se exporta como Server Action: era un endpoint publico
 // que llamaba a Gemini sin ninguna comprobacion. Sus dos consumidores
@@ -61,7 +75,7 @@ async function generateTestQuestion(subjectId: number) {
     
     let jsonData;
     try { jsonData = JSON.parse(jsonString); } 
-    catch (e) { return { success: false, error: "Error parseando respuesta IA." }; }
+    catch { return { success: false, error: "Error parseando respuesta IA." }; }
 
     // Validación
     if (!jsonData.question || !Array.isArray(jsonData.options) || jsonData.options.length !== 3) {
@@ -77,9 +91,10 @@ async function generateTestQuestion(subjectId: number) {
       }
     };
 
-  } catch (e: any) {
-    console.error("❌ Error generación:", e.message);
-    return { success: false, error: e.message };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error desconocido';
+    console.error("❌ Error generación:", msg);
+    return { success: false, error: msg };
   }
 }
 
@@ -89,13 +104,13 @@ async function generateTestQuestion(subjectId: number) {
 // Esta es la función que te faltaba y causaba el error
 
 /** Da forma de UI a una pregunta recien generada, con o sin fila en la BD. */
-function toUiQuestion(qData: any, saved: any) {
+function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
   return {
     ...qData,
     id: saved?.id ?? null,
     subject_id: saved?.subject_id ?? null,
     status: saved?.status ?? 'unsaved',
-    options: qData.options.map((text: string, i: number) => ({ id: indexToOptionId(i), text })),
+    options: qData.options.map((text, i) => ({ id: indexToOptionId(i), text })),
     correctOptionId: indexToOptionId(qData.correctIndex),
   };
 }
@@ -175,8 +190,8 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
     }
 
     return { success: true as const, data: toUiQuestion(qData, saved) };
-  } catch (e: any) {
-      return { success: false, error: e.message };
+  } catch (e) {
+      return { success: false as const, error: e instanceof Error ? e.message : 'Error desconocido' };
   }
 }
 
@@ -247,7 +262,7 @@ export async function seedQuestionBank(params: {
   for (const r of results) {
     if (!r.ok || !r.data) { failed++; continue; }
 
-    const d: any = r.data;
+    const d = r.data as GeneratedQuestion;
     const payload = JSON.stringify({ s: subjectId, q: d.question.trim(), c: d.correctIndex });
     const qHash = crypto.createHash('sha256').update(payload).digest('hex');
 
@@ -322,69 +337,54 @@ export async function getQuestionsFromBank(params: {
 }
 
 export async function saveTestResult(
-  topicOrId: string | number, questionId: string | null, isCorrect: boolean, vipData?: any
+  topicOrId: string | number,
+  questionId: string | null,
+  isCorrect: boolean,
+  metrics?: Partial<AnswerMetrics>
 ) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false };
 
   try {
-    const userId = auth.user.id;
+    const subjectId = typeof topicOrId === 'number'
+      ? topicOrId
+      : await getSubjectIdByName(topicOrId.toString());
 
-    let subjectId: number;
-    if (typeof topicOrId === 'number') subjectId = topicOrId;
-    else subjectId = await getSubjectIdByName(topicOrId.toString());
+    // El mapeo camelCase -> columnas ocurre en un solo sitio (lib/exam-results),
+    // compartido con el guardado en bloque del examen. Aqui se armaba a mano y
+    // por eso los nombres pudieron divergir entre los dos caminos.
+    const row = toResultRow({ questionId, subjectId, isCorrect, ...metrics });
 
-    const payload: any = {
-        user_id: userId,
-        question_id: questionId,
-        subject_id: subjectId, // Ahora sí guardamos el subject_id
-        is_correct: isCorrect,
-        created_at: new Date().toISOString()
-    };
+    const { error } = await supabase.from('test_results').insert({
+      ...row,
+      user_id: auth.user.id,
+      created_at: new Date().toISOString(),
+    });
 
-    if (vipData) {
-        if (vipData.timeMs) payload.response_time_ms = vipData.timeMs;
-        if (vipData.changes) payload.option_changes = vipData.changes;
-        if (vipData.errorType) payload.error_type = vipData.errorType;
-    } else if (typeof vipData === 'string') {
-        payload.error_type = vipData; // Legacy support
-    }
-
-    const { error } = await supabase.from('test_results').insert(payload);
+    if (error) console.error('saveTestResult:', error.message);
     return { success: !error };
-  } catch (e) { return { success: false }; }
+  } catch (e) {
+    console.error('saveTestResult:', e instanceof Error ? e.message : e);
+    return { success: false };
+  }
 }
 
-export async function saveExamResults(results: any[]) {
+export async function saveExamResults(results: ExamResultPayload[]) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false };
     if (!results.length) return { success: false };
 
-    const userId = auth.user.id;
-    
-    const rows = await Promise.all(results.map(async (r) => {
-        let sid = r.subject_id;
-        // Si no viene ID, lo buscamos por nombre
-        if (!sid && r.topic) sid = await getSubjectIdByName(r.topic);
-        
-        return {
-            user_id: userId,
-            subject_id: sid || 1, 
-            question_id: r.question_id,
-            is_correct: r.is_correct,
-            
-            // --- MÉTRICAS ATENEA MIND ---
-            response_time_ms: r.time || 0,        // Dimensión 1: Velocidad
-            option_changes: r.changes || 0,       // Dimensión 2: Titubeo (¡AHORA SÍ!)
-            // ----------------------------
-            
-            error_type: r.error_type,
-            created_at: new Date().toISOString()
-        };
+    // El parametro era `any[]`: la UI enviaba `response_time_ms` / `option_changes`
+    // y aqui se leia `r.time` / `r.changes`, asi que las dos metricas de
+    // comportamiento se guardaban a 0 en TODOS los examenes sin que nada fallara.
+    const rows = results.map((r) => ({
+        ...toResultRow(r),
+        user_id: auth.user.id,
+        created_at: new Date().toISOString(),
     }));
 
     const { error } = await supabase.from('test_results').insert(rows);
-    
-    if (error) console.error("Error guardando resultados:", error);
+
+    if (error) console.error('saveExamResults:', error.message);
     return { success: !error };
 }

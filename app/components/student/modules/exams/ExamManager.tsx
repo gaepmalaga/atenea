@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { generateAndSaveCandidate, saveExamResults, getQuestionsFromBank } from '@/actions';
+import { buildExamResults } from '@/app/lib/exam-results';
 import {
   type Question as ExamQuestion,
   difficultyToNumber,
@@ -27,11 +28,10 @@ export type ExamSettings = {
 };
 
 interface ExamManagerProps {
-  user: any;
   onZenToggle: (active: boolean) => void;
 }
 
-export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
+export default function ExamManager({ onZenToggle }: ExamManagerProps) {
   const [step, setStep] = useState<'config' | 'active' | 'results'>('config');
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando..."); 
@@ -98,8 +98,8 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
       setStep('active');
       onZenToggle(true);
 
-    } catch (error: any) {
-      alert(`Error iniciando el test: ${error.message}`);
+    } catch (error) {
+      alert(`Error iniciando el test: ${error instanceof Error ? error.message : 'desconocido'}`);
     } finally {
       setLoading(false);
     }
@@ -110,21 +110,14 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
     setStep('results');
     onZenToggle(false);
 
-    // GUARDADO GLOBAL REFORZADO (Incluye Dimensión de Comportamiento)
+    // En modo entrenamiento cada respuesta ya se guardo al contestarla.
     if (settings.mode === 'exam') {
-      const resultsPayload = finalQuestions.map(q => ({
-        question_id: q.id,
-        is_correct: q.userAnswer === q.correctOptionId,
-        // Capturamos el tiempo y los cambios que vienen del estado de la pregunta
-        // Asegúrate de que tu tipo Question incluya estos campos opcionales
-        response_time_ms: (q as any).timeMs || 0, 
-        option_changes: (q as any).changes || 0,
-        error_type: q.errorType,
-        subject_id: q.subject_id
-      }));
-      
-      // Enviamos el payload enriquecido al servidor
-      await saveExamResults(resultsPayload);
+      // El payload lo construye un helper tipado: antes se armaba aqui a mano
+      // con dos `as any` que tapaban el desajuste de nombres con el servidor.
+      const res = await saveExamResults(buildExamResults(finalQuestions));
+      if (!res.success) {
+        console.error('No se pudieron guardar los resultados del examen.');
+      }
     }
   };
 
@@ -152,7 +145,6 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
         <ActiveTest
           questions={questions}
           mode={settings.mode}
-          userId={user.id}
           topicName={settings.selectedTopics[0]} 
           onFinish={handleFinish}
           onExit={handleExit}

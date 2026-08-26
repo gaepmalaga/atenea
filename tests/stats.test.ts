@@ -48,12 +48,13 @@ describe('summarizeResults', () => {
     // El calculo anterior sumaba los cambios de las 5 ultimas preguntas y
     // dividia entre el total de hasta 100.
     const s = summarizeResults([
-      row({ option_changes: 3 }),
-      row({ option_changes: 3 }),
-      row({ option_changes: 3 }),
+      row({ option_changes: 2 }),
+      row({ option_changes: 2 }),
+      row({ option_changes: 2 }),
     ]);
-    expect(s.uncertaintyIndex).toBe(100); // 3 cambios de media = maximo
+    expect(s.uncertaintyIndex).toBe(100); // 2 cambios de media = maximo
     expect(summarizeResults([row({ option_changes: 0 })]).uncertaintyIndex).toBe(0);
+    expect(summarizeResults([row({ option_changes: 1 })]).uncertaintyIndex).toBe(50);
   });
 
   it('la incertidumbre nunca pasa de 100', () => {
@@ -139,7 +140,9 @@ describe('readMaxPullups', () => {
 });
 
 describe('umbral de duda', () => {
-  it('esta definido en un solo sitio', () => {
-    expect(HESITATION_THRESHOLD).toBeGreaterThan(0);
+  it('cualquier cambio real de opcion cuenta como duda', () => {
+    // Desde la fase 2.3 `option_changes` cuenta cambios, no pulsaciones: la
+    // primera respuesta ya no suma, asi que el umbral baja de 2 a 1.
+    expect(HESITATION_THRESHOLD).toBe(1);
   });
 });

@@ -157,12 +157,40 @@ sin proteger. Con un solo resultado guardado, la app era inusable desde el arran
 **Pendiente de verificar contra el proyecto real:** hacer un test y comprobar que Inicio y
 Estadísticas cargan con datos reales; si el join no resuelve, saldrá el aviso en el log.
 
-### 2.3 Recuperar las métricas de comportamiento §2.3
+### 2.3 Recuperar las métricas de comportamiento §2.3 ✅ HECHA
 
-Unificar los nombres de campo entre `ExamManager.handleFinish` y `saveExamResults`
-(`response_time_ms` / `option_changes`). **Definir un tipo compartido en `app/lib/` para el
-payload y usarlo en ambos lados**: si el tipo hubiera existido, el desajuste no habría
-llegado a producción.
+- [x] **Contrato tipado en `app/lib/exam-results.ts`**, usado por los dos lados. `toResultRow`
+      es el único punto donde camelCase se convierte en columnas. En cuanto se puso el tipo,
+      el compilador señaló el desajuste que llevaba meses en producción.
+- [x] `saveExamResults` deja de recibir `any[]`. El `r.time` / `r.changes` que nunca existió
+      ya no está, y hay un test estático que impide que vuelva.
+- [x] `saveTestResult` usa el mismo helper: los dos caminos de guardado (pregunta a pregunta
+      en entrenamiento, en bloque al terminar un examen) ya no pueden divergir.
+- [x] `safeCount` filtra NaN, Infinity y negativos antes de tocar la BD. `Date.now() - undefined`
+      da NaN, y un NaN en una columna numérica es un error de inserción en producción.
+
+**El fallo era mayor de lo documentado.** En modo entrenamiento, `ActiveTest` llamaba a
+`setOptionChanges(prev => prev + 1)` y leía `optionChanges` en la misma función: por el
+cierre obsoleto guardaba **siempre 0**. Sumado al desajuste de nombres en modo examen, la
+métrica de titubeo no había funcionado nunca, en ningún modo.
+
+- [x] El contador pasa a un `useRef`: se escribe y se lee de forma síncrona.
+- [x] **`option_changes` cuenta cambios reales**, no pulsaciones. La primera respuesta no
+      cuenta y volver a marcar la misma tampoco. Antes contestar una sola vez ya marcaba 1.
+- [x] Ajustados los umbrales de `stats.ts` a la nueva semántica (`HESITATION_THRESHOLD`
+      2 → 1, `MAX_AVG_CHANGES` 3 → 2). No hay histórico que preservar: la columna valía 0
+      en todas las filas.
+- [x] De paso, §2.9: `ActiveTest` ya no muta el estado en su sitio (la copia era superficial
+      y mutaba las mismas preguntas que tiene el padre), y fuera el `@ts-ignore` que ocultaba
+      precisamente el desajuste de nombres.
+- [x] 20 tests en `tests/exam-results.test.ts`, verificados reintroduciendo el desajuste.
+
+**Ojo con la fila duplicada:** etiquetar un fallo sigue insertando una segunda fila (fase
+2.4). A propósito NO lleva tiempo ni cambios, para que `summarizeResults` la descarte de
+ambas métricas en vez de contaminar la media con el tiempo de la pantalla de diagnóstico.
+
+**Pendiente de verificar contra el proyecto real:** hacer un simulacro y comprobar que
+`test_results` guarda `response_time_ms` y `option_changes` distintos de 0.
 
 ### 2.4 Un resultado por respuesta §2.4
 
@@ -245,7 +273,8 @@ Baja urgencia, alto efecto compuesto. Se puede ir haciendo en paralelo.
 - **Los 126 `any`.** No es cosmética: son la razón de que §2.3 y §2.7 pasaran inadvertidos.
   Empezar por tipar las filas de la base de datos (`supabase gen types typescript`).
 - Las 41 variables sin usar y los 12 `react/no-unescaped-entities`.
-- Las 11 dependencias de efectos incompletas y las 4 mutaciones de estado §2.9.
+- Las 11 dependencias de efectos incompletas. (Las mutaciones de estado de §2.9 se
+  cerraron en la fase 2.3, dentro de `ActiveTest`.)
 - Fuga de `AudioContext` y efectos secundarios dentro del actualizador de estado §2.8.
 - Borrar `VipButton.tsx` / `VipCard.tsx` (vacíos y huérfanos) y las acciones muertas.
 - Sustituir los `alert()` / `confirm()` por componentes de UI propios.
@@ -274,16 +303,15 @@ y va a tocar todos los ficheros.
 
 ## Siguiente paso
 
-1. **Probar 1.1, 2.1 y 2.2 contra el Supabase real.** Entrar como alumno y como admin;
-   sembrar un tema y comprobar que las preguntas llegan a un test; hacer un test y mirar
-   que Inicio y Estadísticas cargan. Si algo falla, lo más probable es el login (la sesión
+1. **Probar 1.1, 2.1, 2.2 y 2.3 contra el Supabase real.** Entrar como alumno y como admin;
+   sembrar un tema y comprobar que las preguntas llegan a un test; hacer un simulacro y
+   mirar que `test_results` guarda `response_time_ms` y `option_changes` distintos de 0. Si algo falla, lo más probable es el login (la sesión
    pasó de `localStorage` a cookies).
 2. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
    del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
 3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS) para cerrar seguridad,
-   o **2.3** (métricas de comportamiento) si se prefiere seguir en funcional: hoy el tiempo
-   y los cambios de opción se pierden en modo examen, y el panel ya está preparado para
-   mostrarlos en cuanto lleguen de verdad.
+   o **2.4** (un resultado por respuesta) si se prefiere seguir en funcional: hoy etiquetar
+   un fallo inserta una segunda fila y cada fallo cuenta doble en el porcentaje de acierto.
 
 > El estado vivo del proyecto está en [`CLAUDE.md`](../CLAUDE.md), en la raíz. Al cerrar una
 > fase, actualiza los dos.

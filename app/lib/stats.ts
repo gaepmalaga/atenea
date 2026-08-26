@@ -40,11 +40,24 @@ export type StatsSummary = {
   taggedErrors: number;
 };
 
-/** Cambios de opcion a partir de los cuales se considera que hubo duda. */
-export const HESITATION_THRESHOLD = 2;
+/**
+ * Cambios de opcion a partir de los cuales se marca "dudo" en el historial.
+ *
+ * Desde la fase 2.3 `option_changes` cuenta cambios REALES de opcion (la primera
+ * respuesta no cuenta). Con la semantica anterior, que contaba pulsaciones, el
+ * umbral tenia que ser 2 para descartar la primera; ahora cualquier cambio ya
+ * es una duda.
+ */
+export const HESITATION_THRESHOLD = 1;
 
-/** Cambios medios por pregunta que se consideran incertidumbre maxima (100%). */
-const MAX_AVG_CHANGES = 3;
+/**
+ * Cambios medios por pregunta que se consideran incertidumbre maxima (100%).
+ *
+ * Ajustado de 3 a 2 al cambiar la semantica: antes el minimo posible era 1
+ * (la propia respuesta), ahora es 0. Cambiar dos veces de opcion en cada
+ * pregunta ya es maxima inseguridad.
+ */
+const MAX_AVG_CHANGES = 2;
 
 export function summarizeResults(rows: TestResultRow[]): StatsSummary {
   const total = rows.length;

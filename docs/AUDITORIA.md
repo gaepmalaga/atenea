@@ -173,7 +173,7 @@ en ambos módulos, y cada pestaña va envuelta en `ModuleErrorBoundary`: una exc
 render ya no puede llevarse por delante toda la aplicación. El test estático encontró
 además dos fechas sin proteger en `AdminActivity` y `AdminModeration`.
 
-### 2.3 · ALTO — Las métricas de comportamiento se pierden en modo examen
+### 2.3 · ~~ALTO~~ ✅ CERRADO — Las métricas de comportamiento se perdían
 
 `ExamManager.handleFinish` construye el payload con unas claves y `saveExamResults` lee
 otras distintas:
@@ -183,8 +183,18 @@ otras distintas:
 | `response_time_ms` | `r.time` | siempre `0` |
 | `option_changes` | `r.changes` | siempre `0` |
 
-Todo el apartado "Atenea Mind" (índice de incertidumbre, perfil cronométrico) se alimenta
-de columnas que en modo examen siempre valen cero.
+Todo el apartado "Atenea Mind" (índice de incertidumbre, perfil cronométrico) se alimentaba
+de columnas que en modo examen siempre valían cero.
+
+**Y en modo entrenamiento tampoco funcionaba.** `ActiveTest` llamaba a
+`setOptionChanges(prev => prev + 1)` y leía `optionChanges` en la misma función: por el
+cierre obsoleto guardaba **siempre 0**. La métrica de titubeo no había funcionado nunca,
+en ningún modo.
+
+**Cerrado.** Contrato tipado en `app/lib/exam-results.ts` usado por los dos lados, con
+`toResultRow` como único punto de traducción camelCase → columnas. El contador pasa a un
+`useRef` y `option_changes` cuenta cambios **reales** (la primera respuesta no cuenta, ni
+volver a marcar la misma). Los umbrales de `stats.ts` se ajustaron a la nueva semántica.
 
 ### 2.4 · ALTO — Modo práctica: dos filas por cada fallo
 
@@ -229,7 +239,7 @@ Además, `speak()`, `playBeep()` y `onFinish()` se ejecutan **dentro del actuali
 `setTime`**, que debe ser una función pura. En StrictMode se ejecuta dos veces: pitidos y
 voz duplicados. `playBeep('milestone')` está en el tipo pero no tiene rama: no suena.
 
-### 2.9 · MEDIO — Mutación directa del estado en `ActiveTest`
+### 2.9 · ~~MEDIO~~ ✅ CERRADO — Mutación directa del estado en `ActiveTest`
 
 ```tsx
 const updated = [...localQuestions];
@@ -240,9 +250,12 @@ La copia es superficial, así que se mutan los mismos objetos que están en el a
 `questions` del padre. ESLint lo marca (`react-hooks/immutability`). Mismo patrón en
 `handleErrorTag` y `handleNext`.
 
-En la misma función, `saveTestResult` envía `optionChanges` justo después de
-`setOptionChanges(prev => prev + 1)`: por el cierre obsoleto siempre guarda el valor
-anterior.
+En la misma función, `saveTestResult` enviaba `optionChanges` justo después de
+`setOptionChanges(prev => prev + 1)`: por el cierre obsoleto siempre guardaba el valor
+anterior — es decir, 0.
+
+**Cerrado** junto con §2.3: las tres funciones copian el objeto además del array, y el
+contador vive en un `useRef`.
 
 ### 2.10 · ~~MEDIO~~ ✅ CERRADO — Preguntas duplicadas llegaban con `id: null`
 
@@ -349,12 +362,14 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 1.1 · Sesión en el servidor | ✅ cerrada |
 | 1.4 · Asignación masiva | ✅ cerrada |
 | 2.1 · Ciclo de vida de las preguntas | ✅ cerrada (§2.1 y §2.10) |
-| **2.2 · Estadísticas y Error Boundaries** | ✅ **cerrada** (§2.2 y §2.14) |
+| 2.2 · Estadísticas y Error Boundaries | ✅ cerrada (§2.2 y §2.14) |
+| **2.3 · Métricas de comportamiento** | ✅ **cerrada** (§2.3 y §2.9) |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |
 | 2.2 – 5 | pendiente |
 
-Los hallazgos de §1.1, §1.2, §1.5, §2.1, §2.2, §2.10 y §2.14 quedan cerrados en código;
+Los hallazgos de §1.1, §1.2, §1.5, §2.1, §2.2, §2.3, §2.9, §2.10 y §2.14 quedan cerrados
+en código;
 **falta verificarlos contra el proyecto real de Supabase**.
 
 ---

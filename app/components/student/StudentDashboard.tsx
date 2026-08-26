@@ -21,12 +21,13 @@ import BiodataManager from './modules/profile/BiodataManager';
 import InterviewRoom from './modules/interview/InterviewRoom';
 import StatsPanel from './modules/stats/StatsPanel';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
+import type { AuthUser } from '@/app/lib/auth';
 
 // --- TIPOS ---
 export type TabId = 'home' | 'chat' | 'test' | 'cards' | 'training' | 'interview' | 'stats';
 
 interface StudentDashboardProps {
-  user: any;
+  user: AuthUser;
   onLogout: () => void;
 }
 
@@ -106,7 +107,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
             {activeTab === 'test' && (
                 <ModuleErrorBoundary moduleName="Operaciones">
-                    <ExamManager user={user} onZenToggle={setZenMode} />
+                    <ExamManager onZenToggle={setZenMode} />
                 </ModuleErrorBoundary>
             )}
 
