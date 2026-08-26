@@ -108,6 +108,25 @@ export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, {
 // no romper los imports existentes.
 export { cleanLegalText, chunkLegalText } from '../lib/text';
 
+/**
+ * El titulo del tema a partir de su id.
+ *
+ * Hace falta porque no todas las tablas guardan `subject_id`:
+ * `flashcard_progress` y `question_attempts` identifican el tema por su
+ * TITULO, en la columna `topic`. Sin esto, al entrar por id se guardaba
+ * literalmente "Tema 7" y ninguna consulta posterior encontraba nada.
+ */
+export async function getSubjectNameById(subjectId: number): Promise<string> {
+  const { data } = await supabaseAdmin
+    .from('subjects')
+    .select('title')
+    .eq('id', subjectId)
+    .limit(1)
+    .single();
+
+  return data?.title ?? `Tema ${subjectId}`;
+}
+
 export async function getSubjectIdByName(topicName: string): Promise<number> {
   const search = topicName.trim();
   

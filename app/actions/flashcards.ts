@@ -1,5 +1,5 @@
 'use server'
-import { supabaseAdmin as supabase, flashcardModel, getSubjectIdByName } from './core';
+import { supabaseAdmin as supabase, flashcardModel, getSubjectIdByName, getSubjectNameById } from './core';
 import { parseAIJson, validateFlashcard, randomContextWindow } from '../lib/ai-output';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
 import { requireUser } from '../lib/auth';
@@ -34,24 +34,28 @@ export async function generateFlashcard(topicNameOrId: string | number) {
 
     if (typeof topicNameOrId === 'number') {
         subjectId = topicNameOrId;
-        topicName = `Tema ${subjectId}`; 
+        // El titulo de verdad, no `Tema N`: es lo que se guarda en la columna
+        // `topic` y con lo que se buscan despues las tarjetas pendientes.
+        topicName = await getSubjectNameById(subjectId);
     } else {
         subjectId = await getSubjectIdByName(topicNameOrId);
         topicName = topicNameOrId;
     }
 
+    // `flashcard_progress` identifica el tema por `topic`, no por `subject_id`:
+    // esa columna no existe en la tabla. Quien si la tiene es `flashcard_results`.
     const { data: due } = await supabase.from('flashcard_progress')
         .select('*')
         .eq('user_id', userId)
-        .eq('subject_id', subjectId)
+        .eq('topic', topicName)
         .lte('next_review', new Date().toISOString())
         .limit(1);
 
     if (due && due.length > 0) {
         const card = due[0];
-        // Se normaliza a camelCase antes de devolverla: la fila viene con
-        // `subject_id` y el guardado espera `subjectId`. Sin esto, cada repaso
-        // hacía una consulta de más para resolver el tema por su nombre.
+        // Se normaliza a camelCase antes de devolverla para que el guardado no
+        // tenga que resolver el tema por su nombre en cada repaso. El id no
+        // viene en la fila (la tabla no lo guarda): se arrastra el ya resuelto.
         return {
             success: true as const,
             data: {
@@ -59,7 +63,7 @@ export async function generateFlashcard(topicNameOrId: string | number) {
                 front: card.front,
                 back: card.back,
                 topic: card.topic ?? topicName,
-                subjectId: card.subject_id ?? subjectId,
+                subjectId,
                 box: card.box ?? 1,
                 isReview: true,
             },
@@ -112,9 +116,13 @@ export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'f
         const nextDate = nextReviewDate(new Date(), days);
         const subjectId = cardData.subjectId ?? await getSubjectIdByName(cardData.topic);
 
+        // Sin `subject_id`: la tabla no tiene esa columna y PostgREST rechazaba
+        // la escritura entera con
+        //   Could not find the 'subject_id' column of 'flashcard_progress'
+        // El tema viaja en `topic`. `subjectId` se sigue calculando porque
+        // `flashcard_results`, que es otra tabla, si lo guarda.
         const payload = {
             user_id: userId,
-            subject_id: subjectId,
             front: cardData.front,
             back: cardData.back,
             box: newBox,
