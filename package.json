@@ -6,10 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run test"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.95.3",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.4",
@@ -32,6 +37,7 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

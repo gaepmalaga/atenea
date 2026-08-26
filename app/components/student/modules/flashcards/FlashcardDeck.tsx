@@ -7,21 +7,18 @@ import {
 } from 'lucide-react';
 import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '@/actions';
 
-interface FlashcardDeckProps {
-  user: any;
-}
-
 type CardData = {
-  id?: string;
-  db_id?: string;
+  db_id?: string | null;
   front: string;
   back: string;
   topic: string;
-  box?: number;
+  /** Id del tema, ya normalizado por el servidor. */
+  subjectId?: number | null;
+  box?: number | null;
   isReview?: boolean;
 };
 
-export default function FlashcardDeck({ user }: FlashcardDeckProps) {
+export default function FlashcardDeck() {
   const [topics, setTopics] = useState<string[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [currentCard, setCurrentCard] = useState<CardData | null>(null);
@@ -48,11 +45,11 @@ export default function FlashcardDeck({ user }: FlashcardDeckProps) {
     setCurrentCard(null);
 
     try {
-      const res = await generateFlashcard(user.id, selectedTopic);
+      const res = await generateFlashcard(selectedTopic);
       if (res.success && res.data) {
         setCurrentCard(res.data);
       } else {
-        alert("Error: " + (res.error || "Inténtalo de nuevo."));
+        alert("Error: " + (('error' in res && res.error) || "Inténtalo de nuevo."));
       }
     } catch (e) {
       console.error(e);
@@ -71,9 +68,18 @@ export default function FlashcardDeck({ user }: FlashcardDeckProps) {
     setLoading(true);
 
     try {
-      await saveFlashcardProgress(user.id, cardToSave, rating);
-      const res = await generateFlashcard(user.id, selectedTopic);
-      if (res.success) setCurrentCard(res.data);
+      // El guardado ya no se da por bueno a ciegas: si falla, el alumno pierde
+      // el repaso y merece enterarse antes de seguir.
+      const saved = await saveFlashcardProgress(cardToSave, rating);
+      if (!saved.success) {
+        alert('No se pudo guardar el repaso: ' + (saved.error ?? 'error desconocido'));
+        setCurrentCard(cardToSave);
+        return;
+      }
+
+      const res = await generateFlashcard(selectedTopic);
+      if (res.success && res.data) setCurrentCard(res.data);
+      else setCurrentCard(null);
     } catch (e) {
       console.error(e);
     } finally {

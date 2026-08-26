@@ -20,12 +20,14 @@ import PhysicalTrainer from './modules/training/PhysicalTrainer'; // NUEVO MÓDU
 import BiodataManager from './modules/profile/BiodataManager';
 import InterviewRoom from './modules/interview/InterviewRoom';
 import StatsPanel from './modules/stats/StatsPanel';
+import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
+import type { AuthUser } from '@/app/lib/auth';
 
 // --- TIPOS ---
 export type TabId = 'home' | 'chat' | 'test' | 'cards' | 'training' | 'interview' | 'stats';
 
 interface StudentDashboardProps {
-  user: any;
+  user: AuthUser;
   onLogout: () => void;
 }
 
@@ -59,10 +61,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       {/* Se monta sobre toda la interfaz cuando se activa el modo entrevista */}
       {interviewMode && (
          <div className="fixed inset-0 z-[200] bg-black animate-in fade-in duration-300">
-             <InterviewRoom 
-                 user={user} 
-                 onExit={() => setInterviewMode(false)} 
-             />
+             <InterviewRoom onExit={() => setInterviewMode(false)} />
          </div>
       )}
 
@@ -89,23 +88,50 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
         {/* CONTENEDOR DE MÓDULOS */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[80vh] relative">
             
-            {activeTab === 'home' && <DashboardHome user={user} onNavigate={setActiveTab} />}
-            
-            {activeTab === 'chat' && <IntelChat user={user} />}
-            
-            {activeTab === 'test' && <ExamManager user={user} onZenToggle={setZenMode} />}
-            
-            {activeTab === 'cards' && <FlashcardDeck user={user} />}
-            
-            {/* MÓDULO FÍSICO NUEVO */}
-            {activeTab === 'training' && <PhysicalTrainer user={user} />}
-            
-            {activeTab === 'stats' && <StatsPanel user={user} />}
-            
+            {/* Cada modulo va aislado: un fallo de render en uno no debe dejar
+                el dashboard entero en blanco (pasaba con 'home' y 'stats'). */}
+            {activeTab === 'home' && (
+                <ModuleErrorBoundary moduleName="El centro de mando">
+                    <DashboardHome user={user} onNavigate={setActiveTab} />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'chat' && (
+                <ModuleErrorBoundary moduleName="Inteligencia">
+                    <IntelChat user={user} />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'test' && (
+                <ModuleErrorBoundary moduleName="Operaciones">
+                    <ExamManager onZenToggle={setZenMode} />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'cards' && (
+                <ModuleErrorBoundary moduleName="Drills">
+                    <FlashcardDeck />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'training' && (
+                <ModuleErrorBoundary moduleName="Preparacion fisica">
+                    <PhysicalTrainer user={user} />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'stats' && (
+                <ModuleErrorBoundary moduleName="Rango y estadisticas">
+                    <StatsPanel user={user} />
+                </ModuleErrorBoundary>
+            )}
+
             {/* MÓDULO DE PERFILADO (Con botón flotante para la voz) */}
             {activeTab === 'interview' && (
                 <>
-                    <BiodataManager user={user} />
+                    <ModuleErrorBoundary moduleName="Perfilado">
+                        <BiodataManager user={user} />
+                    </ModuleErrorBoundary>
                     
                     {/* Botón Flotante de Acción Táctica (Solo en esta pestaña) */}
                     <div className="fixed bottom-8 right-8 z-50 animate-in zoom-in duration-300">

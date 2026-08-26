@@ -1,6 +1,14 @@
 'use server';
 
 import { supabaseAdmin as supabase, chatModel, embeddingModel } from './core';
+import { requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
+import {
+  buildRetrievalQuery,
+  formatHistory,
+  MAX_QUERY_CHARS,
+  type ChatTurn,
+} from '../lib/chat';
 
 /**
  * Tipado para los fragmentos recuperados de la base de datos
@@ -31,14 +39,26 @@ function dedupeChunks(chunks: Chunk[]) {
   return out;
 }
 
-export async function askAtenea(query: string): Promise<AskAteneaResult> {
+export async function askAtenea(query: string, history: ChatTurn[] = []): Promise<AskAteneaResult> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  // Cada mensaje son DOS llamadas de pago: el embedding de la busqueda y la
+  // respuesta. Sin cuota, la factura la marcaba cualquiera.
+  const quota = await checkQuota(auth.user.id, 'chat');
+  if (!quota.ok) return { success: false, error: quota.error };
+
   try {
     // 1. Limpieza y validación de entrada
-    const safeQuery = query.trim().slice(0, 1000);
+    const safeQuery = query.trim().slice(0, MAX_QUERY_CHARS);
     if (!safeQuery) return { success: false, error: 'Consulta vacía.' };
 
-    // 2. Generación de embedding para búsqueda semántica
-    const embeddingResult = await embeddingModel.embedContent(safeQuery);
+    // 2. Qué se busca en el temario.
+    //    No es lo mismo que lo que ha escrito el alumno: en una repregunta
+    //    ("¿y qué plazo aplica en ese caso?") el embedding de la frase suelta no
+    //    recupera nada, así que se antepone la pregunta anterior.
+    const retrievalQuery = buildRetrievalQuery(history, safeQuery);
+    const embeddingResult = await embeddingModel.embedContent(retrievalQuery);
 
     // 3. Recuperación de conocimiento desde Supabase (RPC match_document_chunks)
     const { data, error: rpcError } = await supabase.rpc('match_document_chunks', {
@@ -71,6 +91,8 @@ export async function askAtenea(query: string): Promise<AskAteneaResult> {
       .map((c, idx) => `[FUENTE ${idx + 1}]: ${c.filename}\nCONTENIDO: ${c.content_chunk}`)
       .join('\n\n---\n\n');
 
+    const conversation = formatHistory(history);
+
     // 6. System Prompt de Nivel Élite
     const prompt = `
 ACTÚA COMO: ATENEA (Sistema de Inteligencia para Oposiciones de Policía Nacional).
@@ -82,7 +104,7 @@ CONTEXTO OFICIAL:
 """
 ${contextWithCitations}
 """
-
+${conversation ? `\nCONVERSACIÓN PREVIA (para resolver referencias como "eso" o "en ese caso"):\n"""\n${conversation}\n"""\n` : ''}
 NORMAS DE RESPUESTA (CRÍTICAS):
 1. Si la información no está en el contexto, di: "No consta en el temario oficial aportado."
 2. CITAS OBLIGATORIAS: Al final de cada párrafo o dato clave, añade la cita de la fuente utilizada, ej: [1], [2].
@@ -90,7 +112,8 @@ NORMAS DE RESPUESTA (CRÍTICAS):
    - Definición técnica al inicio.
    - Listas con viñetas (*) para desglosar características.
    - TABLA Markdown para cualquier comparación o clasificación.
-4. CIERRE OBLIGATORIO:
+4. La conversación previa sirve para entender a qué se refiere el aspirante, NO como fuente: los datos salen siempre del CONTEXTO OFICIAL.
+5. CIERRE OBLIGATORIO:
    **🎯 FOCO EXAMEN (Cuidado con la trampa)**
    - Desglosa de 2 a 4 "trampas" típicas (plazos que cambian, conceptos similares que confunden, o excepciones legales).
 

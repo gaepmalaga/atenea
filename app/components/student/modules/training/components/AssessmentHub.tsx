@@ -1,21 +1,26 @@
 'use client';
 
 import { Dumbbell, Timer, Activity, CheckCircle2, Save, Loader2, Settings } from 'lucide-react';
+import { isTestDone, readMaxPullups, type PhysicalProfile, type TestId } from '@/app/lib/physical';
 
 interface AssessmentHubProps {
-    profile: any;
-    onSelectTest: (testId: 'force' | 'cooper' | 'agility') => void;
+    profile?: PhysicalProfile | null;
+    onSelectTest: (testId: TestId) => void;
     onGenerate: () => void;
     generating?: boolean;
     onEditBio?: () => void;
+    error?: string | null;
 }
 
-export default function AssessmentHub({ profile, onSelectTest, onGenerate, generating, onEditBio }: AssessmentHubProps) {
-    const metrics = profile?.baseline_metrics || {};
-    // Verificamos si los tests clave están hechos
-    const isForceDone = metrics.pullups_score !== undefined && metrics.pullups_score !== null;
-    const isCooperDone = metrics.cooper_distance !== undefined && metrics.cooper_distance !== null;
-    const isAgilityDone = metrics.agility_time !== undefined && metrics.agility_time !== null;
+export default function AssessmentHub({ profile, onSelectTest, onGenerate, generating, onEditBio, error }: AssessmentHubProps) {
+    const metrics = profile?.baseline_metrics ?? {};
+    // "Hecho" es "tiene una marca numerica". Antes bastaba con que la clave
+    // existiera, asi que una cadena vacia guardada por el asistente daba la
+    // prueba por superada.
+    const isForceDone = isTestDone(metrics, 'force');
+    const isCooperDone = isTestDone(metrics, 'cooper');
+    const isAgilityDone = isTestDone(metrics, 'agility');
+    const maxPullups = readMaxPullups(profile);
 
     const isComplete = isForceDone && isCooperDone; // Agilidad a veces es opcional, pero mejor pedir todo.
 
@@ -50,7 +55,7 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
                         </div>
                         <h3 className="font-black text-2xl text-slate-900 dark:text-white mb-2">Fuerza</h3>
                         <p className="text-sm text-slate-500 font-medium">Dominadas estrictas o Suspensión.</p>
-                        {isForceDone && <p className="mt-4 text-emerald-600 font-bold text-lg">{metrics.pullups_score} {metrics.pullups_method === 'reps' ? 'Reps' : 'Segs'}</p>}
+                        {isForceDone && <p className="mt-4 text-emerald-600 font-bold text-lg">{maxPullups} {metrics.pullups_method === 'suspension' ? 'Segs' : 'Reps'}</p>}
                     </div>
                 </div>
 
@@ -92,6 +97,12 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
                     </div>
                 </div>
             </div>
+
+            {error && (
+                <p className="text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center mb-4">
+                    {error}
+                </p>
+            )}
 
             {/* BOTÓN GENERAR */}
             <button 

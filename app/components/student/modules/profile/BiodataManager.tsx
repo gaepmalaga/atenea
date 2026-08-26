@@ -103,7 +103,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await getBiodata(user.id);
+        const res = await getBiodata();
         if (res.success && res.data) {
           const merged = { ...INITIAL_DATA, ...res.data };
           if (!merged.psych_answers) merged.psych_answers = {};
@@ -157,7 +157,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
 
   const handleSave = async () => {
     setSaving(true);
-    const res = await saveBiodata(user.id, formData);
+    const res = await saveBiodata(formData);
     setSaving(false);
     if (res.success) setLastSaved(new Date());
     else alert("Error: " + res.error);
@@ -254,6 +254,14 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
                       {activeSection === 'legal' && (
                           <div className="space-y-4">
                               <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">Sinceridad absoluta obligatoria.</div>
+                              {/* El alumno tiene derecho a saber qué sale de aquí antes de
+                                  escribirlo. Ver `buildInterviewProfile` en app/lib/interview.ts. */}
+                              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                  <b className="text-slate-900 dark:text-white">Lo que escribas aquí no sale de la aplicación.</b>{' '}
+                                  El simulador de entrevista solo recibe si has declarado
+                                  incidencias o no, para saber que tiene que preguntarte por
+                                  ellas. El texto se queda guardado en tu perfil.
+                              </div>
                               <div className="space-y-2"><label className="text-xs font-bold text-slate-500 uppercase">Incidentes Legales *</label><textarea value={formData.legal_issues} onChange={(e)=>handleChange('legal_issues',e.target.value)} className="w-full h-64 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-red-500 outline-none text-sm resize-none"/></div>
                           </div>
                       )}

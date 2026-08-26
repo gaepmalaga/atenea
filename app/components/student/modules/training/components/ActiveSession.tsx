@@ -1,37 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  X, CheckCircle2, AlertTriangle, Activity, 
-  Dumbbell, Timer, MapPin 
-} from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, Activity } from 'lucide-react';
 
-// TIPOS
-type Exercise = {
-    name: string;
-    sets: string | number;
-    reps: string;
-    target: string;
-    rest: string;
-    metric_type: string;
-};
-
-type TrainingDay = {
-    day: string;
-    type: string;
-    title: string;
-    exercises: Exercise[];
-};
+// Los tipos del plan viven en `app/lib/training-plan.ts`: los escribe la IA y
+// los lee tanto esta pantalla como el panel, asi que una sola definicion.
+import type { TrainingDay } from '@/app/lib/training-plan';
+import type { TrainingDayLog } from '@/actions';
 
 interface ActiveSessionProps {
     day: TrainingDay;
     onExit: () => void;
-    onComplete: (logData: any) => void;
+    onComplete: (logData: TrainingDayLog) => void;
     startInReportMode?: boolean;
 }
 
 export default function ActiveSession({ day, onExit, onComplete, startInReportMode = false }: ActiveSessionProps) {
-    const [sessionFeedback, setSessionFeedback] = useState<Record<string, any>>({});
+    const [sessionFeedback, setSessionFeedback] = useState<Record<string, string>>({});
     const [sessionRPE, setSessionRPE] = useState(5); 
     const [reportIssue, setReportIssue] = useState(startInReportMode);
     const [issueType, setIssueType] = useState(''); 
@@ -134,8 +119,8 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
                                         type="text" 
                                         className="bg-slate-50 dark:bg-black border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white p-3 rounded-lg w-full outline-none focus:border-emerald-500 transition-colors text-sm placeholder-slate-400" 
                                         placeholder={
-                                            ex.metric_type.includes('weight') ? "Peso usado / Lastre..." :
-                                            ex.metric_type.includes('time') ? "Tiempo real..." :
+                                            ex.metric_type?.includes('weight') ? "Peso usado / Lastre..." :
+                                            ex.metric_type?.includes('time') ? "Tiempo real..." :
                                             "Repeticiones reales / Notas..."
                                         }
                                         onChange={(e) => setSessionFeedback({...sessionFeedback, [ex.name]: e.target.value})}

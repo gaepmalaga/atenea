@@ -1,12 +1,33 @@
 'use server'
 import crypto from 'crypto';
-import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
+import { supabaseAdmin as supabase, questionModel, getSubjectIdByName } from './core';
+import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
+import { requireAdmin, requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
+import { QUESTION_STATUS, indexToOptionId, shuffle, type QuestionStatus } from '../lib/questions';
+import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
 // ==========================================
 
-export async function generateTestQuestion(subjectId: number) {
+/** Lo que devuelve el generador de preguntas antes de tocar la base de datos. */
+type GeneratedQuestion = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  document_id: string;
+  filename: string;
+};
+
+/** Fila de `question_bank` recien insertada o recuperada. */
+type SavedQuestion = { id: string; subject_id: number; status: string } | null;
+
+// Helper interno. NO se exporta como Server Action: era un endpoint publico
+// que llamaba a Gemini sin ninguna comprobacion. Sus dos consumidores
+// (`generateAndSaveCandidate` y `seedQuestionBank`) ya validan la sesion.
+async function generateTestQuestion(subjectId: number) {
   try {
     if (!subjectId) return { success: false, error: "ID de tema inválido." };
 
@@ -25,56 +46,49 @@ export async function generateTestQuestion(subjectId: number) {
 
     if (fullText.length < 50) return { success: false, error: "Documento con texto insuficiente." };
 
-    // Recortar contexto (Ventana de 12k caracteres)
-    const maxChars = 12000;
-    const start = Math.floor(Math.random() * Math.max(0, fullText.length - maxChars));
-    const contextSlice = fullText.substring(start, start + maxChars);
+    const contextSlice = randomContextWindow(fullText, 12000);
 
-    // 2. Prompt Estricto
+    // El formato lo impone `responseSchema` en el modelo, no el prompt: por eso
+    // aquí solo van las instrucciones pedagógicas.
     const prompt = `
       ACTÚA COMO: Tribunal Calificador de Policía Nacional.
       TAREA: Redactar UNA pregunta de test basada en este texto legal.
       TEXTO: """${contextSlice}"""
-      
+
       REGLAS:
-      1. Salida JSON estricta.
-      2. 3 Opciones (a, b, c). Solo 1 correcta.
-      3. Dificultad Media/Alta (detalles, plazos, excepciones).
-      
-      FORMATO JSON:
-      { 
-        "question": "Enunciado...", 
-        "options": ["Opción A...", "Opción B...", "Opción C..."], 
-        "correctIndex": 0, 
-        "explanation": "Justificación..." 
-      }
-      Nota: 'correctIndex' debe ser 0 para A, 1 para B, 2 para C.
+      1. Exactamente 3 opciones, y solo UNA correcta.
+      2. Dificultad Media/Alta: detalles, plazos, excepciones.
+      3. Las tres opciones deben ser distintas y plausibles.
+      4. 'correctIndex' es la posición de la opción correcta: 0, 1 o 2.
+      5. 'explanation' justifica la respuesta citando el texto.
     `;
 
-    const result = await chatModel.generateContent(prompt);
-    const jsonString = cleanAIResponse(result.response.text());
-    
-    let jsonData;
-    try { jsonData = JSON.parse(jsonString); } 
-    catch (e) { return { success: false, error: "Error parseando respuesta IA." }; }
+    const result = await questionModel.generateContent(prompt);
+    const parsed = parseAIJson(result.response.text());
+    if (!parsed) return { success: false, error: "La IA no devolvió un JSON legible." };
 
-    // Validación
-    if (!jsonData.question || !Array.isArray(jsonData.options) || jsonData.options.length !== 3) {
-        return { success: false, error: "Estructura JSON incorrecta." };
+    // Se valida ANTES de devolver nada. Antes bastaba con que hubiera enunciado
+    // y tres opciones: una pregunta con `correctIndex: 5` se guardaba igual y la
+    // respuesta buena pasaba a ser "c" en silencio.
+    const check = validateGeneratedQuestion(parsed);
+    if (!check.ok) {
+      console.error("Pregunta descartada:", check.reason);
+      return { success: false, error: `Pregunta descartada: ${check.reason}` };
     }
 
     return {
       success: true,
       data: {
-        ...jsonData,
-        document_id: selectedDoc.id, 
+        ...check.value,
+        document_id: selectedDoc.id,
         filename: selectedDoc.filename
       }
     };
 
-  } catch (e: any) {
-    console.error("❌ Error generación:", e.message);
-    return { success: false, error: e.message };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Error desconocido';
+    console.error("❌ Error generación:", msg);
+    return { success: false, error: msg };
   }
 }
 
@@ -83,7 +97,25 @@ export async function generateTestQuestion(subjectId: number) {
 // ==========================================
 // Esta es la función que te faltaba y causaba el error
 
+/** Da forma de UI a una pregunta recien generada, con o sin fila en la BD. */
+function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
+  return {
+    ...qData,
+    id: saved?.id ?? null,
+    subject_id: saved?.subject_id ?? null,
+    status: saved?.status ?? 'unsaved',
+    options: qData.options.map((text, i) => ({ id: indexToOptionId(i), text })),
+    correctOptionId: indexToOptionId(qData.correctIndex),
+  };
+}
+
 export async function generateAndSaveCandidate(topicNameOrId: string | number) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const quota = await checkQuota(auth.user.id, 'question');
+  if (!quota.ok) return { success: false as const, error: quota.error };
+
   try {
     // A. Resolver ID
     let subjectId: number;
@@ -95,7 +127,12 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
 
     // B. Generar Pregunta
     const genResult = await generateTestQuestion(subjectId);
-    if (!genResult.success || !genResult.data) return genResult;
+    // Se construye la respuesta de error en vez de reenviar `genResult`: aquel
+    // no traía `id`, así que el tipo de retorno era una unión que la UI no podía
+    // consumir sin comprobaciones.
+    if (!genResult.success || !genResult.data) {
+      return { success: false as const, error: genResult.error ?? 'No se pudo generar la pregunta.' };
+    }
 
     const qData = genResult.data;
     
@@ -107,8 +144,13 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
     });
     const qHash = crypto.createHash('sha256').update(payload).digest('hex');
 
-    // D. Guardar en BD como 'candidate'
-    const { data: saved, error } = await supabase
+    // D. Guardar en el banco como candidata.
+    //
+    // `ignoreDuplicates` es imprescindible: con un upsert normal, volver a
+    // generar una pregunta que ya existia REESCRIBIA su fila, incluido el
+    // estado. Una pregunta ya aprobada volvia a 'candidate' (saliendo del banco
+    // de los alumnos) y una descartada resucitaba en la cola de moderacion.
+    const { data: inserted, error } = await supabase
       .from('question_bank')
       .upsert({
           subject_id: subjectId,
@@ -118,43 +160,49 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
           correct_index: qData.correctIndex,
           explanation: qData.explanation,
           question_hash: qHash,
-          status: 'candidate', // Se guarda para moderación futura
-          origin: 'live_ai',   // Marcada como generada en vivo
+          status: QUESTION_STATUS.CANDIDATE,
+          origin: 'live_ai',
           created_at: new Date().toISOString()
-      }, { onConflict: 'question_hash' })
+      }, { onConflict: 'question_hash', ignoreDuplicates: true })
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
        console.error("Error guardando candidate:", error.message);
-       // Si falla el guardado (ej: duplicada), devolvemos la generada sin ID
-       return { success: true, data: { ...qData, id: null, status: 'unsaved' } };
+       return { success: true as const, data: toUiQuestion(qData, null) };
     }
 
-    // E. Retorno compatible con UI
-    return {
-      success: true,
-      data: {
-        ...qData,
-        id: saved.id,
-        subject_id: saved.subject_id,
-        status: saved.status,
-        // Adaptamos el formato para que el frontend lo entienda si espera objetos
-        options: qData.options.map((text:string, i:number) => ({
-            id: i===0?'a':i===1?'b':'c',
-            text
-        })),
-        correctOptionId: qData.correctIndex===0?'a':qData.correctIndex===1?'b':'c'
-      }
-    };
-  } catch (e: any) {
-      return { success: false, error: e.message };
+    // Si era duplicada no se ha insertado nada: recuperamos la fila existente
+    // para que la pregunta llegue a la UI con su id real. Antes se devolvia
+    // `id: null` y esa pregunta no se podia votar ni reportar, y se guardaba en
+    // test_results sin referencia.
+    let saved = inserted;
+    if (!saved) {
+      const { data: existing } = await supabase
+        .from('question_bank')
+        .select()
+        .eq('question_hash', qHash)
+        .maybeSingle();
+      saved = existing;
+    }
+
+    // Una pregunta ya descartada en moderacion no debe volver a servirse.
+    if (saved?.status === QUESTION_STATUS.DISABLED) {
+      return { success: false as const, error: 'La pregunta generada ya fue descartada.' };
+    }
+
+    return { success: true as const, data: toUiQuestion(qData, saved) };
+  } catch (e) {
+      return { success: false as const, error: e instanceof Error ? e.message : 'Error desconocido' };
   }
 }
 
 // ==========================================
 // 3. SEED (GENERACIÓN MASIVA)
 // ==========================================
+
+/** Maximo de preguntas por lote. Cada una es una llamada de pago a Gemini. */
+const MAX_SEED_COUNT = 200;
 
 async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
@@ -172,10 +220,33 @@ async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker:
 }
 
 export async function seedQuestionBank(params: {
-  subjectId: number; topic: string; count: number; concurrency?: number;
+  subjectId: number;
+  topic: string;
+  count: number;
+  concurrency?: number;
+  /**
+   * Publicar directamente en el banco (estado 'active') en vez de mandarlo a
+   * moderacion. Por defecto si: sembrar es un acto deliberado del admin sobre
+   * su propio temario. La UI lo expone como interruptor para que quien quiera
+   * revisar antes pueda hacerlo.
+   */
+  autoApprove?: boolean;
 }) {
-  const { subjectId, count, concurrency = 2 } = params;
-  if (!subjectId) return { success: false, error: "Falta ID de tema" };
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  // Sembrar es de admin, pero es lo que mas cuesta por llamada: hasta
+  // MAX_SEED_COUNT preguntas de una tacada.
+  const seedQuota = await checkQuota(auth.user.id, 'seed');
+  if (!seedQuota.ok) return { success: false as const, error: seedQuota.error };
+
+  const { subjectId, concurrency = 2, autoApprove = true } = params;
+  const status: QuestionStatus = autoApprove ? QUESTION_STATUS.ACTIVE : QUESTION_STATUS.CANDIDATE;
+  if (!subjectId) return { success: false as const, error: "Falta ID de tema" };
+
+  // Tope duro: `count` venia del cliente sin limite y cada unidad es una
+  // llamada de pago a Gemini.
+  const count = Math.min(Math.max(1, Math.floor(params.count) || 0), MAX_SEED_COUNT);
 
   console.log(`🚀 Generando ${count} preguntas para Subject ${subjectId}...`);
 
@@ -192,30 +263,43 @@ export async function seedQuestionBank(params: {
   const results = await runWithConcurrency(tasks, concurrency, worker);
 
   let inserted = 0;
+  let duplicated = 0;
+  let failed = 0;
+
   for (const r of results) {
-    if (!r.ok || !r.data) continue;
-    
-    const d: any = r.data;
+    if (!r.ok || !r.data) { failed++; continue; }
+
+    const d = r.data as GeneratedQuestion;
     const payload = JSON.stringify({ s: subjectId, q: d.question.trim(), c: d.correctIndex });
     const qHash = crypto.createHash('sha256').update(payload).digest('hex');
 
-    const { error } = await supabase.from('question_bank').upsert({
-        subject_id: subjectId,
-        document_id: d.document_id,
-        question_text: d.question,
-        options: d.options,
-        correct_index: d.correctIndex,
-        explanation: d.explanation,
-        question_hash: qHash,
-        status: 'candidate', // En seed masivo, asumimos activas (o cambiar a candidate si prefieres moderar todo)
-        origin: 'bank_seed',
-        created_at: new Date().toISOString()
-    }, { onConflict: 'question_hash' });
+    // `ignoreDuplicates`: resembrar un tema no debe tocar las filas que ya
+    // existen. Con un upsert normal, una pregunta descartada en moderacion
+    // volvia al banco y una editada a mano perdia las correcciones.
+    const { data, error } = await supabase
+      .from('question_bank')
+      .upsert({
+          subject_id: subjectId,
+          document_id: d.document_id,
+          question_text: d.question,
+          options: d.options,
+          correct_index: d.correctIndex,
+          explanation: d.explanation,
+          question_hash: qHash,
+          status,
+          origin: 'bank_seed',
+          created_at: new Date().toISOString()
+      }, { onConflict: 'question_hash', ignoreDuplicates: true })
+      .select('id');
 
-    if (!error) inserted++;
+    if (error) failed++;
+    else if (data && data.length > 0) inserted++;
+    else duplicated++;
   }
 
-  return { success: true, inserted };
+  // Se devuelve el desglose completo: antes solo se informaba de `inserted` y
+  // un lote que fallara entero se veia igual que uno duplicado.
+  return { success: true as const, inserted, duplicated, failed, requested: count, status };
 }
 
 // ==========================================
@@ -223,86 +307,129 @@ export async function seedQuestionBank(params: {
 // ==========================================
 
 export async function getQuestionsFromBank(params: {
-  subjectIds?: number[]; topic?: string; limit: number; userId?: string;
+  subjectIds?: number[];
+  topic?: string;
+  limit: number;
+  userId?: string;
+  /**
+   * PENDIENTE (ver PLAN, Fase 4): la UI ya envía la dificultad elegida por el
+   * alumno, pero `question_bank` no tiene todavía columna de dificultad, así
+   * que el filtro NO se aplica. Se acepta el parámetro para que el contrato
+   * sea explícito en vez de fallar en tiempo de compilación.
+   */
+  difficulty?: number;
 }) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
   let ids = params.subjectIds || [];
   if (params.topic && ids.length === 0) {
       const id = await getSubjectIdByName(params.topic);
       ids = [id];
   }
   
-  if (ids.length === 0) return { success: false, error: "Sin temas" };
+  if (ids.length === 0) return { success: false as const, error: "Sin temas" };
 
   const { data, error } = await supabase
     .from('question_bank')
     .select('*')
     .in('subject_id', ids)
-    .eq('status', 'active') 
+    .eq('status', QUESTION_STATUS.ACTIVE) 
     .limit(params.limit * 3); 
 
-  if (error) return { success: false, error: error.message };
-  
-  const shuffled = (data || []).sort(() => Math.random() - 0.5).slice(0, params.limit);
-  return { success: true, data: shuffled };
+  if (error) return { success: false as const, error: error.message };
+
+  const shuffled = shuffle(data || []).slice(0, params.limit);
+  return { success: true as const, data: shuffled };
 }
 
+/**
+ * Guarda UNA respuesta del modo entrenamiento y devuelve el id de la fila.
+ *
+ * El id es lo que permite que etiquetar el fallo despues ACTUALICE esta fila en
+ * vez de insertar otra. Antes se insertaba dos veces por cada fallo etiquetado
+ * (una al responder y otra al diagnosticar), asi que cada error contaba doble
+ * en el porcentaje de acierto de por vida.
+ */
 export async function saveTestResult(
-  userId: string, topicOrId: string | number, questionId: string | null, isCorrect: boolean, vipData?: any
-) {
+  topicOrId: string | number,
+  questionId: string | null,
+  isCorrect: boolean,
+  metrics?: Partial<AnswerMetrics>
+): Promise<{ success: boolean; id: string | null }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, id: null };
+
   try {
-    if (!userId) return { success: false };
+    const subjectId = typeof topicOrId === 'number'
+      ? topicOrId
+      : await getSubjectIdByName(topicOrId.toString());
 
-    let subjectId: number;
-    if (typeof topicOrId === 'number') subjectId = topicOrId;
-    else subjectId = await getSubjectIdByName(topicOrId.toString());
+    // El mapeo camelCase -> columnas ocurre en un solo sitio (lib/exam-results),
+    // compartido con el guardado en bloque del examen. Aqui se armaba a mano y
+    // por eso los nombres pudieron divergir entre los dos caminos.
+    const row = toResultRow({ questionId, subjectId, isCorrect, ...metrics });
 
-    const payload: any = {
-        user_id: userId,
-        question_id: questionId,
-        subject_id: subjectId, // Ahora sí guardamos el subject_id
-        is_correct: isCorrect,
-        created_at: new Date().toISOString()
-    };
+    const { data, error } = await supabase
+      .from('test_results')
+      .insert({ ...row, user_id: auth.user.id, created_at: new Date().toISOString() })
+      .select('id')
+      .single();
 
-    if (vipData) {
-        if (vipData.timeMs) payload.response_time_ms = vipData.timeMs;
-        if (vipData.changes) payload.option_changes = vipData.changes;
-        if (vipData.errorType) payload.error_type = vipData.errorType;
-    } else if (typeof vipData === 'string') {
-        payload.error_type = vipData; // Legacy support
+    if (error) {
+      console.error('saveTestResult:', error.message);
+      return { success: false, id: null };
     }
-
-    const { error } = await supabase.from('test_results').insert(payload);
-    return { success: !error };
-  } catch (e) { return { success: false }; }
+    return { success: true, id: data?.id ?? null };
+  } catch (e) {
+    console.error('saveTestResult:', e instanceof Error ? e.message : e);
+    return { success: false, id: null };
+  }
 }
 
-export async function saveExamResults(userId: string, results: any[]) {
-    if (!userId || !results.length) return { success: false };
-    
-    const rows = await Promise.all(results.map(async (r) => {
-        let sid = r.subject_id;
-        // Si no viene ID, lo buscamos por nombre
-        if (!sid && r.topic) sid = await getSubjectIdByName(r.topic);
-        
-        return {
-            user_id: userId,
-            subject_id: sid || 1, 
-            question_id: r.question_id,
-            is_correct: r.is_correct,
-            
-            // --- MÉTRICAS ATENEA MIND ---
-            response_time_ms: r.time || 0,        // Dimensión 1: Velocidad
-            option_changes: r.changes || 0,       // Dimensión 2: Titubeo (¡AHORA SÍ!)
-            // ----------------------------
-            
-            error_type: r.error_type,
-            created_at: new Date().toISOString()
-        };
+/**
+ * Anade la taxonomia del fallo a una respuesta ya guardada.
+ *
+ * Es un UPDATE sobre la fila que devolvio `saveTestResult`, no una insercion
+ * nueva. Solo toca `error_type`: el tiempo y los cambios de opcion son los de la
+ * respuesta, no los de la pantalla de diagnostico, y no deben reescribirse.
+ */
+export async function setResultErrorType(
+  resultId: string,
+  errorType: string
+): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, error: auth.error };
+  if (!resultId) return { success: false, error: 'Falta el id del resultado.' };
+
+  // El filtro por user_id impide etiquetar el resultado de otro usuario aunque
+  // se conozca su id.
+  const { error } = await supabase
+    .from('test_results')
+    .update({ error_type: errorType })
+    .eq('id', resultId)
+    .eq('user_id', auth.user.id);
+
+  if (error) console.error('setResultErrorType:', error.message);
+  return { success: !error, error: error?.message };
+}
+
+export async function saveExamResults(results: ExamResultPayload[]) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false };
+    if (!results.length) return { success: false };
+
+    // El parametro era `any[]`: la UI enviaba `response_time_ms` / `option_changes`
+    // y aqui se leia `r.time` / `r.changes`, asi que las dos metricas de
+    // comportamiento se guardaban a 0 en TODOS los examenes sin que nada fallara.
+    const rows = results.map((r) => ({
+        ...toResultRow(r),
+        user_id: auth.user.id,
+        created_at: new Date().toISOString(),
     }));
 
     const { error } = await supabase.from('test_results').insert(rows);
-    
-    if (error) console.error("Error guardando resultados:", error);
+
+    if (error) console.error('saveExamResults:', error.message);
     return { success: !error };
 }

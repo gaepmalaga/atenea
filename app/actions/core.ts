@@ -2,7 +2,7 @@
 import 'server-only'; 
 
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
 // --- CONFIGURACIÓN BLINDADA ---
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -17,10 +17,77 @@ if (!API_KEY || !SB_URL || !SB_SERVICE_KEY || !SB_ANON_KEY) {
 // --- CLIENTES IA ---
 export const genAI = new GoogleGenerativeAI(API_KEY);
 
-// ✅ CORRECCIÓN FINAL: Usamos los modelos VIGENTES según tu documentación.
-// 'gemini-2.5-flash' es el modelo estable, rápido y potente actual.
-export const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
-export const smartModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+const TEXT_MODEL = "gemini-2.5-flash";
+
+export const chatModel = genAI.getGenerativeModel({ model: TEXT_MODEL });
+export const smartModel = genAI.getGenerativeModel({ model: TEXT_MODEL });
+
+// --- MODELOS EN MODO JSON ---
+// Con `responseSchema` el modelo no puede devolver otra forma: se acabaron las
+// vallas de markdown, el texto de cortesía por delante y las comas colgantes que
+// el parser tenía que limpiar a base de expresiones regulares.
+
+export const questionModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        question: { type: SchemaType.STRING },
+        options: {
+          type: SchemaType.ARRAY,
+          items: { type: SchemaType.STRING },
+          minItems: 3,
+          maxItems: 3,
+        },
+        // El índice sigue validándose en el servidor: el esquema fija el tipo,
+        // no el rango.
+        correctIndex: { type: SchemaType.INTEGER },
+        explanation: { type: SchemaType.STRING },
+      },
+      required: ["question", "options", "correctIndex", "explanation"],
+    },
+  },
+});
+
+export const flashcardModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        front: { type: SchemaType.STRING },
+        back: { type: SchemaType.STRING },
+      },
+      required: ["front", "back"],
+    },
+  },
+});
+
+export const reportModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        score: { type: SchemaType.INTEGER },
+        veredicto: { type: SchemaType.STRING },
+        fortalezas: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        contradicciones: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        recomendaciones: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+      },
+      required: ["score", "veredicto", "fortalezas", "contradicciones", "recomendaciones"],
+    },
+  },
+});
+
+export const planModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: { responseMimeType: "application/json" },
+});
 
 // Para embeddings, si 'models/gemini-embedding-001' te funcionó (dio 32 vectores),
 // lo dejamos así. Si fallara, probaríamos con 'text-embedding-004'.
@@ -31,30 +98,15 @@ export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
 });
 
-export const supabaseAnon = createClient(SB_URL, SB_ANON_KEY);
+// Nota: `supabaseAnon` se elimino al cerrar la Fase 1.1. Lo usaban voteQuestion
+// y reportQuestion, que ahora escriben con el id verificado de la sesion. Para
+// consultas sujetas a RLS en nombre del usuario, usar
+// `createSupabaseServerClient()` de app/lib/supabase/server.ts.
 
 // --- UTILIDADES COMPARTIDAS (SÍNCRONAS) ---
-
-export function cleanAIResponse(text: string): string {
-  if (!text) return "{}";
-  let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  const firstBrace = clean.indexOf('{');
-  const lastBrace = clean.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1) {
-      clean = clean.substring(firstBrace, lastBrace + 1);
-  }
-  return clean.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}');
-}
-
-export function cleanLegalText(raw: string): string {
-  return raw
-    .replace(/%[0-9A-F]{2}/g, (match) => { try { return decodeURIComponent(match); } catch { return match; } })
-    .replace(/----------------Page \(\d+\) Break----------------/g, '\n')
-    .replace(/\n\s*\d+\s*\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[]/g, '')
-    .trim();
-}
+// Viven en app/lib/text.ts (módulo puro y testeado). Se reexportan aquí para
+// no romper los imports existentes.
+export { cleanLegalText, chunkLegalText } from '../lib/text';
 
 export async function getSubjectIdByName(topicName: string): Promise<number> {
   const search = topicName.trim();

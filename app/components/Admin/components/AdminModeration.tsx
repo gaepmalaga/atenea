@@ -25,7 +25,7 @@ const REPORT_BADGES: Record<string, { label: string, color: string, bg: string }
   other: { label: 'Otro', color: 'text-slate-400', bg: 'bg-slate-400/10 border-slate-400/20' },
 };
 
-export default function AdminModeration({ userId }: { userId: string }) {
+export default function AdminModeration() {
   const [queue, setQueue] = useState<any>({ candidates: [], reports: [] });
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +46,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
 
   async function load() {
     setLoading(true);
-    const res = await getModerationQueue(userId);
+    const res = await getModerationQueue();
     if (res.success) setQueue(res.data);
     setLoading(false);
   }
@@ -55,7 +55,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
   async function handleApprove(id: string) {
       // Optimistic UI update
       setQueue((prev:any) => ({...prev, candidates: prev.candidates.filter((q:any)=>q.id!==id)}));
-      await approveQuestion(userId, id);
+      await approveQuestion(id);
   }
 
   async function handleDisable(id: string, isReport = false) {
@@ -68,13 +68,13 @@ export default function AdminModeration({ userId }: { userId: string }) {
          setQueue((prev:any) => ({...prev, candidates: prev.candidates.filter((q:any)=>q.id!==id)}));
       }
 
-      await disableQuestion(userId, id);
+      await disableQuestion(id);
       if (isReport) load(); // Recargar para limpiar cascada si es necesario
   }
   
   async function handleResolveReport(reportId: string) {
       setQueue((prev:any) => ({...prev, reports: prev.reports.filter((r:any)=>r.id!==reportId)}));
-      await resolveReport(userId, reportId);
+      await resolveReport(reportId);
   }
 
   // --- LÓGICA DE EDICIÓN ---
@@ -96,7 +96,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
     if (!editingQ) return;
     setSaving(true);
     
-    const res = await updateQuestion(userId, editingQ.id, editForm);
+    const res = await updateQuestion(editingQ.id, editForm);
     
     if (res.success) {
         // Actualizamos la UI localmente (tanto en candidatos como en preguntas reportadas)
@@ -143,7 +143,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
                 <div key={q.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
                     <div className="flex justify-between items-start mb-3">
                         <span className="text-[10px] font-black tracking-wider text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
-                        <span className="text-[10px] font-mono text-slate-500">{new Date(q.created_at).toLocaleDateString()}</span>
+                        <span className="text-[10px] font-mono text-slate-500">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
                     </div>
                     
                     <p className="font-bold text-slate-200 text-sm mb-4 leading-relaxed">{q.question_text}</p>

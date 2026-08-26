@@ -2,26 +2,34 @@
 
 import { useState } from 'react';
 import { ChevronRight, Dumbbell, MapPin, Activity } from 'lucide-react';
+import { normalizeProfileInput, type PhysicalProfile } from '@/app/lib/physical';
 
 interface SetupWizardProps {
-    initialData?: any;
-    onSave: (data: any) => void;
+    initialData?: PhysicalProfile | null;
+    /** Recibe el perfil ya normalizado: numeros, o `null` si el campo va vacio. */
+    onSave: (data: PhysicalProfile) => void;
+    saving?: boolean;
+    error?: string | null;
 }
 
-export default function SetupWizard({ initialData, onSave }: SetupWizardProps) {
+export default function SetupWizard({ initialData, onSave, saving, error }: SetupWizardProps) {
     const [step, setStep] = useState(1);
+
+    // El estado del formulario es de CADENAS a proposito: es lo que devuelve un
+    // `<input>`, y forzarlo a numero aqui haria que borrar el campo saltara a 0.
+    // La conversion ocurre una sola vez, al guardar, con `normalizeProfileInput`.
     const [formData, setFormData] = useState({
-        height: initialData?.height || '',
-        weight: initialData?.weight || '',
-        gender: initialData?.gender || 'male',
-        birth_year: initialData?.birth_year || '',
-        availability: initialData?.availability || 5,
-        equipment: initialData?.equipment || 'gym',
+        height: initialData?.height?.toString() ?? '',
+        weight: initialData?.weight?.toString() ?? '',
+        gender: initialData?.gender ?? 'male',
+        birth_year: initialData?.birth_year?.toString() ?? '',
+        availability: initialData?.availability ?? 5,
+        equipment: initialData?.equipment ?? 'gym',
     });
 
     const handleNext = () => {
         if (step === 1) setStep(2);
-        else onSave(formData);
+        else onSave(normalizeProfileInput(formData));
     };
 
     return (
@@ -63,7 +71,7 @@ export default function SetupWizard({ initialData, onSave }: SetupWizardProps) {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-slate-400 uppercase">Género</label>
-                                <select value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 outline-none focus:border-emerald-500">
+                                <select value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value === 'female' ? 'female' : 'male'})} className="w-full p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 outline-none focus:border-emerald-500">
                                     <option value="male">Hombre</option>
                                     <option value="female">Mujer</option>
                                 </select>
@@ -117,12 +125,21 @@ export default function SetupWizard({ initialData, onSave }: SetupWizardProps) {
                     </div>
                 )}
 
+                {/* El error del servidor se pinta aqui: antes la pantalla avanzaba
+                    igual y el alumno creia que sus datos estaban guardados. */}
+                {error && (
+                    <p className="text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center">
+                        No se pudo guardar: {error}
+                    </p>
+                )}
+
                 {/* BOTÓN NEXT */}
                 <button 
                     onClick={handleNext} 
-                    className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-xl uppercase tracking-widest hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                    disabled={saving}
+                    className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black rounded-xl uppercase tracking-widest hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
                 >
-                    {step === 1 ? 'Siguiente' : 'Guardar Configuración'} <ChevronRight size={18}/>
+                    {saving ? 'Guardando…' : step === 1 ? 'Siguiente' : 'Guardar Configuración'} <ChevronRight size={18}/>
                 </button>
             </div>
         </div>

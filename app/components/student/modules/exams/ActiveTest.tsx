@@ -7,12 +7,12 @@ import {
   ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning
 } from 'lucide-react';
 import { Question } from './ExamManager';
-import { saveTestResult, voteQuestion, reportQuestion } from '@/actions';
+import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
+import { countChange } from '@/app/lib/exam-results';
 
 interface ActiveTestProps {
   questions: Question[];
   mode: 'practice' | 'exam';
-  userId: string;
   topicName: string;
   onFinish: (qs: Question[]) => void;
   onExit: () => void;
@@ -28,14 +28,25 @@ const REPORT_TYPES = [
   { id: 'other', label: 'Otro' }
 ];
 
-export default function ActiveTest({ questions, mode, userId, topicName, onFinish, onExit }: ActiveTestProps) {
+export default function ActiveTest({ questions, mode, topicName, onFinish, onExit }: ActiveTestProps) {
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errorTagged, setErrorTagged] = useState(false); 
 
   // Métricas VIP (Tiempos y Dudas)
   const startTimeRef = useRef<number>(Date.now());
-  const [optionChanges, setOptionChanges] = useState(0);
+  // Un ref, no estado: se escribe y se lee dentro del mismo manejador. Con
+  // `useState` el cierre devolvia el valor anterior, asi que en modo
+  // entrenamiento se guardaba siempre 0 cambios.
+  const optionChangesRef = useRef(0);
+  // Id de la fila de `test_results` que guardo la respuesta actual. Etiquetar el
+  // fallo actualiza ESA fila; antes se insertaba una segunda y cada error
+  // etiquetado contaba doble en el porcentaje de acierto.
+  const resultIdRef = useRef<string | null>(null);
+  // El guardado en vuelo. Los botones de diagnóstico aparecen en cuanto se
+  // marca la respuesta, mientras el insert sigue viajando: sin esperarlo, un
+  // clic rápido leería `resultIdRef` a null y volvería a insertar.
+  const savePromiseRef = useRef<Promise<{ success: boolean; id: string | null }> | null>(null);
 
   // Estados para Votos y Reportes
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
@@ -50,70 +61,92 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
   // Reiniciar cronómetro al cambiar de pregunta
   useEffect(() => {
       startTimeRef.current = Date.now();
-      setOptionChanges(0);
+      optionChangesRef.current = 0;
+      resultIdRef.current = null;
+      savePromiseRef.current = null;
   }, [currentIndex]);
 
   // --- MANEJO DE RESPUESTA ---
   const handleAnswer = async (optionId: string) => {
     if (mode === 'practice' && isAnswered) return;
-    
-    // Registrar duda si cambia de opción antes de confirmar
-    setOptionChanges(prev => prev + 1);
 
-    const updated = [...localQuestions];
-    updated[currentIndex].userAnswer = optionId;
+    // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
+    // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
+    // no cambios, y la primera respuesta ya valía 1.
+    if (countChange(currentQ.userAnswer, optionId)) {
+        optionChangesRef.current += 1;
+    }
+
+    // Copia del objeto, no solo del array: la copia superficial mutaba la misma
+    // pregunta que tiene el componente padre en su estado.
+    const updated = localQuestions.map((q, i) =>
+        i === currentIndex ? { ...q, userAnswer: optionId } : q
+    );
     setLocalQuestions(updated);
 
     if (mode === 'practice') {
         const correct = optionId === currentQ.correctOptionId;
-        setErrorTagged(correct); 
-        
-        // Calcular tiempo real
-        const timeSpent = Date.now() - startTimeRef.current;
+        setErrorTagged(correct);
 
-        // GUARDADO CORRECTO: Enviamos ID y métricas VIP
-        await saveTestResult(
-            userId, 
-            topicName, 
-            currentQ.id, // <--- CORREGIDO: ID ÚNICO
-            correct, 
-            { 
-                timeMs: timeSpent, 
-                changes: optionChanges 
+        savePromiseRef.current = saveTestResult(
+            topicName,
+            currentQ.id,
+            correct,
+            {
+                responseTimeMs: Date.now() - startTimeRef.current,
+                optionChanges: optionChangesRef.current
             }
         );
+        const saved = await savePromiseRef.current;
+        resultIdRef.current = saved.id;
     }
   };
 
   // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
       if (errorTagged) return;
-      const updated = [...localQuestions];
-      updated[currentIndex].errorType = type;
-      setLocalQuestions(updated);
+      setLocalQuestions(prev => prev.map((q, i) =>
+          i === currentIndex ? { ...q, errorType: type } : q
+      ));
       setErrorTagged(true);
       
-      // Actualizamos el fallo con la etiqueta específica
-      await saveTestResult(
-          userId, 
-          topicName, 
-          currentQ.id, // <--- CORREGIDO: ID ÚNICO
-          false, 
-          { errorType: type }
-      );
+      // UNA fila por respuesta: se actualiza la que creó handleAnswer, no se
+      // inserta otra. Solo se toca `error_type`; el tiempo y los cambios son
+      // los de la respuesta, no los de esta pantalla de diagnóstico.
+      // Esperamos al guardado de la respuesta antes de decidir si actualizar
+      // o insertar. Sin esto, un clic rápido crearía la segunda fila.
+      if (savePromiseRef.current) await savePromiseRef.current;
+      const resultId = resultIdRef.current;
+
+      if (resultId) {
+          const res = await setResultErrorType(resultId, type);
+          if (!res.success) console.error('No se pudo etiquetar el fallo:', res.error);
+      } else {
+          // El guardado de la respuesta falló, así que aquí no hay nada que
+          // duplicar: se inserta la fila completa con la etiqueta incluida.
+          const saved = await saveTestResult(topicName, currentQ.id, false, {
+              errorType: type,
+              responseTimeMs: Date.now() - startTimeRef.current,
+              optionChanges: optionChangesRef.current,
+          });
+          resultIdRef.current = saved.id;
+      }
   };
 
   // --- MANEJO DE VOTOS ---
   const handleVote = async (vote: 'up' | 'down') => {
-    if (!currentQ.id) return;
-    
-    const currentVote = votes[currentQ.id];
+    // Sin id no hay fila que votar: es una pregunta generada en vivo que no
+    // llegó a guardarse. La variable local además deja claro al compilador que
+    // ya está comprobado.
+    const questionId = currentQ.id;
+    if (!questionId) return;
+
+    const currentVote = votes[questionId];
     const newVote = currentVote === vote ? null : vote;
-    setVotes(prev => ({ ...prev, [currentQ.id]: newVote }));
+    setVotes(prev => ({ ...prev, [questionId]: newVote }));
 
     await voteQuestion({
-      questionId: currentQ.id,
-      userId,
+      questionId,
       vote: vote === 'up' ? 1 : -1
     });
   };
@@ -126,14 +159,13 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
     try {
       await reportQuestion({
         questionId: currentQ.id,
-        userId,
         reportType: reportData.type,
         message: reportData.message
       });
       setIsReportModalOpen(false);
       setReportData({ type: '', message: '' });
       alert("Reporte enviado. Gracias por ayudar a mejorar Atenea.");
-    } catch (e) {
+    } catch {
       alert("Error enviando reporte.");
     } finally {
       setIsSubmittingReport(false);
@@ -141,16 +173,14 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
   };
 
 const handleNext = () => {
-      // 1. Empaquetamos las métricas de la pregunta actual antes de movernos
-      const timeSpent = Date.now() - startTimeRef.current;
-      const updated = [...localQuestions];
-      
-      updated[currentIndex] = {
-          ...updated[currentIndex],
-          // @ts-ignore - Inyectamos métricas para el algoritmo Atenea
-          timeMs: timeSpent,
-          changes: optionChanges
-      };
+      // Empaquetamos las métricas de la pregunta actual antes de movernos.
+      // `timeMs` y `changes` son campos del tipo Question, así que ya no hace
+      // falta el @ts-ignore que ocultaba el desajuste con el servidor.
+      const updated = localQuestions.map((q, i) =>
+          i === currentIndex
+              ? { ...q, timeMs: Date.now() - startTimeRef.current, changes: optionChangesRef.current }
+              : q
+      );
       setLocalQuestions(updated);
 
       if (currentIndex < localQuestions.length - 1) {
@@ -188,12 +218,17 @@ const handleNext = () => {
           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
           {/* TOOLBAR DE CALIDAD */}
-          <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
-            <button onClick={() => handleVote('up')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
-            <button onClick={() => handleVote('down')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
-            <div className="w-px h-4 bg-slate-200 mx-1"></div>
-            <button onClick={() => setIsReportModalOpen(true)} className="p-2 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
-          </div>
+          {/* Solo si la pregunta tiene fila en la base de datos: sin id, votar o
+              reportar no puede llegar a ninguna parte, y unos botones que no
+              hacen nada son peores que no tenerlos. */}
+          {currentQ.id && (
+            <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
+              <button onClick={() => handleVote('up')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
+              <button onClick={() => handleVote('down')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
+              <div className="w-px h-4 bg-slate-200 mx-1"></div>
+              <button onClick={() => setIsReportModalOpen(true)} className="p-2 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
+            </div>
+          )}
 
           {/* Etiqueta de Origen */}
           <div className="mb-4">

@@ -11,9 +11,11 @@ import AdminUsers from './components/AdminUsers';
 import AdminContent from './components/AdminContent';
 import AdminActivity from './components/AdminActivity'; 
 import AdminModeration from './components/AdminModeration';
-import AdminBank from './components/AdminBank'; // <--- EL NUEVO FICHAJE
+import AdminBank from './components/AdminBank';
+import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
+import type { AuthUser } from '@/app/lib/auth';
 
-export default function AdminView({ user, onLogout }: { user: any, onLogout: () => void }) {
+export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
   // Añadimos 'bank' a los tipos permitidos
   const [activeTab, setActiveTab] = useState<'users' | 'moderation' | 'content' | 'activity' | 'bank'>('users');
@@ -109,18 +111,17 @@ export default function AdminView({ user, onLogout }: { user: any, onLogout: () 
       <main className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[600px]">
         {/* Usamos la 'key' para forzar remontaje si pulsamos Refrescar */}
         <div key={refreshKey}>
-            
-            {activeTab === 'users' && <AdminUsers userId={user.id}/>} 
-            
-            {activeTab === 'content' && <AdminContent userId={user.id}/>}
-            
-            {/* AQUÍ ESTÁ LA NUEVA PESTAÑA */}
-            {activeTab === 'bank' && <AdminBank userId={user.id}/>}
-            
-            {activeTab === 'moderation' && <AdminModeration userId={user.id}/>}
-            
-            {activeTab === 'activity' && <AdminActivity userId={user.id}/>} 
-            
+            <ModuleErrorBoundary moduleName={tabs.find(t => t.id === activeTab)?.label ?? 'La seccion'}>
+                {activeTab === 'users' && <AdminUsers />}
+
+                {activeTab === 'content' && <AdminContent />}
+
+                {activeTab === 'bank' && <AdminBank />}
+
+                {activeTab === 'moderation' && <AdminModeration />}
+
+                {activeTab === 'activity' && <AdminActivity />}
+            </ModuleErrorBoundary>
         </div>
       </main>
       

@@ -1,20 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js'; 
-import { getUserRole } from '@/actions';
+import { useState, useEffect, useMemo } from 'react';
+import { getCurrentUser } from '@/actions';
+import { createSupabaseBrowserClient } from '@/app/lib/supabase/client';
 import { BookOpen, User, Lock, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
 
 // CORRECCIÓN AQUÍ: Nombre exacto y ruta relativa exacta
 import StudentDashboard from './components/student/StudentDashboard';
 import AdminView from './components/Admin/AdminView'; // Asegúrate de que este archivo exista también
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function Home() {
+  // Cliente con sesion en COOKIES: es lo que permite que las Server Actions
+  // verifiquen quien llama. Con el cliente por defecto la sesion vivia en
+  // localStorage y el servidor no podia verla.
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const [user, setUser] = useState<any>(null);
   const [role, setRole] = useState<string>('student');
   const [loadingUser, setLoadingUser] = useState(true);
@@ -28,12 +28,12 @@ export default function Home() {
 
   useEffect(() => {
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        // Si getUserRole está en actions.ts al mismo nivel que page.tsx:
-        const r = await getUserRole(session.user.id);
-        setRole(r);
+      // El rol lo decide el servidor a partir de la cookie de sesion; el
+      // cliente ya no envia ningun id.
+      const current = await getCurrentUser();
+      if (current) {
+        setUser(current);
+        setRole(current.role);
       }
       setLoadingUser(false);
     }
@@ -56,12 +56,13 @@ export default function Home() {
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
           if (data.session) {
-            setUser(data.session.user);
-            const r = await getUserRole(data.session.user.id);
-            setRole(r);
+            const current = await getCurrentUser();
+            if (!current) throw new Error('No se pudo establecer la sesion.');
+            setUser(current);
+            setRole(current.role);
           }
         } else {
-          const { data, error } = await supabase.auth.signUp({ email, password });
+          const { error } = await supabase.auth.signUp({ email, password });
           if (error) throw error;
           alert("¡Cuenta creada! Revisa tu email o inicia sesión.");
           setAuthMode('login');

@@ -7,6 +7,7 @@ import {
   ShieldAlert, Target, Zap, Cpu
 } from 'lucide-react';
 import { askAtenea } from '@/actions';
+import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -15,8 +16,10 @@ interface IntelChatProps { user: any; }
 type Message = {
   role: 'ai' | 'user';
   content: string;
-  sources?: any[];
+  sources?: Array<{ filename: string; content_chunk: string }>;
   isError?: boolean;
+  /** Banner de bienvenida: se pinta, pero no es parte de la conversación. */
+  isSystem?: boolean;
   timestamp: Date;
 };
 
@@ -25,12 +28,13 @@ export default function IntelChat({ user }: IntelChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'ai', 
-      content: '# SISTEMA ATENEA INTEL\nConexión segura establecida. Base legislativa sincronizada. Esperando entrada de datos para análisis táctico.', 
+      content: '# SISTEMA ATENEA INTEL\nConexión segura establecida. Base legislativa sincronizada. Esperando entrada de datos para análisis táctico.',
+      isSystem: true,
       timestamp: new Date() 
     }
   ]);
   const [loading, setLoading] = useState(false);
-  const [activeSource, setActiveSource] = useState<any | null>(null);
+  const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string } | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +52,14 @@ export default function IntelChat({ user }: IntelChatProps) {
     setLoading(true);
 
     try {
-      const res = await askAtenea(userText);
+      // El historial viaja al servidor para que ATENEA entienda las
+      // repreguntas ("¿y en ese caso?") y para que la BÚSQUEDA en el temario
+      // sepa de qué se está hablando. Se toma antes de añadir el turno actual.
+      const history: ChatTurn[] = messages
+        .filter(m => !m.isError && !m.isSystem)
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const res = await askAtenea(userText, history);
       setLoading(false);
       if (res.success) {
         // Limpiamos etiquetas <br> que la IA pueda inyectar por error

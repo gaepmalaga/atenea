@@ -2,25 +2,24 @@
 
 import { useState } from 'react';
 import { generateAndSaveCandidate, saveExamResults, getQuestionsFromBank } from '@/actions';
+import { buildExamResults } from '@/app/lib/exam-results';
+import {
+  type Question as ExamQuestion,
+  difficultyToNumber,
+  shuffle,
+  mapBankRowToQuestion,
+  mapCandidateToQuestion,
+} from '@/app/lib/questions';
 import { Loader2 } from 'lucide-react';
 
 import ExamConfig from './ExamConfig';
 import ActiveTest from './ActiveTest';
 import ExamResults from './ExamResults';
 
-export type Question = {
-  id: string; // ID Obligatorio
-  question: string;
-  options: { id: string; text: string }[];
-  correctOptionId: string;
-  explanation: string;
-  userAnswer?: string | null;
-  errorType?: string | null;
-  subject_id?: number | null;
-  origin?: 'bank' | 'live_ai' | 'candidate';
-timeMs?: number; // Para el algoritmo Atenea
-  changes?: number; // Para el algoritmo Atenea
-};
+// Los tipos y el mapeo DB/IA -> UI viven en app/lib/questions.ts (modulo puro
+// y cubierto por tests). Se reexporta Question porque otros modulos lo importan
+// desde aqui.
+export type { Question } from '@/app/lib/questions';
 
 export type ExamSettings = {
   mode: 'practice' | 'exam';
@@ -30,72 +29,14 @@ export type ExamSettings = {
 };
 
 interface ExamManagerProps {
-  user: any;
   onZenToggle: (active: boolean) => void;
 }
 
-function difficultyToNumber(d: 'easy' | 'medium' | 'hard') {
-  if (d === 'easy') return 1;
-  if (d === 'hard') return 3;
-  return 2;
-}
-
-// Helper: Mapeo DB -> Frontend
-function mapBankRowToQuestion(row: any): Question {
-  const opts = Array.isArray(row.options) 
-    ? row.options.map((text: string, idx: number) => ({
-        id: idx === 0 ? 'a' : idx === 1 ? 'b' : 'c',
-        text: typeof text === 'string' ? text : JSON.stringify(text)
-      }))
-    : [];
-
-  const correctOptionId = row.correct_index === 0 ? 'a' : row.correct_index === 1 ? 'b' : 'c';
-
-  return {
-    id: row.id,
-    subject_id: row.subject_id ?? null,
-    question: row.question_text,
-    options: opts,
-    correctOptionId,
-    explanation: row.explanation,
-    userAnswer: null,
-    errorType: null,
-    origin: row.origin || 'bank'
-  };
-}
-
-// Helper: Mapeo IA Live -> Frontend
-function mapCandidateToQuestion(data: any): Question {
-  let formattedOptions;
-  if (data.options && data.options[0] && typeof data.options[0] === 'object') {
-    formattedOptions = data.options;
-  } else if (Array.isArray(data.options)) {
-     formattedOptions = data.options.map((text: string, idx: number) => ({
-        id: idx === 0 ? 'a' : idx === 1 ? 'b' : 'c',
-        text
-      }));
-  } else {
-    formattedOptions = [];
-  }
-
-  return {
-    id: data.id,
-    subject_id: data.subject_id ?? null,
-    question: data.question || data.question_text,
-    options: formattedOptions,
-    correctOptionId: data.correctOptionId || (data.correct_index === 0 ? 'a' : data.correct_index === 1 ? 'b' : 'c'),
-    explanation: data.explanation,
-    userAnswer: null,
-    errorType: null,
-    origin: 'candidate'
-  };
-}
-
-export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
+export default function ExamManager({ onZenToggle }: ExamManagerProps) {
   const [step, setStep] = useState<'config' | 'active' | 'results'>('config');
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando..."); 
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [settings, setSettings] = useState<ExamSettings>({
     mode: 'practice',
     questionCount: 5,
@@ -124,7 +65,7 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
         )
       );
 
-      let loadedQuestions: Question[] = bankFetches
+      let loadedQuestions: ExamQuestion[] = bankFetches
         .flatMap((r) => (r.success ? r.data : []))
         .map(mapBankRowToQuestion);
 
@@ -135,7 +76,7 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
         return true;
       });
 
-      loadedQuestions = loadedQuestions.sort(() => Math.random() - 0.5).slice(0, targetCount);
+      loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
 
       // 2. FASE IA (Relleno)
       const missing = targetCount - loadedQuestions.length;
@@ -146,9 +87,11 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
           return generateAndSaveCandidate(randomTopic);
         });
         const aiResults = await Promise.all(aiPromises);
-        const newCandidates = aiResults
-          .filter(r => r.success && r.data)
-          .map(r => mapCandidateToQuestion(r.data));
+        // flatMap en vez de filter+map: `filter` no estrecha el tipo, así que
+        // una respuesta sin `data` llegaba al mapeo como undefined.
+        const newCandidates = aiResults.flatMap(r =>
+          r.success && r.data ? [mapCandidateToQuestion(r.data)] : []
+        );
         loadedQuestions = [...loadedQuestions, ...newCandidates];
       }
 
@@ -158,33 +101,26 @@ export default function ExamManager({ user, onZenToggle }: ExamManagerProps) {
       setStep('active');
       onZenToggle(true);
 
-    } catch (error: any) {
-      alert(`Error iniciando el test: ${error.message}`);
+    } catch (error) {
+      alert(`Error iniciando el test: ${error instanceof Error ? error.message : 'desconocido'}`);
     } finally {
       setLoading(false);
     }
   };
 
-const handleFinish = async (finalQuestions: Question[]) => {
+const handleFinish = async (finalQuestions: ExamQuestion[]) => {
     setQuestions(finalQuestions);
     setStep('results');
     onZenToggle(false);
 
-    // GUARDADO GLOBAL REFORZADO (Incluye Dimensión de Comportamiento)
+    // En modo entrenamiento cada respuesta ya se guardo al contestarla.
     if (settings.mode === 'exam') {
-      const resultsPayload = finalQuestions.map(q => ({
-        question_id: q.id,
-        is_correct: q.userAnswer === q.correctOptionId,
-        // Capturamos el tiempo y los cambios que vienen del estado de la pregunta
-        // Asegúrate de que tu tipo Question incluya estos campos opcionales
-        response_time_ms: (q as any).timeMs || 0, 
-        option_changes: (q as any).changes || 0,
-        error_type: q.errorType,
-        subject_id: q.subject_id
-      }));
-      
-      // Enviamos el payload enriquecido al servidor
-      await saveExamResults(user.id, resultsPayload);
+      // El payload lo construye un helper tipado: antes se armaba aqui a mano
+      // con dos `as any` que tapaban el desajuste de nombres con el servidor.
+      const res = await saveExamResults(buildExamResults(finalQuestions));
+      if (!res.success) {
+        console.error('No se pudieron guardar los resultados del examen.');
+      }
     }
   };
 
@@ -212,7 +148,6 @@ const handleFinish = async (finalQuestions: Question[]) => {
         <ActiveTest
           questions={questions}
           mode={settings.mode}
-          userId={user.id}
           topicName={settings.selectedTopics[0]} 
           onFinish={handleFinish}
           onExit={handleExit}
