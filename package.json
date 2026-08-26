@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run test",
-    "dev:turbo": "next dev"
+    "dev:turbo": "next dev",
+    "schema": "node scripts/schema-snapshot.mjs",
+    "schema:migration": "node scripts/dump-migration.mjs",
+    "smoke": "node scripts/smoke-contratos.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
