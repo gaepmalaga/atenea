@@ -22,7 +22,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 2.3 | Métricas de comportamiento | ✅ cerrada |
 | 2.4 | Un resultado por respuesta | ✅ cerrada (falta reparar el histórico) |
 | 2.6 | Indexado de PDFs | ✅ cerrada |
-| **3** | **Calidad de la IA (validación, variedad, JSON)** | ✅ **cerrada, falta memoria del chat** |
+| **3** | **Calidad de la IA + memoria del chat** | ✅ **cerrada** |
 | **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
@@ -57,7 +57,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~94 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~92 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -219,7 +219,20 @@ respetando cadenas y escapes.
 flashcards usaban siempre `substring(0, 2500)` — los mismos 2500 caracteres del
 mismo documento, así que repasar un tema daba tarjetas casi idénticas.
 
-### 11 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 11 · En un chat con recuperación, la memoria empieza por la búsqueda
+
+Meter el historial en el prompt no basta. `askAtenea` embebía solo la frase
+actual, así que una repregunta —*"¿y qué plazo aplica en ese caso?"*— no
+recuperaba **nada** del temario: el prompt tenía contexto pero el buscador no.
+
+`buildRetrievalQuery` (`app/lib/chat.ts`) antepone la pregunta anterior cuando
+la actual depende de ella, y la deja tal cual cuando se sostiene sola —
+arrastrar contexto de más mete ruido si el alumno cambia de tema.
+
+Es una **heurística a propósito**, no una llamada extra al modelo: reescribir la
+pregunta con la IA costaría una petición de pago por cada mensaje.
+
+### 12 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -240,6 +253,7 @@ tests/render-safety.test.ts     lecturas sin proteger y aislamiento de módulos
 tests/exam-results.test.ts      contrato de resultados cliente↔servidor
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
+tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
 ```
 
 **Dos convenciones importantes:**

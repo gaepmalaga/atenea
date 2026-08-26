@@ -297,11 +297,15 @@ una y otra vez.
 **Cerrado** con `randomContextWindow`, compartido con el generador de preguntas. Se valida
 además que la tarjeta traiga las dos caras y que no sean iguales.
 
-### 2.13 · MEDIO — El chat RAG no tiene memoria
+### 2.13 · ~~MEDIO~~ ✅ CERRADO — El chat RAG no tenía memoria
 
-`askAtenea(query)` recibe solo la consulta actual. La UI mantiene el historial en pantalla
-pero nunca lo envía, así que no se puede preguntar "¿y en ese caso, qué plazo aplica?".
-Tampoco se persiste ninguna conversación.
+`askAtenea(query)` recibía solo la consulta actual. La UI mantenía el historial en pantalla
+pero nunca lo enviaba, así que no se podía preguntar "¿y en ese caso, qué plazo aplica?".
+
+**Cerrado**, y el arreglo de fondo no era el prompt: se embebía **solo la frase actual**, de
+modo que una repregunta no recuperaba ningún fragmento del temario. `buildRetrievalQuery`
+reconstruye la consulta de búsqueda anteponiendo la pregunta anterior cuando la actual
+depende de ella. Persistir las conversaciones sigue pendiente: necesita una tabla.
 
 ### 2.14 · ~~BAJO~~ ✅ PARCIALMENTE CERRADO — Varios
 

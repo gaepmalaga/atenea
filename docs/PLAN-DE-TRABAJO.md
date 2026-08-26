@@ -271,7 +271,7 @@ los datos existentes y tipar la estructura del perfil.
 
 ---
 
-## Fase 3 — Calidad de la IA ✅ HECHA (salvo la memoria del chat)
+## Fase 3 — Calidad de la IA ✅ HECHA
 
 - [x] **Modo JSON con esquema.** `questionModel` y `flashcardModel` en `core.ts` llevan
       `responseMimeType: application/json` y `responseSchema`: el formato lo impone el SDK,
@@ -289,10 +289,16 @@ los datos existentes y tipar la estructura del perfil.
       reverso no vengan vacíos ni sean iguales.
 - [x] 27 tests en `tests/ai-output.test.ts`.
 
+- [x] **Memoria en el chat §2.13.** Y la parte que importaba no era el prompt: `askAtenea`
+      embebía solo la frase actual, así que una repregunta no recuperaba **nada** del
+      temario. `buildRetrievalQuery` reconstruye qué se busca, anteponiendo la pregunta
+      anterior solo cuando la actual depende de ella. Heurística deliberada: reescribir la
+      consulta con la IA costaría una llamada de pago por mensaje.
+
 Pendiente de esta fase:
 
-- [ ] **Memoria en el chat §2.13.** Pasar el historial a `askAtenea` y persistir las
-      conversaciones. Sin esto no se puede repreguntar.
+- [ ] **Persistir las conversaciones.** Hoy la memoria dura lo que dura la pestaña abierta;
+      guardar el histórico necesita una tabla.
 - [ ] **Repasar los modelos.** `core.ts` usa el mismo para `chatModel` y `smartModel`;
       el comentario sobre embeddings admite dudas sobre cuál funciona. Medir y decidir.
 - [ ] **Coste.** Instrumentar el gasto por módulo antes de optimizar nada.
