@@ -1,0 +1,572 @@
+{
+  "generado": "2026-08-26",
+  "tablas": {
+    "ai_quota": {
+      "columnas": [
+        "bucket",
+        "count",
+        "reset_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "bucket",
+        "count",
+        "reset_at",
+        "user_id"
+      ],
+      "tipos": {
+        "bucket": "text",
+        "count": "int32",
+        "reset_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
+    "blocks": {
+      "columnas": [
+        "id",
+        "name"
+      ],
+      "obligatorias": [
+        "id",
+        "name"
+      ],
+      "tipos": {
+        "id": "int32",
+        "name": "text"
+      }
+    },
+    "content_documents": {
+      "columnas": [
+        "created_at",
+        "doc_type",
+        "id",
+        "published_at",
+        "slug",
+        "source",
+        "status",
+        "title",
+        "version"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "slug",
+        "status",
+        "title"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "doc_type": "text",
+        "id": "int64",
+        "published_at": "date",
+        "slug": "text",
+        "source": "text",
+        "status": "text",
+        "title": "text",
+        "version": "text"
+      }
+    },
+    "document_chunks": {
+      "columnas": [
+        "content_chunk",
+        "document_id",
+        "embedding",
+        "id"
+      ],
+      "obligatorias": [
+        "id"
+      ],
+      "tipos": {
+        "content_chunk": "text",
+        "document_id": "uuid",
+        "embedding": "public.vector(3072)",
+        "id": "int64"
+      }
+    },
+    "documents": {
+      "columnas": [
+        "filename",
+        "full_text",
+        "id",
+        "subject_id",
+        "uploaded_at"
+      ],
+      "obligatorias": [
+        "filename",
+        "id"
+      ],
+      "tipos": {
+        "filename": "text",
+        "full_text": "text",
+        "id": "uuid",
+        "subject_id": "int32",
+        "uploaded_at": "timestamp with time zone"
+      }
+    },
+    "exam_questions": {
+      "columnas": [
+        "exam_id",
+        "position",
+        "question_id"
+      ],
+      "obligatorias": [
+        "exam_id",
+        "position",
+        "question_id"
+      ],
+      "tipos": {
+        "exam_id": "uuid",
+        "position": "int32",
+        "question_id": "uuid"
+      }
+    },
+    "exams": {
+      "columnas": [
+        "finished_at",
+        "id",
+        "meta",
+        "mode",
+        "started_at",
+        "topic",
+        "total_questions",
+        "user_id"
+      ],
+      "obligatorias": [
+        "id",
+        "mode",
+        "started_at",
+        "topic",
+        "total_questions",
+        "user_id"
+      ],
+      "tipos": {
+        "finished_at": "timestamp with time zone",
+        "id": "uuid",
+        "meta": "jsonb",
+        "mode": "text",
+        "started_at": "timestamp with time zone",
+        "topic": "text",
+        "total_questions": "int32",
+        "user_id": "uuid"
+      }
+    },
+    "flashcard_bank": {
+      "columnas": [
+        "back",
+        "card_hash",
+        "created_at",
+        "front",
+        "id",
+        "source_refs",
+        "status",
+        "topic"
+      ],
+      "obligatorias": [
+        "back",
+        "card_hash",
+        "created_at",
+        "front",
+        "id",
+        "status",
+        "topic"
+      ],
+      "tipos": {
+        "back": "text",
+        "card_hash": "text",
+        "created_at": "timestamp with time zone",
+        "front": "text",
+        "id": "uuid",
+        "source_refs": "jsonb",
+        "status": "text",
+        "topic": "text"
+      }
+    },
+    "flashcard_progress": {
+      "columnas": [
+        "back",
+        "box",
+        "card_id",
+        "created_at",
+        "front",
+        "id",
+        "next_review",
+        "topic",
+        "user_id"
+      ],
+      "obligatorias": [
+        "back",
+        "front",
+        "id",
+        "topic",
+        "user_id"
+      ],
+      "tipos": {
+        "back": "text",
+        "box": "int32",
+        "card_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "front": "text",
+        "id": "uuid",
+        "next_review": "timestamp with time zone",
+        "topic": "text",
+        "user_id": "uuid"
+      }
+    },
+    "flashcard_results": {
+      "columnas": [
+        "back",
+        "box_after",
+        "box_before",
+        "created_at",
+        "front",
+        "grade",
+        "id",
+        "next_review",
+        "subject_id",
+        "topic",
+        "user_id"
+      ],
+      "obligatorias": [
+        "back",
+        "created_at",
+        "front",
+        "grade",
+        "id",
+        "topic",
+        "user_id"
+      ],
+      "tipos": {
+        "back": "text",
+        "box_after": "int32",
+        "box_before": "int32",
+        "created_at": "timestamp with time zone",
+        "front": "text",
+        "grade": "text",
+        "id": "int64",
+        "next_review": "timestamp with time zone",
+        "subject_id": "int64",
+        "topic": "text",
+        "user_id": "uuid"
+      }
+    },
+    "profiles": {
+      "columnas": [
+        "created_at",
+        "email",
+        "id",
+        "role"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "email": "text",
+        "id": "uuid",
+        "role": "text"
+      }
+    },
+    "profiles_biodata": {
+      "columnas": [
+        "family_background",
+        "fears_concerns",
+        "legal_issues",
+        "leisure_activities",
+        "police_motivation",
+        "psych_answers",
+        "psych_profile",
+        "strengths_weaknesses",
+        "studies_motivation",
+        "updated_at",
+        "user_id",
+        "work_history"
+      ],
+      "obligatorias": [
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "family_background": "text",
+        "fears_concerns": "text",
+        "legal_issues": "text",
+        "leisure_activities": "text",
+        "police_motivation": "text",
+        "psych_answers": "jsonb",
+        "psych_profile": "jsonb",
+        "strengths_weaknesses": "text",
+        "studies_motivation": "text",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid",
+        "work_history": "text"
+      }
+    },
+    "profiles_physical": {
+      "columnas": [
+        "age",
+        "availability",
+        "baseline_metrics",
+        "baseline_test",
+        "birth_year",
+        "equipment",
+        "exam_date",
+        "gender",
+        "height",
+        "injuries",
+        "training_level",
+        "updated_at",
+        "user_id",
+        "weight"
+      ],
+      "obligatorias": [
+        "user_id"
+      ],
+      "tipos": {
+        "age": "int32",
+        "availability": "int32",
+        "baseline_metrics": "jsonb",
+        "baseline_test": "jsonb",
+        "birth_year": "int32",
+        "equipment": "text",
+        "exam_date": "date",
+        "gender": "text",
+        "height": "numeric",
+        "injuries": "text",
+        "training_level": "text",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid",
+        "weight": "numeric"
+      }
+    },
+    "profiles_psych": {
+      "columnas": [
+        "factor_ansiedad",
+        "factor_atrevimiento",
+        "factor_estabilidad",
+        "factor_norma",
+        "factor_vigilancia",
+        "last_test_date",
+        "sinceridad_score",
+        "user_id"
+      ],
+      "obligatorias": [
+        "user_id"
+      ],
+      "tipos": {
+        "factor_ansiedad": "int32",
+        "factor_atrevimiento": "int32",
+        "factor_estabilidad": "int32",
+        "factor_norma": "int32",
+        "factor_vigilancia": "int32",
+        "last_test_date": "timestamp with time zone",
+        "sinceridad_score": "int32",
+        "user_id": "uuid"
+      }
+    },
+    "question_attempts": {
+      "columnas": [
+        "created_at",
+        "error_type",
+        "exam_id",
+        "id",
+        "is_correct",
+        "option_changes",
+        "question_id",
+        "response_time_ms",
+        "selected_index",
+        "topic",
+        "user_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "is_correct",
+        "option_changes",
+        "topic",
+        "user_id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "error_type": "text",
+        "exam_id": "uuid",
+        "id": "uuid",
+        "is_correct": "boolean",
+        "option_changes": "int32",
+        "question_id": "uuid",
+        "response_time_ms": "int32",
+        "selected_index": "int32",
+        "topic": "text",
+        "user_id": "uuid"
+      }
+    },
+    "question_bank": {
+      "columnas": [
+        "correct_index",
+        "created_at",
+        "difficulty_level",
+        "document_id",
+        "explanation",
+        "global_success_rate",
+        "id",
+        "options",
+        "origin",
+        "question_hash",
+        "question_text",
+        "status",
+        "subject_id"
+      ],
+      "obligatorias": [
+        "correct_index",
+        "id",
+        "options",
+        "question_text"
+      ],
+      "tipos": {
+        "correct_index": "int32",
+        "created_at": "timestamp with time zone",
+        "difficulty_level": "int32",
+        "document_id": "uuid",
+        "explanation": "text",
+        "global_success_rate": "double precision",
+        "id": "uuid",
+        "options": "jsonb",
+        "origin": "text",
+        "question_hash": "text",
+        "question_text": "text",
+        "status": "text",
+        "subject_id": "int32"
+      }
+    },
+    "question_reports": {
+      "columnas": [
+        "created_at",
+        "id",
+        "message",
+        "question_id",
+        "report_type",
+        "status",
+        "user_id"
+      ],
+      "obligatorias": [
+        "id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "message": "text",
+        "question_id": "uuid",
+        "report_type": "text",
+        "status": "text",
+        "user_id": "uuid"
+      }
+    },
+    "question_votes": {
+      "columnas": [
+        "question_id",
+        "user_id",
+        "vote"
+      ],
+      "obligatorias": [
+        "question_id",
+        "user_id"
+      ],
+      "tipos": {
+        "question_id": "uuid",
+        "user_id": "uuid",
+        "vote": "int32"
+      }
+    },
+    "subjects": {
+      "columnas": [
+        "block_id",
+        "description",
+        "id",
+        "title",
+        "topic_number"
+      ],
+      "obligatorias": [
+        "id",
+        "title",
+        "topic_number"
+      ],
+      "tipos": {
+        "block_id": "int32",
+        "description": "text",
+        "id": "int32",
+        "title": "text",
+        "topic_number": "int32"
+      }
+    },
+    "test_results": {
+      "columnas": [
+        "created_at",
+        "id",
+        "is_correct",
+        "option_changes",
+        "question_id",
+        "response_time_ms",
+        "user_id"
+      ],
+      "obligatorias": [
+        "id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "is_correct": "boolean",
+        "option_changes": "int32",
+        "question_id": "uuid",
+        "response_time_ms": "int32",
+        "user_id": "uuid"
+      }
+    },
+    "training_plans": {
+      "columnas": [
+        "created_at",
+        "id",
+        "plan_data",
+        "status",
+        "user_id",
+        "week_start"
+      ],
+      "obligatorias": [
+        "id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "plan_data": "jsonb",
+        "status": "text",
+        "user_id": "uuid",
+        "week_start": "date"
+      }
+    },
+    "workout_logs": {
+      "columnas": [
+        "created_at",
+        "date",
+        "id",
+        "metrics",
+        "notes",
+        "plan_id",
+        "rpe",
+        "session_type",
+        "user_id"
+      ],
+      "obligatorias": [
+        "id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "date": "date",
+        "id": "uuid",
+        "metrics": "jsonb",
+        "notes": "text",
+        "plan_id": "uuid",
+        "rpe": "int32",
+        "session_type": "text",
+        "user_id": "uuid"
+      }
+    }
+  }
+}

@@ -23,10 +23,18 @@ export type AnswerMetrics = {
   errorType?: string | null;
 };
 
-/** Una fila de `test_results` tal y como la escribe el servidor. */
+/**
+ * Una fila de `question_attempts` tal y como la escribe el servidor.
+ *
+ * El tema viaja como TITULO en `topic`, no como `subject_id`: es lo que
+ * guarda la tabla y lo que la interfaz pinta en el historial. Antes esto
+ * declaraba `subject_id` y se escribia contra `test_results`, que no tiene ni
+ * esa columna ni `error_type`: PostgREST rechazaba cada insercion entera y
+ * ningun resultado llego a guardarse nunca.
+ */
 export type ResultRow = {
   question_id: string | null;
-  subject_id: number | null;
+  topic: string;
   is_correct: boolean;
   response_time_ms: number;
   option_changes: number;
@@ -36,7 +44,8 @@ export type ResultRow = {
 /** Lo que el cliente envia por cada pregunta al terminar un examen. */
 export type ExamResultPayload = {
   questionId: string | null;
-  subjectId: number | null;
+  /** Titulo del tema. Se guarda tal cual en la columna `topic`. */
+  topic: string;
   isCorrect: boolean;
 } & AnswerMetrics;
 
@@ -58,11 +67,12 @@ function safeCount(value: unknown): number {
  * en bloque al terminar un examen.
  */
 export function toResultRow(
-  input: { questionId: string | null; subjectId: number | null; isCorrect: boolean } & Partial<AnswerMetrics>
+  input: { questionId: string | null; topic: string; isCorrect: boolean } & Partial<AnswerMetrics>
 ): ResultRow {
   return {
     question_id: input.questionId ?? null,
-    subject_id: input.subjectId ?? null,
+    // NOT NULL en la tabla: mejor una cadena vacia que tumbar la insercion.
+    topic: input.topic ?? '',
     is_correct: Boolean(input.isCorrect),
     response_time_ms: safeCount(input.responseTimeMs),
     option_changes: safeCount(input.optionChanges),
@@ -73,7 +83,7 @@ export function toResultRow(
 /** Pregunta terminada, tal y como la deja `ActiveTest`. */
 type FinishedQuestion = {
   id: string | null;
-  subject_id?: number | null;
+  topic?: string | null;
   userAnswer?: string | null;
   correctOptionId: string;
   errorType?: string | null;
@@ -86,10 +96,14 @@ type FinishedQuestion = {
  * servidor. Antes esto se hacia en linea en `handleFinish`, con dos `as any`
  * que tapaban precisamente el desajuste de nombres.
  */
-export function buildExamResults(questions: FinishedQuestion[]): ExamResultPayload[] {
+export function buildExamResults(
+  questions: FinishedQuestion[],
+  /** Tema del examen, para las preguntas que no traigan el suyo. */
+  temaPorDefecto = ''
+): ExamResultPayload[] {
   return questions.map((q) => ({
     questionId: q.id ?? null,
-    subjectId: q.subject_id ?? null,
+    topic: q.topic ?? temaPorDefecto,
     isCorrect: q.userAnswer === q.correctOptionId,
     responseTimeMs: safeCount(q.timeMs),
     optionChanges: safeCount(q.changes),

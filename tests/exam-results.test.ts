@@ -15,11 +15,15 @@ import {
  * y `saveExamResults` leia `r.time` / `r.changes`. El parametro era `any[]`, asi
  * que nadie se entero: las dos dimensiones de "Atenea Mind" se guardaron a 0 en
  * todos los examenes durante meses.
+ *
+ * Desde la fase 2.5 las filas van a `question_attempts`, que identifica el
+ * tema por su TITULO en `topic`. La version anterior mandaba `subject_id` a
+ * `test_results`, que no tiene esa columna: no se guardo ni un resultado.
  */
 
 const q = (over: Record<string, unknown> = {}) => ({
   id: 'q-1',
-  subject_id: 2,
+  topic: 'Constitucion',
   userAnswer: 'a',
   correctOptionId: 'a',
   errorType: null,
@@ -33,7 +37,7 @@ describe('toResultRow', () => {
     expect(
       toResultRow({
         questionId: 'q-1',
-        subjectId: 3,
+        topic: 'Derecho Penal',
         isCorrect: true,
         responseTimeMs: 8_400,
         optionChanges: 2,
@@ -41,7 +45,7 @@ describe('toResultRow', () => {
       })
     ).toEqual({
       question_id: 'q-1',
-      subject_id: 3,
+      topic: 'Derecho Penal',
       is_correct: true,
       response_time_ms: 8_400,
       option_changes: 2,
@@ -50,7 +54,7 @@ describe('toResultRow', () => {
   });
 
   it('rellena las metricas ausentes con 0, no con undefined', () => {
-    const row = toResultRow({ questionId: null, subjectId: null, isCorrect: false });
+    const row = toResultRow({ questionId: null, topic: 'Tema suelto', isCorrect: false });
     expect(row.response_time_ms).toBe(0);
     expect(row.option_changes).toBe(0);
     expect(row.error_type).toBeNull();
@@ -61,7 +65,7 @@ describe('toResultRow', () => {
     // error de insercion que se descubriria en produccion.
     const row = toResultRow({
       questionId: 'q',
-      subjectId: 1,
+      topic: 'Constitucion',
       isCorrect: true,
       responseTimeMs: NaN,
       optionChanges: Infinity,
@@ -71,12 +75,12 @@ describe('toResultRow', () => {
   });
 
   it('descarta tiempos negativos', () => {
-    const row = toResultRow({ questionId: 'q', subjectId: 1, isCorrect: true, responseTimeMs: -500 });
+    const row = toResultRow({ questionId: 'q', topic: 'Constitucion', isCorrect: true, responseTimeMs: -500 });
     expect(row.response_time_ms).toBe(0);
   });
 
   it('EMPTY_METRICS produce una fila valida', () => {
-    const row = toResultRow({ questionId: null, subjectId: null, isCorrect: false, ...EMPTY_METRICS });
+    const row = toResultRow({ questionId: null, topic: '', isCorrect: false, ...EMPTY_METRICS });
     expect(row.response_time_ms).toBe(0);
     expect(row.option_changes).toBe(0);
   });
@@ -102,9 +106,20 @@ describe('buildExamResults', () => {
   });
 
   it('una pregunta sin id llega como null y no como undefined', () => {
-    const [row] = buildExamResults([q({ id: null, subject_id: undefined })]);
+    const [row] = buildExamResults([q({ id: null })]);
     expect(row.questionId).toBeNull();
-    expect(row.subjectId).toBeNull();
+  });
+
+  it('una pregunta sin tema propio hereda el del examen', () => {
+    // `topic` es NOT NULL en question_attempts: nunca puede salir null.
+    const [row] = buildExamResults([q({ topic: undefined })], 'Extranjeria');
+    expect(row.topic).toBe('Extranjeria');
+  });
+
+  it('sin tema propio ni del examen queda cadena vacia, nunca null', () => {
+    const [row] = buildExamResults([q({ topic: undefined })]);
+    expect(row.topic).toBe('');
+    expect(toResultRow({ questionId: 'q', topic: '', isCorrect: true }).topic).toBe('');
   });
 
   it('sin metricas medidas devuelve ceros', () => {

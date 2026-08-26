@@ -23,18 +23,21 @@ const STATS_SAMPLE = 100;
 const RECENT_ITEMS = 5;
 
 /**
- * `test_results` guarda `question_id` y `subject_id`, pero NO el enunciado ni el
- * nombre del tema. La UI los pintaba igualmente (`item.question_text.replace(...)`)
- * y reventaba en cuanto habia un solo resultado guardado.
+ * `question_attempts` guarda `question_id` y el titulo del tema en `topic`,
+ * pero NO el enunciado de la pregunta. La UI lo pintaba igualmente
+ * (`item.question_text.replace(...)`) y reventaba en cuanto habia un solo
+ * resultado guardado.
  *
  * Se traen por join en vez de desnormalizar: no hace falta migracion ni quedan
  * copias que se puedan quedar obsoletas si un admin edita la pregunta.
  */
-const ENRICHED_SELECT = '*, question:question_bank(question_text), subject:subjects(title, topic_number)';
+// Solo se trae el enunciado: el tema ya viaja como texto en `topic`, asi que
+// el join a `subjects` que habia aqui sobraba (y no habria resuelto: la tabla
+// no guarda `subject_id`).
+const ENRICHED_SELECT = '*, question:question_bank(question_text)';
 
 type EnrichedRow = TestResultRow & {
   question?: { question_text?: string | null } | null;
-  subject?: { title?: string | null; topic_number?: number | null } | null;
 };
 
 /** Aplana el resultado del join a las claves que espera la UI. */
@@ -42,7 +45,6 @@ function flatten(row: EnrichedRow): TestResultRow & Record<string, unknown> {
   return {
     ...row,
     question_text: row.question?.question_text ?? null,
-    topic: row.subject?.title ?? null,
   };
 }
 
@@ -53,7 +55,7 @@ export async function getUserStats() {
   try {
     const query = (select: string) =>
       supabaseAdmin
-        .from('test_results')
+        .from('question_attempts')
         .select(select)
         .eq('user_id', auth.user.id)
         .order('created_at', { ascending: false })
@@ -66,9 +68,9 @@ export async function getUserStats() {
       // El join necesita que las claves ajenas esten declaradas en la BD para
       // que PostgREST las resuelva. Si no lo estan, se degrada a la consulta
       // plana en vez de dejar al alumno sin estadisticas.
-      // TODO (fase 1.3): al versionar el esquema, confirmar las FK
-      // test_results.question_id -> question_bank.id y .subject_id -> subjects.id
-      // y quitar este respaldo.
+      // La FK question_attempts.question_id -> question_bank.id quedo
+      // declarada en la fase 2.5, asi que el join deberia resolver siempre.
+      // El respaldo se queda como red por si el esquema vuelve a moverse.
       console.error('getUserStats: join no disponible, usando consulta plana:', enriched.error.message);
       const plain = await query('*');
       if (plain.error) throw plain.error;

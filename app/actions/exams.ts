@@ -1,6 +1,6 @@
 'use server'
 import crypto from 'crypto';
-import { supabaseAdmin as supabase, questionModel, getSubjectIdByName } from './core';
+import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjectNameById } from './core';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
@@ -361,17 +361,20 @@ export async function saveTestResult(
   if (!auth.ok) return { success: false, id: null };
 
   try {
-    const subjectId = typeof topicOrId === 'number'
-      ? topicOrId
-      : await getSubjectIdByName(topicOrId.toString());
+    // `question_attempts` guarda el TITULO del tema, no su id. Si entran por
+    // id hay que resolverlo: guardar el numero dejaria un `topic` que ninguna
+    // consulta posterior encuentra.
+    const topic = typeof topicOrId === 'number'
+      ? await getSubjectNameById(topicOrId)
+      : topicOrId.toString();
 
     // El mapeo camelCase -> columnas ocurre en un solo sitio (lib/exam-results),
     // compartido con el guardado en bloque del examen. Aqui se armaba a mano y
     // por eso los nombres pudieron divergir entre los dos caminos.
-    const row = toResultRow({ questionId, subjectId, isCorrect, ...metrics });
+    const row = toResultRow({ questionId, topic, isCorrect, ...metrics });
 
     const { data, error } = await supabase
-      .from('test_results')
+      .from('question_attempts')
       .insert({ ...row, user_id: auth.user.id, created_at: new Date().toISOString() })
       .select('id')
       .single();
@@ -405,7 +408,7 @@ export async function setResultErrorType(
   // El filtro por user_id impide etiquetar el resultado de otro usuario aunque
   // se conozca su id.
   const { error } = await supabase
-    .from('test_results')
+    .from('question_attempts')
     .update({ error_type: errorType })
     .eq('id', resultId)
     .eq('user_id', auth.user.id);
@@ -428,7 +431,7 @@ export async function saveExamResults(results: ExamResultPayload[]) {
         created_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase.from('test_results').insert(rows);
+    const { error } = await supabase.from('question_attempts').insert(rows);
 
     if (error) console.error('saveExamResults:', error.message);
     return { success: !error };

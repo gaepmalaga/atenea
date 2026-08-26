@@ -242,7 +242,7 @@ export async function getGlobalActivity() {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
-    const { data } = await supabase.from('test_results').select('*').order('created_at', {ascending:false}).limit(20);
+    const { data } = await supabase.from('question_attempts').select('*').order('created_at', {ascending:false}).limit(20);
     return { success: true as const, activity: data || [] };
 }
 

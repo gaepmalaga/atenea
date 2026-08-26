@@ -59,15 +59,19 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
 
       // 1. FASE BANCO
       const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
+      // Se conserva de que tema salio cada pregunta. `question_bank` guarda
+      // `subject_id` y `question_attempts` guarda `topic`: si no se arrastra
+      // aqui, al terminar el examen ya no hay forma de saberlo.
       const bankFetches = await Promise.all(
-        newSettings.selectedTopics.map((topic) =>
-          getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic })
-        )
+        newSettings.selectedTopics.map(async (topic) => ({
+          topic,
+          resultado: await getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic }),
+        }))
       );
 
-      let loadedQuestions: ExamQuestion[] = bankFetches
-        .flatMap((r) => (r.success ? r.data : []))
-        .map(mapBankRowToQuestion);
+      let loadedQuestions: ExamQuestion[] = bankFetches.flatMap(({ topic, resultado }) =>
+        resultado.success ? resultado.data.map((fila) => ({ ...mapBankRowToQuestion(fila), topic })) : []
+      );
 
       const seenIds = new Set();
       loadedQuestions = loadedQuestions.filter(q => {
@@ -82,15 +86,18 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
       const missing = targetCount - loadedQuestions.length;
       if (missing > 0) {
         setLoadingMsg(`Generando ${missing} nuevas preguntas...`);
-        const aiPromises = Array.from({ length: missing }).map(() => {
+        const aiPromises = Array.from({ length: missing }).map(async () => {
           const randomTopic = newSettings.selectedTopics[Math.floor(Math.random() * newSettings.selectedTopics.length)];
-          return generateAndSaveCandidate(randomTopic);
+          // El tema viaja con la respuesta: hace falta para etiquetar la fila.
+          return { topic: randomTopic, resultado: await generateAndSaveCandidate(randomTopic) };
         });
         const aiResults = await Promise.all(aiPromises);
         // flatMap en vez de filter+map: `filter` no estrecha el tipo, así que
         // una respuesta sin `data` llegaba al mapeo como undefined.
-        const newCandidates = aiResults.flatMap(r =>
-          r.success && r.data ? [mapCandidateToQuestion(r.data)] : []
+        const newCandidates = aiResults.flatMap(({ topic, resultado }) =>
+          resultado.success && resultado.data
+            ? [{ ...mapCandidateToQuestion(resultado.data), topic }]
+            : []
         );
         loadedQuestions = [...loadedQuestions, ...newCandidates];
       }
@@ -117,7 +124,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
     if (settings.mode === 'exam') {
       // El payload lo construye un helper tipado: antes se armaba aqui a mano
       // con dos `as any` que tapaban el desajuste de nombres con el servidor.
-      const res = await saveExamResults(buildExamResults(finalQuestions));
+      const res = await saveExamResults(buildExamResults(finalQuestions, settings.selectedTopics[0] ?? ''));
       if (!res.success) {
         console.error('No se pudieron guardar los resultados del examen.');
       }

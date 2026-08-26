@@ -9,7 +9,8 @@ export type Question = {
   /**
    * `null` cuando la pregunta se genero en vivo y no llego a guardarse (choque
    * de hash que tampoco se pudo recuperar). Sin id no se puede votar, reportar
-   * ni referenciar desde `test_results`, asi que la UI tiene que comprobarlo.
+   * ni referenciar desde `question_attempts`, asi que la UI tiene que
+   * comprobarlo.
    */
   id: string | null;
   question: string;
@@ -19,6 +20,14 @@ export type Question = {
   userAnswer?: string | null;
   errorType?: string | null;
   subject_id?: number | null;
+  /**
+   * Titulo del tema del que salio la pregunta.
+   *
+   * Se etiqueta al cargarla porque `question_bank` guarda `subject_id` y
+   * `question_attempts` guarda `topic`: sin arrastrarlo, al terminar el examen
+   * no hay forma de saber a que tema pertenecia cada respuesta.
+   */
+  topic?: string | null;
   origin?: 'bank' | 'live_ai' | 'candidate';
   timeMs?: number;
   changes?: number;
