@@ -2,7 +2,7 @@
 import 'server-only'; 
 
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
 // --- CONFIGURACIÓN BLINDADA ---
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -17,10 +17,59 @@ if (!API_KEY || !SB_URL || !SB_SERVICE_KEY || !SB_ANON_KEY) {
 // --- CLIENTES IA ---
 export const genAI = new GoogleGenerativeAI(API_KEY);
 
-// ✅ CORRECCIÓN FINAL: Usamos los modelos VIGENTES según tu documentación.
-// 'gemini-2.5-flash' es el modelo estable, rápido y potente actual.
-export const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
-export const smartModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+const TEXT_MODEL = "gemini-2.5-flash";
+
+export const chatModel = genAI.getGenerativeModel({ model: TEXT_MODEL });
+export const smartModel = genAI.getGenerativeModel({ model: TEXT_MODEL });
+
+// --- MODELOS EN MODO JSON ---
+// Con `responseSchema` el modelo no puede devolver otra forma: se acabaron las
+// vallas de markdown, el texto de cortesía por delante y las comas colgantes que
+// el parser tenía que limpiar a base de expresiones regulares.
+
+export const questionModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        question: { type: SchemaType.STRING },
+        options: {
+          type: SchemaType.ARRAY,
+          items: { type: SchemaType.STRING },
+          minItems: 3,
+          maxItems: 3,
+        },
+        // El índice sigue validándose en el servidor: el esquema fija el tipo,
+        // no el rango.
+        correctIndex: { type: SchemaType.INTEGER },
+        explanation: { type: SchemaType.STRING },
+      },
+      required: ["question", "options", "correctIndex", "explanation"],
+    },
+  },
+});
+
+export const flashcardModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: {
+    responseMimeType: "application/json",
+    responseSchema: {
+      type: SchemaType.OBJECT,
+      properties: {
+        front: { type: SchemaType.STRING },
+        back: { type: SchemaType.STRING },
+      },
+      required: ["front", "back"],
+    },
+  },
+});
+
+export const planModel = genAI.getGenerativeModel({
+  model: TEXT_MODEL,
+  generationConfig: { responseMimeType: "application/json" },
+});
 
 // Para embeddings, si 'models/gemini-embedding-001' te funcionó (dio 32 vectores),
 // lo dejamos así. Si fallara, probaríamos con 'text-embedding-004'.
@@ -39,7 +88,7 @@ export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, {
 // --- UTILIDADES COMPARTIDAS (SÍNCRONAS) ---
 // Viven en app/lib/text.ts (módulo puro y testeado). Se reexportan aquí para
 // no romper los imports existentes.
-export { cleanAIResponse, cleanLegalText, chunkLegalText } from '../lib/text';
+export { cleanLegalText, chunkLegalText } from '../lib/text';
 
 export async function getSubjectIdByName(topicName: string): Promise<number> {
   const search = topicName.trim();

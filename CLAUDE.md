@@ -21,11 +21,12 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 2.2 | Panel de estadísticas + Error Boundaries | ✅ cerrada |
 | 2.3 | Métricas de comportamiento | ✅ cerrada |
 | 2.4 | Un resultado por respuesta | ✅ cerrada (falta reparar el histórico) |
-| **2.6** | **Indexado de PDFs** | ✅ **cerrada** |
+| 2.6 | Indexado de PDFs | ✅ cerrada |
+| **3** | **Calidad de la IA (validación, variedad, JSON)** | ✅ **cerrada, falta memoria del chat** |
 | **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| 2.5, 2.7, 3 – 5 | Dificultad, perfil físico, IA, pedagogía, higiene | ⬜ |
+| 2.5, 2.7, 4, 5 | Dificultad, perfil físico, pedagogía, higiene | ⬜ |
 
 ### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
 
@@ -56,7 +57,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~130 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~94 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -199,7 +200,26 @@ Y `uploadTopicPDF` distingue un indexado **completo** de uno **parcial**. Antes
 pintaba el mismo `✅` en ambos casos y el fallo solo salía a la luz cuando el chat
 no encontraba el artículo.
 
-### 10 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 10 · Lo que devuelve el modelo no vale hasta que se comprueba
+
+Los modelos van en **modo JSON con esquema** (`questionModel`, `flashcardModel`
+en `core.ts`): el formato lo impone el SDK, no el prompt. La salida se lee con
+`parseAIJson` y se valida con `validateGeneratedQuestion` / `validateFlashcard`
+(`app/lib/ai-output.ts`) **antes de guardar nada**.
+
+La regla que más importa: **un `correctIndex` fuera de rango descarta la
+pregunta**. Antes se colapsaba en `'c'` en silencio y el alumno estudiaba un
+dato falso. También se rechazan opciones repetidas o vacías, y enunciados vacíos.
+
+`cleanAIResponse` se retiró: era un regex ciego que corrompía el contenido
+cuando una cadena contenía `, }` o una llave. `parseAIJson` parsea de verdad,
+respetando cadenas y escapes.
+
+**El contexto que se manda al modelo se toma con `randomContextWindow`.** Las
+flashcards usaban siempre `substring(0, 2500)` — los mismos 2500 caracteres del
+mismo documento, así que repasar un tema daba tarjetas casi idénticas.
+
+### 11 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -219,6 +239,7 @@ tests/stats.test.ts             agregación de resultados, rangos, perfil físic
 tests/render-safety.test.ts     lecturas sin proteger y aislamiento de módulos
 tests/exam-results.test.ts      contrato de resultados cliente↔servidor
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
+tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 ```
 
 **Dos convenciones importantes:**
@@ -226,8 +247,8 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 1. **Los tests marcados `BUG:` describen el comportamiento *actual*, no el
    deseado.** Al corregir ese fallo, el test **debe** fallar: se invierte la
    aserción y se le quita el prefijo. Es el aviso de que el arreglo surtió efecto.
-   En `text.test.ts` ya se invirtieron los tres del troceado (fase 2.6); quedan los de
-   `cleanAIResponse` (fase 3) y `srs.test.ts` (fase 4).
+   Ya se invirtieron los del troceado (fase 2.6) y los del parseo de la IA (fase 3).
+   Quedan los de `srs.test.ts` (fase 4).
 
 2. **Los tests estáticos leen el código fuente** y fallan si vuelve un patrón
    peligroso. No necesitan Supabase. Si añades uno, recuerda quitar los

@@ -86,9 +86,11 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
           return generateAndSaveCandidate(randomTopic);
         });
         const aiResults = await Promise.all(aiPromises);
-        const newCandidates = aiResults
-          .filter(r => r.success && r.data)
-          .map(r => mapCandidateToQuestion(r.data));
+        // flatMap en vez de filter+map: `filter` no estrecha el tipo, así que
+        // una respuesta sin `data` llegaba al mapeo como undefined.
+        const newCandidates = aiResults.flatMap(r =>
+          r.success && r.data ? [mapCandidateToQuestion(r.data)] : []
+        );
         loadedQuestions = [...loadedQuestions, ...newCandidates];
       }
 

@@ -288,12 +288,14 @@ llega a la UI con su id real. Si además está descartada, ya no se sirve.
 `isCompleted`. Las series, repeticiones y sensaciones que introduce el usuario se pierden al
 recargar. *(La firma ya está corregida y documentada; falta la tabla de destino.)*
 
-### 2.12 · MEDIO — Variedad nula en las flashcards
+### 2.12 · ~~MEDIO~~ ✅ CERRADO — Variedad nula en las flashcards
 
-`generateFlashcard` siempre toma `full_text.substring(0, 2500)` — los mismos 2500 primeros
-caracteres, sin desplazamiento aleatorio (a diferencia de `generateTestQuestion`, que sí lo
-hace). Repasar un tema produce tarjetas casi idénticas una y otra vez. Tampoco hay hash de
-deduplicación como en las preguntas.
+`generateFlashcard` tomaba siempre `full_text.substring(0, 2500)` — los mismos 2500 primeros
+caracteres, sin desplazamiento aleatorio. Repasar un tema producía tarjetas casi idénticas
+una y otra vez.
+
+**Cerrado** con `randomContextWindow`, compartido con el generador de preguntas. Se valida
+además que la tarjeta traiga las dos caras y que no sean iguales.
 
 ### 2.13 · MEDIO — El chat RAG no tiene memoria
 
@@ -314,15 +316,14 @@ completa y está cubierta por 17 tests.
 - ✅ La media de tiempo contaba como `0 ms` las respuestas sin medir, hundiéndola a la mitad.
 - `cleanLegalText` contenía `.replace(/[]/g, '')`. Una clase de caracteres **vacía** en JS
   no casa con nada: la línea nunca hizo nada. Con test que lo documenta.
+- ✅ `indexToOptionId` colapsaba **cualquier** índice fuera de rango en `'c'`. Cerrado en la
+  fase 3: `validateGeneratedQuestion` descarta la pregunta antes de guardarla.
 - ✅ El índice de incertidumbre dividía los cambios de las **5** últimas preguntas entre el
   total de hasta **100**: el número no significaba lo que decía significar.
 - ✅ `PROGRESO AL ASCENSO` calculaba `winRate / (min + 20)`; en rango Inspector (min 90) el
   denominador era 110 y nunca llegaba al 100%. Ahora mide el tramo real entre rangos.
 - ✅ La barra del KPI físico estaba cableada al 65%. Retirada: el KPI lee el campo que de
   verdad se escribe y distingue "sin datos" de "cero dominadas".
-- `indexToOptionId` (antes un ternario en línea) colapsa **cualquier** índice fuera de
-  rango en `'c'`. Si la IA devuelve `correctIndex: 3`, la respuesta buena pasa a ser "c" en
-  silencio. Con test.
 - El troceado del `sort(() => Math.random() - 0.5)` es un barajado sesgado; conviene
   Fisher-Yates.
 
@@ -382,6 +383,7 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 2.3 · Métricas de comportamiento | ✅ cerrada (§2.3 y §2.9) |
 | 2.4 · Un resultado por respuesta | ✅ cerrada en código (§2.4) |
 | **2.6 · Indexado de PDFs** | ✅ **cerrada** (§2.6) |
+| **3 · Calidad de la IA** | ✅ **cerrada** (§2.12, §2.14 correctIndex y limpieza) |
 | **1.3 · Activar RLS** | 📄 **SQL escrito, falta ejecutarlo** |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |

@@ -6,7 +6,12 @@
 export type QuestionOption = { id: string; text: string };
 
 export type Question = {
-  id: string;
+  /**
+   * `null` cuando la pregunta se genero en vivo y no llego a guardarse (choque
+   * de hash que tampoco se pudo recuperar). Sin id no se puede votar, reportar
+   * ni referenciar desde `test_results`, asi que la UI tiene que comprobarlo.
+   */
+  id: string | null;
   question: string;
   options: QuestionOption[];
   correctOptionId: string;
@@ -32,8 +37,22 @@ export function difficultyToNumber(d: 'easy' | 'medium' | 'hard'): number {
   return 2;
 }
 
+/**
+ * Fila de `question_bank` tal y como llega de Supabase.
+ * Todo opcional a proposito: el mapeo tiene que sobrevivir a una fila incompleta.
+ */
+export type BankRow = {
+  id: string;
+  subject_id?: number | null;
+  question_text?: string;
+  options?: unknown;
+  correct_index?: number;
+  explanation?: string;
+  origin?: Question['origin'];
+};
+
 /** Fila de `question_bank` -> pregunta de UI. */
-export function mapBankRowToQuestion(row: any): Question {
+export function mapBankRowToQuestion(row: BankRow): Question {
   const opts: QuestionOption[] = Array.isArray(row.options)
     ? row.options.map((text: unknown, idx: number) => ({
         id: indexToOptionId(idx),
@@ -44,38 +63,51 @@ export function mapBankRowToQuestion(row: any): Question {
   return {
     id: row.id,
     subject_id: row.subject_id ?? null,
-    question: row.question_text,
+    question: row.question_text ?? '',
     options: opts,
-    correctOptionId: indexToOptionId(row.correct_index),
-    explanation: row.explanation,
+    correctOptionId: indexToOptionId(row.correct_index as number),
+    explanation: row.explanation ?? '',
     userAnswer: null,
     errorType: null,
     origin: row.origin || 'bank',
   };
 }
 
+/** Pregunta recien generada, en el formato que devuelve `generateAndSaveCandidate`. */
+export type CandidateRow = {
+  id: string | null;
+  subject_id?: number | null;
+  question?: string;
+  question_text?: string;
+  options?: unknown;
+  correct_index?: number;
+  correctIndex?: number;
+  correctOptionId?: string;
+  explanation?: string;
+};
+
 /** Respuesta de la IA en vivo -> pregunta de UI. */
-export function mapCandidateToQuestion(data: any): Question {
+export function mapCandidateToQuestion(data: CandidateRow): Question {
   let formattedOptions: QuestionOption[];
 
-  if (data.options && data.options[0] && typeof data.options[0] === 'object') {
-    formattedOptions = data.options;
-  } else if (Array.isArray(data.options)) {
-    formattedOptions = data.options.map((text: string, idx: number) => ({
-      id: indexToOptionId(idx),
-      text,
-    }));
+  const raw = Array.isArray(data.options) ? data.options : [];
+  if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+    // Ya viene en el formato de la UI.
+    formattedOptions = raw as QuestionOption[];
   } else {
-    formattedOptions = [];
+    formattedOptions = raw.map((text, idx) => ({
+      id: indexToOptionId(idx),
+      text: typeof text === 'string' ? text : JSON.stringify(text),
+    }));
   }
 
   return {
     id: data.id,
     subject_id: data.subject_id ?? null,
-    question: data.question || data.question_text,
+    question: data.question || data.question_text || '',
     options: formattedOptions,
-    correctOptionId: data.correctOptionId || indexToOptionId(data.correct_index),
-    explanation: data.explanation,
+    correctOptionId: data.correctOptionId || indexToOptionId((data.correct_index ?? data.correctIndex) as number),
+    explanation: data.explanation ?? '',
     userAnswer: null,
     errorType: null,
     origin: 'candidate',

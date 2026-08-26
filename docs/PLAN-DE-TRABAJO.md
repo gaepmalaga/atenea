@@ -271,22 +271,31 @@ los datos existentes y tipar la estructura del perfil.
 
 ---
 
-## Fase 3 — Calidad de la IA
+## Fase 3 — Calidad de la IA ✅ HECHA (salvo la memoria del chat)
 
-El corazón del producto. Merece una fase propia.
+- [x] **Modo JSON con esquema.** `questionModel` y `flashcardModel` en `core.ts` llevan
+      `responseMimeType: application/json` y `responseSchema`: el formato lo impone el SDK,
+      no el prompt. Se acabaron las vallas de markdown y el texto de cortesía por delante.
+- [x] **`cleanAIResponse` retirado.** Era un regex ciego que corrompía el contenido cuando
+      una cadena llevaba `, }` o una llave. Lo sustituye `parseAIJson`, que escanea
+      respetando cadenas y escapes. Los dos tests `BUG:` quedaron invertidos.
+- [x] **Validación antes de guardar** (`validateGeneratedQuestion`): enunciado con
+      contenido, exactamente tres opciones, distintas y no vacías, y **`correctIndex` dentro
+      de rango**. Ese último era el peligroso: un índice inválido se colapsaba en `'c'` y el
+      alumno estudiaba un dato falso. Ahora la pregunta se descarta y se genera otra.
+- [x] **Variedad en las flashcards.** `randomContextWindow` toma un trozo aleatorio del
+      documento. Antes era siempre `substring(0, 2500)`: los mismos 2500 caracteres, así que
+      repasar un tema daba tarjetas prácticamente idénticas. Se valida además que anverso y
+      reverso no vengan vacíos ni sean iguales.
+- [x] 27 tests en `tests/ai-output.test.ts`.
 
-- **Memoria en el chat §2.13.** Pasar el historial a `askAtenea` y persistir las
-  conversaciones. Sin esto no se puede repreguntar.
-- **Variedad en las flashcards §2.12.** Desplazamiento aleatorio en el texto fuente (como
-  ya hace `generateTestQuestion`) y hash de deduplicación.
-- **Validar la salida del modelo.** `cleanAIResponse` es un apaño de regex que corrompe el
-  contenido en los casos límite (dos tests lo demuestran). Sustituir por salida
-  estructurada / JSON mode, y validar el resultado con un esquema antes de guardarlo.
-- **Verificar `correctIndex`.** Hoy cualquier índice fuera de rango se convierte en `'c'` en
-  silencio (test en `questions.test.ts`). Debe rechazarse la pregunta.
-- **Repasar los modelos.** `core.ts` usa el mismo modelo para `chatModel` y `smartModel`;
-  el comentario sobre embeddings admite dudas sobre cuál funciona. Medir y decidir.
-- **Coste.** Instrumentar el gasto por módulo antes de optimizar nada.
+Pendiente de esta fase:
+
+- [ ] **Memoria en el chat §2.13.** Pasar el historial a `askAtenea` y persistir las
+      conversaciones. Sin esto no se puede repreguntar.
+- [ ] **Repasar los modelos.** `core.ts` usa el mismo para `chatModel` y `smartModel`;
+      el comentario sobre embeddings admite dudas sobre cuál funciona. Medir y decidir.
+- [ ] **Coste.** Instrumentar el gasto por módulo antes de optimizar nada.
 
 ---
 
@@ -299,8 +308,9 @@ Ahora que los datos son fiables, que sirvan para algo.
   Evaluar pasar a SM-2 / FSRS.
 - **Analítica de flashcards.** `saveFlashcardResult` existe, la tabla `flashcard_results`
   existe, y nadie la llama nunca. Conectarla o borrarla.
-- **Persistir el log de entrenamiento §2.11.** Crear la tabla y guardar `logData`; quitar el
-  "PENDIENTE" de `completeTrainingDay`.
+- **Tabla propia para el log de entrenamiento §2.11.** `completeTrainingDay` ya guarda el
+  log dentro del JSON del plan (antes lo recibía y lo tiraba), pero para comparar la
+  progresión entre semanas hace falta una tabla consultable.
 - **Semana 2 del plan físico.** `handleGenerateNextWeek` es hoy un `alert()`.
 - **Evaluación de la entrevista.** No se guarda ninguna transcripción ni se genera informe
   final. Es el módulo con más potencial y menos cerrado.

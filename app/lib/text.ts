@@ -3,20 +3,11 @@
  * Extraidas de app/actions/core.ts para poder testearlas de forma aislada.
  */
 
-/**
- * Extrae el objeto JSON de una respuesta de la IA que puede venir envuelta
- * en vallas de markdown (```json ... ```) o con texto por delante/detras.
- */
-export function cleanAIResponse(text: string): string {
-  if (!text) return '{}';
-  let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  const firstBrace = clean.indexOf('{');
-  const lastBrace = clean.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    clean = clean.substring(firstBrace, lastBrace + 1);
-  }
-  return clean.replace(/,\s*\]/g, ']').replace(/,\s*\}/g, '}');
-}
+// NOTA: `cleanAIResponse` se retiro en la fase 3. Era un apanio de expresiones
+// regulares que corrompia el contenido en los casos limite (una coma seguida de
+// `}` dentro de una cadena, o una llave dentro de un texto legal). Lo sustituye
+// `parseAIJson` en app/lib/ai-output.ts, que parsea de verdad y respeta las
+// cadenas; y los modelos van en modo JSON, asi que casi nunca hace falta.
 
 /**
  * Normaliza el texto crudo extraido de un PDF legal.

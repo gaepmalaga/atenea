@@ -1,43 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanAIResponse, cleanLegalText, chunkLegalText } from '../app/lib/text';
-
-describe('cleanAIResponse', () => {
-  it('devuelve un objeto vacio ante entrada vacia', () => {
-    expect(cleanAIResponse('')).toBe('{}');
-  });
-
-  it('quita las vallas markdown y el texto sobrante', () => {
-    const raw = 'Claro, aqui tienes:\n```json\n{"a":1}\n```\nEspero que sirva.';
-    expect(JSON.parse(cleanAIResponse(raw))).toEqual({ a: 1 });
-  });
-
-  it('tolera comas colgantes en objetos y arrays', () => {
-    const raw = '{"options":["a","b",],"correctIndex":0,}';
-    expect(JSON.parse(cleanAIResponse(raw))).toEqual({
-      options: ['a', 'b'],
-      correctIndex: 0,
-    });
-  });
-
-  // --- CARACTERIZACION DE FALLOS CONOCIDOS ---
-
-  it('BUG: corrompe el contenido si un string incluye una coma seguida de }', () => {
-    // La limpieza de comas colgantes es un regex ciego: no distingue
-    // estructura de contenido. Una explicacion legal que contenga ", }"
-    // dentro de una cadena queda alterada silenciosamente.
-    const original = 'Ver art. 1, }final del texto';
-    const raw = JSON.stringify({ explanation: original });
-    const cleaned = cleanAIResponse(raw);
-    expect(JSON.parse(cleaned).explanation).not.toBe(original);
-  });
-
-  it('BUG: un JSON con llaves dentro de un string se recorta mal', () => {
-    // lastIndexOf('}') apunta al ultimo `}` del documento aunque este dentro
-    // de una cadena; el recorte por indices no entiende de comillas.
-    const raw = 'ruido {"question":"El simbolo } se usa"} mas ruido }';
-    expect(() => JSON.parse(cleanAIResponse(raw))).toThrow();
-  });
-});
+import { cleanLegalText, chunkLegalText } from '../app/lib/text';
 
 describe('cleanLegalText', () => {
   it('elimina los marcadores de salto de pagina de pdf2json', () => {

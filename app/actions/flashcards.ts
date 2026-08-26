@@ -1,7 +1,23 @@
 'use server'
-import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
+import { supabaseAdmin as supabase, flashcardModel, getSubjectIdByName } from './core';
+import { parseAIJson, validateFlashcard, randomContextWindow } from '../lib/ai-output';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
 import { requireUser } from '../lib/auth';
+
+/** Tarjeta que devuelve la UI al puntuarla. */
+export type FlashcardInput = {
+    /** Id de la fila de `flashcard_progress` si es un repaso. */
+    db_id?: string | null;
+    front: string;
+    back: string;
+    topic: string;
+    subjectId?: number | null;
+    box?: number | null;
+};
+
+function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
+    return e instanceof Error ? e.message : fallback;
+}
 
 export async function generateFlashcard(topicNameOrId: string | number) {
   const auth = await requireUser();
@@ -35,28 +51,47 @@ export async function generateFlashcard(topicNameOrId: string | number) {
     if (!docs || docs.length === 0) return { success: false, error: "Tema vacío." };
 
     const doc = docs[Math.floor(Math.random() * docs.length)];
-    const textSlice = doc.full_text?.substring(0, 2500) || "";
-    
-    const prompt = `Genera Flashcard (Front/Back) dato puro: ${textSlice}. JSON: { "front": "...", "back": "..."}`;
-    const result = await chatModel.generateContent(prompt);
-    const jsonData = JSON.parse(cleanAIResponse(result.response.text()));
-    
-    return { success: true, data: { ...jsonData, subjectId, topic: topicName, isReview: false } };
-  } catch (e: any) { return { success: false, error: e.message }; }
+    // Ventana ALEATORIA del documento. Antes era siempre `substring(0, 2500)`:
+    // los mismos 2500 primeros caracteres del mismo tema una y otra vez, así que
+    // repasar producía tarjetas prácticamente idénticas.
+    const textSlice = randomContextWindow(doc.full_text ?? '', 2500);
+    if (textSlice.trim().length < 200) return { success: false as const, error: "Texto insuficiente en el tema." };
+
+    const prompt = `
+      Genera UNA flashcard de estudio a partir de este fragmento de temario.
+      El anverso es una pregunta breve o un concepto; el reverso, el dato exacto.
+      No repitas el enunciado en la respuesta.
+
+      FRAGMENTO: """${textSlice}"""
+    `;
+
+    const result = await flashcardModel.generateContent(prompt);
+    const parsed = parseAIJson(result.response.text());
+    if (!parsed) return { success: false as const, error: "La IA no devolvió un JSON legible." };
+
+    const check = validateFlashcard(parsed);
+    if (!check.ok) {
+      console.error("Flashcard descartada:", check.reason);
+      return { success: false as const, error: `Tarjeta descartada: ${check.reason}` };
+    }
+
+    return { success: true as const, data: { ...check.value, subjectId, topic: topicName, isReview: false } };
+
+  } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
 
-export async function saveFlashcardProgress(cardData: any, rating: 'fail' | 'hard' | 'easy') {
+export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'fail' | 'hard' | 'easy') {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
     const userId = auth.user.id;
 
     try {
-        const { box: newBox, days } = scheduleCard(cardData.box, rating);
+        const { box: newBox, days } = scheduleCard(cardData.box ?? undefined, rating);
         const nextDate = nextReviewDate(new Date(), days);
 
         const payload = {
             user_id: userId,
-            subject_id: cardData.subjectId || await getSubjectIdByName(cardData.topic),
+            subject_id: cardData.subjectId ?? await getSubjectIdByName(cardData.topic),
             front: cardData.front,
             back: cardData.back,
             box: newBox,
@@ -70,7 +105,7 @@ export async function saveFlashcardProgress(cardData: any, rating: 'fail' | 'har
              await supabase.from('flashcard_progress').insert(payload);
         }
         return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
+    } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
 
 // Faltaba el guardado de histórico (analytics)

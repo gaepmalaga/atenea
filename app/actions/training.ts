@@ -1,8 +1,28 @@
 'use server'
-import { supabaseAdmin as supabase, smartModel, cleanAIResponse } from './core';
+import { supabaseAdmin as supabase, planModel } from './core';
+import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
 
-export async function generateWeeklyPlan(profile: any) {
+/** Perfil fisico tal y como lo guarda `savePhysicalProfile`. */
+export type PhysicalProfileInput = {
+    height?: number | null;
+    weight?: number | null;
+    birth_year?: number | null;
+    gender?: string | null;
+    availability?: number | null;
+    equipment?: string | null;
+    injuries?: string | null;
+    baseline_metrics?: Record<string, number | string | null> | null;
+};
+
+/** Lo que el alumno anota al terminar un dia de entrenamiento. */
+export type TrainingDayLog = Record<string, unknown>;
+
+function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
+    return e instanceof Error ? e.message : fallback;
+}
+
+export async function generateWeeklyPlan(profile: PhysicalProfileInput) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
     const userId = auth.user.id;
@@ -32,8 +52,9 @@ export async function generateWeeklyPlan(profile: any) {
             OBJETIVO: Plan semanal (Semana 1) JSON PURO.
             ESTRUCTURA: { "week_focus": "...", "days": [{ "day": "Lunes", "type": "Fuerza", "exercises": [...] }] }
         `;
-        const result = await smartModel.generateContent(prompt);
-        const plan = JSON.parse(cleanAIResponse(result.response.text()));
+        const result = await planModel.generateContent(prompt);
+        const plan = parseAIJson<{ week_focus?: string; days?: unknown[] }>(result.response.text());
+        if (!plan?.days?.length) throw new Error('La IA no devolvió un plan utilizable.');
 
         const { data: inserted } = await supabase.from('training_plans').insert({
             user_id: userId,
@@ -42,7 +63,7 @@ export async function generateWeeklyPlan(profile: any) {
             status: 'active'
         }).select().single();
         return { success: true, plan: inserted };
-    } catch (e: any) { return { success: false, error: e.message }; }
+    } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
 
 export async function getActiveTrainingPlan() {
@@ -55,7 +76,7 @@ export async function getActiveTrainingPlan() {
 }
 
 export async function completeTrainingDay(
-    planId: string, dayIndex: number, logData: any
+    planId: string, dayIndex: number, logData: TrainingDayLog
 ): Promise<{ success: boolean; error?: string }> {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
@@ -76,10 +97,16 @@ export async function completeTrainingDay(
     const updated = { ...plan.plan_data };
     if (!updated.days?.[dayIndex]) return { success: false, error: 'Día inexistente en el plan.' };
 
-    // PENDIENTE (ver PLAN, Fase 4): `logData` (series, repeticiones, sensaciones)
-    // sigue sin persistirse en una tabla propia; hoy solo se guarda la marca de
-    // completado dentro del JSON del plan.
-    updated.days[dayIndex].isCompleted = true;
+    // El log (series, repeticiones, sensaciones) se guarda dentro del JSON del
+    // plan. Antes se recibía y se descartaba: el alumno lo anotaba y desaparecía
+    // al recargar. Una tabla propia para poder consultar la progresión entre
+    // semanas sigue siendo la fase 4.
+    updated.days[dayIndex] = {
+        ...updated.days[dayIndex],
+        isCompleted: true,
+        log: logData ?? null,
+        completed_at: new Date().toISOString(),
+    };
 
     const { error } = await supabase.from('training_plans').update({ plan_data: updated }).eq('id', planId);
     return { success: !error, error: error?.message };
@@ -99,7 +126,7 @@ const PHYSICAL_FIELDS = [
     'availability', 'equipment', 'injuries', 'baseline_metrics',
 ] as const;
 
-export async function savePhysicalProfile(data: any) {
+export async function savePhysicalProfile(data: PhysicalProfileInput) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
 

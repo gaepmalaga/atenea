@@ -135,14 +135,18 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
 
   // --- MANEJO DE VOTOS ---
   const handleVote = async (vote: 'up' | 'down') => {
-    if (!currentQ.id) return;
-    
-    const currentVote = votes[currentQ.id];
+    // Sin id no hay fila que votar: es una pregunta generada en vivo que no
+    // llegó a guardarse. La variable local además deja claro al compilador que
+    // ya está comprobado.
+    const questionId = currentQ.id;
+    if (!questionId) return;
+
+    const currentVote = votes[questionId];
     const newVote = currentVote === vote ? null : vote;
-    setVotes(prev => ({ ...prev, [currentQ.id]: newVote }));
+    setVotes(prev => ({ ...prev, [questionId]: newVote }));
 
     await voteQuestion({
-      questionId: currentQ.id,
+      questionId,
       vote: vote === 'up' ? 1 : -1
     });
   };
@@ -214,12 +218,17 @@ const handleNext = () => {
           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
           {/* TOOLBAR DE CALIDAD */}
-          <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
-            <button onClick={() => handleVote('up')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
-            <button onClick={() => handleVote('down')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
-            <div className="w-px h-4 bg-slate-200 mx-1"></div>
-            <button onClick={() => setIsReportModalOpen(true)} className="p-2 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
-          </div>
+          {/* Solo si la pregunta tiene fila en la base de datos: sin id, votar o
+              reportar no puede llegar a ninguna parte, y unos botones que no
+              hacen nada son peores que no tenerlos. */}
+          {currentQ.id && (
+            <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
+              <button onClick={() => handleVote('up')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
+              <button onClick={() => handleVote('down')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
+              <div className="w-px h-4 bg-slate-200 mx-1"></div>
+              <button onClick={() => setIsReportModalOpen(true)} className="p-2 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
+            </div>
+          )}
 
           {/* Etiqueta de Origen */}
           <div className="mb-4">

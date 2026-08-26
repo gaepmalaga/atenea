@@ -1,6 +1,7 @@
 'use server'
 import crypto from 'crypto';
-import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
+import { supabaseAdmin as supabase, questionModel, getSubjectIdByName } from './core';
+import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { QUESTION_STATUS, indexToOptionId, type QuestionStatus } from '../lib/questions';
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
@@ -44,49 +45,41 @@ async function generateTestQuestion(subjectId: number) {
 
     if (fullText.length < 50) return { success: false, error: "Documento con texto insuficiente." };
 
-    // Recortar contexto (Ventana de 12k caracteres)
-    const maxChars = 12000;
-    const start = Math.floor(Math.random() * Math.max(0, fullText.length - maxChars));
-    const contextSlice = fullText.substring(start, start + maxChars);
+    const contextSlice = randomContextWindow(fullText, 12000);
 
-    // 2. Prompt Estricto
+    // El formato lo impone `responseSchema` en el modelo, no el prompt: por eso
+    // aquí solo van las instrucciones pedagógicas.
     const prompt = `
       ACTÚA COMO: Tribunal Calificador de Policía Nacional.
       TAREA: Redactar UNA pregunta de test basada en este texto legal.
       TEXTO: """${contextSlice}"""
-      
+
       REGLAS:
-      1. Salida JSON estricta.
-      2. 3 Opciones (a, b, c). Solo 1 correcta.
-      3. Dificultad Media/Alta (detalles, plazos, excepciones).
-      
-      FORMATO JSON:
-      { 
-        "question": "Enunciado...", 
-        "options": ["Opción A...", "Opción B...", "Opción C..."], 
-        "correctIndex": 0, 
-        "explanation": "Justificación..." 
-      }
-      Nota: 'correctIndex' debe ser 0 para A, 1 para B, 2 para C.
+      1. Exactamente 3 opciones, y solo UNA correcta.
+      2. Dificultad Media/Alta: detalles, plazos, excepciones.
+      3. Las tres opciones deben ser distintas y plausibles.
+      4. 'correctIndex' es la posición de la opción correcta: 0, 1 o 2.
+      5. 'explanation' justifica la respuesta citando el texto.
     `;
 
-    const result = await chatModel.generateContent(prompt);
-    const jsonString = cleanAIResponse(result.response.text());
-    
-    let jsonData;
-    try { jsonData = JSON.parse(jsonString); } 
-    catch { return { success: false, error: "Error parseando respuesta IA." }; }
+    const result = await questionModel.generateContent(prompt);
+    const parsed = parseAIJson(result.response.text());
+    if (!parsed) return { success: false, error: "La IA no devolvió un JSON legible." };
 
-    // Validación
-    if (!jsonData.question || !Array.isArray(jsonData.options) || jsonData.options.length !== 3) {
-        return { success: false, error: "Estructura JSON incorrecta." };
+    // Se valida ANTES de devolver nada. Antes bastaba con que hubiera enunciado
+    // y tres opciones: una pregunta con `correctIndex: 5` se guardaba igual y la
+    // respuesta buena pasaba a ser "c" en silencio.
+    const check = validateGeneratedQuestion(parsed);
+    if (!check.ok) {
+      console.error("Pregunta descartada:", check.reason);
+      return { success: false, error: `Pregunta descartada: ${check.reason}` };
     }
 
     return {
       success: true,
       data: {
-        ...jsonData,
-        document_id: selectedDoc.id, 
+        ...check.value,
+        document_id: selectedDoc.id,
         filename: selectedDoc.filename
       }
     };
@@ -130,7 +123,12 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
 
     // B. Generar Pregunta
     const genResult = await generateTestQuestion(subjectId);
-    if (!genResult.success || !genResult.data) return genResult;
+    // Se construye la respuesta de error en vez de reenviar `genResult`: aquel
+    // no traía `id`, así que el tipo de retorno era una unión que la UI no podía
+    // consumir sin comprobaciones.
+    if (!genResult.success || !genResult.data) {
+      return { success: false as const, error: genResult.error ?? 'No se pudo generar la pregunta.' };
+    }
 
     const qData = genResult.data;
     
