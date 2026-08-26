@@ -1,4 +1,58 @@
 -- =============================================================================
+-- ESTADO (26 ago 2026): ESTE GUION NO HAY QUE EJECUTARLO. NO APLICA.
+-- =============================================================================
+--
+-- Al ejecutar el PASO 1 contra el proyecto real fallo:
+--
+--   ERROR: 42703: column b.error_type does not exist
+--
+-- Porque `test_results` NO tiene esa columna. Sus columnas reales son:
+--
+--   id, user_id, question_id, is_correct, response_time_ms,
+--   option_changes, created_at
+--
+-- Y ademas la tabla esta VACIA (0 filas), igual que `question_attempts`. No hay
+-- ningun historico duplicado que reparar: no hay historico.
+--
+-- -----------------------------------------------------------------------------
+-- LO QUE SI HAY, Y ES PEOR
+-- -----------------------------------------------------------------------------
+-- `toResultRow` (app/lib/exam-results.ts) escribe SIEMPRE seis columnas:
+--
+--   question_id, subject_id, is_correct, response_time_ms, option_changes,
+--   error_type
+--
+-- De esas, `subject_id` y `error_type` NO EXISTEN en la tabla. Asi que los tres
+-- caminos de guardado fallan en cuanto se usan:
+--
+--   · saveTestResult      (modo entrenamiento, por pregunta)
+--   · saveExamResults     (al terminar un examen, en bloque)
+--   · setResultErrorType  (etiquetar la taxonomia del fallo)
+--
+-- Fallan en silencio: se registra en consola y se devuelve success:false, pero
+-- la pantalla no lo cuenta. Por eso la tabla esta a cero.
+--
+-- No es una regresion de la fase 2.4: el codigo anterior al merge escribia esas
+-- mismas dos columnas (`git show 343393a:app/actions/exams.ts`). Viene de antes.
+--
+-- -----------------------------------------------------------------------------
+-- HAY UNA TABLA HUERFANA QUE ENCAJA
+-- -----------------------------------------------------------------------------
+-- `question_attempts` existe, tiene RLS y tres politicas de propietario, y sus
+-- columnas son justo las que el codigo quiere guardar:
+--
+--   id, user_id, exam_id, question_id, topic, is_correct, selected_index,
+--   error_type, response_time_ms, created_at
+--
+-- No la referencia NI UNA linea del codigo (grep -rn question_attempts app/).
+--
+-- Decidir cual de las dos es la buena es lo siguiente. Las opciones son anadir
+-- las dos columnas que faltan a `test_results`, o mover el codigo a
+-- `question_attempts`. Como las dos tablas estan vacias, no hay migracion de
+-- datos por medio en ninguno de los dos casos.
+-- =============================================================================
+
+-- =============================================================================
 -- Fase 2.4 — Reparación de los resultados duplicados en `test_results`
 -- =============================================================================
 --
