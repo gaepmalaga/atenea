@@ -56,7 +56,7 @@ export default function AdminContent({ userId }: { userId: string }) {
 
   async function load() {
     setLoading(true);
-    const res = await getOfficialSyllabus(userId);
+    const res = await getOfficialSyllabus();
     if (res.success && res.syllabus) {
       setSyllabus(res.syllabus);
     } else {
@@ -82,7 +82,7 @@ export default function AdminContent({ userId }: { userId: string }) {
     formData.append('file', file);
     formData.append('subjectId', selectedSubject.id.toString());
     
-    const res = await uploadTopicPDF(userId, formData);
+    const res = await uploadTopicPDF(formData);
     setUploading(false);
     
     if (res.success) { 
@@ -97,7 +97,7 @@ export default function AdminContent({ userId }: { userId: string }) {
   async function handleDeleteDoc(docId: string, docName: string) {
     if (!confirm(`¿Estás seguro de que quieres eliminar el archivo "${docName}"?\nSe borrarán también los vectores de búsqueda asociados.`)) return;
     
-    const res = await deleteDocument(userId, docId);
+    const res = await deleteDocument(docId);
     if (res.success) {
         await load();
     } else {

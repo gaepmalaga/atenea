@@ -1,5 +1,5 @@
 // NO exportamos './core' para evitar errores de serialización en cliente
-export * from './user'; // Exportamos las acciones de usuario (getUserRole)
+export * from './user'; // getCurrentUser, getUserStats
 export * from './admin';
 export * from './exams';
 export * from './moderation';

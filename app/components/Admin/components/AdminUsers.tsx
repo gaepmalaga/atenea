@@ -15,7 +15,7 @@ export default function AdminUsers({ userId }: { userId: string }) {
   async function load() {
     setLoading(true);
     // Llamamos a la Server Action
-    const res = await getAdminUsersList(userId);
+    const res = await getAdminUsersList();
     if (res.success) {
       setUsers(res.users || []);
     }

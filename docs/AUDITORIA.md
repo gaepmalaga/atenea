@@ -310,11 +310,28 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 
 ---
 
-## 4. Qué se ha cambiado en esta sesión
+## 4. Estado de la remediación
 
-Solo lo necesario para poder trabajar: dejar el proyecto compilando y montar la red de
-seguridad. **No se ha corregido ningún fallo funcional de §2** — eso es lo que ordena el
-plan de trabajo, fase por fase.
+| Fase | Estado |
+|---|---|
+| 0 · Recuperar el terreno | ✅ cerrada |
+| 1.1 · Sesión en el servidor | ✅ cerrada |
+| 1.4 · Asignación masiva | ✅ cerrada |
+| 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
+| 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |
+| 2 – 5 | pendiente |
+
+Los hallazgos de §1.1, §1.2 y §1.5 quedan cerrados en código; **falta verificarlos contra el
+proyecto real de Supabase**. Ningún fallo funcional de §2 se ha tocado todavía.
+
+---
+
+## 5. Qué se ha cambiado en esta sesión
+
+**No se ha corregido ningún fallo funcional de §2** — eso es lo que ordena el plan de
+trabajo, fase por fase.
+
+### Fase 0 — poder trabajar
 
 - Build y typecheck en verde (7 errores).
 - `moderation.ts`, `completeTrainingDay` y `getAdminQuestionBank` ya propagan los errores
@@ -325,6 +342,22 @@ plan de trabajo, fase por fase.
 - Vitest + **35 tests** que documentan el comportamiento actual, incluidos los fallos
   conocidos (marcados con `BUG:` para que al arreglarlos el test falle y avise).
 - `.env.example` y scripts `typecheck`, `test`, `check`.
+
+### Fase 1.1 — sesión de verdad en el servidor
+
+- La sesión pasa de `localStorage` a **cookies** (`@supabase/ssr`). Este era el bloqueo
+  técnico de fondo: con la sesión en `localStorage` el servidor no puede verla, así que
+  ninguna Server Action tenía forma de saber quién llamaba aunque quisiera.
+- `app/lib/auth.ts` con `requireUser()` / `requireAdmin()`, sobre `auth.getUser()` (valida
+  el token contra Supabase; `getSession()` solo lee la cookie sin comprobar la firma).
+- Las **37 acciones** dejan de aceptar `userId`/`adminId`. El parámetro se ha borrado de la
+  firma: dejarlo ignorado habría invitado a volver a usarlo.
+- Lista blanca de campos en `saveBiodata` y `savePhysicalProfile` (§1.2).
+- Tope de 200 en `seedQuestionBank`; `generateTestQuestion` deja de ser acción pública;
+  `getOfficialSyllabus` deja de devolver el mensaje crudo de la BD (§1.5).
+- **6 tests estáticos** (`tests/actions-auth.test.ts`) que leen el código fuente y fallan si
+  alguna acción vuelve a aceptar un id del cliente o se queda sin guarda. Verificados
+  reintroduciendo el fallo a propósito: el test señala la acción culpable por su nombre.
 
 ---
 

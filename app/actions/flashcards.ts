@@ -1,8 +1,13 @@
 'use server'
 import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
+import { requireUser } from '../lib/auth';
 
-export async function generateFlashcard(userId: string, topicNameOrId: string | number) {
+export async function generateFlashcard(topicNameOrId: string | number) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const userId = auth.user.id;
+
   try {
     let subjectId: number;
     let topicName: string = "";
@@ -40,7 +45,11 @@ export async function generateFlashcard(userId: string, topicNameOrId: string | 
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-export async function saveFlashcardProgress(userId: string, cardData: any, rating: 'fail' | 'hard' | 'easy') {
+export async function saveFlashcardProgress(cardData: any, rating: 'fail' | 'hard' | 'easy') {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, error: auth.error };
+    const userId = auth.user.id;
+
     try {
         const { box: newBox, days } = scheduleCard(cardData.box, rating);
         const nextDate = nextReviewDate(new Date(), days);
@@ -66,9 +75,13 @@ export async function saveFlashcardProgress(userId: string, cardData: any, ratin
 
 // Faltaba el guardado de histórico (analytics)
 export async function saveFlashcardResult(
-  userId: string, topic: string, front: string, back: string, grade: string,
+  topic: string, front: string, back: string, grade: string,
   boxBefore?: number, boxAfter?: number, nextReview?: string
 ) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false };
+  const userId = auth.user.id;
+
   const subjectId = await getSubjectIdByName(topic);
   const { error } = await supabase.from('flashcard_results').insert({
     user_id: userId, subject_id: subjectId, topic, front, back, grade,

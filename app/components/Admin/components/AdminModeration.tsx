@@ -46,7 +46,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
 
   async function load() {
     setLoading(true);
-    const res = await getModerationQueue(userId);
+    const res = await getModerationQueue();
     if (res.success) setQueue(res.data);
     setLoading(false);
   }
@@ -55,7 +55,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
   async function handleApprove(id: string) {
       // Optimistic UI update
       setQueue((prev:any) => ({...prev, candidates: prev.candidates.filter((q:any)=>q.id!==id)}));
-      await approveQuestion(userId, id);
+      await approveQuestion(id);
   }
 
   async function handleDisable(id: string, isReport = false) {
@@ -68,13 +68,13 @@ export default function AdminModeration({ userId }: { userId: string }) {
          setQueue((prev:any) => ({...prev, candidates: prev.candidates.filter((q:any)=>q.id!==id)}));
       }
 
-      await disableQuestion(userId, id);
+      await disableQuestion(id);
       if (isReport) load(); // Recargar para limpiar cascada si es necesario
   }
   
   async function handleResolveReport(reportId: string) {
       setQueue((prev:any) => ({...prev, reports: prev.reports.filter((r:any)=>r.id!==reportId)}));
-      await resolveReport(userId, reportId);
+      await resolveReport(reportId);
   }
 
   // --- LÓGICA DE EDICIÓN ---
@@ -96,7 +96,7 @@ export default function AdminModeration({ userId }: { userId: string }) {
     if (!editingQ) return;
     setSaving(true);
     
-    const res = await updateQuestion(userId, editingQ.id, editForm);
+    const res = await updateQuestion(editingQ.id, editForm);
     
     if (res.success) {
         // Actualizamos la UI localmente (tanto en candidatos como en preguntas reportadas)

@@ -38,8 +38,8 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
     async function init() {
         try {
             const [profileRes, planRes] = await Promise.all([
-                 getPhysicalProfile(user.id),
-                 getActiveTrainingPlan(user.id)
+                 getPhysicalProfile(),
+                 getActiveTrainingPlan()
             ]);
             
             const profileData = profileRes.data;
@@ -70,7 +70,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
 
   // --- 2. GESTORES DE PERFIL Y TESTS ---
   const handleSaveBio = async (data: any) => {
-      await savePhysicalProfile(user.id, data);
+      await savePhysicalProfile(data);
       setProfile({ ...profile, ...data });
       setView('hub');
   };
@@ -78,14 +78,14 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   const handleSaveTest = async (testData: any) => {
       const newMetrics = { ...profile.baseline_metrics, ...testData };
       const payload = { baseline_metrics: newMetrics };
-      await savePhysicalProfile(user.id, payload);
+      await savePhysicalProfile(payload);
       setProfile({ ...profile, ...payload });
       setView('hub');
   };
 
   // --- 3. GENERADOR DE PLANES ---
   const handleGenerate = async () => {
-      const res = await generateWeeklyPlan(user.id, profile);
+      const res = await generateWeeklyPlan(profile);
       if (res.success) {
           setWeeklyPlan(res.plan.plan_data);
           setActivePlanId(res.plan.id); // Guardamos el nuevo ID generado
@@ -137,7 +137,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
           // B) PERSISTENCIA EN BASE DE DATOS (Server Action)
           if (activePlanId) {
               // Llamada asíncrona al backend (no bloquea la UI)
-              completeTrainingDay(user.id, activePlanId, dayIndex, logData)
+              completeTrainingDay(activePlanId, dayIndex, logData)
                   .then(res => {
                       if (!res.success) console.error("Error guardando progreso en BD:", res.error);
                   });

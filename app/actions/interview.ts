@@ -1,23 +1,49 @@
 'use server'
 import { supabaseAdmin as supabase, chatModel, smartModel } from './core';
+import { requireUser } from '../lib/auth';
 
-export async function getBiodata(userId: string) {
-    const { data } = await supabase.from('profiles_biodata').select('*').eq('user_id', userId).single();
-    return { success: true, data: data || null };
+export async function getBiodata() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error, data: null };
+
+    const { data } = await supabase.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
+    return { success: true as const, data: data || null };
 }
 
-export async function saveBiodata(userId: string, formData: any) {
-    await supabase.from('profiles_biodata').upsert({ user_id: userId, ...formData });
-    return { success: true, error: null };
+/** Campos que el cliente puede escribir en `profiles_biodata`. */
+const BIODATA_FIELDS = [
+    'family_background', 'studies_motivation', 'work_history', 'leisure_activities',
+    'police_motivation', 'fears_concerns', 'strengths_weaknesses', 'legal_issues',
+    'psych_answers', 'psych_profile',
+] as const;
+
+export async function saveBiodata(formData: any) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, error: auth.error };
+
+    // Lista blanca: antes se hacia `upsert({ user_id, ...formData })` y el
+    // objeto del cliente se expandia DESPUES de la clave, asi que un `user_id`
+    // propio sobrescribia el del servidor. Ademas la UI reenviaba columnas de
+    // la BD (`id`, `created_at`) que no le corresponde tocar.
+    const payload: Record<string, unknown> = { user_id: auth.user.id };
+    for (const field of BIODATA_FIELDS) {
+        if (formData?.[field] !== undefined) payload[field] = formData[field];
+    }
+
+    const { error } = await supabase.from('profiles_biodata').upsert(payload);
+    return { success: !error, error: error?.message ?? null };
 }
 
-export async function getPsychProfile(userId: string) {
-    let { data } = await supabase.from('profiles_psych').select('*').eq('user_id', userId).single();
+export async function getPsychProfile() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error, data: null };
+
+    let { data } = await supabase.from('profiles_psych').select('*').eq('user_id', auth.user.id).single();
     if (!data) {
-        const { data: created } = await supabase.from('profiles_psych').insert({ user_id: userId }).select().single();
+        const { data: created } = await supabase.from('profiles_psych').insert({ user_id: auth.user.id }).select().single();
         data = created;
     }
-    return { success: true, data };
+    return { success: true as const, data };
 }
 
 // --- LOGICA COMPLEX RESTAURADA ---
@@ -39,9 +65,12 @@ async function generateInspectorReport(biodata: any) {
     return result.response.text();
 }
 
-export async function processInterviewTurn(userId: string, history: {role: string, text: string}[], userAudioText: string) {
+export async function processInterviewTurn(history: {role: string, text: string}[], userAudioText: string) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, error: auth.error };
+
     try {
-        const { data: biodata } = await supabase.from('profiles_biodata').select('*').eq('user_id', userId).single();
+        const { data: biodata } = await supabase.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
         
         let inspectorStrategy = "Mantén la presión.";
         if (history.length < 2 && biodata) {

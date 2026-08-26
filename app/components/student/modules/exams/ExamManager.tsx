@@ -124,7 +124,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
       }));
       
       // Enviamos el payload enriquecido al servidor
-      await saveExamResults(user.id, resultsPayload);
+      await saveExamResults(resultsPayload);
     }
   };
 

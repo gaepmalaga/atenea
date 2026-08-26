@@ -48,7 +48,7 @@ export default function FlashcardDeck({ user }: FlashcardDeckProps) {
     setCurrentCard(null);
 
     try {
-      const res = await generateFlashcard(user.id, selectedTopic);
+      const res = await generateFlashcard(selectedTopic);
       if (res.success && res.data) {
         setCurrentCard(res.data);
       } else {
@@ -71,8 +71,8 @@ export default function FlashcardDeck({ user }: FlashcardDeckProps) {
     setLoading(true);
 
     try {
-      await saveFlashcardProgress(user.id, cardToSave, rating);
-      const res = await generateFlashcard(user.id, selectedTopic);
+      await saveFlashcardProgress(cardToSave, rating);
+      const res = await generateFlashcard(selectedTopic);
       if (res.success) setCurrentCard(res.data);
     } catch (e) {
       console.error(e);

@@ -15,7 +15,7 @@ export default function AdminActivity({ userId }: { userId: string }) {
 
   async function loadData() {
     setLoading(true);
-    const res = await getGlobalActivity(userId);
+    const res = await getGlobalActivity();
     if (res.success) {
       setActivityLog(res.activity || []);
     }

@@ -58,7 +58,7 @@ export default function AdminBank({ userId }: { userId: string }) {
 
   // --- CARGA DE DATOS ---
   async function loadSyllabus() {
-    const res = await getOfficialSyllabus(userId);
+    const res = await getOfficialSyllabus();
     if (res.success && res.syllabus) {
         const flatSubjects = res.syllabus.flatMap((b:any) => b.subjects);
         setSubjects(flatSubjects);
@@ -85,7 +85,7 @@ export default function AdminBank({ userId }: { userId: string }) {
   async function handleDisable(id: string) {
       if(!confirm("⚠️ ¿Eliminar del Banco Activo?\nEsta acción retirará la pregunta de los exámenes de los alumnos.")) return;
       setIsDeleting(id);
-      const res = await disableQuestion(userId, id);
+      const res = await disableQuestion(id);
       if (res.success) {
           setQuestions(prev => prev.filter(q => q.id !== id));
           setStats(prev => ({ ...prev, total: prev.total - 1 }));
@@ -106,7 +106,7 @@ export default function AdminBank({ userId }: { userId: string }) {
   async function handleSaveEdit() {
       if(!editingQ) return;
       setSaving(true);
-      const res = await updateQuestion(userId, editingQ.id, editForm);
+      const res = await updateQuestion(editingQ.id, editForm);
       if(res.success) {
           setQuestions(prev => prev.map(q => q.id === editingQ.id ? { ...q, ...editForm } : q));
           setEditingQ(null);

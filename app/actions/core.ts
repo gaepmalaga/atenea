@@ -31,7 +31,10 @@ export const supabaseAdmin = createClient(SB_URL, SB_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
 });
 
-export const supabaseAnon = createClient(SB_URL, SB_ANON_KEY);
+// Nota: `supabaseAnon` se elimino al cerrar la Fase 1.1. Lo usaban voteQuestion
+// y reportQuestion, que ahora escriben con el id verificado de la sesion. Para
+// consultas sujetas a RLS en nombre del usuario, usar
+// `createSupabaseServerClient()` de app/lib/supabase/server.ts.
 
 // --- UTILIDADES COMPARTIDAS (SÍNCRONAS) ---
 // Viven en app/lib/text.ts (módulo puro y testeado). Se reexportan aquí para

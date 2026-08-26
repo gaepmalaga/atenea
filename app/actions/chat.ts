@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseAdmin as supabase, chatModel, embeddingModel } from './core';
+import { requireUser } from '../lib/auth';
 
 /**
  * Tipado para los fragmentos recuperados de la base de datos
@@ -32,6 +33,9 @@ function dedupeChunks(chunks: Chunk[]) {
 }
 
 export async function askAtenea(query: string): Promise<AskAteneaResult> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, error: auth.error };
+
   try {
     // 1. Limpieza y validación de entrada
     const safeQuery = query.trim().slice(0, 1000);

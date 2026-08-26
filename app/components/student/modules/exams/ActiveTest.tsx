@@ -73,13 +73,12 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
 
         // GUARDADO CORRECTO: Enviamos ID y métricas VIP
         await saveTestResult(
-            userId, 
-            topicName, 
-            currentQ.id, // <--- CORREGIDO: ID ÚNICO
-            correct, 
-            { 
-                timeMs: timeSpent, 
-                changes: optionChanges 
+            topicName,
+            currentQ.id,
+            correct,
+            {
+                timeMs: timeSpent,
+                changes: optionChanges
             }
         );
     }
@@ -95,10 +94,9 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
       
       // Actualizamos el fallo con la etiqueta específica
       await saveTestResult(
-          userId, 
-          topicName, 
-          currentQ.id, // <--- CORREGIDO: ID ÚNICO
-          false, 
+          topicName,
+          currentQ.id,
+          false,
           { errorType: type }
       );
   };
@@ -113,7 +111,6 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
 
     await voteQuestion({
       questionId: currentQ.id,
-      userId,
       vote: vote === 'up' ? 1 : -1
     });
   };
@@ -126,7 +123,6 @@ export default function ActiveTest({ questions, mode, userId, topicName, onFinis
     try {
       await reportQuestion({
         questionId: currentQ.id,
-        userId,
         reportType: reportData.type,
         message: reportData.message
       });

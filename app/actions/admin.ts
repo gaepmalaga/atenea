@@ -2,11 +2,14 @@
 import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
 import { cleanLegalText, chunkLegalText } from '../lib/text';
-import { getUserRole } from './user';
+import { requireAdmin, requireUser } from '../lib/auth';
 
 // --- GESTIÓN DE TEMARIO OFICIAL ---
 
-export async function getOfficialSyllabus(userId: string) {
+export async function getOfficialSyllabus() {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
   try {
     // CORRECCIÓN AQUÍ: Cambiado 'created_at' por 'uploaded_at'
     const { data, error } = await supabase
@@ -36,18 +39,19 @@ export async function getOfficialSyllabus(userId: string) {
         }))
     }));
 
-    return { success: true, syllabus };
+    return { success: true as const, syllabus };
   } catch (e: any) {
+    // El detalle se queda en el servidor: devolverlo filtraba la estructura de la BD.
     console.error("Error fetching syllabus:", e);
-    return { success: false, error: e.message }; // Devolvemos el mensaje real para debug
+    return { success: false as const, error: 'No se pudo cargar el temario.' };
   }
 }
 
-export async function deleteDocument(adminId: string, documentId: string) {
-    try {
-        const role = await getUserRole(adminId);
-        if (role !== 'admin') throw new Error("Acceso denegado.");
+export async function deleteDocument(documentId: string) {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
 
+    try {
         const { error } = await supabase.from('documents').delete().eq('id', documentId);
         if (error) throw error;
         return { success: true };
@@ -56,11 +60,11 @@ export async function deleteDocument(adminId: string, documentId: string) {
     }
 }
 
-export async function uploadTopicPDF(adminId: string, formData: FormData) {
-  try {
-    const role = await getUserRole(adminId);
-    if (role !== 'admin') throw new Error("Acceso denegado.");
+export async function uploadTopicPDF(formData: FormData) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
 
+  try {
     const file = formData.get('file') as File;
     const subjectIdStr = formData.get('subjectId') as string;
 
@@ -140,8 +144,9 @@ export async function uploadTopicPDF(adminId: string, formData: FormData) {
   }
 }
 
-export async function deleteTopic(adminId: string, topicNameOrId: string) {
-    if ((await getUserRole(adminId)) !== 'admin') return { success: false };
+export async function deleteTopic(topicNameOrId: string) {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
     const { data } = await supabase.from('subjects').select('id').ilike('title', `%${topicNameOrId}%`).single();
     if (data) {
         await supabase.from('documents').delete().eq('subject_id', data.id);
@@ -151,6 +156,9 @@ export async function deleteTopic(adminId: string, topicNameOrId: string) {
 
 // Función para obtener la lista simple de temas (usada por el alumno)
 export async function getStudentTopics() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, topics: [] as string[], error: auth.error };
+
     try {
         const { data, error } = await supabase
             .from('blocks')
@@ -169,21 +177,24 @@ export async function getStudentTopics() {
         
         return { success: true, topics: topics.sort() };
     } catch (e: any) {
-        return { success: false, topics: [], error: e.message };
+        return { success: false, topics: [] as string[], error: e.message };
     }
 }
-export async function getTopicsList(userId: string) { return getStudentTopics(); }
 
-export async function getAdminUsersList(adminId: string) {
-    if ((await getUserRole(adminId)) !== 'admin') return { success: false };
+export async function getAdminUsersList() {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+
     const { data } = await supabase.from('profiles').select('*');
-    return { success: true, users: data || [] };
+    return { success: true as const, users: data || [] };
 }
 
-export async function getGlobalActivity(adminId: string) {
-    if ((await getUserRole(adminId)) !== 'admin') return { success: false };
+export async function getGlobalActivity() {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+
     const { data } = await supabase.from('test_results').select('*').order('created_at', {ascending:false}).limit(20);
-    return { success: true, activity: data || [] };
+    return { success: true as const, activity: data || [] };
 }
 
 // --- GESTIÓN DEL BANCO (VISOR OPTIMIZADO) ---
@@ -194,6 +205,9 @@ export async function getAdminQuestionBank(params: {
   page?: number; 
   limit?: number 
 }) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
   try {
     const { subjectId, search, page = 1, limit = 20 } = params;
     const offset = (page - 1) * limit;

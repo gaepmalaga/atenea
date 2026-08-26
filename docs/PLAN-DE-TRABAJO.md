@@ -30,23 +30,26 @@ Objetivo: poder ejecutar, compilar y probar. Sin esto no se puede validar nada d
 > Aquí está el riesgo real. Mientras esta fase no esté cerrada, cualquiera puede leer los
 > datos de cualquier alumno y gastar la cuota de Gemini de la cuenta. §1.
 
-### 1.1 Sesión de verdad en el servidor
+### 1.1 Sesión de verdad en el servidor ✅ HECHA
 
-1. Añadir `@supabase/ssr` y crear un cliente de servidor que lea la cookie de sesión.
-2. Crear `app/lib/auth.ts`:
-   ```ts
-   // Devuelve el usuario autenticado o lanza. Ninguna acción vuelve a
-   // aceptar userId como parámetro.
-   export async function requireUser(): Promise<{ id: string; email: string }>
-   export async function requireAdmin(): Promise<{ id: string; email: string }>
-   ```
-3. Recorrer **las 37 Server Actions** y sustituir el `userId`/`adminId` del parámetro por
-   el de `requireUser()`. Borrar el parámetro de la firma, no dejarlo ignorado: si se queda,
-   alguien lo volverá a usar.
-4. Actualizar las llamadas en los componentes (quitar el `user.id` de los argumentos).
+- [x] `@supabase/ssr` con la sesión en **cookies**. El cliente del navegador la guardaba en
+      `localStorage`, que el servidor no puede leer: sin este cambio ninguna Server Action
+      podía verificar quién llamaba. `app/lib/supabase/{server,client}.ts`.
+- [x] `app/lib/auth.ts` con `requireUser()` / `requireAdmin()`. Devuelven un resultado en vez
+      de lanzar, porque las Server Actions redactan las excepciones en producción y el
+      usuario vería un error genérico inútil.
+- [x] La verificación usa `auth.getUser()`, que valida el token contra Supabase.
+      `getSession()` **no** sirve: lee la cookie sin comprobar la firma.
+- [x] Las 37 acciones ya no aceptan `userId`/`adminId`: el id sale de la sesión. El
+      parámetro se ha **borrado** de la firma, no dejado ignorado.
+- [x] `getUserRole(userId)` sustituido por `getCurrentUser()`: el rol lo decide el servidor.
+- [x] Lista blanca de campos en `saveBiodata` y `savePhysicalProfile` (era el punto 1.4).
+- [x] Tope de 200 en `seedQuestionBank`; `generateTestQuestion` deja de ser acción pública.
+- [x] `getOfficialSyllabus` ya no devuelve el mensaje crudo de la BD (era el punto 1.5).
+- [x] 6 tests estáticos en `tests/actions-auth.test.ts` que fallan si el patrón vuelve.
 
-**Verificación:** con `curl`, invocar una acción con el UUID de otro usuario y comprobar
-que devuelve 401/denegado en vez de datos.
+**Pendiente de verificar contra el proyecto real:** con `curl`, invocar una acción sin
+cookie de sesión y comprobar que devuelve el error de sesión en vez de datos.
 
 ### 1.2 Reducir el uso de la clave de servicio
 
@@ -62,15 +65,17 @@ que RLS actúe como segunda barrera.
 - Volcarlas al repositorio en `supabase/migrations/` (hoy el esquema **solo existe dentro
   del proyecto de Supabase**: si se pierde, se pierde entero).
 
-### 1.4 Cerrar la asignación masiva §1.2
+### 1.4 Cerrar la asignación masiva §1.2 ✅ HECHA
 
-En `saveBiodata` y `savePhysicalProfile`, poner una lista blanca de campos en vez de
+Hecha junto con 1.1: lista blanca de campos (`BIODATA_FIELDS`, `PHYSICAL_FIELDS`) en vez de
 `{ user_id, ...formData }`. Nunca expandir un objeto del cliente sobre una fila.
 
 ### 1.5 Límite de frecuencia en las rutas de IA
 
 Cuota por usuario y día sobre `askAtenea`, `generateAndSaveCandidate`, `generateFlashcard`,
-`processInterviewTurn`, `generateWeeklyPlan`. `seedQuestionBank` además debe topar `count`.
+`processInterviewTurn`, `generateWeeklyPlan`. El tope de `count` en `seedQuestionBank` ya
+está puesto (200), pero **falta la cuota por usuario**: hoy un alumno autenticado sigue
+pudiendo llamar en bucle.
 
 ### 1.6 Decidir qué se manda a Gemini §1.3
 
@@ -223,10 +228,13 @@ y va a tocar todos los ficheros.
 
 ---
 
-## Lo primero que haría mañana
+## Siguiente paso
 
-1. **Sacar el esquema de la base de datos a `supabase/migrations/`.** Hoy solo vive dentro
+1. **Probar el login contra el Supabase real.** El cambio de `localStorage` a cookies es el
+   punto que hay que ver funcionando con credenciales de verdad: entrar como alumno, entrar
+   como admin y comprobar que las pestañas cargan.
+2. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
    del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
-2. **Fase 1.1** (sesión en el servidor). Todo lo demás se construye encima.
-3. **Fase 2.1** (ciclo de vida de las preguntas). Es un cambio pequeño con el mayor efecto
-   sobre lo que percibe el alumno: tests instantáneos en vez de esperas de IA.
+3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS), o saltar a **2.1**
+   (ciclo de vida de las preguntas) si se quiere un resultado visible antes: es un cambio
+   pequeño con el mayor efecto sobre lo que percibe el alumno.

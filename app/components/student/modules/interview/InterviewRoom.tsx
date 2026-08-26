@@ -143,7 +143,7 @@ export default function InterviewRoom({ user, onExit }: InterviewRoomProps) {
           const newHistory = [...history, { role: 'user', text }];
           setHistory(newHistory);
 
-          const res = await processInterviewTurn(user.id, newHistory, text);
+          const res = await processInterviewTurn(newHistory, text);
           
           if (res.success && res.response) {
               setHistory(prev => [...prev, { role: 'ai', text: res.response }]);

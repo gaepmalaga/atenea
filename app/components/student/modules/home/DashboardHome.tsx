@@ -28,7 +28,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
     // 2. Carga de Datos en Paralelo
     const loadData = async () => {
       try {
-        const statsRes = await getUserStats(user.id);
+        const statsRes = await getUserStats();
         setStats(statsRes.success ? statsRes.stats : null);
       } catch (e) {
         console.error("Error cargando dashboard:", e);

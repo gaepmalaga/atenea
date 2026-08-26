@@ -1,7 +1,12 @@
 'use server'
 import { supabaseAdmin as supabase, smartModel, cleanAIResponse } from './core';
+import { requireUser } from '../lib/auth';
 
-export async function generateWeeklyPlan(userId: string, profile: any) {
+export async function generateWeeklyPlan(profile: any) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, error: auth.error };
+    const userId = auth.user.id;
+
     try {
         if (!profile || !profile.baseline_metrics) throw new Error("Faltan datos físicos.");
         
@@ -40,14 +45,22 @@ export async function generateWeeklyPlan(userId: string, profile: any) {
     } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-export async function getActiveTrainingPlan(userId: string) {
+export async function getActiveTrainingPlan() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error, plan: null };
+    const userId = auth.user.id;
+
     const { data } = await supabase.from('training_plans').select('*').eq('user_id', userId).eq('status', 'active').order('created_at', {ascending:false}).limit(1).single();
-    return { success: true, plan: data };
+    return { success: true as const, plan: data };
 }
 
 export async function completeTrainingDay(
-    userId: string, planId: string, dayIndex: number, logData: any
+    planId: string, dayIndex: number, logData: any
 ): Promise<{ success: boolean; error?: string }> {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, error: auth.error };
+    const userId = auth.user.id;
+
     // Nota: el filtro por user_id evita que un usuario marque como completado
     // el plan de otro (antes `userId` se recibía y se ignoraba).
     const { data: plan, error: readError } = await supabase
@@ -72,12 +85,32 @@ export async function completeTrainingDay(
     return { success: !error, error: error?.message };
 }
 
-export async function getPhysicalProfile(userId: string) {
-    const { data } = await supabase.from('profiles_physical').select('*').eq('user_id', userId).single();
-    return { success: true, data };
+export async function getPhysicalProfile() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error, data: null };
+
+    const { data } = await supabase.from('profiles_physical').select('*').eq('user_id', auth.user.id).single();
+    return { success: true as const, data };
 }
 
-export async function savePhysicalProfile(userId: string, data: any) {
-    const { error } = await supabase.from('profiles_physical').upsert({ user_id: userId, ...data });
+/** Campos que el cliente puede escribir en `profiles_physical`. */
+const PHYSICAL_FIELDS = [
+    'height', 'weight', 'birth_year', 'gender',
+    'availability', 'equipment', 'injuries', 'baseline_metrics',
+] as const;
+
+export async function savePhysicalProfile(data: any) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false, error: auth.error };
+
+    // Lista blanca: antes se hacia `upsert({ user_id, ...data })`, y como el
+    // objeto del cliente se expandia DESPUES de la clave, un `user_id` propio
+    // sobrescribia el del servidor y permitia escribir en la fila de otro.
+    const payload: Record<string, unknown> = { user_id: auth.user.id };
+    for (const field of PHYSICAL_FIELDS) {
+        if (data?.[field] !== undefined) payload[field] = data[field];
+    }
+
+    const { error } = await supabase.from('profiles_physical').upsert(payload);
     return { success: !error, error: error?.message };
 }

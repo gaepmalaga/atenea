@@ -103,7 +103,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await getBiodata(user.id);
+        const res = await getBiodata();
         if (res.success && res.data) {
           const merged = { ...INITIAL_DATA, ...res.data };
           if (!merged.psych_answers) merged.psych_answers = {};
@@ -157,7 +157,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
 
   const handleSave = async () => {
     setSaving(true);
-    const res = await saveBiodata(user.id, formData);
+    const res = await saveBiodata(formData);
     setSaving(false);
     if (res.success) setLastSaved(new Date());
     else alert("Error: " + res.error);

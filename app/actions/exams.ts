@@ -1,12 +1,16 @@
 'use server'
 import crypto from 'crypto';
 import { supabaseAdmin as supabase, chatModel, cleanAIResponse, getSubjectIdByName } from './core';
+import { requireAdmin, requireUser } from '../lib/auth';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
 // ==========================================
 
-export async function generateTestQuestion(subjectId: number) {
+// Helper interno. NO se exporta como Server Action: era un endpoint publico
+// que llamaba a Gemini sin ninguna comprobacion. Sus dos consumidores
+// (`generateAndSaveCandidate` y `seedQuestionBank`) ya validan la sesion.
+async function generateTestQuestion(subjectId: number) {
   try {
     if (!subjectId) return { success: false, error: "ID de tema inválido." };
 
@@ -84,6 +88,9 @@ export async function generateTestQuestion(subjectId: number) {
 // Esta es la función que te faltaba y causaba el error
 
 export async function generateAndSaveCandidate(topicNameOrId: string | number) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
   try {
     // A. Resolver ID
     let subjectId: number;
@@ -156,6 +163,9 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number) {
 // 3. SEED (GENERACIÓN MASIVA)
 // ==========================================
 
+/** Maximo de preguntas por lote. Cada una es una llamada de pago a Gemini. */
+const MAX_SEED_COUNT = 200;
+
 async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
@@ -174,8 +184,15 @@ async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker:
 export async function seedQuestionBank(params: {
   subjectId: number; topic: string; count: number; concurrency?: number;
 }) {
-  const { subjectId, count, concurrency = 2 } = params;
-  if (!subjectId) return { success: false, error: "Falta ID de tema" };
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const { subjectId, concurrency = 2 } = params;
+  if (!subjectId) return { success: false as const, error: "Falta ID de tema" };
+
+  // Tope duro: `count` venia del cliente sin limite y cada unidad es una
+  // llamada de pago a Gemini.
+  const count = Math.min(Math.max(1, Math.floor(params.count) || 0), MAX_SEED_COUNT);
 
   console.log(`🚀 Generando ${count} preguntas para Subject ${subjectId}...`);
 
@@ -215,7 +232,7 @@ export async function seedQuestionBank(params: {
     if (!error) inserted++;
   }
 
-  return { success: true, inserted };
+  return { success: true as const, inserted, requested: count };
 }
 
 // ==========================================
@@ -235,13 +252,16 @@ export async function getQuestionsFromBank(params: {
    */
   difficulty?: number;
 }) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
   let ids = params.subjectIds || [];
   if (params.topic && ids.length === 0) {
       const id = await getSubjectIdByName(params.topic);
       ids = [id];
   }
   
-  if (ids.length === 0) return { success: false, error: "Sin temas" };
+  if (ids.length === 0) return { success: false as const, error: "Sin temas" };
 
   const { data, error } = await supabase
     .from('question_bank')
@@ -250,17 +270,20 @@ export async function getQuestionsFromBank(params: {
     .eq('status', 'active') 
     .limit(params.limit * 3); 
 
-  if (error) return { success: false, error: error.message };
-  
+  if (error) return { success: false as const, error: error.message };
+
   const shuffled = (data || []).sort(() => Math.random() - 0.5).slice(0, params.limit);
-  return { success: true, data: shuffled };
+  return { success: true as const, data: shuffled };
 }
 
 export async function saveTestResult(
-  userId: string, topicOrId: string | number, questionId: string | null, isCorrect: boolean, vipData?: any
+  topicOrId: string | number, questionId: string | null, isCorrect: boolean, vipData?: any
 ) {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false };
+
   try {
-    if (!userId) return { success: false };
+    const userId = auth.user.id;
 
     let subjectId: number;
     if (typeof topicOrId === 'number') subjectId = topicOrId;
@@ -287,8 +310,12 @@ export async function saveTestResult(
   } catch (e) { return { success: false }; }
 }
 
-export async function saveExamResults(userId: string, results: any[]) {
-    if (!userId || !results.length) return { success: false };
+export async function saveExamResults(results: any[]) {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false };
+    if (!results.length) return { success: false };
+
+    const userId = auth.user.id;
     
     const rows = await Promise.all(results.map(async (r) => {
         let sid = r.subject_id;

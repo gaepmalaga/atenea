@@ -29,8 +29,8 @@ export default function StatsPanel({ user }: StatsPanelProps) {
     setLoading(true);
     try {
       const [statsRes, physRes] = await Promise.all([
-        getUserStats(user.id),
-        getPhysicalProfile(user.id)
+        getUserStats(),
+        getPhysicalProfile()
       ]);
       if (statsRes.success) setStats(statsRes.stats);
       if (physRes.success) setPhysProfile(physRes.data);
