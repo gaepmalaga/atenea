@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabaseAdmin as supabase, questionModel, getSubjectIdByName } from './core';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
 import { QUESTION_STATUS, indexToOptionId, shuffle, type QuestionStatus } from '../lib/questions';
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 
@@ -111,6 +112,9 @@ function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
 export async function generateAndSaveCandidate(topicNameOrId: string | number) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const quota = await checkQuota(auth.user.id, 'question');
+  if (!quota.ok) return { success: false as const, error: quota.error };
 
   try {
     // A. Resolver ID
@@ -230,6 +234,11 @@ export async function seedQuestionBank(params: {
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+
+  // Sembrar es de admin, pero es lo que mas cuesta por llamada: hasta
+  // MAX_SEED_COUNT preguntas de una tacada.
+  const seedQuota = await checkQuota(auth.user.id, 'seed');
+  if (!seedQuota.ok) return { success: false as const, error: seedQuota.error };
 
   const { subjectId, concurrency = 2, autoApprove = true } = params;
   const status: QuestionStatus = autoApprove ? QUESTION_STATUS.ACTIVE : QUESTION_STATUS.CANDIDATE;

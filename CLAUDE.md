@@ -25,13 +25,13 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **3** | **Calidad de la IA + memoria del chat** | ✅ **cerrada** |
 | **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
-| 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
+| **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, en memoria: regla 20) |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
 | **5** | **Higiene** | 🔄 **en curso** (cronómetro, barajado, huérfanos) |
 | 2.5 | Dificultad | ⬜ (necesita una columna nueva) |
 
-### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
+### Lo que solo puedes hacer tú (necesita la consola de Supabase)
 
 1. **Activar RLS** — [`docs/sql/1.3-activar-rls.sql`](docs/sql/1.3-activar-rls.sql).
    Hoy cualquiera con la clave pública puede volcar `question_bank` **con las respuestas
@@ -41,6 +41,10 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 2. **Reparar los duplicados de la fase 2.4** —
    [`docs/sql/2.4-duplicados-test-results.sql`](docs/sql/2.4-duplicados-test-results.sql).
    Hunden el porcentaje de acierto de los alumnos. Va por pasos y con copia de seguridad.
+3. **Cuota de IA duradera** (opcional, cuando quieras) —
+   [`docs/sql/1.4-cuota-ia.sql`](docs/sql/1.4-cuota-ia.sql). La cuota ya funciona, pero el
+   contador vive en memoria del proceso: con varias instancias el límite real se multiplica
+   por el número de instancias vivas. Va **después** de la 1.3.
 
 **Sin verificar contra el Supabase real:** las fases 1.1, 2.1, 2.2, 2.3 y 2.4 están cerradas
 en código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
@@ -332,7 +336,48 @@ Y ojo con `Object.entries` sobre algo que no has comprobado que es un objeto:
 `Object.entries('texto')` enumera los **caracteres**. Un `feedback` corrupto
 generaba una anotación por letra, y eso acababa dentro del prompt.
 
-### 19 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 19 · Lo que sale hacia el modelo es una lista blanca, nunca la fila
+
+`processInterviewTurn` hacía `JSON.stringify(biodata)`: la fila **entera** de la base de
+datos, en cada turno. Ahí van el `user_id`, las columnas internas, las 30 respuestas del
+psicotécnico y `legal_issues` — el texto libre donde el aspirante escribe sus antecedentes,
+con un *"sinceridad absoluta obligatoria"* encima del campo.
+
+`buildInterviewProfile` y `buildCoachProfile` construyen lo que viaja. Dos consecuencias
+que importan más que el ahorro de tokens:
+
+1. **Un campo nuevo en la tabla ya no sale solo.** Con la fila entera, cualquier columna que
+   se añadiera empezaba a salir del sistema sin que nadie lo decidiera.
+2. **Los antecedentes no salen en texto.** Va un derivado de tres estados: *sin declarar* /
+   *declara no tener* / *declara incidencias, pregunta por ellas*. El simulador necesita
+   saber que hay algo que preguntar, no qué es.
+
+El nombre de la variable es parte de la guarda: `biodata` es la fila y no sale de la acción;
+`promptProfile` es lo único que viaja. Un test estático prohíbe
+`JSON.stringify(biodata|profile|data|row)` en las acciones.
+
+Y en la pantalla de biodata hay un aviso de qué sale de ahí. El alumno tiene derecho a
+saberlo **antes** de escribirlo.
+
+### 20 · La cuota de IA es por usuario y por ruta, y hoy vive en memoria
+
+`app/lib/rate-limit.ts`. Dos decisiones y una limitación:
+
+- **Por usuario**, no global: un contador compartido dejaría sin servicio a todos los
+  alumnos porque uno esté activo. Es peor fallo que no tener cuota.
+- **Por ruta**: agotar el chat no puede dejar al alumno sin flashcards.
+- **En memoria del proceso.** Con varias instancias, el límite real se multiplica por el
+  número de instancias vivas. Sirve para un bucle desde una pestaña; **no** es control de
+  gasto exacto. La versión duradera está en `docs/sql/1.4-cuota-ia.sql` y el cambio se
+  queda dentro de `rate-limit.ts`.
+
+`checkQuota` es **`async`** aunque hoy no espere nada, precisamente para eso. Y ojo: **sin
+`await` la comprobación no falla, deja pasar todo** — el resultado es una promesa y `.ok`
+es `undefined`. Hay una guarda estática que lo vigila, y otra que recorre las acciones
+siguiendo la cadena de llamadas, porque en `exams.ts` el modelo se invoca desde un ayudante
+privado.
+
+### 21 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -358,6 +403,7 @@ tests/interview.test.ts         transcripción, informe final y máquina de esta
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
 tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
+tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 ```
 
 `.github/workflows/check.yml` ejecuta `npm run check` en cada push. Las guardas

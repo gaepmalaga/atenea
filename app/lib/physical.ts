@@ -124,3 +124,67 @@ export function isTestDone(metrics: BaselineMetrics | null | undefined, testId: 
 export function hasBiometrics(profile: PhysicalProfile | null | undefined): boolean {
   return toNumberOrNull(profile?.height) !== null;
 }
+
+/**
+ * Lo que se le manda al preparador (Gemini), y solo eso.
+ *
+ * `athleteBrief` hacia `JSON.stringify(profile)` sobre la fila entera de la
+ * base de datos: incluia `user_id`, las columnas internas y el texto libre de
+ * `injuries`, que es informacion de salud. El plan necesita las medidas y las
+ * marcas, no la identidad de quien las tiene.
+ */
+export type CoachProfile = {
+  altura_cm?: number;
+  peso_kg?: number;
+  edad?: number;
+  sexo?: 'male' | 'female';
+  dias_por_semana?: number;
+  material?: 'gym' | 'calisthenics';
+  lesiones?: string;
+  marcas?: {
+    dominadas?: number;
+    dominadas_metodo?: 'reps' | 'suspension';
+    cooper_metros?: number;
+    agilidad_segundos?: number;
+  };
+};
+
+/** Recorte del texto libre de lesiones. */
+export const MAX_INJURIES_CHARS = 300;
+
+export function buildCoachProfile(
+  profile: PhysicalProfile | null | undefined,
+  today = new Date(),
+): CoachProfile {
+  const out: CoachProfile = {};
+  if (!profile) return out;
+
+  const altura = toNumberOrNull(profile.height);
+  const peso = toNumberOrNull(profile.weight);
+  const nacimiento = toNumberOrNull(profile.birth_year);
+  const dias = toNumberOrNull(profile.availability);
+
+  if (altura !== null) out.altura_cm = altura;
+  if (peso !== null) out.peso_kg = peso;
+  // Se manda la EDAD, no el año de nacimiento: es lo que usa el plan y
+  // identifica menos.
+  if (nacimiento !== null) out.edad = today.getFullYear() - nacimiento;
+  if (profile.gender) out.sexo = profile.gender;
+  if (dias !== null) out.dias_por_semana = dias;
+  if (profile.equipment) out.material = profile.equipment;
+  if (typeof profile.injuries === 'string' && profile.injuries.trim()) {
+    out.lesiones = profile.injuries.trim().slice(0, MAX_INJURIES_CHARS);
+  }
+
+  const dominadas = readMaxPullups(profile);
+  const cooper = toNumberOrNull(profile.baseline_metrics?.cooper_distance);
+  const agilidad = toNumberOrNull(profile.baseline_metrics?.agility_time);
+  const marcas: NonNullable<CoachProfile['marcas']> = {};
+  if (dominadas !== null) marcas.dominadas = dominadas;
+  if (profile.baseline_metrics?.pullups_method) marcas.dominadas_metodo = profile.baseline_metrics.pullups_method;
+  if (cooper !== null) marcas.cooper_metros = cooper;
+  if (agilidad !== null) marcas.agilidad_segundos = agilidad;
+  if (Object.keys(marcas).length) out.marcas = marcas;
+
+  return out;
+}

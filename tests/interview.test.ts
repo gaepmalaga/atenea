@@ -10,6 +10,10 @@ import {
   MAX_CONTEXT_TURNS,
   MAX_TURN_CHARS,
   MIN_TURNS_FOR_REPORT,
+  buildInterviewProfile,
+  summarizeLegalIssues,
+  hasProfileContent,
+  MAX_PROFILE_FIELD_CHARS,
   type InterviewTurn,
 } from '../app/lib/interview';
 
@@ -161,5 +165,122 @@ describe('la sala usa el contrato', () => {
     expect(server).toContain('export async function evaluateInterview');
     expect(server).toContain('canEvaluate(history)');
     expect(server).toContain('normalizeReport(');
+  });
+});
+
+
+// ============================================================
+// QUE SALE DEL SISTEMA HACIA GEMINI
+// ============================================================
+
+const filaBiodata = {
+  id: 'row-1',
+  user_id: 'usuario-secreto',
+  created_at: '2026-01-01',
+  family_background: 'Familia numerosa, padre guardia civil.',
+  studies_motivation: 'Criminología.',
+  work_history: 'Seguridad privada 3 años.',
+  leisure_activities: 'Atletismo.',
+  police_motivation: 'Vocación de servicio.',
+  strengths_weaknesses: 'Constante, impaciente.',
+  fears_concerns: 'Miedo a la entrevista.',
+  legal_issues: 'Condena por conducir sin carnet en 2019, expediente 1234/19.',
+  psych_answers: { p1: 3, p2: 5 },
+  psych_profile: { sincerity: 4, stability: 6, normativity: 7, leadership: 5 },
+};
+
+describe('buildInterviewProfile', () => {
+  it('conserva lo que el tribunal pregunta de verdad', () => {
+    const p = buildInterviewProfile(filaBiodata);
+    expect(p.entorno).toContain('guardia civil');
+    expect(p.motivacion).toBe('Vocación de servicio.');
+    expect(p.temores).toContain('entrevista');
+  });
+
+  it('NUNCA saca el texto de los antecedentes', () => {
+    // Es el dato más sensible que guarda la aplicación, y se mandaba entero a
+    // un tercero en cada turno. El simulador necesita saber que hay algo que
+    // preguntar, no qué es.
+    const serializado = JSON.stringify(buildInterviewProfile(filaBiodata));
+    expect(serializado).not.toContain('carnet');
+    expect(serializado).not.toContain('1234/19');
+    expect(serializado).not.toContain('Condena');
+  });
+
+  it('NUNCA saca el user_id ni las columnas internas', () => {
+    const serializado = JSON.stringify(buildInterviewProfile(filaBiodata));
+    expect(serializado).not.toContain('usuario-secreto');
+    expect(serializado).not.toContain('row-1');
+    expect(serializado).not.toContain('created_at');
+  });
+
+  it('NUNCA saca las respuestas crudas del psicotécnico', () => {
+    // Las puntuaciones derivadas ya viajan aparte y son las que se usan; las
+    // 30 respuestas una a una no aportan nada al prompt.
+    expect(JSON.stringify(buildInterviewProfile(filaBiodata))).not.toContain('psych_answers');
+  });
+
+  it('un campo nuevo en la tabla no sale solo', () => {
+    // Es la razón de ser de la lista blanca: antes se mandaba la fila entera,
+    // así que cualquier columna que se añadiera empezaba a salir del sistema
+    // sin que nadie lo decidiera.
+    const conCampoNuevo = { ...filaBiodata, numero_documento_identidad: '12345678Z' };
+    expect(JSON.stringify(buildInterviewProfile(conCampoNuevo))).not.toContain('12345678Z');
+  });
+
+  it('recorta el texto libre', () => {
+    const largo = { family_background: 'a'.repeat(5000) };
+    expect(buildInterviewProfile(largo).entorno).toHaveLength(MAX_PROFILE_FIELD_CHARS);
+  });
+
+  it('no revienta sin fila', () => {
+    expect(buildInterviewProfile(null).incidencias_legales).toBe('sin declarar');
+    expect(hasProfileContent(buildInterviewProfile(null))).toBe(false);
+  });
+});
+
+describe('summarizeLegalIssues', () => {
+  it('distingue los tres casos sin repetir el texto', () => {
+    expect(summarizeLegalIssues('')).toBe('sin declarar');
+    expect(summarizeLegalIssues(null)).toBe('sin declarar');
+    expect(summarizeLegalIssues('Ninguno')).toBe('declara no tener');
+    expect(summarizeLegalIssues('No tengo antecedentes')).toBe('declara no tener');
+    expect(summarizeLegalIssues('Una multa en 2019')).toContain('declara incidencias');
+  });
+
+  it('el resumen de un caso real no filtra el caso', () => {
+    const resumen = summarizeLegalIssues('Detenido en 2018 por una pelea en Málaga.');
+    expect(resumen).not.toContain('2018');
+    expect(resumen).not.toContain('Málaga');
+  });
+});
+
+describe('hasProfileContent', () => {
+  it('los antecedentes por sí solos no cuentan como perfil relleno', () => {
+    // `incidencias_legales` siempre trae valor ("sin declarar"), así que
+    // contarlo daría por relleno un perfil vacío y el inspector se pondría a
+    // repreguntar sobre nada.
+    expect(hasProfileContent(buildInterviewProfile({}))).toBe(false);
+    expect(hasProfileContent(buildInterviewProfile({ legal_issues: 'no' }))).toBe(false);
+    expect(hasProfileContent(buildInterviewProfile({ police_motivation: 'Vocación' }))).toBe(true);
+  });
+});
+
+describe('guardas estáticas sobre lo que se envía al modelo', () => {
+  const stripComments = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const leer = (rel: string) => stripComments(readFileSync(join(__dirname, '..', rel), 'utf-8'));
+
+  it('ninguna acción serializa la fila cruda de la base de datos hacia el modelo', () => {
+    // El fallo: `JSON.stringify(biodata)` con la fila entera, en cada turno.
+    for (const fichero of ['app/actions/interview.ts', 'app/actions/training.ts']) {
+      const src = leer(fichero);
+      expect(src, fichero).not.toMatch(/JSON\.stringify\((biodata|profile|data|row)\)/);
+    }
+  });
+
+  it('lo que viaja se construye con una lista blanca', () => {
+    expect(leer('app/actions/interview.ts')).toContain('buildInterviewProfile');
+    expect(leer('app/actions/training.ts')).toContain('buildCoachProfile');
   });
 });

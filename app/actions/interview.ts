@@ -6,10 +6,14 @@ import {
   formatTranscript,
   normalizeReport,
   trimContext,
+  buildInterviewProfile,
+  hasProfileContent,
   MIN_TURNS_FOR_REPORT,
   type InterviewTurn,
+  type InterviewProfile,
 } from '../lib/interview';
 import { requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
 
 export async function getBiodata() {
     const auth = await requireUser();
@@ -78,13 +82,12 @@ export async function getPsychProfile() {
 }
 
 /** Instrucciones de presion para el inspector, a partir del perfil del aspirante. */
-async function generateInspectorReport(biodata: BiodataInput | null) {
-    if (!biodata) return "EL CANDIDATO NO TIENE DATOS. ACÚSALE DE FALTA DE INTERÉS.";
-    const psych = biodata.psych_profile || { sincerity: 5, stability: 5, normativity: 5, leadership: 5 };
+async function generateInspectorReport(promptProfile: InterviewProfile, psych: PsychProfile) {
+    if (!hasProfileContent(promptProfile)) return "EL CANDIDATO NO TIENE DATOS. ACÚSALE DE FALTA DE INTERÉS.";
 
     const prompt = `
         ACTÚA COMO: Psicólogo Forense del Tribunal.
-        DATOS: ${JSON.stringify(biodata)}
+        DATOS: ${JSON.stringify(promptProfile)}
         PSICOTÉCNICO: Sinceridad ${psych.sincerity}, Estabilidad ${psych.stability}.
         
         GENERA INSTRUCCIONES DE PRESIÓN:
@@ -100,15 +103,26 @@ export async function processInterviewTurn(history: InterviewTurn[], userAudioTe
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
+    // La entrevista es por voz: un turno por respuesta, y el primero gasta dos
+    // llamadas (informe del inspector + respuesta).
+    const quota = await checkQuota(auth.user.id, 'interview');
+    if (!quota.ok) return { success: false as const, error: quota.error };
+
     try {
         const { data: biodata } = await supabase.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
 
+        // El nombre lo dice a proposito: `biodata` es la fila y NO sale de aqui;
+        // `promptProfile` es lo unico que viaja al modelo. Ver
+        // `buildInterviewProfile`: los antecedentes van resumidos, nunca en texto.
+        const promptProfile = buildInterviewProfile(biodata);
+        const psych: PsychProfile = biodata?.psych_profile ?? { sincerity: 5, stability: 5, normativity: 5, leadership: 5 };
+
         let inspectorStrategy = "Mantén la presión.";
-        if (history.length < 2 && biodata) {
-             inspectorStrategy = await generateInspectorReport(biodata);
+        if (history.length < 2 && hasProfileContent(promptProfile)) {
+             inspectorStrategy = await generateInspectorReport(promptProfile, psych);
         }
 
-        const profileContext = biodata ? JSON.stringify(biodata) : "SIN DATOS.";
+        const profileContext = hasProfileContent(promptProfile) ? JSON.stringify(promptProfile) : "SIN DATOS.";
         const contexto = formatTranscript(trimContext(history));
 
         const systemPrompt = `
@@ -143,12 +157,17 @@ export async function evaluateInterview(history: InterviewTurn[]) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
+    // La cuota se comprueba DESPUES de `canEvaluate`: una entrevista demasiado
+    // corta se rechaza sin llamar al modelo, asi que no debe gastar cuota.
     if (!canEvaluate(history)) {
         return {
             success: false as const,
             error: `Hacen falta al menos ${MIN_TURNS_FOR_REPORT} respuestas para que el informe diga algo.`,
         };
     }
+
+    const quota = await checkQuota(auth.user.id, 'report');
+    if (!quota.ok) return { success: false as const, error: quota.error };
 
     try {
         const transcripcion = formatTranscript(history);

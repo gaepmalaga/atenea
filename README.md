@@ -92,6 +92,10 @@ cuenta como si fuera código.
 2. **Reparar duplicados históricos** —
    [`docs/sql/2.4-duplicados-test-results.sql`](docs/sql/2.4-duplicados-test-results.sql).
    Hunden el porcentaje de acierto de los alumnos.
-3. **`supabase db pull`.** El esquema de la base de datos **no está en el
+3. **Cuota de IA duradera** (opcional, cuando quieras) —
+   [`docs/sql/1.4-cuota-ia.sql`](docs/sql/1.4-cuota-ia.sql). La cuota ya funciona, pero el
+   contador vive en memoria del proceso: con varias instancias el límite real se multiplica
+   por el número de instancias vivas. Va **después** de la 1.3.
+4. **`supabase db pull`.** El esquema de la base de datos **no está en el
    repositorio**: vive solo dentro del proyecto de Supabase. Es la tarea
    pendiente con más riesgo de pérdida y coste cero.

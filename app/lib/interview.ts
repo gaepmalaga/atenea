@@ -82,3 +82,86 @@ export function normalizeReport(data: unknown): InterviewReport | null {
 
   return { score, veredicto, fortalezas, contradicciones, recomendaciones };
 }
+
+// ============================================================
+// QUE SALE DEL SISTEMA HACIA EL MODELO
+// ============================================================
+
+/**
+ * Perfil del aspirante tal y como viaja a Gemini.
+ *
+ * Antes se mandaba `JSON.stringify(biodata)`: la fila ENTERA de la base de
+ * datos, en cada turno de la entrevista. Eso incluia el `user_id`, las columnas
+ * internas (`id`, `created_at`) y, sobre todo, `legal_issues` — el texto libre
+ * donde el aspirante escribe sus antecedentes, con un "sinceridad absoluta
+ * obligatoria" encima del campo.
+ *
+ * Lo que sale del sistema es ahora una decision explicita y auditable, no lo que
+ * pasara a estar en la tabla.
+ */
+export type InterviewProfile = {
+  entorno?: string;
+  estudios?: string;
+  experiencia?: string;
+  aficiones?: string;
+  motivacion?: string;
+  fortalezas_debilidades?: string;
+  temores?: string;
+  /** Derivado, NUNCA el texto: ver `summarizeLegalIssues`. */
+  incidencias_legales: string;
+};
+
+/** Fila de `profiles_biodata` en crudo. */
+export type BiodataRow = Record<string, unknown>;
+
+/**
+ * Campos narrativos que el tribunal real pregunta y que el simulador necesita
+ * para poder repreguntar. Nombre en la BD -> nombre en el prompt.
+ */
+const NARRATIVE_FIELDS: [string, keyof InterviewProfile][] = [
+  ['family_background', 'entorno'],
+  ['studies_motivation', 'estudios'],
+  ['work_history', 'experiencia'],
+  ['leisure_activities', 'aficiones'],
+  ['police_motivation', 'motivacion'],
+  ['strengths_weaknesses', 'fortalezas_debilidades'],
+  ['fears_concerns', 'temores'],
+];
+
+/** Recorte por campo: el aspirante escribe en un textarea sin limite. */
+export const MAX_PROFILE_FIELD_CHARS = 600;
+
+/**
+ * Los antecedentes NO salen en texto.
+ *
+ * El simulador necesita saber si hay algo que preguntar, no *qué* es. Un
+ * antecedente penal es de las cosas mas sensibles que guarda esta aplicacion, y
+ * mandarlo entero a un tercero en cada turno no hace falta para simular una
+ * entrevista: basta con que el inspector sepa que tiene que sacar el tema.
+ */
+export function summarizeLegalIssues(value: unknown): string {
+  const texto = clean(value);
+  if (!texto) return 'sin declarar';
+  // "no", "ninguno", "nada", "ninguna incidencia"...
+  if (/^(no|ninguno|ninguna|nada|n\/a|negativo)\b/i.test(texto)) return 'declara no tener';
+  return 'declara incidencias: pregunta por ellas, el aspirante las conoce';
+}
+
+/** Construye lo que se manda al modelo a partir de la fila de la BD. */
+export function buildInterviewProfile(row: BiodataRow | null | undefined): InterviewProfile {
+  const out: InterviewProfile = {
+    incidencias_legales: summarizeLegalIssues(row?.legal_issues),
+  };
+  if (!row) return out;
+
+  for (const [column, key] of NARRATIVE_FIELDS) {
+    const texto = clean(row[column]);
+    if (texto) out[key] = texto.slice(0, MAX_PROFILE_FIELD_CHARS);
+  }
+  return out;
+}
+
+/** ¿Hay algo con lo que trabajar, o el aspirante no ha rellenado nada? */
+export function hasProfileContent(profile: InterviewProfile): boolean {
+  return Object.entries(profile).some(([k, v]) => k !== 'incidencias_legales' && !!v);
+}

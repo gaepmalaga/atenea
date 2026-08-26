@@ -83,17 +83,40 @@ usuario antes de tener RLS activa se queda sin ninguna protección.
 Hecha junto con 1.1: lista blanca de campos (`BIODATA_FIELDS`, `PHYSICAL_FIELDS`) en vez de
 `{ user_id, ...formData }`. Nunca expandir un objeto del cliente sobre una fila.
 
-### 1.5 Límite de frecuencia en las rutas de IA
+### 1.5 Límite de frecuencia en las rutas de IA ✅ HECHA (con matiz)
 
-Cuota por usuario y día sobre `askAtenea`, `generateAndSaveCandidate`, `generateFlashcard`,
-`processInterviewTurn`, `generateWeeklyPlan`. El tope de `count` en `seedQuestionBank` ya
-está puesto (200), pero **falta la cuota por usuario**: hoy un alumno autenticado sigue
-pudiendo llamar en bucle.
+- [x] Cuota **por usuario y por ruta** en las nueve llamadas a Gemini
+      (`app/lib/rate-limit.ts`). Por ruta y no global: si el contador fuera compartido, un
+      alumno activo dejaría sin servicio a todos los demás — peor fallo que no tener cuota.
+      Y agotar el chat no puede dejar a nadie sin flashcards.
+- [x] Guarda estática que recorre las acciones **siguiendo la cadena de llamadas**: en
+      `exams.ts` el modelo se invoca desde un ayudante privado al que llaman dos acciones,
+      así que mirar solo la función que envuelve la llamada daba falsos positivos.
+- [x] Segunda guarda, menos obvia: **sin `await`**, `checkQuota` devuelve una promesa,
+      `.ok` es `undefined` y la comprobación deja pasar **todo** sin fallar de forma visible.
 
-### 1.6 Decidir qué se manda a Gemini §1.3
+**El matiz, y va por delante:** el contador vive en memoria del proceso. Con varias
+instancias el límite real se multiplica por el número de instancias vivas. Sirve para un
+bucle desde una pestaña, no como control de gasto exacto. La versión duradera está escrita
+en [`docs/sql/1.4-cuota-ia.sql`](sql/1.4-cuota-ia.sql) y el cambio se queda dentro de
+`rate-limit.ts`, porque las llamadas ya la esperan.
 
-Elegir explícitamente qué campos de la biodata viajan en el prompt de la entrevista. Hoy va
-todo, incluido `legal_issues`.
+### 1.6 Decidir qué se manda a Gemini §1.3 ✅ HECHA
+
+- [x] **Lista blanca explícita** (`buildInterviewProfile`): lo que sale del sistema es una
+      decisión auditable, no lo que pase a estar en la tabla. Antes se mandaba
+      `JSON.stringify(biodata)` — la fila entera, en cada turno.
+- [x] **Los antecedentes no salen en texto.** Se manda un derivado de tres estados. El
+      simulador necesita saber que hay algo que preguntar, no qué es.
+- [x] Fuera el `user_id`, las columnas internas y las respuestas crudas del psicotécnico.
+      Texto libre recortado.
+- [x] Lo mismo en el entrenador físico (`buildCoachProfile`): la fila traía `user_id` y el
+      texto de `injuries`, que es información de salud. Va la **edad**, no el año de
+      nacimiento.
+- [x] Un aviso en la pantalla de biodata: el alumno tiene derecho a saber qué sale de ahí
+      antes de escribirlo.
+- [x] Un test añade una columna inventada a la fila y comprueba que **no** aparece en el
+      prompt: es la razón de ser de la lista blanca.
 
 **Salida de la fase:** un documento corto `docs/SEGURIDAD.md` con el modelo de amenazas y
 las políticas RLS aplicadas.

@@ -3,6 +3,7 @@ import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
 import { cleanLegalText, chunkLegalText } from '../lib/text';
 import { requireAdmin, requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
 import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
 
 // --- TIPOS DEL TEMARIO ---
@@ -76,6 +77,10 @@ export async function deleteDocument(documentId: string) {
 export async function uploadTopicPDF(formData: FormData) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
+
+  // Un PDF de temario son decenas de embeddings, uno por fragmento.
+  const quota = await checkQuota(auth.user.id, 'index');
+  if (!quota.ok) return { success: false, error: quota.error };
 
   try {
     const file = formData.get('file') as File;

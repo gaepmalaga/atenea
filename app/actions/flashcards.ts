@@ -3,6 +3,7 @@ import { supabaseAdmin as supabase, flashcardModel, getSubjectIdByName } from '.
 import { parseAIJson, validateFlashcard, randomContextWindow } from '../lib/ai-output';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
 import { requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
 
 /** Tarjeta que devuelve la UI al puntuarla. */
 export type FlashcardInput = {
@@ -23,6 +24,9 @@ export async function generateFlashcard(topicNameOrId: string | number) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const userId = auth.user.id;
+
+  const quota = await checkQuota(userId, 'flashcard');
+  if (!quota.ok) return { success: false as const, error: quota.error };
 
   try {
     let subjectId: number;

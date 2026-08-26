@@ -2,6 +2,7 @@
 
 import { supabaseAdmin as supabase, chatModel, embeddingModel } from './core';
 import { requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
 import {
   buildRetrievalQuery,
   formatHistory,
@@ -41,6 +42,11 @@ function dedupeChunks(chunks: Chunk[]) {
 export async function askAtenea(query: string, history: ChatTurn[] = []): Promise<AskAteneaResult> {
   const auth = await requireUser();
   if (!auth.ok) return { success: false, error: auth.error };
+
+  // Cada mensaje son DOS llamadas de pago: el embedding de la busqueda y la
+  // respuesta. Sin cuota, la factura la marcaba cualquiera.
+  const quota = await checkQuota(auth.user.id, 'chat');
+  if (!quota.ok) return { success: false, error: quota.error };
 
   try {
     // 1. Limpieza y validación de entrada

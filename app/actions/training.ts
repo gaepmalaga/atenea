@@ -2,10 +2,12 @@
 import { supabaseAdmin as supabase, planModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
+import { checkQuota } from '../lib/rate-limit';
 import {
     normalizeProfileInput,
     normalizeMetrics,
     readMaxPullups,
+    buildCoachProfile,
     type PhysicalProfile,
 } from '../lib/physical';
 import {
@@ -37,10 +39,11 @@ function athleteBrief(profile: PhysicalProfile): string {
 
     const daysAvailable = profile.availability || 5;
     const equipmentText = profile.equipment === 'gym' ? "Gimnasio Comercial" : "Parque/Calistenia";
-    const age = profile.birth_year ? new Date().getFullYear() - profile.birth_year : 25;
 
-    return `PERFIL: ${JSON.stringify(profile)}
-            EDAD: ${age}
+    // Lista blanca, no la fila entera: la fila trae `user_id` y las columnas
+    // internas, y `injuries` es informacion de salud. El plan necesita las
+    // medidas y las marcas, no de quien son.
+    return `PERFIL: ${JSON.stringify(buildCoachProfile(profile))}
             LOGÍSTICA: ${daysAvailable} días/sem. Equipo: ${equipmentText}.
             NIVEL FUERZA: ${pullupStrategy}.`;
 }
@@ -49,6 +52,9 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
     const userId = auth.user.id;
+
+    const quota = await checkQuota(userId, 'plan');
+    if (!quota.ok) return { success: false, error: quota.error };
 
     try {
         if (!profile || !profile.baseline_metrics) throw new Error("Faltan datos físicos.");
@@ -145,6 +151,9 @@ export async function generateNextWeek() {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error, plan: null };
     const userId = auth.user.id;
+
+    const quota = await checkQuota(userId, 'plan');
+    if (!quota.ok) return { success: false as const, error: quota.error, plan: null };
 
     try {
         const { data: current, error: readError } = await supabase

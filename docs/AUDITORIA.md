@@ -98,22 +98,61 @@ Además, `BiodataManager` carga la fila completa de la BD en el estado del formu
 reenvía tal cual al guardar, así que columnas como `id` o `created_at` viajan de vuelta en
 cada `upsert`.
 
-### 1.3 · MEDIO — Datos personales sensibles enviados a Gemini sin filtrar
+### 1.3 · ~~MEDIO~~ ✅ CERRADO — Datos personales sensibles enviados a Gemini sin filtrar
 
-`processInterviewTurn` serializa la biodata **completa** en el prompt, en cada turno de la
-entrevista (`app/actions/interview.ts:363`). Esa biodata incluye antecedentes familiares,
-miedos y un campo explícito de `legal_issues`. Conviene decidir de forma consciente qué
-campos salen del sistema, y reflejarlo en la política de privacidad.
+`processInterviewTurn` serializaba la biodata **completa** en el prompt, en cada turno de la
+entrevista: `JSON.stringify(biodata)` sobre la fila entera de la base de datos. Eso incluía
+el `user_id`, las columnas internas (`id`, `created_at`), las 30 respuestas crudas del
+psicotécnico y, sobre todo, `legal_issues` — el texto libre donde el aspirante escribe sus
+antecedentes, con un *"sinceridad absoluta obligatoria"* encima del campo.
 
-### 1.4 · MEDIO — Sin límite de frecuencia en ninguna ruta de IA
+**Cerrado.** Lo que sale del sistema es ahora una decisión explícita y auditable
+(`buildInterviewProfile`, `app/lib/interview.ts`), no lo que pase a estar en la tabla:
 
-Cinco acciones distintas llaman a Gemini sin ningún control de cuota por usuario.
-Combinado con §1.1, la factura la marca cualquiera.
+- **Los antecedentes no salen en texto.** Se manda un derivado de tres estados: *sin
+  declarar* / *declara no tener* / *declara incidencias, pregunta por ellas*. El simulador
+  necesita saber que hay algo que preguntar, no qué es.
+- Fuera el `user_id`, las columnas internas y las respuestas crudas del psicotécnico (las
+  puntuaciones derivadas ya viajaban aparte y son las que se usan).
+- El texto libre se recorta: el aspirante escribe en un `textarea` sin límite.
+- **Un campo nuevo en la tabla ya no sale solo.** Es la razón de ser de la lista blanca, y
+  hay un test que añade una columna inventada y comprueba que no aparece en el prompt.
 
-### 1.5 · BAJO — Mensajes de error crudos hacia el cliente
+Mismo patrón, más leve, en el entrenador físico: `athleteBrief` hacía
+`JSON.stringify(profile)` sobre la fila, que trae `user_id` y el texto libre de `injuries`
+(información de salud). `buildCoachProfile` manda las medidas y las marcas, y la **edad** en
+lugar del año de nacimiento.
 
-`getOfficialSyllabus` devuelve `e.message` "para debug" (comentario incluido), lo que
-filtra estructura interna de la base de datos.
+Y en la pantalla de biodata, un aviso: el alumno tiene derecho a saber qué sale de ahí
+**antes** de escribirlo.
+
+### 1.4 · ~~MEDIO~~ ✅ CERRADO (con una limitación escrita por delante) — Sin límite de frecuencia en las rutas de IA
+
+Ocho acciones llamaban a Gemini sin ningún control de cuota. Combinado con §1.1, la factura
+la marcaba cualquiera.
+
+`app/lib/rate-limit.ts` aplica una cuota por usuario **y por ruta**: agotar el chat no puede
+dejar al alumno sin flashcards, y el contador no es global — si lo fuera, un alumno activo
+dejaría sin servicio a todos los demás, que es peor fallo que no tener cuota.
+
+**El contador vive en memoria del proceso.** Con varias instancias —Vercel levanta y recicla
+procesos— cada una lleva su cuenta, así que el límite real es el configurado multiplicado
+por el número de instancias vivas. Sirve para lo que más duele (un bucle desde una pestaña,
+un script contra una acción) y **no** como control de gasto exacto. La versión duradera está
+escrita y lista en [`docs/sql/1.4-cuota-ia.sql`](sql/1.4-cuota-ia.sql), con la función
+atómica para que dos peticiones simultáneas del mismo usuario no puedan leer el mismo
+contador y escribir las dos.
+
+`checkQuota` ya es `async` y las nueve llamadas la esperan con `await`, así que ese cambio
+se queda dentro de un solo fichero. Hay una guarda que lo vigila: sin `await`, el resultado
+es una promesa, `.ok` es `undefined` y la comprobación dejaría pasar **todo** sin fallar de
+forma visible.
+
+### 1.5 · ~~BAJO~~ ✅ CERRADO — Mensajes de error crudos hacia el cliente
+
+`getOfficialSyllabus` devolvía `e.message` *"para debug"* (comentario incluido), lo que
+filtraba estructura interna de la base de datos. **Cerrado:** el detalle se queda en el log
+del servidor y al cliente le llega *"No se pudo cargar el temario."*
 
 ---
 
