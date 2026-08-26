@@ -6,6 +6,7 @@ import { buildExamResults } from '@/app/lib/exam-results';
 import {
   type Question as ExamQuestion,
   difficultyToNumber,
+  shuffle,
   mapBankRowToQuestion,
   mapCandidateToQuestion,
 } from '@/app/lib/questions';
@@ -75,7 +76,7 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
         return true;
       });
 
-      loadedQuestions = loadedQuestions.sort(() => Math.random() - 0.5).slice(0, targetCount);
+      loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
 
       // 2. FASE IA (Relleno)
       const missing = targetCount - loadedQuestions.length;

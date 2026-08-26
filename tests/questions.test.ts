@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  shuffle,
   indexToOptionId,
   difficultyToNumber,
   mapBankRowToQuestion,
@@ -125,5 +126,42 @@ describe('scoreExam', () => {
     // ExamResults.tsx calcula `correctCount / total` sin protegerse: con un
     // examen de cero preguntas pinta "NaN%".
     expect(scoreExam([]).percentage).toBe(0);
+  });
+});
+
+describe('shuffle', () => {
+  it('conserva todos los elementos', () => {
+    const items = [1, 2, 3, 4, 5, 6, 7, 8];
+    expect(shuffle(items).sort((a, b) => a - b)).toEqual(items);
+  });
+
+  it('no muta el array original', () => {
+    const items = [1, 2, 3];
+    shuffle(items);
+    expect(items).toEqual([1, 2, 3]);
+  });
+
+  it('tolera listas vacias o de un elemento', () => {
+    expect(shuffle([])).toEqual([]);
+    expect(shuffle(['solo'])).toEqual(['solo']);
+  });
+
+  it('reparte las posiciones sin sesgo', () => {
+    // `sort(() => Math.random() - 0.5)` deja el primer elemento en su sitio
+    // mucho mas de lo que deberia: el comparador es inconsistente y el
+    // resultado depende del algoritmo de ordenacion del motor. En un banco de
+    // preguntas eso significa que el alumno ve siempre las mismas.
+    const items = [0, 1, 2, 3, 4];
+    const vecesEnPrimeraPosicion = new Array(items.length).fill(0);
+
+    for (let i = 0; i < 6000; i++) {
+      vecesEnPrimeraPosicion[shuffle(items)[0]]++;
+    }
+
+    // Con reparto uniforme cada elemento sale ~1200 veces de 6000.
+    for (const veces of vecesEnPrimeraPosicion) {
+      expect(veces).toBeGreaterThan(900);
+      expect(veces).toBeLessThan(1500);
+    }
   });
 });

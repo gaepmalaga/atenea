@@ -359,12 +359,17 @@ Baja urgencia, alto efecto compuesto. Se puede ir haciendo en paralelo.
 - Las 41 variables sin usar y los 12 `react/no-unescaped-entities`.
 - Las 11 dependencias de efectos incompletas. (Las mutaciones de estado de §2.9 se
   cerraron en la fase 2.3, dentro de `ActiveTest`.)
-- Fuga de `AudioContext` y efectos secundarios dentro del actualizador de estado §2.8.
-- Borrar `VipButton.tsx` / `VipCard.tsx` (vacíos y huérfanos) y las acciones muertas.
+- [x] **Cronómetro §2.8.** Fuga de `AudioContext` (uno por pitido, sin cerrar) y efectos
+      dentro del actualizador de `setState`. Y algo que no estaba documentado: contaba
+      restando 1 por tick de `setInterval`, que no es exacto — en el test de Cooper, de 12
+      minutos, el desfase se acumula y **el alumno mide mal su marca**. Ahora el tiempo se
+      deriva de marcas de reloj. `playBeep('milestone')` estaba en el tipo y no tenía rama:
+      pedirlo no hacía nada.
+- [x] Borrados `VipButton.tsx` / `VipCard.tsx` (vacíos y huérfanos).
 - Sustituir los `alert()` / `confirm()` por componentes de UI propios.
 - Reescribir el `README.md` (sigue siendo el de `create-next-app`).
 - CI en GitHub Actions: `typecheck` + `lint` + `test` en cada push.
-- Fisher-Yates en lugar de `sort(() => Math.random() - 0.5)`.
+- [x] Fisher-Yates en lugar de `sort(() => Math.random() - 0.5)`, con test de reparto.
 
 ---
 

@@ -27,7 +27,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
-| 2.5, 2.7, 5 | Dificultad, perfil físico, higiene | ⬜ |
+| **5** | **Higiene** | 🔄 **en curso** (cronómetro, barajado, huérfanos) |
+| 2.5, 2.7 | Dificultad, perfil físico | ⬜ |
 
 ### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
 
@@ -58,7 +59,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~79 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # ~74 errores heredados, fase 5. No es puerta de calidad todavía.
 ```
 
 ---
@@ -257,7 +258,35 @@ Mismo motivo por el que el contador de cambios de opción vive en un ref
 reconocimiento de voz se lee con `useSyncExternalStore`, no dentro de un efecto:
 así no hay render en cascada ni desajuste de hidratación.
 
-### 14 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 14 · El tiempo sale del reloj, no de contar intervalos
+
+`setInterval(1000)` no es exacto: se retrasa con la pestaña en segundo plano,
+con la carga del móvil y con el ahorro de batería. El cronómetro restaba 1 en
+cada tick, así que en el test de Cooper (12 minutos) el desfase se acumulaba y
+**el alumno medía mal su marca**. Ahora el intervalo solo decide cada cuánto se
+repinta; el tiempo se deriva de marcas de reloj (`app/lib/timer.ts`).
+
+Dos cosas más de ese componente, por si vuelven:
+
+- **Un solo `AudioContext`**, reutilizado y cerrado al desmontar. Se creaba uno
+  por pitido: en los últimos 10 segundos se llama una vez por segundo y el
+  navegador limita los contextos simultáneos, así que el audio se apagaba justo
+  en el tramo que más importa.
+- **Nada de efectos dentro del actualizador de `setState`.** `speak`, `playBeep`
+  y `onFinish` vivían dentro de `setTime(prev => ...)`, que debe ser puro: en
+  StrictMode se ejecuta dos veces y sonaba todo por duplicado.
+
+Y cuando un valor se puede **derivar**, se deriva: `finished` y `running` salen
+del tiempo en vez de guardarse, lo que elimina de raíz el `setState` dentro del
+efecto que vigila el reloj.
+
+### 15 · Barajar es Fisher-Yates, nunca `sort(() => Math.random() - 0.5)`
+
+`shuffle` en `app/lib/questions.ts`. El comparador aleatorio es inconsistente y
+el resultado depende del algoritmo de ordenación del motor: unas posiciones
+salen mucho más que otras, así que el alumno veía siempre las mismas preguntas.
+
+### 16 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -280,6 +309,7 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
 tests/interview.test.ts         transcripción, informe final y máquina de estados
+tests/timer.test.ts             cronómetro de las pruebas físicas
 ```
 
 `srs.test.ts` cubre la repetición espaciada; el resto de la tabla sigue igual.

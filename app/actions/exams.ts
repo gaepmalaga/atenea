@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { supabaseAdmin as supabase, questionModel, getSubjectIdByName } from './core';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
-import { QUESTION_STATUS, indexToOptionId, type QuestionStatus } from '../lib/questions';
+import { QUESTION_STATUS, indexToOptionId, shuffle, type QuestionStatus } from '../lib/questions';
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 
 // ==========================================
@@ -330,7 +330,7 @@ export async function getQuestionsFromBank(params: {
 
   if (error) return { success: false as const, error: error.message };
 
-  const shuffled = (data || []).sort(() => Math.random() - 0.5).slice(0, params.limit);
+  const shuffled = shuffle(data || []).slice(0, params.limit);
   return { success: true as const, data: shuffled };
 }
 

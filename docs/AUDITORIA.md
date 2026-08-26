@@ -244,16 +244,21 @@ indexado completo de uno parcial y dice cuántos fragmentos fallaron: antes pint
 Máximas" muestra siempre `0`. La barra de progreso de esa tarjeta está además cableada al
 `65%`.
 
-### 2.8 · MEDIO — Fuga de AudioContext en el cronómetro
+### 2.8 · ~~MEDIO~~ ✅ CERRADO — Fuga de AudioContext en el cronómetro
 
 `TacticalTimer.playBeep` crea un `new AudioContext()` en cada llamada y no lo cierra nunca.
 Durante los últimos 10 segundos de una cuenta atrás se llama una vez por segundo: los
 navegadores limitan los contextos simultáneos por documento, así que los pitidos se
 apagan (y en algunos motores lanza).
 
-Además, `speak()`, `playBeep()` y `onFinish()` se ejecutan **dentro del actualizador de
+Además, `speak()`, `playBeep()` y `onFinish()` se ejecutaban **dentro del actualizador de
 `setTime`**, que debe ser una función pura. En StrictMode se ejecuta dos veces: pitidos y
-voz duplicados. `playBeep('milestone')` está en el tipo pero no tiene rama: no suena.
+voz duplicados. `playBeep('milestone')` estaba en el tipo pero no tenía rama: no sonaba.
+
+**Cerrado**, y al abrirlo apareció algo peor que no estaba documentado: el cronómetro
+contaba **restando 1 en cada tick de `setInterval`**, que no es exacto. En el test de
+Cooper, de 12 minutos, ese desfase se acumula y el alumno mide mal su marca. Ahora el
+tiempo se deriva de marcas de reloj y el intervalo solo decide cada cuánto se repinta.
 
 ### 2.9 · ~~MEDIO~~ ✅ CERRADO — Mutación directa del estado en `ActiveTest`
 
@@ -328,8 +333,9 @@ completa y está cubierta por 17 tests.
   denominador era 110 y nunca llegaba al 100%. Ahora mide el tramo real entre rangos.
 - ✅ La barra del KPI físico estaba cableada al 65%. Retirada: el KPI lee el campo que de
   verdad se escribe y distingue "sin datos" de "cero dominadas".
-- El troceado del `sort(() => Math.random() - 0.5)` es un barajado sesgado; conviene
-  Fisher-Yates.
+- ✅ `sort(() => Math.random() - 0.5)` era un barajado sesgado: el comparador es
+  inconsistente y unas posiciones salen mucho más que otras, así que el alumno veía
+  siempre las mismas preguntas. Sustituido por Fisher-Yates, con test de reparto.
 
 ---
 
@@ -360,8 +366,7 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 
 ### 3.3 Estructura
 
-- `app/components/student/shared/VipButton.tsx` y `VipCard.tsx` están **vacíos** (0 bytes)
-  y nadie los importa.
+- ✅ `VipButton.tsx` y `VipCard.tsx` estaban **vacíos** (0 bytes) y sin importar: borrados.
 - Acciones exportadas sin consumidor: `deleteTopic`, `getPsychProfile`. ✅ Resueltas:
   `generateTestQuestion` pasó a helper interno (fase 1.1), `getTopicsList` se eliminó
   (fase 1.1) y `saveFlashcardResult` se conectó (fase 4) — la tabla de analítica

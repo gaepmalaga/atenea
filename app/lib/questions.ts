@@ -26,6 +26,23 @@ export type Question = {
 
 export const OPTION_IDS = ['a', 'b', 'c'] as const;
 
+/**
+ * Baraja sin sesgo (Fisher-Yates).
+ *
+ * `sort(() => Math.random() - 0.5)` NO baraja bien: el comparador es
+ * inconsistente y el resultado depende del algoritmo de ordenacion del motor,
+ * asi que unas posiciones salen mucho mas que otras. En un banco de preguntas
+ * eso significa que el alumno ve siempre las mismas.
+ */
+export function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /** Convierte un indice numerico de opcion (0,1,2) en su id ('a','b','c'). */
 export function indexToOptionId(index: number): string {
   return OPTION_IDS[index] ?? OPTION_IDS[OPTION_IDS.length - 1];
