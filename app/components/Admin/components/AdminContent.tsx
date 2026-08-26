@@ -37,7 +37,7 @@ type Block = {
   subjects: Subject[];
 };
 
-export default function AdminContent({ userId }: { userId: string }) {
+export default function AdminContent() {
   const [syllabus, setSyllabus] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -55,8 +55,6 @@ export default function AdminContent({ userId }: { userId: string }) {
   // Control de acordeón (Bloques abiertos)
   const [openBlocks, setOpenBlocks] = useState<Record<number, boolean>>({ 1: true });
 
-  useEffect(() => { load(); }, []);
-
   async function load() {
     setLoading(true);
     const res = await getOfficialSyllabus();
@@ -67,6 +65,8 @@ export default function AdminContent({ userId }: { userId: string }) {
     }
     setLoading(false);
   }
+
+  useEffect(() => { load(); }, []);
 
   const toggleBlock = (blockId: number) => {
     setOpenBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
@@ -87,12 +87,26 @@ export default function AdminContent({ userId }: { userId: string }) {
     
     const res = await uploadTopicPDF(formData);
     setUploading(false);
-    
-    if (res.success) { 
-        await load(); // Recarga visual
+
+    if (!res.success) {
+        alert("❌ Error: " + res.error);
+        return;
+    }
+
+    await load(); // Recarga visual
+
+    // Un indexado parcial no es un éxito: significa que parte del temario no
+    // está en el buscador y el chat no lo encontrará. Antes se pintaba el
+    // mismo "✅" en ambos casos.
+    if (res.complete) {
         alert("✅ " + res.message);
-    } else { 
-        alert("❌ Error: " + res.error); 
+    } else {
+        alert(
+            "⚠️ " + res.message +
+            "\n\nEse contenido NO aparecerá en las búsquedas del chat." +
+            (res.failures?.length ? "\n\nPrimeros errores:\n" + res.failures.join("\n") : "") +
+            "\n\nPuedes borrar el documento y volver a subirlo."
+        );
     }
   }
 

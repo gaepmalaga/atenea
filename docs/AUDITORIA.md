@@ -219,7 +219,7 @@ la pasa a `getQuestionsFromBank`… que nunca la usó. Era, de hecho, uno de los
 compilación. El prompt de generación tiene la dificultad **fija** en "Media/Alta"
 (`exams.ts:41`).
 
-### 2.6 · ALTO — Fragmentos vacíos al indexar PDFs
+### 2.6 · ~~ALTO~~ ✅ CERRADO — Fragmentos vacíos al indexar PDFs
 
 El troceado de `uploadTopicPDF` hace `push(currentChunk)` **antes** de acumular nada. Si el
 documento empieza con un párrafo de más de 1000 caracteres —lo normal en un texto legal—
@@ -227,9 +227,15 @@ el primer fragmento es la cadena vacía, `embedContent('')` falla, y el document
 indexado a medias sin avisar al administrador. Cubierto por
 `tests/text.test.ts` (*"genera un primer fragmento VACIO"*).
 
-Relacionado: el algoritmo nunca parte un párrafo, así que un artículo largo produce un
-fragmento único gigantesco; y el solapamiento se toma del fragmento *ya solapado*, de modo
-que los tamaños crecen por encima del máximo. Ambos con test.
+Relacionado: el algoritmo nunca partía un párrafo, así que un artículo largo producía un
+fragmento único gigantesco; y el solapamiento se tomaba del fragmento *ya solapado*, de modo
+que los tamaños crecían por encima del máximo.
+
+**Cerrado.** `chunkLegalText` reescrito con tres garantías bajo test: sin fragmentos vacíos,
+ningún fragmento por encima del máximo (partiendo por frases antes que a ciegas), y solape
+tomado del contenido anterior sin acumularse. Además `uploadTopicPDF` distingue ahora un
+indexado completo de uno parcial y dice cuántos fragmentos fallaron: antes pintaba el mismo
+`✅` en los dos casos.
 
 ### 2.7 · MEDIO — Perfil físico: nombres de campo que no casan
 
@@ -374,7 +380,9 @@ nombres de campo de §2.3 y §2.7 se detectó en compilación.
 | 2.1 · Ciclo de vida de las preguntas | ✅ cerrada (§2.1 y §2.10) |
 | 2.2 · Estadísticas y Error Boundaries | ✅ cerrada (§2.2 y §2.14) |
 | 2.3 · Métricas de comportamiento | ✅ cerrada (§2.3 y §2.9) |
-| **2.4 · Un resultado por respuesta** | ✅ **cerrada** en código (§2.4) |
+| 2.4 · Un resultado por respuesta | ✅ cerrada en código (§2.4) |
+| **2.6 · Indexado de PDFs** | ✅ **cerrada** (§2.6) |
+| **1.3 · Activar RLS** | 📄 **SQL escrito, falta ejecutarlo** |
 | 1.2 / 1.3 · Clave de servicio y RLS | pendiente |
 | 1.5 / 1.6 · Cuotas y datos a Gemini | parcial (tope de seed puesto) |
 | 2.2 – 5 | pendiente |

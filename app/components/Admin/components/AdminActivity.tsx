@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Activity, Layers, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { getGlobalActivity } from '@/actions';
 
-export default function AdminActivity({ userId }: { userId: string }) {
+export default function AdminActivity() {
   const [activityLog, setActivityLog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

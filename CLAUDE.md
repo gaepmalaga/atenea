@@ -20,15 +20,23 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 2.1 | Ciclo de vida de las preguntas | ✅ cerrada |
 | 2.2 | Panel de estadísticas + Error Boundaries | ✅ cerrada |
 | 2.3 | Métricas de comportamiento | ✅ cerrada |
-| **2.4** | **Un resultado por respuesta** | ✅ **cerrada** (falta reparar el histórico) |
-| 1.2 / 1.3 | Acotar la clave de servicio · activar RLS | ⬜ siguiente |
+| 2.4 | Un resultado por respuesta | ✅ cerrada (falta reparar el histórico) |
+| **2.6** | **Indexado de PDFs** | ✅ **cerrada** |
+| **1.3** | **Activar RLS** | ⬜ **SQL listo para ejecutar** |
+| 1.2 | Acotar la clave de servicio | ⬜ va DESPUÉS de la 1.3 |
 | 1.5 / 1.6 | Cuota por usuario en IA · qué se manda a Gemini | ⬜ parcial |
-| 2.5 – 5 | Resto de fallos funcionales, IA, pedagogía, higiene | ⬜ |
+| 2.5, 2.7, 3 – 5 | Dificultad, perfil físico, IA, pedagogía, higiene | ⬜ |
 
-**Pendiente que solo puedes hacer tú:** los duplicados que dejó el fallo de la fase 2.4
-siguen en la base de datos y hunden el porcentaje de acierto de los alumnos. El guion está
-en [`docs/sql/2.4-duplicados-test-results.sql`](docs/sql/2.4-duplicados-test-results.sql),
-por pasos y con copia de seguridad.
+### Dos cosas que solo puedes hacer tú (necesitan la consola de Supabase)
+
+1. **Activar RLS** — [`docs/sql/1.3-activar-rls.sql`](docs/sql/1.3-activar-rls.sql).
+   Hoy cualquiera con la clave pública puede volcar `question_bank` **con las respuestas
+   correctas**, y leer los datos personales de los alumnos.
+   **Es seguro ejecutarlo ya:** todas las consultas de la app van con la clave de servicio,
+   que salta RLS, así que activarla no puede romper nada.
+2. **Reparar los duplicados de la fase 2.4** —
+   [`docs/sql/2.4-duplicados-test-results.sql`](docs/sql/2.4-duplicados-test-results.sql).
+   Hunden el porcentaje de acierto de los alumnos. Va por pasos y con copia de seguridad.
 
 **Sin verificar contra el Supabase real:** las fases 1.1, 2.1, 2.2, 2.3 y 2.4 están cerradas
 en código y cubiertas por tests estáticos, pero nadie las ha probado todavía con
@@ -175,7 +183,23 @@ los cambios de las 5 últimas preguntas y dividía entre el total de hasta 100; 
 "progreso al ascenso" usaba `winRate / (min + 20)` y nunca llegaba al 100 %.
 Distingue siempre **"sin datos"** de **"cero"**: no son lo mismo para el alumno.
 
-### 9 · La lógica pura vive en `app/lib/`, no dentro de las acciones
+### 9 · El troceado de PDFs tiene tres garantías
+
+`chunkLegalText` (`app/lib/text.ts`), vigiladas por tests:
+
+1. **Nunca emite fragmentos vacíos.** Antes, un PDF que empezara por un párrafo
+   largo producía `''` como primer fragmento, `embedContent('')` fallaba y el
+   documento quedaba indexado a medias **sin avisar al administrador**.
+2. **Ningún fragmento supera `maxChars`.** Se parten los párrafos largos, primero
+   por frases y solo entonces con corte duro.
+3. **El solape no se acumula:** se toma del contenido del fragmento anterior, no
+   del fragmento ya solapado.
+
+Y `uploadTopicPDF` distingue un indexado **completo** de uno **parcial**. Antes
+pintaba el mismo `✅` en ambos casos y el fallo solo salía a la luz cuando el chat
+no encontraba el artículo.
+
+### 10 · La lógica pura vive en `app/lib/`, no dentro de las acciones
 
 `core.ts` construye clientes en tiempo de importación, así que nada de lo que
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
@@ -202,7 +226,8 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 1. **Los tests marcados `BUG:` describen el comportamiento *actual*, no el
    deseado.** Al corregir ese fallo, el test **debe** fallar: se invierte la
    aserción y se le quita el prefijo. Es el aviso de que el arreglo surtió efecto.
-   Quedan varios pendientes en `text.test.ts` (fase 2.6) y `srs.test.ts` (fase 4).
+   En `text.test.ts` ya se invirtieron los tres del troceado (fase 2.6); quedan los de
+   `cleanAIResponse` (fase 3) y `srs.test.ts` (fase 4).
 
 2. **Los tests estáticos leen el código fuente** y fallan si vuelve un patrón
    peligroso. No necesitan Supabase. Si añades uno, recuerda quitar los
@@ -243,6 +268,8 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
   campo llegaron a producción sin que nadie se enterara. Al tocar un módulo, tipa
   lo que toques: al tipar `StatsPanel` el compilador señaló solo las lecturas
   nulas que causaban el crash.
+- **El orden de la fase 1 está invertido respecto al plan.** La 1.3 (activar RLS)
+  va antes que la 1.2 (acotar la clave de servicio), por lo explicado arriba.
 - **`getUserStats` hace un join que puede no resolver.** PostgREST necesita que
   las FK estén declaradas. Hay un respaldo que degrada a consulta plana y lo
   registra en el log; al versionar el esquema (fase 1.3), confirma las FK y
@@ -261,9 +288,10 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    `option_changes` distintos de 0, y que Inicio y Estadísticas cargan. Fallar
    una pregunta en entrenamiento y etiquetar el error debe dejar **una** fila.
 2. **`supabase db pull`** para versionar el esquema.
-3. **Fases 1.2 y 1.3** (acotar la clave de servicio, activar RLS). Llevan cinco
-   fases funcionales seguidas sin moverse y son la única deuda con riesgo real
-   para los datos de los alumnos.
+3. **Fase 1.2** (acotar la clave de servicio) — pero **solo después** de ejecutar
+   el SQL de la 1.3. Mover consultas al cliente del usuario sin RLS puesta las
+   dejaría sin ninguna protección; con RLS ya activa, cada consulta que se mueva
+   queda cubierta desde el primer momento.
 
 Al cerrar una fase: actualiza la tabla de estado de este fichero, marca la fase
 en `docs/PLAN-DE-TRABAJO.md` y el hallazgo en `docs/AUDITORIA.md`.

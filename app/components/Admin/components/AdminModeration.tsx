@@ -25,7 +25,7 @@ const REPORT_BADGES: Record<string, { label: string, color: string, bg: string }
   other: { label: 'Otro', color: 'text-slate-400', bg: 'bg-slate-400/10 border-slate-400/20' },
 };
 
-export default function AdminModeration({ userId }: { userId: string }) {
+export default function AdminModeration() {
   const [queue, setQueue] = useState<any>({ candidates: [], reports: [] });
   const [loading, setLoading] = useState(true);
 

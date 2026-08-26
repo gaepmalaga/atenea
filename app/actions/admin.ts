@@ -3,7 +3,19 @@ import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
 import { cleanLegalText, chunkLegalText } from '../lib/text';
 import { requireAdmin, requireUser } from '../lib/auth';
-import { QUESTION_STATUS, isQuestionStatus, type QuestionStatus } from '../lib/questions';
+import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
+
+// --- TIPOS DEL TEMARIO ---
+// Reflejan la forma que devuelve el `select` anidado de Supabase.
+
+type DocumentRow = { id: string; filename: string; uploaded_at: string };
+type SubjectRow = { id: number; topic_number: number; title: string; documents?: DocumentRow[] | null };
+type BlockRow = { id: number; name: string; subjects: SubjectRow[] };
+
+/** Mensaje de error legible, sin depender de que lo lanzado sea un Error. */
+function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
+  return e instanceof Error ? e.message : fallback;
+}
 
 // --- GESTIÓN DE TEMARIO OFICIAL ---
 
@@ -26,12 +38,12 @@ export async function getOfficialSyllabus() {
 
     if (error) throw error;
 
-    const syllabus = data.map((block: any) => ({
+    const syllabus = (data as unknown as BlockRow[]).map((block) => ({
       id: block.id,
       name: block.name,
-      subjects: block.subjects
-        .sort((a: any, b: any) => a.topic_number - b.topic_number)
-        .map((sub: any) => ({
+      subjects: [...block.subjects]
+        .sort((a, b) => a.topic_number - b.topic_number)
+        .map((sub) => ({
           id: sub.id,
           number: sub.topic_number,
           title: sub.title,
@@ -41,7 +53,7 @@ export async function getOfficialSyllabus() {
     }));
 
     return { success: true as const, syllabus };
-  } catch (e: any) {
+  } catch (e) {
     // El detalle se queda en el servidor: devolverlo filtraba la estructura de la BD.
     console.error("Error fetching syllabus:", e);
     return { success: false as const, error: 'No se pudo cargar el temario.' };
@@ -56,8 +68,8 @@ export async function deleteDocument(documentId: string) {
         const { error } = await supabase.from('documents').delete().eq('id', documentId);
         if (error) throw error;
         return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+    } catch (e) {
+        return { success: false, error: errorMessage(e) };
     }
 }
 
@@ -76,8 +88,14 @@ export async function uploadTopicPDF(formData: FormData) {
     const buffer = Buffer.from(bytes);
     
     const text = await new Promise<string>((resolve, reject) => {
-      const pdfParser = new (PDFParser as any)(null, 1);
-      pdfParser.on("pdfParser_dataError", (err: any) => reject(err.parserError));
+      // pdf2json no expone tipos para este constructor de dos argumentos.
+      const PdfParserCtor = PDFParser as unknown as new (ctx: null, verbosity: number) => {
+        on(event: string, cb: (payload?: { parserError?: unknown }) => void): void;
+        getRawTextContent(): string;
+        parseBuffer(buffer: Buffer): void;
+      };
+      const pdfParser = new PdfParserCtor(null, 1);
+      pdfParser.on("pdfParser_dataError", (err) => reject(err?.parserError ?? err));
       pdfParser.on("pdfParser_dataReady", () => {
         const raw = pdfParser.getRawTextContent();
         resolve(raw);
@@ -105,43 +123,67 @@ export async function uploadTopicPDF(formData: FormData) {
 
     const chunksToIndex = chunkLegalText(cleanText);
 
+    if (chunksToIndex.length === 0) throw new Error("El PDF no ha producido ningún fragmento indexable.");
+
     const BATCH_SIZE = 5;
     let processedChunks = 0;
-    
+    const failures: string[] = [];
+
     for (let i = 0; i < chunksToIndex.length; i += BATCH_SIZE) {
         const batch = chunksToIndex.slice(i, i + BATCH_SIZE);
-        
-        await Promise.all(batch.map(async (chunkContent) => {
+
+        await Promise.all(batch.map(async (chunkContent, j) => {
+            const position = i + j + 1;
             try {
                 const embResult = await embeddingModel.embedContent(chunkContent);
                 const vector = embResult.embedding.values;
 
-                if (!vector || vector.length === 0) throw new Error("Vector vacío generado por IA");
+                if (!vector || vector.length === 0) throw new Error("La IA devolvió un vector vacío");
 
                 const { error } = await supabase.from('document_chunks').insert({
                     document_id: documentId,
                     content_chunk: chunkContent,
-                    embedding: vector 
+                    embedding: vector
                 });
 
-                if (error) throw error; 
+                if (error) throw error;
                 processedChunks++;
 
-            } catch (err: any) { 
-                console.error("❌ ERROR AL INSERTAR CHUNK:", err.message); 
+            } catch (err) {
+                // Antes esto solo iba a `console.error`: el administrador veía
+                // "✅ Indexado" aunque la mitad del temario no se hubiera
+                // guardado, y el fallo solo salía a la luz cuando el chat no
+                // encontraba el artículo.
+                const msg = err instanceof Error ? err.message : String(err);
+                failures.push(`#${position}: ${msg}`);
+                console.error(`❌ Fragmento ${position}/${chunksToIndex.length}:`, msg);
             }
         }));
     }
 
     if (processedChunks === 0) {
-        throw new Error("No se pudo guardar ningún fragmento. Revisa los logs de consola.");
+        throw new Error(`No se pudo guardar ningún fragmento. Primer error: ${failures[0] ?? 'desconocido'}`);
     }
 
-    return { success: true, message: `✅ Indexado Híbrido: ${processedChunks}/${chunksToIndex.length} fragmentos procesados.` };
+    const total = chunksToIndex.length;
+    const complete = processedChunks === total;
 
-  } catch (e: any) {
+    return {
+        success: true,
+        // `complete` permite a la UI distinguir un indexado íntegro de uno
+        // parcial, en vez de pintar el mismo ✅ para los dos casos.
+        complete,
+        indexed: processedChunks,
+        total,
+        failures: failures.slice(0, 5),
+        message: complete
+            ? `Indexado completo: ${total} fragmentos.`
+            : `Indexado PARCIAL: ${processedChunks} de ${total} fragmentos. ${total - processedChunks} han fallado.`
+    };
+
+  } catch (e) {
     console.error("Error en uploadTopicPDF:", e);
-    return { success: false, error: e.message };
+    return { success: false, error: errorMessage(e) };
   }
 }
 
@@ -168,8 +210,9 @@ export async function getStudentTopics() {
         if (error || !data) return { success: true, topics: [] };
 
         const topics: string[] = [];
-        data.forEach((block: any) => {
-            block.subjects.forEach((sub: any) => {
+        type TopicRow = { subjects: { title: string; documents: { count: number }[] | null }[] };
+        (data as unknown as TopicRow[]).forEach((block) => {
+            block.subjects.forEach((sub) => {
                 if (sub.documents && sub.documents[0] && sub.documents[0].count > 0) {
                     topics.push(sub.title);
                 }
@@ -177,8 +220,8 @@ export async function getStudentTopics() {
         });
         
         return { success: true, topics: topics.sort() };
-    } catch (e: any) {
-        return { success: false, topics: [] as string[], error: e.message };
+    } catch (e) {
+        return { success: false, topics: [] as string[], error: errorMessage(e) };
     }
 }
 
@@ -250,7 +293,7 @@ export async function getAdminQuestionBank(params: {
       status
     };
 
-  } catch (e: any) {
-    return { success: false as const, error: e.message as string };
+  } catch (e) {
+    return { success: false as const, error: errorMessage(e) };
   }
 }

@@ -51,19 +51,32 @@ Objetivo: poder ejecutar, compilar y probar. Sin esto no se puede validar nada d
 **Pendiente de verificar contra el proyecto real:** con `curl`, invocar una acción sin
 cookie de sesión y comprobar que devuelve el error de sesión en vez de datos.
 
-### 1.2 Reducir el uso de la clave de servicio
+### 1.2 Reducir el uso de la clave de servicio *(después de la 1.3)*
 
 `supabaseAdmin` salta RLS. Debe quedar reservado a lo que de verdad lo necesita
 (indexado de PDFs, seed masivo). El resto pasa a un cliente con el token del usuario, para
 que RLS actúe como segunda barrera.
 
-### 1.3 Activar y documentar RLS
+**No empezar hasta que la 1.3 esté ejecutada:** cada consulta que se mueva al cliente del
+usuario antes de tener RLS activa se queda sin ninguna protección.
 
-- Escribir las políticas de `profiles`, `test_results`, `flashcard_progress`,
-  `flashcard_results`, `profiles_biodata`, `profiles_psych`, `profiles_physical`,
-  `training_plans`, `question_votes`, `question_reports`.
-- Volcarlas al repositorio en `supabase/migrations/` (hoy el esquema **solo existe dentro
-  del proyecto de Supabase**: si se pierde, se pierde entero).
+### 1.3 Activar y documentar RLS ⬅️ **SQL listo, falta ejecutarlo**
+
+> **Va ANTES que la 1.2**, al revés de como estaba numerado aquí. Todas las consultas de
+> la aplicación usan la clave de servicio, que salta RLS: activarla hoy **no puede romper
+> nada**. En cambio, mover consultas al cliente del usuario (1.2) sin RLS puesta las
+> dejaría sin ninguna protección.
+
+- [x] Políticas escritas en [`docs/sql/1.3-activar-rls.sql`](sql/1.3-activar-rls.sql):
+      propietario para las diez tablas de datos personales, `profiles` de solo lectura
+      (dejar escribir su propia fila sería dejar que un alumno se ascienda a admin), y RLS
+      sin políticas en las tablas de contenido, que cierra el acceso directo con la clave
+      pública sin tocar lo que hace la aplicación.
+- [x] Empieza con un PASO 0 que comprueba que el esquema coincide con lo deducido del
+      código, y trae la comprobación real con `curl` y la vuelta atrás.
+- [ ] **Ejecutarlo.** Hoy cualquiera con la clave pública puede volcar `question_bank`
+      con las respuestas correctas.
+- [ ] Volcar el esquema a `supabase/migrations/` (`supabase db pull`).
 
 ### 1.4 Cerrar la asignación masiva §1.2 ✅ HECHA
 
@@ -231,14 +244,25 @@ va por pasos, empieza contando, crea copia de seguridad y fusiona antes de borra
 Alternativa honesta si esto se pospone: ocultar el selector en la UI. Un control que no
 hace nada es peor que no tenerlo.
 
-### 2.6 Indexado de PDFs §2.6
+### 2.6 Indexado de PDFs §2.6 ✅ HECHA
 
-Reescribir `chunkLegalText` para: no emitir nunca fragmentos vacíos, partir párrafos que
-excedan el máximo, y calcular el solape sobre el texto original y no sobre el fragmento ya
-solapado. **Los tres tests `BUG:` de `tests/text.test.ts` deben invertirse aquí.**
+`chunkLegalText` reescrito con tres garantías, y los tres tests `BUG:` invertidos:
 
-Además: `uploadTopicPDF` debe informar al admin de cuántos fragmentos fallaron, no
-tragárselo en `console.error`.
+- [x] **Nunca emite fragmentos vacíos.** Un PDF que empezara por un párrafo largo producía
+      `''` como primer fragmento; `embedContent('')` falla y el documento quedaba indexado
+      a medias sin que nadie se enterara.
+- [x] **Ningún fragmento supera el máximo.** Los párrafos largos se parten primero por
+      frases (los textos legales están llenos de puntos) y solo entonces con corte duro.
+- [x] **El solape no se acumula:** se toma del contenido del fragmento anterior, no del
+      fragmento ya solapado. Y el presupuesto reserva sitio para el separador — sin eso el
+      fragmento se pasaba del máximo por un carácter.
+- [x] Un texto vacío devuelve cero fragmentos en vez de uno vacío.
+- [x] `uploadTopicPDF` distingue indexado **completo** de **parcial**, devuelve cuántos
+      fallaron y con qué error, y la UI avisa de que ese contenido no aparecerá en las
+      búsquedas del chat. Antes pintaba el mismo `✅` en ambos casos y el fallo solo salía a
+      la luz cuando el chat no encontraba el artículo.
+
+Verificado restaurando el troceador antiguo: cuatro tests lo señalan.
 
 ### 2.7 Perfil físico §2.7
 
@@ -331,9 +355,9 @@ y va a tocar todos los ficheros.
    pasó de `localStorage` a cookies).
 3. **Sacar el esquema a `supabase/migrations/`** (`supabase db pull`). Hoy solo vive dentro
    del proyecto de Supabase. Es el activo con más riesgo de pérdida y no cuesta nada.
-3. **Fases 1.2 y 1.3** (acotar la clave de servicio y activar RLS). Llevan cinco fases
-   funcionales seguidas sin moverse, y son la única deuda con riesgo real sobre los datos
-   de los alumnos.
+3. **Ejecutar `docs/sql/1.3-activar-rls.sql`** (fase 1.3). Es la deuda con más riesgo real
+   y ya está escrita: solo hay que pegarla en el editor SQL de Supabase.
+4. **Fase 1.2** después, nunca antes.
 
 > El estado vivo del proyecto está en [`CLAUDE.md`](../CLAUDE.md), en la raíz. Al cerrar una
 > fase, actualiza los dos.

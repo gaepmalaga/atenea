@@ -66,6 +66,8 @@ describe('cleanLegalText', () => {
 });
 
 describe('chunkLegalText', () => {
+  const MAX = 1000;
+
   it('devuelve un unico fragmento si el texto cabe entero', () => {
     expect(chunkLegalText('parrafo corto')).toEqual(['parrafo corto']);
   });
@@ -75,26 +77,66 @@ describe('chunkLegalText', () => {
     expect(chunkLegalText([p, p, p].join('\n\n')).length).toBeGreaterThan(1);
   });
 
-  it('BUG CRITICO: genera un primer fragmento VACIO si el texto empieza por un parrafo largo', () => {
-    // Con currentChunk = '' y un parrafo > maxChars, la condicion se cumple en
-    // la primera iteracion y se hace push('') antes de acumular nada. Ese
-    // fragmento vacio llega a `embedContent('')`, que falla, y el documento
-    // queda indexado de forma incompleta sin aviso al admin.
-    expect(chunkLegalText('y'.repeat(1500))[0]).toBe('');
+  it('un texto vacio no produce fragmentos', () => {
+    expect(chunkLegalText('')).toEqual([]);
+    expect(chunkLegalText('   \n\n  ')).toEqual([]);
   });
 
-  it('BUG: nunca parte un parrafo, asi que un fragmento puede exceder el limite', () => {
-    // Un articulo largo sin lineas en blanco produce un fragmento gigante que
-    // puede superar el limite de tokens del modelo de embeddings.
-    const chunks = chunkLegalText('z'.repeat(5000));
-    expect(Math.max(...chunks.map((c) => c.length))).toBeGreaterThan(1000);
+  // --- LAS TRES GARANTIAS QUE EL ALGORITMO ANTERIOR NO CUMPLIA ---
+  // Estos tests estaban marcados `BUG:` y describian el comportamiento roto.
+  // Al corregirlo en la fase 2.6 fallaron, que es justo su razon de ser.
+
+  it('nunca emite un fragmento vacio, ni empezando por un parrafo largo', () => {
+    // Antes: con currentChunk = '' y un parrafo > maxChars, se hacia push('')
+    // en la primera iteracion. Ese fragmento vacio llegaba a `embedContent('')`,
+    // que falla, y el documento quedaba indexado a medias sin aviso al admin.
+    for (const input of ['y'.repeat(1500), 'z'.repeat(5000), 'a'.repeat(999) + '\n\n' + 'b'.repeat(3000)]) {
+      const chunks = chunkLegalText(input);
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks.filter((c) => !c.trim())).toEqual([]);
+    }
   });
 
-  it('BUG: el solapamiento hace que los fragmentos crezcan por encima del maximo', () => {
+  it('parte los parrafos largos: ningun fragmento supera el maximo', () => {
+    // Antes un articulo largo sin lineas en blanco producia un fragmento unico
+    // gigante que podia pasarse del limite de tokens del modelo.
+    const casos = [
+      'z'.repeat(5000),
+      Array(4).fill('w'.repeat(700)).join('\n\n'),
+      Array.from({ length: 40 }, (_, i) => `Articulo ${i + 1}. Plazo de setenta y dos horas.`).join('\n\n'),
+    ];
+    for (const input of casos) {
+      const chunks = chunkLegalText(input);
+      expect(Math.max(...chunks.map((c) => c.length))).toBeLessThanOrEqual(MAX);
+    }
+  });
+
+  it('el solape no se acumula: se toma del contenido del fragmento anterior', () => {
+    // Antes el solape se tomaba del fragmento YA solapado, asi que los tamanios
+    // crecian fragmento a fragmento.
     const p = 'w'.repeat(700);
-    const chunks = chunkLegalText([p, p, p, p].join('\n\n'));
-    // 200 chars de solape + 700 del parrafo nuevo = 901, y sigue creciendo
-    // porque el solape se toma del fragmento ya solapado.
-    expect(chunks.some((c) => c.length > 900)).toBe(true);
+    const chunks = chunkLegalText([p, p, p, p, p, p].join('\n\n'));
+    const lengths = chunks.map((c) => c.length);
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(MAX);
+    // Todos los intermedios miden lo mismo: no hay crecimiento progresivo.
+    const intermedios = lengths.slice(1, -1);
+    expect(new Set(intermedios).size).toBe(1);
+  });
+
+  it('prefiere cortar por frases antes que por la mitad de una palabra', () => {
+    const frase = 'La autoridad competente resolvera en el plazo indicado. ';
+    const chunks = chunkLegalText(frase.repeat(60));
+    // Si cortara a ciegas, casi ningun fragmento acabaria en punto.
+    const acabanEnPunto = chunks.filter((c) => c.trimEnd().endsWith('.')).length;
+    expect(acabanEnPunto).toBeGreaterThan(chunks.length / 2);
+  });
+
+  it('el texto original sobrevive entero al troceado', () => {
+    // Garantia de fondo: trocear no puede perder contenido.
+    const texto = Array.from({ length: 12 }, (_, i) => `Articulo ${i + 1}. Contenido del articulo numero ${i + 1}.`).join('\n\n');
+    const unido = chunkLegalText(texto).join(' ').replace(/\s+/g, ' ');
+    for (let i = 1; i <= 12; i++) {
+      expect(unido).toContain(`Articulo ${i}.`);
+    }
   });
 });

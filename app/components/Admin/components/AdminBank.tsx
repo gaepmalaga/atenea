@@ -34,7 +34,7 @@ const getTopicStyle = (num: number) => {
     return { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20', label: 'TÉCNICAS' };
 };
 
-export default function AdminBank({ userId }: { userId: string }) {
+export default function AdminBank() {
   // --- ESTADOS ---
   const [questions, setQuestions] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);

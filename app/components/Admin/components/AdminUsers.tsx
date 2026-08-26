@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Users, Loader2 } from 'lucide-react';
 import { getAdminUsersList } from '@/actions';
 
-export default function AdminUsers({ userId }: { userId: string }) {
+export default function AdminUsers() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
