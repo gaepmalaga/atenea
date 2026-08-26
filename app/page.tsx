@@ -30,12 +30,22 @@ export default function Home() {
     async function checkSession() {
       // El rol lo decide el servidor a partir de la cookie de sesion; el
       // cliente ya no envia ningun id.
-      const current = await getCurrentUser();
-      if (current) {
-        setUser(current);
-        setRole(current.role);
+      //
+      // El try/catch no es decorativo: sin el, cualquier fallo del servidor
+      // dejaba `loadingUser` en true para siempre y la pantalla se quedaba en
+      // "Cargando sistema Atenea..." sin salida ni forma de iniciar sesion.
+      try {
+        const current = await getCurrentUser();
+        if (current) {
+          setUser(current);
+          setRole(current.role);
+        }
+      } catch (e) {
+        console.error('checkSession:', e);
+        setErrorMsg('No se ha podido comprobar la sesion. Puedes iniciarla de nuevo.');
+      } finally {
+        setLoadingUser(false);
       }
-      setLoadingUser(false);
     }
     checkSession();
   }, []);

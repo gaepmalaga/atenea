@@ -19,7 +19,12 @@ import {
     type TrainingDayLog,
 } from '../lib/training-plan';
 
-export type { TrainingDayLog };
+// `TrainingDayLog` NO se reexporta desde aqui. Este modulo es 'use server' y
+// Next exige que solo exporte funciones async: el bundler convertia el
+// `export type { TrainingDayLog }` en una referencia de verdad y el servidor
+// reventaba al evaluar el modulo con
+//   ReferenceError: TrainingDayLog is not defined
+// Quien necesite el tipo lo importa de '@/app/lib/training-plan'.
 
 function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
     return e instanceof Error ? e.message : fallback;

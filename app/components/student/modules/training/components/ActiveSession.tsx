@@ -6,7 +6,7 @@ import { X, CheckCircle2, AlertTriangle, Activity } from 'lucide-react';
 // Los tipos del plan viven en `app/lib/training-plan.ts`: los escribe la IA y
 // los lee tanto esta pantalla como el panel, asi que una sola definicion.
 import type { TrainingDay } from '@/app/lib/training-plan';
-import type { TrainingDayLog } from '@/actions';
+import type { TrainingDayLog } from '@/app/lib/training-plan';
 
 interface ActiveSessionProps {
     day: TrainingDay;

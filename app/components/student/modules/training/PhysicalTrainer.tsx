@@ -19,7 +19,7 @@ import TrainingDashboard from './components/TrainingDashboard';
 import ActiveSession from './components/ActiveSession';
 import { hasBiometrics, type BaselineMetrics, type PhysicalProfile, type TestId } from '@/app/lib/physical';
 import type { TrainingDay, WeeklyPlan } from '@/app/lib/training-plan';
-import type { TrainingDayLog } from '@/actions';
+import type { TrainingDayLog } from '@/app/lib/training-plan';
 
 interface PhysicalTrainerProps { user: { id: string } }
 
