@@ -110,6 +110,45 @@ export type BankRow = {
   origin?: Question['origin'];
 };
 
+/**
+ * Una candidata en la cola de moderacion: la fila del banco, tal cual llega.
+ *
+ * `BankRow` se queda corto aqui porque el panel tambien pinta el estado, la
+ * dificultad y la fecha.
+ */
+export type ModerationCandidate = BankRow & {
+  status?: string | null;
+  difficulty_level?: number | null;
+  created_at?: string | null;
+  /**
+   * Titulo del tema, resuelto por join contra `subjects`.
+   *
+   * `question_bank` guarda `subject_id`, no el titulo. El panel de moderacion
+   * pintaba `q.topic` directamente y siempre salia vacio: con el estado
+   * tipado como `any` nadie podia enterarse.
+   */
+  topic?: string | null;
+};
+
+/** Un reporte de un alumno, con la pregunta que lo motiva resuelta por join. */
+export type ModerationReport = {
+  id: string;
+  question_id: string | null;
+  user_id?: string | null;
+  report_type?: string | null;
+  message?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  /** `null` si la pregunta se borro del banco despues del reporte. */
+  question?: ModerationCandidate | null;
+};
+
+/** Lo que devuelve `getModerationQueue`. */
+export type ModerationQueue = {
+  candidates: ModerationCandidate[];
+  reports: ModerationReport[];
+};
+
 /** Fila de `question_bank` -> pregunta de UI. */
 export function mapBankRowToQuestion(row: BankRow): Question {
   const opts: QuestionOption[] = Array.isArray(row.options)

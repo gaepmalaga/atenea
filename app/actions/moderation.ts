@@ -2,7 +2,12 @@
 
 import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
-import { QUESTION_STATUS } from '../lib/questions';
+import {
+  QUESTION_STATUS,
+  type ModerationCandidate,
+  type ModerationQueue,
+  type ModerationReport,
+} from '../lib/questions';
 import { validateGeneratedQuestion } from '../lib/ai-output';
 
 /**
@@ -40,9 +45,38 @@ export async function getModerationQueue() {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
-    const { data: cand } = await supabaseAdmin.from('question_bank').select('*').eq('status', QUESTION_STATUS.CANDIDATE).limit(50);
-    const { data: rep } = await supabaseAdmin.from('question_reports').select('*, question:question_bank(*)').eq('status', 'open');
-    return { success: true as const, data: { candidates: cand || [], reports: rep || [] } };
+    // El titulo del tema se trae por join: `question_bank` guarda `subject_id`.
+    // Sin esto el panel pintaba `q.topic` y siempre salia vacio.
+    const { data: cand } = await supabaseAdmin
+      .from('question_bank')
+      .select('*, subject:subjects(title)')
+      .eq('status', QUESTION_STATUS.CANDIDATE)
+      .limit(50);
+
+    // El join resuelve porque la FK question_reports.question_id -> question_bank
+    // esta declarada. Si no lo estuviera, PostgREST devolveria error y la cola
+    // saldria vacia.
+    const { data: rep } = await supabaseAdmin
+      .from('question_reports')
+      .select('*, question:question_bank(*)')
+      .eq('status', 'open');
+
+    /** Aplana `subject.title` a `topic`, que es lo que pinta la interfaz. */
+    const conTema = (fila: unknown): ModerationCandidate => {
+      const { subject, ...resto } = (fila ?? {}) as Record<string, unknown> & {
+        subject?: { title?: string | null } | null;
+      };
+      return { ...resto, topic: subject?.title ?? null } as ModerationCandidate;
+    };
+
+    const data: ModerationQueue = {
+      candidates: (cand ?? []).map(conTema),
+      reports: ((rep ?? []) as unknown as ModerationReport[]).map((r) => ({
+        ...r,
+        question: r.question ? conTema(r.question) : null,
+      })),
+    };
+    return { success: true as const, data };
 }
 
 export async function approveQuestion(questionId: string): Promise<ModerationResult> {

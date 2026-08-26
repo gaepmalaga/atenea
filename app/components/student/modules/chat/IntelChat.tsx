@@ -220,7 +220,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 </div>
                 <div className="flex-1 overflow-y-auto p-10 bg-slate-50 dark:bg-slate-950/50">
                     <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-lg md:text-xl leading-relaxed italic shadow-inner">
-                        "{activeSource.content_chunk}"
+                        “{activeSource.content_chunk}”
                     </div>
                 </div>
                 <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-center">

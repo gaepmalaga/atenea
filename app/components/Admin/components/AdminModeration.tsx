@@ -1,9 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { 
-  CheckCircle2, XCircle, Pencil, Save, X, 
-  AlertTriangle, MessageSquareWarning, ArrowRight, 
-  Loader2, Eye, ShieldAlert
+import { useState, useEffect, useCallback } from 'react';
+import {
+  CheckCircle2, XCircle, Pencil, Save, X,
+  AlertTriangle, Loader2, ShieldAlert
 } from 'lucide-react';
 
 import { 
@@ -13,6 +12,7 @@ import {
   resolveReport,
   updateQuestion 
 } from '@/actions';
+import type { ModerationCandidate, ModerationQueue, ModerationReport } from '@/app/lib/questions';
 
 // Mapeo de colores y textos para los tipos de reporte
 const REPORT_BADGES: Record<string, { label: string, color: string, bg: string }> = {
@@ -26,13 +26,13 @@ const REPORT_BADGES: Record<string, { label: string, color: string, bg: string }
 };
 
 export default function AdminModeration() {
-  const [queue, setQueue] = useState<any>({ candidates: [], reports: [] });
+  const [queue, setQueue] = useState<ModerationQueue>({ candidates: [], reports: [] });
   const [loading, setLoading] = useState(true);
 
   // --- ESTADOS PARA EL MODAL DE EDICIÓN ---
-  const [editingQ, setEditingQ] = useState<any | null>(null);
+  const [editingQ, setEditingQ] = useState<ModerationCandidate | null>(null);
   // Guardamos el contexto del reporte si venimos de uno (para mostrar la queja en el editor)
-  const [reportContext, setReportContext] = useState<any | null>(null);
+  const [reportContext, setReportContext] = useState<ModerationReport | null>(null);
   
   const [editForm, setEditForm] = useState({
     question_text: '',
@@ -42,19 +42,23 @@ export default function AdminModeration() {
   });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { load(); }, []);
-
-  async function load() {
-    setLoading(true);
+  // Sin `setLoading(true)` dentro: `loading` ya arranca en true y un setState
+  // sincrono en un efecto dispara un render en cascada. El de abajo va
+  // despues del await.
+  const load = useCallback(async () => {
     const res = await getModerationQueue();
     if (res.success) setQueue(res.data);
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // --- ACCIONES RÁPIDAS ---
   async function handleApprove(id: string) {
       // Optimistic UI update
-      setQueue((prev:any) => ({...prev, candidates: prev.candidates.filter((q:any)=>q.id!==id)}));
+      setQueue((prev) => ({ ...prev, candidates: prev.candidates.filter((q) => q.id !== id) }));
       await approveQuestion(id);
   }
 
@@ -63,9 +67,9 @@ export default function AdminModeration() {
       
       // Optimistic remove
       if (isReport) {
-         setQueue((prev:any) => ({...prev, reports: prev.reports.filter((r:any)=>r.question_id!==id)})); 
+         setQueue((prev) => ({ ...prev, reports: prev.reports.filter((r) => r.question_id !== id) }));
       } else {
-         setQueue((prev:any) => ({...prev, candidates: prev.candidates.filter((q:any)=>q.id!==id)}));
+         setQueue((prev) => ({ ...prev, candidates: prev.candidates.filter((q) => q.id !== id) }));
       }
 
       await disableQuestion(id);
@@ -73,12 +77,12 @@ export default function AdminModeration() {
   }
   
   async function handleResolveReport(reportId: string) {
-      setQueue((prev:any) => ({...prev, reports: prev.reports.filter((r:any)=>r.id!==reportId)}));
+      setQueue((prev) => ({ ...prev, reports: prev.reports.filter((r) => r.id !== reportId) }));
       await resolveReport(reportId);
   }
 
   // --- LÓGICA DE EDICIÓN ---
-  function openEditor(q: any, reportData: any = null) {
+  function openEditor(q: ModerationCandidate | null | undefined, reportData: ModerationReport | null = null) {
     if (!q) return alert("Error: No se han cargado los datos de la pregunta. Revisa actions.ts");
     
     setEditingQ(q);
@@ -100,12 +104,14 @@ export default function AdminModeration() {
     
     if (res.success) {
         // Actualizamos la UI localmente (tanto en candidatos como en preguntas reportadas)
-        setQueue((prev: any) => ({
-            candidates: prev.candidates.map((q: any) => 
+        setQueue((prev) => ({
+            candidates: prev.candidates.map((q) =>
                 q.id === editingQ.id ? { ...q, ...editForm } : q
             ),
-            reports: prev.reports.map((r: any) => 
-                r.question_id === editingQ.id ? { ...r, question: { ...r.question, ...editForm } } : r
+            reports: prev.reports.map((r) =>
+                r.question_id === editingQ.id
+                  ? { ...r, question: { ...r.question, ...editForm } as ModerationCandidate }
+                  : r
             )
         }));
         
@@ -139,7 +145,7 @@ export default function AdminModeration() {
                 </div>
             )}
 
-            {queue.candidates.map((q: any) => (
+            {queue.candidates.map((q) => (
                 <div key={q.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
                     <div className="flex justify-between items-start mb-3">
                         <span className="text-[10px] font-black tracking-wider text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
@@ -149,7 +155,9 @@ export default function AdminModeration() {
                     <p className="font-bold text-slate-200 text-sm mb-4 leading-relaxed">{q.question_text}</p>
                     
                     <div className="space-y-1.5 mb-5">
-                        {q.options.map((opt:string, i:number) => (
+                        {/* `options` es jsonb: puede no ser un array. Sin esta
+                            guarda, una fila corrupta tumba el panel entero. */}
+                        {(Array.isArray(q.options) ? q.options : []).map((opt: string, i: number) => (
                             <div key={i} className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${
                                 i === q.correct_index 
                                 ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' 
@@ -193,8 +201,11 @@ export default function AdminModeration() {
                 </div>
             )}
 
-            {queue.reports.map((r: any) => {
-                const badge = REPORT_BADGES[r.report_type] || REPORT_BADGES['other'];
+            {queue.reports.map((r) => {
+                // `report_type` puede llegar nulo o con un valor que ya no
+                // esta en el mapa: sin el respaldo, `badge` seria undefined
+                // y la tarjeta reventaria al leer `badge.label`.
+                const badge = REPORT_BADGES[r.report_type ?? ''] ?? REPORT_BADGES.other;
                 return (
                     <div key={r.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-amber-500/20 relative group hover:border-amber-500/40 transition-all shadow-lg hover:shadow-amber-900/10">
                         
@@ -208,13 +219,13 @@ export default function AdminModeration() {
                         
                         {/* Pregunta Contexto */}
                         <div className="mb-4 pl-3 border-l-2 border-slate-700">
-                             <p className="font-bold text-slate-300 text-sm line-clamp-2 italic">"{r.question?.question_text || 'Pregunta no encontrada'}"</p>
+                             <p className="font-bold text-slate-300 text-sm line-clamp-2 italic">“{r.question?.question_text || 'Pregunta no encontrada'}”</p>
                         </div>
                         
                         {/* Mensaje Usuario */}
                         <div className="bg-amber-500/5 p-3 rounded-xl border border-amber-500/10 mb-4">
                             <p className="text-[10px] text-amber-500 uppercase font-black mb-1">Comentario del alumno:</p>
-                            <p className="text-amber-100 text-xs italic">"{r.message}"</p>
+                            <p className="text-amber-100 text-xs italic">“{r.message}”</p>
                         </div>
 
                         {/* Actions */}
@@ -228,7 +239,8 @@ export default function AdminModeration() {
                             </button>
 
                              <button 
-                                onClick={()=>handleDisable(r.question_id, true)} 
+                                onClick={() => r.question_id && handleDisable(r.question_id, true)}
+                                disabled={!r.question_id}
                                 className="bg-slate-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 border border-transparent hover:border-red-500/30 py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
                                 title="Desactivar Pregunta"
                             >
@@ -270,7 +282,7 @@ export default function AdminModeration() {
                              <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={18} />
                              <div>
                                 <p className="text-amber-500 text-xs font-black uppercase mb-0.5">ESTÁS EDITANDO UNA QUEJA</p>
-                                <p className="text-amber-200 text-sm">"{reportContext.message}"</p>
+                                <p className="text-amber-200 text-sm">“{reportContext.message}”</p>
                              </div>
                         </div>
                     )}
