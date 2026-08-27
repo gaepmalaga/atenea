@@ -144,7 +144,7 @@ chat— se apoya en que el temario esté bien dentro.
 | P1d | Un documento ya no puede quedarse a medias sin que se sepa | ✅ |
 | P1e | El panel enseña si un tema está mudo, y deja arreglarlo | ✅ |
 | P1f | La referencia que se guardaba era falsa en la mayoría del temario | ✅ |
-| P1g | La referencia legal llega hasta el alumno | ⬜ **falta ejecutar el SQL** |
+| P1g | La referencia legal llega hasta el alumno | ✅ SQL ejecutado el 27 ago |
 | — | **Enseñar lo que ha entrado**: visor de fragmentos por documento | ⬜ **pendiente** |
 
 **El TEMA 9 ya no está mudo.** Reindexado desde el panel el 27 de agosto:
@@ -160,15 +160,23 @@ Las 72 referencias de la LOFCS son sus 54 artículos y sus 18 disposiciones. Los
 Comprobado además que el chat recupera el TEMA 9: tres preguntas de prueba sobre
 la ley devuelven fragmentos suyos con similitud 0,72–0,85.
 
-**Lo que falta, y quién puede hacerlo:**
+**La búsqueda ya devuelve el artículo.** Comprobado contra la base de datos
+después de ejecutar el guion, preguntando *«¿cuándo pueden las Comunidades
+Autónomas crear sus propios cuerpos de policía?»*:
 
-1. **Ejecutar [`docs/sql/P1g-referencia-en-la-busqueda.sql`](sql/P1g-referencia-en-la-busqueda.sql)**
-   en Supabase. Solo lo puedes hacer tú. Hasta entonces el chat sigue citando el
-   nombre del fichero en vez del artículo: no se rompe nada, pero el dato que ya
-   está guardado no se ve.
-2. **El visor de fragmentos.** Es el punto 3 de esta fase y sigue sin hacer:
-   hoy subes un PDF y no hay forma de comprobar qué ha entendido la plataforma.
-   Es el origen real de la desconfianza, y se cura enseñándolo.
+```
+[0.817] Artículo cuarenta y uno    · TEMA 9 - La Ley Orgánica 2-1986…
+[0.817] Artículo treinta y siete   · TEMA 9 - La Ley Orgánica 2-1986…
+[0.795] Artículo cuarenta y dos    · TEMA 9 - La Ley Orgánica 2-1986…
+```
+
+Antes de P1f, ese «Artículo treinta y siete» —el que dice cuándo puede una
+comunidad crear su policía— se citaba como «Artículo treinta». Es el ejemplo
+exacto del fallo: la referencia existía y era falsa.
+
+**Lo que falta de P1:** el **visor de fragmentos**, punto 3 de esta fase. Hoy
+subes un PDF y no hay forma de comprobar qué ha entendido la plataforma. Es el
+origen real de la desconfianza, y se cura enseñándolo.
 
 ---
 
