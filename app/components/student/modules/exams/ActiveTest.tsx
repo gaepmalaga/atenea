@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { 
-  ChevronRight, CheckCircle2, XCircle, Brain, 
-  BookX, AlertTriangle, Eye, ArrowLeft,
+import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  ChevronRight, CheckCircle2, XCircle, Brain,
+  BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
   ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning
 } from 'lucide-react';
+import { formatTime } from '@/app/lib/timer';
 import { Question } from './ExamManager';
 import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
 import { countChange } from '@/app/lib/exam-results';
@@ -48,6 +49,20 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   // clic rápido leería `resultIdRef` a null y volvería a insertar.
   const savePromiseRef = useRef<Promise<{ success: boolean; id: string | null }> | null>(null);
 
+  // --- CRONOMETRO DEL TEST ---
+  // El tiempo se deriva de marcas de reloj; el intervalo solo decide cada
+  // cuanto se repinta. Contar +1 por tick se desfasa con la pestania en
+  // segundo plano y con el ahorro de bateria (regla 14).
+  const testStartRef = useRef<number>(Date.now());
+  const [ahora, setAhora] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const segundosTest = Math.floor((ahora - testStartRef.current) / 1000);
+
   // Estados para Votos y Reportes
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -67,7 +82,7 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   }, [currentIndex]);
 
   // --- MANEJO DE RESPUESTA ---
-  const handleAnswer = async (optionId: string) => {
+  const handleAnswer = useCallback(async (optionId: string) => {
     if (mode === 'practice' && isAnswered) return;
 
     // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
@@ -100,7 +115,7 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
         const saved = await savePromiseRef.current;
         resultIdRef.current = saved.id;
     }
-  };
+  }, [currentIndex, currentQ, isAnswered, localQuestions, mode, topicName]);
 
   // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
@@ -172,7 +187,7 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
     }
   };
 
-const handleNext = () => {
+const handleNext = useCallback(() => {
       // Empaquetamos las métricas de la pregunta actual antes de movernos.
       // `timeMs` y `changes` son campos del tipo Question, así que ya no hace
       // falta el @ts-ignore que ocultaba el desajuste con el servidor.
@@ -190,26 +205,115 @@ const handleNext = () => {
           // 2. Enviamos el array completo con los datos de comportamiento incrustados
           onFinish(updated);
       }
-  };
+  }, [currentIndex, localQuestions, onFinish]);
+
+  // --- ATAJOS DE TECLADO ---
+  // En un test de 100 preguntas ir a raton cansa. A/B/C o 1/2/3 responden,
+  // Enter avanza.
+  //
+  // No dispara con el modal de reporte abierto ni escribiendo en un campo: si
+  // no, teclear "la b esta mal" en el reporte marcaria la opcion B.
+  const puedeAvanzar = mode === 'exam' || (isAnswered && (isCorrect || errorTagged));
+
+  useEffect(() => {
+    function alPulsar(e: KeyboardEvent) {
+      if (isReportModalOpen) return;
+      const dentroDeUnCampo = (e.target as HTMLElement)?.closest('input, textarea, [contenteditable]');
+      if (dentroDeUnCampo) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'Enter') {
+        if (puedeAvanzar) { e.preventDefault(); handleNext(); }
+        return;
+      }
+
+      const tecla = e.key.toLowerCase();
+      const porLetra = currentQ.options.findIndex((o) => o.id === tecla);
+      const porNumero = /^[1-9]$/.test(tecla) ? Number(tecla) - 1 : -1;
+      const indice = porLetra >= 0 ? porLetra : porNumero;
+
+      const opcion = currentQ.options[indice];
+      if (opcion) { e.preventDefault(); handleAnswer(opcion.id); }
+    }
+
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+  }, [currentQ, handleAnswer, handleNext, isReportModalOpen, puedeAvanzar]);
 
   return (
-    <div className="min-h-[80vh] flex flex-col justify-center max-w-3xl mx-auto animate-in fade-in zoom-in duration-300 relative">
-      
-      {/* BARRA DE PROGRESO */}
-      <div className="mb-8 flex items-center gap-4">
-          <button onClick={onExit} className="text-xs font-bold text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1">
-              <ArrowLeft size={14}/> ABORTAR
-          </button>
-          <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-indigo-600 transition-all duration-500 ease-out"
-                style={{ width: `${((currentIndex + 1) / localQuestions.length) * 100}%` }}
-              ></div>
+    // `justify-center` sobre `min-h-[80vh]` dejaba la tarjeta flotando en
+    // medio de la pantalla con medio viewport vacio debajo. Ahora el contenido
+    // se apoya arriba y la cabecera acompania al scroll.
+    <div className="max-w-3xl mx-auto animate-in fade-in duration-300 relative pb-32">
+
+      {/* ================= CABECERA ================= */}
+      <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 mb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
+
+          <div className="flex items-center justify-between gap-4 mb-4">
+              <button onClick={onExit} className="text-[11px] font-black text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+                  <ArrowLeft size={14}/> Abortar
+              </button>
+
+              {/* El tema y el modo: antes no habia forma de saber que estabas
+                  haciendo ni de que iba. */}
+              <div className="flex items-center gap-2 min-w-0 flex-1 justify-center">
+                  <Layers size={13} className="text-slate-400 flex-shrink-0"/>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                      {topicName}
+                  </span>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
+                      mode === 'exam'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300'
+                  }`}>
+                      {mode === 'exam' ? 'Examen' : 'Entreno'}
+                  </span>
+              </div>
+
+              <div className="flex items-center gap-4 flex-shrink-0">
+                  <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 tabular-nums">
+                      <Clock size={13} className="text-slate-400"/> {formatTime(segundosTest)}
+                  </span>
+                  <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono tabular-nums">
+                      {currentIndex + 1}<span className="text-slate-400">/{localQuestions.length}</span>
+                  </span>
+              </div>
           </div>
-          <span className="text-xs font-black text-slate-400 font-mono">
-              {currentIndex + 1}/{localQuestions.length}
-          </span>
+
+          {/* Un segmento por pregunta en vez de una barra lisa: de un vistazo
+              se ve cuantas van y como. En examen NO se colorea el acierto —
+              el alumno no debe saber si va bien hasta el final. */}
+          <div className="flex gap-1">
+              {localQuestions.map((q, i) => {
+                  const respondida = !!q.userAnswer;
+                  const esActual = i === currentIndex;
+
+                  let color = 'bg-slate-200 dark:bg-slate-800';
+                  if (mode === 'practice' && respondida) {
+                      color = q.userAnswer === q.correctOptionId ? 'bg-emerald-500' : 'bg-red-500';
+                  } else if (respondida) {
+                      color = 'bg-indigo-500';
+                  }
+
+                  return (
+                      <div
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${color} ${
+                          esActual ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-950' : ''
+                        }`}
+                      />
+                  );
+              })}
+          </div>
       </div>
+
+      {/* El cuerpo se centra en el hueco que dejan cabecera y pie.
+
+          Sin esto, una pregunta corta sin feedback dejaba medio viewport
+          vacio debajo. Es `min-h` y no `h`, asi que cuando el feedback del
+          modo entrenamiento es largo el bloque crece hacia abajo en vez de
+          recortarse. */}
+      <div className="min-h-[calc(100vh-15rem)] flex flex-col justify-center">
 
       {/* TARJETA DE PREGUNTA */}
       <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
@@ -230,15 +334,27 @@ const handleNext = () => {
             </div>
           )}
 
-          {/* Etiqueta de Origen */}
-          <div className="mb-4">
-             <span className={`text-[10px] font-mono uppercase px-2 py-1 rounded border ${
-               currentQ.origin === 'live_ai' 
-                 ? 'bg-purple-50 text-purple-600 border-purple-200' 
-                 : 'bg-slate-50 text-slate-400 border-slate-200'
-             }`}>
-               {currentQ.origin === 'live_ai' ? '🤖 GENERADA (AI)' : '📚 BANCO OFICIAL'}
-             </span>
+          {/* Etiqueta de Origen
+
+              Hay TRES origenes y aqui solo se distinguian dos: `origin === 'live_ai'`
+              o "todo lo demas". Como las recien generadas llegan con
+              `origin: 'candidate'`, caian en el `else` y se le presentaban al
+              alumno como "BANCO OFICIAL" — una pregunta que la IA acababa de
+              inventar y que nadie habia revisado. En una oposicion eso no es un
+              detalle: le estas diciendo que esta validada. */}
+          <div className="mb-5">
+             {currentQ.origin === 'bank' ? (
+               <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                 📚 Banco oficial
+               </span>
+             ) : (
+               <span
+                 className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-md border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+                 title="Generada por IA a partir del temario. Aún no la ha revisado un administrador."
+               >
+                 ⚠ Generada por IA · sin revisar
+               </span>
+             )}
           </div>
 
           <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-10 leading-snug relative z-10">
@@ -267,9 +383,15 @@ const handleNext = () => {
                           disabled={mode === 'practice' && isAnswered}
                           className={`w-full text-left p-5 rounded-2xl border-2 font-bold transition-all duration-200 flex items-start gap-4 group ${style}`}
                       >
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] uppercase border flex-shrink-0 mt-0.5 ${isSelected || (mode === 'practice' && isCorrectOpt && isAnswered) ? 'border-transparent bg-white/20' : 'border-slate-300 dark:border-slate-600'}`}>
+                          {/* La letra hace de tecla: es el atajo, no un adorno.
+                              Con borde de teclado para que se lea como tal. */}
+                          <kbd className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black uppercase border-b-2 flex-shrink-0 mt-0.5 transition-colors ${
+                            isSelected || (mode === 'practice' && isCorrectOpt && isAnswered)
+                              ? 'border-transparent bg-white/25 text-current'
+                              : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-500 group-hover:border-indigo-400 group-hover:text-indigo-500'
+                          }`}>
                               {opt.id}
-                          </div>
+                          </kbd>
                           <span className="text-sm md:text-base leading-relaxed">{opt.text}</span>
                       </button>
                   );
@@ -325,18 +447,51 @@ const handleNext = () => {
           </div>
       )}
 
-      {/* BOTÓN SIGUIENTE */}
-      <div className="mt-8 flex justify-end pb-12">
-          {(mode === 'exam' || isAnswered) && (
-              <button 
-                onClick={handleNext} 
-                disabled={mode === 'practice' && !errorTagged && !isCorrect} 
-                className="bg-slate-900 dark:bg-white text-white dark:text-black px-8 py-4 rounded-xl font-black text-sm shadow-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed flex items-center gap-3"
-              >
-                  {currentIndex < localQuestions.length - 1 ? 'SIGUIENTE' : 'FINALIZAR'} 
-                  <ChevronRight size={16}/>
-              </button>
-          )}
+      </div>
+
+      {/* ================= PIE ================= */}
+      {/* Fijo abajo: el boton de avanzar no deberia obligar a buscar con el
+          raton ni a hacer scroll cuando el enunciado es largo. */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-t border-slate-200/70 dark:border-slate-800/70">
+          <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+
+              {/* La pista de atajos, visible pero discreta. Un atajo que nadie
+                  descubre es un atajo que no existe. */}
+              <p className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                      {currentQ.options.map((o) => (
+                          <kbd key={o.id} className="px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono uppercase">
+                              {o.id}
+                          </kbd>
+                      ))}
+                      responder
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-700">·</span>
+                  <span className="flex items-center gap-1">
+                      <kbd className="px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono">
+                          Enter
+                      </kbd>
+                      avanzar
+                  </span>
+              </p>
+
+              {/* En entrenamiento el boton solo aparece con la respuesta dada;
+                  si es un fallo, hay que etiquetarlo antes (es obligatorio). */}
+              {(mode === 'exam' || isAnswered) ? (
+                  <button
+                    onClick={handleNext}
+                    disabled={!puedeAvanzar}
+                    className="ml-auto bg-slate-900 dark:bg-white text-white dark:text-black px-8 py-3.5 rounded-xl font-black text-sm shadow-xl hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed flex items-center gap-3"
+                  >
+                      {currentIndex < localQuestions.length - 1 ? 'SIGUIENTE' : 'FINALIZAR'}
+                      <ChevronRight size={16}/>
+                  </button>
+              ) : (
+                  <span className="ml-auto text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Elige una respuesta
+                  </span>
+              )}
+          </div>
       </div>
 
       {/* MODAL REPORTE */}

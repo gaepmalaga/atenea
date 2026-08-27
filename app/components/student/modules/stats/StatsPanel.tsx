@@ -142,12 +142,36 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                       <MousePointer2 size={16} className="text-purple-500"/> Índice de Incertidumbre
                   </h3>
               </div>
-              <div className="relative h-4 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
-                  <div 
-                    className="absolute h-full bg-gradient-to-r from-emerald-500 via-yellow-500 to-red-500 rounded-full transition-all duration-1000"
-                    style={{ width: `${uncertaintyIndex}%` }}
-                  ></div>
+              {/* Un MEDIDOR con marcador, no una barra que se rellena.
+                  
+                  Antes era un relleno de ancho `uncertaintyIndex`% sobre un
+                  gradiente verde→rojo. Con índice 0 —que es el MEJOR valor— no se
+                  pintaba nada y quedaba idéntica a "no hay datos", diciendo justo
+                  lo contrario que el texto de debajo. La escala se ve siempre y el
+                  marcador dice dónde estás. */}
+              <div className="relative h-4 rounded-full mb-3 bg-gradient-to-r from-emerald-500 via-yellow-500 to-red-500">
+                  {changesCount === 0 ? (
+                      <div className="absolute inset-0 rounded-full bg-slate-100 dark:bg-slate-800" />
+                  ) : (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-[3px] border-slate-900 dark:border-white shadow-lg transition-all duration-1000"
+                        style={{ left: `${Math.max(3, Math.min(97, uncertaintyIndex))}%` }}
+                      />
+                  )}
               </div>
+
+              <div className="flex justify-between text-[9px] font-black uppercase tracking-wider text-slate-400 mb-4">
+                  <span>Firme</span>
+                  <span>Dudoso</span>
+              </div>
+
+              {changesCount > 0 && (
+                  <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 leading-none">
+                      {uncertaintyIndex}
+                      <span className="text-base text-slate-400">/100</span>
+                  </p>
+              )}
+
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                   {changesCount === 0
                     ? "Aún no hay datos de marcación. Se registran durante los tests."
