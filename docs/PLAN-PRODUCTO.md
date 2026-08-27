@@ -246,10 +246,19 @@ sale a cuenta**. En el examen real no: hay un punto en el que arriesgar es peor
 que dejar en blanco. La plataforma no solo da mal la nota, es que **enseña una
 estrategia equivocada**.
 
-> **Pendiente de comprobar:** la fórmula exacta de penalización de la
-> convocatoria vigente. Suele ser del tipo «cada N errores anulan un acierto»,
-> pero varía. Hay que sacarla del BOE de la convocatoria, no de memoria, y
-> dejarla configurable por si cambia.
+> **Resuelto (27 ago), y hecho.** La fórmula está en la
+> [Resolución de 7 de julio de 2026 de la Dirección General de la Policía](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-15055),
+> primera prueba:
+>
+>     [A − E/(n−1)] × 10/P
+>
+> 100 preguntas, 3 alternativas, 50 minutos, mínimo **3 puntos**. Con n = 3,
+> **cada dos fallos se pierde un acierto**, y las respuestas en blanco no
+> aparecen en la fórmula: no restan.
+>
+> Implementada en [`app/lib/scoring.ts`](../app/lib/scoring.ts) con las reglas en
+> un objeto configurable, no en constantes sueltas: la fórmula cambia entre
+> convocatorias y entre escalas.
 
 ### Lo que sí tiene hoy
 
@@ -318,17 +327,24 @@ la respuesta o a gestionar el examen.** El resto va a las estadísticas.
 ### El orden dentro de P3
 
 ```
-1. Penalización en la nota      ← corrige un dato falso
+1. Penalización en la nota      ✅ hecho (27 ago)
 2. Volver atrás + marcar        ← lo que más se echa de menos
 3. Mapa de preguntas
 4. Blanco explícito
 5. Tiempo límite + entrega automática
 6. Pantalla de revisión final
-7. Referencia legal             ← necesita P1
+7. Referencia legal             ← ya se puede: P1 está cerrada
 8. Notas personales
 ```
 
 Los seis primeros no dependen de nada y son la mitad del valor.
+
+**Un fleco que dejó la penalización.** La pantalla de resultados ya distingue
+fallo de blanco, pero `buildExamResults` guarda el blanco como
+`is_correct: false`, así que en las estadísticas sigue contando como fallo.
+Distinguirlo pide una columna en `question_attempts` que no existe. Es pequeño,
+pero hasta que se haga el porcentaje de acierto del alumno castiga el no
+arriesgar — justo lo contrario de lo que enseña la nota nueva.
 
 ### Y el arreglo pendiente
 
