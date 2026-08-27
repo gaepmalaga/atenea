@@ -124,6 +124,38 @@ export const CHUNK_MAX_CHARS = 1000;
 export const CHUNK_OVERLAP_CHARS = 200;
 
 /**
+ * El final del fragmento anterior que se antepone al siguiente.
+ *
+ * Cortar `size` caracteres a pelo cae a mitad de palabra. En la LOFCS recien
+ * indexada habia fragmentos que empezaban por «uencia.» —el rabo de
+ * «frecuencia»—, y eso es lo que lee el alumno cuando el chat cita el fragmento
+ * y lo que recibe el modelo al generar una pregunta con el.
+ *
+ * Se avanza hasta el primer hueco, asi que el solape empieza en palabra entera.
+ * Nunca crece: como mucho se acorta, y la garantia de `maxChars` se mantiene.
+ */
+function overlapTail(previous: string, size: number): string {
+  const cola = previous.slice(-size);
+  if (cola.length === previous.length) return cola; // no se ha cortado nada
+
+  const hueco = cola.search(/\s/);
+  // Una sola palabra sin huecos (una URL, una referencia larga): se deja.
+  return hueco >= 0 ? cola.slice(hueco + 1) : cola;
+}
+
+/**
+ * Donde cortar una frase que no cabe: el ultimo hueco antes del limite.
+ *
+ * El corte a pelo partia palabras por la mitad. Si no hay un hueco razonable
+ * —menos de medio fragmento— se corta duro, que es mejor que devolver un trozo
+ * ridiculamente corto.
+ */
+function puntoDeCorte(texto: string, limit: number): number {
+  const hueco = texto.lastIndexOf(' ', limit);
+  return hueco > limit / 2 ? hueco : limit;
+}
+
+/**
  * Parte un parrafo demasiado largo en trozos que quepan en `limit`.
  *
  * Primero por frases (los textos legales estan llenos de puntos), y si una
@@ -142,11 +174,16 @@ function splitLongParagraph(paragraph: string, limit: number): string[] {
     if (!sentence) continue;
 
     if (sentence.length > limit) {
-      // Frase mas larga que el limite: corte duro.
+      // Frase mas larga que el limite: se parte por el ultimo hueco que quepa.
       if (current) { out.push(current); current = ''; }
-      for (let i = 0; i < sentence.length; i += limit) {
-        out.push(sentence.slice(i, i + limit));
+      let resto = sentence;
+      while (resto.length > limit) {
+        const corte = puntoDeCorte(resto, limit);
+        const trozo = resto.slice(0, corte).trim();
+        if (trozo) out.push(trozo);
+        resto = resto.slice(corte).trim();
       }
+      if (resto) out.push(resto);
       continue;
     }
 
@@ -210,7 +247,7 @@ export function chunkLegalText(
   if (safeOverlap === 0) return packed;
 
   return packed.map((chunk, i) =>
-    i === 0 ? chunk : packed[i - 1].slice(-safeOverlap) + '\n' + chunk
+    i === 0 ? chunk : overlapTail(packed[i - 1], safeOverlap) + '\n' + chunk
   );
 }
 
@@ -250,16 +287,97 @@ const RE_ARTICULO_NUM = /^\s*(Art[íi]culo\s+\d+(?:\s*(?:bis|ter|quater))?)\b/;
  * La LOFCS usa ordinales del primero al noveno y despues cardinales: «Artículo
  * diez», «Artículo once». Sin los cardinales solo se detectaban 9 de sus ~54
  * articulos.
+ *
+ * DOS COSAS QUE HAY QUE ESCRIBIR A MANO, Y POR QUE
+ *
+ * 1. Los compuestos van ENTEROS, y la decena suelta va DESPUES. Con
+ *    «treinta|cuarenta|…» a secas, «Artículo treinta y uno.» casaba solo
+ *    «Artículo treinta»: los articulos 30 a 39 terminaban los diez con la MISMA
+ *    referencia. Medido sobre la LOFCS ya indexada: 15 fragmentos citados como
+ *    «Artículo treinta», 16 como «Artículo cuarenta» y 11 como «Artículo
+ *    cincuenta». Al opositor se le estaba dando mal el articulo, que es
+ *    exactamente lo que la referencia venia a arreglar.
+ *
+ * 2. Nada de `\w` para las terminaciones. `\w` es `[A-Za-z0-9_]`, asi que se
+ *    para en la tilde: `veinti\w+` dejaba «Artículo veintidós» en «Artículo
+ *    veintid», «veintitrés» en «veintitr» y «veintiséis» en «veintis». Por eso
+ *    los ordinales con tilde van enumerados uno a uno.
  */
 const RE_ARTICULO_LETRA =
-  /^\s*(Art[íi]culo\s+(?:primero|segundo|tercero|cuarto|quinto|sexto|s[ée]ptimo|octavo|noveno|d[ée]cimo|und[ée]cimo|duod[ée]cimo|diez|once|doce|trece|catorce|quince|diecis[ée]is|diecisiete|dieciocho|diecinueve|veinte|veinti\w+|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien(?:to)?))\b/;
+  /^\s*(Art[íi]culo\s+(?:ciento\s+)?(?:primero|segundo|tercero|cuarto|quinto|sexto|s[ée]ptimo|octavo|noveno|und[ée]cimo|duod[ée]cimo|d[ée]cimo|diez|once|doce|trece|catorce|quince|diecis[ée]is|diecisiete|dieciocho|diecinueve|veintiuno|veintid[óo]s|veintitr[ée]s|veinticuatro|veinticinco|veintis[ée]is|veintisiete|veintiocho|veintinueve|veinte|(?:treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa)(?:\s+y\s+(?:uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve))?|cien(?:to)?))\b/;
 
-/** Disposiciones adicionales, transitorias, derogatorias y finales. */
+/**
+ * Disposiciones adicionales, transitorias, derogatorias y finales.
+ *
+ * El ordinal se enumera en vez de admitir cualquier palabra. Con `\s+\w+` la
+ * septima se quedaba en «Disposición adicional s» —la misma tilde que cortaba
+ * los articulos— y, cuando la disposicion no lleva ordinal, la referencia se
+ * tragaba la primera palabra del titulo.
+ */
 const RE_DISPOSICION =
-  /^\s*(Disposici[óo]n\s+(?:adicional|transitoria|derogatoria|final)(?:\s+\w+)?)/i;
+  /^\s*(Disposici[óo]n\s+(?:adicional|transitoria|derogatoria|final)(?:\s+(?:primera|segunda|tercera|cuarta|quinta|sexta|s[ée]ptima|octava|novena|und[ée]cima|duod[ée]cima|d[ée]cim[oa](?:s[ée]ptima|primera|segunda|tercera|cuarta|quinta|sexta|octava|novena)?|[úu]nica))?)/i;
 
 /** Una linea del INDICE, no del cuerpo: lleva puntos de relleno. */
 const RE_RELLENO_INDICE = /\.{4,}/;
+
+/** La cabecera que abre el indice de un texto del BOE. */
+const RE_MARCA_INDICE = /^\s*(?:[ÍI]NDICE|SUMARIO)\s*$/i;
+
+/**
+ * Lineas sin puntos de relleno que se toleran dentro del indice antes de dar
+ * por cerrado el bloque. Hacen falta unas pocas porque una entrada larga parte
+ * el titulo en dos renglones y los puntos se van al segundo.
+ */
+const TOLERANCIA_SIN_RELLENO = 6;
+
+/**
+ * El tramo de lineas que ocupa el INDICE, o `null` si el documento no lo tiene.
+ *
+ * POR QUE HACE FALTA
+ * Descartar las lineas con puntos de relleno una a una no basta. Cuando el
+ * titulo de una entrada es largo, el extractor lo parte en dos renglones y los
+ * puntos se quedan en el segundo, asi que el primero es texto limpio:
+ *
+ *     Disposición final quinta. Régimen específico del sistema de provisión…
+ *     las unidades adscritas a la Secretaría de Estado de Seguridad......  30
+ *
+ * El primer renglon pasaba el filtro y se tomaba por un encabezado DEL CUERPO.
+ * Consecuencia medida en la LOFCS: todo lo que iba detras —el resto del indice
+ * y el preambulo entero, 63 de sus 185 fragmentos— quedaba etiquetado como
+ * «Disposición final quinta», que es una referencia sencillamente falsa.
+ *
+ * COMO SE DELIMITA
+ * Desde la linea «ÍNDICE» hasta la ULTIMA con puntos de relleno, tolerando por
+ * el camino unos pocos renglones sin ellos. Si tras la cabecera no aparece
+ * ningun relleno, no es un indice de este tipo y no se descarta nada.
+ */
+export function indexBlockRange(lineas: string[]): { desde: number; hasta: number } | null {
+  const marca = lineas.findIndex((l) => RE_MARCA_INDICE.test(l));
+  if (marca < 0) return null;
+
+  let hasta = -1;
+  let sinRelleno = 0;
+
+  for (let i = marca + 1; i < lineas.length; i++) {
+    if (!lineas[i].trim()) continue; // los renglones en blanco no cierran nada
+
+    if (RE_RELLENO_INDICE.test(lineas[i])) {
+      hasta = i;
+      sinRelleno = 0;
+      continue;
+    }
+
+    sinRelleno++;
+    if (sinRelleno > TOLERANCIA_SIN_RELLENO) break;
+  }
+
+  return hasta < 0 ? null : { desde: marca, hasta };
+}
+
+/** Si esa linea cae dentro del indice. */
+function enElIndice(i: number, indice: { desde: number; hasta: number } | null): boolean {
+  return indice !== null && i >= indice.desde && i <= indice.hasta;
+}
 
 /** La referencia de una linea, si es un encabezado. `null` si no lo es. */
 export function legalReferenceOf(linea: string): string | null {
@@ -273,9 +391,10 @@ export function legalReferenceOf(linea: string): string | null {
 
 /** Cuantos encabezados de articulo tiene un texto (fuera del indice). */
 export function countLegalHeadings(texto: string): number {
-  return texto.split('\n').filter((l) => legalReferenceOf(l) !== null).length;
+  const lineas = texto.split('\n');
+  const indice = indexBlockRange(lineas);
+  return lineas.filter((l, i) => !enElIndice(i, indice) && legalReferenceOf(l) !== null).length;
 }
-
 /**
  * A partir de cuantos encabezados se considera que el documento es un texto
  * legal estructurado. Con menos, es un apunte y se trocea por longitud.
@@ -315,6 +434,7 @@ export function chunkLegalStructure(
   maxChars: number = CHUNK_MAX_CHARS
 ): LegalChunk[] {
   const lineas = (texto ?? '').split('\n');
+  const indice = indexBlockRange(lineas);
   const salida: LegalChunk[] = [];
 
   let referenciaActual: string | null = null;
@@ -337,8 +457,14 @@ export function chunkLegalStructure(
     }
   };
 
-  for (const linea of lineas) {
-    if (RE_RELLENO_INDICE.test(linea)) continue; // indice
+  // El indice va fuera ENTERO, no linea a linea: sus entradas largas dejan un
+  // renglon sin puntos que se colaba como encabezado del cuerpo. Ver
+  // `indexBlockRange`.
+  for (let i = 0; i < lineas.length; i++) {
+    if (enElIndice(i, indice)) continue;
+
+    const linea = lineas[i];
+    if (RE_RELLENO_INDICE.test(linea)) continue; // una entrada de indice suelta
 
     const referencia = legalReferenceOf(linea);
     if (referencia) {

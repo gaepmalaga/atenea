@@ -309,7 +309,13 @@ export async function reindexDocument(documentId: string) {
 
     if (docError || !doc) throw new Error('No se encuentra el documento.');
 
-    const texto = (doc.full_text as string) ?? '';
+    // Se vuelve a limpiar el texto, no se trocea tal cual. Los documentos
+    // subidos antes de P1a llevan guardado el texto CRUDO del PDF: renglones
+    // cortados al ancho de la pagina, con «Artículo» partido en dos lineas.
+    // Sin este paso, reindexarlos repite el troceado malo sobre el mismo texto
+    // malo y la estructura legal sigue sin detectarse. Sobre un texto ya limpio
+    // —lo que guarda hoy `uploadTopicPDF`— no cambia nada.
+    const texto = cleanLegalText((doc.full_text as string) ?? '');
     const fragmentos = chunkDocument(texto);
     if (fragmentos.length === 0) throw new Error('El texto guardado no produce ningún fragmento.');
 
