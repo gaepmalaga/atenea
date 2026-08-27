@@ -3,6 +3,12 @@
 Plataforma de preparación de oposiciones a Policía Nacional (CNP).
 Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 
+> **Hay un plan de producto abierto:** [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md).
+> Recoge lo que la plataforma todavía no sabe hacer (ingesta fiable, preguntas a mano,
+> super admin con módulos configurables, panel de academia y cobros) y está **pendiente
+> de tres decisiones** que solo puede tomar el dueño del proyecto. No empieces nada de
+> ahí sin leerlo.
+
 > **Empieza leyendo esto.** El proyecto estuvo abandonado un tiempo y se está
 > recuperando por fases. Aquí está dónde estamos y qué reglas se aplican.
 > El detalle vive en [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (32 hallazgos con
