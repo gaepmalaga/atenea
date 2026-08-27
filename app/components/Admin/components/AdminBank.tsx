@@ -17,8 +17,11 @@ import {
   QUESTION_STATUS,
   QUESTION_STATUS_LABEL,
   QUESTION_STATUSES,
+  DIFFICULTY,
   type QuestionStatus,
+  type AdminBankRow,
 } from '@/app/lib/questions';
+import type { SyllabusSubject } from '@/app/actions/admin';
 
 // --- UTILIDAD VISUAL: ESTADO DE LA PREGUNTA ---
 const STATUS_STYLE: Record<QuestionStatus, string> = {
@@ -36,8 +39,8 @@ const getTopicStyle = (num: number) => {
 
 export default function AdminBank() {
   // --- ESTADOS ---
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<AdminBankRow[]>([]);
+  const [subjects, setSubjects] = useState<SyllabusSubject[]>([]);
   const [stats, setStats] = useState({ total: 0, page: 1, totalPages: 1 });
   
   // Filtros
@@ -51,7 +54,7 @@ export default function AdminBank() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   // Editor
-  const [editingQ, setEditingQ] = useState<any | null>(null);
+  const [editingQ, setEditingQ] = useState<AdminBankRow | null>(null);
   const [editForm, setEditForm] = useState({
     question_text: '',
     options: ['', '', ''],
@@ -78,7 +81,7 @@ export default function AdminBank() {
   async function loadSyllabus() {
     const res = await getOfficialSyllabus();
     if (res.success && res.syllabus) {
-        const flatSubjects = res.syllabus.flatMap((b:any) => b.subjects);
+        const flatSubjects = res.syllabus.flatMap((b) => b.subjects);
         setSubjects(flatSubjects);
     }
   }
@@ -138,12 +141,14 @@ export default function AdminBank() {
       setBulkRunning(false);
   }
 
-  function openEditor(q: any) {
+  function openEditor(q: AdminBankRow) {
       setEditingQ(q);
       setEditForm({
-          question_text: q.question_text,
-          options: [...q.options],
-          correct_index: q.correct_index,
+          // `options` es jsonb y el enunciado puede llegar nulo: el formulario
+          // espera cadenas y un array de tres, siempre.
+          question_text: q.question_text ?? '',
+          options: Array.isArray(q.options) ? [...q.options] : ['', '', ''],
+          correct_index: q.correct_index ?? 0,
           explanation: q.explanation || ''
       });
   }
@@ -279,7 +284,10 @@ export default function AdminBank() {
                                     <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_STYLE[q.status as QuestionStatus] ?? STATUS_STYLE[QUESTION_STATUS.DISABLED]}`}>
                                         {QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}
                                     </span>
-                                    {q.difficulty === 3 && (
+                                    {/* La columna se llama `difficulty_level`, no
+                                        `difficulty`. Con el estado en `any` esto era
+                                        siempre undefined y el distintivo no salio nunca. */}
+                                    {q.difficulty_level === DIFFICULTY.hard && (
                                         <span className="text-[10px] font-bold bg-red-500/10 text-red-400 px-2 py-1 rounded-full border border-red-500/20 flex items-center gap-1">
                                             <AlertTriangle size={10}/> DIFÍCIL
                                         </span>
@@ -322,7 +330,7 @@ export default function AdminBank() {
 
                             {/* Opciones Grid */}
                             <div className="grid md:grid-cols-3 gap-3">
-                                {q.options.map((opt: string, i: number) => {
+                                {(Array.isArray(q.options) ? q.options : []).map((opt: string, i: number) => {
                                     const isCorrect = i === q.correct_index;
                                     return (
                                         <div key={i} className={`relative p-4 rounded-2xl border transition-all ${
@@ -369,7 +377,7 @@ export default function AdminBank() {
                     <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/30">
                         <Database size={48} className="mx-auto mb-4 text-slate-700"/>
                         <p className="text-slate-500 font-bold">No hay preguntas que coincidan.</p>
-                        <p className="text-xs text-slate-600">Prueba a generar más en la pestaña "Temario".</p>
+                        <p className="text-xs text-slate-600">Prueba a generar más en la pestaña “Temario”.</p>
                     </div>
                 )}
             </div>

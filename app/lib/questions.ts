@@ -143,6 +143,17 @@ export type ModerationReport = {
   question?: ModerationCandidate | null;
 };
 
+/**
+ * Una fila del banco tal y como la sirve el panel de administracion.
+ *
+ * Trae el tema anidado bajo `subjects`, que es como lo devuelve el `select`
+ * con join de `getAdminQuestionBank` (a diferencia de la cola de moderacion,
+ * que lo aplana a `topic`).
+ */
+export type AdminBankRow = ModerationCandidate & {
+  subjects?: { id: number; title: string; topic_number: number } | null;
+};
+
 /** Lo que devuelve `getModerationQueue`. */
 export type ModerationQueue = {
   candidates: ModerationCandidate[];

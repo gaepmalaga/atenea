@@ -1,26 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Users, Loader2 } from 'lucide-react';
 import { getAdminUsersList } from '@/actions';
+import type { AdminUser } from '@/app/actions/admin';
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sin `setLoading(true)` dentro: `loading` ya arranca en true, y un setState
+  // sincrono en un efecto dispara un render en cascada.
+  const load = useCallback(async () => {
+    const res = await getAdminUsersList();
+    if (res.success) setUsers(res.users ?? []);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
-
-  async function load() {
-    setLoading(true);
-    // Llamamos a la Server Action
-    const res = await getAdminUsersList();
-    if (res.success) {
-      setUsers(res.users || []);
-    }
-    setLoading(false);
-  }
+  }, [load]);
 
   if (loading) {
     return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-indigo-500"/></div>;
@@ -50,7 +49,7 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {users.map((u: any) => (
+              {users.map((u) => (
                 <tr key={u.id} className="hover:bg-slate-700/50 transition-colors">
                   <td className="px-6 py-4 font-medium text-white">{u.email}</td>
                   <td className="px-6 py-4">
@@ -58,9 +57,17 @@ export default function AdminUsers() {
                       {u.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-center font-mono">{u.total_tests || 0}</td>
+                  <td className="px-6 py-4 text-center font-mono">{u.total_tests}</td>
                   <td className="px-6 py-4 text-center">
-                    <span className={`font-bold ${u.win_rate >= 50 ? 'text-green-400' : 'text-red-400'}`}>{u.win_rate || 0}%</span>
+                    {/* Sin datos NO es lo mismo que 0 % de aciertos (regla 8):
+                        antes ambos casos se pintaban igual, y en rojo. */}
+                    {u.win_rate === null ? (
+                      <span className="text-slate-500 font-mono text-xs">sin datos</span>
+                    ) : (
+                      <span className={`font-bold ${u.win_rate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                        {u.win_rate}%
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-green-400 flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Activo

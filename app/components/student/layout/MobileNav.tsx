@@ -1,12 +1,13 @@
 'use client';
 
 import { Power } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface MobileNavProps {
   activeTab: string;
   onTabChange: (id: string) => void;
   onLogout: () => void;
-  items: { id: string; label: string; icon: any }[];
+  items: { id: string; label: string; icon: LucideIcon }[];
 }
 
 export default function MobileNav({ activeTab, onTabChange, onLogout, items }: MobileNavProps) {

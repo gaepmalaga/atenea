@@ -1,12 +1,13 @@
 'use client';
 
 import { Power, Shield } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (id: string) => void;
   onLogout: () => void;
-  items: { id: string; label: string; icon: any }[];
+  items: { id: string; label: string; icon: LucideIcon }[];
   hidden?: boolean;
 }
 

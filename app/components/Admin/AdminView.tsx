@@ -5,6 +5,7 @@ import {
   Shield, LogOut, RefreshCw, Users, Book, 
   Activity, AlertTriangle, Database 
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // Importamos TODOS los sub-componentes (incluyendo el nuevo AdminBank)
 import AdminUsers from './components/AdminUsers';
@@ -15,10 +16,13 @@ import AdminBank from './components/AdminBank';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
+/** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
+type AdminTab = 'users' | 'moderation' | 'content' | 'activity' | 'bank';
+
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
   // Añadimos 'bank' a los tipos permitidos
-  const [activeTab, setActiveTab] = useState<'users' | 'moderation' | 'content' | 'activity' | 'bank'>('users');
+  const [activeTab, setActiveTab] = useState<AdminTab>('users');
   
   // Truco para forzar recarga de componentes hijos sin recargar la página entera
   const [refreshKey, setRefreshKey] = useState(0); 
@@ -28,13 +32,16 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   };
 
   // Configuración del Menú
+  // `satisfies` y no `as`: obliga a que cada `id` sea un AdminTab de verdad,
+  // sin borrar el tipo literal de cada uno. Antes se colaba con `as any` en el
+  // onClick, asi que una pestaña mal escrita compilaba y no hacia nada.
   const tabs = [
     { id: 'users', label: 'Usuarios', icon: Users, color: 'text-blue-400' },
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-400' },
-  ];
+  ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans">
@@ -85,7 +92,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
                 return (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+                        onClick={() => setActiveTab(tab.id)}
                         className={`
                             relative px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all duration-300
                             ${isActive 
