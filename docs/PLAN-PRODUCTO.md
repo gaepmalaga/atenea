@@ -5,8 +5,8 @@
 > arreglar lo que estaba roto. Este es un plan de **producto**: lo que la
 > plataforma todavía no sabe hacer.
 >
-> **P1 está casi cerrada** (27 ago). El resto sigue sin empezar. Ver
-> *Estado de P1*, justo debajo de esa sección.
+> **P1 está cerrada** (27 ago). El resto sigue sin empezar. Ver *Estado de P1*,
+> justo debajo de esa sección.
 >
 > **Actualizado el 27 ago** con tres decisiones tomadas: la plataforma sirve por
 > ahora a **una sola academia**; el primer paso es un **piloto gratis** con una
@@ -145,7 +145,7 @@ chat— se apoya en que el temario esté bien dentro.
 | P1e | El panel enseña si un tema está mudo, y deja arreglarlo | ✅ |
 | P1f | La referencia que se guardaba era falsa en la mayoría del temario | ✅ |
 | P1g | La referencia legal llega hasta el alumno | ✅ SQL ejecutado el 27 ago |
-| — | **Enseñar lo que ha entrado**: visor de fragmentos por documento | ⬜ **pendiente** |
+| P1h | **Enseñar lo que ha entrado**: visor de fragmentos por documento | ✅ |
 
 **El TEMA 9 ya no está mudo.** Reindexado desde el panel el 27 de agosto:
 
@@ -174,9 +174,16 @@ Antes de P1f, ese «Artículo treinta y siete» —el que dice cuándo puede una
 comunidad crear su policía— se citaba como «Artículo treinta». Es el ejemplo
 exacto del fallo: la referencia existía y era falsa.
 
-**Lo que falta de P1:** el **visor de fragmentos**, punto 3 de esta fase. Hoy
-subes un PDF y no hay forma de comprobar qué ha entendido la plataforma. Es el
-origen real de la desconfianza, y se cura enseñándolo.
+**Y ya se puede mirar lo que ha entrado.** Botón *Ver* en cada documento: los
+cuatro números de arriba (fragmentos, cuántos traen artículo, cuántos artículos
+distintos, el más largo), los fragmentos agrupados por su artículo y en el orden
+del documento, y un buscador. Buscar *«Artículo treinta y»* en el TEMA 9 deja 13
+de 177 fragmentos, repartidos en los nueve artículos de la decena — cada uno con
+el suyo, empezando por su encabezado. Antes de P1f los nueve se llamaban
+«Artículo treinta».
+
+Con esto **P1 queda cerrada**: el temario entra entero, se sabe si no, y se
+puede comprobar.
 
 ---
 

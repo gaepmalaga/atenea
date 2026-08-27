@@ -37,6 +37,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **5** | **Higiene** | ✅ **cerrada** (0 `any`, lint en 4 falsos positivos) |
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
+| **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
 | — | **Despliegue** | ⬜ **no hay nada en producción** |
 
 ### Lo que solo puedes hacer tú
@@ -78,15 +79,15 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # 4 errores, todos el mismo falso positivo (ver abajo)
+npm run lint                   # 3 errores, todos el mismo falso positivo (ver abajo)
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
 ```
 
-Los 4 errores de `lint` son el mismo falso positivo de
-`react-hooks/set-state-in-effect` en los cuatro paneles de administración: la regla
-ve el `setState` dentro de la función que el efecto llama, pero va **después** del
+Los 3 errores de `lint` son el mismo falso positivo de
+`react-hooks/set-state-in-effect` en tres paneles de administración: la regla ve
+el `setState` dentro de la función que el efecto llama, pero va **después** del
 `await`. Retorcer el código para callarla sería peor que el aviso.
 
 **`npm run dev` usa webpack, no Turbopack.** Turbopack infiere mal la raíz del proyecto
