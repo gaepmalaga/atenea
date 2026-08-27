@@ -10,7 +10,14 @@ import type { ActivityRow } from '../lib/stats';
 // --- TIPOS DEL TEMARIO ---
 // Reflejan la forma que devuelve el `select` anidado de Supabase.
 
-export type DocumentRow = { id: string; filename: string; uploaded_at: string };
+export type DocumentRow = {
+  id: string;
+  filename: string;
+  uploaded_at: string;
+  /** indexado | parcial | fallido | pendiente. Ver docs/sql/P1-ingesta-fiable.sql. */
+  index_status: string;
+  chunk_count: number;
+};
 export type SubjectRow = { id: number; topic_number: number; title: string; documents?: DocumentRow[] | null };
 type BlockRow = { id: number; name: string; subjects: SubjectRow[] };
 
@@ -63,7 +70,7 @@ export async function getOfficialSyllabus() {
         id, name,
         subjects ( 
             id, topic_number, title, 
-            documents ( id, filename, uploaded_at ) 
+            documents ( id, filename, uploaded_at, index_status, chunk_count ) 
         )
       `)
       .order('id', { ascending: true });

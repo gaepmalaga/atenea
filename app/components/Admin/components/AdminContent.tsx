@@ -2,18 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import type { QuestionStatus } from '@/app/lib/questions';
-import { 
-  Upload, FileText, Trash2, Loader2, RefreshCw, 
-  Book, Sparkles, ChevronDown, ChevronRight, FolderOpen, 
-  File, Calendar, CheckCircle2, AlertCircle, XCircle 
+import {
+  Upload, FileText, Trash2, Loader2, RefreshCw,
+  Book, Sparkles, ChevronDown, ChevronRight, FolderOpen,
+  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle
 } from 'lucide-react';
 
 // Importamos las Server Actions
-import { 
-  getOfficialSyllabus, 
-  uploadTopicPDF, 
-  deleteDocument, 
-  seedQuestionBank 
+import {
+  getOfficialSyllabus,
+  uploadTopicPDF,
+  deleteDocument,
+  reindexDocument,
+  seedQuestionBank
 } from '@/actions'; 
 
 // --- TIPOS DE DATOS (CORREGIDOS Y COMPLETOS) ---
@@ -21,7 +22,39 @@ type DocFile = {
     id: string;
     filename: string;
     // IMPORTANTE: Usamos uploaded_at porque es como se llama en tu BD
-    uploaded_at: string; 
+    uploaded_at: string;
+    /** indexado | parcial | fallido | pendiente */
+    index_status: string;
+    chunk_count: number;
+};
+
+/**
+ * Como se pinta cada estado de indexado.
+ *
+ * Un documento "fallido" es un tema MUDO: su texto esta guardado pero el chat
+ * no encuentra nada de el. Hasta ahora era indistinguible de uno sano en esta
+ * misma lista, y asi estuvo meses el TEMA 9.
+ */
+const ESTADO_INDEXADO: Record<string, { texto: string; clase: string; aviso?: string }> = {
+    indexado: {
+        texto: 'Indexado',
+        clase: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    },
+    parcial: {
+        texto: 'Parcial',
+        clase: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        aviso: 'Faltan fragmentos: parte de este tema no la encuentra el chat.',
+    },
+    fallido: {
+        texto: 'Sin indexar',
+        clase: 'bg-red-500/10 text-red-400 border-red-500/20',
+        aviso: 'El chat NO encuentra nada de este documento. Pulsa Reindexar.',
+    },
+    pendiente: {
+        texto: 'Pendiente',
+        clase: 'bg-slate-700/50 text-slate-400 border-slate-600',
+        aviso: 'Todavia no se ha indexado.',
+    },
 };
 
 type Subject = {
@@ -41,6 +74,8 @@ type Block = {
 export default function AdminContent() {
   const [syllabus, setSyllabus] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
+  /** Id del documento que se esta reindexando, o null. */
+  const [reindexando, setReindexando] = useState<string | null>(null);
   
   // Estado para subida de archivos
   const [uploading, setUploading] = useState(false);
@@ -112,6 +147,40 @@ export default function AdminContent() {
   }
 
   // --- BORRADO DE DOCUMENTO INDIVIDUAL ---
+  /**
+   * Vuelve a trocear e indexar un documento.
+   *
+   * Hace falta para dos casos: uno que fallo y quedo mudo, y uno subido antes
+   * del troceado por estructura, que gana la referencia legal al reindexarse.
+   */
+  async function handleReindex(docId: string, docName: string) {
+    setReindexando(docId);
+    try {
+      const res = await reindexDocument(docId);
+
+      if (!res.success) {
+        alert(`No se pudo reindexar "${docName}":\n${res.error}`);
+        return;
+      }
+
+      const conRef = res.withReference
+        ? `\n${res.withReference} de ellos con su referencia legal.`
+        : '';
+
+      alert(
+        res.status === 'indexado'
+          ? `"${docName}" reindexado: ${res.indexed} fragmentos.${conRef}`
+          : `"${docName}" quedo en ${res.status}: ${res.indexed} de ${res.total} fragmentos.${conRef}`
+      );
+
+      await load();
+    } finally {
+      // En el `finally`: si la accion falla, el boton tiene que volver a
+      // quedar disponible igualmente.
+      setReindexando(null);
+    }
+  }
+
   async function handleDeleteDoc(docId: string, docName: string) {
     if (!confirm(`¿Estás seguro de que quieres eliminar el archivo "${docName}"?\nSe borrarán también los vectores de búsqueda asociados.`)) return;
     
@@ -345,22 +414,63 @@ export default function AdminContent() {
                                                                 </div>
                                                                 <div className="min-w-0">
                                                                     <p className="text-slate-300 truncate font-medium group-hover/doc:text-white transition-colors">{doc.filename}</p>
-                                                                    {/* AQUÍ ESTÁ LA FECHA CORREGIDA */}
-                                                                    <p className="text-[10px] text-slate-600 flex items-center gap-1.5 mt-0.5">
-                                                                        <Calendar size={10}/> 
-                                                                        {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'Fecha desconocida'}
+                                                                    <p className="text-[10px] text-slate-600 flex items-center gap-2 mt-1 flex-wrap">
+                                                                        <span className="flex items-center gap-1.5">
+                                                                            <Calendar size={10}/>
+                                                                            {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'Fecha desconocida'}
+                                                                        </span>
+
+                                                                        {/* El estado de indexado, SIEMPRE visible. Antes solo se veia
+                                                                            en el momento de subir: al cerrar la pestania no quedaba
+                                                                            rastro de un indexado a medias. */}
+                                                                        {(() => {
+                                                                            const e = ESTADO_INDEXADO[doc.index_status] ?? ESTADO_INDEXADO.pendiente;
+                                                                            return (
+                                                                                <span
+                                                                                    className={`px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider ${e.clase}`}
+                                                                                    title={e.aviso}
+                                                                                >
+                                                                                    {e.texto}
+                                                                                </span>
+                                                                            );
+                                                                        })()}
+
+                                                                        <span className="font-mono text-slate-600">
+                                                                            {doc.chunk_count} fragmento{doc.chunk_count !== 1 ? 's' : ''}
+                                                                        </span>
                                                                     </p>
+
+                                                                    {/* Un tema mudo merece decirlo con palabras, no solo con un color. */}
+                                                                    {doc.index_status !== 'indexado' && ESTADO_INDEXADO[doc.index_status]?.aviso && (
+                                                                        <p className="text-[10px] text-amber-500/80 mt-1 flex items-center gap-1.5">
+                                                                            <AlertTriangle size={10}/> {ESTADO_INDEXADO[doc.index_status].aviso}
+                                                                        </p>
+                                                                    )}
                                                                 </div>
                                                             </div>
-                                                            
-                                                            <button 
-                                                                onClick={() => handleDeleteDoc(doc.id, doc.filename)}
-                                                                className="flex items-center gap-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all opacity-0 group-hover/doc:opacity-100"
-                                                                title="Eliminar archivo permanentemente"
-                                                            >
-                                                                <span className="font-bold text-[10px] uppercase hidden sm:inline">Eliminar</span>
-                                                                <Trash2 size={14}/>
-                                                            </button>
+
+                                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                                <button
+                                                                    onClick={() => handleReindex(doc.id, doc.filename)}
+                                                                    disabled={reindexando === doc.id}
+                                                                    className="flex items-center gap-2 text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+                                                                    title="Volver a trocear e indexar este documento"
+                                                                >
+                                                                    <span className="font-bold text-[10px] uppercase hidden sm:inline">
+                                                                        {reindexando === doc.id ? 'Indexando…' : 'Reindexar'}
+                                                                    </span>
+                                                                    <RefreshCw size={14} className={reindexando === doc.id ? 'animate-spin' : ''}/>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => handleDeleteDoc(doc.id, doc.filename)}
+                                                                    className="flex items-center gap-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all"
+                                                                    title="Eliminar archivo permanentemente"
+                                                                >
+                                                                    <span className="font-bold text-[10px] uppercase hidden sm:inline">Eliminar</span>
+                                                                    <Trash2 size={14}/>
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
