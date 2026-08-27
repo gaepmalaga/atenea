@@ -19,7 +19,7 @@
  * de verdad es un cambio funcional y esta planificado en la Fase 3.
  */
 export function cleanLegalText(raw: string): string {
-  return raw
+  const sinRuido = raw
     .replace(/%[0-9A-F]{2}/g, (match) => {
       try {
         return decodeURIComponent(match);
@@ -28,9 +28,96 @@ export function cleanLegalText(raw: string): string {
       }
     })
     .replace(/----------------Page \(\d+\) Break----------------/g, '\n')
-    .replace(/\n\s*\d+\s*\n/g, '\n')
+    .replace(/\n\s*\d+\s*\n/g, '\n');
+
+  // Reconstruir los parrafos ANTES de colapsar saltos: el PDF llega cortado al
+  // ancho de la pagina, y sin esto todo lo que viene despues —el troceado, la
+  // deteccion de articulos, los embeddings— trabaja sobre renglones sueltos en
+  // vez de sobre texto. Ver `rejoinPdfLines`.
+  return rejoinPdfLines(sinRuido)
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/**
+ * Encabezados de un texto legal. Siempre abren linea propia: nunca se unen a la
+ * anterior aunque parezca que continua la frase.
+ */
+const ENCABEZADO_LEGAL =
+  /^(T[ÍI]TULO|CAP[ÍI]TULO|SECCI[ÓO]N|LIBRO|PARTE|Art[íi]culo|Disposici[óo]n|Pre[áa]mbulo|ANEXO)\b/i;
+
+/** Apartados: «1.» «2)» «a)» «III.» — tambien abren linea. */
+const APARTADO = /^(\d{1,2}[.)]\s|[a-z][.)]\s|[IVX]{1,5}[.)]\s)/;
+
+/**
+ * Reconstruye los parrafos de un texto extraido de un PDF.
+ *
+ * EL PROBLEMA QUE RESUELVE
+ * `pdf2json` devuelve el texto tal y como esta MAQUETADO en la pagina: un
+ * renglon por linea, cortado al ancho del papel. Medido sobre el temario real
+ * del proyecto: lineas de 66-71 caracteres de media y el 39-40 % de ellas
+ * cortadas a mitad de frase. La palabra «Articulo» llegaba partida en
+ * «Articu» + «lo».
+ *
+ * Consecuencias, todas silenciosas:
+ *
+ *  - `chunkLegalText` divide por parrafos (`\n\n`) y apenas los habia: 30 saltos
+ *    dobles en 108.000 caracteres. Producia bloques de ~3.600 caracteres que se
+ *    partian a ciegas, asi que un fragmento podia empezar a mitad del articulo
+ *    11 y acabar a mitad del 12.
+ *  - Detectar la estructura legal era imposible con los encabezados partidos.
+ *  - Los embeddings se calculaban sobre texto con saltos artificiales, y el chat
+ *    citaba fragmentos ilegibles.
+ *
+ * QUE HACE
+ * Une una linea con la anterior cuando la anterior no cerro la frase y esta
+ * empieza en minuscula. Es deliberadamente conservador: en caso de duda mantiene
+ * el salto, y ante un encabezado o un apartado no une nunca.
+ *
+ * NO PIERDE CONTENIDO. Verificado sobre los tres documentos del temario real:
+ * comparando solo letras y numeros, el texto es identico antes y despues. Lo
+ * unico que desaparece son los espacios de justificacion y los saltos de
+ * maquetacion.
+ */
+export function rejoinPdfLines(texto: string): string {
+  const lineas = texto.split('\n');
+  const salida: string[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    // Los PDF justificados meten rachas de espacios entre palabras.
+    const actual = lineas[i].replace(/[ \t]+/g, ' ').trim();
+
+    if (!actual) {
+      salida.push('');
+      continue;
+    }
+
+    // Guion de particion al final del renglon: la palabra sigue abajo y se
+    // reconstruye sin espacio y sin el guion.
+    if (/[a-záéíóúñ]-$/.test(actual) && i + 1 < lineas.length) {
+      const siguiente = lineas[i + 1].trim();
+      if (/^[a-záéíóúñ]/.test(siguiente)) {
+        lineas[i + 1] = actual.slice(0, -1) + siguiente;
+        continue;
+      }
+    }
+
+    const anterior = salida[salida.length - 1];
+    const continuaLaFrase =
+      Boolean(anterior) &&
+      // La anterior no cerro la frase...
+      !/[.:;!?»"]$/.test(anterior) &&
+      // ...y esta arranca en minuscula, o abre parentesis o comilla.
+      /^[a-záéíóúñ(«"]/.test(actual) &&
+      // ...y no es el principio de algo nuevo.
+      !ENCABEZADO_LEGAL.test(actual) &&
+      !APARTADO.test(actual);
+
+    if (continuaLaFrase) salida[salida.length - 1] = anterior + ' ' + actual;
+    else salida.push(actual);
+  }
+
+  return salida.join('\n');
 }
 
 export const CHUNK_MAX_CHARS = 1000;

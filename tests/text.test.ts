@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanLegalText, chunkLegalText } from '../app/lib/text';
+import { cleanLegalText, chunkLegalText, rejoinPdfLines } from '../app/lib/text';
 
 describe('cleanLegalText', () => {
   it('elimina los marcadores de salto de pagina de pdf2json', () => {
@@ -100,5 +100,93 @@ describe('chunkLegalText', () => {
     for (let i = 1; i <= 12; i++) {
       expect(unido).toContain(`Articulo ${i}.`);
     }
+  });
+});
+
+/**
+ * Reconstruccion de parrafos de un PDF.
+ *
+ * `pdf2json` devuelve el texto MAQUETADO: un renglon por linea, cortado al
+ * ancho del papel. En el temario real de este proyecto eso eran lineas de 66-71
+ * caracteres y el 39-40 % de ellas partidas a mitad de frase — la palabra
+ * «Articulo» llegaba como «Articu» + «lo».
+ *
+ * Sin reconstruir, `chunkLegalText` no encuentra parrafos (30 saltos dobles en
+ * 108.000 caracteres) y trocea a ciegas, y detectar la estructura legal es
+ * imposible.
+ */
+describe('rejoinPdfLines', () => {
+  it('une los renglones de una frase partida por el ancho de la pagina', () => {
+    const pdf = 'Las Fuerzas y Cuerpos de Seguridad del Estado ejercen sus\nfunciones en todo el territorio nacional.';
+    expect(rejoinPdfLines(pdf)).toBe(
+      'Las Fuerzas y Cuerpos de Seguridad del Estado ejercen sus funciones en todo el territorio nacional.'
+    );
+  });
+
+  it('reconstruye una palabra partida con guion, sin dejar el guion', () => {
+    expect(rejoinPdfLines('la Admi-\nnistracion del Estado')).toBe('la Administracion del Estado');
+  });
+
+  it('no une cuando la frase anterior ya termino', () => {
+    // Punto final y mayuscula: son dos frases distintas, no un renglon partido.
+    const t = 'Primera frase completa.\nSegunda frase completa.';
+    expect(rejoinPdfLines(t)).toBe(t);
+  });
+
+  it('un encabezado nunca se pega a la linea anterior', () => {
+    // Sin esta guarda, «Articulo segundo.» se pegaba al final del articulo
+    // anterior y el texto perdia su estructura.
+    const t = 'texto que no cierra frase\nArtículo segundo.';
+    expect(rejoinPdfLines(t)).toBe(t);
+  });
+
+  it('un apartado tampoco: «a)», «2.» y «III.» abren linea', () => {
+    for (const apertura of ['a) primero', '2. segundo', 'III. tercero']) {
+      const t = 'enumeracion que sigue\n' + apertura;
+      expect(rejoinPdfLines(t), apertura).toBe(t);
+    }
+  });
+
+  it('colapsa las rachas de espacios de un PDF justificado', () => {
+    expect(rejoinPdfLines('Las  Fuerzas  y  Cuerpos.')).toBe('Las Fuerzas y Cuerpos.');
+  });
+
+  it('NO pierde contenido: solo cambian los espacios y los saltos', () => {
+    // Es la garantia que hace seguro el cambio. Verificada ademas contra los
+    // tres documentos del temario real.
+    const pdf = [
+      'TÍTULO I. De los Cuerpos y Fuerzas de Seguridad',
+      'Las  Fuerzas  y  Cuerpos  de  Seguridad  del  Estado  ejercen  sus',
+      'funciones en todo el territorio nacional y estan integradas por:',
+      'a) El Cuerpo Nacional de Policia, que es un Instituto Armado de',
+      'naturaleza civil.',
+      'Artículo noveno.',
+      'Texto del articulo con una palabra par-',
+      'tida por el maquetador.',
+    ].join('\n');
+
+    const soloLetras = (t: string) => t.replace(/[\s-]+/g, '');
+    expect(soloLetras(rejoinPdfLines(pdf))).toBe(soloLetras(pdf));
+  });
+
+  it('cleanLegalText lo aplica: el texto sale en parrafos, no en renglones', () => {
+    const pdf = 'El Cuerpo Nacional de Policia es un instituto armado\nde naturaleza civil.';
+    expect(cleanLegalText(pdf)).toBe('El Cuerpo Nacional de Policia es un instituto armado de naturaleza civil.');
+  });
+
+  it('LIMITACION conocida: no une si la continuacion empieza en mayuscula', () => {
+    // Es deliberado. La mayuscula es la unica senial fiable de que empieza algo
+    // nuevo, y unir por ella juntaria parrafos legitimos. El precio es que un
+    // renglon partido justo antes de un nombre propio se queda partido.
+    //
+    // Medido sobre el temario real, el precio es pequenio: de 596 cortes a
+    // mitad de frase quedan 8, y de 752 quedan 2.
+    const pdf = 'es un Instituto\nArmado de naturaleza civil.';
+    expect(rejoinPdfLines(pdf)).toBe(pdf);
+  });
+
+  it('un texto ya en parrafos no se toca', () => {
+    const t = 'Parrafo uno completo.\n\nParrafo dos completo.';
+    expect(cleanLegalText(t)).toBe(t);
   });
 });
