@@ -1,5 +1,5 @@
 {
-  "generado": "2026-08-26",
+  "generado": "2026-08-27",
   "tablas": {
     "ai_quota": {
       "columnas": [
@@ -71,7 +71,8 @@
         "content_chunk",
         "document_id",
         "embedding",
-        "id"
+        "id",
+        "reference"
       ],
       "obligatorias": [
         "id"
@@ -80,25 +81,34 @@
         "content_chunk": "text",
         "document_id": "uuid",
         "embedding": "public.vector(3072)",
-        "id": "int64"
+        "id": "int64",
+        "reference": "text"
       }
     },
     "documents": {
       "columnas": [
+        "chunk_count",
         "filename",
         "full_text",
         "id",
+        "index_status",
+        "indexed_at",
         "subject_id",
         "uploaded_at"
       ],
       "obligatorias": [
+        "chunk_count",
         "filename",
-        "id"
+        "id",
+        "index_status"
       ],
       "tipos": {
+        "chunk_count": "int32",
         "filename": "text",
         "full_text": "text",
         "id": "uuid",
+        "index_status": "text",
+        "indexed_at": "timestamp with time zone",
         "subject_id": "int32",
         "uploaded_at": "timestamp with time zone"
       }

@@ -10,7 +10,7 @@
 -- cantara: se escribian columnas inexistentes y PostgREST rechazaba la
 -- escritura entera en silencio.
 --
--- Fecha del volcado: 2026-08-26
+-- Fecha del volcado: 2026-08-27
 -- Tablas: 22   ·   Politicas: 26
 -- =============================================================================
 
@@ -53,7 +53,8 @@ create table if not exists public.document_chunks (
   id bigint not null default nextval('document_chunks_id_seq'::regclass),
   document_id uuid,
   content_chunk text,
-  embedding vector
+  embedding vector,
+  reference text
 );
 
 -- --------------------------------------------------------------------------
@@ -62,7 +63,10 @@ create table if not exists public.documents (
   subject_id integer,
   filename text not null,
   full_text text,
-  uploaded_at timestamp with time zone default now()
+  uploaded_at timestamp with time zone default now(),
+  index_status text not null default 'pendiente'::text,
+  chunk_count integer not null default 0,
+  indexed_at timestamp with time zone
 );
 
 -- --------------------------------------------------------------------------
@@ -325,6 +329,8 @@ alter table public.question_bank drop constraint if exists question_bank_questio
 alter table public.question_bank add constraint question_bank_question_hash_key UNIQUE (question_hash);
 alter table public.subjects drop constraint if exists subjects_topic_number_key;
 alter table public.subjects add constraint subjects_topic_number_key UNIQUE (topic_number);
+alter table public.documents drop constraint if exists documents_index_status_check;
+alter table public.documents add constraint documents_index_status_check CHECK ((index_status = ANY (ARRAY['pendiente'::text, 'indexado'::text, 'parcial'::text, 'fallido'::text])));
 alter table public.ai_quota drop constraint if exists ai_quota_user_id_fkey;
 alter table public.ai_quota add constraint ai_quota_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.document_chunks drop constraint if exists document_chunks_document_id_fkey;
