@@ -2,10 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { AuthUser } from '@/app/lib/auth';
-import { 
-  Send, Bot, User, FileText, Search, X, BookOpen, 
-  Terminal, Loader2, Copy, Check, ChevronRight,
-  ShieldAlert, Target, Zap, Cpu
+import {
+  Send, Bot, User, FileText, X, BookOpen,
+  Loader2, ShieldAlert, Target, Cpu
 } from 'lucide-react';
 import { askAtenea } from '@/actions';
 import type { ChatTurn } from '@/app/lib/chat';
@@ -36,7 +35,6 @@ export default function IntelChat({ user }: IntelChatProps) {
   ]);
   const [loading, setLoading] = useState(false);
   const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string } | null>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { 
@@ -75,6 +73,7 @@ export default function IntelChat({ user }: IntelChatProps) {
         setMessages(prev => [...prev, { role: 'ai', content: `⚠️ ERROR DE PROTOCOLO: ${res.error}`, isError: true, timestamp: new Date() }]);
       }
     } catch (error) {
+      console.error('askAtenea:', error);
       setLoading(false);
       setMessages(prev => [...prev, { role: 'ai', content: "🚨 FALLO CRÍTICO DE TRANSMISIÓN.", isError: true, timestamp: new Date() }]);
     }
@@ -128,7 +127,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                           remarkPlugins={[remarkGfm]}
                           components={{
                             // Detección visual de "FOCO EXAMEN"
-                            strong: ({node, ...props}) => {
+                            strong: ({ ...props }) => {
                               if (props.children?.toString().includes("🎯 FOCO EXAMEN")) {
                                 return (
                                   <span className="block my-6 p-6 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-500 rounded-r-2xl">

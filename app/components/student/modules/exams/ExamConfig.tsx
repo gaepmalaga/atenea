@@ -22,9 +22,18 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
     getStudentTopics().then(res => {
       if (res.success && res.topics) {
         setTopics(res.topics);
-        // Si no había temas seleccionados, seleccionar el primero por defecto
-        if (settings.selectedTopics.length === 0 && res.topics.length > 0) {
-            setSettings(prev => ({ ...prev, selectedTopics: [res.topics[0]] }));
+        // Si no había temas seleccionados, seleccionar el primero por defecto.
+        //
+        // La comprobación va DENTRO del actualizador, no fuera: el efecto corre
+        // una sola vez y `settings` es el del cierre, no el de ahora. Si el
+        // alumno elige un tema mientras la petición viaja, leerlo fuera vería
+        // la lista vacía y le pisaría la elección (regla 13).
+        if (res.topics.length > 0) {
+            setSettings(prev =>
+                prev.selectedTopics.length === 0
+                    ? { ...prev, selectedTopics: [res.topics[0]] }
+                    : prev
+            );
         }
       }
       setLoadingTopics(false);

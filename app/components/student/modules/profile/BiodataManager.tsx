@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import type { AuthUser } from '@/app/lib/auth';
-import { 
-  Shield, Save, Lock, Fingerprint, Brain, 
-  Briefcase, AlertTriangle, CheckCircle2, 
-  Loader2, ChevronRight, User, Activity, 
+import {
+  Shield, Save, Brain,
+  Briefcase, AlertTriangle, CheckCircle2,
+  Loader2, User, Activity,
   Target, ArrowLeft 
 } from 'lucide-react';
 import { getBiodata, saveBiodata } from '@/actions';
@@ -144,16 +144,27 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
           }
       });
 
-      const newProfile = { ...formData.psych_profile };
-      (Object.keys(scores) as Array<keyof typeof scores>).forEach(key => {
-          if (counts[key] > 0) {
-              newProfile[key] = Math.round((scores[key] / counts[key]) * 20) / 10;
-          }
+      // El perfil se compone DENTRO del actualizador, partiendo de `prev`.
+      //
+      // `formData` es el del cierre y este efecto solo se dispara con
+      // `psych_answers`: leerlo fuera partiria de un perfil que puede estar ya
+      // obsoleto y pisaria cambios (regla 13). Aqui dentro no hay efectos, solo
+      // aritmetica, asi que sigue siendo puro y StrictMode lo puede ejecutar dos
+      // veces sin consecuencias (regla 14).
+      //
+      // Devolver `prev` sin tocar evita el render cuando no hay cambio.
+      setFormData(prev => {
+          const newProfile = { ...prev.psych_profile };
+          (Object.keys(scores) as Array<keyof typeof scores>).forEach(key => {
+              if (counts[key] > 0) {
+                  newProfile[key] = Math.round((scores[key] / counts[key]) * 20) / 10;
+              }
+          });
+
+          return JSON.stringify(newProfile) !== JSON.stringify(prev.psych_profile)
+              ? { ...prev, psych_profile: newProfile }
+              : prev;
       });
-      
-      if (JSON.stringify(newProfile) !== JSON.stringify(formData.psych_profile)) {
-          setFormData(prev => ({ ...prev, psych_profile: newProfile }));
-      }
   }, [formData.psych_answers]);
 
   const handleSave = async () => {

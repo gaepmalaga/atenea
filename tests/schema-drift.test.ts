@@ -137,3 +137,78 @@ describe('el volcado del esquema esta presente y es coherente', () => {
     expect(vacias).toEqual([]);
   });
 });
+
+/**
+ * Lo que se PIDE en un `select` tambien tiene que existir.
+ *
+ * Los tests de arriba cubren las escrituras y los filtros. Las lecturas son la
+ * otra mitad, y fallan distinto: PostgREST devuelve un error 400 y la pantalla
+ * se queda vacia o cae al respaldo, sin que nadie sepa por que.
+ *
+ * Cubre tambien los joins: `question:question_bank(question_text)` comprueba
+ * que la tabla anidada existe y que la columna pedida es suya. Un join sin la
+ * clave ajena declarada no lo ve este test —eso solo se sabe ejecutando, y de
+ * eso se encarga `npm run smoke`.
+ */
+describe('los select piden columnas que existen', () => {
+  /** Separa una lista de columnas respetando los parentesis de los joins. */
+  function partesDe(seleccion: string): string[] {
+    const partes: string[] = [];
+    let nivel = 0;
+    let actual = '';
+    for (const c of seleccion) {
+      if (c === '(') nivel++;
+      if (c === ')') nivel--;
+      if (c === ',' && nivel === 0) {
+        partes.push(actual.trim());
+        actual = '';
+      } else {
+        actual += c;
+      }
+    }
+    if (actual.trim()) partes.push(actual.trim());
+    return partes;
+  }
+
+  it('ninguna columna pedida es inventada', () => {
+    const malas: string[] = [];
+
+    for (const { nombre, src } of ficheros) {
+      const re = /\.from\('([a-z_]+)'\)\s*\n?\s*\.select\(\s*'([^']+)'/g;
+      for (const m of src.matchAll(re)) {
+        const [, tabla, seleccion] = m;
+        const reales = columnasDe(tabla);
+        if (!reales.size) continue;
+        const linea = lineaDe(src, m.index!);
+
+        for (const parte of partesDe(seleccion)) {
+          if (parte === '*') continue;
+
+          // Un join: `alias:tabla(col1, col2)` o `tabla(col1)`.
+          const join = parte.match(/^(?:(\w+):)?(\w+)\s*\(([^)]*)\)$/);
+          if (join) {
+            const [, , tablaJoin, columnasJoin] = join;
+            const realesJoin = columnasDe(tablaJoin);
+            if (!realesJoin.size) {
+              malas.push(`${nombre}:${linea} join a una tabla que no existe: '${tablaJoin}'`);
+              continue;
+            }
+            for (const c of columnasJoin.split(',').map((x) => x.trim())) {
+              if (c && c !== '*' && !realesJoin.has(c)) {
+                malas.push(`${nombre}:${linea} '${tablaJoin}' no tiene '${c}'`);
+              }
+            }
+            continue;
+          }
+
+          const columna = parte.replace(/^\w+:/, '').trim();
+          if (columna && !reales.has(columna)) {
+            malas.push(`${nombre}:${linea} '${tabla}' no tiene '${columna}'`);
+          }
+        }
+      }
+    }
+
+    expect(malas).toEqual([]);
+  });
+});
