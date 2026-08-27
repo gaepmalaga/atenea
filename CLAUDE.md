@@ -438,6 +438,49 @@ privado.
 esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
 `app/lib/` y las acciones lo importan.
 
+### 22 · La nota del simulacro es la de la convocatoria, no el porcentaje
+
+`scoreExam` calculaba `aciertos / total`. En la oposición a Policía Nacional los
+fallos **restan**, así que esa nota mentía **hacia arriba**: 60 aciertos y 40
+fallos se pintaban como un 60 % cuando la nota real es un **4**. En una
+plataforma de oposiciones es el peor fallo posible, porque no se nota hasta que
+ya no tiene remedio.
+
+La fórmula sale del BOE de la convocatoria, no de memoria
+([BOE-A-2026-15055](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-15055),
+primera prueba): `[A − E/(n−1)] × 10/P`. Con n = 3, **cada dos fallos se pierde
+un acierto**, y el mínimo para superarla es **3**.
+
+Vive en `app/lib/scoring.ts` con las reglas en un **objeto** (`CNP_SCORING`), no
+en tres constantes sueltas: la fórmula cambia entre convocatorias y entre
+escalas, y poder pasar otras reglas es lo único que evita reescribirlo el día que
+cambie el número.
+
+**Un blanco NO es un fallo.** Antes se calculaba `wrong = total - correct`, así
+que lo que el alumno dejaba a propósito sin contestar contaba como error. Con
+penalización eso le restaría nota por **no** arriesgar, que es lo contrario de lo
+que dice la convocatoria: las respuestas en blanco no aparecen en la fórmula.
+
+Y el efecto de segundo orden importa tanto como el número: como no penalizaba,
+contestar a todo siempre salía a cuenta. La plataforma **enseñaba una estrategia
+equivocada**, y por eso la pantalla de resultados dice en palabras lo que ha
+costado cada fallo.
+
+### 23 · Las métricas de una pregunta se acumulan, no se reinician
+
+Desde que se puede volver atrás en el simulacro, una pregunta se visita varias
+veces. `startTimeRef` se reiniciaba en un efecto sobre `[currentIndex]`, así que
+revisar una respuesta al final borraba el tiempo que costó la primera vez.
+
+`metricasRef` (`ActiveTest`) es un **mapa por pregunta** que suma tiempo y
+cambios de todas las visitas, y el volcado a `timeMs`/`changes` se hace **al
+terminar**, para todas, desde ese mapa. Escribirlo al pasar de pregunta dejaba la
+revisada con los datos de la última visita.
+
+El cronómetro tampoco se reinicia ya en un efecto: lo lleva `irA`, que es quien
+sabe qué pregunta se deja y cuál se abre. Un efecto no puede, porque cuando corre
+el índice **ya** ha cambiado y la cuenta anterior se ha perdido.
+
 ---
 
 ## Los tests
@@ -445,8 +488,8 @@ esté ahí se puede testear. Lo puro (texto, SRS, mapeo de preguntas) está en
 ```
 tests/text.test.ts              limpieza de respuestas IA, texto legal, troceado de PDF
 tests/srs.test.ts               repetición espaciada (Leitner)
-tests/questions.test.ts         mapeo BD/IA → UI, puntuación de examen
-tests/actions-auth.test.ts      guardas estáticas sobre las 37 Server Actions
+tests/questions.test.ts         mapeo BD/IA → UI, barajado y dificultad
+tests/actions-auth.test.ts      guardas estáticas sobre las 42 Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
@@ -459,6 +502,8 @@ tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
 tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
+tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
+tests/scoring.test.ts           la nota del examen, con la penalización del BOE
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 
@@ -557,17 +602,21 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 
 ## Cómo continuar
 
-1. **Hacer un test completo entrando como alumno.** Es lo único del flujo de resultados
-   que no se ha podido probar encadenado: hace falta una sesión de verdad. Comprobar que
-   `question_attempts` recibe la fila con `response_time_ms` y `option_changes` distintos
-   de 0, que Inicio y Estadísticas cargan, y que fallar una pregunta en entrenamiento y
-   etiquetar el error deja **una** sola fila con su `error_type`. Las tres operaciones
-   están verificadas por separado contra la base de datos real (insert, join y update),
-   pero no encadenadas desde la interfaz.
+1. **El simulacro ya se ha probado entero desde la interfaz** (27 ago 2026, con sesión
+   de alumno). `question_attempts` recibe la fila con `response_time_ms` y
+   `option_changes` **distintos de 0** —2 cambios y 25.808 ms en una pregunta revisada
+   dos veces—, y la nota con penalización sale bien.
 
-   De la 2.7: rellenar el perfil físico y comprobar que `profiles_physical` guarda
-   `height` y `weight` como **números** y no como cadenas; dejar un campo en blanco debe
-   dejar `null`, no `0`. Generar un plan y mirar que las tarjetas del panel tienen título.
+   **Lo que sigue sin probarse encadenado:** el modo entrenamiento (que fallar una
+   pregunta y etiquetar el error deje **una** sola fila con su `error_type`), que Inicio
+   y Estadísticas cargan con datos, y todo lo de la 2.7: rellenar el perfil físico y
+   comprobar que `profiles_physical` guarda `height` y `weight` como **números** y no
+   como cadenas; dejar un campo en blanco debe dejar `null`, no `0`. Generar un plan y
+   mirar que las tarjetas del panel tienen título.
+
+   > Para verlo hace falta una sesión de alumno. La forma sin fricción es cambiar
+   > `profiles.role` a `student` un momento con la clave de servicio y devolverlo a
+   > `admin` al terminar.
 
 2. **Desplegar.** No hay nada en producción. Ver *Lo que solo puedes hacer tú*, arriba.
 
