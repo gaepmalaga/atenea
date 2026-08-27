@@ -28,7 +28,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, ya en la BD: regla 20) |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
-| **5** | **Higiene** | 🔄 **en curso** (cronómetro, barajado, huérfanos) |
+| **5** | **Higiene** | ✅ **cerrada** (0 `any`, lint en 4 falsos positivos) |
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | — | **Despliegue** | ⬜ **no hay nada en producción** |
@@ -452,12 +452,13 @@ tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
 tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
-tests/schema-drift.test.ts      el código no escribe columnas que no existen
+tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 
 **`schema-drift` es el guardián más importante de la lista.** Compara contra
-`supabase/schema.json` las columnas que el código escribe, los filtros `.eq`/`.in` y las
-listas blancas `BIODATA_FIELDS` y `PHYSICAL_FIELDS`. Existe porque el esquema vivía solo
+`supabase/schema.json` las columnas que el código escribe, las que pide en cada
+`select` (joins anidados incluidos), los filtros `.eq`/`.in` y las listas blancas
+`BIODATA_FIELDS` y `PHYSICAL_FIELDS`. Existe porque el esquema vivía solo
 dentro de Supabase y el código derivó sin que nada lo cantara: `test_results` recibía
 `subject_id` y `error_type`, y `flashcard_progress` recibía `subject_id`. Ninguna de las
 tres columnas existe. **PostgREST rechaza la escritura entera si una sola columna no
@@ -487,6 +488,12 @@ cuatro variables reales.
 
 Cuando toques algo cubierto por un test estático, compruébalo **rompiéndolo a
 propósito** y viendo que el test lo señala. Un guardián que no muerde no sirve.
+
+**Lo estático no lo ve todo.** `schema-drift` compara nombres; no ve los tipos, ni los
+`NOT NULL`, ni si una clave ajena está declarada (sin ella PostgREST no resuelve el
+join). Para eso está `npm run smoke`, que inserta una fila de verdad por cada camino de
+escritura y la borra. Los dos se complementan: el primero corre en CI sin credenciales,
+el segundo necesita el proyecto real.
 
 ---
 
