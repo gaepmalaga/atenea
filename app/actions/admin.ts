@@ -1,7 +1,7 @@
 'use server'
 import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
-import { cleanLegalText, chunkLegalText } from '../lib/text';
+import { cleanLegalText, chunkDocument, type LegalChunk } from '../lib/text';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
@@ -142,6 +142,11 @@ export async function uploadTopicPDF(formData: FormData) {
     const cleanText = cleanLegalText(text);
     if (cleanText.length < 100) throw new Error("PDF vacío o ilegible.");
     const filename = file.name.replace('.pdf', '').replace(/_/g, ' ');
+    // Trocear ANTES de guardar nada. Si el texto no produce fragmentos, no hay
+    // documento que guardar: un documento sin indexar es un tema mudo para el
+    // chat, y hasta hoy no habia forma de distinguirlo de uno sano.
+    const fragmentos = chunkDocument(cleanText);
+    if (fragmentos.length === 0) throw new Error("El PDF no ha producido ningún fragmento indexable.");
 
     const { data: docData, error: docError } = await supabase
         .from('documents')
@@ -149,7 +154,9 @@ export async function uploadTopicPDF(formData: FormData) {
             subject_id: subjectId,
             filename: filename,
             full_text: cleanText,
-            uploaded_at: new Date().toISOString()
+            uploaded_at: new Date().toISOString(),
+            index_status: 'pendiente',
+            chunk_count: 0,
         })
         .select()
         .single();
@@ -157,64 +164,52 @@ export async function uploadTopicPDF(formData: FormData) {
     if (docError) throw docError;
     const documentId = docData.id;
 
-    const chunksToIndex = chunkLegalText(cleanText);
+    const { indexed, total, failures } = await indexarFragmentos(documentId, fragmentos);
 
-    if (chunksToIndex.length === 0) throw new Error("El PDF no ha producido ningún fragmento indexable.");
-
-    const BATCH_SIZE = 5;
-    let processedChunks = 0;
-    const failures: string[] = [];
-
-    for (let i = 0; i < chunksToIndex.length; i += BATCH_SIZE) {
-        const batch = chunksToIndex.slice(i, i + BATCH_SIZE);
-
-        await Promise.all(batch.map(async (chunkContent, j) => {
-            const position = i + j + 1;
-            try {
-                const embResult = await embeddingModel.embedContent(chunkContent);
-                const vector = embResult.embedding.values;
-
-                if (!vector || vector.length === 0) throw new Error("La IA devolvió un vector vacío");
-
-                const { error } = await supabase.from('document_chunks').insert({
-                    document_id: documentId,
-                    content_chunk: chunkContent,
-                    embedding: vector
-                });
-
-                if (error) throw error;
-                processedChunks++;
-
-            } catch (err) {
-                // Antes esto solo iba a `console.error`: el administrador veía
-                // "✅ Indexado" aunque la mitad del temario no se hubiera
-                // guardado, y el fallo solo salía a la luz cuando el chat no
-                // encontraba el artículo.
-                const msg = err instanceof Error ? err.message : String(err);
-                failures.push(`#${position}: ${msg}`);
-                console.error(`❌ Fragmento ${position}/${chunksToIndex.length}:`, msg);
-            }
-        }));
+    // Ni un documento huerfano. Antes la fila se insertaba y, si el indexado
+    // fallaba entero, se lanzaba el error PERO el documento se quedaba: aparecia
+    // en la lista del panel como cualquier otro y el chat no encontraba nada de
+    // ese tema. Es exactamente lo que le paso al TEMA 9 (108.233 caracteres, 0
+    // fragmentos, meses ahi sin que nadie lo supiera).
+    if (indexed === 0) {
+        await supabase.from('documents').delete().eq('id', documentId);
+        throw new Error(
+            `No se pudo indexar ningún fragmento, así que el documento no se ha guardado. ` +
+            `Primer error: ${failures[0] ?? 'desconocido'}`
+        );
     }
 
-    if (processedChunks === 0) {
-        throw new Error(`No se pudo guardar ningún fragmento. Primer error: ${failures[0] ?? 'desconocido'}`);
-    }
+    const estado = estadoDeIndexado(indexed, total);
 
-    const total = chunksToIndex.length;
-    const complete = processedChunks === total;
+    // El estado se GUARDA, no solo se devuelve. El aviso de "indexado parcial"
+    // existia desde la fase 2.6, pero solo se veia en el momento de subir: al
+    // cerrar la pestania no quedaba rastro.
+    const { error: updateError } = await supabase
+        .from('documents')
+        .update({
+            index_status: estado,
+            chunk_count: indexed,
+            indexed_at: new Date().toISOString(),
+        })
+        .eq('id', documentId);
+
+    if (updateError) console.error('uploadTopicPDF (estado):', updateError.message);
+
+    const conReferencia = fragmentos.filter((f) => f.reference !== null).length;
 
     return {
         success: true,
-        // `complete` permite a la UI distinguir un indexado íntegro de uno
-        // parcial, en vez de pintar el mismo ✅ para los dos casos.
-        complete,
-        indexed: processedChunks,
+        complete: estado === 'indexado',
+        indexed,
         total,
         failures: failures.slice(0, 5),
-        message: complete
-            ? `Indexado completo: ${total} fragmentos.`
-            : `Indexado PARCIAL: ${processedChunks} de ${total} fragmentos. ${total - processedChunks} han fallado.`
+        // Cuantos fragmentos saben de que articulo salen. Es lo que separa un
+        // texto legal troceado por su estructura de unos apuntes troceados por
+        // longitud, y conviene que el administrador lo vea.
+        withReference: conReferencia,
+        message: estado === 'indexado'
+            ? `Indexado completo: ${total} fragmentos${conReferencia ? `, ${conReferencia} con referencia legal` : ''}.`
+            : `Indexado PARCIAL: ${indexed} de ${total} fragmentos. ${total - indexed} han fallado.`
     };
 
   } catch (e) {
@@ -223,7 +218,129 @@ export async function uploadTopicPDF(formData: FormData) {
   }
 }
 
-export async function deleteTopic(topicNameOrId: string) {
+/** El estado que le corresponde a un documento segun como fue su indexado. */
+function estadoDeIndexado(indexed: number, total: number): 'indexado' | 'parcial' | 'fallido' {
+  if (indexed === 0) return 'fallido';
+  return indexed === total ? 'indexado' : 'parcial';
+}
+
+/**
+ * Calcula los embeddings de unos fragmentos y los guarda en `document_chunks`.
+ *
+ * Separada de `uploadTopicPDF` porque la necesitan dos caminos: subir un
+ * documento nuevo y reindexar uno existente. Antes estaba en linea y reindexar
+ * habria supuesto duplicarla.
+ *
+ * No lanza: devuelve el recuento. Un fragmento que falla no debe tumbar los
+ * otros ochenta.
+ */
+async function indexarFragmentos(
+  documentId: string,
+  fragmentos: LegalChunk[]
+): Promise<{ indexed: number; total: number; failures: string[] }> {
+  const BATCH_SIZE = 5;
+  let indexed = 0;
+  const failures: string[] = [];
+
+  for (let i = 0; i < fragmentos.length; i += BATCH_SIZE) {
+    const lote = fragmentos.slice(i, i + BATCH_SIZE);
+
+    await Promise.all(lote.map(async (fragmento, j) => {
+      const posicion = i + j + 1;
+      try {
+        const emb = await embeddingModel.embedContent(fragmento.text);
+        const vector = emb.embedding.values;
+
+        if (!vector || vector.length === 0) throw new Error("La IA devolvió un vector vacío");
+
+        const { error } = await supabase.from('document_chunks').insert({
+          document_id: documentId,
+          content_chunk: fragmento.text,
+          // De que articulo sale. `null` en textos sin estructura legal.
+          reference: fragmento.reference,
+          embedding: vector,
+        });
+
+        if (error) throw error;
+        indexed++;
+
+      } catch (err) {
+        // Antes esto solo iba a `console.error`: el administrador veia
+        // "✅ Indexado" aunque la mitad del temario no se hubiera guardado.
+        const msg = errorMessage(err);
+        failures.push(`#${posicion}: ${msg}`);
+        console.error(`❌ Fragmento ${posicion}/${fragmentos.length}:`, msg);
+      }
+    }));
+  }
+
+  return { indexed, total: fragmentos.length, failures };
+}
+
+/**
+ * Vuelve a indexar un documento ya subido, sin tener que borrarlo y volver a
+ * subir el PDF.
+ *
+ * Hace falta porque hasta ahora, si el indexado fallaba, la unica salida era
+ * esa. Y porque los documentos anteriores a este cambio se trocearon con el
+ * algoritmo viejo: reindexarlos es la forma de que ganen la estructura legal.
+ */
+export async function reindexDocument(documentId: string) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!documentId) return { success: false as const, error: 'Falta el id del documento.' };
+
+  const quota = await checkQuota(auth.user.id, 'index');
+  if (!quota.ok) return { success: false as const, error: quota.error };
+
+  try {
+    const { data: doc, error: docError } = await supabase
+      .from('documents')
+      .select('id, full_text')
+      .eq('id', documentId)
+      .single();
+
+    if (docError || !doc) throw new Error('No se encuentra el documento.');
+
+    const texto = (doc.full_text as string) ?? '';
+    const fragmentos = chunkDocument(texto);
+    if (fragmentos.length === 0) throw new Error('El texto guardado no produce ningún fragmento.');
+
+    // Fuera los fragmentos viejos ANTES de calcular los nuevos: si no, un
+    // reindexado deja el doble y el chat recupera cada articulo dos veces.
+    const { error: deleteError } = await supabase
+      .from('document_chunks')
+      .delete()
+      .eq('document_id', documentId);
+
+    if (deleteError) throw deleteError;
+
+    const { indexed, total, failures } = await indexarFragmentos(documentId, fragmentos);
+    const estado = estadoDeIndexado(indexed, total);
+
+    await supabase
+      .from('documents')
+      .update({
+        index_status: estado,
+        chunk_count: indexed,
+        indexed_at: indexed > 0 ? new Date().toISOString() : null,
+      })
+      .eq('id', documentId);
+
+    return {
+      success: true as const,
+      status: estado,
+      indexed,
+      total,
+      withReference: fragmentos.filter((f) => f.reference !== null).length,
+      failures: failures.slice(0, 5),
+    };
+
+  } catch (e) {
+    console.error('reindexDocument:', e);
+    return { success: false as const, error: errorMessage(e) };
+  }
+}export async function deleteTopic(topicNameOrId: string) {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
     const { data } = await supabase.from('subjects').select('id').ilike('title', `%${topicNameOrId}%`).single();

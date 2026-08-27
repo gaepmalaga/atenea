@@ -58,12 +58,17 @@ describe('el codigo no escribe columnas que no existen', () => {
 
   it('los objetos que van a insert/upsert/update solo traen columnas reales', () => {
     const malas: string[] = [];
+    // El tramo entre el `.from(...)` y la operacion NO puede cruzar otro
+    // `.from(`. Sin esa guarda, un `.delete()` sobre una tabla seguido de un
+    // `.update({...})` sobre otra asociaba las columnas del segundo a la
+    // primera tabla. Paso de verdad al aniadir `reindexDocument`, que borra
+    // fragmentos y despues actualiza el documento.
     const re =
-      /\.from\('([a-z_]+)'\)[\s\S]{0,600}?\.(insert|upsert|update)\(\s*\{([\s\S]*?)\n?\s*\}\s*[,)]/g;
+      /\.from\('([a-z_]+)'\)((?:(?!\.from\(')[\s\S]){0,600}?)\.(insert|upsert|update)\(\s*\{([\s\S]*?)\n?\s*\}\s*[,)]/g;
 
     for (const { nombre, src } of ficheros) {
       for (const m of src.matchAll(re)) {
-        const [, tabla, operacion, cuerpo] = m;
+        const [, tabla, , operacion, cuerpo] = m;
         const reales = columnasDe(tabla);
         if (!reales.size) continue; // lo canta el test de arriba
         // Solo las claves de primer nivel del objeto literal.
@@ -81,7 +86,9 @@ describe('el codigo no escribe columnas que no existen', () => {
   it('los filtros .eq/.in/... apuntan a columnas reales', () => {
     const malas: string[] = [];
     for (const { nombre, src } of ficheros) {
-      for (const m of src.matchAll(/\.from\('([a-z_]+)'\)([\s\S]{0,400}?);/g)) {
+      // Misma guarda que arriba: la cadena de filtros no puede cruzar otro
+      // `.from(`, o los filtros de una tabla se atribuyen a la anterior.
+      for (const m of src.matchAll(/\.from\('([a-z_]+)'\)((?:(?!\.from\(')[\s\S]){0,400}?);/g)) {
         const [, tabla, cadena] = m;
         const reales = columnasDe(tabla);
         if (!reales.size) continue;
