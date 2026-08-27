@@ -7,6 +7,11 @@
 >
 > **Nada de esto está empezado.** Es el documento que hay que discutir antes de
 > tocar código.
+>
+> **Actualizado el 27 ago** con tres decisiones tomadas: la plataforma sirve por
+> ahora a **una sola academia**; el primer paso es un **piloto gratis** con una
+> academia amiga; y el problema de la pantalla del test **no era visual, era de
+> información**. P3, P4 y P6 están reescritas con eso.
 
 ---
 
@@ -16,14 +21,17 @@
 |---|---|---|
 | «me da miedo que los documentos se partan, se pierda información» | **P1** · Ingesta fiable | Mediana |
 | «debemos añadir la opción de añadir preguntas manualmente» | **P2** · Editor de preguntas | Pequeña |
-| «la pantalla del test me sigue pareciendo muy básica» | **P3** · Rediseño del test | Mediana · **te necesito** |
-| «un super admin que habilite o deshabilite módulos» | **P4** · Super admin y módulos | Grande |
+| «la pantalla del test me sigue pareciendo muy básica» | **P3** · Lo que falta en el test | Mediana |
+| «un super admin que habilite o deshabilite módulos» | **P4** · Super admin y módulos | **Mediana** (era grande) |
 | «un panel mucho más avanzado, que gestione sus alumnos» | **P5** · Panel de academia | Grande |
-| «pagos etc…» | **P6** · Cobros | Grande · **decisión legal** |
+| «pagos etc…» | **P6** · Cobros | **Aplazada** hasta validar |
 
-El orden no es caprichoso y se explica en cada apartado. El resumen: **P1 va
-primera porque hay un fallo activo ahora mismo**, y P4 va antes que P5 porque el
-panel avanzado necesita saber qué es una academia, y eso lo define P4.
+**Con una sola academia, la mitad del plan encoge.** P4 deja de arrastrar el
+multi-academia y se queda en un rol y unos interruptores; P5 ya no depende de P4;
+y P6 se aplaza hasta que el piloto diga si el modelo funciona.
+
+Lo que **no** encoge es P1: hay un fallo activo ahora mismo. Y P3 ha crecido, no
+por diseño, sino porque al mirarla de cerca apareció algo peor que el aspecto.
 
 ---
 
@@ -165,217 +173,306 @@ cualquier otra.
 
 ## P3 · La pantalla del test
 
-### El problema
+> **Decidido (27 ago):** el problema no era el color. Era **qué información hay
+> en pantalla**. Esta sección se reescribió con esa respuesta.
 
-Te sigue pareciendo básica después de un rediseño. Eso significa que el problema
-no es lo que le falta, sino **de qué va**: no hay una dirección visual detrás, y
-sin ella cada iteración es adivinar.
+### El hallazgo que cambia la prioridad
 
-Lo que se hizo hoy (cronómetro, progreso segmentado, atajos, cerrar el hueco) son
-mejoras de **función**. Lo que falta es una decisión de **carácter**.
+**El «Simulacro real» no penaliza los errores.** `scoreExam` calcula
+`aciertos / total`, y ya está.
 
-### Lo que necesito de ti
+En la oposición a Policía Nacional el examen de conocimientos **penaliza los
+fallos**: las respuestas incorrectas restan. Un opositor que hace 100 preguntas,
+acierta 60 y falla 40 no saca un 60 en el examen real — saca bastante menos.
 
-Una de estas tres, o una referencia tuya:
+Consecuencia: **la nota que hoy da el simulacro miente, y miente hacia arriba**.
+Un alumno puede llegar al examen creyendo que iba aprobado. Para una plataforma
+de oposiciones eso es el peor fallo posible, porque no se nota hasta que ya no
+tiene remedio.
 
-**a) Examen oficial.** Sobrio, denso, papel. Como el cuadernillo real de la
-oposición: numeración clásica, tipografía de imprenta, cero adornos. La ventaja
-es que entrena en las condiciones del examen de verdad.
+Y hay un efecto de segundo orden: como no penaliza, **contestar a todo siempre
+sale a cuenta**. En el examen real no: hay un punto en el que arriesgar es peor
+que dejar en blanco. La plataforma no solo da mal la nota, es que **enseña una
+estrategia equivocada**.
 
-**b) Sala de control.** Coherente con el resto de la app —«Centro de Mando»,
-«Operaciones», hora ZULU—: fondo oscuro, datos en vivo, tipografía técnica,
-sensación de instrumento. Ahora mismo la app dice ser esto y luego la pantalla de
-test es blanca y ligera: **hay una contradicción**.
+> **Pendiente de comprobar:** la fórmula exacta de penalización de la
+> convocatoria vigente. Suele ser del tipo «cada N errores anulan un acierto»,
+> pero varía. Hay que sacarla del BOE de la convocatoria, no de memoria, y
+> dejarla configurable por si cambia.
 
-**c) Concentración.** Lo contrario: quitar todo menos la pregunta. Sin barra
-lateral, sin colores, una sola cosa en pantalla. Apostar por que estudiar es un
-acto de foco.
+### Lo que sí tiene hoy
 
-**O mándame una captura** de cualquier app que te guste —aunque no sea de
-oposiciones— y trabajo sobre eso. Es más rápido que tres rondas de adivinar.
+Cronómetro, progreso por preguntas, atajos de teclado, votar y reportar la
+pregunta, corrección inmediata en entrenamiento y clasificación obligatoria del
+fallo. La clasificación del error es, de hecho, **mejor que la de la mayoría de
+plataformas del sector**: casi ninguna te obliga a decir *por qué* fallaste.
 
-> Mi opinión, ya que la pides implícitamente: la **(b)** es la única coherente
-> con lo que la aplicación ya dice ser. Hoy el panel del alumno es oscuro y
-> táctico, y el test es una tarjeta blanca flotando. Esa es buena parte de la
-> sensación de «básico».
+### Lo que le falta, por orden de lo que más echaría de menos un opositor
 
-### Y un arreglo pendiente, ya identificado
+**1. Nota con penalización, y en tiempo real.**
+Que el resultado sea el del examen de verdad. Y en modo entrenamiento, ver el
+efecto de cada fallo en el momento enseña la estrategia correcta.
 
-5 de las 67 preguntas del banco llevan Markdown sin renderizar en el enunciado
-(`**correcta**`). La IA lo escribe para poner una palabra en negrita y la
-pantalla lo pinta en crudo. Dos salidas: interpretar el Markdown al mostrarlo, o
-limpiarlo al guardar. **Recomiendo limpiarlo al guardar**: menos superficie, y el
-banco queda con texto plano, que es lo que un enunciado de test debe ser.
+**2. Poder volver atrás.**
+Hoy el test es una vía de sentido único: `handleNext` avanza y no hay manera de
+retroceder. **En el examen real puedes volver sobre tus pasos**, y es lo que
+hace todo el mundo. Es probablemente lo que más frustra de la pantalla actual.
+
+**3. Marcar una pregunta para revisarla luego.**
+Una bandera. Estándar absoluto en el sector y en Moodle: dudas, la marcas,
+sigues, y al final vuelves a las marcadas. Sin esto, dudar te obliga a decidir
+en el momento.
+
+**4. El mapa de preguntas.**
+Una cuadrícula con las 100 preguntas y su estado: contestada, en blanco,
+marcada. Es *el* elemento que distingue una pantalla de examen seria de un
+formulario. Moodle lo lleva de serie («navegación por el cuestionario») y todas
+las plataformas de oposiciones lo copian. Permite además saltar a cualquier
+pregunta.
+
+**5. Dejar en blanco a propósito.**
+Con penalización, el blanco es una **decisión estratégica**, no un descuido. Hace
+falta un botón explícito de «dejar en blanco» y que el resumen distinga
+contestadas de blancos.
+
+**6. Tiempo límite de verdad.**
+El «Simulacro real» dice tener cronómetro, pero **no hay límite**. Un simulacro
+sin reloj que corra hacia cero no es un simulacro. Hace falta tiempo total
+configurable, cuenta atrás, avisos y entrega automática al agotarse.
+
+**7. La referencia legal de la pregunta.**
+De qué artículo sale. Para un opositor esto vale casi tanto como la explicación:
+le dice qué releer. **Depende de P1**: solo se puede mostrar si el troceado
+guarda de qué artículo viene cada fragmento. Es la razón por la que P1 va antes
+que esto.
+
+**8. Pantalla de revisión antes de entregar.**
+Moodle la llama «Terminar intento». Un resumen: has contestado 87, dejado 13 en
+blanco, marcado 6 para revisar. Y desde ahí, volver a cualquiera. Entregar sin
+ver esto es fácil de hacer por error.
+
+**9. Notas del alumno sobre la pregunta.**
+Un campo suyo, privado, que reaparezca cuando le vuelva a salir.
+
+### Lo que NO hay que copiar del sector
+
+Muchas plataformas de test están llenas de ruido: rachas, insignias, medallas,
+rankings entre alumnos. Es tentador y se ve moderno, pero en una pantalla de
+examen **compite con la pregunta**. Un opositor que está resolviendo un supuesto
+no necesita saber que lleva 12 días de racha.
+
+La regla para esta pantalla: **todo lo que se muestre tiene que ayudar a decidir
+la respuesta o a gestionar el examen.** El resto va a las estadísticas.
+
+### El orden dentro de P3
+
+```
+1. Penalización en la nota      ← corrige un dato falso
+2. Volver atrás + marcar        ← lo que más se echa de menos
+3. Mapa de preguntas
+4. Blanco explícito
+5. Tiempo límite + entrega automática
+6. Pantalla de revisión final
+7. Referencia legal             ← necesita P1
+8. Notas personales
+```
+
+Los seis primeros no dependen de nada y son la mitad del valor.
+
+### Y el arreglo pendiente
+
+5 de las 67 preguntas llevan Markdown sin renderizar (`**correcta**`) porque la
+IA lo escribe y la pantalla lo pinta en crudo. Se limpia al guardar: un enunciado
+de test debe ser texto plano.
 
 ---
 
 ## P4 · Super admin y módulos que se encienden y se apagan
 
+> **Decidido (27 ago):** por ahora la plataforma sirve a **una sola academia**.
+> Esto simplifica mucho la fase, pero condiciona *cómo* hay que construirla.
+
 ### Lo que hay hoy
 
-Dos roles: `admin` y `student`. Un solo espacio compartido: un temario, un banco,
-una lista de usuarios. **Todos los administradores lo ven todo.**
+Dos roles: `admin` y `student`. Un solo espacio: un temario, un banco, una lista
+de usuarios. No hay forma de apagar un módulo: los siete están siempre visibles.
 
-No hay forma de apagar un módulo. Los siete del alumno están siempre visibles
-para todos.
+### Lo que se hace ahora
 
-### Lo que pides
+**Un tercer rol y unos interruptores. Nada más.**
 
-Un tercer nivel por encima, que vea a administradores y alumnos, y que pueda
-encender y apagar módulos desde la propia interfaz.
+- `profiles.role` pasa a admitir `superadmin`.
+- Tabla `module_settings`: qué módulos están activos. Una fila por módulo, con su
+  estado y quién lo cambió.
+- `StudentDashboard` deja de tener los siete módulos escritos a mano y los lee de
+  ahí.
+- Pantalla de super admin: la rejilla de interruptores, más la vista de
+  administradores y alumnos que pediste.
+- Y de paso, la pantalla que hoy falta: **cambiar el rol de un usuario** sin
+  entrar en Supabase.
 
-### Lo que eso implica de verdad
+**La regla que no puede saltarse:** apagar un módulo tiene que apagarlo **también
+en el servidor**. Si `chat` está apagado, `askAtenea` debe rechazar la llamada
+antes de tocar a Gemini. Una Server Action es un endpoint público: esconder el
+enlace del menú no impide que nadie la llame, y cada llamada al chat se paga.
+Esto va en la misma guarda que ya usan `requireUser` y `requireAdmin`.
 
-Es la fase con más consecuencias, porque **arrastra la idea de academia**. Si un
-super admin va a ver «los datos de admin y alumnos», la pregunta inmediata es:
-¿de qué administrador es cada alumno? Y eso hoy no se puede responder.
+### Lo que NO se hace ahora, pero se deja preparado
 
-Así que P4 son en realidad dos cosas:
+No se crea la tabla `organizations` ni se toca ninguna consulta. Con una academia
+sería trabajo puro sin beneficio.
 
-**1. El concepto que falta: la academia.**
+Pero como el plan a un año es marca blanca o multi-academia, hay dos decisiones
+baratas ahora que evitan rehacerlo entero después:
 
-- Una tabla `organizations` (id, nombre, plan, estado).
-- `profiles` gana `organization_id`.
-- El temario, el banco de preguntas y los alumnos pasan a pertenecer a una.
-- **Todas las consultas del proyecto** —y hay muchas— tienen que filtrar por
-  ella. Las políticas de RLS también.
+- **`module_settings` con una columna `organization_id` que hoy va siempre a
+  `null`.** Cuesta cero y significa que el día que existan academias solo hay que
+  rellenarla, no reescribir la tabla.
+- **Los ajustes se leen desde un único sitio** (un `getModuleSettings()` con
+  caché). El día que dependan de la academia, se cambia esa función y no las
+  quince pantallas que la usan.
 
-Esto no es un ajuste. Es la decisión estructural más grande del plan y afecta a
-casi todos los ficheros de `app/actions/`.
+Eso es todo lo que hay que anticipar. Cualquier otra cosa es construir para un
+futuro que puede no llegar.
 
-> **Decisión que solo puedes tomar tú:** ¿el banco de preguntas es **común** a
-> todas las academias o **propio** de cada una? Cambia por completo el diseño.
-> Común significa que todos se benefician del trabajo de todos; propio significa
-> que cada academia tiene su producto y no lo comparte. Hay una vía intermedia
-> —un banco base común más el propio de cada una— que es la más útil y la más
-> cara de construir.
+### Marca blanca: qué significa de verdad
 
-**2. Los módulos configurables.**
+Si el modelo acaba siendo cederla a otras academias, «marca blanca» son tres
+cosas, y solo la tercera es cara:
 
-Una vez existe la academia, esto es sencillo:
+1. **Logo y nombre configurables.** Barato. Un puñado de ajustes.
+2. **Colores propios.** Barato *si se hace desde el principio* con variables CSS.
+   Caro si hay que ir a buscar colores escritos a mano por cincuenta ficheros.
+3. **Datos separados.** Esto es lo caro: es el multi-academia entero.
 
-- Tabla `module_settings`: qué módulos están activos para cada academia.
-- Los siete módulos del alumno (`home`, `chat`, `test`, `cards`, `training`,
-  `interview`, `stats`) pasan a leerse de ahí en vez de estar escritos a mano en
-  `StudentDashboard`.
-- El super admin ve una rejilla de interruptores por academia.
-
-**Y una regla que no puede saltarse:** apagar un módulo tiene que apagarlo
-**también en el servidor**, no solo esconder el botón. Si `chat` está apagado,
-`askAtenea` debe rechazar la llamada. Una Server Action es un endpoint público:
-esconder el enlace no impide que alguien lo llame, y cada llamada al chat se paga.
-
-**Tres roles, no dos:** `superadmin` > `admin` > `student`. Y hará falta una
-pantalla para gestionar roles, porque hoy eso se hace a mano en Supabase.
+Las dos primeras se pueden hacer casi gratis mientras se construye P5. La tercera
+es un proyecto y no toca todavía.
 
 ---
 
 ## P5 · El panel de la academia
 
-### Lo que pides
-
-Un panel «mucho más avanzado y visual» para que un administrador gestione a sus
-alumnos.
+> **Ahora se puede hacer antes**, porque con una sola academia no depende de P4.
 
 ### Qué debería tener
 
-**Alumnos, de verdad.** Hoy la lista de usuarios da nombre, rol, cuántas
-preguntas ha hecho y su acierto. Falta lo que un profesor necesita:
+**Alumnos, de verdad.** Hoy la lista da nombre, rol, preguntas hechas y acierto.
+Falta lo que un profesor necesita para dar clase:
 
-- Ficha individual: evolución en el tiempo, temas fuertes y débiles, cuándo
-  entró por última vez.
+- Ficha individual: evolución en el tiempo, temas fuertes y débiles, cuándo entró
+  por última vez, en qué falla sistemáticamente.
 - **Quién ha abandonado.** Un alumno que lleva dos semanas sin entrar es el dato
-  más accionable que existe en una academia, y hoy no se ve.
-- Invitar por correo en vez de que se registren solos y esperar a que aparezcan.
+  más accionable que hay en una academia, y hoy no se ve en ninguna parte.
+- Invitar por correo, en vez de esperar a que se registren solos y aparezcan.
 - Agrupar por clase o promoción.
 
-**Contenido.** Qué temas tienen banco y cuáles no —hoy tienes 35 preguntas
-aprobadas y **todas** son de Constitución (I)—, qué preguntas fallan más de la
-cuenta (señal de que están mal redactadas), qué temas no toca nadie.
+**Contenido.** Qué temas tienen banco y cuáles no —hoy las 35 preguntas aprobadas
+son **todas** de Constitución (I)—, qué preguntas falla todo el mundo (señal de
+que están mal redactadas, no de que sean difíciles), qué temas no toca nadie.
 
-**Visualmente**, la palabra clave es *información*, no adornos: que se vea de un
-vistazo qué necesita atención. Un panel con muchos números iguales no es más
-avanzado, es más ruidoso.
+**Visualmente**, la palabra es *información*, no adornos. Que se vea de un vistazo
+qué necesita atención. Un panel con veinte números iguales no es más avanzado: es
+más ruidoso.
 
-### Por qué va después de P4
+### Lo que tu amigo va a pedir el primer día
 
-Porque «sus alumnos» necesita que exista la academia. Construir este panel antes
-significa construirlo dos veces.
+Vale la pena anticiparlo, porque es lo que decide si el piloto funciona:
+
+- **Dar de alta a sus alumnos** sin pelearse con nada.
+- **Ver quién trabaja y quién no**, para poder llamarle.
+- **Subir su propio temario** y que las preguntas salgan de ahí, no de un temario
+  genérico.
+- **Que sus preguntas sean suyas.** Merece la pena hablarlo antes: si sube su
+  material y la IA genera preguntas con él, conviene dejar por escrito de quién
+  son.
 
 ---
 
 ## P6 · Cobros
 
-### Lo que hay hoy
+> **Decidido (27 ago):** primero un piloto gratis con una academia amiga para
+> validar el modelo. Los cobros **no se construyen todavía**.
 
-Nada. Ni pagos, ni planes, ni suscripciones, ni facturas.
+### Por qué esperar es lo correcto
 
-### Antes de escribir una línea
+Los dos caminos que planteas llevan a productos distintos:
 
-Esto no es una funcionalidad más: **es un negocio con obligaciones legales**.
-Antes de diseñar nada hay que responder:
+- **Marca blanca a academias.** Cobras a la academia. Pocos clientes, factura
+  grande, contrato. Probablemente ni necesites pasarela al principio: con dos o
+  tres clientes, una transferencia y una factura hecha a mano funcionan.
+- **Captar alumnos tú directamente.** Cobras al alumno. Muchos clientes, importe
+  pequeño, altas y bajas constantes. **Esto sí exige pasarela desde el día uno**,
+  además de gestionar bajas, devoluciones y morosidad.
 
-- **¿Quién paga a quién?** ¿La academia te paga a ti por usar Atenea, o el alumno
-  paga a la academia y tú te llevas una parte? Son dos productos distintos: el
-  segundo te convierte en intermediario de pagos, con todo lo que eso implica.
-- **¿Suscripción o pago único?** ¿Por academia, por alumno activo, por volumen?
-- **Facturación española.** IVA, facturas numeradas, conservación. Esto no lo
-  resuelve una pasarela sola.
+Construir cobros antes de saber cuál de los dos es sería trabajo tirado. Y el
+piloto es exactamente lo que resuelve esa duda.
 
-### Cómo se haría
+### Lo único que conviene hacer ya
 
-- **Stripe**, casi con seguridad. Es el estándar y resuelve tarjetas, SEPA,
-  suscripciones, reintentos y facturas.
-- **Ni un dato de tarjeta pasa por Atenea.** Se redirige a Stripe y se vuelve.
-  Guardar números de tarjeta te mete en un mundo de certificaciones que no
-  quieres.
-- La suscripción decide qué puede hacer cada academia, y eso **enlaza
-  directamente con P4**: los módulos que un plan incluye son los mismos
-  interruptores del super admin.
-- Cuando alguien deja de pagar, hay que decidir qué pasa: ¿se corta el acceso?
-  ¿se conserva el temario? ¿cuánto tiempo?
+**Medir el uso desde el principio.** Cuando llegue el momento de poner precio,
+vas a necesitar saber cuánto cuesta servir a un alumno: cuántas llamadas a Gemini
+consume al mes, cuánto ocupa su temario. Ese dato solo existe si se ha ido
+guardando.
 
-### Por qué va última
+La tabla `ai_quota` ya cuenta las llamadas por usuario y ruta. Basta con **no
+borrar el histórico** y añadir un panel simple de consumo. Cuesta poco ahora y no
+se puede reconstruir después.
 
-Porque cobrar por algo exige que ese algo esté delimitado, y quien lo delimita es
-P4. Vender «acceso a los módulos X e Y» necesita que los módulos se puedan
-encender y apagar.
+### Y una conversación que no es técnica
+
+Si tu amigo valida el modelo y luego quieres usar su banco de preguntas para
+captar alumnos por tu cuenta, **eso hay que acordarlo antes de que exista el
+banco**, no después. Él va a poner su temario y su criterio de moderación; el
+banco resultante vale dinero. Un piloto que empieza sin esa conversación acaba en
+una discusión incómoda justo cuando la cosa empieza a funcionar.
+
+No es trabajo mío, pero es lo que puede hundir el proyecto teniendo el código
+perfecto.
 
 ---
 
 ## Orden propuesto
 
 ```
-P1  Ingesta fiable          ← hay un fallo activo
-P2  Preguntas a mano        ← pequeña, en paralelo con lo que sea
-P3  Rediseño del test       ← bloqueada: necesito dirección visual
+P1  Ingesta fiable            hay un fallo activo AHORA
+P3  Penalización en la nota    el simulacro da una nota falsa
+P2  Preguntas a mano           pequeña, sin dependencias
+P3  Volver atrás + marcar      lo que más se echa de menos
+P3  Mapa, blanco, tiempo       completa la pantalla de examen
 ──────────────────────────────────────────────────────────────
-P4  Academias + super admin ← la decisión estructural
-P5  Panel de academia       ← necesita P4
-P6  Cobros                  ← necesita P4 y una decisión de negocio
+P4  Super admin + módulos      un rol y unos interruptores
+P5  Panel de academia          lo que tu amigo va a pedir el día 1
+──────────────────────────────────────────────────────────────
+P6  Cobros                     después del piloto, no antes
 ```
 
-La línea separa dos mundos. **Arriba**, mejoras sobre lo que ya existe: se pueden
-hacer una a una, sin riesgo, y cada una se nota al día siguiente. **Abajo**, una
-plataforma distinta: multi-academia, con roles, con clientes que pagan. El paso
-de una a otra es P4, y conviene cruzarlo a sabiendas.
+**Los dos primeros son correcciones, no mejoras.** Un tema mudo y una nota que
+miente hacia arriba son fallos que el usuario no puede detectar por su cuenta, y
+eso los pone por delante de cualquier funcionalidad nueva.
+
+P3 aparece tres veces a propósito: no es una fase, es una lista de cosas
+independientes. La penalización va la primera porque corrige un dato falso; el
+resto puede entrar poco a poco.
+
+La primera línea separa lo que mejora la plataforma de lo que la prepara para
+tener clientes. La segunda separa lo gratis de lo que cobra.
 
 ---
 
 ## Lo que necesito de ti antes de empezar
 
-1. **La dirección visual del test** (P3): (a) examen oficial, (b) sala de control,
-   (c) concentración — o una captura de algo que te guste.
-2. **El banco de preguntas** (P4): ¿común a todas las academias, propio de cada
-   una, o mixto?
-3. **El modelo de cobro** (P6): ¿quién paga a quién?
+Las tres preguntas anteriores están respondidas. Quedan dos, y ninguna bloquea
+el arranque:
 
-Sin la 1 no puedo rediseñar sin adivinar. Sin la 2 no puedo diseñar la base de
-datos de P4. La 3 puede esperar, pero condiciona P4 y conviene tenerla en la
-cabeza al construirlo.
+1. **La fórmula de penalización** de la convocatoria vigente. Sale del BOE de la
+   convocatoria, no de memoria. Mientras tanto se puede construir configurable y
+   ajustar el número después.
+2. **Qué módulos quiere apagar tu amigo**, si es que quiere apagar alguno. Sirve
+   para saber si P4 corre prisa o puede esperar detrás de P5.
+
+Con eso, se puede empezar por P1 mañana mismo.
 
 ---
-
 ## Y algo que no pediste, pero yo pondría antes que casi todo
 
 **Repasar las preguntas falladas.** Hoy un alumno ve sus fallos clasificados por
