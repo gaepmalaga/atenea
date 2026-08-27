@@ -104,3 +104,37 @@ export function formatHistory(history: ChatTurn[]): string {
     .map((t) => `${t.role === 'user' ? 'ASPIRANTE' : 'ATENEA'}: ${t.content}`)
     .join('\n');
 }
+
+/**
+ * Una fuente recuperada, en lo que hace falta para nombrarla.
+ *
+ * El tipo completo (`Chunk`) vive en la accion porque lo devuelve PostgREST;
+ * aqui solo se declara lo que se lee, que es lo que permite testear esto sin
+ * base de datos.
+ */
+export type SourceRef = {
+  filename: string;
+  /**
+   * De que articulo sale: «Artículo 37», «Disposición adicional primera»…
+   * `null` cuando el documento no es un texto legal, y `undefined` mientras
+   * `match_document_chunks` no devuelva la columna
+   * (docs/sql/P1g-referencia-en-la-busqueda.sql).
+   */
+  reference?: string | null;
+};
+
+/**
+ * Como se nombra una fuente delante del alumno.
+ *
+ * El nombre del fichero —«TEMA 9 - La Ley Organica 2-1986 - de 13 de marzo - de
+ * Fuerzas y Cuerpos de Seguridad»— no le dice a un opositor QUE RELEER. El
+ * articulo si. Se antepone la referencia cuando existe y el fichero se queda
+ * detras como respaldo: unos apuntes no tienen articulos.
+ *
+ * Vive aqui y no en la accion por dos motivos: un fichero `'use server'` solo
+ * puede exportar funciones async, y esto es logica pura (regla 21).
+ */
+export function citaDe(fuente: SourceRef): string {
+  const referencia = fuente.reference?.trim();
+  return referencia ? `${referencia} · ${fuente.filename}` : fuente.filename;
+}

@@ -16,7 +16,7 @@ interface IntelChatProps { user: AuthUser; }
 type Message = {
   role: 'ai' | 'user';
   content: string;
-  sources?: Array<{ filename: string; content_chunk: string }>;
+  sources?: Array<{ filename: string; content_chunk: string; reference?: string | null }>;
   isError?: boolean;
   /** Banner de bienvenida: se pinta, pero no es parte de la conversación. */
   isSystem?: boolean;
@@ -34,7 +34,7 @@ export default function IntelChat({ user }: IntelChatProps) {
     }
   ]);
   const [loading, setLoading] = useState(false);
-  const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string } | null>(null);
+  const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string; reference?: string | null } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { 
@@ -159,7 +159,8 @@ export default function IntelChat({ user }: IntelChatProps) {
                                         onClick={() => setActiveSource(s)}
                                         className="px-3 py-1.5 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 text-[10px] font-black rounded-xl border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-2 hover:scale-105 transition-all"
                                     >
-                                        <FileText size={12}/> {s.filename}
+                                        {/* El articulo por delante: es lo que le dice al opositor que releer. */}
+                                        <FileText size={12}/> {s.reference?.trim() || s.filename}
                                     </button>
                                 ))}
                             </div>
@@ -213,7 +214,10 @@ export default function IntelChat({ user }: IntelChatProps) {
                         <BookOpen size={30}/>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Consulta Legislativa</p>
-                            <h4 className="text-2xl font-black">{activeSource.filename}</h4>
+                            <h4 className="text-2xl font-black">{activeSource.reference?.trim() || activeSource.filename}</h4>
+                            {activeSource.reference?.trim() && (
+                                <p className="text-[10px] font-bold opacity-70 mt-1">{activeSource.filename}</p>
+                            )}
                         </div>
                     </div>
                     <button onClick={() => setActiveSource(null)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={28}/></button>

@@ -5,6 +5,7 @@ import { requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import {
   buildRetrievalQuery,
+  citaDe,
   formatHistory,
   MAX_QUERY_CHARS,
   type ChatTurn,
@@ -18,6 +19,14 @@ type Chunk = {
   filename: string;
   content_chunk: string;
   similarity?: number;
+  /**
+   * De que articulo sale el fragmento: «Artículo 37», «Disposición adicional
+   * primera»… `null` en un documento que no es un texto legal, y `undefined`
+   * mientras `match_document_chunks` no devuelva la columna
+   * (docs/sql/P1g-referencia-en-la-busqueda.sql). Por eso se lee siempre con
+   * `citaDe` y nunca directamente.
+   */
+  reference?: string | null;
 };
 
 type AskAteneaResult =
@@ -88,7 +97,7 @@ export async function askAtenea(query: string, history: ChatTurn[] = []): Promis
     // 5. Construcción del contexto numerado para que la IA pueda CITAR
     const contextWithCitations = cleanChunks
       .slice(0, 6) // Usamos los 6 mejores para no saturar la memoria (context window)
-      .map((c, idx) => `[FUENTE ${idx + 1}]: ${c.filename}\nCONTENIDO: ${c.content_chunk}`)
+      .map((c, idx) => `[FUENTE ${idx + 1}]: ${citaDe(c)}\nCONTENIDO: ${c.content_chunk}`)
       .join('\n\n---\n\n');
 
     const conversation = formatHistory(history);
@@ -108,6 +117,8 @@ ${conversation ? `\nCONVERSACIÓN PREVIA (para resolver referencias como "eso" o
 NORMAS DE RESPUESTA (CRÍTICAS):
 1. Si la información no está en el contexto, di: "No consta en el temario oficial aportado."
 2. CITAS OBLIGATORIAS: Al final de cada párrafo o dato clave, añade la cita de la fuente utilizada, ej: [1], [2].
+   Si la fuente trae artículo (ej. "Artículo 37 · TEMA 9..."), NÓMBRALO en el texto: es lo que le dice al aspirante qué releer.
+   Nunca inventes un artículo que no venga en la cabecera de la fuente.
 3. ESTRUCTURA:
    - Definición técnica al inicio.
    - Listas con viñetas (*) para desglosar características.

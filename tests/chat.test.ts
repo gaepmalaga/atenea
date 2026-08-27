@@ -3,6 +3,7 @@ import {
   isFollowUp,
   lastUserTurn,
   buildRetrievalQuery,
+  citaDe,
   trimHistory,
   formatHistory,
   MAX_HISTORY_TURNS,
@@ -143,5 +144,39 @@ describe('el codigo usa el contrato', () => {
     expect(src).toContain('embedContent(retrievalQuery)');
     expect(src).toContain('buildRetrievalQuery(history, safeQuery)');
     expect(src).toContain('formatHistory(history)');
+  });
+});
+
+/**
+ * LA REFERENCIA LEGAL ES LO QUE SE CITA
+ *
+ * El chat citaba el NOMBRE DEL FICHERO: «TEMA 9 - La Ley Organica 2-1986 - de 13
+ * de marzo - de Fuerzas y Cuerpos de Seguridad». A un opositor eso no le dice
+ * que releer; «Artículo treinta y siete» si. El dato estaba guardado desde P1b
+ * —118 de los 177 fragmentos de la LOFCS lo traen— pero no llegaba a la
+ * pantalla.
+ *
+ * Se lee siempre por aqui porque el valor puede venir de tres formas: con
+ * articulo, `null` (unos apuntes no tienen articulos) o `undefined` mientras
+ * `match_document_chunks` no devuelva la columna.
+ */
+describe('citaDe', () => {
+  const fichero = 'TEMA 9 - La Ley Organica 2-1986 - de 13 de marzo';
+
+  it('antepone el articulo cuando lo hay', () => {
+    expect(citaDe({ filename: fichero, reference: 'Artículo treinta y siete' }))
+      .toBe(`Artículo treinta y siete · ${fichero}`);
+  });
+
+  it('sin referencia se queda el nombre del fichero', () => {
+    // Unos apuntes no salen de ningun articulo: `null`.
+    expect(citaDe({ filename: fichero, reference: null })).toBe(fichero);
+    // Y mientras la funcion SQL no devuelva la columna: `undefined`.
+    expect(citaDe({ filename: fichero })).toBe(fichero);
+  });
+
+  it('una referencia en blanco no deja un separador colgando', () => {
+    // Sin el `trim`, esto pintaba « · TEMA 9…» delante del alumno.
+    expect(citaDe({ filename: fichero, reference: '   ' })).toBe(fichero);
   });
 });
