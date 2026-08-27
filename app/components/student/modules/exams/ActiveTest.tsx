@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChevronRight, CheckCircle2, XCircle, Brain,
   BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
-  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning
+  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark
 } from 'lucide-react';
 import { formatTime } from '@/app/lib/timer';
 import { Question } from './ExamManager';
@@ -35,19 +35,55 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   const [errorTagged, setErrorTagged] = useState(false); 
 
   // Métricas VIP (Tiempos y Dudas)
-  const startTimeRef = useRef<number>(Date.now());
-  // Un ref, no estado: se escribe y se lee dentro del mismo manejador. Con
-  // `useState` el cierre devolvia el valor anterior, asi que en modo
-  // entrenamiento se guardaba siempre 0 cambios.
-  const optionChangesRef = useRef(0);
-  // Id de la fila de `test_results` que guardo la respuesta actual. Etiquetar el
-  // fallo actualiza ESA fila; antes se insertaba una segunda y cada error
-  // etiquetado contaba doble en el porcentaje de acierto.
+  //
+  // ACUMULADAS POR PREGUNTA, NO POR VISITA. Desde que se puede volver atrás,
+  // una pregunta se visita varias veces: si el tiempo se midiera desde la
+  // última entrada, revisar una respuesta al final borraría los tres minutos
+  // que costó la primera vez. Lo que interesa saber es cuánto ha costado la
+  // pregunta EN TOTAL.
+  //
+  // Un ref y no estado: se escribe y se lee dentro del mismo manejador, y con
+  // `useState` el cierre devolvería el valor anterior (regla 13). Ese fallo ya
+  // pasó aquí: en entrenamiento se guardaban siempre 0 cambios.
+  const metricasRef = useRef<Map<number, { tiempo: number; cambios: number }>>(new Map());
+  /** Momento en que se entró en la pregunta que se está viendo. */
+  const entradaRef = useRef<number>(Date.now());
+
+  const metricasDe = useCallback(
+    (indice: number) => metricasRef.current.get(indice) ?? { tiempo: 0, cambios: 0 },
+    []
+  );
+
+  /** Lo que lleva acumulado la pregunta actual, contando la visita en curso. */
+  const tiempoActual = useCallback(
+    () => metricasDe(currentIndex).tiempo + (Date.now() - entradaRef.current),
+    [currentIndex, metricasDe]
+  );
+
+  /** Cierra la cuenta de la pregunta que se deja y arranca la de la siguiente. */
+  const cerrarVisita = useCallback((indice: number) => {
+    const m = metricasDe(indice);
+    metricasRef.current.set(indice, { ...m, tiempo: m.tiempo + (Date.now() - entradaRef.current) });
+    entradaRef.current = Date.now();
+  }, [metricasDe]);
+
+  // Id de la fila de `question_attempts` que guardo la respuesta actual.
+  // Etiquetar el fallo actualiza ESA fila; antes se insertaba una segunda y
+  // cada error etiquetado contaba doble en el porcentaje de acierto.
   const resultIdRef = useRef<string | null>(null);
   // El guardado en vuelo. Los botones de diagnóstico aparecen en cuanto se
   // marca la respuesta, mientras el insert sigue viajando: sin esperarlo, un
   // clic rápido leería `resultIdRef` a null y volvería a insertar.
   const savePromiseRef = useRef<Promise<{ success: boolean; id: string | null }> | null>(null);
+
+  /**
+   * Preguntas marcadas para revisar antes de entregar.
+   *
+   * Es el estándar del sector y de Moodle, y sin ello dudar te obliga a decidir
+   * en el momento. Solo tiene sentido con navegación libre, así que vive junto
+   * a ella: en el simulacro.
+   */
+  const [marcadas, setMarcadas] = useState<Set<number>>(new Set());
 
   // --- CRONOMETRO DEL TEST ---
   // El tiempo se deriva de marcas de reloj; el intervalo solo decide cada
@@ -73,13 +109,9 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   const isAnswered = !!currentQ.userAnswer;
   const isCorrect = currentQ.userAnswer === currentQ.correctOptionId;
 
-  // Reiniciar cronómetro al cambiar de pregunta
-  useEffect(() => {
-      startTimeRef.current = Date.now();
-      optionChangesRef.current = 0;
-      resultIdRef.current = null;
-      savePromiseRef.current = null;
-  }, [currentIndex]);
+  // El cronómetro ya no se reinicia en un efecto: lo lleva `irA`, que es quien
+  // sabe qué pregunta se deja y cuál se abre. Un efecto no puede hacerlo porque
+  // cuando se ejecuta el índice YA ha cambiado y la cuenta anterior se pierde.
 
   // --- MANEJO DE RESPUESTA ---
   const handleAnswer = useCallback(async (optionId: string) => {
@@ -89,7 +121,8 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
     // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
     // no cambios, y la primera respuesta ya valía 1.
     if (countChange(currentQ.userAnswer, optionId)) {
-        optionChangesRef.current += 1;
+        const m = metricasDe(currentIndex);
+        metricasRef.current.set(currentIndex, { ...m, cambios: m.cambios + 1 });
     }
 
     // Copia del objeto, no solo del array: la copia superficial mutaba la misma
@@ -108,14 +141,14 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
             currentQ.id,
             correct,
             {
-                responseTimeMs: Date.now() - startTimeRef.current,
-                optionChanges: optionChangesRef.current
+                responseTimeMs: tiempoActual(),
+                optionChanges: metricasDe(currentIndex).cambios,
             }
         );
         const saved = await savePromiseRef.current;
         resultIdRef.current = saved.id;
     }
-  }, [currentIndex, currentQ, isAnswered, localQuestions, mode, topicName]);
+  }, [currentIndex, currentQ, isAnswered, localQuestions, metricasDe, mode, tiempoActual, topicName]);
 
   // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
@@ -141,8 +174,8 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
           // duplicar: se inserta la fila completa con la etiqueta incluida.
           const saved = await saveTestResult(topicName, currentQ.id, false, {
               errorType: type,
-              responseTimeMs: Date.now() - startTimeRef.current,
-              optionChanges: optionChangesRef.current,
+              responseTimeMs: tiempoActual(),
+              optionChanges: metricasDe(currentIndex).cambios,
           });
           resultIdRef.current = saved.id;
       }
@@ -187,25 +220,62 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
     }
   };
 
-const handleNext = useCallback(() => {
-      // Empaquetamos las métricas de la pregunta actual antes de movernos.
-      // `timeMs` y `changes` son campos del tipo Question, así que ya no hace
-      // falta el @ts-ignore que ocultaba el desajuste con el servidor.
-      const updated = localQuestions.map((q, i) =>
-          i === currentIndex
-              ? { ...q, timeMs: Date.now() - startTimeRef.current, changes: optionChangesRef.current }
-              : q
-      );
-      setLocalQuestions(updated);
+/**
+   * Ir a una pregunta cualquiera.
+   *
+   * EN EL EXAMEN REAL SE PUEDE VOLVER SOBRE LOS PASOS, y es lo que hace todo el
+   * mundo. Aquí el test era una vía de sentido único. Solo se habilita en el
+   * simulacro: en entrenamiento cada pregunta se corrige al momento, así que
+   * volver a una ya corregida no es repasar, es mirar la respuesta.
+   */
+  const irA = useCallback((destino: number) => {
+    if (destino < 0 || destino >= localQuestions.length || destino === currentIndex) return;
 
-      if (currentIndex < localQuestions.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-          setErrorTagged(false);
-      } else {
-          // 2. Enviamos el array completo con los datos de comportamiento incrustados
-          onFinish(updated);
-      }
-  }, [currentIndex, localQuestions, onFinish]);
+    cerrarVisita(currentIndex);
+    setCurrentIndex(destino);
+
+    // El estado de diagnóstico es de la pregunta, no de la pantalla: al llegar
+    // a una ya respondida y etiquetada no hay que volver a etiquetarla.
+    const q = localQuestions[destino];
+    setErrorTagged(
+      !q.userAnswer ? false : q.userAnswer === q.correctOptionId || Boolean(q.errorType)
+    );
+
+    // El guardado en vuelo era de la pregunta que se deja.
+    resultIdRef.current = null;
+    savePromiseRef.current = null;
+  }, [cerrarVisita, currentIndex, localQuestions]);
+
+  /** Marca o desmarca la pregunta actual para revisarla luego. */
+  const alternarMarca = useCallback(() => {
+    setMarcadas((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(currentIndex)) siguiente.delete(currentIndex);
+      else siguiente.add(currentIndex);
+      return siguiente;
+    });
+  }, [currentIndex]);
+
+  const handleFinish = useCallback(() => {
+    cerrarVisita(currentIndex);
+
+    // Las métricas se vuelcan AQUÍ, para todas las preguntas y desde el mapa
+    // acumulado. Antes se escribían al pasar de pregunta: volver sobre una la
+    // habría dejado con el tiempo de la última visita en vez del total, y las
+    // dudas de la primera se habrían perdido.
+    const finales = localQuestions.map((q, i) => {
+      const m = metricasDe(i);
+      return { ...q, timeMs: m.tiempo, changes: m.cambios };
+    });
+
+    setLocalQuestions(finales);
+    onFinish(finales);
+  }, [cerrarVisita, currentIndex, localQuestions, metricasDe, onFinish]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < localQuestions.length - 1) irA(currentIndex + 1);
+    else handleFinish();
+  }, [currentIndex, handleFinish, irA, localQuestions.length]);
 
   // --- ATAJOS DE TECLADO ---
   // En un test de 100 preguntas ir a raton cansa. A/B/C o 1/2/3 responden,
@@ -214,6 +284,16 @@ const handleNext = useCallback(() => {
   // No dispara con el modal de reporte abierto ni escribiendo en un campo: si
   // no, teclear "la b esta mal" en el reporte marcaria la opcion B.
   const puedeAvanzar = mode === 'exam' || (isAnswered && (isCorrect || errorTagged));
+
+  /**
+   * Volver atrás y marcar solo existen en el simulacro.
+   *
+   * En entrenamiento cada pregunta se corrige al momento: volver a una ya
+   * corregida no es repasar, es mirar la respuesta. Y marcar para revisar no
+   * lleva a ninguna parte si no se puede volver.
+   */
+  const navegacionLibre = mode === 'exam';
+  const estaMarcada = marcadas.has(currentIndex);
 
   useEffect(() => {
     function alPulsar(e: KeyboardEvent) {
@@ -227,6 +307,14 @@ const handleNext = useCallback(() => {
         return;
       }
 
+      if (navegacionLibre) {
+        // Las flechas mueven por el examen como en cualquier formulario largo.
+        if (e.key === 'ArrowLeft') { e.preventDefault(); irA(currentIndex - 1); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); irA(currentIndex + 1); return; }
+        // `M` no colisiona con las opciones, que son A, B y C.
+        if (e.key.toLowerCase() === 'm') { e.preventDefault(); alternarMarca(); return; }
+      }
+
       const tecla = e.key.toLowerCase();
       const porLetra = currentQ.options.findIndex((o) => o.id === tecla);
       const porNumero = /^[1-9]$/.test(tecla) ? Number(tecla) - 1 : -1;
@@ -238,7 +326,7 @@ const handleNext = useCallback(() => {
 
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
-  }, [currentQ, handleAnswer, handleNext, isReportModalOpen, puedeAvanzar]);
+  }, [alternarMarca, currentIndex, currentQ, handleAnswer, handleNext, irA, isReportModalOpen, navegacionLibre, puedeAvanzar]);
 
   return (
     // `justify-center` sobre `min-h-[80vh]` dejaba la tarjeta flotando en
@@ -271,6 +359,22 @@ const handleNext = useCallback(() => {
               </div>
 
               <div className="flex items-center gap-4 flex-shrink-0">
+                  {/* Marcar para revisar. Dudar deja de obligar a decidir en el
+                      momento: la marcas, sigues, y vuelves al final. */}
+                  {navegacionLibre && (
+                      <button
+                        onClick={alternarMarca}
+                        title={estaMarcada ? 'Quitar la marca (M)' : 'Marcar para revisarla luego (M)'}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          estaMarcada
+                            ? 'text-amber-500 bg-amber-500/10'
+                            : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'
+                        }`}
+                      >
+                          <Bookmark size={15} fill={estaMarcada ? 'currentColor' : 'none'}/>
+                      </button>
+                  )}
+
                   <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 tabular-nums">
                       <Clock size={13} className="text-slate-400"/> {formatTime(segundosTest)}
                   </span>
@@ -283,24 +387,36 @@ const handleNext = useCallback(() => {
           {/* Un segmento por pregunta en vez de una barra lisa: de un vistazo
               se ve cuantas van y como. En examen NO se colorea el acierto —
               el alumno no debe saber si va bien hasta el final. */}
+          {/* Un segmento por pregunta, y en el simulacro se puede pulsar: es el
+              mapa de preguntas que distingue una pantalla de examen seria de un
+              formulario. Amarillo = marcada para revisar. */}
           <div className="flex gap-1">
               {localQuestions.map((q, i) => {
                   const respondida = !!q.userAnswer;
                   const esActual = i === currentIndex;
+                  const marcada = marcadas.has(i);
 
                   let color = 'bg-slate-200 dark:bg-slate-800';
-                  if (mode === 'practice' && respondida) {
+                  if (marcada) {
+                      color = 'bg-amber-400';
+                  } else if (mode === 'practice' && respondida) {
                       color = q.userAnswer === q.correctOptionId ? 'bg-emerald-500' : 'bg-red-500';
                   } else if (respondida) {
                       color = 'bg-indigo-500';
                   }
 
+                  const clases = `h-1.5 flex-1 rounded-full transition-all duration-300 ${color} ${
+                    esActual ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-950' : ''
+                  }`;
+
+                  if (!navegacionLibre) return <div key={i} className={clases} />;
+
                   return (
-                      <div
+                      <button
                         key={i}
-                        className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${color} ${
-                          esActual ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-950' : ''
-                        }`}
+                        onClick={() => irA(i)}
+                        title={`Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${respondida ? '' : ' · en blanco'}`}
+                        className={`${clases} hover:h-2.5 cursor-pointer`}
                       />
                   );
               })}
@@ -473,7 +589,36 @@ const handleNext = useCallback(() => {
                       </kbd>
                       avanzar
                   </span>
+                  {navegacionLibre && (
+                      <>
+                          <span className="text-slate-300 dark:text-slate-700">·</span>
+                          <span className="flex items-center gap-1">
+                              <kbd className="px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono">
+                                  ←→
+                              </kbd>
+                              moverse
+                          </span>
+                          <span className="text-slate-300 dark:text-slate-700">·</span>
+                          <span className="flex items-center gap-1">
+                              <kbd className="px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono">
+                                  M
+                              </kbd>
+                              marcar
+                          </span>
+                      </>
+                  )}
               </p>
+
+              {/* Volver atrás: en el examen real se puede, y es lo que hace todo
+                  el mundo. Antes esto era una vía de sentido único. */}
+              {navegacionLibre && currentIndex > 0 && (
+                  <button
+                    onClick={() => irA(currentIndex - 1)}
+                    className="ml-auto text-slate-500 hover:text-slate-900 dark:hover:text-white px-4 py-3.5 rounded-xl font-black text-sm flex items-center gap-2 transition-colors"
+                  >
+                      <ArrowLeft size={16}/> ANTERIOR
+                  </button>
+              )}
 
               {/* En entrenamiento el boton solo aparece con la respuesta dada;
                   si es un fallo, hay que etiquetarlo antes (es obligatorio). */}

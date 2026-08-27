@@ -92,9 +92,17 @@ describe('el cliente no vuelve a insertar dos veces', () => {
   it('el id se reinicia al cambiar de pregunta', () => {
     // Si sobreviviera, la respuesta de la pregunta siguiente sobreescribiria
     // la taxonomia de la anterior.
-    const effect = activeTest.slice(activeTest.indexOf('startTimeRef.current = Date.now()'));
-    expect(effect.slice(0, 400)).toContain('resultIdRef.current = null');
-    expect(effect.slice(0, 400)).toContain('savePromiseRef.current = null');
+    //
+    // Vivia en un efecto sobre [currentIndex]; desde que se puede volver atras
+    // lo hace `irA`, que es quien sabe que pregunta se deja y cual se abre. Lo
+    // que vigila esta guarda no es DONDE esta, sino que sigue estando: se busca
+    // en la funcion que mueve de pregunta.
+    const inicio = activeTest.indexOf('const irA = useCallback(');
+    expect(inicio, 'ActiveTest ya no tiene irA: revisa donde se reinicia el id').toBeGreaterThan(-1);
+
+    const irA = activeTest.slice(inicio, activeTest.indexOf('}, [', inicio));
+    expect(irA).toContain('resultIdRef.current = null');
+    expect(irA).toContain('savePromiseRef.current = null');
   });
 
   it('ya no queda el PENDIENTE de esta fase', () => {

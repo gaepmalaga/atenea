@@ -178,8 +178,26 @@ describe('el codigo usa el contrato', () => {
   it('ActiveTest no lee el contador de cambios desde el estado', () => {
     // `setOptionChanges(prev => prev + 1)` seguido de leer `optionChanges` en la
     // misma funcion devolvia el valor anterior: siempre 0 en entrenamiento.
+    //
+    // El contador paso de un ref suelto (`optionChangesRef`) a un mapa por
+    // pregunta (`metricasRef`) al poder volver atras, pero la regla es la
+    // misma: se escribe y se lee dentro del mismo manejador, asi que NO puede
+    // ser estado.
     expect(activeTest).not.toContain('setOptionChanges');
-    expect(activeTest).toContain('optionChangesRef.current');
+    expect(activeTest).toContain('metricasRef.current');
+    expect(activeTest).toMatch(/const metricasRef = useRef</);
+  });
+
+  it('las metricas se acumulan por pregunta, no por visita', () => {
+    // Con navegacion libre una pregunta se visita varias veces. Si el tiempo se
+    // midiera desde la ultima entrada, volver a revisarla al final borraria lo
+    // que costo la primera vez.
+    expect(activeTest).toContain('tiempo: m.tiempo + (Date.now() - entradaRef.current)');
+    // Y el volcado final sale del mapa, para TODAS las preguntas: si se
+    // escribiera al pasar de pregunta, la revisada se quedaria con el tiempo de
+    // la ultima visita.
+    const finish = activeTest.slice(activeTest.indexOf('const handleFinish = useCallback('));
+    expect(finish.slice(0, 800)).toContain('metricasDe(i)');
   });
 
   it('ActiveTest no muta el estado en su sitio', () => {
