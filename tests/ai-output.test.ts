@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-  parseAIJson,
+import { parseAIJson,
   validateGeneratedQuestion,
   validateFlashcard,
   randomContextWindow,
-  REQUIRED_OPTIONS,
-} from '../app/lib/ai-output';
+  REQUIRED_OPTIONS, stripMarkdown } from '../app/lib/ai-output';
 
 /**
  * Lo que llega del modelo no es de fiar hasta que se comprueba.
@@ -194,5 +192,63 @@ describe('randomContextWindow', () => {
 
   it('tolera un texto vacio', () => {
     expect(randomContextWindow('', 100)).toBe('');
+  });
+});
+
+/**
+ * El modelo escribe Markdown y el enunciado se pinta en crudo.
+ *
+ * `¿cuál de las siguientes afirmaciones es la **correcta**?` — la IA lo escribe
+ * para poner esa palabra en negrita, y el alumno veia los asteriscos. Afectaba
+ * a 5 de las 67 preguntas del banco.
+ *
+ * Se limpia al GUARDAR, no al mostrar: el enunciado se pinta en cuatro sitios
+ * distintos y un enunciado de test debe ser texto plano.
+ */
+describe('stripMarkdown', () => {
+  it('quita las negritas dejando la palabra', () => {
+    expect(stripMarkdown('¿cuál es la **correcta**?')).toBe('¿cuál es la correcta?');
+    expect(stripMarkdown('el __plazo__ es de 72 horas')).toBe('el plazo es de 72 horas');
+  });
+
+  it('quita las cursivas', () => {
+    expect(stripMarkdown('la *Dark Web* es distinta')).toBe('la Dark Web es distinta');
+    expect(stripMarkdown('(el _matiz_ importa)')).toBe('(el matiz importa)');
+  });
+
+  it('quita las comillas de codigo', () => {
+    expect(stripMarkdown('el campo `error_type` guarda la taxonomia')).toBe(
+      'el campo error_type guarda la taxonomia'
+    );
+  });
+
+  it('NO se lleva por delante un asterisco o un guion bajo sueltos', () => {
+    // Un texto legal usa asteriscos como llamada a pie de pagina, y los nombres
+    // de campo llevan guiones bajos. Barrerlos a ciegas corromperia el
+    // enunciado, que es justo lo que hacia el `cleanAIResponse` que se retiro
+    // en la fase 3.
+    expect(stripMarkdown('ver la nota * al pie')).toBe('ver la nota * al pie');
+    expect(stripMarkdown('la columna question_text guarda el enunciado')).toBe(
+      'la columna question_text guarda el enunciado'
+    );
+  });
+
+  it('un texto sin Markdown queda intacto', () => {
+    const limpio = '¿De qué Ministerio depende el Centro Nacional de Inteligencia (CNI)?';
+    expect(stripMarkdown(limpio)).toBe(limpio);
+  });
+
+  it('la validacion de una pregunta ya lo aplica', () => {
+    const res = validateGeneratedQuestion({
+      question: '¿Cuál de las siguientes afirmaciones es la **correcta**?',
+      options: ['La **primera**', 'La segunda', 'La tercera'],
+      correctIndex: 0,
+      explanation: 'Porque el *artículo 11* lo dice.',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.question).toBe('¿Cuál de las siguientes afirmaciones es la correcta?');
+    expect(res.value.options[0]).toBe('La primera');
+    expect(res.value.explanation).toBe('Porque el artículo 11 lo dice.');
   });
 });

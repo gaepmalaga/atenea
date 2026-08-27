@@ -117,8 +117,34 @@ export const REQUIRED_OPTIONS = OPTION_IDS.length;
 const MIN_QUESTION_CHARS = 15;
 const MIN_OPTION_CHARS = 1;
 
+/**
+ * Quita las marcas de Markdown que el modelo cuela en el texto.
+ *
+ * La IA escribe `**correcta**` para poner una palabra en negrita, pero un
+ * enunciado de test es texto plano: la pantalla lo pintaba tal cual y el alumno
+ * veia los asteriscos. Afectaba a 5 de las 67 preguntas del banco.
+ *
+ * Se limpia AL GUARDAR y no al mostrar, a proposito: menos superficie donde
+ * equivocarse —el enunciado se pinta en cuatro sitios distintos— y el banco
+ * queda con texto plano, que es lo que un enunciado debe ser.
+ */
+export function stripMarkdown(texto: string): string {
+  return texto
+    // **negrita** y __negrita__
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    // *cursiva* y _cursiva_, sin tocar un asterisco suelto ni los guiones
+    // bajos de, por ejemplo, `error_type`.
+    .replace(/(^|[\s(¿¡"'])\*(\S(?:.*?\S)?)\*(?=[\s).,;:!?"']|$)/g, '$1$2')
+    .replace(/(^|[\s(¿¡"'])_(\S(?:.*?\S)?)_(?=[\s).,;:!?"']|$)/g, '$1$2')
+    // `codigo`
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 function normalize(s: unknown): string {
-  return typeof s === 'string' ? s.trim() : '';
+  return typeof s === 'string' ? stripMarkdown(s.trim()) : '';
 }
 
 /**
