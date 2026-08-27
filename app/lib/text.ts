@@ -213,3 +213,153 @@ export function chunkLegalText(
     i === 0 ? chunk : packed[i - 1].slice(-safeOverlap) + '\n' + chunk
   );
 }
+
+// ============================================================
+// TROCEADO POR ESTRUCTURA LEGAL
+// ============================================================
+
+/**
+ * Un fragmento indexable, con la referencia legal de la que sale.
+ *
+ * La referencia es lo que permite que el chat cite «Artículo 11 LOFCS» en vez
+ * del nombre del fichero, y que una pregunta generada lleve su fuente.
+ */
+export type LegalChunk = {
+  text: string;
+  /** «Artículo 11», «Disposición adicional primera»… o `null` si no se sabe. */
+  reference: string | null;
+};
+
+/**
+ * Encabezado de articulo NUMERADO: «Artículo 1.», «Artículo 11 bis».
+ *
+ * Las dos regex van SIN el flag `i`, y es a proposito: con el, «artículo 126 de
+ * la Constitución» —una referencia en mitad de un parrafo— se tomaba por un
+ * encabezado. La mayuscula inicial es lo unico que los distingue.
+ *
+ * Y se escriben como literales, no componiendo cadenas: en un template literal
+ * `\s` no es una secuencia de escape valida y JavaScript lo colapsa a una `s`,
+ * asi que la regex acababa siendo `^s*(Art[íi]culos+...` y no casaba nada. Pasó
+ * exactamente eso al escribirla la primera vez.
+ */
+const RE_ARTICULO_NUM = /^\s*(Art[íi]culo\s+\d+(?:\s*(?:bis|ter|quater))?)\b/;
+
+/**
+ * Encabezado de articulo EN LETRA.
+ *
+ * La LOFCS usa ordinales del primero al noveno y despues cardinales: «Artículo
+ * diez», «Artículo once». Sin los cardinales solo se detectaban 9 de sus ~54
+ * articulos.
+ */
+const RE_ARTICULO_LETRA =
+  /^\s*(Art[íi]culo\s+(?:primero|segundo|tercero|cuarto|quinto|sexto|s[ée]ptimo|octavo|noveno|d[ée]cimo|und[ée]cimo|duod[ée]cimo|diez|once|doce|trece|catorce|quince|diecis[ée]is|diecisiete|dieciocho|diecinueve|veinte|veinti\w+|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien(?:to)?))\b/;
+
+/** Disposiciones adicionales, transitorias, derogatorias y finales. */
+const RE_DISPOSICION =
+  /^\s*(Disposici[óo]n\s+(?:adicional|transitoria|derogatoria|final)(?:\s+\w+)?)/i;
+
+/** Una linea del INDICE, no del cuerpo: lleva puntos de relleno. */
+const RE_RELLENO_INDICE = /\.{4,}/;
+
+/** La referencia de una linea, si es un encabezado. `null` si no lo es. */
+export function legalReferenceOf(linea: string): string | null {
+  if (RE_RELLENO_INDICE.test(linea)) return null;
+
+  const encontrado =
+    linea.match(RE_ARTICULO_NUM) ?? linea.match(RE_ARTICULO_LETRA) ?? linea.match(RE_DISPOSICION);
+
+  return encontrado ? encontrado[1].replace(/\s+/g, ' ').trim() : null;
+}
+
+/** Cuantos encabezados de articulo tiene un texto (fuera del indice). */
+export function countLegalHeadings(texto: string): number {
+  return texto.split('\n').filter((l) => legalReferenceOf(l) !== null).length;
+}
+
+/**
+ * A partir de cuantos encabezados se considera que el documento es un texto
+ * legal estructurado. Con menos, es un apunte y se trocea por longitud.
+ *
+ * Tres es deliberadamente bajo: un tema con tres articulos ya se beneficia, y
+ * unos apuntes que mencionen «Artículo 1» de pasada rara vez llegan a tres
+ * encabezados en linea propia.
+ */
+export const MIN_HEADINGS_FOR_STRUCTURE = 3;
+
+export function hasLegalStructure(texto: string): boolean {
+  return countLegalHeadings(texto) >= MIN_HEADINGS_FOR_STRUCTURE;
+}
+
+/**
+ * Trocea un texto legal por su ESTRUCTURA: un fragmento por articulo.
+ *
+ * POR QUE
+ * El troceado por longitud parte donde le toca, asi que un fragmento podia
+ * empezar a mitad del articulo 11 y acabar a mitad del 12. Cuando el chat lo
+ * recuperaba, la cita salia mutilada; y cuando la IA generaba una pregunta a
+ * partir de el, podia estar mezclando dos articulos distintos.
+ *
+ * COMO
+ *  - Un articulo = un fragmento, si cabe en `maxChars`.
+ *  - Si no cabe, se parte con la misma logica de siempre (por frases, y solo
+ *    entonces a la fuerza), pero TODOS los trozos conservan su referencia.
+ *  - Lo que va antes del primer encabezado (el preambulo) sale sin referencia.
+ *  - Las lineas del indice se descartan: llevan puntos de relleno.
+ *
+ * No lleva solape entre articulos a proposito: el limite de un articulo ES el
+ * corte natural, y arrastrar el final del anterior solo mete ruido. El solape
+ * se mantiene dentro de un articulo partido, que es donde hace falta.
+ */
+export function chunkLegalStructure(
+  texto: string,
+  maxChars: number = CHUNK_MAX_CHARS
+): LegalChunk[] {
+  const lineas = (texto ?? '').split('\n');
+  const salida: LegalChunk[] = [];
+
+  let referenciaActual: string | null = null;
+  let acumulado: string[] = [];
+
+  const volcar = () => {
+    const contenido = acumulado.join('\n').trim();
+    acumulado = [];
+    if (!contenido) return;
+
+    // Cabe entero: un articulo, un fragmento.
+    if (contenido.length <= maxChars) {
+      salida.push({ text: contenido, reference: referenciaActual });
+      return;
+    }
+
+    // No cabe: se parte, y cada trozo se queda con la referencia.
+    for (const trozo of chunkLegalText(contenido, maxChars)) {
+      salida.push({ text: trozo, reference: referenciaActual });
+    }
+  };
+
+  for (const linea of lineas) {
+    if (RE_RELLENO_INDICE.test(linea)) continue; // indice
+
+    const referencia = legalReferenceOf(linea);
+    if (referencia) {
+      volcar();
+      referenciaActual = referencia;
+    }
+    acumulado.push(linea);
+  }
+  volcar();
+
+  return salida;
+}
+
+/**
+ * Trocea un documento eligiendo la estrategia sola.
+ *
+ * Un texto legal se trocea por articulos; unos apuntes, por longitud. Se decide
+ * mirando cuantos encabezados hay, no preguntando al administrador: acertar
+ * aqui es facil y una casilla mas en el formulario es una forma de equivocarse.
+ */
+export function chunkDocument(texto: string, maxChars: number = CHUNK_MAX_CHARS): LegalChunk[] {
+  if (hasLegalStructure(texto)) return chunkLegalStructure(texto, maxChars);
+  return chunkLegalText(texto, maxChars).map((text) => ({ text, reference: null }));
+}
