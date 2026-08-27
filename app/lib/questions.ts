@@ -223,14 +223,14 @@ export function mapCandidateToQuestion(data: CandidateRow): Question {
   };
 }
 
-/** Puntuacion de un examen terminado. */
-export function scoreExam(questions: Pick<Question, 'userAnswer' | 'correctOptionId'>[]) {
-  const total = questions.length;
-  const correct = questions.filter((q) => q.userAnswer === q.correctOptionId).length;
-  // Sin preguntas la precision es 0, no NaN.
-  const percentage = total === 0 ? 0 : Math.round((correct / total) * 100);
-  return { total, correct, wrong: total - correct, percentage };
-}
+/**
+ * NOTA: `scoreExam` se mudo a `app/lib/scoring.ts`.
+ *
+ * Aqui calculaba `aciertos / total`, y esa nota MIENTE: la convocatoria de la
+ * Escala Basica penaliza los fallos. La version nueva aplica la formula del BOE
+ * y necesita sus reglas al lado, que no pintan nada en un fichero de mapeo de
+ * preguntas.
+ */
 
 // ============================================================
 // CICLO DE VIDA DE UNA PREGUNTA

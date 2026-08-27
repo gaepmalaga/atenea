@@ -9,7 +9,6 @@ import {
   DIFFICULTY_DEFAULT,
   mapBankRowToQuestion,
   mapCandidateToQuestion,
-  scoreExam,
 } from '../app/lib/questions';
 
 const bankRow = {
@@ -109,27 +108,6 @@ describe('mapCandidateToQuestion', () => {
     });
     expect(q.id).toBeNull();
     expect(q.options).toHaveLength(3);
-  });
-});
-
-describe('scoreExam', () => {
-  it('cuenta aciertos y fallos', () => {
-    const qs = [
-      { userAnswer: 'a', correctOptionId: 'a' },
-      { userAnswer: 'b', correctOptionId: 'a' },
-      { userAnswer: 'c', correctOptionId: 'c' },
-    ];
-    expect(scoreExam(qs)).toEqual({ total: 3, correct: 2, wrong: 1, percentage: 67 });
-  });
-
-  it('una pregunta sin contestar cuenta como fallo', () => {
-    expect(scoreExam([{ userAnswer: null, correctOptionId: 'a' }]).correct).toBe(0);
-  });
-
-  it('un examen vacio da 0% y no NaN', () => {
-    // ExamResults.tsx calcula `correctCount / total` sin protegerse: con un
-    // examen de cero preguntas pinta "NaN%".
-    expect(scoreExam([]).percentage).toBe(0);
   });
 });
 
