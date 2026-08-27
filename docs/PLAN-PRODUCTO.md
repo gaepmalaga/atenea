@@ -5,8 +5,8 @@
 > arreglar lo que estaba roto. Este es un plan de **producto**: lo que la
 > plataforma todavía no sabe hacer.
 >
-> **Nada de esto está empezado.** Es el documento que hay que discutir antes de
-> tocar código.
+> **P1 está casi cerrada** (27 ago). El resto sigue sin empezar. Ver
+> *Estado de P1*, justo debajo de esa sección.
 >
 > **Actualizado el 27 ago** con tres decisiones tomadas: la plataforma sirve por
 > ahora a **una sola academia**; el primer paso es un **piloto gratis** con una
@@ -133,6 +133,42 @@ es el origen real de tu desconfianza, y se cura enseñándolo.
 Porque hay un tema mudo **ahora mismo** y no había forma de saberlo sin
 consultar la base de datos a mano. Y porque todo lo demás —las preguntas, el
 chat— se apoya en que el temario esté bien dentro.
+
+### Estado de P1 · actualizado el 27 de agosto de 2026
+
+| | Qué era | Estado |
+|---|---|---|
+| P1a | El texto del PDF llegaba cortado al ancho de la página | ✅ |
+| P1b | Un fragmento por artículo, con su referencia legal | ✅ |
+| P1c | El estado del indexado deja de ser invisible | ✅ |
+| P1d | Un documento ya no puede quedarse a medias sin que se sepa | ✅ |
+| P1e | El panel enseña si un tema está mudo, y deja arreglarlo | ✅ |
+| P1f | La referencia que se guardaba era falsa en la mayoría del temario | ✅ |
+| P1g | La referencia legal llega hasta el alumno | ⬜ **falta ejecutar el SQL** |
+| — | **Enseñar lo que ha entrado**: visor de fragmentos por documento | ⬜ **pendiente** |
+
+**El TEMA 9 ya no está mudo.** Reindexado desde el panel el 27 de agosto:
+
+| Documento | Antes | Ahora |
+|---|---|---|
+| Constitución | 40 fragmentos, 0 referencias, máximo 3.100 car. | 232 fragmentos, 229 con referencia, 184 distintas, máximo 989 |
+| TEMA 9 (LOFCS) | **0 fragmentos** | 177 fragmentos, 118 con referencia, 72 distintas, máximo 999 |
+| tema 40 (apuntes) | 31 fragmentos, máximo 2.419 car. | 40 fragmentos, sin referencia (no es texto legal), máximo 979 |
+
+Las 72 referencias de la LOFCS son sus 54 artículos y sus 18 disposiciones. Los
+59 fragmentos sin referencia son el preámbulo, que no sale de ningún artículo.
+Comprobado además que el chat recupera el TEMA 9: tres preguntas de prueba sobre
+la ley devuelven fragmentos suyos con similitud 0,72–0,85.
+
+**Lo que falta, y quién puede hacerlo:**
+
+1. **Ejecutar [`docs/sql/P1g-referencia-en-la-busqueda.sql`](sql/P1g-referencia-en-la-busqueda.sql)**
+   en Supabase. Solo lo puedes hacer tú. Hasta entonces el chat sigue citando el
+   nombre del fichero en vez del artículo: no se rompe nada, pero el dato que ya
+   está guardado no se ve.
+2. **El visor de fragmentos.** Es el punto 3 de esta fase y sigue sin hacer:
+   hoy subes un PDF y no hay forma de comprobar qué ha entendido la plataforma.
+   Es el origen real de la desconfianza, y se cura enseñándolo.
 
 ---
 
