@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import type { AuthUser } from '@/app/lib/auth';
 import { 
   Send, Bot, User, FileText, Search, X, BookOpen, 
   Terminal, Loader2, Copy, Check, ChevronRight,
@@ -11,7 +12,7 @@ import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-interface IntelChatProps { user: any; }
+interface IntelChatProps { user: AuthUser; }
 
 type Message = {
   role: 'ai' | 'user';

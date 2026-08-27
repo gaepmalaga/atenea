@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { AuthUser } from '@/app/lib/auth';
 import { 
   Shield, Save, Lock, Fingerprint, Brain, 
   Briefcase, AlertTriangle, CheckCircle2, 
@@ -10,7 +11,7 @@ import {
 import { getBiodata, saveBiodata } from '@/actions';
 
 interface BiodataManagerProps {
-  user: any;
+  user: AuthUser;
   onExit?: () => void; // Prop opcional para cerrar si se usa como modal/pantalla completa
 }
 

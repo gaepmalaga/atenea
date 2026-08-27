@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getCurrentUser } from '@/actions';
 import { createSupabaseBrowserClient } from '@/app/lib/supabase/client';
+import type { AuthUser } from '@/app/lib/auth';
 import { BookOpen, User, Lock, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
 
 // CORRECCIÓN AQUÍ: Nombre exacto y ruta relativa exacta
@@ -15,7 +16,7 @@ export default function Home() {
   // localStorage y el servidor no podia verla.
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [role, setRole] = useState<string>('student');
   const [loadingUser, setLoadingUser] = useState(true);
   
@@ -77,8 +78,10 @@ export default function Home() {
           alert("¡Cuenta creada! Revisa tu email o inicia sesión.");
           setAuthMode('login');
         }
-    } catch (err: any) {
-        setErrorMsg(err.message);
+    } catch (err: unknown) {
+        // `err.message` sobre un `any` compila aunque lo lanzado no sea un
+        // Error: entonces el alumno veia "undefined" como mensaje.
+        setErrorMsg(err instanceof Error ? err.message : 'No se ha podido completar la operación.');
     } finally {
         setAuthLoading(false);
     }

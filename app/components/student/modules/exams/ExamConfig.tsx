@@ -152,10 +152,13 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
                         <AlertTriangle size={14}/> Dificultad
                     </label>
                     <div className="flex flex-col gap-2">
-                        {['easy', 'medium', 'hard'].map(d => (
+                        {/* `as const`: sin el, el array es string[] y `d` no
+                            encaja en el tipo de `difficulty`. Antes se tapaba
+                            con un `as any` en el onClick. */}
+                        {(['easy', 'medium', 'hard'] as const).map(d => (
                             <button 
                                 key={d}
-                                onClick={() => setSettings({...settings, difficulty: d as any})}
+                                onClick={() => setSettings({ ...settings, difficulty: d })}
                                 className={`w-full py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors ${
                                     settings.difficulty === d 
                                     ? d === 'hard' ? 'bg-red-100 text-red-600' : d === 'medium' ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'

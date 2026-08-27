@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { QuestionStatus } from '@/app/lib/questions';
 import { 
   Upload, FileText, Trash2, Loader2, RefreshCw, 
   Book, Sparkles, ChevronDown, ChevronRight, FolderOpen, 
@@ -386,7 +387,22 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
   setAutoApprove: (v: boolean) => void
 }) {
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  // Lo que devuelve `seedQuestionBank`: el desglose completo, no solo cuantas
+  // se insertaron. Antes era `any` y la pantalla podia leer campos que no
+  // vienen sin que nada avisara.
+  type ResultadoSiembra =
+    | {
+        success: true;
+        inserted: number;
+        duplicated: number;
+        failed: number;
+        requested: number;
+        /** Donde han ido a parar: al banco ('active') o a moderación. */
+        status: QuestionStatus;
+      }
+    | { success: false; error?: string };
+
+  const [result, setResult] = useState<ResultadoSiembra | null>(null);
 
   async function run() {
     if (!subject) return;
