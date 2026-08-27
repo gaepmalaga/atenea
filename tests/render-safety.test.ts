@@ -103,3 +103,55 @@ describe('aislamiento de fallos', () => {
     expect(adminView.src).toContain('<ModuleErrorBoundary');
   });
 });
+
+/**
+ * No vuelven los `any`.
+ *
+ * El CLAUDE.md los tenia listados como trampa conocida: "son la razon por la
+ * que los desajustes de nombres de campo llegaron a produccion sin que nadie se
+ * enterara". No era teoria. Con el estado tipado como `any` se pintaron durante
+ * meses tres campos que no existen:
+ *
+ *   · `u.total_tests` y `u.win_rate`  -> siempre "0" y "0%" en el panel de usuarios
+ *   · `q.difficulty`                  -> la columna es `difficulty_level`
+ *   · `q.topic` en question_bank      -> la tabla guarda `subject_id`
+ *
+ * Los tres salieron solos en cuanto se les puso un tipo de verdad.
+ */
+describe('nada de `any` en el codigo de la aplicacion', () => {
+  const APP = join(__dirname, '..', 'app');
+
+  function todos(dir: string): string[] {
+    return readdirSync(dir).flatMap((entry) => {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) return todos(full);
+      return /\.tsx?$/.test(full) ? [full] : [];
+    });
+  }
+
+  it('ni un `: any` ni un `as any` en app/', () => {
+    const culpables: string[] = [];
+
+    for (const ruta of todos(APP)) {
+      const norm = ruta.split(sep).join('/');
+      const nombre = norm.slice(norm.indexOf('app/'));
+      const src = readFileSync(ruta, 'utf-8').replace(/\r\n/g, '\n');
+
+      // Los comentarios hablan de `any` para explicar por que se quitaron.
+      const sinComentarios = src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1')
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+      // `: any`, `<any>`, `as any` y `any[]`.
+      const re = /(:\s*any\b|<any[,>]|\bas any\b|\bany\[\])/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(sinComentarios))) {
+        const linea = sinComentarios.slice(0, m.index).split('\n').length;
+        culpables.push(`${nombre}:${linea} -> ${m[1].trim()}`);
+      }
+    }
+
+    expect(culpables).toEqual([]);
+  });
+});

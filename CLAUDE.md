@@ -72,11 +72,16 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # ~50 errores heredados, fase 5. No es puerta de calidad todavía.
+npm run lint                   # 4 errores, todos el mismo falso positivo (ver abajo)
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
 ```
+
+Los 4 errores de `lint` son el mismo falso positivo de
+`react-hooks/set-state-in-effect` en los cuatro paneles de administración: la regla
+ve el `setState` dentro de la función que el efecto llama, pero va **después** del
+`await`. Retorcer el código para callarla sería peor que el aviso.
 
 **`npm run dev` usa webpack, no Turbopack.** Turbopack infiere mal la raíz del proyecto
 en modo desarrollo y se va al directorio padre, desde donde no resuelve el
@@ -437,7 +442,7 @@ tests/questions.test.ts         mapeo BD/IA → UI, puntuación de examen
 tests/actions-auth.test.ts      guardas estáticas sobre las 37 Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
-tests/render-safety.test.ts     lecturas sin proteger y aislamiento de módulos
+tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
 tests/exam-results.test.ts      contrato de resultados cliente↔servidor
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
@@ -510,10 +515,13 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 - **`npm run build` necesita las 4 variables de entorno.** `core.ts` lanza en
   tiempo de importación si falta alguna, y `page.tsx` crea el cliente en el
   módulo, así que el prerender falla.
-- **Los `any` que quedan** son la razón por la que los desajustes de nombres de
-  campo llegaron a producción sin que nadie se enterara. Al tocar un módulo, tipa
-  lo que toques: al tipar `StatsPanel` el compilador señaló solo las lecturas
-  nulas que causaban el crash.
+- **Ya no quedan `any` en `app/`, y hay un test que lo vigila.** Eran la razón por
+  la que los desajustes de nombres de campo llegaban a producción sin que nadie se
+  enterara, y no era teoría: al ponerles un tipo de verdad salieron solos tres
+  campos que llevaban meses pintándose y no existen — `u.total_tests` y
+  `u.win_rate` (siempre "0" y "0%" en el panel de usuarios), `q.difficulty` (la
+  columna es `difficulty_level`) y `q.topic` sobre `question_bank` (la tabla
+  guarda `subject_id`).
 - **El orden de la fase 1 está invertido respecto al plan.** La 1.3 (activar RLS)
   fue antes que la 1.2 (acotar la clave de servicio), por lo explicado arriba.
 - **Un error de escritura de Supabase no se ve en pantalla.** Se registra en consola y
