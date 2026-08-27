@@ -328,14 +328,22 @@ la respuesta o a gestionar el examen.** El resto va a las estadísticas.
 
 ```
 1. Penalización en la nota      ✅ hecho (27 ago)
-2. Volver atrás + marcar        ← lo que más se echa de menos
-3. Mapa de preguntas
-4. Blanco explícito
+2. Volver atrás + marcar        ✅ hecho (27 ago)
+3. Mapa de preguntas            ◐ la barra ya se pulsa y enseña las marcadas
+4. Blanco explícito             ← siguiente
 5. Tiempo límite + entrega automática
 6. Pantalla de revisión final
 7. Referencia legal             ← ya se puede: P1 está cerrada
 8. Notas personales
 ```
+
+De la 2 salió algo que no estaba previsto: **las métricas eran por visita**. El
+cronómetro se reiniciaba al cambiar de pregunta, así que en cuanto se puede
+volver atrás, revisar una respuesta al final borraba el tiempo que costó la
+primera vez. Ahora se acumulan por pregunta. Efecto colateral: es la primera vez
+que `option_changes` sale distinto de 0 en una fila real — en entrenamiento no
+puede serlo, y en el simulacro no había forma de cambiar una respuesta después
+de avanzar.
 
 Los seis primeros no dependen de nada y son la mitad del valor.
 
@@ -433,9 +441,28 @@ Falta lo que un profesor necesita para dar clase:
 - Invitar por correo, en vez de esperar a que se registren solos y aparezcan.
 - Agrupar por clase o promoción.
 
-**Contenido.** Qué temas tienen banco y cuáles no —hoy las 35 preguntas aprobadas
-son **todas** de Constitución (I)—, qué preguntas falla todo el mundo (señal de
-que están mal redactadas, no de que sean difíciles), qué temas no toca nadie.
+**Contenido.** Qué temas tienen banco y cuáles no, qué preguntas falla todo el
+mundo (señal de que están mal redactadas, no de que sean difíciles), qué temas no
+toca nadie.
+
+> **Y algo más, que apareció haciendo un simulacro de verdad (27 ago):** de las
+> 35 preguntas que figuraban como aprobadas en Constitución (I), **15 eran de
+> Inteligencia** — OSINT, Deep Web, Dark Net. No era un fallo del código: el
+> examen servía lo que decía el banco. Eran las 15 de la tanda de febrero que no
+> guardaron `document_id`, así que se había perdido el rastro de su origen.
+>
+> Importa más de lo que parece porque `question_attempts` guarda el tema
+> **elegido**, no el de la pregunta: un alumno estudiando Constitución acumulaba
+> estadísticas de Constitución respondiendo sobre la Deep Web.
+>
+> Corregido con [`scripts/revisar-tema-de-las-preguntas.mjs`](../scripts/revisar-tema-de-las-preguntas.mjs),
+> que embebe cada enunciado y lo busca en el temario: las 15 daban entre 3,36 y
+> 4,15 de parecido con Inteligencia y **0,00** con la Constitución. Ahora
+> Constitución (I) tiene 20 activas e Inteligencia 15 — su primer banco, porque
+> hasta hoy sus 26 preguntas estaban todas en moderación.
+>
+> **Esto es exactamente lo que el panel de academia tiene que enseñar solo.** Que
+> haga falta un guión para descubrirlo es el problema.
 
 **Visualmente**, la palabra es *información*, no adornos. Que se vea de un vistazo
 qué necesita atención. Un panel con veinte números iguales no es más avanzado: es
