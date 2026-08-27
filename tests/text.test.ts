@@ -316,6 +316,22 @@ describe('chunkDocument', () => {
     expect(hasLegalStructure(casi + '\nArtículo 3.\ntres.')).toBe(true);
   });
 
+  it('los encabezados del indice no cuentan para decidir si es un texto legal', () => {
+    // Si contaran, un indice de 54 entradas convertiria en "texto legal"
+    // cualquier documento que lo llevara delante, aunque el cuerpo no lo fuera.
+    const conIndice = [
+      'ÍNDICE',
+      'Artículo 1........................................ 3',
+      'Artículo 2........................................ 4',
+      'Artículo 3........................................ 5',
+      'TEXTO',
+      'Apuntes sueltos sin ninguna estructura legal.',
+    ].join('\n');
+
+    expect(countLegalHeadings(conIndice)).toBe(0);
+    expect(hasLegalStructure(conIndice)).toBe(false);
+  });
+
   it('el texto anterior al primer articulo sale sin referencia', () => {
     const conPreambulo = 'Texto introductorio del preambulo.\n' + legal;
     const [primero] = chunkDocument(conPreambulo);

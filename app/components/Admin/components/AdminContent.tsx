@@ -5,8 +5,11 @@ import type { QuestionStatus } from '@/app/lib/questions';
 import {
   Upload, FileText, Trash2, Loader2, RefreshCw,
   Book, Sparkles, ChevronDown, ChevronRight, FolderOpen,
-  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle
+  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle, Eye
 } from 'lucide-react';
+
+import DocumentChunksViewer from './DocumentChunksViewer';
+import type { DocumentChunkRow } from '@/app/lib/documents';
 
 // Importamos las Server Actions
 import {
@@ -14,6 +17,7 @@ import {
   uploadTopicPDF,
   deleteDocument,
   reindexDocument,
+  getDocumentChunks,
   seedQuestionBank
 } from '@/actions'; 
 
@@ -76,6 +80,15 @@ export default function AdminContent() {
   const [loading, setLoading] = useState(true);
   /** Id del documento que se esta reindexando, o null. */
   const [reindexando, setReindexando] = useState<string | null>(null);
+
+  /**
+   * El documento cuyo contenido se esta enseñando, con sus fragmentos ya
+   * cargados. Los trae ESTE componente y no el visor: asi el visor no necesita
+   * ningun efecto, se monta con lo que tiene que pintar.
+   */
+  const [visor, setVisor] = useState<{ filename: string; chunks: DocumentChunkRow[] } | null>(null);
+  /** Id del documento cuyos fragmentos se estan leyendo, o null. */
+  const [cargandoVisor, setCargandoVisor] = useState<string | null>(null);
   
   // Estado para subida de archivos
   const [uploading, setUploading] = useState(false);
@@ -178,6 +191,30 @@ export default function AdminContent() {
       // En el `finally`: si la accion falla, el boton tiene que volver a
       // quedar disponible igualmente.
       setReindexando(null);
+    }
+  }
+
+  /**
+   * Abre el visor con lo que la plataforma ha entendido del documento.
+   *
+   * Los fragmentos se piden AQUI y se le pasan hechos al visor. Es lo que
+   * permite que el visor no tenga ningun efecto.
+   */
+  async function handleVerFragmentos(docId: string, docName: string) {
+    setCargandoVisor(docId);
+    try {
+      const res = await getDocumentChunks(docId);
+
+      if (!res.success) {
+        alert(`No se han podido leer los fragmentos de "${docName}":\n${res.error}`);
+        return;
+      }
+
+      setVisor({ filename: docName, chunks: res.chunks });
+    } finally {
+      // En el `finally`: si la accion falla, el boton tiene que volver a
+      // quedar disponible igualmente.
+      setCargandoVisor(null);
     }
   }
 
@@ -450,6 +487,23 @@ export default function AdminContent() {
                                                             </div>
 
                                                             <div className="flex items-center gap-1 flex-shrink-0">
+                                                                {/* Ver lo que ha entrado va DELANTE de reindexar: primero se
+                                                                    mira que ha entendido la plataforma, y solo entonces se
+                                                                    decide si hay que volver a intentarlo. */}
+                                                                <button
+                                                                    onClick={() => handleVerFragmentos(doc.id, doc.filename)}
+                                                                    disabled={cargandoVisor === doc.id}
+                                                                    className="flex items-center gap-2 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+                                                                    title="Ver los fragmentos que se han indexado de este documento"
+                                                                >
+                                                                    <span className="font-bold text-[10px] uppercase hidden sm:inline">
+                                                                        {cargandoVisor === doc.id ? 'Leyendo…' : 'Ver'}
+                                                                    </span>
+                                                                    {cargandoVisor === doc.id
+                                                                        ? <Loader2 size={14} className="animate-spin"/>
+                                                                        : <Eye size={14}/>}
+                                                                </button>
+
                                                                 <button
                                                                     onClick={() => handleReindex(doc.id, doc.filename)}
                                                                     disabled={reindexando === doc.id}
@@ -484,6 +538,15 @@ export default function AdminContent() {
                 ))}
             </div>
         </div>
+
+        {/* VISOR: que ha entendido la plataforma de este documento */}
+        {visor && (
+            <DocumentChunksViewer
+                filename={visor.filename}
+                chunks={visor.chunks}
+                onClose={() => setVisor(null)}
+            />
+        )}
     </div>
   );
 }

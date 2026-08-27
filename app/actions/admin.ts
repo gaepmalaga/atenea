@@ -2,6 +2,7 @@
 import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
 import { cleanLegalText, chunkDocument, type LegalChunk } from '../lib/text';
+import type { DocumentChunkRow } from '../lib/documents';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
@@ -252,7 +253,9 @@ async function indexarFragmentos(
   for (let i = 0; i < fragmentos.length; i += BATCH_SIZE) {
     const lote = fragmentos.slice(i, i + BATCH_SIZE);
 
-    await Promise.all(lote.map(async (fragmento, j) => {
+    // Los embeddings, en paralelo. Cada uno guarda su posicion: si falla el
+    // tercero, los otros cuatro no se corren de sitio.
+    const calculados = await Promise.all(lote.map(async (fragmento, j) => {
       const posicion = i + j + 1;
       try {
         const emb = await embeddingModel.embedContent(fragmento.text);
@@ -260,25 +263,59 @@ async function indexarFragmentos(
 
         if (!vector || vector.length === 0) throw new Error("La IA devolvió un vector vacío");
 
-        const { error } = await supabase.from('document_chunks').insert({
-          document_id: documentId,
-          content_chunk: fragmento.text,
-          // De que articulo sale. `null` en textos sin estructura legal.
-          reference: fragmento.reference,
-          embedding: vector,
-        });
-
-        if (error) throw error;
-        indexed++;
-
+        return {
+          posicion,
+          fila: {
+            document_id: documentId,
+            content_chunk: fragmento.text,
+            // De que articulo sale. `null` en textos sin estructura legal.
+            reference: fragmento.reference,
+            embedding: vector,
+          },
+        };
       } catch (err) {
         // Antes esto solo iba a `console.error`: el administrador veia
         // "✅ Indexado" aunque la mitad del temario no se hubiera guardado.
         const msg = errorMessage(err);
         failures.push(`#${posicion}: ${msg}`);
         console.error(`❌ Fragmento ${posicion}/${fragmentos.length}:`, msg);
+        return null;
       }
     }));
+
+    const listos = calculados.filter((c): c is NonNullable<typeof c> => c !== null);
+    if (listos.length === 0) continue;
+
+    // SE INSERTAN JUNTOS Y EN ORDEN.
+    //
+    // `document_chunks.id` sale de una secuencia, asi que el orden de insercion
+    // es el UNICO rastro que queda del orden del documento: no hay columna de
+    // posicion. Con un insert por fragmento lanzado en paralelo, los cinco del
+    // lote se pisaban y el orden dentro de cada grupo salia al azar. Da igual
+    // para el chat —recupera por similitud— pero no para el visor, que se
+    // supone que enseña el documento tal y como entro.
+    const { error } = await supabase
+      .from('document_chunks')
+      .insert(listos.map((c) => c.fila));
+
+    if (!error) {
+      indexed += listos.length;
+      continue;
+    }
+
+    // El lote entero ha fallado: PostgREST rechaza la insercion completa si una
+    // sola fila no le cuadra. Se reintenta una a una para no perder cuatro
+    // fragmentos buenos por culpa de uno malo.
+    console.error(`❌ Lote ${i / BATCH_SIZE + 1} completo:`, error.message);
+    for (const { fila, posicion } of listos) {
+      const { error: errorFila } = await supabase.from('document_chunks').insert(fila);
+      if (errorFila) {
+        failures.push(`#${posicion}: ${errorFila.message}`);
+        console.error(`❌ Fragmento ${posicion}/${fragmentos.length}:`, errorFila.message);
+      } else {
+        indexed++;
+      }
+    }
   }
 
   return { indexed, total: fragmentos.length, failures };
@@ -353,7 +390,39 @@ export async function reindexDocument(documentId: string) {
     console.error('reindexDocument:', e);
     return { success: false as const, error: errorMessage(e) };
   }
-}export async function deleteTopic(topicNameOrId: string) {
+}/**
+ * Los fragmentos de un documento, para enseñarlos en el panel.
+ *
+ * Hasta ahora el administrador solo veia un contador. Podia subir un PDF, leer
+ * «177 fragmentos» y no tener ni idea de si la plataforma habia entendido el
+ * texto o lo habia picado a ciegas.
+ *
+ * NO SE PIDE `embedding`. Son 3.072 numeros por fragmento: la Constitucion
+ * mandaria varios megas al navegador para pintar texto.
+ *
+ * Se ordena por `id` porque es lo unico que conserva el orden del documento:
+ * la tabla no tiene columna de posicion y el id sale de una secuencia. Por eso
+ * `indexarFragmentos` inserta cada lote de una vez y en orden.
+ */
+export async function getDocumentChunks(documentId: string) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!documentId) return { success: false as const, error: 'Falta el id del documento.' };
+
+  const { data, error } = await supabase
+    .from('document_chunks')
+    .select('id, reference, content_chunk')
+    .eq('document_id', documentId)
+    .order('id', { ascending: true });
+
+  if (error) {
+    console.error('getDocumentChunks:', error.message);
+    return { success: false as const, error: error.message };
+  }
+
+  return { success: true as const, chunks: (data ?? []) as DocumentChunkRow[] };
+}
+export async function deleteTopic(topicNameOrId: string) {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
     const { data } = await supabase.from('subjects').select('id').ilike('title', `%${topicNameOrId}%`).single();
