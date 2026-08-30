@@ -74,12 +74,14 @@ describe('aislamiento de fallos', () => {
   });
 
   it('cada modulo del alumno va dentro de un ModuleErrorBoundary', () => {
-    // Siete pestanias, siete envoltorios. Si se anade un modulo sin aislar,
-    // este test lo canta.
+    // Un envoltorio por modulo. Si se anade uno sin aislar, este test lo
+    // canta — y lo hizo: al llegar `FailedQuestions` conto 8 donde la lista
+    // decia 7.
     const modules = [
       'DashboardHome',
       'IntelChat',
       'ExamManager',
+      'FailedQuestions',
       'FlashcardDeck',
       'PhysicalTrainer',
       'StatsPanel',

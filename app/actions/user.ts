@@ -3,6 +3,12 @@
 import { supabaseAdmin } from './core';
 import { getSessionUser, requireUser, type AuthUser } from '../lib/auth';
 import { summarizeResults, type TestResultRow } from '../lib/stats';
+import {
+  groupFailedAttempts,
+  failuresByTopic,
+  type FailedAttemptRow,
+  type FailedQuestion,
+} from '../lib/review';
 
 /**
  * Devuelve el usuario de la sesion actual, o null si no hay sesion.
@@ -94,4 +100,73 @@ export async function getUserStats() {
     console.error('getUserStats:', e instanceof Error ? e.message : e);
     return { success: false as const, error: 'Error al calcular estadisticas.' };
   }
+}
+
+// --- REPASO DE LO FALLADO ---
+
+/**
+ * Cuantos intentos fallados se leen para construir el repaso.
+ *
+ * Es mas alto que `STATS_SAMPLE` a proposito: las estadisticas describen el
+ * momento actual, pero una pregunta fallada hace tres meses y nunca repasada
+ * sigue siendo una laguna.
+ */
+const REVIEW_SAMPLE = 300;
+
+/**
+ * Las preguntas que el alumno ha fallado, para volver a ellas.
+ *
+ * La plataforma sabia perfectamente cuales eran —y por que, porque el
+ * diagnostico del error es obligatorio— y no tenia ni una pantalla para
+ * repasarlas: el dato se recogia y se moria en la tabla.
+ *
+ * El enunciado y las opciones vienen por JOIN (regla 5). Desnormalizarlos
+ * dejaria copias que se quedan obsoletas en cuanto un admin corrija la
+ * pregunta, y el alumno repasaria la version mala.
+ *
+ * No acepta `userId`: sale de la cookie de sesion (regla 1).
+ */
+export async function getFailedQuestions(): Promise<
+  | { success: true; items: FailedQuestion[]; byTopic: { topic: string; count: number }[] }
+  | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const { data, error } = await supabaseAdmin
+    .from('question_attempts')
+    .select('question_id, topic, error_type, created_at, is_correct, selected_index, question:question_bank(question_text, options, correct_index, explanation)')
+    .eq('user_id', auth.user.id)
+    .eq('is_correct', false)
+    .order('created_at', { ascending: false })
+    .limit(REVIEW_SAMPLE);
+
+  if (error) {
+    // Un error de lectura NO se traga: sin esto la pantalla diria "no has
+    // fallado nada", que es la mentira mas tranquilizadora posible.
+    console.error('getFailedQuestions:', error.message);
+    return { success: false as const, error: error.message };
+  }
+
+  const rows: FailedAttemptRow[] = (data ?? []).map((row) => {
+    // PostgREST devuelve el objeto embebido, pero lo tipa como array cuando no
+    // puede probar que la relacion es de uno: se normaliza aqui y no en el
+    // modulo puro, que no tiene por que saber de PostgREST.
+    const q = Array.isArray(row.question) ? row.question[0] : row.question;
+    return {
+      question_id: row.question_id,
+      topic: row.topic,
+      error_type: row.error_type,
+      created_at: row.created_at,
+      is_correct: row.is_correct,
+      selected_index: row.selected_index,
+      question_text: q?.question_text ?? null,
+      options: q?.options,
+      correct_index: q?.correct_index ?? null,
+      explanation: q?.explanation ?? null,
+    };
+  });
+
+  const items = groupFailedAttempts(rows);
+  return { success: true as const, items, byTopic: failuresByTopic(items) };
 }

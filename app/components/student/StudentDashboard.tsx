@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { 
   LayoutGrid, MessageSquareText, Crosshair, Zap, 
-  Fingerprint, BarChart2, Dumbbell 
+  Fingerprint, BarChart2, Dumbbell, Target 
 } from 'lucide-react';
 
 // --- LAYOUT COMPONENTS ---
@@ -20,11 +20,12 @@ import PhysicalTrainer from './modules/training/PhysicalTrainer'; // NUEVO MÓDU
 import BiodataManager from './modules/profile/BiodataManager';
 import InterviewRoom from './modules/interview/InterviewRoom';
 import StatsPanel from './modules/stats/StatsPanel';
+import FailedQuestions from './modules/review/FailedQuestions';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 // --- TIPOS ---
-export type TabId = 'home' | 'chat' | 'test' | 'cards' | 'training' | 'interview' | 'stats';
+export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'training' | 'interview' | 'stats';
 
 interface StudentDashboardProps {
   user: AuthUser;
@@ -41,6 +42,9 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     { id: 'home', label: 'Centro de Mando', icon: LayoutGrid },
     { id: 'chat', label: 'Inteligencia (RAG)', icon: MessageSquareText },
     { id: 'test', label: 'Operaciones (Test)', icon: Crosshair },
+    // Justo despues del test, no al final: el repaso del fallo es el paso
+    // siguiente de hacer el test, no un apartado de consulta.
+    { id: 'review', label: 'Repasar fallos', icon: Target },
     { id: 'cards', label: 'Drills (Memoria)', icon: Zap },
     { id: 'training', label: 'Prep. Física', icon: Dumbbell }, // NUEVO
     { id: 'interview', label: 'Perfilado & Voz', icon: Fingerprint },
@@ -105,6 +109,12 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             {activeTab === 'test' && (
                 <ModuleErrorBoundary moduleName="Operaciones">
                     <ExamManager onZenToggle={setZenMode} />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'review' && (
+                <ModuleErrorBoundary moduleName="Repaso de fallos">
+                    <FailedQuestions />
                 </ModuleErrorBoundary>
             )}
 
