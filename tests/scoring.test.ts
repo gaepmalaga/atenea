@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { scoreExam, penaltyPerError, CNP_SCORING, type ScorableQuestion } from '../app/lib/scoring';
+import {
+  scoreExam,
+  penaltyPerError,
+  examClock,
+  examDurationSeconds,
+  CNP_SCORING,
+  type ScorableQuestion,
+} from '../app/lib/scoring';
 
 /**
  * LA NOTA DEL SIMULACRO MENTIA, Y MENTIA HACIA ARRIBA
@@ -96,7 +103,7 @@ describe('scoreExam · los bordes', () => {
 
   it('con una sola alternativa no divide entre cero', () => {
     // No hay examen asi, pero -Infinity se pintaria tal cual en pantalla.
-    const r = scoreExam([...veces(A, 5), ...veces(F, 5)], { options: 1, scale: 10, passMark: 3 });
+    const r = scoreExam([...veces(A, 5), ...veces(F, 5)], { options: 1, scale: 10, passMark: 3, secondsPerQuestion: 30 });
     expect(Number.isFinite(r.net)).toBe(true);
     expect(Number.isFinite(r.score)).toBe(true);
   });
@@ -120,7 +127,7 @@ describe('el aprobado sale de las reglas, no de un 50 % inventado', () => {
 
   it('otra convocatoria se pasa por parametro, no se reescribe la funcion', () => {
     // Con 4 alternativas cada tres fallos se pierde un acierto.
-    const r = scoreExam([...veces(A, 10), ...veces(F, 3)], { options: 4, scale: 10, passMark: 5 });
+    const r = scoreExam([...veces(A, 10), ...veces(F, 3)], { options: 4, scale: 10, passMark: 5, secondsPerQuestion: 30 });
     expect(r.net).toBe(9); // 10 - 3/3
   });
 });
@@ -131,6 +138,89 @@ describe('penaltyPerError', () => {
   });
 
   it('con cuatro, un tercio', () => {
-    expect(penaltyPerError({ options: 4, scale: 10, passMark: 5 })).toBe(0.33);
+    expect(penaltyPerError({ options: 4, scale: 10, passMark: 5, secondsPerQuestion: 30 })).toBe(0.33);
+  });
+});
+
+/**
+ * P3.5 — EL RELOJ DEL SIMULACRO.
+ *
+ * El «Simulacro real» decia tener cronometro pero contaba HACIA ARRIBA y no
+ * terminaba nunca. La mitad de la dificultad del examen real es que el tiempo
+ * se acaba: quien solo ha practicado sin limite no sabe a que ritmo va.
+ */
+describe('examDurationSeconds', () => {
+  it('reproduce la convocatoria: 100 preguntas, 50 minutos', () => {
+    expect(examDurationSeconds(100)).toBe(50 * 60);
+  });
+
+  it('un simulacro corto dura lo PROPORCIONAL, no los 50 minutos enteros', () => {
+    // Es lo unico que hace comparable un test de 20 preguntas con el examen.
+    expect(examDurationSeconds(20)).toBe(10 * 60);
+    expect(examDurationSeconds(10)).toBe(5 * 60);
+  });
+
+  it('acepta otras reglas: la formula cambia entre convocatorias', () => {
+    const otra = { ...CNP_SCORING, secondsPerQuestion: 60 };
+    expect(examDurationSeconds(10, otra)).toBe(600);
+  });
+
+  it('un recuento imposible no produce una duracion negativa ni NaN', () => {
+    expect(examDurationSeconds(0)).toBe(0);
+    expect(examDurationSeconds(-5)).toBe(0);
+    expect(examDurationSeconds(NaN)).toBe(0);
+  });
+});
+
+describe('examClock', () => {
+  const DIEZ_MIN = 600;
+
+  it('cuenta hacia atras', () => {
+    expect(examClock(DIEZ_MIN, 0).remaining).toBe(600);
+    expect(examClock(DIEZ_MIN, 60).remaining).toBe(540);
+  });
+
+  it('al agotarse marca expirado, que es lo que dispara la entrega', () => {
+    const r = examClock(DIEZ_MIN, 600);
+    expect(r.remaining).toBe(0);
+    expect(r.expired).toBe(true);
+  });
+
+  it('pasado el limite NO cuenta en negativo', () => {
+    // La pestania en segundo plano puede devolver un transcurrido mucho mayor
+    // que el limite al volver. Pintar "-4:12" seria absurdo.
+    const r = examClock(DIEZ_MIN, 900);
+    expect(r.remaining).toBe(0);
+    expect(r.expired).toBe(true);
+    expect(r.percentUsed).toBe(100);
+  });
+
+  it('sin limite nunca expira: es el modo entrenamiento', () => {
+    for (const sinLimite of [0, -1]) {
+      const r = examClock(sinLimite, 99_999);
+      expect(r.expired).toBe(false);
+      expect(r.urgency).toBe('calm');
+    }
+  });
+
+  it('los avisos son proporcionales, no minutos fijos', () => {
+    // Un simulacro de 5 preguntas dura 2:30. Avisar "quedan 5 minutos" ahi no
+    // significa nada, asi que el umbral va en porcentaje.
+    expect(examClock(DIEZ_MIN, 0).urgency).toBe('calm');
+    expect(examClock(DIEZ_MIN, 60 * 8).urgency).toBe('warning');   // quedan 2 min = 20 %
+    expect(examClock(DIEZ_MIN, 570).urgency).toBe('critical');     // quedan 30 s = 5 %
+
+    const corto = examDurationSeconds(5); // 150 s
+    expect(examClock(corto, 120).urgency).toBe('warning');         // quedan 30 s = 20 %
+  });
+
+  it('expirado es critico, no vuelve a calm', () => {
+    expect(examClock(DIEZ_MIN, 600).urgency).toBe('critical');
+  });
+
+  it('un transcurrido corrupto no rompe el reloj', () => {
+    const r = examClock(DIEZ_MIN, NaN);
+    expect(r.remaining).toBe(DIEZ_MIN);
+    expect(r.expired).toBe(false);
   });
 });

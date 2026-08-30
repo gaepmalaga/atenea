@@ -7,6 +7,7 @@ import {
   ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark, Eraser
 } from 'lucide-react';
 import { formatTime } from '@/app/lib/timer';
+import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
 import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
 import { countChange } from '@/app/lib/exam-results';
@@ -17,6 +18,13 @@ interface ActiveTestProps {
   topicName: string;
   onFinish: (qs: Question[]) => void;
   onExit: () => void;
+  /**
+   * Duracion del simulacro. 0 o ausente = sin limite.
+   *
+   * En entrenamiento nunca hay reloj: correr no aporta nada cuando la pregunta
+   * se corrige al momento y hay que diagnosticar el fallo.
+   */
+  durationSeconds?: number;
 }
 
 // Tipos de Reporte disponibles
@@ -29,7 +37,9 @@ const REPORT_TYPES = [
   { id: 'other', label: 'Otro' }
 ];
 
-export default function ActiveTest({ questions, mode, topicName, onFinish, onExit }: ActiveTestProps) {
+export default function ActiveTest({
+  questions, mode, topicName, onFinish, onExit, durationSeconds = 0,
+}: ActiveTestProps) {
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errorTagged, setErrorTagged] = useState(false); 
@@ -99,11 +109,31 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
 
   const segundosTest = Math.floor((ahora - testStartRef.current) / 1000);
 
+  /**
+   * El reloj del simulacro, DERIVADO del transcurrido.
+   *
+   * No es estado: guardarlo obligaria a mantenerlo sincronizado con `ahora` en
+   * un efecto, que es de donde salio la mitad de los fallos de esta pantalla
+   * (regla 14). Si se puede derivar, se deriva.
+   */
+  const reloj = examClock(durationSeconds, segundosTest);
+  const conLimite = durationSeconds > 0;
+
   // Estados para Votos y Reportes
   const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportData, setReportData] = useState({ type: '', message: '' });
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  /**
+   * Volver atrás, marcar y revisar antes de entregar solo existen en el
+   * simulacro.
+   *
+   * En entrenamiento cada pregunta se corrige al momento: volver a una ya
+   * corregida no es repasar, es mirar la respuesta. Y marcar para revisar no
+   * lleva a ninguna parte si no se puede volver.
+   */
+  const navegacionLibre = mode === 'exam';
 
   const currentQ = localQuestions[currentIndex];
   const isAnswered = !!currentQ.userAnswer;
@@ -292,10 +322,56 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
     onFinish(finales);
   }, [cerrarVisita, currentIndex, localQuestions, metricasDe, onFinish]);
 
+  /**
+   * PANTALLA DE REVISION ANTES DE ENTREGAR (lo que Moodle llama «Terminar
+   * intento»).
+   *
+   * Entregar era irreversible y estaba a un clic del boton de avanzar, en el
+   * mismo sitio y con el mismo aspecto: pulsar «SIGUIENTE» de mas en la ultima
+   * pregunta entregaba el examen. Con 13 preguntas en blanco sin saberlo.
+   *
+   * Solo en el simulacro. En entrenamiento cada pregunta se corrige al momento,
+   * asi que no hay nada que revisar al final.
+   */
+  const [revisando, setRevisando] = useState(false);
+
   const handleNext = useCallback(() => {
-    if (currentIndex < localQuestions.length - 1) irA(currentIndex + 1);
-    else handleFinish();
-  }, [currentIndex, handleFinish, irA, localQuestions.length]);
+    if (currentIndex < localQuestions.length - 1) { irA(currentIndex + 1); return; }
+    // Al final del simulacro se pasa por la revision; en entrenamiento se
+    // entrega directamente.
+    if (navegacionLibre) { cerrarVisita(currentIndex); setRevisando(true); return; }
+    handleFinish();
+  }, [cerrarVisita, currentIndex, handleFinish, irA, localQuestions.length, navegacionLibre]);
+
+  /** Vuelve del resumen a una pregunta concreta. */
+  const volverAlExamen = useCallback((destino: number) => {
+    setRevisando(false);
+    // El cronometro de la pregunta arranca AHORA: el tiempo mirando el resumen
+    // no es tiempo de ninguna pregunta.
+    entradaRef.current = Date.now();
+    if (destino !== currentIndex) irA(destino);
+  }, [currentIndex, irA]);
+
+  /**
+   * ENTREGA AUTOMATICA AL AGOTARSE EL TIEMPO.
+   *
+   * Es lo que convierte el cronometro en un limite de verdad. Sin esto el
+   * reloj llegaba a cero y no pasaba nada, que es justo lo que no hace un
+   * tribunal.
+   *
+   * El `ref` no es defensivo de mas: en StrictMode los efectos corren dos
+   * veces, y el intervalo sigue repintando despues de expirar. Sin el, el
+   * examen se entregaria varias veces y `saveExamResults` insertaria las filas
+   * repetidas — el mismo fallo de la doble insercion de la fase 2.4, por otra
+   * puerta.
+   */
+  const entregadoRef = useRef(false);
+
+  useEffect(() => {
+    if (!conLimite || !reloj.expired || entregadoRef.current) return;
+    entregadoRef.current = true;
+    handleFinish();
+  }, [conLimite, reloj.expired, handleFinish]);
 
   // --- ATAJOS DE TECLADO ---
   // En un test de 100 preguntas ir a raton cansa. A/B/C o 1/2/3 responden,
@@ -305,14 +381,6 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
   // no, teclear "la b esta mal" en el reporte marcaria la opcion B.
   const puedeAvanzar = mode === 'exam' || (isAnswered && (isCorrect || errorTagged));
 
-  /**
-   * Volver atrás y marcar solo existen en el simulacro.
-   *
-   * En entrenamiento cada pregunta se corrige al momento: volver a una ya
-   * corregida no es repasar, es mirar la respuesta. Y marcar para revisar no
-   * lleva a ninguna parte si no se puede volver.
-   */
-  const navegacionLibre = mode === 'exam';
   const estaMarcada = marcadas.has(currentIndex);
 
   useEffect(() => {
@@ -349,6 +417,114 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
   }, [alternarMarca, currentIndex, currentQ, dejarEnBlanco, handleAnswer, handleNext, irA, isReportModalOpen, navegacionLibre, puedeAvanzar]);
+
+  /**
+   * PANTALLA DE REVISION — «Terminar intento».
+   *
+   * Un resumen antes de entregar: cuantas contestadas, cuantas en blanco,
+   * cuantas marcadas, y desde ahi volver a cualquiera. Entregar es
+   * irreversible y estaba a un clic del boton de avanzar; ahora hay una
+   * parada explicita en medio.
+   *
+   * El boton de entregar NO se pinta como el de avanzar, a proposito: el color
+   * y la posicion son parte de la guarda contra el clic de mas.
+   */
+  if (revisando) {
+    const enBlanco = localQuestions.reduce<number[]>((acc, q, i) => (q.userAnswer ? acc : [...acc, i]), []);
+    const contestadas = localQuestions.length - enBlanco.length;
+    const pendientes = enBlanco.length + marcadas.size;
+
+    return (
+      <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-24">
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
+
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-8">
+            Antes de entregar
+          </h2>
+
+          <div className="grid grid-cols-3 gap-4 mb-10">
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+              <p className="text-3xl font-black text-indigo-600">{contestadas}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Contestadas</p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+              <p className={`text-3xl font-black ${enBlanco.length > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
+                {enBlanco.length}
+              </p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">En blanco</p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+              <p className={`text-3xl font-black ${marcadas.size > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                {marcadas.size}
+              </p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Marcadas</p>
+            </div>
+          </div>
+
+          {/* Que un blanco no reste es cierto, pero tampoco suma. Decirlo aqui
+              evita que el alumno lo lea como "da igual dejarlas". */}
+          {enBlanco.length > 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+              Las respuestas en blanco <strong className="text-slate-700 dark:text-slate-200">no restan</strong>,
+              pero tampoco suman. Si puedes descartar una opción, arriesgar sale a cuenta.
+            </p>
+          )}
+
+          {/* LA CUADRICULA. Aqui si cabe el numero de cada pregunta, que en la
+              barra de la cabecera no cabia. */}
+          <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 mb-10">
+            {localQuestions.map((q, i) => {
+              const respondida = !!q.userAnswer;
+              const marcada = marcadas.has(i);
+              return (
+                <button
+                  key={i}
+                  onClick={() => volverAlExamen(i)}
+                  title={`Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${respondida ? '' : ' · en blanco'}`}
+                  className={`relative aspect-square rounded-xl text-xs font-black flex items-center justify-center border-2 transition-all hover:scale-105 ${
+                    respondida
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white dark:bg-slate-950 text-slate-400 border-dashed border-slate-300 dark:border-slate-700'
+                  }`}
+                >
+                  {i + 1}
+                  {marcada && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white dark:border-slate-900" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => volverAlExamen(enBlanco[0] ?? [...marcadas][0] ?? currentIndex)}
+              className="flex-1 px-6 py-4 rounded-xl font-black text-sm border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-400 transition-colors flex items-center justify-center gap-2"
+            >
+              <ArrowLeft size={16} />
+              {pendientes > 0 ? 'Volver a las pendientes' : 'Volver al examen'}
+            </button>
+            <button
+              onClick={handleFinish}
+              className="flex-1 px-6 py-4 rounded-xl font-black text-sm bg-slate-900 dark:bg-white text-white dark:text-black shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+            >
+              Entregar y corregir
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
+
+          {conLimite && (
+            <p className={`text-center text-[11px] font-black uppercase tracking-wider mt-6 font-mono ${
+              reloj.urgency === 'critical' ? 'text-red-500' : 'text-slate-400'
+            }`}>
+              El reloj sigue corriendo · {formatTime(reloj.remaining)}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     // `justify-center` sobre `min-h-[80vh]` dejaba la tarjeta flotando en
@@ -397,8 +573,26 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
                       </button>
                   )}
 
-                  <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 tabular-nums">
-                      <Clock size={13} className="text-slate-400"/> {formatTime(segundosTest)}
+                  {/* CUENTA ATRAS, no cuenta adelante.
+                      El simulacro decia tener cronómetro pero contaba hacia
+                      arriba y no terminaba nunca. La mitad de la dificultad
+                      del examen real es que el tiempo se acaba: quien solo ha
+                      practicado sin límite no sabe a qué ritmo va.
+                      El color es el aviso — no hay pitidos, porque un examen
+                      se hace en silencio. */}
+                  <span
+                    title={conLimite
+                      ? `Quedan ${formatTime(reloj.remaining)} de ${formatTime(durationSeconds)}`
+                      : 'Sin límite de tiempo'}
+                    className={`text-[11px] font-black font-mono flex items-center gap-1.5 tabular-nums transition-colors ${
+                      !conLimite ? 'text-slate-500 dark:text-slate-400'
+                        : reloj.urgency === 'critical' ? 'text-red-500 animate-pulse'
+                        : reloj.urgency === 'warning' ? 'text-amber-500'
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}
+                  >
+                      <Clock size={13} className={conLimite && reloj.urgency !== 'calm' ? '' : 'text-slate-400'}/>
+                      {conLimite ? formatTime(reloj.remaining) : formatTime(segundosTest)}
                   </span>
                   <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono tabular-nums">
                       {currentIndex + 1}<span className="text-slate-400">/{localQuestions.length}</span>
@@ -719,7 +913,14 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
                     disabled={!puedeAvanzar}
                     className="ml-auto bg-slate-900 dark:bg-white text-white dark:text-black px-8 py-3.5 rounded-xl font-black text-sm shadow-xl hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed flex items-center gap-3"
                   >
-                      {currentIndex < localQuestions.length - 1 ? 'SIGUIENTE' : 'FINALIZAR'}
+                      {/* En el simulacro la última NO entrega: lleva al
+                          resumen. Decir "FINALIZAR" donde se abre una revisión
+                          es mentir sobre lo que hace el botón, y donde de
+                          verdad entregaba era peor: irreversible, en el mismo
+                          sitio y con el mismo aspecto que "SIGUIENTE". */}
+                      {currentIndex < localQuestions.length - 1
+                        ? 'SIGUIENTE'
+                        : navegacionLibre ? 'REVISAR' : 'FINALIZAR'}
                       <ChevronRight size={16}/>
                   </button>
               ) : (

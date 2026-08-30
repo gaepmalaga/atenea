@@ -310,3 +310,51 @@ describe('el blanco deliberado', () => {
     expect(isBlankAnswer(0)).toBe(false);
   });
 });
+
+/**
+ * P3.5 y P3.6 — GUARDAS DE LA PANTALLA DEL SIMULACRO.
+ *
+ * Estaticas: leen el fuente y fallan si vuelve un patron peligroso. No
+ * necesitan Supabase ni renderizar React.
+ */
+describe('el reloj y la revision del simulacro', () => {
+  const read = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf-8');
+  const stripComments = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  const activeTest = stripComments(read('app/components/student/modules/exams/ActiveTest.tsx'));
+  const manager = stripComments(read('app/components/student/modules/exams/ExamManager.tsx'));
+
+  it('el reloj se deriva, no se guarda en estado', () => {
+    // Guardarlo obligaria a sincronizarlo con `ahora` en un efecto, que es de
+    // donde salio la mitad de los fallos de esta pantalla (regla 14).
+    expect(activeTest).toContain('examClock(durationSeconds, segundosTest)');
+    expect(activeTest).not.toMatch(/useState[^;]*(reloj|remaining|secondsLeft)/i);
+  });
+
+  it('la duracion NO esta escrita a mano en el componente', () => {
+    // Sale de `CNP_SCORING`, que es donde vive la convocatoria. Un 3000 suelto
+    // aqui es un numero que nadie vuelve a encontrar el dia que cambie.
+    expect(manager).toContain('examDurationSeconds(');
+    expect(activeTest).not.toMatch(/durationSeconds\s*=\s*\d{3,}/);
+  });
+
+  it('la entrega automatica esta protegida contra dispararse dos veces', () => {
+    // En StrictMode los efectos corren dos veces y el intervalo sigue
+    // repintando despues de expirar: sin guarda, `saveExamResults` insertaria
+    // las filas repetidas. Es el fallo de la doble insercion de la 2.4 por
+    // otra puerta.
+    expect(activeTest).toContain('entregadoRef');
+    expect(activeTest).toMatch(/entregadoRef\.current\s*=\s*true/);
+  });
+
+  it('el simulacro pasa por la revision antes de entregar', () => {
+    // Entregar es irreversible y estaba a un clic del boton de avanzar.
+    expect(activeTest).toContain('setRevisando(true)');
+    expect(activeTest).toContain('volverAlExamen');
+  });
+
+  it('el reloj no corre en entrenamiento', () => {
+    expect(manager).toMatch(/settings\.mode === 'exam' \? examDurationSeconds/);
+  });
+});

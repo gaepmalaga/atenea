@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 
 import ExamConfig from './ExamConfig';
 import ActiveTest from './ActiveTest';
+import { examDurationSeconds } from '@/app/lib/scoring';
 import ExamResults from './ExamResults';
 
 // Los tipos y el mapeo DB/IA -> UI viven en app/lib/questions.ts (modulo puro
@@ -157,9 +158,19 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
         <ActiveTest
           questions={questions}
           mode={settings.mode}
-          topicName={settings.selectedTopics[0]} 
+          topicName={settings.selectedTopics[0]}
           onFinish={handleFinish}
           onExit={handleExit}
+          // El reloj corre SOLO en el simulacro, y la duración es la de la
+          // convocatoria escalada a las preguntas de este test: 30 s cada una,
+          // que salen de las 100 preguntas en 50 minutos del BOE. En
+          // entrenamiento no hay límite — la pregunta se corrige al momento y
+          // hay que diagnosticar el fallo, así que correr no aporta nada.
+          //
+          // Se cuenta sobre las preguntas REALMENTE cargadas, no sobre las
+          // pedidas: si el banco solo devolvió 12 de las 20, dar 10 minutos
+          // sería regalar tiempo.
+          durationSeconds={settings.mode === 'exam' ? examDurationSeconds(questions.length) : 0}
         />
       )}
 

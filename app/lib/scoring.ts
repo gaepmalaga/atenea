@@ -30,6 +30,14 @@ export type ScoringRules = {
   scale: number;
   /** Minimo para superar la prueba, en la misma escala. */
   passMark: number;
+  /**
+   * Segundos por pregunta.
+   *
+   * Se guarda POR PREGUNTA y no como duracion total para que un simulacro de
+   * 20 preguntas dure lo que duraria en el examen real, y no los 50 minutos
+   * enteros. Es lo unico que hace comparable un simulacro corto.
+   */
+  secondsPerQuestion: number;
 };
 
 /**
@@ -55,6 +63,8 @@ export const CNP_SCORING: ScoringRules = {
   options: 3,
   scale: 10,
   passMark: 3,
+  // 100 preguntas en 50 minutos: 30 segundos por pregunta. Del mismo BOE.
+  secondsPerQuestion: 30,
 };
 
 /** Una pregunta terminada, en lo que hace falta para puntuarla. */
@@ -148,4 +158,83 @@ export function scoreExam(
  */
 export function penaltyPerError(rules: ScoringRules = CNP_SCORING): number {
   return redondear(1 / Math.max(1, rules.options - 1));
+}
+
+// ============================================================
+// EL RELOJ DEL SIMULACRO
+// ============================================================
+//
+// El «Simulacro real» decia tener cronometro, pero contaba HACIA ARRIBA y no
+// terminaba nunca. Un simulacro sin reloj que corra hacia cero no es un
+// simulacro: la mitad de la dificultad del examen es que el tiempo se acaba, y
+// un opositor que solo ha practicado sin limite no sabe a que ritmo va.
+//
+// La aritmetica vive aqui y no dentro del componente por la regla 21, y porque
+// es de las que se le enseñan al alumno (regla 8).
+
+/**
+ * Cuanto dura un simulacro de `questionCount` preguntas.
+ *
+ * Proporcional a la convocatoria, no un numero fijo: 30 s por pregunta salen de
+ * las 100 preguntas en 50 minutos del BOE.
+ */
+export function examDurationSeconds(
+  questionCount: number,
+  rules: ScoringRules = CNP_SCORING
+): number {
+  const n = Number.isFinite(questionCount) ? Math.max(0, Math.floor(questionCount)) : 0;
+  return n * Math.max(1, rules.secondsPerQuestion);
+}
+
+/**
+ * Como de apurado va el alumno.
+ *
+ * Los umbrales son PORCENTAJES y no minutos fijos porque los simulacros van de
+ * 5 preguntas a 100: avisar «quedan 5 minutos» en un test que dura 2:30 no
+ * significa nada.
+ */
+export type ClockUrgency = 'calm' | 'warning' | 'critical';
+
+const WARNING_AT = 0.2;
+const CRITICAL_AT = 0.05;
+
+export type ExamClock = {
+  /** Segundos que quedan. Nunca negativo. */
+  remaining: number;
+  /** El tiempo se agoto: hay que entregar. */
+  expired: boolean;
+  urgency: ClockUrgency;
+  /** 0-100, lo consumido. Para pintar la barra. */
+  percentUsed: number;
+};
+
+/**
+ * Estado del reloj a partir de marcas de tiempo, NO de contar intervalos.
+ *
+ * Un `setInterval(1000)` se retrasa con la pestania en segundo plano y con el
+ * ahorro de bateria (regla 14). En un simulacro de 50 minutos ese desfase le
+ * regalaria minutos al alumno, y aqui el tiempo es justamente lo que se mide.
+ * El intervalo solo decide cada cuanto se repinta.
+ *
+ * Sin limite (`durationSeconds <= 0`) devuelve un reloj que nunca expira: es lo
+ * que usa el modo entrenamiento, donde correr no aporta nada.
+ */
+export function examClock(durationSeconds: number, elapsedSeconds: number): ExamClock {
+  const total = Number.isFinite(durationSeconds) ? Math.floor(durationSeconds) : 0;
+  const gastado = Number.isFinite(elapsedSeconds) ? Math.max(0, Math.floor(elapsedSeconds)) : 0;
+
+  if (total <= 0) {
+    return { remaining: 0, expired: false, urgency: 'calm', percentUsed: 0 };
+  }
+
+  const remaining = Math.max(0, total - gastado);
+  const fraccion = remaining / total;
+
+  return {
+    remaining,
+    expired: remaining === 0,
+    // El orden importa: expirado ya es critico, y `<= CRITICAL_AT` lo cubre.
+    urgency: fraccion <= CRITICAL_AT ? 'critical' : fraccion <= WARNING_AT ? 'warning' : 'calm',
+    percentUsed: Math.min(100, Math.round((gastado / total) * 100)),
+  };
 }
