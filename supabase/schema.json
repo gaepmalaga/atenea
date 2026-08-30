@@ -1,5 +1,5 @@
 {
-  "generado": "2026-08-27",
+  "generado": "2026-08-30",
   "tablas": {
     "ai_quota": {
       "columnas": [
@@ -16,7 +16,7 @@
       ],
       "tipos": {
         "bucket": "text",
-        "count": "int32",
+        "count": "integer",
         "reset_at": "timestamp with time zone",
         "user_id": "uuid"
       }
@@ -31,7 +31,7 @@
         "name"
       ],
       "tipos": {
-        "id": "int32",
+        "id": "integer",
         "name": "text"
       }
     },
@@ -57,7 +57,7 @@
       "tipos": {
         "created_at": "timestamp with time zone",
         "doc_type": "text",
-        "id": "int64",
+        "id": "bigint",
         "published_at": "date",
         "slug": "text",
         "source": "text",
@@ -81,7 +81,7 @@
         "content_chunk": "text",
         "document_id": "uuid",
         "embedding": "public.vector(3072)",
-        "id": "int64",
+        "id": "bigint",
         "reference": "text"
       }
     },
@@ -103,13 +103,13 @@
         "index_status"
       ],
       "tipos": {
-        "chunk_count": "int32",
+        "chunk_count": "integer",
         "filename": "text",
         "full_text": "text",
         "id": "uuid",
         "index_status": "text",
         "indexed_at": "timestamp with time zone",
-        "subject_id": "int32",
+        "subject_id": "integer",
         "uploaded_at": "timestamp with time zone"
       }
     },
@@ -126,7 +126,7 @@
       ],
       "tipos": {
         "exam_id": "uuid",
-        "position": "int32",
+        "position": "integer",
         "question_id": "uuid"
       }
     },
@@ -156,7 +156,7 @@
         "mode": "text",
         "started_at": "timestamp with time zone",
         "topic": "text",
-        "total_questions": "int32",
+        "total_questions": "integer",
         "user_id": "uuid"
       }
     },
@@ -212,7 +212,7 @@
       ],
       "tipos": {
         "back": "text",
-        "box": "int32",
+        "box": "integer",
         "card_id": "uuid",
         "created_at": "timestamp with time zone",
         "front": "text",
@@ -247,14 +247,14 @@
       ],
       "tipos": {
         "back": "text",
-        "box_after": "int32",
-        "box_before": "int32",
+        "box_after": "integer",
+        "box_before": "integer",
         "created_at": "timestamp with time zone",
         "front": "text",
         "grade": "text",
-        "id": "int64",
+        "id": "bigint",
         "next_review": "timestamp with time zone",
-        "subject_id": "int64",
+        "subject_id": "bigint",
         "topic": "text",
         "user_id": "uuid"
       }
@@ -332,11 +332,11 @@
         "user_id"
       ],
       "tipos": {
-        "age": "int32",
-        "availability": "int32",
+        "age": "integer",
+        "availability": "integer",
         "baseline_metrics": "jsonb",
         "baseline_test": "jsonb",
-        "birth_year": "int32",
+        "birth_year": "integer",
         "equipment": "text",
         "exam_date": "date",
         "gender": "text",
@@ -363,13 +363,13 @@
         "user_id"
       ],
       "tipos": {
-        "factor_ansiedad": "int32",
-        "factor_atrevimiento": "int32",
-        "factor_estabilidad": "int32",
-        "factor_norma": "int32",
-        "factor_vigilancia": "int32",
+        "factor_ansiedad": "integer",
+        "factor_atrevimiento": "integer",
+        "factor_estabilidad": "integer",
+        "factor_norma": "integer",
+        "factor_vigilancia": "integer",
         "last_test_date": "timestamp with time zone",
-        "sinceridad_score": "int32",
+        "sinceridad_score": "integer",
         "user_id": "uuid"
       }
     },
@@ -401,10 +401,10 @@
         "exam_id": "uuid",
         "id": "uuid",
         "is_correct": "boolean",
-        "option_changes": "int32",
+        "option_changes": "integer",
         "question_id": "uuid",
-        "response_time_ms": "int32",
-        "selected_index": "int32",
+        "response_time_ms": "integer",
+        "selected_index": "smallint",
         "topic": "text",
         "user_id": "uuid"
       }
@@ -418,6 +418,7 @@
         "explanation",
         "global_success_rate",
         "id",
+        "legal_reference",
         "options",
         "origin",
         "question_hash",
@@ -432,19 +433,44 @@
         "question_text"
       ],
       "tipos": {
-        "correct_index": "int32",
+        "correct_index": "integer",
         "created_at": "timestamp with time zone",
-        "difficulty_level": "int32",
+        "difficulty_level": "integer",
         "document_id": "uuid",
         "explanation": "text",
         "global_success_rate": "double precision",
         "id": "uuid",
+        "legal_reference": "text",
         "options": "jsonb",
         "origin": "text",
         "question_hash": "text",
         "question_text": "text",
         "status": "text",
-        "subject_id": "int32"
+        "subject_id": "integer"
+      }
+    },
+    "question_notes": {
+      "columnas": [
+        "created_at",
+        "id",
+        "note",
+        "question_id",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "id",
+        "note",
+        "question_id",
+        "user_id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "note": "text",
+        "question_id": "uuid",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid"
       }
     },
     "question_reports": {
@@ -483,7 +509,7 @@
       "tipos": {
         "question_id": "uuid",
         "user_id": "uuid",
-        "vote": "int32"
+        "vote": "integer"
       }
     },
     "subjects": {
@@ -500,11 +526,11 @@
         "topic_number"
       ],
       "tipos": {
-        "block_id": "int32",
+        "block_id": "integer",
         "description": "text",
-        "id": "int32",
+        "id": "integer",
         "title": "text",
-        "topic_number": "int32"
+        "topic_number": "integer"
       }
     },
     "test_results": {
@@ -524,9 +550,9 @@
         "created_at": "timestamp with time zone",
         "id": "uuid",
         "is_correct": "boolean",
-        "option_changes": "int32",
+        "option_changes": "integer",
         "question_id": "uuid",
-        "response_time_ms": "int32",
+        "response_time_ms": "integer",
         "user_id": "uuid"
       }
     },
@@ -573,7 +599,7 @@
         "metrics": "jsonb",
         "notes": "text",
         "plan_id": "uuid",
-        "rpe": "int32",
+        "rpe": "integer",
         "session_type": "text",
         "user_id": "uuid"
       }

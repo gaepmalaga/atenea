@@ -29,6 +29,14 @@ export type Question = {
    */
   topic?: string | null;
   origin?: QuestionOrigin;
+  /**
+   * Articulo o disposicion del que sale la pregunta (P3.7).
+   *
+   * `null` tiene DOS significados legitimos y quien lo pinte tiene que contar
+   * con los dos: la pregunta es anterior a esto, o sale de unos apuntes, que no
+   * tienen articulos. En ninguno de los dos casos hay nada que ensenar.
+   */
+  legalReference?: string | null;
   timeMs?: number;
   changes?: number;
 };
@@ -134,6 +142,7 @@ export type BankRow = {
   correct_index?: number;
   explanation?: string;
   origin?: Question['origin'];
+  legal_reference?: string | null;
 };
 
 /**
@@ -202,6 +211,7 @@ export function mapBankRowToQuestion(row: BankRow): Question {
     options: opts,
     correctOptionId: indexToOptionId(row.correct_index as number),
     explanation: row.explanation ?? '',
+    legalReference: row.legal_reference ?? null,
     userAnswer: null,
     errorType: null,
     origin: row.origin || QUESTION_ORIGIN.BANK,
@@ -219,6 +229,7 @@ export type CandidateRow = {
   correctIndex?: number;
   correctOptionId?: string;
   explanation?: string;
+  legal_reference?: string | null;
 };
 
 /** Respuesta de la IA en vivo -> pregunta de UI. */
@@ -243,6 +254,7 @@ export function mapCandidateToQuestion(data: CandidateRow): Question {
     options: formattedOptions,
     correctOptionId: data.correctOptionId || indexToOptionId((data.correct_index ?? data.correctIndex) as number),
     explanation: data.explanation ?? '',
+    legalReference: data.legal_reference ?? null,
     userAnswer: null,
     errorType: null,
     origin: QUESTION_ORIGIN.CANDIDATE,

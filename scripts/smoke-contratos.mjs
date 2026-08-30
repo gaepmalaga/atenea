@@ -59,6 +59,11 @@ const TOPIC = temas.datos?.[0]?.title ?? 'Tema de prueba';
 
 const AHORA = new Date().toISOString();
 
+// Una pregunta real de la que colgar la nota (P3.8): `question_notes` tiene
+// clave ajena a `question_bank`, asi que un id inventado no entra.
+const preguntas = await rest('GET', 'question_bank?select=id&limit=1');
+const QUESTION_ID = preguntas.datos?.[0]?.id ?? null;
+
 /**
  * Un caso por camino de escritura del codigo. `payload` es literalmente lo que
  * arma la Server Action, con los valores de prueba puestos.
@@ -76,6 +81,42 @@ const CASOS = [
     // El etiquetado posterior del fallo (setResultErrorType).
     luegoActualizar: { error_type: 'trampa' },
   },
+  {
+    tabla: 'question_bank',
+    accion: 'moderation.ts · createManualQuestion / importManualQuestions (P2)',
+    payload: {
+      subject_id: SUBJECT_ID,
+      question_text: MARCA,
+      options: ['una', 'dos', 'tres'],
+      correct_index: 0,
+      explanation: 'Fila de prueba del smoke.',
+      question_hash: MARCA,
+      difficulty_level: 2,
+      // P3.7: la columna es nueva, y es justo la que rompe la escritura
+      // ENTERA si el guion no se ha ejecutado.
+      legal_reference: 'Articulo de prueba',
+      status: 'candidate',
+      origin: 'manual',
+      created_at: AHORA,
+    },
+    borrarPor: `question_hash=eq.${MARCA}`,
+  },
+  ...(QUESTION_ID
+    ? [{
+        tabla: 'question_notes',
+        accion: 'notes.ts · saveQuestionNote (P3.8)',
+        payload: {
+          user_id: USER_ID,
+          question_id: QUESTION_ID,
+          note: MARCA,
+          created_at: AHORA,
+          updated_at: AHORA,
+        },
+        borrarPor: `note=eq.${MARCA}`,
+        // Reescribir la nota es lo normal: se comprueba tambien el update.
+        luegoActualizar: { updated_at: AHORA },
+      }]
+    : []),
   {
     tabla: 'flashcard_progress',
     accion: 'flashcards.ts · saveFlashcardProgress',

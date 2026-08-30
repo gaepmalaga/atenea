@@ -135,7 +135,7 @@ export async function getFailedQuestions(): Promise<
 
   const { data, error } = await supabaseAdmin
     .from('question_attempts')
-    .select('question_id, topic, error_type, created_at, is_correct, selected_index, question:question_bank(question_text, options, correct_index, explanation)')
+    .select('question_id, topic, error_type, created_at, is_correct, selected_index, question:question_bank(question_text, options, correct_index, explanation, legal_reference)')
     .eq('user_id', auth.user.id)
     .eq('is_correct', false)
     .order('created_at', { ascending: false })
@@ -164,6 +164,7 @@ export async function getFailedQuestions(): Promise<
       options: q?.options,
       correct_index: q?.correct_index ?? null,
       explanation: q?.explanation ?? null,
+      legal_reference: q?.legal_reference ?? null,
     };
   });
 

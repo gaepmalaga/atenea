@@ -30,7 +30,98 @@ type GeneratedQuestion = {
   explanation: string;
   document_id: string;
   filename: string;
+  /** Articulo del que sale. `null` si el contexto no lo sabia (P3.7). */
+  legal_reference: string | null;
 };
+
+/** El trozo de temario con el que se va a redactar la pregunta, y de donde sale. */
+type ContextoGeneracion = {
+  texto: string;
+  document_id: string;
+  filename: string;
+  legal_reference: string | null;
+};
+
+/** Fila de `document_chunks` con su documento resuelto por join. */
+type FilaFragmento = {
+  content_chunk: string | null;
+  reference: string | null;
+  document_id: string;
+  documents: { id: string; filename: string | null } | null;
+};
+
+/**
+ * Elige con que texto se redacta la pregunta.
+ *
+ * Antes se tomaba SIEMPRE una ventana aleatoria de 12.000 caracteres de
+ * `documents.full_text`, y el corte caia donde caia: una pregunta podia nacer
+ * de un trozo que empieza a mitad del articulo 11 y acaba a mitad del 12.
+ *
+ * Ahora se prefiere un FRAGMENTO, que desde P1b es un articulo y desde P1f trae
+ * su referencia de verdad. Dos cosas mejoran a la vez:
+ *
+ *   · la pregunta se redacta sobre una unidad con sentido propio;
+ *   · se puede guardar DE QUE ARTICULO sale, que es lo que le dice al alumno
+ *     que releer (P3.7).
+ *
+ * El respaldo sobre `full_text` se queda, y no es decorativo: unos apuntes no
+ * tienen articulos —el tema 40 tiene 40 fragmentos y cero referencias— y un
+ * tema recien subido puede no estar indexado todavia. Sin el respaldo, esos
+ * temas se quedarian sin poder generar ni una pregunta.
+ */
+async function elegirContexto(subjectId: number): Promise<ContextoGeneracion | null> {
+  // 1. Preferente: un fragmento al azar, de los que traen articulo.
+  //
+  // Se cuenta primero y se salta a una posicion al azar en vez de traerse los
+  // 229 fragmentos del tema para elegir uno: la Constitucion son ~200 KB de
+  // texto por cada pregunta generada, y la siembra genera hasta 200 seguidas.
+  const { count } = await supabase
+    .from('document_chunks')
+    .select('id, documents!inner(subject_id)', { count: 'exact', head: true })
+    .eq('documents.subject_id', subjectId)
+    .not('reference', 'is', null);
+
+  if (count && count > 0) {
+    const salto = Math.floor(Math.random() * count);
+    const { data } = await supabase
+      .from('document_chunks')
+      .select('content_chunk, reference, document_id, documents!inner(id, filename, subject_id)')
+      .eq('documents.subject_id', subjectId)
+      .not('reference', 'is', null)
+      .range(salto, salto);
+
+    const fila = (data as unknown as FilaFragmento[] | null)?.[0];
+    if (fila?.content_chunk && fila.content_chunk.length >= 50) {
+      return {
+        texto: fila.content_chunk,
+        document_id: fila.document_id,
+        filename: fila.documents?.filename ?? '',
+        legal_reference: fila.reference,
+      };
+    }
+  }
+
+  // 2. Respaldo: la ventana aleatoria de siempre sobre el documento entero.
+  const { data: docs, error } = await supabase
+    .from('documents')
+    .select('id, filename, full_text')
+    .eq('subject_id', subjectId);
+
+  if (error || !docs || docs.length === 0) return null;
+
+  const elegido = docs[Math.floor(Math.random() * docs.length)];
+  const fullText = elegido.full_text || '';
+  if (fullText.length < 50) return null;
+
+  return {
+    texto: randomContextWindow(fullText, 12000),
+    document_id: elegido.id,
+    filename: elegido.filename,
+    // Sin fragmento no hay articulo que guardar, y adivinarlo seria peor que
+    // no tenerlo: P1f ya costo una tanda de referencias falsas.
+    legal_reference: null,
+  };
+}
 
 /** Fila de `question_bank` recien insertada o recuperada. */
 type SavedQuestion = { id: string; subject_id: number; status: string } | null;
@@ -49,22 +140,11 @@ async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = 
   try {
     if (!subjectId) return { success: false, error: "ID de tema inválido." };
 
-    // 1. Obtener documento aleatorio del tema
-    const { data: docs, error: docError } = await supabase
-      .from('documents')
-      .select('id, filename, full_text') 
-      .eq('subject_id', subjectId);
+    // 1. Elegir el trozo de temario: un articulo si lo hay, si no una ventana.
+    const contexto = await elegirContexto(subjectId);
+    if (!contexto) return { success: false, error: "Tema vacío o sin texto suficiente." };
 
-    if (docError || !docs || docs.length === 0) {
-        return { success: false, error: "Tema vacío o error de DB." };
-    }
-
-    const selectedDoc = docs[Math.floor(Math.random() * docs.length)];
-    const fullText = selectedDoc.full_text || "";
-
-    if (fullText.length < 50) return { success: false, error: "Documento con texto insuficiente." };
-
-    const contextSlice = randomContextWindow(fullText, 12000);
+    const contextSlice = contexto.texto;
 
     // El formato lo impone `responseSchema` en el modelo, no el prompt: por eso
     // aquí solo van las instrucciones pedagógicas.
@@ -79,6 +159,9 @@ async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = 
       3. Las tres opciones deben ser distintas y plausibles.
       4. 'correctIndex' es la posición de la opción correcta: 0, 1 o 2.
       5. 'explanation' justifica la respuesta citando el texto.
+      ${contexto.legal_reference
+        ? `6. El texto es el ${contexto.legal_reference}. Cítalo en 'explanation'.`
+        : ''}
     `;
 
     const result = await questionModel.generateContent(prompt);
@@ -98,8 +181,9 @@ async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = 
       success: true,
       data: {
         ...check.value,
-        document_id: selectedDoc.id,
-        filename: selectedDoc.filename
+        document_id: contexto.document_id,
+        filename: contexto.filename,
+        legal_reference: contexto.legal_reference,
       }
     };
 
@@ -179,6 +263,7 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number, d
           explanation: qData.explanation,
           question_hash: qHash,
           difficulty_level: nivel,
+          legal_reference: qData.legal_reference,
           status: QUESTION_STATUS.CANDIDATE,
           origin: QUESTION_ORIGIN.LIVE_AI,
           created_at: new Date().toISOString()
@@ -309,6 +394,7 @@ export async function seedQuestionBank(params: {
           explanation: d.explanation,
           question_hash: qHash,
           difficulty_level: nivel,
+          legal_reference: d.legal_reference,
           status,
           origin: QUESTION_ORIGIN.BANK_SEED,
           created_at: new Date().toISOString()

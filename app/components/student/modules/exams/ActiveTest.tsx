@@ -4,13 +4,15 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChevronRight, CheckCircle2, XCircle, Brain,
   BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
-  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark, Eraser
+  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark, Eraser,
+  Scale
 } from 'lucide-react';
 import { formatTime } from '@/app/lib/timer';
 import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
 import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
 import { countChange } from '@/app/lib/exam-results';
+import QuestionNote from '../../QuestionNote';
 
 interface ActiveTestProps {
   questions: Question[];
@@ -809,6 +811,15 @@ export default function ActiveTest({
                       <div className="relative z-10">
                           <p className="font-black text-lg uppercase tracking-wide">¡Correcto!</p>
                           <p className="text-emerald-50 font-medium mt-1 leading-relaxed text-sm opacity-90">{currentQ.explanation}</p>
+                          {/* De donde sale la pregunta (P3.7). Para un opositor
+                              esto vale casi tanto como la explicacion: le dice
+                              QUE RELEER. Solo aparece si se sabe: nulo es
+                              "no consta", y no hay nada que ensenar. */}
+                          {currentQ.legalReference && (
+                              <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest bg-white/20 px-3 py-1.5 rounded-full">
+                                  <Scale size={12}/> {currentQ.legalReference}
+                              </p>
+                          )}
                       </div>
                   </div>
               ) : (
@@ -818,6 +829,11 @@ export default function ActiveTest({
                           <div>
                               <p className="font-black text-red-500 uppercase tracking-wide text-sm">Respuesta Incorrecta</p>
                               <p className="text-slate-600 dark:text-slate-300 text-sm mt-2 font-medium leading-relaxed">{currentQ.explanation}</p>
+                              {currentQ.legalReference && (
+                                  <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full">
+                                      <Scale size={12}/> {currentQ.legalReference}
+                                  </p>
+                              )}
                           </div>
                       </div>
 
@@ -845,6 +861,12 @@ export default function ActiveTest({
                       )}
                   </div>
               )}
+
+              {/* La nota del alumno sobre ESTA pregunta (P3.8). Aqui y no en
+                  una pantalla aparte: una nota que hay que ir a buscar a otro
+                  sitio no se escribe. Volvera a salir la proxima vez que le
+                  toque la pregunta. */}
+              <QuestionNote questionId={currentQ.id ?? null} />
           </div>
       )}
 

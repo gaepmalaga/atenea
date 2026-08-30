@@ -3,6 +3,7 @@ export * from './user'; // getCurrentUser, getUserStats
 export * from './admin';
 export * from './exams';
 export * from './moderation';
+export * from './notes';
 export * from './training';
 export * from './interview';
 export * from './flashcards';

@@ -42,7 +42,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
-| **P3** | **La pantalla del test** (plan de producto) | ✅ **6 de 8** (30 ago; los 2 últimos piden esquema) |
+| **P3** | **La pantalla del test** (plan de producto) | ✅ **cerrada, 8 de 8** (31 ago) |
 | **P2** | **Escribir preguntas a mano** (plan de producto) | ✅ **cerrada** (30 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -67,15 +67,12 @@ Los tres guiones de Supabase que estaban pendientes **ya están ejecutados** (RL
 de IA y `question_attempts`). Lo que queda necesita algo que no se puede hacer desde
 aquí:
 
-1. **Ejecutar SQL.** Es el bloqueo principal ahora mismo. Los dos puntos que faltan de
-   P3 —referencia legal de la pregunta y notas personales— necesitan una columna y una
-   tabla nuevas, y **no se puede escribir el código antes**: PostgREST rechaza la
-   escritura *entera* si una sola columna no existe, así que adelantarlo rompería el
-   guardado. **Los dos guiones ya están escritos** y se pegan tal cual en el editor SQL
-   de Supabase; los dos son idempotentes:
-   [`P3.7-referencia-legal-de-la-pregunta.sql`](docs/sql/P3.7-referencia-legal-de-la-pregunta.sql)
-   (una columna en `question_bank`) y
-   [`P3.8-notas-personales.sql`](docs/sql/P3.8-notas-personales.sql) (tabla nueva con RLS).
+1. **Ejecutar SQL. Ya no hay nada pendiente:** los guiones de P3.7 (`legal_reference`
+   en `question_bank`) y P3.8 (tabla `question_notes` con RLS) se ejecutaron el
+   **31 ago 2026** y están comprobados contra la base de datos real con `npm run smoke`.
+   Los ficheros siguen en `docs/sql/` y son idempotentes. Cuando aparezca uno nuevo,
+   la regla no cambia: **no se escribe el código antes** de que exista la columna —
+   PostgREST rechaza la escritura *entera* si falta una sola.
 2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
@@ -611,6 +608,50 @@ De paso salió un tipo que mentía: `Question['origin']` decía
 `'bank_seed'`. Ahora es `QUESTION_ORIGIN`, una constante como la de los estados
 (regla 3).
 
+### 28 · El contexto con el que se genera una pregunta decide lo que se puede citar
+
+`generateTestQuestion` tomaba **siempre** una ventana aleatoria de 12.000
+caracteres de `documents.full_text`, y el corte caía donde caía: una pregunta
+podía nacer de un trozo que empieza a mitad del artículo 11 y acaba a mitad del
+12. Ahora `elegirContexto` prefiere un **fragmento**, que desde P1b es un
+artículo y desde P1f trae su referencia de verdad. Mejoran dos cosas a la vez: la
+pregunta se redacta sobre una unidad con sentido propio, y se puede guardar **de
+qué artículo sale** (`question_bank.legal_reference`), que es lo que le dice al
+alumno qué releer.
+
+**El respaldo sobre `full_text` se queda, y no es decorativo:** unos apuntes no
+tienen artículos —el tema 40 tiene 40 fragmentos y cero referencias— y un tema
+recién subido puede no estar indexado. Sin él, esos temas no podrían generar ni
+una pregunta.
+
+**No se cargan los fragmentos del tema para elegir uno.** Se cuenta y se salta a
+una posición al azar: la Constitución son ~200 KB por cada pregunta generada, y
+sembrar son hasta 200 seguidas.
+
+Y `legal_reference` a `null` significa **dos** cosas legítimas —pregunta anterior
+a la columna, o pregunta que sale de apuntes— así que la pantalla no lo pinta en
+vez de inventarse una. Adivinar la referencia sería peor que no tenerla: P1f ya
+costó una tanda entera de referencias falsas, en la que el artículo 37 se citaba
+como el 30.
+
+### 29 · Una nota del alumno es suya, y por eso vive aparte
+
+Las notas (P3.8) no van en `question_bank`, que es contenido compartido por todos
+los alumnos, sino en `question_notes` con el par `(user_id, question_id)`, una
+restricción única y RLS de propietario.
+
+Tres cosas que no son obvias:
+
+- **La aplicación entra con la clave de servicio, que salta RLS.** El
+  `.eq('user_id', auth.user.id)` de cada consulta no es una red secundaria: es la
+  única. Hay un test estático que exige que toda consulta a `question_notes`
+  filtre o escriba el usuario de la sesión.
+- **Vaciar el recuadro BORRA la nota.** La alternativa —una fila con la cadena
+  vacía— deja un apunte en blanco colgando de la pregunta para siempre, y además
+  `note` es `NOT NULL`.
+- **La nota se carga al desplegar la tarjeta**, no al pintar la lista de fallos:
+  son tantas consultas como preguntas abiertas, no como preguntas falladas.
+
 ---
 
 ## Los tests
@@ -636,6 +677,7 @@ tests/documents.test.ts         visor de fragmentos: agrupación por artículo y
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
 tests/review.test.ts            repaso de lo fallado: agrupación y guardas
 tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
+tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 
@@ -767,11 +809,12 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    personales (tabla nueva). Hasta que existan **no se puede escribir ese código**:
    PostgREST rechaza la escritura entera si una columna no existe.
 
-3. **P2 está hecha** (30 ago): botón *Nueva* en Banco Maestro, formulario de alta e
-   importación desde CSV con vista previa y el detalle de lo rechazado. Lo que queda
-   por hacer ahí es **verlo funcionando con una sesión de admin**, y decidir si
-   interesa que un mismo fichero traiga preguntas de varios temas (hoy el tema se
-   elige una vez, arriba, y vale para todo el fichero).
+3. **P2 y P3 están hechas** (30–31 ago). De P2: botón *Nueva* en Banco Maestro,
+   formulario de alta e importación desde CSV con vista previa y el detalle de lo
+   rechazado. De P3, los dos puntos que faltaban: la referencia legal de la pregunta
+   y las notas privadas del alumno. Lo que queda ahí es **verlo funcionando con una
+   sesión**, y decidir si interesa que un mismo CSV traiga preguntas de varios temas
+   (hoy el tema se elige una vez y vale para todo el fichero).
 
 4. **Fase 1.2** (acotar la clave de servicio). **Ya está desbloqueada:** su condición era
    tener RLS activa, y lo está desde el 26 ago 2026. Cada consulta que se mueva al

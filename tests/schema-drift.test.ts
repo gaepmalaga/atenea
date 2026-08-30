@@ -191,8 +191,13 @@ describe('los select piden columnas que existen', () => {
         for (const parte of partesDe(seleccion)) {
           if (parte === '*') continue;
 
-          // Un join: `alias:tabla(col1, col2)` o `tabla(col1)`.
-          const join = parte.match(/^(?:(\w+):)?(\w+)\s*\(([^)]*)\)$/);
+          // Un join: `alias:tabla(col1, col2)`, `tabla(col1)` o
+          // `tabla!inner(col1)`. El `!inner` es de PostgREST y fuerza el join
+          // a ser interno, que es lo que permite FILTRAR por una columna de la
+          // tabla relacionada (`.eq('documents.subject_id', ...)`). Sin
+          // reconocerlo aqui, el analizador lo tomaba por una columna con un
+          // nombre rarisimo y cantaba un falso positivo.
+          const join = parte.match(/^(?:(\w+):)?(\w+)(?:!(?:inner|left))?\s*\(([^)]*)\)$/);
           if (join) {
             const [, , tablaJoin, columnasJoin] = join;
             const realesJoin = columnasDe(tablaJoin);

@@ -373,17 +373,30 @@ la respuesta o a gestionar el examen.** El resto va a las estadísticas.
 4. Blanco explícito             ✅ hecho (30 ago)
 5. Tiempo límite + entrega auto ✅ hecho (30 ago)
 6. Pantalla de revisión final   ✅ hecho (30 ago)
-7. Referencia legal             ⛔ BLOQUEADO: falta columna en `question_bank`
-8. Notas personales             ⛔ BLOQUEADO: falta tabla
+7. Referencia legal             ✅ hecho (31 ago)
+8. Notas personales             ✅ hecho (31 ago)
 ```
 
-**Los dos que quedan necesitan tocar el esquema, y eso solo lo puedes hacer
-tú.** El 7 necesita una columna `legal_reference` en `question_bank` que se
-rellene al generar la pregunta desde el fragmento (el fragmento ya sabe de qué
-artículo viene: eso lo dejó P1g en `document_chunks.reference`). El 8 necesita
-una tabla `question_notes`. No se puede escribir el código antes: PostgREST
-rechaza la escritura **entera** si una sola columna no existe, así que
-adelantarlo rompería el guardado de preguntas.
+**P3 queda cerrada.** Los dos últimos estuvieron bloqueados por el esquema hasta
+que el 31 de agosto se ejecutaron
+[`P3.7-referencia-legal-de-la-pregunta.sql`](sql/P3.7-referencia-legal-de-la-pregunta.sql)
+y [`P3.8-notas-personales.sql`](sql/P3.8-notas-personales.sql).
+
+**El 7 cambió más de lo previsto**, y para bien. Se esperaba rellenar una columna;
+lo que hacía falta era cambiar **de dónde sale el contexto**: la generación tomaba
+una ventana aleatoria de 12.000 caracteres del documento entero, así que ni sabía
+de qué artículo hablaba. Ahora elige un **fragmento** —que desde P1b es un
+artículo— y guarda su referencia. La pregunta se redacta sobre una unidad con
+sentido propio y el alumno ve *qué releer*, en el test y en el repaso. El respaldo
+sobre el texto completo se queda para los apuntes, que no tienen artículos.
+
+**El 8 es pequeño y tiene su miga en un sitio inesperado:** la aplicación entra
+con la clave de servicio, que **salta RLS**, así que el filtro por usuario de cada
+consulta no es una segunda barrera — es la única. Hay un test estático que lo
+vigila. Y vaciar el recuadro borra la nota, en vez de guardar una fila en blanco.
+
+Las dos escrituras están comprobadas contra la base de datos real con
+`npm run smoke`, que ahora inserta y borra una fila por cada camino nuevo.
 
 ### Lo que salió al hacer el 3 y el 4
 

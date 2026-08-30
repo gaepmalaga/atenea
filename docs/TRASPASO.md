@@ -1,4 +1,4 @@
-# Traspaso — 30 de agosto de 2026
+# Traspaso — 30 y 31 de agosto de 2026
 
 Punto de partida para la siguiente conversación. Lo que hay que leer antes de
 tocar nada sigue siendo [`CLAUDE.md`](../CLAUDE.md); esto es sólo el estado del
@@ -43,9 +43,12 @@ están en GitHub.
 4. Blanco explícito             ✅
 5. Tiempo límite + entrega auto ✅
 6. Pantalla de revisión final   ✅
-7. Referencia legal             ⛔  falta columna en `question_bank`
-8. Notas personales             ⛔  falta tabla
+7. Referencia legal             ✅  (31 ago)
+8. Notas personales             ✅  (31 ago)
 ```
+
+**P3 queda cerrada.** Los dos últimos dejaron de estar bloqueados en cuanto se
+ejecutó el DDL: ver más abajo.
 
 **El hallazgo que más importa de los cuatro:** el blanco se guardaba como
 fallo. La nota ya lo trataba como neutro desde el 27 ago, pero al escribir en
@@ -94,18 +97,39 @@ copiada dos veces, el tipo `origin` mentía sobre lo que se guarda de verdad, y
 la guarda de `ignoreDuplicates` solo miraba un fichero de los dos que ahora
 escriben en el banco.
 
-### Los dos guiones de P3 ya están escritos
+### Los dos guiones de P3 · escritos, ejecutados y comprobados
 
-Siguen sin ejecutar —el DDL es tuyo— pero ya no hay que redactarlos:
+| Guion | Qué hace | Estado |
+|---|---|---|
+| [`P3.7-referencia-legal-de-la-pregunta.sql`](sql/P3.7-referencia-legal-de-la-pregunta.sql) | `legal_reference text` en `question_bank` | ✅ 31 ago |
+| [`P3.8-notas-personales.sql`](sql/P3.8-notas-personales.sql) | tabla `question_notes` con RLS de propietario | ✅ 31 ago |
 
-| Guion | Qué hace |
-|---|---|
-| [`P3.7-referencia-legal-de-la-pregunta.sql`](sql/P3.7-referencia-legal-de-la-pregunta.sql) | `legal_reference text` en `question_bank` |
-| [`P3.8-notas-personales.sql`](sql/P3.8-notas-personales.sql) | tabla `question_notes` con RLS de propietario |
+Comprobado **contra la base de datos real**, no contra la pantalla del editor:
 
-Los dos son idempotentes y no tocan ni una fila existente. En cuanto estén
-ejecutados se puede escribir el código de los dos últimos puntos de P3; antes
-no, porque PostgREST rechaza la escritura entera si falta una columna.
+- `question_bank` acepta un insert con `legal_reference`, y `question_notes`
+  acepta insert y update — los dos caminos nuevos están ahora en
+  `npm run smoke`, que inserta una fila de verdad y la borra.
+- La clave pública **no** puede escribir en `question_notes`: devuelve
+  `42501 new row violates row-level security policy`.
+- El join `question_notes → question_bank` resuelve, así que la clave ajena
+  está declarada de verdad (sin ella PostgREST no lo resolvería).
+
+### P3.7 y P3.8 · el código
+
+**7 · La referencia legal.** Cambió más de lo previsto, y para bien: no era
+rellenar una columna, era cambiar **de dónde sale el contexto**. La generación
+tomaba una ventana aleatoria de 12.000 caracteres del documento entero, así que
+ni sabía de qué artículo hablaba. Ahora `elegirContexto` elige un fragmento
+—que desde P1b es un artículo, con su referencia arreglada en P1f— y guarda de
+cuál sale. El alumno la ve en el feedback del entrenamiento y en el repaso de
+fallos. Para los apuntes, que no tienen artículos, se mantiene el respaldo sobre
+el texto completo.
+
+**8 · Las notas.** Un recuadro suyo en el feedback y en cada tarjeta del repaso,
+que vuelve a salir con la pregunta. La miga está en un sitio inesperado: la
+aplicación entra con la clave de servicio, que **salta RLS**, así que el filtro
+por usuario de cada consulta es la única barrera de verdad. Hay un test estático
+que lo vigila.
 
 ---
 
@@ -113,7 +137,8 @@ no, porque PostgREST rechaza la escritura entera si falta una columna.
 
 | Qué | Cómo está |
 |---|---|
-| `npm run check` | ✅ 467 tests, typecheck limpio |
+| `npm run check` | ✅ 477 tests, typecheck limpio |
+| `npm run smoke` | ✅ los 6 caminos de escritura entran contra el proyecto real |
 | `npm run build` | ✅ |
 | Guardas estáticas nuevas | ✅ comprobadas rompiéndolas a propósito |
 | Consulta del repaso contra la BD real | ✅ el join resuelve las 17 filas falladas con opciones y respuesta correcta |
@@ -152,10 +177,11 @@ endurecimiento **opcional** — el código funciona igual con o sin él.
 
 ## Por dónde seguir
 
-1. **Ejecutar los dos guiones** de `docs/sql/` y, con la columna y la tabla ya
-   creadas, escribir el código de los dos últimos puntos de P3.
-2. **Probar P2 y P3 con una sesión de admin y otra de alumno.** Es lo único que
-   separa «pasa los tests» de «funciona».
+1. **Probar P2 y P3 con una sesión de admin y otra de alumno.** Es lo único que
+   separa «pasa los tests» de «funciona», y es lo único que queda de estas dos
+   tandas.
+2. **P4 / P5** (super admin con módulos; panel de academia). P4 sigue esperando
+   la respuesta de *qué módulos querría apagar la academia*.
 3. **P4 y P5** (super admin con módulos configurables; panel de academia). P4
    depende de una decisión que sigue abierta: *qué módulos querría apagar la
    academia del piloto*. Sin esa respuesta no se sabe si corre prisa.

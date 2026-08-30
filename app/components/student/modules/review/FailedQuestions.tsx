@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshCw, Target, Brain, BookX, AlertTriangle, Eye,
-  CheckCircle2, ChevronDown, Layers, Repeat,
+  CheckCircle2, ChevronDown, Layers, Repeat, Scale,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getFailedQuestions } from '@/actions';
 import { indexToOptionId } from '@/app/lib/questions';
 import type { FailedQuestion } from '@/app/lib/review';
+import QuestionNote from '../../QuestionNote';
 
 /**
  * REPASO DE LO FALLADO.
@@ -264,6 +265,14 @@ export default function FailedQuestions() {
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                         {q.explanation}
                       </p>
+                      {/* De qué artículo sale (P3.7). En una pantalla de repaso
+                          es la mitad del valor: dice qué releer. Solo aparece
+                          si consta. */}
+                      {q.legalReference && (
+                        <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                          <Scale size={12} /> {q.legalReference}
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -284,6 +293,11 @@ export default function FailedQuestions() {
                       sepas: es que esa respuesta te convence.
                     </p>
                   )}
+
+                  {/* La nota se carga al DESPLEGAR la tarjeta, no al pintar la
+                      lista: son tantas consultas como preguntas abiertas, no
+                      como preguntas falladas. */}
+                  <QuestionNote questionId={q.questionId} />
                 </div>
               )}
             </div>

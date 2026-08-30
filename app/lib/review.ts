@@ -33,6 +33,7 @@ export type FailedAttemptRow = {
   options?: unknown;
   correct_index?: number | null;
   explanation?: string | null;
+  legal_reference?: string | null;
 };
 
 /** Una pregunta fallada, ya agrupada por todos sus intentos. */
@@ -42,6 +43,14 @@ export type FailedQuestion = {
   options: string[];
   correctIndex: number | null;
   explanation: string;
+  /**
+   * De que articulo sale (P3.7). `null` si no se sabe: pregunta anterior a la
+   * columna, o generada a partir de unos apuntes, que no tienen articulos.
+   *
+   * En una pantalla de repaso vale casi tanto como la explicacion, porque es
+   * lo que dice QUE RELEER.
+   */
+  legalReference: string | null;
   topic: string;
   /** Cuantas veces se ha fallado. */
   times: number;
@@ -116,6 +125,7 @@ export function groupFailedAttempts(rows: FailedAttemptRow[]): FailedQuestion[] 
         options: leerOpciones(r.options),
         correctIndex: typeof r.correct_index === 'number' ? r.correct_index : null,
         explanation: r.explanation ?? '',
+        legalReference: r.legal_reference ?? null,
         topic: r.topic ?? '',
         times: 1,
         lastFailedAt: r.created_at ?? null,

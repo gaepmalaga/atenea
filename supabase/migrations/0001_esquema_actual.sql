@@ -10,8 +10,8 @@
 -- cantara: se escribian columnas inexistentes y PostgREST rechazaba la
 -- escritura entera en silencio.
 --
--- Fecha del volcado: 2026-08-27
--- Tablas: 22   ·   Politicas: 26
+-- Fecha del volcado: 2026-08-30
+-- Tablas: 23   ·   Politicas: 27
 -- =============================================================================
 
 create extension if not exists "uuid-ossp";
@@ -211,7 +211,18 @@ create table if not exists public.question_bank (
   status text default 'candidate'::text,
   origin text default 'bank'::text,
   global_success_rate double precision default 0,
-  created_at timestamp with time zone default now()
+  created_at timestamp with time zone default now(),
+  legal_reference text
+);
+
+-- --------------------------------------------------------------------------
+create table if not exists public.question_notes (
+  id uuid not null default gen_random_uuid(),
+  user_id uuid not null,
+  question_id uuid not null,
+  note text not null,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
 );
 
 -- --------------------------------------------------------------------------
@@ -311,6 +322,8 @@ alter table public.question_attempts drop constraint if exists question_attempts
 alter table public.question_attempts add constraint question_attempts_pkey PRIMARY KEY (id);
 alter table public.question_bank drop constraint if exists question_bank_pkey;
 alter table public.question_bank add constraint question_bank_pkey PRIMARY KEY (id);
+alter table public.question_notes drop constraint if exists question_notes_pkey;
+alter table public.question_notes add constraint question_notes_pkey PRIMARY KEY (id);
 alter table public.question_reports drop constraint if exists question_reports_pkey;
 alter table public.question_reports add constraint question_reports_pkey PRIMARY KEY (id);
 alter table public.question_votes drop constraint if exists question_votes_pkey;
@@ -327,6 +340,8 @@ alter table public.blocks drop constraint if exists blocks_name_key;
 alter table public.blocks add constraint blocks_name_key UNIQUE (name);
 alter table public.question_bank drop constraint if exists question_bank_question_hash_key;
 alter table public.question_bank add constraint question_bank_question_hash_key UNIQUE (question_hash);
+alter table public.question_notes drop constraint if exists question_notes_user_question_key;
+alter table public.question_notes add constraint question_notes_user_question_key UNIQUE (user_id, question_id);
 alter table public.subjects drop constraint if exists subjects_topic_number_key;
 alter table public.subjects add constraint subjects_topic_number_key UNIQUE (topic_number);
 alter table public.documents drop constraint if exists documents_index_status_check;
@@ -359,6 +374,10 @@ alter table public.question_bank drop constraint if exists question_bank_documen
 alter table public.question_bank add constraint question_bank_document_id_fkey FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL;
 alter table public.question_bank drop constraint if exists question_bank_subject_id_fkey;
 alter table public.question_bank add constraint question_bank_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE;
+alter table public.question_notes drop constraint if exists question_notes_question_id_fkey;
+alter table public.question_notes add constraint question_notes_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE CASCADE;
+alter table public.question_notes drop constraint if exists question_notes_user_id_fkey;
+alter table public.question_notes add constraint question_notes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.question_reports drop constraint if exists question_reports_question_id_fkey;
 alter table public.question_reports add constraint question_reports_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id);
 alter table public.question_reports drop constraint if exists question_reports_user_id_fkey;
@@ -431,6 +450,7 @@ alter table public.profiles_physical enable row level security;
 alter table public.profiles_psych enable row level security;
 alter table public.question_attempts enable row level security;
 alter table public.question_bank enable row level security;
+alter table public.question_notes enable row level security;
 alter table public.question_reports enable row level security;
 alter table public.question_votes enable row level security;
 alter table public.subjects enable row level security;
@@ -570,6 +590,13 @@ create policy "Users can view own attempts" on public.question_attempts
   to public
   using ((auth.uid() = user_id));
 
+drop policy if exists "question_notes_propietario" on public.question_notes;
+create policy "question_notes_propietario" on public.question_notes
+  for all
+  to authenticated
+  using ((user_id = auth.uid()))
+  with check ((user_id = auth.uid()));
+
 drop policy if exists "question_reports_propietario" on public.question_reports;
 create policy "question_reports_propietario" on public.question_reports
   for all
@@ -648,7 +675,7 @@ end;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.match_document_chunks(query_embedding vector, match_threshold double precision, match_count integer)
- RETURNS TABLE(id bigint, content_chunk text, similarity double precision, filename text)
+ RETURNS TABLE(id bigint, content_chunk text, similarity double precision, filename text, reference text)
  LANGUAGE plpgsql
 AS $function$
 BEGIN
@@ -657,7 +684,8 @@ BEGIN
     dc.id,
     dc.content_chunk,
     1 - (dc.embedding <=> query_embedding) as similarity,
-    d.filename
+    d.filename,
+    dc.reference
   FROM document_chunks dc
   JOIN documents d ON dc.document_id = d.id
   WHERE 1 - (dc.embedding <=> query_embedding) > match_threshold
