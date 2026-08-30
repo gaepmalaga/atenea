@@ -3,6 +3,8 @@
  * testear la aritmetica, que era justamente donde estaban los errores.
  */
 
+import { isBlankAnswer } from './exam-results';
+
 export type TestResultRow = {
   is_correct?: boolean | null;
   response_time_ms?: number | null;
@@ -11,6 +13,8 @@ export type TestResultRow = {
   created_at?: string | null;
   question_text?: string | null;
   topic?: string | null;
+  /** Opcion marcada. `BLANK_INDEX` si la dejo en blanco a proposito. */
+  selected_index?: number | null;
 };
 
 /**
@@ -29,9 +33,23 @@ export const ERROR_TYPES = ['olvido', 'trampa', 'desconocimiento', 'fallo_proces
 export type ErrorType = (typeof ERROR_TYPES)[number];
 
 export type StatsSummary = {
+  /** Todas las filas: contestadas MAS las dejadas en blanco. */
   total: number;
   correct: number;
+  /** Contestadas MAL. No incluye los blancos. */
   wrong: number;
+  /** Dejadas en blanco a proposito. Ni suman ni restan. */
+  blank: number;
+  /** Las que el alumno llego a contestar. Es el denominador de `winRate`. */
+  answered: number;
+  /**
+   * Porcentaje de acierto sobre las CONTESTADAS, no sobre el total.
+   *
+   * Antes dividia entre todas las filas, asi que dejar una en blanco bajaba el
+   * porcentaje igual que fallarla. Con la penalizacion de la convocatoria eso
+   * es al reves de lo que hay que enseñar: el blanco no resta, y una plataforma
+   * que lo castiga empuja a contestar a ciegas.
+   */
   winRate: number;
   /** Media de ms por respuesta, contando solo las que tienen tiempo medido. */
   avgTimeMs: number;
@@ -73,6 +91,13 @@ const MAX_AVG_CHANGES = 2;
 
 export function summarizeResults(rows: TestResultRow[]): StatsSummary {
   const total = rows.length;
+
+  // Un blanco no es un fallo. La marca es `selected_index === BLANK_INDEX`; una
+  // fila anterior a P3.4 trae null, que significa "no se sabe", y esas cuentan
+  // como contestadas — que es lo que eran, porque hasta entonces no habia
+  // manera de dejar una en blanco a proposito.
+  const blank = rows.filter((r) => isBlankAnswer(r.selected_index)).length;
+  const answered = total - blank;
   const correct = rows.filter((r) => r.is_correct).length;
 
   const timed = rows.filter((r) => typeof r.response_time_ms === 'number' && r.response_time_ms > 0);
@@ -85,7 +110,7 @@ export function summarizeResults(rows: TestResultRow[]): StatsSummary {
   const errorBreakdown = Object.fromEntries(ERROR_TYPES.map((t) => [t, 0])) as Record<ErrorType, number>;
   let taggedErrors = 0;
   for (const r of rows) {
-    if (r.is_correct) continue;
+    if (r.is_correct || isBlankAnswer(r.selected_index)) continue;
     const t = r.error_type as ErrorType | null | undefined;
     if (t && t in errorBreakdown) {
       errorBreakdown[t] += 1;
@@ -96,9 +121,12 @@ export function summarizeResults(rows: TestResultRow[]): StatsSummary {
   return {
     total,
     correct,
-    wrong: total - correct,
-    // Sin respuestas el porcentaje es 0, no NaN.
-    winRate: total === 0 ? 0 : Math.round((correct / total) * 100),
+    wrong: answered - correct,
+    blank,
+    answered,
+    // Sin respuestas CONTESTADAS el porcentaje es 0, no NaN. Quien lo pinte
+    // distingue "sin datos" de "cero" mirando `answered` (regla 8).
+    winRate: answered === 0 ? 0 : Math.round((correct / answered) * 100),
     avgTimeMs: timed.length
       ? Math.round(timed.reduce((acc, r) => acc + (r.response_time_ms ?? 0), 0) / timed.length)
       : 0,

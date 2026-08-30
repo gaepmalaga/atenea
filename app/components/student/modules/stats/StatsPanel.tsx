@@ -72,7 +72,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
   // Las metricas llegan ya agregadas del servidor, sobre la muestra completa.
   // Antes se calculaban aqui sobre las 5 ultimas preguntas y se dividian entre
   // el total de hasta 100: numerador y denominador de muestras distintas.
-  const { winRate, total, avgTimeMs, timedCount, uncertaintyIndex, changesCount, errorBreakdown, taggedErrors } = stats;
+  const { winRate, answered, blank, avgTimeMs, timedCount, uncertaintyIndex, changesCount, errorBreakdown, taggedErrors } = stats;
 
   const currentRank = rankFor(winRate);
   const nextRank = nextRankAfter(currentRank);
@@ -102,8 +102,19 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                     <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter mb-2 italic">
                         {currentRank.label.toUpperCase()}
                     </h2>
+                    {/* El denominador es el MISMO del que sale el porcentaje
+                        (regla 8). `winRate` pasó a calcularse sobre las
+                        contestadas —un blanco ya no cuenta como fallo— y aquí
+                        seguía pintándose sobre el total: dos muestras
+                        distintas en la misma frase. Los blancos se dicen
+                        aparte, que es donde significan algo. */}
                     <p className="text-slate-500 font-bold flex items-center justify-center md:justify-start gap-2 uppercase text-xs tracking-[0.2em]">
-                        <Zap size={14} className="text-yellow-500"/> Efectividad: {winRate}% en {total} {total === 1 ? 'operación' : 'operaciones'}
+                        <Zap size={14} className="text-yellow-500"/> Efectividad: {winRate}% en {answered} {answered === 1 ? 'operación' : 'operaciones'}
+                        {blank > 0 && (
+                            <span className="text-slate-400 normal-case tracking-normal font-medium">
+                                (+{blank} en blanco)
+                            </span>
+                        )}
                     </p>
                     <div className="mt-6 flex flex-wrap gap-3">
                         <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-[10px] font-black text-slate-500 border border-slate-200 dark:border-slate-700">

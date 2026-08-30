@@ -6,6 +6,8 @@ import {
   buildExamResults,
   countChange,
   EMPTY_METRICS,
+  BLANK_INDEX,
+  isBlankAnswer,
 } from '../app/lib/exam-results';
 
 /**
@@ -50,6 +52,7 @@ describe('toResultRow', () => {
       response_time_ms: 8_400,
       option_changes: 2,
       error_type: 'trampa',
+      selected_index: null,
     });
   });
 
@@ -100,9 +103,15 @@ describe('buildExamResults', () => {
     expect(buildExamResults([q({ userAnswer: 'b', correctOptionId: 'a' })])[0].isCorrect).toBe(false);
   });
 
-  it('una pregunta sin contestar es un fallo, no un acierto', () => {
-    expect(buildExamResults([q({ userAnswer: null })])[0].isCorrect).toBe(false);
-    expect(buildExamResults([q({ userAnswer: undefined })])[0].isCorrect).toBe(false);
+  it('una pregunta sin contestar no es un acierto, pero tampoco un fallo', () => {
+    // El nombre de este test decia "es un fallo" y eso era justo el error:
+    // con la penalizacion del BOE un blanco no resta. No es acierto, y se
+    // separa del fallo por `selectedIndex` (ver el bloque del blanco).
+    for (const sin of [null, undefined]) {
+      const [row] = buildExamResults([q({ userAnswer: sin })]);
+      expect(row.isCorrect).toBe(false);
+      expect(row.selectedIndex).toBe(BLANK_INDEX);
+    }
   });
 
   it('una pregunta sin id llega como null y no como undefined', () => {
@@ -208,5 +217,96 @@ describe('el codigo usa el contrato', () => {
 
   it('no quedan @ts-ignore en el camino de las metricas', () => {
     expect(activeTest).not.toContain('@ts-ignore');
+  });
+});
+
+/**
+ * P3.4 — UN BLANCO NO ES UN FALLO.
+ *
+ * El simulacro puntua con la penalizacion del BOE, donde el blanco no resta.
+ * Pero al guardar caia en `is_correct: false`, igual que un error: el mismo
+ * examen daba dos verdades, y el porcentaje de acierto castigaba NO arriesgar.
+ */
+describe('el blanco deliberado', () => {
+  const enBlanco = {
+    id: 'q-1',
+    userAnswer: null,
+    correctOptionId: 'b',
+    options: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  };
+
+  it('se guarda con el centinela, no como una respuesta cualquiera', () => {
+    const [row] = buildExamResults([enBlanco]);
+    expect(row.selectedIndex).toBe(BLANK_INDEX);
+    expect(isBlankAnswer(row.selectedIndex)).toBe(true);
+  });
+
+  it('no cuenta como acierto', () => {
+    const [row] = buildExamResults([enBlanco]);
+    expect(row.isCorrect).toBe(false);
+  });
+
+  it('una respuesta guarda el INDICE de la opcion que se marco', () => {
+    const [row] = buildExamResults([{ ...enBlanco, userAnswer: 'c' }]);
+    expect(row.selectedIndex).toBe(2);
+    expect(isBlankAnswer(row.selectedIndex)).toBe(false);
+  });
+
+  it('marcar la primera opcion da 0, no se confunde con "sin dato"', () => {
+    // `0` es falsy. Si en algun punto se escribiera `indice || null`, la
+    // opcion A se guardaria como desconocida en todos los examenes.
+    const [row] = buildExamResults([{ ...enBlanco, userAnswer: 'a' }]);
+    expect(row.selectedIndex).toBe(0);
+  });
+
+  it('sin las opciones el indice queda en null, no en 0', () => {
+    // "No se sabe" es preferible a inventarse que marco la A.
+    const [row] = buildExamResults([{ id: 'q', userAnswer: 'a', correctOptionId: 'a' }]);
+    expect(row.selectedIndex).toBeNull();
+    expect(row.isCorrect).toBe(true);
+  });
+
+  it('un blanco NUNCA se guarda como correcto, aunque el cliente lo diga', () => {
+    // `saveExamResults` es un endpoint publico y `isCorrect` viaja desde el
+    // navegador: sin esta guarda, un cliente manipulado se subiria la nota.
+    const row = toResultRow({
+      questionId: 'q',
+      topic: 'Constitucion',
+      isCorrect: true,
+      selectedIndex: BLANK_INDEX,
+    });
+    expect(row.is_correct).toBe(false);
+  });
+
+  it('un blanco no arrastra diagnostico de error: no hubo error que clasificar', () => {
+    const row = toResultRow({
+      questionId: 'q',
+      topic: 'Constitucion',
+      isCorrect: false,
+      selectedIndex: BLANK_INDEX,
+      errorType: 'olvido',
+    });
+    expect(row.error_type).toBeNull();
+  });
+
+  it('un indice imposible cae a null en vez de guardarse', () => {
+    for (const malo of [-7, 1.5, NaN, undefined, null]) {
+      const row = toResultRow({
+        questionId: 'q',
+        topic: 'T',
+        isCorrect: false,
+        selectedIndex: malo as number | null | undefined,
+      });
+      expect(row.selected_index).toBeNull();
+    }
+  });
+
+  it('null NO es un blanco: es una fila anterior a P3.4', () => {
+    // La lectura tentadora era "null = en blanco". No vale: hasta P3.4 la
+    // columna estaba vacia tambien en las contestadas, asi que cada fallo del
+    // historico se habria leido como un blanco.
+    expect(isBlankAnswer(null)).toBe(false);
+    expect(isBlankAnswer(undefined)).toBe(false);
+    expect(isBlankAnswer(0)).toBe(false);
   });
 });

@@ -402,7 +402,11 @@ export async function saveTestResult(
   topicOrId: string | number,
   questionId: string | null,
   isCorrect: boolean,
-  metrics?: Partial<AnswerMetrics>
+  // `selectedIndex` viaja con las metricas y no como parametro suelto para no
+  // volver a tener dos firmas que puedan divergir (regla 6). Es opcional: en
+  // entrenamiento nunca hay blancos, pero saber QUE distractor eligio el
+  // alumno es lo que permite detectar una opcion mal redactada.
+  metrics?: Partial<AnswerMetrics> & { selectedIndex?: number | null }
 ): Promise<{ success: boolean; id: string | null }> {
   const auth = await requireUser();
   if (!auth.ok) return { success: false, id: null };

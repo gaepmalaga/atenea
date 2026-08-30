@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChevronRight, CheckCircle2, XCircle, Brain,
   BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
-  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark
+  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark, Eraser
 } from 'lucide-react';
 import { formatTime } from '@/app/lib/timer';
 import { Question } from './ExamManager';
@@ -143,6 +143,7 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
             {
                 responseTimeMs: tiempoActual(),
                 optionChanges: metricasDe(currentIndex).cambios,
+                selectedIndex: currentQ.options.findIndex((o) => o.id === optionId),
             }
         );
         const saved = await savePromiseRef.current;
@@ -246,6 +247,25 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
     savePromiseRef.current = null;
   }, [cerrarVisita, currentIndex, localQuestions]);
 
+  /**
+   * Dejar la pregunta en blanco, a proposito.
+   *
+   * CON PENALIZACION EL BLANCO ES UNA DECISION, NO UN DESCUIDO. Cada dos fallos
+   * se pierde un acierto, asi que hay un punto en el que arriesgar sale peor
+   * que no contestar. Sin este boton el alumno podia saltarse una pregunta,
+   * pero no RETIRAR una respuesta ya marcada: una vez pulsada la A, la unica
+   * salida era dejar la A. Ahora puede volver al blanco.
+   *
+   * Solo en el simulacro: en entrenamiento la pregunta se corrige al momento y
+   * dejarla en blanco no significa nada.
+   */
+  const dejarEnBlanco = useCallback(() => {
+    if (mode !== 'exam') return;
+    setLocalQuestions((prev) =>
+      prev.map((q, i) => (i === currentIndex ? { ...q, userAnswer: null } : q))
+    );
+  }, [currentIndex, mode]);
+
   /** Marca o desmarca la pregunta actual para revisarla luego. */
   const alternarMarca = useCallback(() => {
     setMarcadas((prev) => {
@@ -313,6 +333,8 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
         if (e.key === 'ArrowRight') { e.preventDefault(); irA(currentIndex + 1); return; }
         // `M` no colisiona con las opciones, que son A, B y C.
         if (e.key.toLowerCase() === 'm') { e.preventDefault(); alternarMarca(); return; }
+        // `0` tampoco: las opciones se numeran desde el 1.
+        if (e.key === '0') { e.preventDefault(); dejarEnBlanco(); return; }
       }
 
       const tecla = e.key.toLowerCase();
@@ -326,7 +348,7 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
 
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
-  }, [alternarMarca, currentIndex, currentQ, handleAnswer, handleNext, irA, isReportModalOpen, navegacionLibre, puedeAvanzar]);
+  }, [alternarMarca, currentIndex, currentQ, dejarEnBlanco, handleAnswer, handleNext, irA, isReportModalOpen, navegacionLibre, puedeAvanzar]);
 
   return (
     // `justify-center` sobre `min-h-[80vh]` dejaba la tarjeta flotando en
@@ -390,37 +412,80 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
           {/* Un segmento por pregunta, y en el simulacro se puede pulsar: es el
               mapa de preguntas que distingue una pantalla de examen seria de un
               formulario. Amarillo = marcada para revisar. */}
-          <div className="flex gap-1">
+          {/* La marca ya NO sustituye al color: son dos cosas distintas y
+              taparse una a otra perdia informacion. Una pregunta marcada y
+              contestada se veia igual que una marcada y en blanco, que es
+              justo lo que hay que poder distinguir al final del examen.
+              El color dice si esta contestada; la marca, una muesca encima. */}
+          <div className="flex gap-1 items-end">
               {localQuestions.map((q, i) => {
                   const respondida = !!q.userAnswer;
                   const esActual = i === currentIndex;
                   const marcada = marcadas.has(i);
 
                   let color = 'bg-slate-200 dark:bg-slate-800';
-                  if (marcada) {
-                      color = 'bg-amber-400';
-                  } else if (mode === 'practice' && respondida) {
+                  if (mode === 'practice' && respondida) {
                       color = q.userAnswer === q.correctOptionId ? 'bg-emerald-500' : 'bg-red-500';
                   } else if (respondida) {
                       color = 'bg-indigo-500';
                   }
 
-                  const clases = `h-1.5 flex-1 rounded-full transition-all duration-300 ${color} ${
+                  const barra = `h-1.5 w-full rounded-full transition-all duration-300 ${color} ${
                     esActual ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-950' : ''
                   }`;
 
-                  if (!navegacionLibre) return <div key={i} className={clases} />;
+                  const contenido = (
+                      <>
+                          {/* La muesca de "marcada", encima y sin robarle sitio
+                              al color de estado. */}
+                          <span
+                            className={`block h-1 w-1 rounded-full mx-auto mb-0.5 ${
+                              marcada ? 'bg-amber-400' : 'bg-transparent'
+                            }`}
+                          />
+                          <span className={barra} />
+                      </>
+                  );
+
+                  const titulo = `Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${
+                    respondida ? '' : ' · en blanco'
+                  }`;
+
+                  if (!navegacionLibre) {
+                      return <div key={i} className="flex-1" title={titulo}>{contenido}</div>;
+                  }
 
                   return (
                       <button
                         key={i}
                         onClick={() => irA(i)}
-                        title={`Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${respondida ? '' : ' · en blanco'}`}
-                        className={`${clases} hover:h-2.5 cursor-pointer`}
-                      />
+                        title={titulo}
+                        className="flex-1 cursor-pointer group/seg"
+                      >
+                          {contenido}
+                      </button>
                   );
               })}
           </div>
+
+          {/* El recuento, en palabras. Con penalizacion el alumno necesita
+              saber cuantas lleva en blanco ANTES de entregar: son las que no
+              restan, y decidir sobre ellas es media estrategia del examen. */}
+          {navegacionLibre && (
+              <p className="mt-2 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <span className="text-indigo-500">
+                      {localQuestions.filter((q) => q.userAnswer).length} contestadas
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-700">·</span>
+                  <span>{localQuestions.filter((q) => !q.userAnswer).length} en blanco</span>
+                  {marcadas.size > 0 && (
+                      <>
+                          <span className="text-slate-300 dark:text-slate-700">·</span>
+                          <span className="text-amber-500">{marcadas.size} marcadas</span>
+                      </>
+                  )}
+              </p>
+          )}
       </div>
 
       {/* El cuerpo se centra en el hueco que dejan cabecera y pie.
@@ -513,6 +578,32 @@ export default function ActiveTest({ questions, mode, topicName, onFinish, onExi
                   );
               })}
           </div>
+
+          {/* DEJAR EN BLANCO
+
+              Con la penalizacion de la convocatoria, el blanco es una DECISION
+              estrategica: cada dos fallos se pierde un acierto, asi que hay un
+              punto en el que arriesgar sale peor que callarse. Sin este boton
+              se podia saltar una pregunta, pero no RETIRAR una respuesta ya
+              marcada — una vez pulsada la A, la unica salida era dejar la A.
+
+              Solo se ofrece cuando hay algo que retirar: un boton que no hace
+              nada es peor que no tenerlo. */}
+          {navegacionLibre && isAnswered && (
+              <div className="mt-6 flex justify-center relative z-10">
+                  <button
+                    onClick={dejarEnBlanco}
+                    title="Retirar la respuesta y dejarla en blanco (0)"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                      <Eraser size={14} />
+                      Dejar en blanco
+                      <kbd className="px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono">
+                          0
+                      </kbd>
+                  </button>
+              </div>
+          )}
       </div>
 
       {/* FEEDBACK (SOLO MODO PRÁCTICA) */}

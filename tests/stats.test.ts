@@ -146,3 +146,72 @@ describe('umbral de duda', () => {
     expect(HESITATION_THRESHOLD).toBe(1);
   });
 });
+
+/**
+ * P3.4 — EL BLANCO DEJA DE CONTAR COMO FALLO EN LAS ESTADISTICAS.
+ *
+ * La nota del simulacro ya trataba el blanco como neutro, pero el resumen lo
+ * metia en el denominador: el mismo examen daba dos verdades, y el porcentaje
+ * de acierto castigaba no arriesgar — al reves de lo que enseña la formula.
+ */
+describe('un blanco no baja el porcentaje de acierto', () => {
+  const acierto = { is_correct: true, selected_index: 1 };
+  const fallo = { is_correct: false, selected_index: 2 };
+  const blanco = { is_correct: false, selected_index: -1 };
+
+  it('el porcentaje se calcula sobre las CONTESTADAS', () => {
+    // 1 acierto, 1 fallo, 2 blancos. Antes: 1/4 = 25 %. Ahora: 1/2 = 50 %.
+    const s = summarizeResults([acierto, fallo, blanco, blanco]);
+    expect(s.winRate).toBe(50);
+    expect(s.answered).toBe(2);
+    expect(s.blank).toBe(2);
+    expect(s.total).toBe(4);
+  });
+
+  it('los blancos no engordan la cuenta de fallos', () => {
+    const s = summarizeResults([acierto, blanco, blanco]);
+    expect(s.wrong).toBe(0);
+    expect(s.correct).toBe(1);
+  });
+
+  it('dejar mas en blanco NO empeora el porcentaje', () => {
+    // La comprobacion que importa: si esto se rompe, la plataforma vuelve a
+    // empujar al alumno a contestar a ciegas.
+    const pocos = summarizeResults([acierto, fallo, blanco]);
+    const muchos = summarizeResults([acierto, fallo, blanco, blanco, blanco, blanco]);
+    expect(muchos.winRate).toBe(pocos.winRate);
+  });
+
+  it('un examen entero en blanco no da NaN', () => {
+    const s = summarizeResults([blanco, blanco]);
+    expect(s.winRate).toBe(0);
+    expect(s.answered).toBe(0);
+    // "Sin datos" se distingue de "cero" mirando `answered` (regla 8).
+    expect(s.blank).toBe(2);
+  });
+
+  it('un blanco no entra en el reparto de tipos de error', () => {
+    // Si entrara, el diagnostico diria que el alumno tiene lagunas donde en
+    // realidad decidio no contestar.
+    const s = summarizeResults([
+      { is_correct: false, selected_index: -1, error_type: 'olvido' },
+      { is_correct: false, selected_index: 0, error_type: 'olvido' },
+    ]);
+    expect(s.errorBreakdown.olvido).toBe(1);
+    expect(s.taggedErrors).toBe(1);
+  });
+
+  it('las filas historicas (sin selected_index) siguen contando como contestadas', () => {
+    // Hasta P3.4 la columna estaba vacia TAMBIEN en las contestadas. Si null
+    // se leyera como blanco, todo el historico se volveria invisible de golpe
+    // y el porcentaje de acierto de cada alumno cambiaria solo.
+    const s = summarizeResults([
+      { is_correct: true },
+      { is_correct: false },
+      { is_correct: false, selected_index: null },
+    ]);
+    expect(s.blank).toBe(0);
+    expect(s.answered).toBe(3);
+    expect(s.winRate).toBe(33);
+  });
+});

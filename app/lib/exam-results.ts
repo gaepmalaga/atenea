@@ -39,7 +39,38 @@ export type ResultRow = {
   response_time_ms: number;
   option_changes: number;
   error_type: string | null;
+  /** Opcion marcada. Ver `BLANK_INDEX`. */
+  selected_index: number | null;
 };
+
+/**
+ * Valor de `selected_index` que significa «la dejo en blanco A PROPOSITO».
+ *
+ * POR QUE UN CENTINELA Y NO `null`
+ * `selected_index` lleva declarada desde siempre y NADIE la escribia: todas las
+ * filas anteriores a P3.4 la tienen a null, tambien las contestadas. Si null
+ * significara "en blanco", cada fallo del historico se leeria como un blanco.
+ *
+ * Asi hay tres estados que no se confunden:
+ *
+ *     0, 1, 2 ...  la opcion que marco
+ *     -1           blanco deliberado
+ *     null         no se sabe (fila vieja)
+ *
+ * Ningun indice real es negativo, asi que -1 no colisiona con nada.
+ */
+export const BLANK_INDEX = -1;
+
+/**
+ * Si esta fila es un blanco deliberado.
+ *
+ * Es una funcion y no una comparacion suelta para que el centinela solo se
+ * escriba en este fichero: repartirlo por los modulos que leen resultados es
+ * como se olvida la mitad de los sitios.
+ */
+export function isBlankAnswer(selectedIndex: number | null | undefined): boolean {
+  return selectedIndex === BLANK_INDEX;
+}
 
 /** Lo que el cliente envia por cada pregunta al terminar un examen. */
 export type ExamResultPayload = {
@@ -47,6 +78,8 @@ export type ExamResultPayload = {
   /** Titulo del tema. Se guarda tal cual en la columna `topic`. */
   topic: string;
   isCorrect: boolean;
+  /** Indice de la opcion marcada, o `BLANK_INDEX` si quedo en blanco. */
+  selectedIndex?: number | null;
 } & AnswerMetrics;
 
 export const EMPTY_METRICS: AnswerMetrics = {
@@ -67,17 +100,43 @@ function safeCount(value: unknown): number {
  * en bloque al terminar un examen.
  */
 export function toResultRow(
-  input: { questionId: string | null; topic: string; isCorrect: boolean } & Partial<AnswerMetrics>
+  input: {
+    questionId: string | null;
+    topic: string;
+    isCorrect: boolean;
+    selectedIndex?: number | null;
+  } & Partial<AnswerMetrics>
 ): ResultRow {
+  const enBlanco = isBlankAnswer(input.selectedIndex);
+
   return {
     question_id: input.questionId ?? null,
     // NOT NULL en la tabla: mejor una cadena vacia que tumbar la insercion.
     topic: input.topic ?? '',
-    is_correct: Boolean(input.isCorrect),
+    // Un blanco NUNCA es correcto, diga lo que diga quien llame. Esta accion
+    // es un endpoint publico y `isCorrect` viaja desde el navegador; sin esta
+    // linea, un cliente manipulado podria guardar blancos acertados y subirse
+    // el porcentaje.
+    is_correct: enBlanco ? false : Boolean(input.isCorrect),
     response_time_ms: safeCount(input.responseTimeMs),
     option_changes: safeCount(input.optionChanges),
-    error_type: input.errorType ?? null,
+    // Un blanco no se diagnostica: no hubo error que clasificar.
+    error_type: enBlanco ? null : input.errorType ?? null,
+    selected_index: normalizeSelectedIndex(input.selectedIndex),
   };
+}
+
+/**
+ * Deja `selected_index` en uno de sus tres estados validos.
+ *
+ * Cualquier cosa que no sea un entero >= 0 ni el centinela cae a null, que es
+ * "no se sabe": es preferible perder el dato a inventarse una opcion. Un
+ * `Number('')` valdria 0 y diria que marco la A (regla 16).
+ */
+function normalizeSelectedIndex(value: number | null | undefined): number | null {
+  if (value === BLANK_INDEX) return BLANK_INDEX;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return null;
+  return value;
 }
 
 /** Pregunta terminada, tal y como la deja `ActiveTest`. */
@@ -89,7 +148,22 @@ type FinishedQuestion = {
   errorType?: string | null;
   timeMs?: number;
   changes?: number;
+  /** Las opciones, para saber QUE indice marco. Sin ellas no se puede deducir. */
+  options?: { id: string }[];
 };
+
+/**
+ * Que indice guardar para una pregunta terminada.
+ *
+ * Sin respuesta es un blanco. Con respuesta se busca su posicion entre las
+ * opciones; si no se encuentra (o la pregunta no las trae) queda null: "no se
+ * sabe" es mejor que un 0 que diria que marco la A.
+ */
+function indiceElegido(q: FinishedQuestion): number | null {
+  if (!q.userAnswer) return BLANK_INDEX;
+  const i = q.options?.findIndex((o) => o.id === q.userAnswer) ?? -1;
+  return i >= 0 ? i : null;
+}
 
 /**
  * Convierte las preguntas de un examen terminado en el payload que espera el
@@ -104,7 +178,12 @@ export function buildExamResults(
   return questions.map((q) => ({
     questionId: q.id ?? null,
     topic: q.topic ?? temaPorDefecto,
-    isCorrect: q.userAnswer === q.correctOptionId,
+    // Sin respuesta NO es un acierto, y tampoco un fallo: lo separa
+    // `selectedIndex`. Antes esto se guardaba como `is_correct: false` y el
+    // blanco contaba como error en las estadisticas, justo lo contrario de lo
+    // que dice la formula de la convocatoria.
+    isCorrect: Boolean(q.userAnswer) && q.userAnswer === q.correctOptionId,
+    selectedIndex: indiceElegido(q),
     responseTimeMs: safeCount(q.timeMs),
     optionChanges: safeCount(q.changes),
     errorType: q.errorType ?? null,
