@@ -1,11 +1,12 @@
 'use server'
-import crypto from 'crypto';
 import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjectNameById } from './core';
+import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import {
   QUESTION_STATUS,
+  QUESTION_ORIGIN,
   indexToOptionId,
   shuffle,
   toDifficultyLevel,
@@ -156,12 +157,10 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number, d
     const qData = genResult.data;
     
     // C. Calcular Hash (Evitar duplicados)
-    const payload = JSON.stringify({ 
-        s: subjectId, 
-        q: qData.question.trim(), 
-        c: qData.correctIndex 
-    });
-    const qHash = crypto.createHash('sha256').update(payload).digest('hex');
+    // La formula vive en `lib/question-hash`: la comparten los tres caminos
+    // que escriben en el banco (vivo, siembra y alta a mano) y tienen que
+    // calcularla igual, o la misma pregunta entra dos veces.
+    const qHash = questionHash(subjectId, qData.question, qData.correctIndex);
 
     // D. Guardar en el banco como candidata.
     //
@@ -181,7 +180,7 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number, d
           question_hash: qHash,
           difficulty_level: nivel,
           status: QUESTION_STATUS.CANDIDATE,
-          origin: 'live_ai',
+          origin: QUESTION_ORIGIN.LIVE_AI,
           created_at: new Date().toISOString()
       }, { onConflict: 'question_hash', ignoreDuplicates: true })
       .select()
@@ -294,8 +293,7 @@ export async function seedQuestionBank(params: {
     if (!r.ok || !r.data) { failed++; continue; }
 
     const d = r.data as GeneratedQuestion;
-    const payload = JSON.stringify({ s: subjectId, q: d.question.trim(), c: d.correctIndex });
-    const qHash = crypto.createHash('sha256').update(payload).digest('hex');
+    const qHash = questionHash(subjectId, d.question, d.correctIndex);
 
     // `ignoreDuplicates`: resembrar un tema no debe tocar las filas que ya
     // existen. Con un upsert normal, una pregunta descartada en moderacion
@@ -312,7 +310,7 @@ export async function seedQuestionBank(params: {
           question_hash: qHash,
           difficulty_level: nivel,
           status,
-          origin: 'bank_seed',
+          origin: QUESTION_ORIGIN.BANK_SEED,
           created_at: new Date().toISOString()
       }, { onConflict: 'question_hash', ignoreDuplicates: true })
       .select('id');

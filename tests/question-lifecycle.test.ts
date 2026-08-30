@@ -66,8 +66,13 @@ describe('resembrar no puede corromper el banco', () => {
   // Volver a generar una pregunta ya aprobada la devolvia a 'candidate' (salia
   // del banco de los alumnos) y una descartada resucitaba en moderacion.
   it('todo upsert sobre question_hash ignora los duplicados', () => {
-    const upserts = exams.match(/onConflict:\s*'question_hash'[^}]*\}/g) ?? [];
-    expect(upserts.length).toBeGreaterThan(0);
+    // Los tres caminos de escritura: generacion en vivo y siembra (exams.ts) y
+    // alta a mano e importacion (moderation.ts). Antes solo se miraba el
+    // primer fichero, asi que un camino nuevo podia nacer pisando filas.
+    const upserts = [exams, moderation].flatMap(
+      (src) => src.match(/onConflict:\s*'question_hash'[^}]*\}/g) ?? []
+    );
+    expect(upserts.length).toBeGreaterThanOrEqual(4);
     for (const u of upserts) {
       expect(u).toContain('ignoreDuplicates: true');
     }

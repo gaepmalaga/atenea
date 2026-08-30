@@ -85,6 +85,9 @@ describe('superficie de las Server Actions', () => {
       'resolveReport',
       'updateQuestion',
       'seedQuestionBank',
+      // P2: escriben directamente en el banco de los alumnos.
+      'createManualQuestion',
+      'importManualQuestions',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

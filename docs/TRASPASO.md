@@ -73,13 +73,47 @@ Pestaña propia, justo después del test. Agregación en
 [`app/lib/review.ts`](../app/lib/review.ts), pantalla en
 `app/components/student/modules/review/FailedQuestions.tsx`.
 
+### P2 · Escribir preguntas a mano — cerrada
+
+Era lo siguiente con más valor y no necesitaba esquema. Botón **Nueva** en el
+Banco Maestro, con dos pestañas:
+
+- **Escribir una**: tema, enunciado, tres opciones marcando la válida,
+  justificación y dificultad. Entra directamente como `active` —la escribe un
+  administrador sobre su propio temario— y con `origin: 'manual'`, que es lo
+  que permitirá comparar después qué rinde mejor, lo escrito a mano o lo
+  generado. El tema y la dificultad se conservan al guardar: escribir diez
+  seguidas no obliga a elegirlos diez veces.
+- **Importar una hoja**: el CSV se lee en el navegador y viaja ya troceado. Se
+  ve antes de importar cuántas están listas, cuántas repetidas y **cuáles se
+  rechazan, con su línea y el motivo**. Hay plantilla descargable.
+
+Lo que salió sin estar previsto está en el *Estado de P2* de
+[`PLAN-PRODUCTO.md`](PLAN-PRODUCTO.md): la huella `question_hash` estaba
+copiada dos veces, el tipo `origin` mentía sobre lo que se guarda de verdad, y
+la guarda de `ignoreDuplicates` solo miraba un fichero de los dos que ahora
+escriben en el banco.
+
+### Los dos guiones de P3 ya están escritos
+
+Siguen sin ejecutar —el DDL es tuyo— pero ya no hay que redactarlos:
+
+| Guion | Qué hace |
+|---|---|
+| [`P3.7-referencia-legal-de-la-pregunta.sql`](sql/P3.7-referencia-legal-de-la-pregunta.sql) | `legal_reference text` en `question_bank` |
+| [`P3.8-notas-personales.sql`](sql/P3.8-notas-personales.sql) | tabla `question_notes` con RLS de propietario |
+
+Los dos son idempotentes y no tocan ni una fila existente. En cuanto estén
+ejecutados se puede escribir el código de los dos últimos puntos de P3; antes
+no, porque PostgREST rechaza la escritura entera si falta una columna.
+
 ---
 
 ## Estado de las comprobaciones
 
 | Qué | Cómo está |
 |---|---|
-| `npm run check` | ✅ 438 tests, typecheck limpio |
+| `npm run check` | ✅ 467 tests, typecheck limpio |
 | `npm run build` | ✅ |
 | Guardas estáticas nuevas | ✅ comprobadas rompiéndolas a propósito |
 | Consulta del repaso contra la BD real | ✅ el join resuelve las 17 filas falladas con opciones y respuesta correcta |
@@ -90,7 +124,9 @@ Para verlo hace falta una sesión de alumno, y una sesión pide contraseña.
 
 Sin ver quedan: el botón de dejar en blanco y la tecla `0`, la cuenta atrás y
 la entrega automática al llegar a cero, la pantalla de revisión antes de
-entregar, y la pestaña de Repasar fallos.
+entregar, la pestaña de Repasar fallos, y ahora también **el alta manual y la
+importación de preguntas** (P2). El servidor de desarrollo arranca y la portada
+carga sin errores en consola; a partir del login hace falta contraseña.
 
 > Para entrar como alumno sin fricción: cambiar `profiles.role` a `student` un
 > momento con la clave de servicio y devolverlo a `admin` al terminar.
@@ -116,11 +152,10 @@ endurecimiento **opcional** — el código funciona igual con o sin él.
 
 ## Por dónde seguir
 
-1. **P2 · escribir preguntas a mano.** Lo siguiente con más valor y **no
-   necesita esquema**: `question_bank` ya tiene todo lo que hace falta. Es
-   además lo que permite a la academia cargar su banco sin depender de la IA,
-   que era una de las cosas que menos convencían.
-2. **Los dos guiones de esquema** que cierran P3 (referencia legal y notas).
+1. **Ejecutar los dos guiones** de `docs/sql/` y, con la columna y la tabla ya
+   creadas, escribir el código de los dos últimos puntos de P3.
+2. **Probar P2 y P3 con una sesión de admin y otra de alumno.** Es lo único que
+   separa «pasa los tests» de «funciona».
 3. **P4 y P5** (super admin con módulos configurables; panel de academia). P4
    depende de una decisión que sigue abierta: *qué módulos querría apagar la
    academia del piloto*. Sin esa respuesta no se sabe si corre prisa.

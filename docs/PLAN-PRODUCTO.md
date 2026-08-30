@@ -189,6 +189,8 @@ puede comprobar.
 
 ## P2 · Escribir una pregunta a mano
 
+> **Cerrada el 30 de agosto de 2026.** Ver *Estado de P2*, al final de la sección.
+
 ### Lo que hay hoy
 
 **No existe** una pantalla de «crear pregunta». Solo se pueden **editar** las que
@@ -219,6 +221,44 @@ golpe vale por semanas de trabajo.
 
 Es la más pequeña de todas y no depende de nada. Se puede hacer en paralelo con
 cualquier otra.
+
+### Estado de P2 · 30 de agosto de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P2a | Formulario de alta desde Banco Oficial | ✅ botón **Nueva** en el Banco Maestro |
+| P2b | `origin: 'manual'` para poder comparar rendimiento | ✅ y de paso `QUESTION_ORIGIN` como constante |
+| P2c | Entra directamente como `active` | ✅ |
+| P2d | La misma validación que el resto (`validateGeneratedQuestion`) | ✅ en el navegador **y** en el servidor |
+| P2e | Importar desde CSV / Excel | ✅ con vista previa y desglose de lo rechazado |
+
+**Lo que salió al hacerlo, y que no estaba previsto:**
+
+1. **La huella estaba copiada dos veces.** `question_hash` se calculaba a mano
+   dentro de `exams.ts`, en la generación en vivo y en la siembra. Con el alta
+   manual habría un tercer sitio, y si uno de los tres cambiara la fórmula la
+   misma pregunta entraría dos veces en el banco. Ahora vive en
+   [`app/lib/question-hash.ts`](../app/lib/question-hash.ts) y hay un test que
+   prohíbe `createHash(` dentro de las acciones.
+
+2. **El tipo mentía sobre los datos.** `Question['origin']` declaraba
+   `'bank' | 'live_ai' | 'candidate'` mientras la siembra escribía `'bank_seed'`.
+   Es el mismo fallo de la regla 3, un escalón más abajo: ahora es una constante.
+
+3. **La guarda de `ignoreDuplicates` solo miraba un fichero.** Existía desde la
+   fase 2.1 y comprobaba `exams.ts`; los dos caminos nuevos habrían quedado
+   fuera. Comprobado rompiéndola a propósito: ahora muerde en los cuatro upsert.
+
+**Decisiones del importador**, en la regla 27 de [`CLAUDE.md`](../CLAUDE.md): que
+ninguna fila se descarte en silencio, que el `0` en la columna «correcta» se
+rechace en vez de adivinarlo, y que el separador se detecte (Excel en español
+exporta con punto y coma).
+
+**Lo que NO hace, a propósito:** un fichero es de **un solo tema**, el que se elige
+arriba. Permitir una columna `tema` obligaría a resolver números de tema a
+`subject_id` fila a fila y a decidir qué hacer con los que no existen; con una
+academia y un temario, un fichero por tema no es una molestia. Queda anotado por
+si el piloto dice otra cosa.
 
 ---
 

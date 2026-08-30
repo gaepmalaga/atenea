@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Edit, Trash2, ChevronLeft, ChevronRight, 
   Database, Loader2, BookOpen, Save, X, CheckCircle2, 
-  MoreHorizontal, AlertTriangle, Copy
+  MoreHorizontal, AlertTriangle, Copy, Plus
 } from 'lucide-react';
 import {
   getAdminQuestionBank,
@@ -22,6 +22,7 @@ import {
   type AdminBankRow,
 } from '@/app/lib/questions';
 import type { SyllabusSubject } from '@/app/actions/admin';
+import QuestionComposer from './QuestionComposer';
 
 // --- UTILIDAD VISUAL: ESTADO DE LA PREGUNTA ---
 const STATUS_STYLE: Record<QuestionStatus, string> = {
@@ -50,6 +51,8 @@ export default function AdminBank() {
   // sembrara cientos de preguntas y viera la lista vacia.
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all');
   const [bulkRunning, setBulkRunning] = useState(false);
+  // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
+  const [componiendo, setComponiendo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -188,6 +191,14 @@ export default function AdminBank() {
                     </div>
                 </div>
             </div>
+
+            {/* Nueva pregunta a mano (P2) */}
+            <button
+                onClick={() => setComponiendo(true)}
+                className="shrink-0 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-600/20"
+            >
+                <Plus size={16} strokeWidth={3}/> Nueva
+            </button>
 
             {/* Filtros Avanzados */}
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
@@ -406,6 +417,17 @@ export default function AdminBank() {
                     <ChevronRight size={18}/>
                 </button>
             </div>
+        )}
+
+        {/* --- ALTA MANUAL / IMPORTACIÓN (P2) --- */}
+        {componiendo && (
+            <QuestionComposer
+                subjects={subjects}
+                onClose={() => setComponiendo(false)}
+                // Se recarga la pagina actual para que lo recien publicado
+                // aparezca en la lista sin cerrar el panel.
+                onCreated={() => loadQuestions(stats.page)}
+            />
         )}
 
         {/* --- MODAL EDITOR QUIRÚRGICO (DISEÑO PRO) --- */}

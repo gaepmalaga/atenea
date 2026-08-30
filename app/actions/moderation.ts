@@ -4,11 +4,15 @@ import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
 import {
   QUESTION_STATUS,
+  QUESTION_ORIGIN,
+  toDifficultyLevel,
   type ModerationCandidate,
   type ModerationQueue,
   type ModerationReport,
 } from '../lib/questions';
 import { validateGeneratedQuestion } from '../lib/ai-output';
+import { questionHash } from '../lib/question-hash';
+import { MAX_IMPORT } from '../lib/question-import';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -151,4 +155,227 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
         explanation: check.value.explanation,
     }).eq('id', questionId);
     return { success: !error, error: error?.message };
+}
+
+
+// ==========================================
+// ALTA MANUAL DE PREGUNTAS  (P2)
+// ==========================================
+//
+// Hasta ahora solo se podian EDITAR preguntas que ya existian: para tener una
+// pregunta concreta habia que generar varias con IA y reescribir la que mas se
+// acercara. Esto es lo que permite a una academia cargar su propio banco sin
+// depender del modelo.
+
+/**
+ * Lo que llega del formulario o del importador.
+ *
+ * Se declara aqui como `unknown` y se comprueba campo a campo: una Server
+ * Action es un endpoint HTTP publico, asi que la validacion del navegador no
+ * cuenta (regla 16).
+ */
+type AltaManual = {
+  subjectId: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  difficulty: number;
+};
+
+/** Fila lista para `question_bank`, ya validada y con su huella. */
+type FilaNueva = {
+  subject_id: number;
+  question_text: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+  question_hash: string;
+  difficulty_level: number;
+  status: string;
+  origin: string;
+  created_at: string;
+};
+
+/**
+ * Comprueba una pregunta suelta y la deja en forma de fila.
+ *
+ * Reutiliza `validateGeneratedQuestion`, la misma que filtra la salida del
+ * modelo: opciones repetidas o vacias, enunciado demasiado corto y —lo que de
+ * verdad importa— un `correctIndex` fuera de rango. Una persona escribiendo en
+ * un Excel se equivoca igual que la IA, y lo que le pasa al alumno es identico:
+ * estudia un dato falso y nada avisa (regla 10).
+ *
+ * Las preguntas escritas a mano entran como `active`: si las escribe un
+ * administrador sobre su propio temario, mandarlas a su propia cola de
+ * moderacion no aporta nada. Se pueden descartar desde el banco como cualquier
+ * otra.
+ */
+function aFilaNueva(entrada: unknown, subjectId: number): { ok: true; fila: FilaNueva } | { ok: false; motivo: string } {
+  const check = validateGeneratedQuestion(entrada);
+  if (!check.ok) return { ok: false, motivo: check.reason };
+
+  const d = (entrada ?? {}) as Record<string, unknown>;
+  const nivel = toDifficultyLevel(d.difficulty ?? d.difficulty_level);
+
+  return {
+    ok: true,
+    fila: {
+      subject_id: subjectId,
+      // Se guardan los valores YA normalizados (recortados y sin Markdown),
+      // no los de entrada.
+      question_text: check.value.question,
+      options: check.value.options,
+      correct_index: check.value.correctIndex,
+      explanation: check.value.explanation,
+      question_hash: questionHash(subjectId, check.value.question, check.value.correctIndex),
+      difficulty_level: nivel,
+      status: QUESTION_STATUS.ACTIVE,
+      origin: QUESTION_ORIGIN.MANUAL,
+      created_at: new Date().toISOString(),
+    },
+  };
+}
+
+/** El tema tiene que existir: `question_bank.subject_id` es clave ajena de `subjects`. */
+async function temaExiste(subjectId: number): Promise<boolean> {
+  const { data } = await supabaseAdmin.from('subjects').select('id').eq('id', subjectId).maybeSingle();
+  return !!data;
+}
+
+export async function createManualQuestion(
+  input: unknown
+): Promise<ModerationResult & { id?: string; duplicada?: boolean }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const d = (input ?? {}) as Partial<AltaManual>;
+  const subjectId = Number(d.subjectId);
+  if (!Number.isInteger(subjectId) || subjectId <= 0) {
+    return { success: false, error: 'Falta el tema al que pertenece la pregunta.' };
+  }
+  if (!(await temaExiste(subjectId))) {
+    return { success: false, error: 'Ese tema no existe.' };
+  }
+
+  const preparada = aFilaNueva(input, subjectId);
+  if (!preparada.ok) return { success: false, error: preparada.motivo };
+
+  // `ignoreDuplicates`, igual que en los otros dos caminos de escritura: si la
+  // pregunta ya estaba, NO se reescribe su fila. Sin esto, escribir a mano una
+  // pregunta que ya existia devolveria una descartada al banco o sacaria de el
+  // a una aprobada (regla 3).
+  const { data, error } = await supabaseAdmin
+    .from('question_bank')
+    .upsert(preparada.fila, { onConflict: 'question_hash', ignoreDuplicates: true })
+    .select('id')
+    .maybeSingle();
+
+  if (error) return { success: false, error: error.message };
+
+  if (!data) {
+    // No se inserto nada: el hash ya existia. Se dice cual es, y en que estado,
+    // porque "ya existe pero esta descartada" y "ya existe y esta en el banco"
+    // piden cosas distintas de quien la estaba escribiendo.
+    const { data: existente } = await supabaseAdmin
+      .from('question_bank')
+      .select('id, status')
+      .eq('question_hash', preparada.fila.question_hash)
+      .maybeSingle();
+
+    const estado = existente?.status === QUESTION_STATUS.DISABLED
+      ? ' Esta descartada: se puede recuperar editandola desde el banco.'
+      : '';
+    return {
+      success: false,
+      duplicada: true,
+      id: existente?.id,
+      error: `Esa pregunta ya existe en este tema.${estado}`,
+    };
+  }
+
+  return { success: true, id: data.id };
+}
+
+/**
+ * Alta en lote desde una hoja de calculo.
+ *
+ * El CSV se lee en el navegador (`app/lib/question-import.ts`) y lo que viaja
+ * son preguntas ya troceadas. Aqui se vuelven a validar TODAS: que el
+ * navegador las haya mirado no significa nada para un endpoint publico.
+ *
+ * Devuelve el desglose entero —insertadas, duplicadas y rechazadas con su
+ * motivo— y no un simple `success`. Un importador que dice "listo" despues de
+ * tragarse treinta filas es exactamente como se acaba con un banco incompleto
+ * sin enterarse.
+ */
+export async function importManualQuestions(
+  input: unknown
+): Promise<
+  ModerationResult & {
+    insertadas?: number;
+    duplicadas?: number;
+    rechazadas?: { indice: number; motivo: string }[];
+  }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const d = (input ?? {}) as { subjectId?: unknown; questions?: unknown };
+  const subjectId = Number(d.subjectId);
+  if (!Number.isInteger(subjectId) || subjectId <= 0) {
+    return { success: false, error: 'Falta el tema al que pertenecen las preguntas.' };
+  }
+  if (!Array.isArray(d.questions) || d.questions.length === 0) {
+    return { success: false, error: 'No llego ninguna pregunta.' };
+  }
+  if (d.questions.length > MAX_IMPORT) {
+    return { success: false, error: `Se importan como maximo ${MAX_IMPORT} preguntas de una vez.` };
+  }
+  if (!(await temaExiste(subjectId))) {
+    return { success: false, error: 'Ese tema no existe.' };
+  }
+
+  const rechazadas: { indice: number; motivo: string }[] = [];
+  const filas: FilaNueva[] = [];
+  const huellas = new Set<string>();
+  let repetidasEnElFichero = 0;
+
+  d.questions.forEach((q, i) => {
+    const preparada = aFilaNueva(q, subjectId);
+    if (!preparada.ok) {
+      rechazadas.push({ indice: i, motivo: preparada.motivo });
+      return;
+    }
+    // Dos filas iguales dentro del mismo envio chocarian contra la restriccion
+    // unica y el fallo saldria como un error de base de datos en vez de como
+    // lo que es: una fila repetida en el fichero.
+    if (huellas.has(preparada.fila.question_hash)) {
+      repetidasEnElFichero++;
+      return;
+    }
+    huellas.add(preparada.fila.question_hash);
+    filas.push(preparada.fila);
+  });
+
+  if (filas.length === 0) {
+    return { success: false, error: 'Ninguna fila era utilizable.', insertadas: 0, duplicadas: repetidasEnElFichero, rechazadas };
+  }
+
+  const { data: insertadas, error } = await supabaseAdmin
+    .from('question_bank')
+    .upsert(filas, { onConflict: 'question_hash', ignoreDuplicates: true })
+    .select('id');
+
+  if (error) return { success: false, error: error.message, rechazadas };
+
+  const nInsertadas = insertadas?.length ?? 0;
+  return {
+    success: true,
+    insertadas: nInsertadas,
+    // Las que ya estaban en el banco, mas las repetidas dentro del propio
+    // fichero: para quien importa las dos cosas son "esta ya la tenia".
+    duplicadas: filas.length - nInsertadas + repetidasEnElFichero,
+    rechazadas,
+  };
 }

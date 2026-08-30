@@ -43,6 +43,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
 | **P3** | **La pantalla del test** (plan de producto) | ✅ **6 de 8** (30 ago; los 2 últimos piden esquema) |
+| **P2** | **Escribir preguntas a mano** (plan de producto) | ✅ **cerrada** (30 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 
@@ -70,7 +71,11 @@ aquí:
    P3 —referencia legal de la pregunta y notas personales— necesitan una columna y una
    tabla nuevas, y **no se puede escribir el código antes**: PostgREST rechaza la
    escritura *entera* si una sola columna no existe, así que adelantarlo rompería el
-   guardado. Los guiones van en `docs/sql/` y se pegan en el editor SQL de Supabase.
+   guardado. **Los dos guiones ya están escritos** y se pegan tal cual en el editor SQL
+   de Supabase; los dos son idempotentes:
+   [`P3.7-referencia-legal-de-la-pregunta.sql`](docs/sql/P3.7-referencia-legal-de-la-pregunta.sql)
+   (una columna en `question_bank`) y
+   [`P3.8-notas-personales.sql`](docs/sql/P3.8-notas-personales.sql) (tabla nueva con RLS).
 2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
@@ -569,6 +574,43 @@ que en un tribunal.
 Vale como regla general de esta pantalla: **una acción irreversible no comparte
 sitio, color ni etiqueta con la que se repite veinte veces.**
 
+### 27 · Lo que entra a mano se valida igual que lo que escribe la IA
+
+El alta manual y la importación desde Excel (P2) pasan por
+**`validateGeneratedQuestion`**, la misma función que filtra la salida del
+modelo. No es reutilización por ahorrar: una persona escribiendo en una hoja de
+cálculo se equivoca igual que Gemini —opciones repetidas, una celda vacía, la
+correcta mal marcada— y lo que le pasa al alumno es idéntico (regla 10).
+
+Se valida **también en el servidor**, aunque el CSV lo lea el navegador: una
+Server Action es un endpoint público (regla 1).
+
+Tres decisiones del importador que no son cosméticas:
+
+- **Ninguna fila desaparece en silencio.** La que no sirve sale con su número de
+  línea —el que se ve en Excel— y el motivo. Un importador que se traga treinta
+  filas y dice «listo» es cómo se acaba con un banco incompleto sin enterarse.
+- **La columna `correcta` admite `A/B/C` o `1/2/3`, y el `0` se RECHAZA.**
+  Es tentador leerlo como la A (sería el índice interno), pero entonces el mismo
+  fichero significaría cosas distintas según quién lo hubiera escrito. Ante la
+  duda, la fila se rechaza y se dice por qué.
+- **Excel exporta con punto y coma**, no con coma, y pone un BOM delante. El
+  separador se detecta contando en la cabecera; sin eso el fichero entra como
+  una sola columna con todo dentro.
+
+Y la huella (`question_hash`) se calcula en **un solo sitio**,
+`app/lib/question-hash.ts`. Estaba copiada dos veces dentro de `exams.ts` y
+ahora hay tres caminos de escritura —vivo, siembra y alta a mano—: si uno la
+calculase distinto, la misma pregunta entraría dos veces y el alumno se la
+encontraría repetida en el mismo examen. Un test estático prohíbe `createHash(`
+dentro de las acciones, y otro exige `ignoreDuplicates: true` en **todos** los
+upsert sobre `question_hash` (antes solo miraba `exams.ts`).
+
+De paso salió un tipo que mentía: `Question['origin']` decía
+`'bank' | 'live_ai' | 'candidate'` mientras `seedQuestionBank` guardaba
+`'bank_seed'`. Ahora es `QUESTION_ORIGIN`, una constante como la de los estados
+(regla 3).
+
 ---
 
 ## Los tests
@@ -577,7 +619,7 @@ sitio, color ni etiqueta con la que se repite veinte veces.**
 tests/text.test.ts              limpieza de respuestas IA, texto legal, troceado de PDF
 tests/srs.test.ts               repetición espaciada (Leitner)
 tests/questions.test.ts         mapeo BD/IA → UI, barajado y dificultad
-tests/actions-auth.test.ts      guardas estáticas sobre las 42 Server Actions
+tests/actions-auth.test.ts      guardas estáticas sobre las 43 Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
@@ -593,6 +635,7 @@ tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas es
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
 tests/review.test.ts            repaso de lo fallado: agrupación y guardas
+tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 
@@ -724,9 +767,11 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    personales (tabla nueva). Hasta que existan **no se puede escribir ese código**:
    PostgREST rechaza la escritura entera si una columna no existe.
 
-3. **P2 · escribir preguntas a mano** (plan de producto). Es lo siguiente con más
-   valor y **no necesita esquema**: `question_bank` ya tiene todo lo que hace falta.
-   Es además lo que permite a la academia cargar su banco sin depender de la IA.
+3. **P2 está hecha** (30 ago): botón *Nueva* en Banco Maestro, formulario de alta e
+   importación desde CSV con vista previa y el detalle de lo rechazado. Lo que queda
+   por hacer ahí es **verlo funcionando con una sesión de admin**, y decidir si
+   interesa que un mismo fichero traiga preguntas de varios temas (hoy el tema se
+   elige una vez, arriba, y vale para todo el fichero).
 
 4. **Fase 1.2** (acotar la clave de servicio). **Ya está desbloqueada:** su condición era
    tener RLS activa, y lo está desde el 26 ago 2026. Cada consulta que se mueva al

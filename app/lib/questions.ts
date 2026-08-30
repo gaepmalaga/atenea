@@ -28,10 +28,36 @@ export type Question = {
    * no hay forma de saber a que tema pertenecia cada respuesta.
    */
   topic?: string | null;
-  origin?: 'bank' | 'live_ai' | 'candidate';
+  origin?: QuestionOrigin;
   timeMs?: number;
   changes?: number;
 };
+
+/**
+ * De donde sale una pregunta del banco.
+ *
+ * Estaba escrito como una union suelta dentro de `Question` y no cuadraba con
+ * lo que se escribe de verdad: `seedQuestionBank` guarda 'bank_seed', que no
+ * estaba en la union. Es el mismo fallo de la regla 3 con los estados, un
+ * escalon mas abajo, y por eso el valor vive ahora en una constante.
+ *
+ * Distinguir 'manual' es lo que permite saber despues que rinde mejor: lo
+ * escrito a mano o lo generado.
+ */
+export const QUESTION_ORIGIN = {
+  /** Valor por defecto de la columna. Lo que tienen las filas antiguas. */
+  BANK: 'bank',
+  /** Sembrada en lote por un administrador. */
+  BANK_SEED: 'bank_seed',
+  /** Generada en vivo durante el test de un alumno. */
+  LIVE_AI: 'live_ai',
+  /** Recien generada y todavia sin fila en la base de datos. */
+  CANDIDATE: 'candidate',
+  /** Escrita a mano por un administrador, o importada de una hoja de calculo. */
+  MANUAL: 'manual',
+} as const;
+
+export type QuestionOrigin = (typeof QUESTION_ORIGIN)[keyof typeof QUESTION_ORIGIN];
 
 export const OPTION_IDS = ['a', 'b', 'c'] as const;
 
@@ -178,7 +204,7 @@ export function mapBankRowToQuestion(row: BankRow): Question {
     explanation: row.explanation ?? '',
     userAnswer: null,
     errorType: null,
-    origin: row.origin || 'bank',
+    origin: row.origin || QUESTION_ORIGIN.BANK,
   };
 }
 
@@ -219,7 +245,7 @@ export function mapCandidateToQuestion(data: CandidateRow): Question {
     explanation: data.explanation ?? '',
     userAnswer: null,
     errorType: null,
-    origin: 'candidate',
+    origin: QUESTION_ORIGIN.CANDIDATE,
   };
 }
 
