@@ -3,6 +3,10 @@
 Plataforma de preparación de oposiciones a Policía Nacional (CNP).
 Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 
+> **Si retomas después de un tiempo, empieza por
+> [`docs/TRASPASO.md`](docs/TRASPASO.md).** Es el estado del 30 ago 2026: qué se
+> hizo, qué está sin ver funcionando y qué está bloqueado esperando SQL.
+
 > **Hay un plan de producto abierto:** [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md).
 > Recoge lo que la plataforma todavía no sabe hacer (ingesta fiable, preguntas a mano,
 > super admin con módulos configurables, panel de academia y cobros) y está **pendiente
@@ -38,7 +42,23 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
-| — | **Despliegue** | ⬜ **no hay nada en producción** |
+| **P3** | **La pantalla del test** (plan de producto) | ✅ **6 de 8** (30 ago; los 2 últimos piden esquema) |
+| — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
+| — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
+
+## Producción
+
+**https://atenea-eight.vercel.app** — proyecto `atenea` en Vercel, conectado a
+`gaepmalaga/atenea`. Cada push a `main` despliega solo.
+
+El 30 ago se corrigió lo que impedía entrar: **Supabase tenía la Site URL apuntando a
+`http://localhost:3000` y ninguna Redirect URL**. Ahora la Site URL es la de producción
+y hay dos Redirect URLs (producción y localhost, para que el desarrollo local siga
+funcionando).
+
+> **Hay un proyecto duplicado en Vercel**, `atenea-jw3h`, apuntando al mismo repositorio.
+> Despliega en paralelo y no molesta, pero conviene borrarlo para no tener dos URLs
+> vivas de lo mismo. Es tu decisión: borrar un proyecto no se puede deshacer.
 
 ### Lo que solo puedes hacer tú
 
@@ -46,17 +66,18 @@ Los tres guiones de Supabase que estaban pendientes **ya están ejecutados** (RL
 de IA y `question_attempts`). Lo que queda necesita algo que no se puede hacer desde
 aquí:
 
-1. **Desplegar.** No hay nada en producción y el repo no tiene configuración de
-   despliegue. Vercel es el camino natural: la aplicación son Server Actions de punta a
-   punta, y Firebase Hosting a secas no las ejecuta (haría falta App Hosting). Hacen
-   falta las cuatro variables de [`.env.example`](.env.example) y **añadir la URL
-   resultante en Supabase → Authentication → URL Configuration**, o el login no
-   funcionará.
+1. **Ejecutar SQL.** Es el bloqueo principal ahora mismo. Los dos puntos que faltan de
+   P3 —referencia legal de la pregunta y notas personales— necesitan una columna y una
+   tabla nuevas, y **no se puede escribir el código antes**: PostgREST rechaza la
+   escritura *entera* si una sola columna no existe, así que adelantarlo rompería el
+   guardado. Los guiones van en `docs/sql/` y se pegan en el editor SQL de Supabase.
 2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
-3. **Hacer un test entrando como alumno.** Es lo único del flujo de resultados que no se
-   ha probado encadenado desde la interfaz.
+3. **Entrar como alumno y probar la pantalla del test.** Lo de P3 (blanco explícito,
+   cuenta atrás, pantalla de revisión) y el repaso de fallos están cubiertos por tests y
+   el build pasa, pero **no se han visto funcionando en pantalla**: hace falta una
+   sesión, y una sesión pide contraseña.
 
 > **Cuidado con `Confirm email`:** está activado. Quien se registre no podrá entrar hasta
 > pulsar el enlace del correo, y en el plan Free el envío es limitado.
@@ -481,6 +502,73 @@ El cronómetro tampoco se reinicia ya en un efecto: lo lleva `irA`, que es quien
 sabe qué pregunta se deja y cuál se abre. Un efecto no puede, porque cuando corre
 el índice **ya** ha cambiado y la cuenta anterior se ha perdido.
 
+### 24 · Un blanco no es un fallo, y se distingue con `selected_index`
+
+La nota ya trataba el blanco como neutro (regla 22), pero al **guardar** caía en
+`is_correct: false`. El mismo examen daba dos verdades: la nota decía una cosa y
+las estadísticas otra, y el porcentaje de acierto castigaba no arriesgar — al
+revés de lo que enseña la fórmula del BOE.
+
+`selected_index` llevaba declarada desde siempre y **nadie la escribía**. Ahora
+tiene tres estados, y los tres importan:
+
+| valor | significado |
+|---|---|
+| `0`, `1`, `2` … | la opción que marcó |
+| `-1` (`BLANK_INDEX`) | la dejó en blanco **a propósito** |
+| `null` | no se sabe: fila anterior a esto |
+
+**El tercero es la razón de no leer `null` como "en blanco"**, que era la lectura
+tentadora: la columna estaba vacía también en las contestadas, así que cada fallo
+del histórico se habría leído como un blanco. Un discriminante que confunde el
+pasado con el presente es peor que ninguno.
+
+`isBlankAnswer` (`app/lib/exam-results.ts`) es la única comparación con el
+centinela. Repartirlo por los módulos que leen resultados es cómo se olvida la
+mitad de los sitios.
+
+Y `toResultRow` **fuerza `is_correct: false` en un blanco** diga lo que diga
+quien llame: `saveExamResults` es un endpoint público e `isCorrect` viaja desde
+el navegador.
+
+Consecuencia en las estadísticas: `winRate` se calcula sobre **las contestadas**,
+no sobre el total. Quien lo pinte tiene que usar `answered` como denominador —
+poner `total` ahí es numerador y denominador de muestras distintas (regla 8), y
+ya pasó una vez en `StatsPanel`.
+
+### 25 · La duración del simulacro sale del BOE, y el reloj se deriva
+
+El «Simulacro real» decía tener cronómetro pero contaba **hacia arriba** y no
+terminaba nunca. La mitad de la dificultad del examen es que el tiempo se acaba.
+
+`CNP_SCORING.secondsPerQuestion` = 30, de las 100 preguntas en 50 minutos de la
+convocatoria. Se guarda **por pregunta** y no como duración total: así un
+simulacro de 20 dura 10 minutos y es comparable con el examen real. Y se cuenta
+sobre las preguntas **realmente cargadas**, no las pedidas — si el banco sólo dio
+12 de 20, dar 10 minutos es regalar tiempo.
+
+Los avisos son **porcentajes** (20 % y 5 %), no minutos fijos: en un test de 5
+preguntas, que dura 2:30, «quedan 5 minutos» no significa nada.
+
+`examClock` es puro y el estado del reloj se **deriva** de `ahora`; no se guarda
+(regla 14). Y la entrega automática lleva `entregadoRef`, que no es defensivo de
+más: en StrictMode los efectos corren dos veces y el intervalo sigue repintando
+después de expirar, así que sin él `saveExamResults` insertaría las filas
+repetidas — la doble inserción de la 2.4 por otra puerta.
+
+### 26 · Entregar no puede estar a un clic de avanzar
+
+En la última pregunta, «SIGUIENTE» entregaba el examen. Irreversible, en el mismo
+sitio y con el mismo aspecto que el botón que llevabas veinte preguntas pulsando.
+
+Ahora la última lleva al resumen —lo que Moodle llama «Terminar intento»— y el
+botón dice **REVISAR**: llamar «finalizar» a lo que abre una revisión es mentir
+sobre lo que hace el botón. La entrega **por tiempo agotado** sí es directa, igual
+que en un tribunal.
+
+Vale como regla general de esta pantalla: **una acción irreversible no comparte
+sitio, color ni etiqueta con la que se repite veinte veces.**
+
 ---
 
 ## Los tests
@@ -493,7 +581,7 @@ tests/actions-auth.test.ts      guardas estáticas sobre las 42 Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
-tests/exam-results.test.ts      contrato de resultados cliente↔servidor
+tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y revisión
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
@@ -503,7 +591,8 @@ tests/physical.test.ts          perfil físico: normalización y guardas del ent
 tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
-tests/scoring.test.ts           la nota del examen, con la penalización del BOE
+tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
+tests/review.test.ts            repaso de lo fallado: agrupación y guardas
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 
@@ -594,6 +683,12 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 - **`getUserStats` hace un join que necesita la FK declarada.** PostgREST no resuelve
   un join sin ella. `question_attempts.question_id -> question_bank.id` se declaró en la
   fase 2.8. El respaldo que degrada a consulta plana sigue ahí como red.
+- **El esquema es el cuello de botella, no el código.** Varias cosas del plan están
+  paradas porque necesitan una columna o una tabla, y el DDL solo lo puedes ejecutar
+  tú desde el editor SQL de Supabase. Cuando algo se quede bloqueado por eso: deja el
+  guion escrito en `docs/sql/` con el *por qué* dentro, y sigue por otra parte. Lo que
+  **no** vale es escribir el código antes — PostgREST rechaza la escritura entera y
+  rompe el guardado en producción.
 - **Los comentarios del código mienten a veces.** El del seed decía "asumimos
   activas" justo encima de `status: 'candidate'`. Fíate del código, no del
   comentario, y corrige el comentario cuando lo veas.
@@ -618,13 +713,26 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    > `profiles.role` a `student` un momento con la clave de servicio y devolverlo a
    > `admin` al terminar.
 
-2. **Desplegar.** No hay nada en producción. Ver *Lo que solo puedes hacer tú*, arriba.
+   **Y lo de P3 tampoco se ha visto en pantalla** (30 ago): blanco explícito y tecla
+   `0`, cuenta atrás con entrega automática, pantalla de revisión antes de entregar, y
+   la pestaña nueva de **Repasar fallos**. Todo con tests y con el build en verde, pero
+   verde no es lo mismo que visto. La consulta del repaso sí está comprobada contra la
+   base de datos real: el join resuelve las 17 filas falladas con sus opciones.
 
-3. **Fase 1.2** (acotar la clave de servicio). **Ya está desbloqueada:** su condición era
+2. **Ejecutar los dos guiones de esquema que faltan** para cerrar P3 del todo:
+   la referencia legal de la pregunta (columna en `question_bank`) y las notas
+   personales (tabla nueva). Hasta que existan **no se puede escribir ese código**:
+   PostgREST rechaza la escritura entera si una columna no existe.
+
+3. **P2 · escribir preguntas a mano** (plan de producto). Es lo siguiente con más
+   valor y **no necesita esquema**: `question_bank` ya tiene todo lo que hace falta.
+   Es además lo que permite a la academia cargar su banco sin depender de la IA.
+
+4. **Fase 1.2** (acotar la clave de servicio). **Ya está desbloqueada:** su condición era
    tener RLS activa, y lo está desde el 26 ago 2026. Cada consulta que se mueva al
    cliente del usuario queda cubierta desde el primer momento.
 
-4. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
+5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
 
 **Antes de tocar cualquier tabla, mira `supabase/schema.json`.** Es el esquema real,
 volcado del proyecto. Casi todos los fallos graves de este repo han sido el código

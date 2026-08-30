@@ -329,13 +329,46 @@ la respuesta o a gestionar el examen.** El resto va a las estadísticas.
 ```
 1. Penalización en la nota      ✅ hecho (27 ago)
 2. Volver atrás + marcar        ✅ hecho (27 ago)
-3. Mapa de preguntas            ◐ la barra ya se pulsa y enseña las marcadas
-4. Blanco explícito             ← siguiente
-5. Tiempo límite + entrega automática
-6. Pantalla de revisión final
-7. Referencia legal             ← ya se puede: P1 está cerrada
-8. Notas personales
+3. Mapa de preguntas            ✅ hecho (30 ago)
+4. Blanco explícito             ✅ hecho (30 ago)
+5. Tiempo límite + entrega auto ✅ hecho (30 ago)
+6. Pantalla de revisión final   ✅ hecho (30 ago)
+7. Referencia legal             ⛔ BLOQUEADO: falta columna en `question_bank`
+8. Notas personales             ⛔ BLOQUEADO: falta tabla
 ```
+
+**Los dos que quedan necesitan tocar el esquema, y eso solo lo puedes hacer
+tú.** El 7 necesita una columna `legal_reference` en `question_bank` que se
+rellene al generar la pregunta desde el fragmento (el fragmento ya sabe de qué
+artículo viene: eso lo dejó P1g en `document_chunks.reference`). El 8 necesita
+una tabla `question_notes`. No se puede escribir el código antes: PostgREST
+rechaza la escritura **entera** si una sola columna no existe, así que
+adelantarlo rompería el guardado de preguntas.
+
+### Lo que salió al hacer el 3 y el 4
+
+**La marca amarilla tapaba el estado.** En el mapa, «marcada» se pintaba
+sustituyendo el color en vez de encima, así que una pregunta marcada y
+contestada se veía igual que una marcada y en blanco — justo lo que hay que
+poder distinguir al final. Ahora la marca es una muesca aparte.
+
+**No se podía retirar una respuesta.** El punto 4 no era solo poder saltarse
+una pregunta (eso ya se podía): era que, una vez pulsada la A, la única salida
+era dejar la A. Con penalización eso importa, porque el blanco es una decisión.
+
+**Y el fallo de verdad: el blanco se guardaba como fallo.** La nota ya lo
+trataba como neutro, pero al escribir en `question_attempts` caía en
+`is_correct: false`. El mismo examen daba dos verdades, y el porcentaje de
+acierto castigaba no arriesgar — al revés de lo que enseña la fórmula. Se
+distingue con `selected_index`, que llevaba declarada desde siempre y **nadie
+escribía**; ver [`docs/sql/P3-blanco-no-es-fallo.sql`](sql/P3-blanco-no-es-fallo.sql).
+
+### Lo que salió al hacer el 6
+
+**Entregar estaba a un clic del botón de avanzar.** En la última pregunta,
+«SIGUIENTE» entregaba el examen: irreversible, en el mismo sitio y con el mismo
+aspecto que el botón que llevabas veinte preguntas pulsando. Ahora lleva al
+resumen, y el botón dice REVISAR.
 
 De la 2 salió algo que no estaba previsto: **las métricas eran por visita**. El
 cronómetro se reiniciaba al cambiar de pregunta, así que en cuanto se puede
@@ -347,18 +380,32 @@ de avanzar.
 
 Los seis primeros no dependen de nada y son la mitad del valor.
 
-**Un fleco que dejó la penalización.** La pantalla de resultados ya distingue
-fallo de blanco, pero `buildExamResults` guarda el blanco como
-`is_correct: false`, así que en las estadísticas sigue contando como fallo.
-Distinguirlo pide una columna en `question_attempts` que no existe. Es pequeño,
-pero hasta que se haga el porcentaje de acierto del alumno castiga el no
-arriesgar — justo lo contrario de lo que enseña la nota nueva.
+**El fleco que dejó la penalización — ✅ resuelto el 30 ago.** La pantalla de
+resultados ya distinguía fallo de blanco, pero `buildExamResults` guardaba el
+blanco como `is_correct: false`, así que en las estadísticas seguía contando
+como fallo. Se creía que hacía falta una columna nueva; no hacía falta:
+`selected_index` ya existía y **nadie la escribía**. Ahora se rellena, con `-1`
+para el blanco deliberado y `null` reservado a las filas antiguas, que es lo
+que evita leer todo el histórico como blancos.
 
-### Y el arreglo pendiente
+### El arreglo del Markdown — ✅ hecho
 
-5 de las 67 preguntas llevan Markdown sin renderizar (`**correcta**`) porque la
-IA lo escribe y la pantalla lo pinta en crudo. Se limpia al guardar: un enunciado
-de test debe ser texto plano.
+Las preguntas con `**correcta**` sin renderizar están limpias: 4 de 67
+afectadas, 0 ahora. Se limpia **al guardar**, no al mostrar — un enunciado de
+test debe ser texto plano, y el enunciado se pinta en cuatro sitios distintos.
+
+### Lo que se añadió sin estar en el plan: repasar lo fallado — ✅ hecho
+
+No estaba escrito aquí porque salió de una pregunta directa: *«¿existe algún
+lugar donde poder ver falladas etc… para repasar?»*. No existía.
+
+Y era el agujero más caro de todos: la plataforma sabía exactamente qué había
+fallado cada alumno **y por qué** —el diagnóstico del error es obligatorio, y
+casi ninguna plataforma del sector lo pide— y ese dato se recogía y se moría en
+la tabla. Ahora hay pestaña propia, justo después del test: las falladas
+agrupadas y ordenadas por insistencia, con la correcta, la explicación, y el
+diagnóstico devuelto como consejo. Clasificar el error solo sirve si luego se
+le dice al alumno qué hacer con esa clasificación.
 
 ---
 
