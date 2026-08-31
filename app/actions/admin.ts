@@ -460,6 +460,40 @@ export async function getStudentTopics() {
     }
 }
 
+/**
+ * Los temas que tienen temario cargado, CON SU ID.
+ *
+ * `getStudentTopics` devuelve solo los titulos, que valia mientras el unico
+ * consumidor los pasaba por nombre. El chat necesita el id para poder decir
+ * "de este tema", y resolver un titulo a id es una consulta mas y una fuente
+ * de desajustes (regla 7: guardar el numero donde se espera el titulo, o al
+ * reves, es como se pierden los datos).
+ */
+export async function getStudentSubjects() {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, subjects: [] as { id: number; title: string }[], error: auth.error };
+
+    const { data, error } = await supabase
+        .from('subjects')
+        .select('id, title, topic_number, documents(count)')
+        .order('topic_number', { ascending: true });
+
+    if (error) {
+        console.error('getStudentSubjects:', error.message);
+        return { success: false as const, subjects: [] as { id: number; title: string }[], error: error.message };
+    }
+
+    type FilaTema = { id: number; title: string; documents: { count: number }[] | null };
+
+    // Solo los que tienen documentos: un tema vacio en el desplegable es una
+    // promesa que la plataforma no puede cumplir.
+    const subjects = ((data as unknown as FilaTema[]) ?? [])
+        .filter((s) => (s.documents?.[0]?.count ?? 0) > 0)
+        .map((s) => ({ id: s.id, title: s.title }));
+
+    return { success: true as const, subjects };
+}
+
 /** Cuantos intentos se agregan para las estadisticas del panel de usuarios. */
 const MAX_INTENTOS_AGREGADOS = 10_000;
 

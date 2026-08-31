@@ -828,6 +828,12 @@ pregunta lo decía y nadie la escuchaba. Por eso `documentosNombrados` va
 **delante** del parecido: si el alumno nombra el tema, no se adivina. Con 85
 temas eso deja de ser un fallo ocasional para ser la norma.
 
+**Y la pieza que lo cierra: que el alumno elija tema.** El chat tiene un
+desplegable, como ya lo tienen los tests. Si elige, se manda ESE documento
+entero y no se paga ni el embedding: se acabo adivinar. Si no elige, decide el
+buscador como hasta ahora. El temario ya tiene 45 temas dados de alta (3 con
+PDF), asi que esto no es una precaucion para el futuro.
+
 **Dos topes que separan «hoy funciona» de «seguirá funcionando»:**
 
 - `MAX_CHARS_DOCUMENTOS` (150.000) y `MAX_DOCUMENTOS_ENTEROS` (2). Lo que no

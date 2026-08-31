@@ -320,7 +320,51 @@ function dedupeChunks(chunks: Chunk[]) {
   return out;
 }
 
-export async function askAtenea(query: string, history: ChatTurn[] = []): Promise<AskAteneaResult> {
+/**
+ * Los documentos de un tema, enteros.
+ *
+ * Cuando el alumno ELIGE tema no hay nada que adivinar, y eso es lo que hace
+ * que esto siga en pie con 85 temas: el problema nunca fue cuanto ocupa el
+ * temario —el entero son 72.355 tokens de 1.048.576— sino acertar cual hace
+ * falta. Con tres documentos ya se fallaba.
+ */
+async function documentosDelTema(subjectId: number): Promise<Chunk[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('id, filename, full_text')
+    .eq('subject_id', subjectId);
+
+  if (error) {
+    console.error('documentosDelTema:', error.message);
+    return [];
+  }
+
+  type FilaDocumento = { id: string; filename: string | null; full_text: string | null };
+  const docs = (data as unknown as FilaDocumento[]) ?? [];
+
+  const cabe = new Set(
+    documentosQueCaben(docs.map((d) => ({ id: d.id, chars: (d.full_text ?? '').length })))
+  );
+
+  return docs
+    .filter((d) => cabe.has(d.id))
+    .map((d) => ({
+      filename: d.filename ?? '',
+      content_chunk: d.full_text ?? '',
+      reference: null,
+      similarity: 1,
+    }));
+}
+
+export async function askAtenea(
+  query: string,
+  history: ChatTurn[] = [],
+  /**
+   * Tema elegido por el alumno, si ha elegido alguno. `null` = todo el temario,
+   * y entonces se busca como siempre.
+   */
+  subjectId: number | null = null
+): Promise<AskAteneaResult> {
   const auth = await requireUser();
   if (!auth.ok) return { success: false, error: auth.error };
 
@@ -346,12 +390,20 @@ export async function askAtenea(query: string, history: ChatTurn[] = []): Promis
     //    recupera nada, así que se antepone la pregunta anterior.
     const retrievalQuery = buildRetrievalQuery(history, safeQuery);
 
-    // 2b. Las dos preguntas que la búsqueda semántica NO puede responder, y que
+    // 2b. Si el alumno ha elegido tema, se acabó adivinar: van sus documentos
+    //     enteros y NO se paga el embedding de la búsqueda. Es la mitad del
+    //     coste de cada mensaje y la única forma de que esto siga acertando
+    //     cuando el temario tenga 85 temas en vez de tres.
+    const tema = Number(subjectId);
+    const delTema = Number.isInteger(tema) && tema > 0 ? await documentosDelTema(tema) : [];
+    const conTema = delTema.length > 0;
+
+    // 2c. Las dos preguntas que la búsqueda semántica NO puede responder, y que
     //     el índice sí: el recuento de lo indexado y el artículo nombrado a
     //     dedo. Van EN PARALELO con el embedding porque ninguna depende de él.
     const numeroArticulo = articuloPedido(safeQuery);
     const [embeddingResult, indice, porReferencia] = await Promise.all([
-      embeddingModel.embedContent(retrievalQuery),
+      conTema ? Promise.resolve(null) : embeddingModel.embedContent(retrievalQuery),
       esPreguntaDeEstructura(safeQuery)
         ? construyeIndice(pidePartesInternas(safeQuery))
         : Promise.resolve(null),
@@ -359,23 +411,27 @@ export async function askAtenea(query: string, history: ChatTurn[] = []): Promis
     ]);
 
     // 3. Recuperación de conocimiento desde Supabase (RPC match_document_chunks)
-    const { data, error: rpcError } = await supabase.rpc('match_document_chunks', {
-      query_embedding: embeddingResult.embedding.values,
-      match_threshold: 0.45, // Equilibrio entre precisión y cantidad
-      match_count: 8,
-    });
+    let semanticos: Chunk[] = [];
+    if (embeddingResult) {
+      const { data, error: rpcError } = await supabase.rpc('match_document_chunks', {
+        query_embedding: embeddingResult.embedding.values,
+        match_threshold: 0.45, // Equilibrio entre precisión y cantidad
+        match_count: 8,
+      });
 
-    if (rpcError) {
-      console.error('RPC Error:', rpcError);
-      return { success: false, error: 'Error en la conexión con la base de datos legislativa.' };
+      if (rpcError) {
+        console.error('RPC Error:', rpcError);
+        return { success: false, error: 'Error en la conexión con la base de datos legislativa.' };
+      }
+      semanticos = (Array.isArray(data) ? data : []) as Chunk[];
     }
 
-    const semanticos = (Array.isArray(data) ? data : []) as Chunk[];
-
-    // Lo que de verdad cambia el resultado: el documento que la búsqueda ha
-    // señalado se manda ENTERO, no en seis recortes de mil caracteres. El
-    // temario completo son 72.355 tokens y el modelo admite 1.048.576.
-    const { enteros, sobrantes } = await documentosEnteros(semanticos, safeQuery);
+    // Lo que de verdad cambia el resultado: el documento se manda ENTERO, no en
+    // seis recortes de mil caracteres. El temario completo son 72.355 tokens y
+    // el modelo admite 1.048.576.
+    const { enteros, sobrantes } = conTema
+      ? { enteros: delTema, sobrantes: [] as Chunk[] }
+      : await documentosEnteros(semanticos, safeQuery);
 
     // El índice y el artículo exacto van DELANTE: son coincidencias seguras,
     // no parecidos. Después el documento entero, y al final los fragmentos de

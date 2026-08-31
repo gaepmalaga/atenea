@@ -6,7 +6,7 @@ import {
   Send, Bot, User, FileText, X, BookOpen,
   Loader2, ShieldAlert, Target, Cpu
 } from 'lucide-react';
-import { askAtenea } from '@/actions';
+import { askAtenea, getStudentSubjects } from '@/actions';
 import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -37,6 +37,26 @@ export default function IntelChat({ user }: IntelChatProps) {
   const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string; reference?: string | null } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * El tema sobre el que se pregunta. Vacío = todo el temario.
+   *
+   * No es un filtro cosmético: elegir tema hace que se mande ESE documento
+   * entero y que no haya que adivinar cuál. Adivinar ya fallaba con tres
+   * documentos —"¿qué artículos comprende el Título I de la Constitución?"
+   * escogía la Ley de Fuerzas y Cuerpos de Seguridad— y con 85 temas fallaría
+   * a diario.
+   */
+  const [subjectId, setSubjectId] = useState<number | ''>('');
+  const [subjects, setSubjects] = useState<{ id: number; title: string }[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+    getStudentSubjects().then((res) => {
+      if (vivo && res.success) setSubjects(res.subjects);
+    });
+    return () => { vivo = false; };
+  }, []);
+
   useEffect(() => { 
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); 
   }, [messages, loading]);
@@ -58,7 +78,7 @@ export default function IntelChat({ user }: IntelChatProps) {
         .filter(m => !m.isError && !m.isSystem)
         .map(m => ({ role: m.role, content: m.content }));
 
-      const res = await askAtenea(userText, history);
+      const res = await askAtenea(userText, history, subjectId === '' ? null : subjectId);
       setLoading(false);
       if (res.success) {
         // Limpiamos etiquetas <br> que la IA pueda inyectar por error
@@ -187,7 +207,29 @@ export default function IntelChat({ user }: IntelChatProps) {
 
       {/* INPUT */}
       <div className="p-8 bg-slate-50 dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800 rounded-b-[2.5rem] shadow-xl">
-        <form onSubmit={handleSubmit} className="relative max-w-5xl mx-auto">
+        <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-3">
+            {/* Elegir tema es lo que quita la adivinación: se manda ese
+                documento entero y no el que más se le parezca a la frase. */}
+            {subjects.length > 0 && (
+                <div className="flex items-center gap-2 px-2">
+                    <label htmlFor="tema-chat" className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">
+                        Tema
+                    </label>
+                    <select
+                        id="tema-chat"
+                        value={subjectId}
+                        onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : '')}
+                        className="flex-1 min-w-0 bg-transparent text-xs font-medium text-slate-600 dark:text-slate-300 outline-none cursor-pointer truncate"
+                    >
+                        <option value="">Todo el temario (lo busco yo)</option>
+                        {subjects.map((s) => (
+                            <option key={s.id} value={s.id}>{s.title}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+          <div className="relative">
             <input 
                 value={query} 
                 onChange={e => setQuery(e.target.value)} 
@@ -202,6 +244,7 @@ export default function IntelChat({ user }: IntelChatProps) {
             >
                 <Send size={24}/>
             </button>
+          </div>
         </form>
       </div>
 

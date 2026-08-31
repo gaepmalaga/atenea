@@ -206,6 +206,9 @@ describe('los select piden columnas que existen', () => {
               continue;
             }
             for (const c of columnasJoin.split(',').map((x) => x.trim())) {
+              // `count` no es una columna: es el agregado de PostgREST, y se
+              // usa para saber si un tema tiene documentos sin traerselos.
+              if (c === 'count') continue;
               if (c && c !== '*' && !realesJoin.has(c)) {
                 malas.push(`${nombre}:${linea} '${tablaJoin}' no tiene '${c}'`);
               }
