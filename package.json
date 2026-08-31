@@ -14,7 +14,8 @@
     "dev:turbo": "next dev",
     "schema": "node scripts/schema-snapshot.mjs",
     "schema:migration": "node scripts/dump-migration.mjs",
-    "smoke": "node scripts/smoke-contratos.mjs"
+    "smoke": "node scripts/smoke-contratos.mjs",
+    "chat:probar": "node --experimental-strip-types scripts/probar-chat.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

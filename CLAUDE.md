@@ -107,6 +107,8 @@ npm run lint                   # 3 errores, todos el mismo falso positivo (ver a
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
+
+npm run chat:probar                # QUE RESPONDE el chat, preguntándole de verdad (de pago)
 ```
 
 Los 3 errores de `lint` son el mismo falso positivo de
@@ -730,6 +732,51 @@ una sola academia, el admin es el dueño, y un rol que no separa a nadie es
 ceremonia. La columna `organization_id` sí está creada —y documentado en el
 guion por qué **no** forma parte de la clave: en un `UNIQUE` de Postgres dos
 `NULL` se consideran distintos, así que no impediría filas duplicadas.
+
+### 32 · Un prompt que obliga a rellenar secciones produce respuestas absurdas
+
+La misma pregunta de la regla 31 destapó algo peor que el dato que faltaba: la
+respuesta decía *«no consta en el temario oficial aportado»* y **a continuación
+pegaba seis citas** —[1] a [6]— para respaldar que no sabía nada, y después
+cuatro «trampas de examen» sobre la reforma constitucional, que nadie había
+preguntado. Todo eso lo **obligaba el prompt**:
+
+| Norma del prompt viejo | Lo que producía |
+|---|---|
+| `CITAS OBLIGATORIAS` | seis citas detrás de un «no consta» |
+| `CIERRE OBLIGATORIO` | las trampas de examen aunque no hubiera respondido |
+| `TONO: Militar` | «ASPIRANTE, PROCEDO A ANALIZAR SU CONSULTA» |
+| `ESTRUCTURA` fija | un dato de una línea servido como ficha de cuatrocientas palabras |
+
+Ahora todo es **proporcional y condicional**: la respuesta en la primera línea,
+la longitud la marca la pregunta, las citas solo si se usa la fuente, y el
+cierre solo si hay una confusión real. Una sección de relleno no es neutra:
+**enseña al alumno a saltársela**, y el día que traiga algo importante ya no la
+lee.
+
+**El prompt vive en `app/lib/chat.ts` (`buildChatPrompt`), no dentro de la
+acción.** No es purismo: es que así se puede probar contra el modelo de verdad
+sin levantar la aplicación. Un prompt que solo se ejecuta en producción es un
+prompt que nadie revisa — y este llevaba meses así, con todos los tests en
+verde.
+
+```bash
+npm run chat:probar
+npm run chat:probar -- "¿qué dice el artículo 27?"
+```
+
+Le pregunta **de verdad**, con el mismo camino de recuperación y el mismo
+prompt que la aplicación. Cuesta dos llamadas de pago por pregunta, y por eso es
+un guion aparte y no un test. Los tests de `chat.test.ts` vigilan otra cosa: que
+las tres normas de la tabla no vuelvan a colarse.
+
+Medido después del cambio, con las preguntas reales:
+
+| Pregunta | Antes | Ahora |
+|---|---|---|
+| ¿Cuántos artículos tiene la Constitución? | «no consta» + 6 citas + 4 trampas | «tiene 169 artículos, del 1 al 169 y sin huecos, según el índice» (128 car.) |
+| ¿Qué dice el artículo 27? | dependía de que el embedding acertara | distingue el 27 de la CE del 27 de la LOFCS, que está derogado |
+| ¿Cuál es la capital de Francia? | ceremonia y protocolo | «No consta. Sí puedo decirte que la capital del Estado español es la villa de Madrid» |
 
 ---
 

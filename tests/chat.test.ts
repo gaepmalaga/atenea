@@ -15,6 +15,7 @@ import {
   esPreguntaDeEstructura,
   resumeIndice,
   formatIndice,
+  buildChatPrompt,
 } from '../app/lib/chat';
 
 /**
@@ -348,5 +349,81 @@ describe('el indice que ve el modelo', () => {
 
   it('sin documentos no devuelve una fuente vacia', () => {
     expect(formatIndice([])).toBe('');
+  });
+});
+
+
+// ============================================================
+// EL PROMPT
+// ============================================================
+
+/**
+ * De donde sale esto: la respuesta a «¿cuantos articulos tiene la Constitucion?»
+ * no solo fallaba en el dato. Decia "no consta en el temario oficial aportado"
+ * y a continuacion pegaba SEIS CITAS para respaldar que no sabia nada, y
+ * despues cuatro "trampas de examen" sobre la reforma constitucional, que nadie
+ * habia preguntado. Todo eso lo obligaba el prompt.
+ *
+ * Estos tests no comprueban que el modelo responda bien —para eso esta
+ * `npm run chat:probar`, que le pregunta de verdad— sino que las tres normas
+ * que causaron aquello no vuelvan a colarse.
+ */
+
+describe('el prompt del chat', () => {
+  const prompt = buildChatPrompt({
+    contexto: '[FUENTE 1]: Artículo 91 · BOE\nCONTENIDO: El Rey sancionará…',
+    conversacion: '',
+    pregunta: '¿qué plazo tiene el Rey?',
+  });
+
+  it('lleva el contexto y la pregunta', () => {
+    expect(prompt).toContain('Artículo 91');
+    expect(prompt).toContain('¿qué plazo tiene el Rey?');
+  });
+
+  it('sin conversación previa no monta ese bloque', () => {
+    // Una seccion vacia en el prompt es contexto que el modelo tiene que leer
+    // para descubrir que no dice nada.
+    expect(prompt).not.toContain('CONVERSACIÓN PREVIA');
+  });
+
+  it('con conversación previa, la marca como NO fuente', () => {
+    const conHistorial = buildChatPrompt({
+      contexto: 'x',
+      conversacion: 'ASPIRANTE: hola',
+      pregunta: '¿y eso?',
+    });
+    expect(conHistorial).toContain('CONVERSACIÓN PREVIA');
+    expect(conHistorial).toMatch(/NO es fuente/);
+  });
+
+  it('NO obliga a citar siempre', () => {
+    // Era lo que producia "[1][2][3][4][5][6]" detras de un "no consta".
+    expect(prompt).not.toMatch(/CITAS OBLIGATORIAS/i);
+    expect(prompt).toMatch(/citas detrás de un "no consta"/i);
+  });
+
+  it('el cierre de examen es CONDICIONAL, no obligatorio', () => {
+    // Era lo que soltaba cuatro trampas sobre algo que nadie habia preguntado.
+    expect(prompt).not.toMatch(/CIERRE OBLIGATORIO/i);
+    expect(prompt).toMatch(/CIERRE OPCIONAL/i);
+    expect(prompt).toMatch(/solo si/i);
+  });
+
+  it('no impone tono militar ni estructura fija', () => {
+    // "ASPIRANTE, PROCEDO A ANALIZAR SU CONSULTA" salia de aqui.
+    expect(prompt).not.toMatch(/TONO:\s*Militar/i);
+    expect(prompt).toMatch(/sin fórmulas de tratamiento/i);
+    expect(prompt).toMatch(/LA LONGITUD LA MARCA LA PREGUNTA/);
+  });
+
+  it('manda responder en la primera línea', () => {
+    expect(prompt).toMatch(/RESPONDE EN LA PRIMERA LÍNEA/);
+  });
+
+  it('el corchete de la cita lleva solo el número', () => {
+    // Sin esto el modelo metia "[el artículo 5 de la Ley Orgánica 2/1986]" en
+    // cada viñeta, que es peor que el [2] pelado.
+    expect(prompt).toMatch(/SOLO el número/);
   });
 });

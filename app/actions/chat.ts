@@ -13,6 +13,8 @@ import {
   resumeIndice,
   formatIndice,
   numeroDeArticulo,
+  buildChatPrompt,
+  FUENTE_INDICE,
   MAX_QUERY_CHARS,
   type ChatTurn,
   type IndiceDocumento,
@@ -39,9 +41,6 @@ type Chunk = {
 type AskAteneaResult =
   | { success: true; answer: string; sources: Chunk[] }
   | { success: false; error: string };
-
-/** Cómo se nombra el índice cuando aparece como fuente delante del alumno. */
-const FUENTE_INDICE = 'Índice del temario';
 
 /** Fila de `document_chunks` con el nombre de su documento resuelto por join. */
 type FilaConDocumento = {
@@ -241,7 +240,7 @@ export async function askAtenea(query: string, history: ChatTurn[] = []): Promis
     if (!rawChunks.length) {
       return {
         success: true,
-        answer: '⚠️ **SIN REFERENCIAS OFICIALES**.\n\nNo he localizado fragmentos en el temario cargado que respondan con exactitud a su consulta. Por protocolo de seguridad, no puedo generar una respuesta basada en especulaciones.',
+        answer: 'No he encontrado nada en el temario cargado que responda a esa pregunta. Puedes probar a preguntarlo de otra forma, o nombrar el artículo si lo conoces.',
         sources: [],
       };
     }
@@ -259,39 +258,15 @@ export async function askAtenea(query: string, history: ChatTurn[] = []): Promis
 
     const conversation = formatHistory(history);
 
-    // 6. System Prompt de Nivel Élite
-    const prompt = `
-ACTÚA COMO: ATENEA (Sistema de Inteligencia para Oposiciones de Policía Nacional).
-TONO: Militar, directo, analítico y pedagógico.
-
-TU MISIÓN: Responder a la consulta del aspirante utilizando EXCLUSIVAMENTE el CONTEXTO OFICIAL proporcionado abajo.
-
-CONTEXTO OFICIAL:
-"""
-${contextWithCitations}
-"""
-${conversation ? `\nCONVERSACIÓN PREVIA (para resolver referencias como "eso" o "en ese caso"):\n"""\n${conversation}\n"""\n` : ''}
-NORMAS DE RESPUESTA (CRÍTICAS):
-1. Si la información no está en el contexto, di: "No consta en el temario oficial aportado."
-2. CITAS OBLIGATORIAS: Al final de cada párrafo o dato clave, añade la cita de la fuente utilizada, ej: [1], [2].
-   Si la fuente trae artículo (ej. "Artículo 37 · TEMA 9..."), NÓMBRALO en el texto: es lo que le dice al aspirante qué releer.
-   Nunca inventes un artículo que no venga en la cabecera de la fuente.
-3. ESTRUCTURA:
-   - Definición técnica al inicio.
-   - Listas con viñetas (*) para desglosar características.
-   - TABLA Markdown para cualquier comparación o clasificación.
-4. La conversación previa sirve para entender a qué se refiere el aspirante, NO como fuente: los datos salen siempre del CONTEXTO OFICIAL.
-5. LA FUENTE «${FUENTE_INDICE}» NO ES TEXTO DE LA NORMA: es el recuento de lo que hay
-   indexado en la plataforma. Sirve para responder cuántos artículos o disposiciones
-   hay, y hay que decir que sale del índice del temario. Si esa fuente avisa de que
-   faltan artículos en el rango, el número es un MÍNIMO y se dice así.
-6. CIERRE OBLIGATORIO:
-   **🎯 FOCO EXAMEN (Cuidado con la trampa)**
-   - Desglosa de 2 a 4 "trampas" típicas (plazos que cambian, conceptos similares que confunden, o excepciones legales).
-
-CONSULTA DEL ASPIRANTE:
-"${safeQuery}"
-`.trim();
+    // 6. El prompt vive en `lib/chat.ts`: asi se puede leer, testear y probar
+    //    contra el modelo de verdad sin levantar la aplicacion
+    //    (`node scripts/probar-chat.mjs`). Un prompt que solo se ejecuta en
+    //    produccion es un prompt que nadie revisa.
+    const prompt = buildChatPrompt({
+      contexto: contextWithCitations,
+      conversacion: conversation,
+      pregunta: safeQuery,
+    });
 
     // 7. Generación de la respuesta
     const result = await chatModel.generateContent(prompt);

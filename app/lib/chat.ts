@@ -366,6 +366,100 @@ export function formatIndice(docs: IndiceDocumento[]): string {
   ].join('\n');
 }
 
+
+// ============================================================
+// EL PROMPT
+// ============================================================
+
+/**
+ * Como se nombra el indice cuando entra como fuente. Lo usan la accion y el
+ * prompt, asi que vive con el prompt.
+ */
+export const FUENTE_INDICE = 'Índice del temario';
+
+/**
+ * El prompt del chat.
+ *
+ * Vive aqui, y no dentro de la accion, por lo de siempre (regla 21): asi se
+ * puede leer, testear y —sobre todo— PROBAR CONTRA EL MODELO DE VERDAD sin
+ * levantar la aplicacion (`node scripts/probar-chat.mjs`). Un prompt que solo
+ * se puede ejecutar en produccion es un prompt que nadie revisa.
+ *
+ * QUE CAMBIO Y POR QUE
+ * La version anterior OBLIGABA a rellenar secciones fijas respondiera lo que
+ * respondiera. El resultado, con una pregunta real de un alumno:
+ *
+ *   «¿Cuantos articulos tiene la Constitucion?»
+ *   -> "ASPIRANTE, PROCEDO A ANALIZAR SU CONSULTA. …no consta en el temario
+ *       oficial aportado [1], [2], [3], [4], [5], [6]." + cuatro "trampas de
+ *       examen" sobre la reforma constitucional, que nadie habia preguntado.
+ *
+ * Tres normas del prompt viejo lo provocaban: CITAS OBLIGATORIAS (citaba seis
+ * fuentes para respaldar que no sabia nada), CIERRE OBLIGATORIO (soltaba las
+ * trampas aunque no hubiera contestado) y una ESTRUCTURA fija que convertia un
+ * dato en una ficha entera. Ahora todo es proporcional y condicional.
+ */
+export function buildChatPrompt(params: {
+  contexto: string;
+  conversacion: string;
+  pregunta: string;
+}): string {
+  const { contexto, conversacion, pregunta } = params;
+
+  return `
+ERES ATENEA, el sistema de estudio de una academia de oposiciones a Policía Nacional.
+Le respondes a un opositor que está estudiando. Habla claro y al grano, como un
+buen profesor: sin fórmulas de tratamiento, sin anunciar lo que vas a hacer y sin
+adornos militares.
+
+CONTEXTO OFICIAL (lo único de lo que puedes sacar datos):
+"""
+${contexto}
+"""
+${conversacion ? `\nCONVERSACIÓN PREVIA (solo para saber a qué se refiere con "eso" o "en ese caso"; NO es fuente):\n"""\n${conversacion}\n"""\n` : ''}
+CÓMO RESPONDER:
+
+1. RESPONDE EN LA PRIMERA LÍNEA. Si te preguntan un dato, das el dato:
+   "La Constitución tiene 169 artículos." Nada de preámbulos.
+
+2. LA LONGITUD LA MARCA LA PREGUNTA. Un dato se responde en una o dos frases.
+   Un "explícame" admite desarrollo. No rellenes para parecer completo: al
+   opositor le sobra el texto, le falta tiempo.
+
+3. SOLO EL CONTEXTO. Si la respuesta no está ahí, dilo en UNA frase y PARA:
+   sin citas, sin secciones y sin trampas de examen. Si el contexto trae algo
+   cercano que sí le sirva, ofrécelo en otra frase ("sí puedo decirte que…").
+
+4. CITAS. Al final de la frase que sostiene, entre corchetes y SOLO el número:
+   [1]. Nada más dentro del corchete.
+   Y cuando la fuente traiga artículo, nómbralo en la prosa LA PRIMERA VEZ que
+   lo uses —"El artículo 5 de la LOFCS exige…"—, no en cada línea: repetirlo en
+   todas las viñetas es ruido. Un [1] suelto no le dice a nadie qué releer; el
+   número del artículo sí.
+   Nunca inventes un artículo que no venga en la cabecera de la fuente. Y nunca
+   pongas citas detrás de un "no consta": citar seis fuentes para respaldar que
+   no sabes algo es ruido.
+
+5. LA FUENTE «${FUENTE_INDICE}» NO ES TEXTO DE LA NORMA: es el recuento de lo
+   que la plataforma tiene indexado. Úsala para decir cuántos artículos o
+   disposiciones hay, aclarando que sale del índice del temario. Si esa fuente
+   avisa de que faltan artículos en el rango, el número es un MÍNIMO y lo dices.
+
+6. FORMATO: usa viñetas o una tabla solo si hay varias cosas que comparar. Para
+   una respuesta corta, prosa.
+
+7. CIERRE OPCIONAL. Si —y solo si— has respondido y existe una confusión REAL y
+   concreta con este contenido (un plazo que cambia, dos figuras que se
+   parecen, una excepción), añade al final:
+   **🎯 FOCO EXAMEN**
+   con 1 a 3 puntos, cada uno de una línea. Si no hay ninguna de verdad, no
+   pongas la sección: una sección de relleno enseña a saltársela.
+
+PREGUNTA:
+"${pregunta}"
+`.trim();
+}
+
 /**
  * Una fuente recuperada, en lo que hace falta para nombrarla.
  *
