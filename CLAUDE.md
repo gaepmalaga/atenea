@@ -109,6 +109,7 @@ node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proy
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
 
 npm run chat:probar                # QUE RESPONDE el chat, preguntándole de verdad (de pago)
+node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
 ```
 
 Los 3 errores de `lint` son el mismo falso positivo de
@@ -795,6 +796,52 @@ Medido después del cambio, con las preguntas reales:
 | ¿Cuántos artículos tiene la Constitución? | «no consta» + 6 citas + 4 trampas | «tiene 169 artículos, del 1 al 169 y sin huecos, según el índice» (128 car.) |
 | ¿Qué dice el artículo 27? | dependía de que el embedding acertara | distingue el 27 de la CE del 27 de la LOFCS, que está derogado |
 | ¿Cuál es la capital de Francia? | ceremonia y protocolo | «No consta. Sí puedo decirte que la capital del Estado español es la villa de Madrid» |
+
+### 33 · Se le enseña el documento entero, no seis recortes
+
+La plataforma nació troceando el temario en fragmentos de mil caracteres y
+mandándole al modelo los seis más parecidos a la pregunta. Eso era obligatorio
+cuando un modelo aceptaba 8.000 tokens. **Ya no**, y esto está medido, no
+supuesto (`node scripts/medir-contexto.mjs`):
+
+| | tokens |
+|---|---|
+| Constitución completa | 35.009 |
+| El temario entero (3 documentos) | 72.355 |
+| Lo que admite `gemini-2.5-flash` | 1.048.576 |
+
+El temario entero ocupa el **6,9 %** de la ventana. Y casi todo lo que se había
+ido arreglando a mano —el recuento de artículos, la búsqueda del artículo
+exacto, contar los títulos— eran **rodeos para recuperar información que el
+troceado había destruido**. Con el documento delante, el modelo responde «el
+Título I comprende los artículos 10 a 55» sin que nadie le prepare nada.
+
+**Lo que se queda de la búsqueda semántica: elegir.** Los fragmentos siguen
+siendo la forma barata de saber *de qué documento* habla la pregunta. Lo que
+cambia es que, una vez elegido, se manda entero.
+
+**Y elegir es ahora el punto débil, no el tamaño.** Con TRES documentos ya
+fallaba: *«¿qué artículos comprende el Título I de la Constitución?»* seleccionaba
+la Ley de Fuerzas y Cuerpos de Seguridad, porque sus fragmentos sobre títulos y
+artículos se parecen más a esa frase que el articulado de la Constitución. La
+pregunta lo decía y nadie la escuchaba. Por eso `documentosNombrados` va
+**delante** del parecido: si el alumno nombra el tema, no se adivina. Con 85
+temas eso deja de ser un fallo ocasional para ser la norma.
+
+**Dos topes que separan «hoy funciona» de «seguirá funcionando»:**
+
+- `MAX_CHARS_DOCUMENTOS` (150.000) y `MAX_DOCUMENTOS_ENTEROS` (2). Lo que no
+  cabe **no se parte**: viaja en fragmentos, como antes. Partirlo sería volver
+  al problema que esto quita.
+- `MIN_SIMILITUD_DOCUMENTO`. A *«¿cuál es la capital de Francia?»* la búsqueda
+  devuelve igualmente los fragmentos menos malos del temario; traerse la
+  Constitución entera —35.000 tokens de pago— para acabar diciendo que no consta
+  es tirar el dinero.
+
+**El coste es real y hay que mirarlo:** una pregunta sobre la Constitución pasa
+de ~3.000 a ~35.000 tokens de entrada. Lo que lo sostiene es que solo se manda
+**el documento que hace falta**, nunca el temario entero, y que la cuota por
+usuario y ruta ya existe (regla 20).
 
 ---
 

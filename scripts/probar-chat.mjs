@@ -32,6 +32,11 @@ import {
   resumeEstructura,
   pidePartesInternas,
   formatIndice,
+  documentosPorRelevancia,
+  documentosNombrados,
+  documentosQueCaben,
+  MIN_SIMILITUD_DOCUMENTO,
+  MAX_DOCUMENTOS_ENTEROS,
   FUENTE_INDICE,
 } from '../app/lib/chat.ts';
 
@@ -118,6 +123,56 @@ async function elIndice(conEstructura) {
   return texto ? { filename: FUENTE_INDICE, content_chunk: texto, reference: null, similarity: 1 } : null;
 }
 
+// El documento entero: la misma logica que la accion.
+async function enteros(semanticos, pregunta) {
+  const catalogo = await get('documents?select=id,filename,subject:subjects(title)');
+  const catalogados = catalogo.map((d) => {
+    const subject = Array.isArray(d.subject) ? d.subject[0] : d.subject;
+    return { id: d.id, nombre: [subject?.title, d.filename].filter(Boolean).join(' ') };
+  });
+
+  const nombrados = documentosNombrados(pregunta, catalogados);
+
+  const buenos = semanticos.filter((c) => (c.similarity ?? 0) >= MIN_SIMILITUD_DOCUMENTO);
+  const ids = buenos.map((c) => c.id).filter(Boolean);
+
+  const deChunk = new Map();
+  if (ids.length) {
+    const mapa = await get(`document_chunks?select=id,document_id&id=in.(${ids.join(',')})`);
+    for (const f of mapa) deChunk.set(String(f.id), f.document_id);
+  }
+
+  const porParecido = documentosPorRelevancia(
+    buenos.map((c) => ({ ...c, document_id: deChunk.get(String(c.id)) ?? null }))
+  );
+
+  const orden = [...nombrados, ...porParecido.filter((id) => !nombrados.includes(id))];
+  if (!orden.length) return { enteros: [], sobrantes: semanticos, nombrados };
+
+  const candidatos = orden.slice(0, MAX_DOCUMENTOS_ENTEROS + 2);
+  const docs = await get(`documents?select=id,filename,full_text&id=in.(${candidatos.join(',')})`);
+  const porId = new Map(docs.map((d) => [d.id, d]));
+
+  const cabe = documentosQueCaben(
+    orden.filter((id) => porId.has(id)).map((id) => ({ id, chars: (porId.get(id).full_text ?? '').length }))
+  );
+  const dentro = new Set(cabe);
+
+  return {
+    enteros: cabe.map((id) => ({
+      filename: porId.get(id).filename ?? '',
+      content_chunk: porId.get(id).full_text ?? '',
+      reference: null,
+      similarity: 1,
+    })),
+    sobrantes: semanticos.filter((c) => {
+      const d = deChunk.get(String(c.id));
+      return !d || !dentro.has(d);
+    }),
+    nombrados,
+  };
+}
+
 // --- Una pregunta -----------------------------------------------------------
 
 async function pregunta(texto) {
@@ -132,14 +187,17 @@ async function pregunta(texto) {
     numero ? porReferencia(numero) : Promise.resolve([]),
   ]);
 
-  const fuentes = [...(indice ? [indice] : []), ...exactos, ...semanticos].slice(0, 6);
+  const { enteros: completos, sobrantes, nombrados } = await enteros(semanticos, texto);
+  const fuentes = [...(indice ? [indice] : []), ...exactos, ...completos, ...sobrantes].slice(0, 8);
 
   console.log(
     'vías: ' +
       [
         indice ? 'ÍNDICE' : null,
         numero ? `artículo ${numero} (${exactos.length} frag.)` : null,
-        `semántica (${semanticos.length})`,
+        completos.length ? `DOCUMENTO ENTERO x${completos.length}` : null,
+        nombrados.length ? 'elegido POR NOMBRE' : 'elegido por parecido',
+        `semántica (${semanticos.length}, mejor ${(semanticos[0]?.similarity ?? 0).toFixed(2)})`,
       ]
         .filter(Boolean)
         .join(' · ')

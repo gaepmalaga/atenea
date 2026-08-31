@@ -18,6 +18,10 @@ import {
   buildChatPrompt,
   resumeEstructura,
   pidePartesInternas,
+  documentosNombrados,
+  documentosPorRelevancia,
+  documentosQueCaben,
+  MAX_CHARS_DOCUMENTOS,
 } from '../app/lib/chat';
 
 /**
@@ -512,5 +516,109 @@ describe('cuando hace falta leer el texto completo', () => {
 
     expect(pidePartesInternas('¿cuántos artículos tiene la Constitución?')).toBe(false);
     expect(pidePartesInternas('¿qué dice el artículo 27?')).toBe(false);
+  });
+});
+
+
+// ============================================================
+// QUE DOCUMENTO SE LE ENSEÑA AL MODELO
+// ============================================================
+
+/**
+ * El cambio de fondo: se dejo de mandar seis recortes de mil caracteres y se
+ * manda el DOCUMENTO ENTERO. Cabe de sobra —la Constitucion son 35.009 tokens
+ * y el modelo admite 1.048.576— y con el delante contesta cosas que con
+ * recortes no salian por mucho que se afinara el prompt.
+ *
+ * Lo que NO escala es adivinar CUAL mandar, y eso ya fallaba con tres
+ * documentos: "¿que articulos comprende el Titulo I de la Constitucion?"
+ * elegia la Ley de Fuerzas y Cuerpos de Seguridad, porque sus fragmentos sobre
+ * titulos y articulos se parecen mas a esa frase que el articulado de la
+ * Constitucion. La pregunta lo DECIA y nadie la escuchaba.
+ */
+
+const TEMARIO = [
+  { id: 'ce', nombre: 'La Constitución Española (I): estructura y caracteres. Derechos y deberes. BOE-A-1978-31229-consolidado' },
+  { id: 'lofcs', nombre: 'La Ley Orgánica 2/1986 de Fuerzas y Cuerpos de Seguridad. TEMA 9' },
+  { id: 'intel', nombre: 'Inteligencia: Ciclo, OSINT, Deep/Dark Web. tema 40' },
+];
+
+describe('elegir documento por lo que dice la pregunta', () => {
+  it('lo elige cuando la pregunta lo nombra', () => {
+    expect(documentosNombrados('¿Qué artículos comprende el Título I de la Constitución?', TEMARIO)).toEqual(['ce']);
+  });
+
+  it('gana el que más palabras comparte', () => {
+    const r = documentosNombrados('principios básicos de actuación de las Fuerzas y Cuerpos de Seguridad', TEMARIO);
+    expect(r[0]).toBe('lofcs');
+  });
+
+  it('no devuelve nada si la pregunta no nombra ningún tema', () => {
+    // Entonces decide el parecido, como hasta ahora.
+    expect(documentosNombrados('¿qué plazo hay para recurrir?', TEMARIO)).toEqual([]);
+    expect(documentosNombrados('', TEMARIO)).toEqual([]);
+  });
+
+  it('las palabras vacías no emparejan con medio temario', () => {
+    // Sin la lista de vacías, "la ley" emparejaría con los treinta temas que
+    // llevan "Ley" en el título.
+    expect(documentosNombrados('¿qué dice la ley?', TEMARIO)).toEqual([]);
+    expect(documentosNombrados('dime un artículo del tema', TEMARIO)).toEqual([]);
+  });
+
+  it('aguanta acentos y mayúsculas', () => {
+    expect(documentosNombrados('CONSTITUCION espanola', TEMARIO)).toEqual(['ce']);
+  });
+});
+
+describe('ordenar documentos por parecido', () => {
+  it('manda el MEJOR fragmento de cada uno, no la media', () => {
+    // Un documento largo tiene muchos fragmentos flojos que hundirian su media
+    // aunque contenga justo el articulo que se pregunta. Lo que decide es si
+    // ahi dentro hay algo que encaja.
+    const orden = documentosPorRelevancia([
+      { document_id: 'a', similarity: 0.9 },
+      { document_id: 'a', similarity: 0.1 },
+      { document_id: 'a', similarity: 0.1 },
+      { document_id: 'b', similarity: 0.6 },
+      { document_id: 'b', similarity: 0.6 },
+    ]);
+    expect(orden).toEqual(['a', 'b']);
+  });
+
+  it('ignora los fragmentos sin documento', () => {
+    expect(documentosPorRelevancia([{ similarity: 0.9 }, { document_id: null, similarity: 0.8 }])).toEqual([]);
+  });
+});
+
+describe('cuántos documentos caben enteros', () => {
+  it('respeta el presupuesto de caracteres', () => {
+    const cabe = documentosQueCaben([
+      { id: 'a', chars: 100_000 },
+      { id: 'b', chars: 100_000 },
+    ]);
+    expect(cabe).toEqual(['a']);
+  });
+
+  it('el que no cabe se deja fuera, y el siguiente que quepa entra', () => {
+    // No se parte: partirlo seria volver justo al problema que esto quita.
+    const cabe = documentosQueCaben([
+      { id: 'gigante', chars: MAX_CHARS_DOCUMENTOS + 1 },
+      { id: 'pequenio', chars: 1_000 },
+    ]);
+    expect(cabe).toEqual(['pequenio']);
+  });
+
+  it('nunca pasa del tope de documentos', () => {
+    const cabe = documentosQueCaben([
+      { id: 'a', chars: 10 },
+      { id: 'b', chars: 10 },
+      { id: 'c', chars: 10 },
+    ]);
+    expect(cabe).toHaveLength(2);
+  });
+
+  it('un documento vacío no ocupa un hueco', () => {
+    expect(documentosQueCaben([{ id: 'vacio', chars: 0 }, { id: 'a', chars: 10 }])).toEqual(['a']);
   });
 });

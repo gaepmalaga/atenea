@@ -604,6 +604,176 @@ PREGUNTA:
 `.trim();
 }
 
+
+// ============================================================
+// QUE SE LE ENSEÑA AL MODELO: EL DOCUMENTO, NO LOS RECORTES
+// ============================================================
+//
+// POR QUE CAMBIO ESTO
+// La plataforma nacio troceando el temario en fragmentos de 1.000 caracteres y
+// mandandole al modelo los seis que mas se parecian a la pregunta. Eso era
+// obligatorio cuando un modelo aceptaba 8.000 o 32.000 tokens de entrada. Ya no:
+//
+//   Constitucion completa .................  35.009 tokens
+//   El temario entero (3 documentos) ......  72.355 tokens
+//   Lo que admite gemini-2.5-flash ........ 1.048.576 tokens
+//
+// El temario ENTERO ocupa el 6,9 % de la ventana. Y casi todo lo que se ha ido
+// arreglando a mano —el recuento de articulos, la busqueda del articulo exacto,
+// contar los titulos— eran rodeos para recuperar informacion que el troceado
+// habia destruido. Con el documento delante, el modelo contesta "el Titulo I
+// comprende los articulos 10 a 52" sin que nadie le prepare nada.
+//
+// QUE SE QUEDA DE LA BUSQUEDA SEMANTICA
+// Elegir. Los fragmentos siguen siendo la forma barata de saber DE QUE
+// DOCUMENTO habla la pregunta; lo que cambia es que, una vez elegido, se manda
+// entero en vez de en recortes.
+//
+// POR QUE NO SE MANDA TODO SIEMPRE
+// Porque se paga por token de entrada y porque el temario completo del CNP son
+// unos 45 temas: hoy caben, con el temario entero cargado no cabrian. El
+// presupuesto de abajo es lo que separa "hoy funciona" de "seguira funcionando".
+
+/**
+ * Cuanto texto completo se manda como maximo, en caracteres.
+ *
+ * 150.000 caracteres son unos 42.000 tokens con este temario (medido: 124.764
+ * caracteres de la Constitucion dan 35.009 tokens). Da para el documento mas
+ * relevante entero y sobra un poco; lo que no entre sigue viajando en
+ * fragmentos, que es como viajaba todo hasta ahora.
+ */
+export const MAX_CHARS_DOCUMENTOS = 150_000;
+
+/**
+ * Lo cerca que tiene que quedar el mejor fragmento para traerse el documento
+ * ENTERO.
+ *
+ * Es la palanca entre coste y calidad, y existe por un caso concreto: a
+ * "¿cual es la capital de Francia?" la busqueda devuelve igualmente los
+ * fragmentos menos malos del temario. Mandar la Constitucion entera —35.000
+ * tokens de pago— para acabar diciendo que no consta seria tirar el dinero.
+ * Por debajo de esto se responde con fragmentos, como siempre.
+ */
+export const MIN_SIMILITUD_DOCUMENTO = 0.5;
+
+/** Cuantos documentos completos, como mucho, aunque quepan mas. */
+export const MAX_DOCUMENTOS_ENTEROS = 2;
+
+
+/**
+ * Palabras que no distinguen un tema de otro.
+ *
+ * Sin esta lista, "la ley" en la pregunta emparejaria con los treinta temas que
+ * llevan "Ley" en el titulo.
+ */
+const VACIAS = new Set([
+  'de', 'del', 'la', 'las', 'el', 'los', 'y', 'en', 'con', 'por', 'para', 'que',
+  'ley', 'leyes', 'organica', 'real', 'decreto', 'tema', 'texto', 'articulo',
+  'articulos', 'titulo', 'titulos', 'consolidado', 'espaniola', 'espanola',
+  'sobre', 'segun', 'cual', 'cuales', 'cuantos', 'cuantas', 'como', 'donde',
+]);
+
+/** Palabras con las que merece la pena reconocer un documento. */
+function palabrasClave(nombre: string): string[] {
+  return sinAcentos((nombre ?? '').toLowerCase())
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((p) => p.length >= 4 && !VACIAS.has(p));
+}
+
+/** Un documento, en lo que hace falta para reconocerlo por su nombre. */
+export type DocumentoNombrable = {
+  id: string;
+  /** Titulo del tema, nombre del fichero… lo que sirva para nombrarlo. */
+  nombre: string;
+};
+
+/**
+ * Los documentos que la PREGUNTA NOMBRA, del que más coincide al que menos.
+ *
+ * POR QUE EXISTE
+ * Elegir documento por parecido de embeddings falla, y no en teoria: con tres
+ * documentos, "¿que articulos comprende el Titulo I de la Constitucion?"
+ * seleccionaba la Ley de Fuerzas y Cuerpos de Seguridad, porque sus fragmentos
+ * sobre titulos y articulos se parecen mas a esa frase que el articulado de la
+ * Constitucion. La pregunta DECIA "de la Constitucion" y nadie la escuchaba.
+ *
+ * Con 85 temas eso deja de ser un fallo ocasional para ser la norma. Y la
+ * respuesta no es un modelo mejor: es dejar de adivinar cuando el alumno ya lo
+ * ha dicho.
+ *
+ * No sustituye a la busqueda semantica, se pone DELANTE: si la pregunta no
+ * nombra ningun tema, decide el parecido, como hasta ahora.
+ */
+export function documentosNombrados(pregunta: string, documentos: DocumentoNombrable[]): string[] {
+  const q = ' ' + sinAcentos((pregunta ?? '').toLowerCase()).replace(/[^a-z0-9\s]/g, ' ') + ' ';
+
+  const puntuados = documentos
+    .map((d) => {
+      const claves = new Set(palabrasClave(d.nombre));
+      let aciertos = 0;
+      for (const clave of claves) {
+        if (q.includes(' ' + clave + ' ') || q.includes(' ' + clave + 's ')) aciertos++;
+      }
+      return { id: d.id, aciertos };
+    })
+    .filter((d) => d.aciertos > 0);
+
+  return puntuados.sort((a, b) => b.aciertos - a.aciertos).map((d) => d.id);
+}
+
+/** Un fragmento recuperado, en lo que hace falta para agrupar por documento. */
+export type ChunkAgrupable = {
+  document_id?: string | null;
+  similarity?: number | null;
+};
+
+/**
+ * Ordena los documentos por lo cerca que ha quedado su MEJOR fragmento.
+ *
+ * Se usa el mejor y no la media a proposito: un documento largo tiene muchos
+ * fragmentos flojos que hundirian la media aunque contenga justo el articulo
+ * que se pregunta. Lo que decide es si ahi dentro hay algo que encaja.
+ */
+export function documentosPorRelevancia(chunks: ChunkAgrupable[]): string[] {
+  const mejor = new Map<string, number>();
+
+  for (const c of chunks) {
+    const id = c.document_id;
+    if (!id) continue;
+    const s = typeof c.similarity === 'number' ? c.similarity : 0;
+    if (s > (mejor.get(id) ?? -Infinity)) mejor.set(id, s);
+  }
+
+  return [...mejor.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+}
+
+/**
+ * Cuales de esos documentos caben enteros.
+ *
+ * Un documento que NO cabe no se parte aqui: se deja fuera y sus fragmentos
+ * siguen su camino. Partirlo seria volver justo al problema que esto viene a
+ * quitar.
+ */
+export function documentosQueCaben(
+  ordenados: { id: string; chars: number }[],
+  maxChars = MAX_CHARS_DOCUMENTOS,
+  maxDocumentos = MAX_DOCUMENTOS_ENTEROS
+): string[] {
+  const dentro: string[] = [];
+  let gastado = 0;
+
+  for (const d of ordenados) {
+    if (dentro.length >= maxDocumentos) break;
+    if (d.chars <= 0) continue;
+    if (gastado + d.chars > maxChars) continue; // no cabe: que vaya por fragmentos
+    dentro.push(d.id);
+    gastado += d.chars;
+  }
+
+  return dentro;
+}
+
 /**
  * Una fuente recuperada, en lo que hace falta para nombrarla.
  *
