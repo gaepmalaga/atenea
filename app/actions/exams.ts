@@ -4,6 +4,7 @@ import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
+import { requireModule } from '../lib/module-guard';
 import {
   QUESTION_STATUS,
   QUESTION_ORIGIN,
@@ -214,6 +215,9 @@ function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
 export async function generateAndSaveCandidate(topicNameOrId: string | number, difficulty?: number) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const modulo = await requireModule('test');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const quota = await checkQuota(auth.user.id, 'question');
   if (!quota.ok) return { success: false as const, error: quota.error };
@@ -428,6 +432,9 @@ export async function getQuestionsFromBank(params: {
 }) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const modulo = await requireModule('test');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   let ids = params.subjectIds || [];
   if (params.topic && ids.length === 0) {

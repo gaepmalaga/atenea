@@ -10,8 +10,8 @@
 -- cantara: se escribian columnas inexistentes y PostgREST rechazaba la
 -- escritura entera en silencio.
 --
--- Fecha del volcado: 2026-08-30
--- Tablas: 23   ·   Politicas: 27
+-- Fecha del volcado: 2026-08-31
+-- Tablas: 24   ·   Politicas: 28
 -- =============================================================================
 
 create extension if not exists "uuid-ossp";
@@ -126,6 +126,15 @@ create table if not exists public.flashcard_results (
   box_after integer,
   next_review timestamp with time zone,
   created_at timestamp with time zone not null default timezone('utc'::text, now())
+);
+
+-- --------------------------------------------------------------------------
+create table if not exists public.module_settings (
+  module_id text not null,
+  enabled boolean not null default true,
+  organization_id uuid,
+  updated_at timestamp with time zone default now(),
+  updated_by uuid
 );
 
 -- --------------------------------------------------------------------------
@@ -310,6 +319,8 @@ alter table public.flashcard_progress drop constraint if exists flashcard_progre
 alter table public.flashcard_progress add constraint flashcard_progress_pkey PRIMARY KEY (id);
 alter table public.flashcard_results drop constraint if exists flashcard_results_pkey;
 alter table public.flashcard_results add constraint flashcard_results_pkey PRIMARY KEY (id);
+alter table public.module_settings drop constraint if exists module_settings_pkey;
+alter table public.module_settings add constraint module_settings_pkey PRIMARY KEY (module_id);
 alter table public.profiles drop constraint if exists profiles_pkey;
 alter table public.profiles add constraint profiles_pkey PRIMARY KEY (id);
 alter table public.profiles_biodata drop constraint if exists profiles_biodata_pkey;
@@ -358,6 +369,8 @@ alter table public.flashcard_progress drop constraint if exists flashcard_progre
 alter table public.flashcard_progress add constraint flashcard_progress_card_id_fkey FOREIGN KEY (card_id) REFERENCES flashcard_bank(id);
 alter table public.flashcard_progress drop constraint if exists flashcard_progress_user_id_fkey;
 alter table public.flashcard_progress add constraint flashcard_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.module_settings drop constraint if exists module_settings_updated_by_fkey;
+alter table public.module_settings add constraint module_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 alter table public.profiles drop constraint if exists profiles_id_fkey;
 alter table public.profiles add constraint profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.profiles_biodata drop constraint if exists profiles_biodata_user_id_fkey;
@@ -444,6 +457,7 @@ alter table public.exams enable row level security;
 alter table public.flashcard_bank enable row level security;
 alter table public.flashcard_progress enable row level security;
 alter table public.flashcard_results enable row level security;
+alter table public.module_settings enable row level security;
 alter table public.profiles enable row level security;
 alter table public.profiles_biodata enable row level security;
 alter table public.profiles_physical enable row level security;
@@ -528,6 +542,12 @@ create policy "Users can select own flashcard_results" on public.flashcard_resul
   for select
   to public
   using ((auth.uid() = user_id));
+
+drop policy if exists "module_settings_lectura" on public.module_settings;
+create policy "module_settings_lectura" on public.module_settings
+  for select
+  to authenticated
+  using (true);
 
 drop policy if exists "profiles_leer_propio" on public.profiles;
 create policy "profiles_leer_propio" on public.profiles

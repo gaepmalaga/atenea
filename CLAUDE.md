@@ -44,6 +44,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
 | **P3** | **La pantalla del test** (plan de producto) | ✅ **cerrada, 8 de 8** (31 ago) |
 | **P2** | **Escribir preguntas a mano** (plan de producto) | ✅ **cerrada** (30 ago) |
+| **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 
@@ -692,6 +693,44 @@ Medido contra la base de datos real: Constitución **169 artículos (1–169), s
 huecos**, más 15 disposiciones; LOFCS **54 (1–54), sin huecos**, más 18
 disposiciones; el tema 40, apuntes, sin artículos — que es lo correcto.
 
+### 31 · Apagar un módulo tiene que apagarlo también en el servidor
+
+P4 salió de una respuesta concreta: **«lo suyo es que se pudiera apagar
+cualquiera»**. Los ocho módulos tienen interruptor, Centro de Mando y
+Estadísticas incluidos.
+
+Filtrar el menú **no es la medida**: una Server Action es un endpoint HTTP
+público, así que esconder el enlace no impide que nadie la llame — y las de IA
+se pagan por llamada. `requireModule` (`app/lib/module-guard.ts`) corta dentro
+de la acción, **después de comprobar la sesión y antes de tocar a Gemini o la
+cuota**. Ese orden lo vigila un test: comprobar el módulo después de
+`checkQuota` sería pagar la llamada de un módulo apagado.
+
+Vive en `lib/` y no en `actions/` por una razón que ya costó una vez: un
+fichero `'use server'` convierte en **endpoint público todo lo que exporta**,
+así que `requireModule` ahí sería una Server Action más, sin sesión propia.
+Es el mismo motivo por el que la aritmética de las cuotas vive en
+`rate-limit.ts` (regla 20), y el import de `actions/core` es dinámico por lo
+mismo.
+
+**Sin fila = activo**, y esa decisión sostiene tres cosas a la vez:
+
+- Ejecutar el guion de la tabla no apaga nada: nace vacía.
+- Un módulo nuevo aparece **encendido** en vez de desaparecer en silencio el día
+  que se añada al código y nadie inserte su fila.
+- Si la lectura falla, se cae a todo encendido. **Un fallo de lectura no puede
+  parecerse a un apagado deliberado**: dejaría al alumno sin plataforma sin que
+  nadie lo haya decidido.
+
+Y como se pueden apagar los ocho, «no queda ninguno» es un estado real: el
+dashboard lo dice con palabras en vez de quedarse en blanco (regla 8).
+
+**Lo que NO se hizo, a propósito:** el rol `superadmin` que preveía el plan. Con
+una sola academia, el admin es el dueño, y un rol que no separa a nadie es
+ceremonia. La columna `organization_id` sí está creada —y documentado en el
+guion por qué **no** forma parte de la clave: en un `UNIQUE` de Postgres dos
+`NULL` se consideran distintos, así que no impediría filas duplicadas.
+
 ---
 
 ## Los tests
@@ -707,7 +746,7 @@ tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y
 tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y revisión
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
-tests/chat.test.ts              memoria del chat y reconstrucción de la búsqueda
+tests/chat.test.ts              memoria del chat, índice del temario y artículo exacto
 tests/interview.test.ts         transcripción, informe final y máquina de estados
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
@@ -718,6 +757,7 @@ tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacr
 tests/review.test.ts            repaso de lo fallado: agrupación y guardas
 tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
 tests/notes.test.ts             notas privadas del alumno y sus guardas
+tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 

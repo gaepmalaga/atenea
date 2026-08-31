@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from './core';
 import { getSessionUser, requireUser, type AuthUser } from '../lib/auth';
+import { requireModule } from '../lib/module-guard';
 import { summarizeResults, type TestResultRow } from '../lib/stats';
 import {
   groupFailedAttempts,
@@ -132,6 +133,9 @@ export async function getFailedQuestions(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const modulo = await requireModule('review');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const { data, error } = await supabaseAdmin
     .from('question_attempts')

@@ -1,5 +1,5 @@
 {
-  "generado": "2026-08-30",
+  "generado": "2026-08-31",
   "tablas": {
     "ai_quota": {
       "columnas": [
@@ -257,6 +257,26 @@
         "subject_id": "bigint",
         "topic": "text",
         "user_id": "uuid"
+      }
+    },
+    "module_settings": {
+      "columnas": [
+        "enabled",
+        "module_id",
+        "organization_id",
+        "updated_at",
+        "updated_by"
+      ],
+      "obligatorias": [
+        "enabled",
+        "module_id"
+      ],
+      "tipos": {
+        "enabled": "boolean",
+        "module_id": "text",
+        "organization_id": "uuid",
+        "updated_at": "timestamp with time zone",
+        "updated_by": "uuid"
       }
     },
     "profiles": {

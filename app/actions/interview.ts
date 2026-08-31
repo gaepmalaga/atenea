@@ -13,6 +13,7 @@ import {
   type InterviewProfile,
 } from '../lib/interview';
 import { requireUser } from '../lib/auth';
+import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
 
 export async function getBiodata() {
@@ -102,6 +103,9 @@ async function generateInspectorReport(promptProfile: InterviewProfile, psych: P
 export async function processInterviewTurn(history: InterviewTurn[], userAudioText: string) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error };
+
+    const modulo = await requireModule('interview');
+    if (!modulo.ok) return { success: false as const, error: modulo.error };
 
     // La entrevista es por voz: un turno por respuesta, y el primero gasta dos
     // llamadas (informe del inspector + respuesta).

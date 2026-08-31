@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { 
-  Shield, LogOut, RefreshCw, Users, Book, 
-  Activity, AlertTriangle, Database 
+  Shield, LogOut, RefreshCw, Users, Book,
+  Activity, AlertTriangle, Database, Power
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -13,11 +13,12 @@ import AdminContent from './components/AdminContent';
 import AdminActivity from './components/AdminActivity'; 
 import AdminModeration from './components/AdminModeration';
 import AdminBank from './components/AdminBank';
+import AdminModules from './components/AdminModules';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'users' | 'moderation' | 'content' | 'activity' | 'bank';
+type AdminTab = 'users' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules';
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
@@ -40,6 +41,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-400' },
+    { id: 'modules', label: 'Módulos', icon: Power, color: 'text-cyan-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-400' },
   ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
 
@@ -127,6 +129,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
                 {activeTab === 'moderation' && <AdminModeration />}
 
+                {activeTab === 'modules' && <AdminModules />}
                 {activeTab === 'activity' && <AdminActivity />}
             </ModuleErrorBoundary>
         </div>

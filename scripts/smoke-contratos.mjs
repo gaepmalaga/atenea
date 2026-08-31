@@ -118,6 +118,14 @@ const CASOS = [
       }]
     : []),
   {
+    tabla: 'module_settings',
+    accion: 'modules.ts · setModuleEnabled (P4)',
+    payload: { module_id: MARCA, enabled: false, updated_at: AHORA, updated_by: USER_ID },
+    borrarPor: `module_id=eq.`,
+    // Volver a pulsar el interruptor es lo normal: se comprueba el update.
+    luegoActualizar: { enabled: true },
+  },
+  {
     tabla: 'flashcard_progress',
     accion: 'flashcards.ts · saveFlashcardProgress',
     payload: {

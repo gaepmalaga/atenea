@@ -466,6 +466,9 @@ le dice al alumno qué hacer con esa clasificación.
 
 > **Decidido (27 ago):** por ahora la plataforma sirve a **una sola academia**.
 > Esto simplifica mucho la fase, pero condiciona *cómo* hay que construirla.
+>
+> **Cerrada el 31 de agosto de 2026**, con la respuesta que faltaba: *«lo suyo
+> es que se pudiera apagar cualquiera»*. Ver *Estado de P4*, al final.
 
 ### Lo que hay hoy
 
@@ -509,6 +512,38 @@ baratas ahora que evitan rehacerlo entero después:
 
 Eso es todo lo que hay que anticipar. Cualquier otra cosa es construir para un
 futuro que puede no llegar.
+
+### Estado de P4 · 31 de agosto de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P4a | Tabla `module_settings` | ✅ ejecutada el 31 ago |
+| P4b | Los ocho módulos con interruptor | ✅ pestaña **Módulos** en el panel |
+| P4c | El dashboard los lee en vez de tenerlos escritos a mano | ✅ |
+| P4d | **La guarda en el servidor** | ✅ `requireModule`, con test del orden |
+| P4e | Rol `superadmin` | ⬜ **no se hizo, a propósito** |
+
+**La pregunta abierta ya tiene respuesta:** se puede apagar *cualquiera* de los
+ocho, Centro de Mando y Estadísticas incluidos. Si se apaga el de inicio, el
+alumno entra por el primero que quede; si se apagan todos —estado posible— la
+pantalla lo dice en vez de quedarse en blanco.
+
+**Por qué no hay `superadmin`:** con una sola academia el admin es el dueño, y
+un rol que no separa a nadie es ceremonia. El día que la academia tenga sus
+propios administradores y no quieras que apaguen módulos, es un rol y una
+guarda; el resto del trabajo ya está hecho.
+
+**Detalle de esquema que merece la pena recordar:** `organization_id` está
+creada pero **no** entra en la clave. En un `UNIQUE` de Postgres dos `NULL` se
+consideran distintos, así que `UNIQUE (organization_id, module_id)` con la
+organización a NULL no impediría filas duplicadas del mismo módulo — y las
+alternativas (índice sobre expresión, UUID centinela) rompen el `upsert` de
+PostgREST. La clave es `module_id` y se migrará el día que existan academias.
+
+**Y la decisión que sostiene lo demás: sin fila = activo.** La tabla nace vacía,
+así que crearla no apagó nada; un módulo nuevo aparece encendido; y si la
+lectura falla se cae a todo encendido, porque un fallo de lectura no puede
+parecerse a un apagado deliberado.
 
 ### Marca blanca: qué significa de verdad
 

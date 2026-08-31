@@ -23,6 +23,8 @@ import StatsPanel from './modules/stats/StatsPanel';
 import FailedQuestions from './modules/review/FailedQuestions';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
+import { getModuleSettings } from '@/actions';
+import { todosActivos, moduloDeEntrada, type ModuleSettings } from '@/app/lib/modules';
 
 // --- TIPOS ---
 export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'training' | 'interview' | 'stats';
@@ -34,11 +36,19 @@ interface StudentDashboardProps {
 
 export default function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabId>('home');
+  /**
+   * Que modulos ha dejado encendidos la academia (P4).
+   *
+   * Se parte de TODOS ACTIVOS y no de una pantalla vacia: mientras la consulta
+   * viaja, y tambien si falla, el alumno ve su plataforma entera. Un fallo de
+   * lectura no puede parecerse a un apagado deliberado.
+   */
+  const [modules, setModules] = useState<ModuleSettings>(todosActivos);
   const [zenMode, setZenMode] = useState(false); // Oculta UI durante simulacros
   const [interviewMode, setInterviewMode] = useState(false); // Activa Overlay de Sala de Voz
 
   // CONFIGURACIÓN DEL MENÚ DE NAVEGACIÓN
-  const navItems = [
+  const todosLosItems = [
     { id: 'home', label: 'Centro de Mando', icon: LayoutGrid },
     { id: 'chat', label: 'Inteligencia (RAG)', icon: MessageSquareText },
     { id: 'test', label: 'Operaciones (Test)', icon: Crosshair },
@@ -50,6 +60,24 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     { id: 'interview', label: 'Perfilado & Voz', icon: Fingerprint },
     { id: 'stats', label: 'Rango & Estadísticas', icon: BarChart2 }
   ];
+
+  // El menu se deriva del estado, no se guarda: es la regla 14 aplicada a otra
+  // cosa. Y se filtra ADEMAS de cerrar la accion en el servidor — esconder el
+  // enlace no es una medida de seguridad, es de cortesia.
+  const navItems = todosLosItems.filter((i) => modules[i.id as TabId]);
+  const sinModulos = navItems.length === 0;
+
+  // Los interruptores de los modulos. Si el que estaba abierto se ha apagado
+  // —o si `home` lo esta al entrar—, se salta al primero que quede encendido.
+  useEffect(() => {
+    let vivo = true;
+    getModuleSettings().then((res) => {
+      if (!vivo || !res.success) return;
+      setModules(res.settings);
+      setActiveTab((actual) => (res.settings[actual] ? actual : moduloDeEntrada(res.settings) ?? actual));
+    });
+    return () => { vivo = false; };
+  }, []);
 
   // Detectar preferencia de tema oscuro del sistema al inicio
   useEffect(() => {
@@ -91,6 +119,17 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
         {/* CONTENEDOR DE MÓDULOS */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[80vh] relative">
+
+            {/* Se pueden apagar los ocho, así que este estado existe de verdad
+                y hay que decirlo en vez de dejar la pantalla en blanco. */}
+            {sinModulos && (
+                <div className="py-32 text-center">
+                    <p className="font-black text-slate-400 uppercase tracking-widest text-sm">Sin módulos activos</p>
+                    <p className="text-sm text-slate-500 mt-2">
+                        Tu academia ha desactivado todos los módulos. Ponte en contacto con ella.
+                    </p>
+                </div>
+            )}
             
             {/* Cada modulo va aislado: un fallo de render en uno no debe dejar
                 el dashboard entero en blanco (pasaba con 'home' y 'stats'). */}

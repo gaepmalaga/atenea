@@ -2,6 +2,7 @@
 
 import { supabaseAdmin as supabase, chatModel, embeddingModel } from './core';
 import { requireUser } from '../lib/auth';
+import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
 import {
   buildRetrievalQuery,
@@ -182,6 +183,12 @@ function dedupeChunks(chunks: Chunk[]) {
 export async function askAtenea(query: string, history: ChatTurn[] = []): Promise<AskAteneaResult> {
   const auth = await requireUser();
   if (!auth.ok) return { success: false, error: auth.error };
+
+  // Si la academia ha apagado Inteligencia, se corta AQUI: antes del
+  // embedding y antes del modelo. Esconder el enlace del menu no impide que
+  // nadie llame a esta accion, y cada mensaje son dos llamadas de pago (P4).
+  const modulo = await requireModule('chat');
+  if (!modulo.ok) return { success: false, error: modulo.error };
 
   // Cada mensaje son DOS llamadas de pago: el embedding de la busqueda y la
   // respuesta. Sin cuota, la factura la marcaba cualquiera.

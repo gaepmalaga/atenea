@@ -2,6 +2,7 @@
 import { supabaseAdmin as supabase, planModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
+import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
 import {
     normalizeProfileInput,
@@ -57,6 +58,9 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
     const userId = auth.user.id;
+
+    const modulo = await requireModule('training');
+    if (!modulo.ok) return { success: false, error: modulo.error };
 
     const quota = await checkQuota(userId, 'plan');
     if (!quota.ok) return { success: false, error: quota.error };
