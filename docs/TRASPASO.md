@@ -131,14 +131,51 @@ aplicación entra con la clave de servicio, que **salta RLS**, así que el filtr
 por usuario de cada consulta es la única barrera de verdad. Hay un test estático
 que lo vigila.
 
+### El chat sabía contar, pero no lo sabía
+
+Salió de una pregunta de un alumno: *«¿cuántos artículos tiene la
+Constitución?»*. El chat respondió **«no consta en el temario oficial
+aportado»** — y era verdad, porque **ningún fragmento lo dice**: el texto de una
+norma no se cuenta a sí mismo. El buscador devolvía los artículos de reforma,
+que es lo más parecido a una pregunta sobre «la Constitución» en abstracto.
+
+Pero el dato sí estaba: desde P1b cada fragmento sabe de qué artículo viene.
+Ahora hay dos caminos que no dependen del embedding, y corren en paralelo con él:
+
+- **El índice**, cuando la pregunta es de recuento. Entra como una fuente más,
+  etiquetada como *recuento de lo indexado, no texto de la norma*.
+- **El artículo exacto**, cuando la pregunta lo nombra. Traerlo por su
+  referencia acierta; confiar en que el embedding distinga el 27 del 127 no.
+
+Y apareció un fallo de fondo al hacerlo: **el temario no numera igual en todas
+partes.** La Constitución escribe *«Artículo 82»* y la LOFCS *«Artículo cuarenta
+y uno»*. Con el lector de cifras a secas, el índice contaba **cero** artículos en
+la LOFCS y la describía como «no es un texto legal articulado» — una ley de 54.
+
+Medido contra la base de datos: Constitución **169 (1–169) sin huecos** + 15
+disposiciones; LOFCS **54 (1–54) sin huecos** + 18; el tema 40, apuntes, sin
+artículos, que es lo correcto.
+
+### P4 · Los módulos, cerrada
+
+La pregunta que llevaba la fase parada desde el 27 de agosto tenía respuesta:
+*«que se pueda apagar cualquiera»*. Pestaña **Módulos** en el panel, con los
+ocho interruptores.
+
+Lo que importa no es el interruptor: **apagar un módulo lo apaga también en el
+servidor**. Filtrar el menú no es una medida de seguridad — una Server Action es
+un endpoint público, y las de IA se pagan por llamada.
+
+No se hizo el rol `superadmin`, a propósito: con una academia, el admin eres tú.
+
 ---
 
 ## Estado de las comprobaciones
 
 | Qué | Cómo está |
 |---|---|
-| `npm run check` | ✅ 477 tests, typecheck limpio |
-| `npm run smoke` | ✅ los 6 caminos de escritura entran contra el proyecto real |
+| `npm run check` | ✅ 515 tests, typecheck limpio |
+| `npm run smoke` | ✅ los 7 caminos de escritura entran contra el proyecto real |
 | `npm run build` | ✅ |
 | Guardas estáticas nuevas | ✅ comprobadas rompiéndolas a propósito |
 | Consulta del repaso contra la BD real | ✅ el join resuelve las 17 filas falladas con opciones y respuesta correcta |
