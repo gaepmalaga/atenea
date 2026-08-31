@@ -173,21 +173,48 @@ async function enteros(semanticos, pregunta) {
   };
 }
 
+/**
+ * Lo que hace la accion cuando el alumno ELIGE tema: sus documentos enteros y
+ * ni una llamada al embedding.
+ */
+async function delTema(subjectId) {
+  const docs = await get(`documents?select=id,filename,full_text&subject_id=eq.${subjectId}`);
+  const cabe = new Set(
+    documentosQueCaben(docs.map((d) => ({ id: d.id, chars: (d.full_text ?? '').length })))
+  );
+  return docs
+    .filter((d) => cabe.has(d.id))
+    .map((d) => ({
+      filename: d.filename ?? '',
+      content_chunk: d.full_text ?? '',
+      reference: null,
+      similarity: 1,
+    }));
+}
+
 // --- Una pregunta -----------------------------------------------------------
 
-async function pregunta(texto) {
+async function pregunta(texto, subjectId = null) {
   console.log('\n' + '='.repeat(78));
   console.log('PREGUNTA: ' + texto);
   console.log('='.repeat(78));
 
   const numero = articuloPedido(texto);
+
+  // Con tema elegido no se busca: no hay nada que adivinar, y el embedding
+  // —la mitad del coste de cada mensaje— no se llega a pedir.
+  const enterosDelTema = subjectId ? await delTema(subjectId) : [];
+  const conTema = enterosDelTema.length > 0;
+
   const [semanticos, indice, exactos] = await Promise.all([
-    porSemantica(buildRetrievalQuery([], texto)),
+    conTema ? Promise.resolve([]) : porSemantica(buildRetrievalQuery([], texto)),
     esPreguntaDeEstructura(texto) ? elIndice(pidePartesInternas(texto)) : Promise.resolve(null),
     numero ? porReferencia(numero) : Promise.resolve([]),
   ]);
 
-  const { enteros: completos, sobrantes, nombrados } = await enteros(semanticos, texto);
+  const { enteros: completos, sobrantes, nombrados } = conTema
+    ? { enteros: enterosDelTema, sobrantes: [], nombrados: [] }
+    : await enteros(semanticos, texto);
   const fuentes = [...(indice ? [indice] : []), ...exactos, ...completos, ...sobrantes].slice(0, 8);
 
   console.log(
@@ -195,9 +222,10 @@ async function pregunta(texto) {
       [
         indice ? 'ÍNDICE' : null,
         numero ? `artículo ${numero} (${exactos.length} frag.)` : null,
+        conTema ? 'TEMA ELEGIDO (sin embedding)' : null,
         completos.length ? `DOCUMENTO ENTERO x${completos.length}` : null,
-        nombrados.length ? 'elegido POR NOMBRE' : 'elegido por parecido',
-        `semántica (${semanticos.length}, mejor ${(semanticos[0]?.similarity ?? 0).toFixed(2)})`,
+        conTema ? null : nombrados.length ? 'elegido POR NOMBRE' : 'elegido por parecido',
+        conTema ? null : `semántica (${semanticos.length}, mejor ${(semanticos[0]?.similarity ?? 0).toFixed(2)})`,
       ]
         .filter(Boolean)
         .join(' · ')
@@ -227,8 +255,17 @@ const PREGUNTAS_POR_DEFECTO = [
   '¿cuál es la capital de Francia?',
 ];
 
-const preguntas = process.argv.slice(2).length ? process.argv.slice(2) : PREGUNTAS_POR_DEFECTO;
+const args = process.argv.slice(2);
 
-for (const p of preguntas) {
-  await pregunta(p);
+// --tema=39 simula el desplegable del chat puesto en ese tema.
+const tema = args.find((a) => a.startsWith('--tema='))?.split('=')[1] ?? null;
+const preguntas = args.filter((a) => !a.startsWith('--'));
+
+if (tema) {
+  const [t] = await get(`subjects?select=id,title&id=eq.${tema}`);
+  console.log(`TEMA ELEGIDO: ${t?.title ?? tema}`);
+}
+
+for (const p of preguntas.length ? preguntas : PREGUNTAS_POR_DEFECTO) {
+  await pregunta(p, tema);
 }
