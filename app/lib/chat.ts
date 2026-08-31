@@ -269,6 +269,111 @@ export function esPreguntaDeEstructura(query: string): boolean {
   return PARTES_DEL_DOCUMENTO.some((p) => new RegExp(`\\b${p}\\b`).test(q));
 }
 
+
+/**
+ * Las partes en las que se divide un documento: titulos, capitulos y secciones.
+ *
+ * POR QUE NO SALE DEL INDICE DE FRAGMENTOS
+ * `document_chunks.reference` guarda el ARTICULO del que viene cada fragmento,
+ * y nada mas. Preguntar "¿cuantos titulos tiene la Constitucion?" no lo
+ * contestaba nadie: ni la busqueda semantica (ningun articulo lo dice) ni el
+ * recuento de articulos. Pero los encabezados estan en el texto guardado, y
+ * contarlos es leer, no adivinar.
+ */
+export type EstructuraDocumento = {
+  /** Los titulos, en el orden en que aparecen. */
+  titulos: string[];
+  /** Capitulos, contados como pares titulo->capitulo. Ver abajo por que. */
+  capitulos: number;
+  secciones: number;
+  /**
+   * Cuantos capitulos cuelgan de cada titulo, solo para los que tienen alguno.
+   *
+   * Sin esto, "¿cuantos capitulos tiene el Titulo I?" se queda sin responder
+   * aunque el dato este delante: el total no sirve para esa pregunta.
+   */
+  capitulosPorTitulo: { titulo: string; capitulos: number }[];
+};
+
+const RE_ENCABEZADO =
+  /(T[ÍI]TULO\s+(?:PRELIMINAR|[IVXLC]+)|CAP[ÍI]TULO\s+(?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|S[ÉE]PTIMO|OCTAVO|NOVENO|D[ÉE]CIMO|[IVXLC]+)|Secci[óo]n\s+[0-9]+\.?ª?)/g;
+
+/**
+ * Cuenta las partes de un documento a partir de su texto.
+ *
+ * DOS COSAS QUE NO SON OBVIAS, y las dos salieron de mirar el BOE de verdad:
+ *
+ * 1. **Los capitulos se cuentan como pares titulo->capitulo.** Sus nombres se
+ *    REPITEN entre titulos: la Constitucion tiene un "CAPITULO PRIMERO" dentro
+ *    del Titulo I, otro dentro del III y otro dentro del VIII. Contar nombres
+ *    distintos daria 5 cuando son 11.
+ *
+ * 2. **El PDF trae su propio indice al principio**, asi que cada encabezado
+ *    aparece dos veces. Comparar pares lo arregla solo: el par ya visto no
+ *    entra otra vez. Por eso tampoco se pueden contar las apariciones sueltas,
+ *    que darian el doble.
+ *
+ * Comprobado contra el temario real: Constitucion 11 titulos (Preliminar y I a
+ * X), 11 capitulos y 2 secciones; LOFCS 5, 14 y 4; unos apuntes, 0 de todo —
+ * que es lo correcto, porque no tienen esa estructura.
+ */
+export function resumeEstructura(fullText: string): EstructuraDocumento {
+  const texto = fullText ?? '';
+  const titulos: string[] = [];
+  const vistosTitulo = new Set<string>();
+  const capitulos = new Set<string>();
+  const secciones = new Set<string>();
+
+  // Un documento sin titulos (unos apuntes) deja el cajon de sastre, y asi sus
+  // capitulos sueltos —si los tuviera— siguen contandose una sola vez.
+  let tituloActual = '(sin título)';
+
+  for (const m of texto.matchAll(RE_ENCABEZADO)) {
+    const encabezado = m[1].replace(/\s+/g, ' ').trim();
+
+    if (/^t[ií]tulo/i.test(encabezado)) {
+      tituloActual = encabezado;
+      if (!vistosTitulo.has(encabezado)) {
+        vistosTitulo.add(encabezado);
+        titulos.push(encabezado);
+      }
+    } else if (/^cap[ií]tulo/i.test(encabezado)) {
+      capitulos.add(`${tituloActual} > ${encabezado}`);
+    } else {
+      secciones.add(`${tituloActual} > ${encabezado}`);
+    }
+  }
+
+  const porTitulo = new Map<string, number>();
+  for (const par of capitulos) {
+    const titulo = par.split(' > ')[0];
+    porTitulo.set(titulo, (porTitulo.get(titulo) ?? 0) + 1);
+  }
+
+  return {
+    titulos,
+    capitulos: capitulos.size,
+    secciones: secciones.size,
+    // En el orden del documento, no en el que los vaya devolviendo el mapa.
+    capitulosPorTitulo: titulos
+      .filter((t) => porTitulo.has(t))
+      .map((t) => ({ titulo: t, capitulos: porTitulo.get(t) as number })),
+  };
+}
+
+/**
+ * ¿La pregunta va de las partes internas (titulos, capitulos, secciones)?
+ *
+ * Se distingue de `esPreguntaDeEstructura` porque cuesta dinero saberlo: los
+ * articulos se cuentan con las referencias, que son cadenas de dos palabras,
+ * pero los titulos hay que leerlos del TEXTO COMPLETO de cada documento. Solo
+ * se trae ese texto cuando la pregunta lo pide.
+ */
+export function pidePartesInternas(query: string): boolean {
+  const q = sinAcentos(normalize(query));
+  return /\b(titulo|titulos|capitulo|capitulos|seccion|secciones)\b/.test(q);
+}
+
 /** Lo que el indice sabe de un documento. */
 export type IndiceDocumento = {
   /** Titulo del tema al que pertenece. `null` si no se pudo resolver. */
@@ -282,6 +387,11 @@ export type IndiceDocumento = {
   huecos: number[];
   /** Referencias que no son un articulo numerado: disposiciones, sobre todo. */
   otras: string[];
+  /**
+   * Titulos, capitulos y secciones. `null` cuando no se ha mirado: solo se lee
+   * el texto completo si la pregunta va de eso.
+   */
+  estructura?: EstructuraDocumento | null;
 };
 
 /**
@@ -324,6 +434,36 @@ export function resumeIndice(referencias: (string | null | undefined)[]): {
   return { articulos: lista.length, primero, ultimo, huecos, otras: [...otras] };
 }
 
+/**
+ * La estructura de un documento, en palabras.
+ *
+ * DISTINGUE EL TITULO PRELIMINAR de los numerados, y no es un adorno: en la
+ * Constitucion son "un Titulo Preliminar y diez numerados", y responder "once
+ * titulos" a secas es caer justo en la confusion que pregunta el tribunal. El
+ * dato es el mismo; decirlo mal lo convierte en una trampa.
+ */
+function describeEstructura(e: EstructuraDocumento): string {
+  const preliminares = e.titulos.filter((t) => /preliminar/i.test(t)).length;
+  const numerados = e.titulos.length - preliminares;
+
+  const comoSeCuentan =
+    preliminares > 0
+      ? `${e.titulos.length} titulos en total: ${preliminares === 1 ? 'el Preliminar' : `${preliminares} preliminares`} y ${numerados} numerados`
+      : `${e.titulos.length} titulos`;
+
+  const partes = [`se divide en ${comoSeCuentan} (${e.titulos.join(', ')})`];
+
+  if (e.capitulos) {
+    const desglose = e.capitulosPorTitulo
+      .map((c) => `${c.titulo}: ${c.capitulos}`)
+      .join('; ');
+    partes.push(`${e.capitulos} capitulos en total (${desglose})`);
+  }
+  if (e.secciones) partes.push(`${e.secciones} secciones`);
+
+  return partes.join('; ');
+}
+
 /** Cuantos huecos se enumeran antes de resumirlos. Un prompt no es un listado. */
 const MAX_HUECOS_LISTADOS = 12;
 
@@ -343,10 +483,14 @@ export function formatIndice(docs: IndiceDocumento[]): string {
       const sinArticulos = d.otras.length
         ? `sin articulos numerados; ${d.otras.length} referencias de otro tipo`
         : 'sin articulos numerados (no es un texto legal articulado)';
-      return `- ${nombre}: ${sinArticulos}.`;
+      const conTitulos = d.estructura?.titulos.length
+        ? `; aun asi se divide en ${d.estructura.titulos.length} titulos`
+        : '';
+      return `- ${nombre}: ${sinArticulos}${conTitulos}.`;
     }
 
     const partes = [`${d.articulos} articulos indexados, del ${d.primero} al ${d.ultimo}`];
+    if (d.estructura?.titulos.length) partes.push(describeEstructura(d.estructura));
     if (d.huecos.length) {
       const muestra = d.huecos.slice(0, MAX_HUECOS_LISTADOS).join(', ');
       const resto = d.huecos.length > MAX_HUECOS_LISTADOS ? `, y ${d.huecos.length - MAX_HUECOS_LISTADOS} mas` : '';

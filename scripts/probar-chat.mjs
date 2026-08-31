@@ -29,6 +29,8 @@ import {
   esPreguntaDeEstructura,
   numeroDeArticulo,
   resumeIndice,
+  resumeEstructura,
+  pidePartesInternas,
   formatIndice,
   FUENTE_INDICE,
 } from '../app/lib/chat.ts';
@@ -87,9 +89,10 @@ async function porReferencia(numero) {
   }));
 }
 
-async function elIndice() {
+async function elIndice(conEstructura) {
+  const columnas = conEstructura ? 'id,filename,full_text,subject:subjects(title)' : 'id,filename,subject:subjects(title)';
   const [docs, refs] = await Promise.all([
-    get('documents?select=id,filename,subject:subjects(title)'),
+    get(`documents?select=${columnas}`),
     get(`document_chunks?select=document_id,reference&limit=${MAX_REFERENCIAS}`),
   ]);
 
@@ -107,6 +110,7 @@ async function elIndice() {
         tema: subject?.title ?? null,
         filename: d.filename ?? '',
         ...resumeIndice(porDoc.get(d.id) ?? []),
+        estructura: conEstructura ? resumeEstructura(d.full_text ?? '') : null,
       };
     })
   );
@@ -124,7 +128,7 @@ async function pregunta(texto) {
   const numero = articuloPedido(texto);
   const [semanticos, indice, exactos] = await Promise.all([
     porSemantica(buildRetrievalQuery([], texto)),
-    esPreguntaDeEstructura(texto) ? elIndice() : Promise.resolve(null),
+    esPreguntaDeEstructura(texto) ? elIndice(pidePartesInternas(texto)) : Promise.resolve(null),
     numero ? porReferencia(numero) : Promise.resolve([]),
   ]);
 

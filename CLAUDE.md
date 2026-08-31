@@ -754,6 +754,24 @@ cierre solo si hay una confusión real. Una sección de relleno no es neutra:
 **enseña al alumno a saltársela**, y el día que traiga algo importante ya no la
 lee.
 
+**Y el índice cuenta artículos, no la estructura.** La siguiente pregunta del
+alumno —*«¿cuántos títulos tiene la Constitución?»*— volvía a caer en «no
+consta», porque  guarda el **artículo** y nada más.
+Los encabezados sí están en el texto guardado:  los cuenta y
+el índice los sirve. Dos trampas, las dos vistas en el BOE de verdad:
+
+- **El PDF trae su propio índice al principio**, así que cada encabezado sale
+  dos veces. Contar apariciones daría el doble.
+- **Los nombres de capítulo se repiten entre títulos** —hay un «CAPÍTULO
+  PRIMERO» en el Título I, otro en el III y otro en el VIII—, así que se cuentan
+  como pares título→capítulo. Contar nombres distintos daría 5 donde hay 11.
+
+Y se dice **«un Preliminar y diez numerados»**, no «once títulos» a secas: el
+dato es el mismo y decirlo mal es exactamente la confusión que pregunta el
+tribunal. El texto completo (~120 KB por documento) solo se trae cuando la
+pregunta va de títulos o capítulos; para contar artículos bastan las
+referencias.
+
 **El prompt vive en `app/lib/chat.ts` (`buildChatPrompt`), no dentro de la
 acción.** No es purismo: es que así se puede probar contra el modelo de verdad
 sin levantar la aplicación. Un prompt que solo se ejecuta en producción es un

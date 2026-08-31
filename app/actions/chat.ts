@@ -13,6 +13,8 @@ import {
   resumeIndice,
   formatIndice,
   numeroDeArticulo,
+  resumeEstructura,
+  pidePartesInternas,
   buildChatPrompt,
   FUENTE_INDICE,
   MAX_QUERY_CHARS,
@@ -126,9 +128,16 @@ async function buscaArticulo(numero: number): Promise<Chunk[]> {
  * plataforma —desde P1b cada fragmento sabe de qué artículo viene—, solo que
  * nadie se lo daba al modelo.
  */
-async function construyeIndice(): Promise<Chunk | null> {
+async function construyeIndice(conEstructura: boolean): Promise<Chunk | null> {
+  // `full_text` solo se trae cuando la pregunta va de títulos o capítulos: son
+  // ~120 KB por documento, frente a las cadenas de dos palabras de las
+  // referencias. Para contar artículos no hace falta y no se pide.
+  const columnasDoc = conEstructura
+    ? 'id, filename, full_text, subject:subjects(title)'
+    : 'id, filename, subject:subjects(title)';
+
   const [docsRes, refsRes] = await Promise.all([
-    supabase.from('documents').select('id, filename, subject:subjects(title)'),
+    supabase.from('documents').select(columnasDoc),
     supabase.from('document_chunks').select('document_id, reference').limit(MAX_REFERENCIAS_INDICE),
   ]);
 
@@ -137,7 +146,12 @@ async function construyeIndice(): Promise<Chunk | null> {
     return null;
   }
 
-  type FilaDoc = { id: string; filename: string | null; subject: { title: string | null } | null };
+  type FilaDoc = {
+    id: string;
+    filename: string | null;
+    full_text?: string | null;
+    subject: { title: string | null } | null;
+  };
   type FilaRef = { document_id: string; reference: string | null };
 
   const porDocumento = new Map<string, (string | null)[]>();
@@ -155,6 +169,9 @@ async function construyeIndice(): Promise<Chunk | null> {
       tema: subject?.title ?? null,
       filename: d.filename ?? '',
       ...resumeIndice(porDocumento.get(d.id) ?? []),
+      // Los títulos y capítulos no salen del índice de fragmentos —ahí solo
+      // está el artículo— sino de los encabezados del texto guardado.
+      estructura: conEstructura ? resumeEstructura(d.full_text ?? '') : null,
     };
   });
 
@@ -211,7 +228,9 @@ export async function askAtenea(query: string, history: ChatTurn[] = []): Promis
     const numeroArticulo = articuloPedido(safeQuery);
     const [embeddingResult, indice, porReferencia] = await Promise.all([
       embeddingModel.embedContent(retrievalQuery),
-      esPreguntaDeEstructura(safeQuery) ? construyeIndice() : Promise.resolve(null),
+      esPreguntaDeEstructura(safeQuery)
+        ? construyeIndice(pidePartesInternas(safeQuery))
+        : Promise.resolve(null),
       numeroArticulo ? buscaArticulo(numeroArticulo) : Promise.resolve([] as Chunk[]),
     ]);
 

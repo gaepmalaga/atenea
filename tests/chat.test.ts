@@ -16,6 +16,8 @@ import {
   resumeIndice,
   formatIndice,
   buildChatPrompt,
+  resumeEstructura,
+  pidePartesInternas,
 } from '../app/lib/chat';
 
 /**
@@ -425,5 +427,90 @@ describe('el prompt del chat', () => {
     // Sin esto el modelo metia "[el artículo 5 de la Ley Orgánica 2/1986]" en
     // cada viñeta, que es peor que el [2] pelado.
     expect(prompt).toMatch(/SOLO el número/);
+  });
+});
+
+
+// ============================================================
+// LA ESTRUCTURA DEL DOCUMENTO
+// ============================================================
+
+/**
+ * Segunda pregunta del alumno: «¿cuantos titulos tiene la Constitucion?». El
+ * recuento de articulos no la contesta y ningun articulo lo dice, asi que el
+ * chat respondia "no consta" sobre un documento que tiene los once delante.
+ *
+ * Los encabezados si estan en el texto guardado. Contarlos es leer, no adivinar
+ * — pero tiene dos trampas, y las dos salieron de mirar el BOE de verdad.
+ */
+
+const BOE_DE_MUESTRA = [
+  "ÍNDICE",
+  "TÍTULO PRELIMINAR",
+  "TÍTULO I. De los derechos y deberes fundamentales",
+  "CAPÍTULO PRIMERO. De los españoles y los extranjeros",
+  "CAPÍTULO SEGUNDO. Derechos y libertades",
+  "Sección 1.ª De los derechos fundamentales",
+  "Sección 2.ª De los derechos y deberes",
+  "TÍTULO II. De la Corona",
+  "",
+  "TÍTULO PRELIMINAR",
+  "Artículo 1. España se constituye en un Estado social…",
+  "TÍTULO I",
+  "CAPÍTULO PRIMERO",
+  "Artículo 11. La nacionalidad española se adquiere…",
+  "CAPÍTULO SEGUNDO",
+  "Sección 1.ª",
+  "Artículo 15. Todos tienen derecho a la vida…",
+  "Sección 2.ª",
+  "Artículo 30. Los españoles tienen el derecho…",
+  "TÍTULO II",
+  "Artículo 56. El Rey es el Jefe del Estado…",
+].join('\n');
+
+describe('contar las partes de un documento', () => {
+  const e = resumeEstructura(BOE_DE_MUESTRA);
+
+  it('cuenta los titulos una sola vez aunque el PDF traiga indice', () => {
+    // El BOE consolidado repite todos los encabezados en su indice inicial.
+    // Contar apariciones daria el doble.
+    expect(e.titulos).toEqual(['TÍTULO PRELIMINAR', 'TÍTULO I', 'TÍTULO II']);
+  });
+
+  it('cuenta los capitulos como pares titulo->capitulo', () => {
+    // Sus NOMBRES se repiten entre titulos: en la Constitucion hay un
+    // "CAPÍTULO PRIMERO" en el Titulo I, otro en el III y otro en el VIII.
+    // Contar nombres distintos daria 5 donde hay 11.
+    expect(e.capitulos).toBe(2);
+    expect(e.capitulosPorTitulo).toEqual([{ titulo: 'TÍTULO I', capitulos: 2 }]);
+  });
+
+  it('cuenta las secciones del titulo al que cuelgan', () => {
+    expect(e.secciones).toBe(2);
+  });
+
+  it('unos apuntes sin esa estructura dan cero, no un numero raro', () => {
+    const vacia = resumeEstructura('Apuntes del tema 40. La Deep Web y el ciclo de inteligencia.');
+    expect(vacia.titulos).toEqual([]);
+    expect(vacia.capitulos).toBe(0);
+    expect(vacia.capitulosPorTitulo).toEqual([]);
+  });
+
+  it('aguanta un texto vacio', () => {
+    expect(resumeEstructura('').titulos).toEqual([]);
+  });
+});
+
+describe('cuando hace falta leer el texto completo', () => {
+  it('solo si la pregunta va de titulos, capitulos o secciones', () => {
+    // No es un capricho: los articulos se cuentan con las referencias, que son
+    // cadenas de dos palabras, y los titulos exigen traerse ~120 KB por
+    // documento. Solo se paga cuando sirve.
+    expect(pidePartesInternas('¿cuántos títulos tiene la Constitución?')).toBe(true);
+    expect(pidePartesInternas('cuantos capitulos tiene el titulo I')).toBe(true);
+    expect(pidePartesInternas('¿cuántas secciones hay?')).toBe(true);
+
+    expect(pidePartesInternas('¿cuántos artículos tiene la Constitución?')).toBe(false);
+    expect(pidePartesInternas('¿qué dice el artículo 27?')).toBe(false);
   });
 });
