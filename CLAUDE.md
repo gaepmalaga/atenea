@@ -652,6 +652,46 @@ Tres cosas que no son obvias:
 - **La nota se carga al desplegar la tarjeta**, no al pintar la lista de fallos:
   son tantas consultas como preguntas abiertas, no como preguntas falladas.
 
+### 30 · Hay preguntas del temario que la búsqueda semántica no puede responder
+
+Un alumno preguntó **«¿cuántos artículos tiene la Constitución?»** y el chat
+respondió *«no consta en el temario oficial aportado»*. Y era **verdad**:
+ningún fragmento lo dice, porque el texto de una norma no se cuenta a sí mismo.
+El buscador devolvía los artículos de reforma —lo más parecido a una pregunta
+sobre «la Constitución» en abstracto— y el modelo hizo lo correcto con lo que
+tenía.
+
+Pero **el dato sí estaba en la plataforma**: desde P1b cada fragmento sabe de
+qué artículo viene. Lo que faltaba era llevarle ese recuento al modelo. Dos
+caminos, los dos en `askAtenea`, y los dos van **en paralelo** con el embedding
+porque no dependen de él:
+
+- **`construyeIndice`**, cuando la pregunta es de estructura (`cuántos` +
+  `artículos/títulos/disposiciones`). Entra como una fuente más, etiquetada
+  **«recuento de lo indexado, no texto de la norma»**: el modelo tiene que poder
+  decir de dónde sale el número.
+- **`buscaArticulo`**, cuando la pregunta nombra un artículo. Traerlo por su
+  referencia es exacto; confiar en que el embedding acierte con un número no lo
+  es — «artículo 27» y «artículo 127» se parecen mucho más de lo que se parecen
+  sus textos.
+
+**Los huecos son la mitad de la función.** Si el troceado se dejó artículos por
+el camino, el recuento no es el de la norma, es el de lo indexado: entonces el
+índice avisa y el número se da como un **mínimo**. Dar el número redondo sería
+el fallo de P1f otra vez — un dato falso dicho con seguridad.
+
+**Y el temario no numera igual en todas partes.** No es una hipótesis: la
+Constitución escribe *«Artículo 82»* y la LOFCS *«Artículo cuarenta y uno»*,
+mezclando ordinales en los nueve primeros. Con el lector de cifras a secas, el
+índice contaba **cero** artículos en la LOFCS y la describía como «no es un
+texto legal articulado» — una ley de 54 artículos. `numeroDeArticulo` lee las
+dos formas, y por eso `buscaArticulo` compara el número ya leído en vez de un
+`ilike` sobre el texto de la referencia.
+
+Medido contra la base de datos real: Constitución **169 artículos (1–169), sin
+huecos**, más 15 disposiciones; LOFCS **54 (1–54), sin huecos**, más 18
+disposiciones; el tema 40, apuntes, sin artículos — que es lo correcto.
+
 ---
 
 ## Los tests

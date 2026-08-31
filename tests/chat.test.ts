@@ -9,6 +9,12 @@ import {
   MAX_HISTORY_TURNS,
   MAX_TURN_CHARS,
   type ChatTurn,
+  palabrasANumero,
+  numeroDeArticulo,
+  articuloPedido,
+  esPreguntaDeEstructura,
+  resumeIndice,
+  formatIndice,
 } from '../app/lib/chat';
 
 /**
@@ -178,5 +184,169 @@ describe('citaDe', () => {
   it('una referencia en blanco no deja un separador colgando', () => {
     // Sin el `trim`, esto pintaba « · TEMA 9…» delante del alumno.
     expect(citaDe({ filename: fichero, reference: '   ' })).toBe(fichero);
+  });
+});
+
+
+// ============================================================
+// LO QUE LA BUSQUEDA SEMANTICA NO PUEDE RESPONDER
+// ============================================================
+
+/**
+ * De donde sale esto: un alumno pregunto «¿cuantos articulos tiene la
+ * Constitucion?» y el chat contesto «no consta en el temario oficial
+ * aportado». Y era verdad — ningun fragmento lo dice, porque el texto de una
+ * norma no se cuenta a si mismo— pero el dato SI estaba en la plataforma:
+ * desde P1b cada fragmento sabe de que articulo viene. Lo que faltaba era
+ * llevarle ese recuento al modelo.
+ */
+
+describe('leer el numero de un articulo', () => {
+  it('entiende las cifras', () => {
+    expect(numeroDeArticulo('Artículo 27')).toBe(27);
+    expect(numeroDeArticulo('Artículo 169')).toBe(169);
+    expect(numeroDeArticulo('Artículo 1')).toBe(1);
+  });
+
+  it('entiende la letra, que es como numera media parte del temario', () => {
+    // No es teoria: la Constitucion usa cifras y la LOFCS usa letra, mezclando
+    // ordinales para los nueve primeros y cardinales a partir de ahi.
+    expect(numeroDeArticulo('Artículo primero')).toBe(1);
+    expect(numeroDeArticulo('Artículo noveno')).toBe(9);
+    expect(numeroDeArticulo('Artículo diez')).toBe(10);
+    expect(numeroDeArticulo('Artículo veintiuno')).toBe(21);
+    expect(numeroDeArticulo('Artículo treinta y siete')).toBe(37);
+    expect(numeroDeArticulo('Artículo cuarenta y uno')).toBe(41);
+    expect(numeroDeArticulo('Artículo cincuenta y cuatro')).toBe(54);
+  });
+
+  it('lo que no es un articulo devuelve null, y eso es informacion', () => {
+    // Las disposiciones se cuentan aparte: son 15 en la Constitucion y 18 en
+    // la LOFCS, y meterlas en el recuento de articulos daria un numero falso.
+    expect(numeroDeArticulo('Disposición adicional primera')).toBeNull();
+    expect(numeroDeArticulo('Disposición derogatoria')).toBeNull();
+    expect(numeroDeArticulo('TÍTULO II')).toBeNull();
+    expect(numeroDeArticulo(null)).toBeNull();
+    expect(numeroDeArticulo('')).toBeNull();
+  });
+
+  it('no se inventa un numero con palabras que no lo son', () => {
+    expect(palabrasANumero('preliminar')).toBeNull();
+    expect(palabrasANumero('de la educacion')).toBeNull();
+    expect(palabrasANumero('')).toBeNull();
+  });
+
+  it('compone centenas', () => {
+    expect(palabrasANumero('ciento cuarenta y dos')).toBe(142);
+    expect(palabrasANumero('cien')).toBe(100);
+  });
+});
+
+describe('el articulo que nombra la pregunta', () => {
+  it('lo pilla en cifra, con y sin abreviatura', () => {
+    expect(articuloPedido('¿qué dice el artículo 27?')).toBe(27);
+    expect(articuloPedido('art. 168')).toBe(168);
+    expect(articuloPedido('explícame el articulo 14')).toBe(14);
+  });
+
+  it('el apartado no cambia el fragmento que hay que traer', () => {
+    expect(articuloPedido('artículo 168.3')).toBe(168);
+  });
+
+  it('lo pilla escrito con letra', () => {
+    expect(articuloPedido('¿qué dice el artículo cuarenta y uno?')).toBe(41);
+  });
+
+  it('null cuando no se nombra ninguno', () => {
+    expect(articuloPedido('¿cuántos artículos tiene la Constitución?')).toBeNull();
+    expect(articuloPedido('¿cuáles son los principios básicos de actuación?')).toBeNull();
+    expect(articuloPedido('')).toBeNull();
+  });
+});
+
+describe('preguntas sobre la estructura del documento', () => {
+  it('reconoce las de recuento', () => {
+    expect(esPreguntaDeEstructura('¿cuántos artículos tiene la Constitución?')).toBe(true);
+    expect(esPreguntaDeEstructura('cuantos articulos tiene la constitucion')).toBe(true);
+    expect(esPreguntaDeEstructura('¿de cuántos títulos consta la Constitución?')).toBe(true);
+    expect(esPreguntaDeEstructura('¿cuántas disposiciones adicionales hay?')).toBe(true);
+  });
+
+  it('NO se dispara con preguntas de contenido', () => {
+    // Un falso positivo solo anade una fuente al prompt, pero "cuantos dias de
+    // plazo" es una pregunta del temario y tiene que ir por la via normal.
+    expect(esPreguntaDeEstructura('¿cuántos días de plazo hay para recurrir?')).toBe(false);
+    expect(esPreguntaDeEstructura('¿qué dice el artículo 27?')).toBe(false);
+    expect(esPreguntaDeEstructura('¿cuántos miembros tiene el Congreso?')).toBe(false);
+    expect(esPreguntaDeEstructura('')).toBe(false);
+  });
+});
+
+describe('el resumen del indice', () => {
+  it('cuenta articulos distintos y separa las disposiciones', () => {
+    const r = resumeIndice([
+      'Artículo 1', 'Artículo 1', 'Artículo 2', 'Artículo 3',
+      'Disposición adicional primera', null, '',
+    ]);
+    expect(r.articulos).toBe(3);
+    expect(r.primero).toBe(1);
+    expect(r.ultimo).toBe(3);
+    expect(r.huecos).toEqual([]);
+    expect(r.otras).toEqual(['Disposición adicional primera']);
+  });
+
+  it('DELATA los huecos, que es lo que convierte el recuento en un minimo', () => {
+    // Si el troceado se dejo articulos por el camino, el numero no es el de la
+    // norma: es el de lo indexado. Decirlo como si fuera lo mismo seria el
+    // fallo de P1f otra vez, un dato falso dicho con seguridad.
+    const r = resumeIndice(['Artículo 1', 'Artículo 2', 'Artículo 5']);
+    expect(r.articulos).toBe(3);
+    expect(r.huecos).toEqual([3, 4]);
+  });
+
+  it('un documento sin articulos no da un rango inventado', () => {
+    const r = resumeIndice([null, null]);
+    expect(r.articulos).toBe(0);
+    expect(r.primero).toBeNull();
+    expect(r.ultimo).toBeNull();
+  });
+});
+
+describe('el indice que ve el modelo', () => {
+  const doc = (extra: Partial<Parameters<typeof formatIndice>[0][number]>) => ({
+    tema: 'La Constitución Española',
+    filename: 'BOE-A-1978',
+    articulos: 169,
+    primero: 1,
+    ultimo: 169,
+    huecos: [],
+    otras: [],
+    ...extra,
+  });
+
+  it('dice que es un recuento, no el texto de la norma', () => {
+    // Es la diferencia entre responder «tiene 169» y responder «me lo invento»:
+    // el modelo tiene que poder decir de donde sale el numero.
+    const texto = formatIndice([doc({})]);
+    expect(texto).toMatch(/RECUENTO DE LO INDEXADO/);
+    expect(texto).toContain('169 articulos indexados, del 1 al 169');
+  });
+
+  it('avisa de que el numero es un MINIMO cuando faltan articulos', () => {
+    const texto = formatIndice([doc({ articulos: 167, huecos: [12, 13] })]);
+    expect(texto).toMatch(/MINIMO/);
+    expect(texto).toContain('12, 13');
+  });
+
+  it('un documento de apuntes se describe como lo que es', () => {
+    const texto = formatIndice([
+      doc({ tema: 'Inteligencia', filename: 'tema 40', articulos: 0, primero: null, ultimo: null }),
+    ]);
+    expect(texto).toMatch(/sin articulos numerados/);
+    expect(texto).not.toMatch(/del null/);
+  });
+
+  it('sin documentos no devuelve una fuente vacia', () => {
+    expect(formatIndice([])).toBe('');
   });
 });
