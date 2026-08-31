@@ -756,8 +756,8 @@ lee.
 
 **Y el índice cuenta artículos, no la estructura.** La siguiente pregunta del
 alumno —*«¿cuántos títulos tiene la Constitución?»*— volvía a caer en «no
-consta», porque  guarda el **artículo** y nada más.
-Los encabezados sí están en el texto guardado:  los cuenta y
+consta», porque `document_chunks.reference` guarda el **artículo** y nada más.
+Los encabezados sí están en el texto guardado: `resumeEstructura` los cuenta y
 el índice los sirve. Dos trampas, las dos vistas en el BOE de verdad:
 
 - **El PDF trae su propio índice al principio**, así que cada encabezado sale
