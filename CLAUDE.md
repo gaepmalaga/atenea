@@ -105,7 +105,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # 3 errores, todos el mismo falso positivo (ver abajo)
+npm run lint                   # 5 errores, todos el mismo falso positivo (ver abajo)
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
@@ -115,8 +115,9 @@ npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
 ```
 
-Los 3 errores de `lint` son el mismo falso positivo de
-`react-hooks/set-state-in-effect` en tres paneles de administración: la regla ve
+Los 5 errores de `lint` son el mismo falso positivo de
+`react-hooks/set-state-in-effect`, en tres paneles de administración y en dos
+pantallas del alumno (el repaso de fallos y la nota de una pregunta): la regla ve
 el `setState` dentro de la función que el efecto llama, pero va **después** del
 `await`. Retorcer el código para callarla sería peor que el aviso.
 

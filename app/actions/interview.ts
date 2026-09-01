@@ -1,5 +1,5 @@
 'use server'
-import { supabaseAdmin as supabase, chatModel, smartModel, reportModel } from './core';
+import { chatModel, smartModel, reportModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import {
   canEvaluate,

@@ -1,5 +1,5 @@
 'use server'
-import { supabaseAdmin as supabase, planModel } from './core';
+import { planModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
