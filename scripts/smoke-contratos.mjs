@@ -121,7 +121,7 @@ const CASOS = [
     tabla: 'module_settings',
     accion: 'modules.ts · setModuleEnabled (P4)',
     payload: { module_id: MARCA, enabled: false, updated_at: AHORA, updated_by: USER_ID },
-    borrarPor: `module_id=eq.`,
+    borrarPor: `module_id=eq.${MARCA}`,
     // Volver a pulsar el interruptor es lo normal: se comprueba el update.
     luegoActualizar: { enabled: true },
   },
@@ -182,13 +182,36 @@ for (const caso of CASOS) {
 
   let detalle = 'insert';
   if (caso.luegoActualizar) {
+    // `rest` pide siempre `return=representation`, asi que se puede mirar
+    // CUANTAS filas toco el update. Sin mirarlo, un PATCH que no encuentra nada
+    // se cantaba como "update ok": paso de verdad con `module_settings`, cuyo
+    // filtro se habia quedado sin valor, y el guion dio verde sin comprobar ni
+    // el update ni el borrado (regla 4, aplicada al propio guion de pruebas).
     const upd = await rest('PATCH', `${caso.tabla}?${caso.borrarPor}`, caso.luegoActualizar);
-    detalle += upd.ok ? ' + update' : ` + UPDATE FALLA (${upd.datos?.message ?? upd.estado})`;
-    if (!upd.ok) fallos++;
+    const tocadas = Array.isArray(upd.datos) ? upd.datos.length : 0;
+
+    if (!upd.ok) {
+      detalle += ` + UPDATE FALLA (${upd.datos?.message ?? upd.estado})`;
+      fallos++;
+    } else if (tocadas === 0) {
+      detalle += ' + UPDATE NO TOCO NADA (¿mal el filtro?)';
+      fallos++;
+    } else {
+      detalle += ' + update';
+    }
   }
 
   await fetch(`${URL_BASE}/rest/v1/${caso.tabla}?${caso.borrarPor}`, { method: 'DELETE', headers: cabeceras });
-  console.log(`  ok     ${caso.tabla.padEnd(20)} ${detalle}`);
+
+  // Y que el borrado se haya llevado la fila de verdad: un guion de pruebas que
+  // deja restos en la base de datos de produccion no es un guion de pruebas.
+  const resto = await rest('GET', `${caso.tabla}?${caso.borrarPor}&select=*`);
+  if (Array.isArray(resto.datos) && resto.datos.length) {
+    detalle += ` + NO SE BORRO (${resto.datos.length} fila/s)`;
+    fallos++;
+  }
+
+  console.log(`  ${detalle.includes('FALLA') || detalle.includes('NO ') ? 'FALLA ' : 'ok    '} ${caso.tabla.padEnd(20)} ${detalle}`);
 }
 
 console.log('\nSOLO LECTURA (las columnas existen)');
