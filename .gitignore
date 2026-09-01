@@ -41,3 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 firebase-debug.log
+
+# claude code: la configuracion del servidor de desarrollo SI se comparte
+# (.claude/launch.json); los ajustes y permisos de cada maquina, no.
+.claude/settings.local.json
