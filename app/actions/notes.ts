@@ -1,7 +1,7 @@
 'use server'
 
-import { supabaseAdmin } from './core';
 import { requireUser } from '../lib/auth';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 import { MAX_NOTE_CHARS, normalizeNote } from '../lib/notes';
 
 /**
@@ -21,6 +21,12 @@ import { MAX_NOTE_CHARS, normalizeNote } from '../lib/notes';
  * cookie de sesion (regla 1). Es especialmente importante aqui, porque el
  * parametro obvio —"dame la nota de este usuario para esta pregunta"— seria
  * exactamente el fallo original del proyecto.
+ *
+ * Y NO USAN LA CLAVE DE SERVICIO (fase 1.2). Van con el cliente de la sesion,
+ * asi que la politica `question_notes_propietario` se aplica de verdad: aunque
+ * alguien se dejara el `.eq('user_id', …)`, Postgres no devolveria la nota de
+ * otro. Antes ese filtro era la unica barrera, porque la clave de servicio
+ * salta RLS.
  */
 
 type NoteResult = { success: boolean; error?: string };
@@ -32,7 +38,8 @@ export async function getQuestionNote(
   if (!auth.ok) return { success: false, note: null, error: auth.error };
   if (!questionId) return { success: true, note: null };
 
-  const { data, error } = await supabaseAdmin
+  const db = await createSupabaseServerClient();
+  const { data, error } = await db
     .from('question_notes')
     .select('note')
     .eq('user_id', auth.user.id)
@@ -69,8 +76,10 @@ export async function saveQuestionNote(input: unknown): Promise<NoteResult & { d
 
   const note = normalizeNote(d.note);
 
+  const db = await createSupabaseServerClient();
+
   if (note === '') {
-    const { error } = await supabaseAdmin
+    const { error } = await db
       .from('question_notes')
       .delete()
       .eq('user_id', auth.user.id)
@@ -82,10 +91,11 @@ export async function saveQuestionNote(input: unknown): Promise<NoteResult & { d
     return { success: false, error: `La nota no puede pasar de ${MAX_NOTE_CHARS} caracteres.` };
   }
 
-  const { error } = await supabaseAdmin.from('question_notes').upsert(
+  const { error } = await db.from('question_notes').upsert(
     {
       // El usuario sale de la sesion y va PRIMERO, sin expandir nada del
-      // cliente encima (regla 2).
+      // cliente encima (regla 2). Con RLS ademas es obligatorio: el
+      // `with check` de la politica rechaza la fila si no coincide.
       user_id: auth.user.id,
       question_id: questionId,
       note,

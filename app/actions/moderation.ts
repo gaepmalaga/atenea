@@ -13,6 +13,7 @@ import {
 import { validateGeneratedQuestion } from '../lib/ai-output';
 import { questionHash } from '../lib/question-hash';
 import { MAX_IMPORT } from '../lib/question-import';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -24,8 +25,9 @@ type ModerationResult = { success: boolean; error?: string };
 export async function voteQuestion(params: { questionId: string; vote: 1 | -1 }): Promise<ModerationResult> {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
 
-    const { error } = await supabaseAdmin.from('question_votes').upsert(
+    const { error } = await db.from('question_votes').upsert(
         { question_id: params.questionId, user_id: auth.user.id, vote: params.vote },
         { onConflict: 'question_id,user_id' }
     );
@@ -35,8 +37,9 @@ export async function voteQuestion(params: { questionId: string; vote: 1 | -1 })
 export async function reportQuestion(params: { questionId: string; reportType: string; message: string }): Promise<ModerationResult> {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
 
-    const { error } = await supabaseAdmin.from('question_reports').insert({
+    const { error } = await db.from('question_reports').insert({
         question_id: params.questionId,
         user_id: auth.user.id,
         report_type: params.reportType,

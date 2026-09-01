@@ -4,6 +4,7 @@ import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 import {
     normalizeProfileInput,
     normalizeMetrics,
@@ -57,6 +58,7 @@ function athleteBrief(profile: PhysicalProfile): string {
 export async function generateWeeklyPlan(profile: PhysicalProfile) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
     const modulo = await requireModule('training');
@@ -81,7 +83,7 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
         const plan = normalizePlan(parseAIJson(result.response.text()));
         if (!plan) throw new Error('La IA no devolvió un plan utilizable.');
 
-        const { data: inserted, error } = await supabase.from('training_plans').insert({
+        const { data: inserted, error } = await db.from('training_plans').insert({
             user_id: userId,
             week_start: new Date().toISOString(),
             plan_data: plan,
@@ -101,9 +103,10 @@ export async function getActiveTrainingPlan(): Promise<
 > {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error, plan: null };
+    const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
-    const { data } = await supabase.from('training_plans').select('*').eq('user_id', userId).eq('status', 'active').order('created_at', {ascending:false}).limit(1).single();
+    const { data } = await db.from('training_plans').select('*').eq('user_id', userId).eq('status', 'active').order('created_at', {ascending:false}).limit(1).single();
     if (!data) return { success: true, plan: null };
 
     // El plan guardado se normaliza al leerlo, no solo al escribirlo: en la BD
@@ -117,11 +120,12 @@ export async function completeTrainingDay(
 ): Promise<{ success: boolean; error?: string }> {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
     // Nota: el filtro por user_id evita que un usuario marque como completado
     // el plan de otro (antes `userId` se recibía y se ignoraba).
-    const { data: plan, error: readError } = await supabase
+    const { data: plan, error: readError } = await db
         .from('training_plans')
         .select('plan_data')
         .eq('id', planId)
@@ -145,7 +149,7 @@ export async function completeTrainingDay(
         completed_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from('training_plans').update({ plan_data: updated }).eq('id', planId);
+    const { error } = await db.from('training_plans').update({ plan_data: updated }).eq('id', planId);
     return { success: !error, error: error?.message };
 }
 
@@ -159,13 +163,14 @@ export async function completeTrainingDay(
 export async function generateNextWeek() {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error, plan: null };
+    const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
     const quota = await checkQuota(userId, 'plan');
     if (!quota.ok) return { success: false as const, error: quota.error, plan: null };
 
     try {
-        const { data: current, error: readError } = await supabase
+        const { data: current, error: readError } = await db
             .from('training_plans')
             .select('id, plan_data')
             .eq('user_id', userId)
@@ -177,7 +182,7 @@ export async function generateNextWeek() {
         if (readError) throw new Error(readError.message);
         if (!current) throw new Error('No hay ningún plan activo del que partir.');
 
-        const { data: profile } = await supabase
+        const { data: profile } = await db
             .from('profiles_physical').select('*').eq('user_id', userId).single();
         if (!profile) throw new Error('Faltan los datos físicos.');
 
@@ -187,7 +192,7 @@ export async function generateNextWeek() {
         const summary = summarizeWeek(previous);
 
         // Cuantas semanas lleva ya, para numerar la nueva.
-        const { count } = await supabase
+        const { count } = await db
             .from('training_plans')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userId);
@@ -209,14 +214,14 @@ export async function generateNextWeek() {
         // Primero se cierra la semana anterior: si el insert fallara despues,
         // el alumno se queda sin plan activo, que se ve. Al reves quedarian dos
         // activos y `getActiveTrainingPlan` elegiria uno en silencio.
-        const { error: closeError } = await supabase
+        const { error: closeError } = await db
             .from('training_plans')
             .update({ status: 'completed' })
             .eq('id', current.id)
             .eq('user_id', userId);
         if (closeError) throw new Error(closeError.message);
 
-        const { data: inserted, error } = await supabase.from('training_plans').insert({
+        const { data: inserted, error } = await db.from('training_plans').insert({
             user_id: userId,
             week_start: new Date().toISOString(),
             plan_data: plan,
@@ -233,8 +238,9 @@ export async function generateNextWeek() {
 export async function getPhysicalProfile() {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error, data: null };
+    const db = await createSupabaseServerClient();
 
-    const { data } = await supabase.from('profiles_physical').select('*').eq('user_id', auth.user.id).single();
+    const { data } = await db.from('profiles_physical').select('*').eq('user_id', auth.user.id).single();
     return { success: true as const, data };
 }
 
@@ -247,6 +253,7 @@ const PHYSICAL_FIELDS = [
 export async function savePhysicalProfile(data: PhysicalProfile) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
 
     // Normalizar AQUI, no solo en el formulario: una Server Action es un
     // endpoint publico, asi que lo que llega puede no haber pasado por la UI.
@@ -266,6 +273,6 @@ export async function savePhysicalProfile(data: PhysicalProfile) {
         if (clean[field] !== undefined) payload[field] = clean[field];
     }
 
-    const { error } = await supabase.from('profiles_physical').upsert(payload);
+    const { error } = await db.from('profiles_physical').upsert(payload);
     return { success: !error, error: error?.message };
 }

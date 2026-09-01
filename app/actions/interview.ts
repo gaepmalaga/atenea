@@ -15,12 +15,14 @@ import {
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 
 export async function getBiodata() {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error, data: null };
+    const db = await createSupabaseServerClient();
 
-    const { data } = await supabase.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
+    const { data } = await db.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
     return { success: true as const, data: data || null };
 }
 
@@ -56,6 +58,7 @@ const BIODATA_FIELDS = [
 export async function saveBiodata(formData: BiodataInput) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
 
     // Lista blanca: antes se hacia `upsert({ user_id, ...formData })` y el
     // objeto del cliente se expandia DESPUES de la clave, asi que un `user_id`
@@ -66,17 +69,18 @@ export async function saveBiodata(formData: BiodataInput) {
         if (formData?.[field] !== undefined) payload[field] = formData[field];
     }
 
-    const { error } = await supabase.from('profiles_biodata').upsert(payload);
+    const { error } = await db.from('profiles_biodata').upsert(payload);
     return { success: !error, error: error?.message ?? null };
 }
 
 export async function getPsychProfile() {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error, data: null };
+    const db = await createSupabaseServerClient();
 
-    let { data } = await supabase.from('profiles_psych').select('*').eq('user_id', auth.user.id).single();
+    let { data } = await db.from('profiles_psych').select('*').eq('user_id', auth.user.id).single();
     if (!data) {
-        const { data: created } = await supabase.from('profiles_psych').insert({ user_id: auth.user.id }).select().single();
+        const { data: created } = await db.from('profiles_psych').insert({ user_id: auth.user.id }).select().single();
         data = created;
     }
     return { success: true as const, data };
@@ -103,6 +107,7 @@ async function generateInspectorReport(promptProfile: InterviewProfile, psych: P
 export async function processInterviewTurn(history: InterviewTurn[], userAudioText: string) {
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error };
+    const db = await createSupabaseServerClient();
 
     const modulo = await requireModule('interview');
     if (!modulo.ok) return { success: false as const, error: modulo.error };
@@ -113,7 +118,7 @@ export async function processInterviewTurn(history: InterviewTurn[], userAudioTe
     if (!quota.ok) return { success: false as const, error: quota.error };
 
     try {
-        const { data: biodata } = await supabase.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
+        const { data: biodata } = await db.from('profiles_biodata').select('*').eq('user_id', auth.user.id).single();
 
         // El nombre lo dice a proposito: `biodata` es la fila y NO sale de aqui;
         // `promptProfile` es lo unico que viaja al modelo. Ver

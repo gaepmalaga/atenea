@@ -34,7 +34,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | 2.6 | Indexado de PDFs | ✅ cerrada |
 | **3** | **Calidad de la IA + memoria del chat** | ✅ **cerrada** |
 | **1.3** | **Activar RLS** | ✅ **cerrada** (ejecutada el 26 ago 2026) |
-| 1.2 | Acotar la clave de servicio | ⬜ ya desbloqueada: la 1.3 está hecha |
+| **1.2** | **Acotar la clave de servicio** | ✅ **cerrada** (31 ago): lo del alumno va con su sesión |
 | **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, ya en la BD: regla 20) |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
@@ -876,6 +876,42 @@ semántica sobra entera** —embeddings, fragmentos e índice— y el chat se qu
 tema + documento. Es mucho menos código, y ahora es una decisión que se puede
 medir en vez de opinar.
 
+### 34 · Con la clave de servicio, RLS no protege nada
+
+La fase 1.3 activó las políticas. La 1.2 es la que hace que sirvan: mientras
+toda la aplicación entrara con `supabaseAdmin` —que **salta RLS**— la única
+barrera real era acordarse de escribir `.eq('user_id', …)` en cada consulta. Una
+barrera que depende de acordarse no es una barrera.
+
+Ahora hay dos mundos, y un test estático los mantiene separados:
+
+| | Cliente | Por qué |
+|---|---|---|
+| Lo del alumno | `createSupabaseServerClient()` (su sesión) | Tienen política de propietario: Postgres impone lo que antes imponía el cuidado del programador |
+| Lo compartido y lo de administración | `supabaseAdmin` | `question_bank`, `documents`, `subjects`… tienen RLS y **cero políticas**: con la sesión del alumno no devolverían nada |
+
+Con la sesión van: `question_notes`, `profiles_physical`, `training_plans`,
+`profiles_biodata`, `profiles_psych`, `flashcard_progress`, `flashcard_results`,
+`question_votes` y el `insert` de `question_reports`. **Entrenamiento y perfilado
+ya no importan la clave de servicio en absoluto.**
+
+**El modo de fallo que hay que temer aquí no es un error, es el vacío.** Si se
+lee con la sesión una tabla sin políticas, Postgres no protesta: devuelve cero
+filas. La pantalla se queda en blanco y nadie sabe por qué. Por eso el test
+vigila **las dos direcciones**, no solo una.
+
+**`question_attempts` se quedó fuera a propósito.** Tiene políticas de INSERT y
+SELECT pero **no de UPDATE**, y `setResultErrorType` actualiza: con la sesión, ese
+update no fallaría, simplemente no tocaría ninguna fila, y el diagnóstico del
+error del alumno se perdería en silencio — el fallo más caro de este repo otra
+vez, por otra puerta. El guion que lo desbloquea está escrito y **sin ejecutar**:
+[`docs/sql/1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql).
+
+Y una cosa que se aprendió al hacerlo: **hay accesos partidos en dos líneas**
+(`await supabase` y `.from(...)` debajo). Un reemplazo literal no los ve y los
+deja con la clave de servicio sin que nada lo cante. Cinco de training.ts se
+salvaron por eso hasta que el analizador aprendió a mirar entre medias.
+
 ---
 
 ## Los tests
@@ -903,6 +939,7 @@ tests/review.test.ts            repaso de lo fallado: agrupación y guardas
 tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
+tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 
@@ -1044,9 +1081,11 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    sesión**, y decidir si interesa que un mismo CSV traiga preguntas de varios temas
    (hoy el tema se elige una vez y vale para todo el fichero).
 
-4. **Fase 1.2** (acotar la clave de servicio). **Ya está desbloqueada:** su condición era
-   tener RLS activa, y lo está desde el 26 ago 2026. Cada consulta que se mueva al
-   cliente del usuario queda cubierta desde el primer momento.
+4. **Fase 1.2 está cerrada** (31 ago): las tablas del alumno van con el cliente de su
+   sesión y RLS por fin protege de verdad (regla 34). Lo único que queda ahí es
+   ejecutar [`1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql) —la política
+   de UPDATE que le falta a `question_attempts`— y mover entonces `saveTestResult` y
+   `setResultErrorType`.
 
 5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
 

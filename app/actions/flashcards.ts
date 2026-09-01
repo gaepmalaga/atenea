@@ -5,6 +5,7 @@ import { scheduleCard, nextReviewDate } from '../lib/srs';
 import { requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { requireModule } from '../lib/module-guard';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 
 /** Tarjeta que devuelve la UI al puntuarla. */
 export type FlashcardInput = {
@@ -24,6 +25,7 @@ function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
 export async function generateFlashcard(topicNameOrId: string | number) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  const db = await createSupabaseServerClient();
   const userId = auth.user.id;
 
   const modulo = await requireModule('cards');
@@ -48,7 +50,7 @@ export async function generateFlashcard(topicNameOrId: string | number) {
 
     // `flashcard_progress` identifica el tema por `topic`, no por `subject_id`:
     // esa columna no existe en la tabla. Quien si la tiene es `flashcard_results`.
-    const { data: due } = await supabase.from('flashcard_progress')
+    const { data: due } = await db.from('flashcard_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('topic', topicName)
@@ -112,6 +114,7 @@ export async function generateFlashcard(topicNameOrId: string | number) {
 export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'fail' | 'hard' | 'easy') {
     const auth = await requireUser();
     if (!auth.ok) return { success: false, error: auth.error };
+    const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
     try {
@@ -135,8 +138,8 @@ export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'f
         };
 
         const { error } = cardData.db_id
-            ? await supabase.from('flashcard_progress').update(payload).eq('id', cardData.db_id).eq('user_id', userId)
-            : await supabase.from('flashcard_progress').insert(payload);
+            ? await db.from('flashcard_progress').update(payload).eq('id', cardData.db_id).eq('user_id', userId)
+            : await db.from('flashcard_progress').insert(payload);
 
         // Antes no se comprobaba: la UI pasaba a la tarjeta siguiente dando por
         // buena una escritura que podía haber fallado.
@@ -178,7 +181,11 @@ async function recordFlashcardResult(entry: {
     boxAfter: number;
     nextReview: string;
 }) {
-    const { error } = await supabase.from('flashcard_results').insert({
+    // Su propio cliente de sesion: es un ayudante privado y no ve el de quien
+    // lo llama. Crear el cliente solo lee las cookies, no abre nada.
+    const db = await createSupabaseServerClient();
+
+    const { error } = await db.from('flashcard_results').insert({
         user_id: entry.userId,
         subject_id: entry.subjectId,
         topic: entry.topic,
