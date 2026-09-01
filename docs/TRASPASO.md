@@ -305,7 +305,7 @@ otra cosa: que las normas del prompt viejo no vuelvan a colarse.
 
 | Qué | Cómo está |
 |---|---|
-| `npm run check` | ✅ 540 tests, typecheck limpio |
+| `npm run check` | ✅ 581 tests, typecheck limpio |
 | `npm run smoke` | ✅ los 7 caminos de escritura entran contra el proyecto real |
 | `npm run build` | ✅ |
 | Guardas estáticas nuevas | ✅ comprobadas rompiéndolas a propósito |
@@ -353,8 +353,11 @@ endurecimiento **opcional** — el código funciona igual con o sin él.
 1. **Entrar y verlo.** Es lo único que separa «pasa los tests» de «funciona».
    Por orden de lo que más se nota: el desplegable de tema del chat, la pestaña
    de Módulos, el alta manual de preguntas y la pantalla del test.
-2. **P5 · el panel de academia**, que es lo siguiente del plan de producto: ficha
-   del alumno, quién ha abandonado, invitar por correo. P4 ya está cerrada.
+2. **P5 está hecha en parte** (31 ago): pestaña *Academia* con quién ha abandonado,
+   la ficha de cada alumno y la cobertura del temario. Lo primero que enseñó al
+   conectarla a los datos reales: **43 de los 45 temas no tienen ni una pregunta**.
+   Falta lo que manda correos (invitar) y lo que necesita esquema (agrupar por
+   clase).
 3. **Decidir sobre la búsqueda semántica.** Si con el selector de tema nadie usa
    «todo el temario», sobra: se puede retirar embeddings, fragmentos e índice, y
    el chat se queda en tema + documento. Es una decisión que ahora se puede

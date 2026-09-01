@@ -47,6 +47,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 
 ## Producción
@@ -912,6 +913,42 @@ Y una cosa que se aprendió al hacerlo: **hay accesos partidos en dos líneas**
 deja con la clave de servicio sin que nada lo cante. Cinco de training.ts se
 salvaron por eso hasta que el analizador aprendió a mirar entre medias.
 
+### 35 · El panel de la academia enseña lo accionable, no lo bonito
+
+P5 salió de una frase del plan: *«un alumno que lleva dos semanas sin entrar es
+el dato más accionable que hay en una academia, y hoy no se ve en ninguna
+parte»*. La lista de usuarios que había daba nombre, rol, preguntas y acierto:
+sirve para administrar cuentas, no para dar clase.
+
+Tres decisiones que no son cosméticas:
+
+- **La lista se ordena por urgencia, no por nombre.** Primero quien nunca entró,
+  después los abandonados de más a menos tiempo fuera. Una lista alfabética
+  obliga al profesor a leerla entera para encontrar lo único que iba a hacer con
+  ella.
+- **`null` no es `0`, y aquí menos que en ningún sitio** (regla 8): 0 % de
+  acierto es un alumno que va mal; `null` es uno que no ha empezado. Se llama a
+  personas distintas.
+- **El acierto va sobre las CONTESTADAS** (regla 24). Con los blancos dentro, un
+  alumno que va al 50 % y deja la mitad en blanco sale al 25 %, y el profesor
+  llama a quien no debe.
+
+**«Preguntas que falla casi todo el mundo» no es «las difíciles».** Con
+suficientes intentos, una pregunta que casi nadie acierta suele estar mal
+redactada o tener marcada la opción equivocada — es exactamente lo que pasó con
+las 15 preguntas de Inteligencia que vivían dentro de Constitución. Por eso hay
+un **mínimo de intentos**: sin él, la primera pregunta que alguien falle sale al
+0 % y encabeza la lista para siempre.
+
+**Todo el panel va con la clave de servicio, y ahí sí es lo correcto** (regla
+34): un profesor mirando a sus alumnos no está cubierto por ninguna política de
+propietario, así que con el cliente de la sesión vería una lista vacía. Lo que
+lo protege es `requireAdmin`, y hay un test que lo exige para cada acción.
+
+Medido contra la base de datos real el 31 ago: 43 de 45 temas **sin una sola
+pregunta**, y el alumno con más actividad al 44 % — 30 % en Constitución y 67 %
+en Inteligencia.
+
 ---
 
 ## Los tests
@@ -940,6 +977,7 @@ tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
+tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 ```
 

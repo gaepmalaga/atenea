@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { 
   Shield, LogOut, RefreshCw, Users, Book,
-  Activity, AlertTriangle, Database, Power
+  Activity, AlertTriangle, Database, Power, GraduationCap
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -14,11 +14,12 @@ import AdminActivity from './components/AdminActivity';
 import AdminModeration from './components/AdminModeration';
 import AdminBank from './components/AdminBank';
 import AdminModules from './components/AdminModules';
+import AdminAcademy from './components/AdminAcademy';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'users' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules';
+type AdminTab = 'users' | 'academy' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules';
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
@@ -38,6 +39,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // onClick, asi que una pestaña mal escrita compilaba y no hacia nada.
   const tabs = [
     { id: 'users', label: 'Usuarios', icon: Users, color: 'text-blue-400' },
+    { id: 'academy', label: 'Academia', icon: GraduationCap, color: 'text-sky-400' },
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-400' },
@@ -129,6 +131,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
                 {activeTab === 'moderation' && <AdminModeration />}
 
+                {activeTab === 'academy' && <AdminAcademy />}
                 {activeTab === 'modules' && <AdminModules />}
                 {activeTab === 'activity' && <AdminActivity />}
             </ModuleErrorBoundary>

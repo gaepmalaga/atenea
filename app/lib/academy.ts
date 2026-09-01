@@ -1,0 +1,358 @@
+/**
+ * El panel de la academia (P5): lo que un profesor necesita para dar clase.
+ *
+ * La lista de usuarios que habia daba nombre, rol, preguntas hechas y acierto.
+ * Eso vale para administrar cuentas, no para dar clase. Lo que falta —y es lo
+ * que pidio el dueño— es **quien ha abandonado**, en que falla cada uno y que
+ * partes del temario no toca nadie.
+ *
+ * Modulo puro (regla 21): toda la aritmetica que se le ensena al profesor se
+ * testea aqui. Es donde este repositorio se ha equivocado siempre — numerador y
+ * denominador de muestras distintas, y ceros donde no habia datos (reglas 8
+ * y 24).
+ */
+
+import { isBlankAnswer } from './exam-results';
+import { ERROR_TYPES, type ErrorType } from './stats';
+
+// ============================================================
+// CUANDO SE DA POR PERDIDO A UN ALUMNO
+// ============================================================
+
+/**
+ * Dias sin entrar a partir de los cuales conviene llamarle.
+ *
+ * El dueño lo dijo asi: *«un alumno que lleva dos semanas sin entrar es el dato
+ * mas accionable que hay en una academia»*. Se parte en dos umbrales porque a
+ * los catorce dias ya suele ser tarde: a la semana todavia se recupera solo.
+ */
+export const DIAS_EN_RIESGO = 7;
+export const DIAS_ABANDONO = 14;
+
+const UN_DIA = 24 * 60 * 60 * 1000;
+
+export type EstadoAlumno = 'nunca_entro' | 'activo' | 'en_riesgo' | 'abandonado';
+
+/** Como se llama cada estado delante del profesor. */
+export const ESTADO_ALUMNO_LABEL: Record<EstadoAlumno, string> = {
+  nunca_entro: 'Nunca ha entrado',
+  activo: 'Activo',
+  en_riesgo: 'En riesgo',
+  abandonado: 'Abandonado',
+};
+
+// ============================================================
+// LO QUE ENTRA
+// ============================================================
+
+/** Una respuesta, tal y como la guarda `question_attempts`. */
+export type IntentoAlumno = {
+  user_id?: string | null;
+  topic?: string | null;
+  is_correct?: boolean | null;
+  error_type?: string | null;
+  created_at?: string | null;
+  question_id?: string | null;
+  selected_index?: number | null;
+};
+
+/** Una fila de `profiles`. */
+export type PerfilAlumno = {
+  id: string;
+  email?: string | null;
+  role?: string | null;
+  created_at?: string | null;
+};
+
+// ============================================================
+// LA LISTA DE ALUMNOS
+// ============================================================
+
+export type FilaAlumno = {
+  id: string;
+  email: string | null;
+  role: string | null;
+  /** Respuestas CONTESTADAS. Los blancos van aparte (regla 24). */
+  contestadas: number;
+  blancos: number;
+  aciertos: number;
+  /** Sobre las contestadas. `null` si no ha contestado ninguna (regla 8). */
+  winRate: number | null;
+  /** ISO de la ultima respuesta, o `null` si no hay ninguna. */
+  ultimaActividad: string | null;
+  /** Dias enteros desde la ultima respuesta. `null` si nunca ha respondido. */
+  diasSinEntrar: number | null;
+  estado: EstadoAlumno;
+};
+
+function estadoDe(dias: number | null): EstadoAlumno {
+  if (dias === null) return 'nunca_entro';
+  if (dias >= DIAS_ABANDONO) return 'abandonado';
+  if (dias >= DIAS_EN_RIESGO) return 'en_riesgo';
+  return 'activo';
+}
+
+/** Fecha ISO -> milisegundos, o `null` si no se puede leer. */
+function fecha(valor: unknown): number | null {
+  if (typeof valor !== 'string' || !valor) return null;
+  const ms = Date.parse(valor);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Los alumnos con lo que hace falta para decidir a quien llamar.
+ *
+ * ORDEN: primero quien necesita atencion. Los que nunca entraron, despues los
+ * abandonados (de mas a menos tiempo fuera), y al final los activos. Una lista
+ * ordenada por nombre obliga al profesor a leerla entera para encontrar lo
+ * unico que iba a hacer con ella.
+ *
+ * El `winRate` se calcula sobre las CONTESTADAS, no sobre el total: un blanco
+ * es una decision, no un fallo, y contarlo como respuesta castiga al alumno que
+ * no arriesga — al reves de lo que ensena la formula del BOE (reglas 22 y 24).
+ */
+export function resumeAlumnos(
+  perfiles: PerfilAlumno[],
+  intentos: IntentoAlumno[],
+  ahora: number = Date.now()
+): FilaAlumno[] {
+  const acumulado = new Map<
+    string,
+    { contestadas: number; blancos: number; aciertos: number; ultima: number | null }
+  >();
+
+  for (const intento of intentos ?? []) {
+    const id = intento?.user_id;
+    if (!id) continue;
+
+    const acc = acumulado.get(id) ?? { contestadas: 0, blancos: 0, aciertos: 0, ultima: null };
+
+    if (isBlankAnswer(intento.selected_index)) acc.blancos++;
+    else {
+      acc.contestadas++;
+      if (intento.is_correct) acc.aciertos++;
+    }
+
+    const cuando = fecha(intento.created_at);
+    // La ultima actividad cuenta TAMBIEN los blancos: dejar una en blanco es
+    // haber entrado, y lo que se mide aqui es si el alumno sigue viniendo.
+    if (cuando !== null && (acc.ultima === null || cuando > acc.ultima)) acc.ultima = cuando;
+
+    acumulado.set(id, acc);
+  }
+
+  const filas: FilaAlumno[] = (perfiles ?? []).map((p) => {
+    const acc = acumulado.get(p.id);
+    const ultima = acc?.ultima ?? null;
+    const dias = ultima === null ? null : Math.floor((ahora - ultima) / UN_DIA);
+
+    return {
+      id: p.id,
+      email: p.email ?? null,
+      role: p.role ?? null,
+      contestadas: acc?.contestadas ?? 0,
+      blancos: acc?.blancos ?? 0,
+      aciertos: acc?.aciertos ?? 0,
+      winRate: acc && acc.contestadas > 0 ? Math.round((acc.aciertos / acc.contestadas) * 100) : null,
+      ultimaActividad: ultima === null ? null : new Date(ultima).toISOString(),
+      diasSinEntrar: dias,
+      estado: estadoDe(dias),
+    };
+  });
+
+  const urgencia: Record<EstadoAlumno, number> = {
+    nunca_entro: 0,
+    abandonado: 1,
+    en_riesgo: 2,
+    activo: 3,
+  };
+
+  return filas.sort((a, b) => {
+    if (urgencia[a.estado] !== urgencia[b.estado]) return urgencia[a.estado] - urgencia[b.estado];
+    // Dentro del mismo estado, el que lleva mas tiempo fuera primero.
+    return (b.diasSinEntrar ?? 0) - (a.diasSinEntrar ?? 0);
+  });
+}
+
+/** Cuantos alumnos hay en cada estado. Para los cuatro numeros de la cabecera. */
+export function contarPorEstado(filas: FilaAlumno[]): Record<EstadoAlumno, number> {
+  const cuenta: Record<EstadoAlumno, number> = {
+    nunca_entro: 0,
+    activo: 0,
+    en_riesgo: 0,
+    abandonado: 0,
+  };
+  for (const f of filas) cuenta[f.estado]++;
+  return cuenta;
+}
+
+// ============================================================
+// LA FICHA DE UN ALUMNO
+// ============================================================
+
+export type TemaDelAlumno = {
+  topic: string;
+  contestadas: number;
+  aciertos: number;
+  /** Sobre las contestadas. Nunca `null` aqui: el tema solo sale si respondio. */
+  winRate: number;
+};
+
+/**
+ * Como va el alumno tema a tema, del que peor lleva al que mejor.
+ *
+ * Solo entran los temas con respuestas CONTESTADAS: un tema donde solo dejo
+ * blancos no dice nada de si lo sabe, y pintarlo al 0 % seria mentir.
+ */
+export function temasDelAlumno(intentos: IntentoAlumno[], minContestadas = 1): TemaDelAlumno[] {
+  const porTema = new Map<string, { contestadas: number; aciertos: number }>();
+
+  for (const intento of intentos ?? []) {
+    if (isBlankAnswer(intento.selected_index)) continue;
+    const topic = (intento.topic ?? '').trim() || 'Sin tema';
+    const acc = porTema.get(topic) ?? { contestadas: 0, aciertos: 0 };
+    acc.contestadas++;
+    if (intento.is_correct) acc.aciertos++;
+    porTema.set(topic, acc);
+  }
+
+  return [...porTema.entries()]
+    .filter(([, a]) => a.contestadas >= minContestadas)
+    .map(([topic, a]) => ({
+      topic,
+      contestadas: a.contestadas,
+      aciertos: a.aciertos,
+      winRate: Math.round((a.aciertos / a.contestadas) * 100),
+    }))
+    .sort((a, b) => a.winRate - b.winRate || b.contestadas - a.contestadas);
+}
+
+/**
+ * Como se equivoca: el reparto de los diagnosticos que el propio alumno puso.
+ *
+ * Solo cuenta los fallos con diagnostico. Los que no lo tienen no se reparten
+ * entre los demas ni se cuentan como un tipo mas: son fallos sin clasificar y
+ * el numero se da aparte, porque «no lo sabemos» no es un tipo de error.
+ */
+export function erroresDelAlumno(intentos: IntentoAlumno[]): {
+  porTipo: { tipo: ErrorType; veces: number }[];
+  sinClasificar: number;
+} {
+  const cuenta = new Map<ErrorType, number>();
+  let sinClasificar = 0;
+
+  for (const intento of intentos ?? []) {
+    if (intento.is_correct) continue;
+    if (isBlankAnswer(intento.selected_index)) continue;
+
+    const tipo = intento.error_type;
+    if (typeof tipo === 'string' && (ERROR_TYPES as readonly string[]).includes(tipo)) {
+      cuenta.set(tipo as ErrorType, (cuenta.get(tipo as ErrorType) ?? 0) + 1);
+    } else {
+      sinClasificar++;
+    }
+  }
+
+  return {
+    porTipo: [...cuenta.entries()]
+      .map(([tipo, veces]) => ({ tipo, veces }))
+      .sort((a, b) => b.veces - a.veces),
+    sinClasificar,
+  };
+}
+
+// ============================================================
+// EL CONTENIDO
+// ============================================================
+
+export type PreguntaSospechosa = {
+  questionId: string;
+  veces: number;
+  aciertos: number;
+  winRate: number;
+};
+
+/**
+ * Preguntas que falla casi todo el mundo.
+ *
+ * NO son «las dificiles»: con suficientes intentos, una pregunta que casi nadie
+ * acierta suele estar MAL REDACTADA o tener marcada la opcion equivocada. Es
+ * justo lo que el dueño describio al encontrarse 15 preguntas de Inteligencia
+ * dentro de Constitucion: que haga falta un guion para descubrirlo es el
+ * problema.
+ *
+ * El minimo de intentos no es cosmetico: sin el, una pregunta respondida una
+ * vez y fallada sale al 0 % y encabeza la lista para siempre (regla 8).
+ */
+export function preguntasSospechosas(
+  intentos: IntentoAlumno[],
+  minIntentos = 5,
+  maxWinRate = 25
+): PreguntaSospechosa[] {
+  const porPregunta = new Map<string, { veces: number; aciertos: number }>();
+
+  for (const intento of intentos ?? []) {
+    const id = intento?.question_id;
+    if (!id) continue;
+    if (isBlankAnswer(intento.selected_index)) continue;
+
+    const acc = porPregunta.get(id) ?? { veces: 0, aciertos: 0 };
+    acc.veces++;
+    if (intento.is_correct) acc.aciertos++;
+    porPregunta.set(id, acc);
+  }
+
+  return [...porPregunta.entries()]
+    .filter(([, a]) => a.veces >= minIntentos)
+    .map(([questionId, a]) => ({
+      questionId,
+      veces: a.veces,
+      aciertos: a.aciertos,
+      winRate: Math.round((a.aciertos / a.veces) * 100),
+    }))
+    .filter((p) => p.winRate <= maxWinRate)
+    .sort((a, b) => a.winRate - b.winRate || b.veces - a.veces);
+}
+
+export type CoberturaTema = {
+  subjectId: number;
+  title: string;
+  /** Preguntas activas en el banco. */
+  preguntas: number;
+  /** Cuantos alumnos distintos lo han tocado alguna vez. */
+  alumnos: number;
+};
+
+/**
+ * Que temas tienen banco y cuales no toca nadie.
+ *
+ * Las dos mitades importan y por motivos distintos: un tema **sin preguntas** no
+ * se puede estudiar aunque el alumno quiera, y un tema **con preguntas que nadie
+ * toca** es contenido preparado que no le sirve a nadie.
+ *
+ * Los intentos se cruzan por TITULO, no por id, porque `question_attempts`
+ * guarda el titulo del tema (regla 7).
+ */
+export function coberturaTemario(
+  temas: { id: number; title: string }[],
+  preguntasPorTema: Map<number, number>,
+  intentos: IntentoAlumno[]
+): CoberturaTema[] {
+  const alumnosPorTitulo = new Map<string, Set<string>>();
+  for (const intento of intentos ?? []) {
+    const topic = (intento.topic ?? '').trim();
+    if (!topic || !intento.user_id) continue;
+    const set = alumnosPorTitulo.get(topic) ?? new Set<string>();
+    set.add(intento.user_id);
+    alumnosPorTitulo.set(topic, set);
+  }
+
+  return (temas ?? [])
+    .map((t) => ({
+      subjectId: t.id,
+      title: t.title,
+      preguntas: preguntasPorTema.get(t.id) ?? 0,
+      alumnos: alumnosPorTitulo.get(t.title.trim())?.size ?? 0,
+    }))
+    .sort((a, b) => a.preguntas - b.preguntas || a.title.localeCompare(b.title));
+}

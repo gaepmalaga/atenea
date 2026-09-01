@@ -563,6 +563,8 @@ es un proyecto y no toca todavía.
 ## P5 · El panel de la academia
 
 > **Ahora se puede hacer antes**, porque con una sola academia no depende de P4.
+>
+> **Hecha en parte el 31 de agosto de 2026.** Ver *Estado de P5*, al final.
 
 ### Qué debería tener
 
@@ -602,6 +604,27 @@ toca nadie.
 **Visualmente**, la palabra es *información*, no adornos. Que se vea de un vistazo
 qué necesita atención. Un panel con veinte números iguales no es más avanzado: es
 más ruidoso.
+
+### Estado de P5 · 31 de agosto de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P5a | **Quién ha abandonado** | ✅ cuatro estados, y la lista ordenada por urgencia |
+| P5b | Ficha individual: temas fuertes y débiles, en qué falla | ✅ al desplegar cada alumno |
+| P5c | Qué temas tienen banco y cuáles no | ✅ 43 de 45 sin ninguna pregunta |
+| P5d | Qué preguntas falla todo el mundo | ✅ con un mínimo de intentos, para no señalar ruido |
+| P5e | Invitar por correo | ⬜ manda correos: decisión tuya, no técnica |
+| P5f | Agrupar por clase o promoción | ⬜ necesita una columna nueva |
+
+La aritmética vive en [`app/lib/academy.ts`](../app/lib/academy.ts) y está
+testeada: es donde este repositorio se ha equivocado siempre, y aquí duele más
+que en el panel del alumno porque con estos números se decide **a quién se llama
+por teléfono**. Las tres decisiones que importan están en la regla 35 de
+[`CLAUDE.md`](../CLAUDE.md).
+
+Lo primero que enseñó al conectarlo a los datos reales: **43 de los 45 temas no
+tienen ni una pregunta**. Eso no es un fallo del panel, es el panel haciendo su
+trabajo.
 
 ### Lo que tu amigo va a pedir el primer día
 

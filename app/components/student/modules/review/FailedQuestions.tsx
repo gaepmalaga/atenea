@@ -9,6 +9,7 @@ import type { LucideIcon } from 'lucide-react';
 import { getFailedQuestions } from '@/actions';
 import { indexToOptionId } from '@/app/lib/questions';
 import type { FailedQuestion } from '@/app/lib/review';
+import { ERROR_LABELS } from '@/app/lib/stats';
 import QuestionNote from '../../QuestionNote';
 
 /**
@@ -24,17 +25,17 @@ import QuestionNote from '../../QuestionNote';
 
 const ERROR_META: Record<string, { label: string; icon: LucideIcon; hint: string }> = {
   olvido: {
-    label: 'Olvido',
+    label: ERROR_LABELS.olvido,
     icon: Brain,
     hint: 'Lo sabías y no te salió. Es el que mejor responde a repetir.',
   },
   desconocimiento: {
-    label: 'Laguna',
+    label: ERROR_LABELS.desconocimiento,
     icon: BookX,
     hint: 'No lo habías estudiado. Toca volver al temario, no al test.',
   },
   trampa: {
-    label: 'Trampa',
+    label: ERROR_LABELS.trampa,
     icon: AlertTriangle,
     hint: 'La pregunta te llevó donde quería. Fíjate en cómo está redactada.',
   },

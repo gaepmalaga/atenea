@@ -5,6 +5,7 @@ export * from './exams';
 export * from './moderation';
 export * from './notes';
 export * from './modules';
+export * from './academy';
 export * from './training';
 export * from './interview';
 export * from './flashcards';

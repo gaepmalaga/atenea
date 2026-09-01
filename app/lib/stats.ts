@@ -30,6 +30,22 @@ export type ActivityRow = TestResultRow & {
 };
 
 export const ERROR_TYPES = ['olvido', 'trampa', 'desconocimiento', 'fallo_procesamiento'] as const;
+
+/**
+ * Como se llama cada tipo de error delante de una persona.
+ *
+ * Vive aqui, con la constante, y no dentro de un componente: las etiquetas ya
+ * estaban escritas a mano en dos pantallas, y el dia que se anada un quinto
+ * tipo habria que acordarse de los dos sitios. El panel del test usa ademas
+ * unas versiones cortas en mayusculas para sus cuatro botones, y eso si es
+ * deliberado: ahi caben cinco letras.
+ */
+export const ERROR_LABELS: Record<(typeof ERROR_TYPES)[number], string> = {
+  olvido: 'Olvido',
+  trampa: 'Trampa',
+  desconocimiento: 'Laguna',
+  fallo_procesamiento: 'Lectura',
+};
 export type ErrorType = (typeof ERROR_TYPES)[number];
 
 export type StatsSummary = {
