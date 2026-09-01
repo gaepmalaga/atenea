@@ -46,6 +46,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P2** | **Escribir preguntas a mano** (plan de producto) | ✅ **cerrada** (30 ago) |
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
+| — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 
 ## Producción
@@ -109,6 +110,7 @@ node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proy
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
 
 npm run chat:probar                # QUE RESPONDE el chat, preguntándole de verdad (de pago)
+npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
 ```
 
@@ -665,6 +667,13 @@ El buscador devolvía los artículos de reforma —lo más parecido a una pregun
 sobre «la Constitución» en abstracto— y el modelo hizo lo correcto con lo que
 tenía.
 
+> **Léela junto a la regla 33.** Lo que sigue se construyó antes de medir
+> cuánto cabe en el modelo, y resultó ser **un rodeo para recuperar información
+> que el troceado había destruido**. Sigue en pie y sigue siendo útil —el
+> recuento es determinista y el artículo exacto no falla— pero ya **no es el
+> camino principal**: el camino es mandar el documento entero. Antes de añadir
+> aquí un cuarto rodeo, comprueba si el documento delante ya lo resuelve.
+
 Pero **el dato sí estaba en la plataforma**: desde P1b cada fragmento sabe de
 qué artículo viene. Lo que faltaba era llevarle ese recuento al modelo. Dos
 caminos, los dos en `askAtenea`, y los dos van **en paralelo** con el embedding
@@ -849,6 +858,24 @@ de ~3.000 a ~35.000 tokens de entrada. Lo que lo sostiene es que solo se manda
 **el documento que hace falta**, nunca el temario entero, y que la cuota por
 usuario y ruta ya existe (regla 20).
 
+**Y con 85 temas el coste por pregunta NO crece.** Siguen haciendo falta uno o
+dos documentos: lo que no escala es *adivinar cuál*, no el tamaño del temario.
+Por eso `documentosNombrados` y el desplegable van por delante del parecido.
+
+**Cómo se revisa todo esto**, sin levantar la aplicación y con el mismo prompt y
+la misma recuperación que usa el alumno:
+
+```bash
+npm run chat:probar
+npm run chat:probar -- --tema=39 "¿cuántos artículos tiene?"
+node scripts/medir-contexto.mjs
+```
+
+Si algún día el selector de tema deja «todo el temario» sin uso, **la búsqueda
+semántica sobra entera** —embeddings, fragmentos e índice— y el chat se queda en
+tema + documento. Es mucho menos código, y ahora es una decisión que se puede
+medir en vez de opinar.
+
 ---
 
 ## Los tests
@@ -864,7 +891,7 @@ tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y
 tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y revisión
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
-tests/chat.test.ts              memoria del chat, índice del temario y artículo exacto
+tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qué documento se manda
 tests/interview.test.ts         transcripción, informe final y máquina de estados
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
@@ -1002,10 +1029,13 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    verde no es lo mismo que visto. La consulta del repaso sí está comprobada contra la
    base de datos real: el join resuelve las 17 filas falladas con sus opciones.
 
-2. **Ejecutar los dos guiones de esquema que faltan** para cerrar P3 del todo:
-   la referencia legal de la pregunta (columna en `question_bank`) y las notas
-   personales (tabla nueva). Hasta que existan **no se puede escribir ese código**:
-   PostgREST rechaza la escritura entera si una columna no existe.
+2. **El chat se reescribió por dentro el 31 ago** (reglas 30, 32 y 33), y lo que
+   queda de él son decisiones, no trabajo: si la búsqueda semántica sobra ahora que
+   hay selector de tema, y si el coste por pregunta (~35.000 tokens con el documento
+   entero) pide activar caché de contexto. Antes de tocar nada ahí, ejecuta
+   `npm run chat:probar`: enseña lo que responde de verdad, que es lo único que
+   destapó todos los fallos anteriores — los tests estaban en verde con el chat
+   contestando disparates.
 
 3. **P2 y P3 están hechas** (30–31 ago). De P2: botón *Nueva* en Banco Maestro,
    formulario de alta e importación desde CSV con vista previa y el detalle de lo
