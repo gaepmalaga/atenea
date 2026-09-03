@@ -10,6 +10,7 @@ import {
   getAdminQuestionBank,
   getOfficialSyllabus,
   disableQuestion,
+  discardAllQuestions,
   approveQuestions,
   updateQuestion
 } from '@/actions';
@@ -51,6 +52,7 @@ export default function AdminBank() {
   // sembrara cientos de preguntas y viera la lista vacia.
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all');
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
   // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
   const [componiendo, setComponiendo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -144,6 +146,34 @@ export default function AdminBank() {
       setBulkRunning(false);
   }
 
+  /**
+   * Vacía el banco entero de un golpe: pasa a `disabled` todas las preguntas
+   * activas o candidatas que haya, sin importar el filtro que se esté viendo.
+   * No borra filas (regla 3): `question_attempts` y compañía las referencian.
+   */
+  async function handleDiscardAll() {
+      const escrito = window.prompt(
+          `Vas a descartar TODAS las preguntas del banco (activas y candidatas), no solo las de este filtro.\n` +
+          `Dejan de servirse a los alumnos y no se borran: es reversible desde la base de datos, pero no desde este panel.\n\n` +
+          `Escribe BORRAR para confirmar:`
+      );
+      if (escrito !== 'BORRAR') return;
+
+      setClearingAll(true);
+      const res = await discardAllQuestions();
+      setClearingAll(false);
+
+      if (res.success) {
+          alert(`Banco vaciado: ${res.discarded} preguntas descartadas.`);
+          setStatusFilter('all');
+          setSelectedSubject(undefined);
+          setSearchTerm('');
+          await loadQuestions(1);
+      } else {
+          alert('No se pudo vaciar el banco: ' + res.error);
+      }
+  }
+
   function openEditor(q: AdminBankRow) {
       setEditingQ(q);
       setEditForm({
@@ -198,6 +228,17 @@ export default function AdminBank() {
                 className="shrink-0 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-600/20"
             >
                 <Plus size={16} strokeWidth={3}/> Nueva
+            </button>
+
+            {/* Vaciar el banco entero de golpe (soft-delete: pasa todo a `disabled`) */}
+            <button
+                onClick={handleDiscardAll}
+                disabled={clearingAll}
+                title="Descarta TODAS las preguntas del banco, sin importar el filtro"
+                className="shrink-0 px-5 py-3 bg-red-950/60 hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-300 hover:text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95"
+            >
+                {clearingAll ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16} strokeWidth={3}/>}
+                Vaciar banco
             </button>
 
             {/* Filtros Avanzados */}

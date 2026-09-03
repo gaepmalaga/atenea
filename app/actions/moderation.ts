@@ -123,6 +123,32 @@ export async function disableQuestion(questionId: string): Promise<ModerationRes
     return { success: !error, error: error?.message };
 }
 
+/**
+ * Descarta TODAS las preguntas del banco de una vez.
+ *
+ * No es un DELETE: pasa cada fila a `disabled`, igual que `disableQuestion`
+ * (regla 3). `question_attempts`, `question_notes`, `question_reports` y
+ * `question_votes` referencian `question_bank.id`; borrar la fila de verdad
+ * rompería el historial de examenes de todos los alumnos que hubieran
+ * respondido esa pregunta. `disabled` no se sirve ni se resucita al resembrar,
+ * asi que el efecto para el alumno es el mismo que un vaciado real.
+ *
+ * `neq` deja fuera lo que ya estaba `disabled`: no cuenta como afectada una
+ * fila que ya lo estaba.
+ */
+export async function discardAllQuestions(): Promise<ModerationResult & { discarded?: number }> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+
+    const { data, error } = await supabaseAdmin
+        .from('question_bank')
+        .update({ status: QUESTION_STATUS.DISABLED })
+        .neq('status', QUESTION_STATUS.DISABLED)
+        .select('id');
+
+    return { success: !error, error: error?.message, discarded: data?.length ?? 0 };
+}
+
 export async function resolveReport(reportId: string): Promise<ModerationResult> {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
