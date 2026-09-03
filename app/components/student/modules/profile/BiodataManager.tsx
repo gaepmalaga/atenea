@@ -193,43 +193,61 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
     <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-500">
       
       {/* HEADER CON BOTÓN DE SALIDA */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 pt-4 px-2">
-        <div className="flex items-center gap-4">
-            {/* BOTÓN VOLVER (NUEVO) */}
-            {onExit && (
-                <button onClick={onExit} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
-                    <ArrowLeft size={24} className="text-slate-500"/>
+      {/* La cabecera propia SOLO cuando esta pantalla va suelta (`onExit`).
+          Dentro del panel del alumno, `Header` ya pone "PERFILADO & VOZ · SALA
+          DE INTERROGATORIOS" justo encima, y debajo iba "EXPEDIENTE C.I.B. /
+          Perfil Táctico": dos cabeceras seguidas que en un movil se comian
+          250px antes del primer campo. */}
+      <div className="flex justify-between items-center mb-4 gap-3 pt-2 px-2">
+        {onExit ? (
+            <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={onExit}
+                  aria-label="Volver"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+                >
+                    <ArrowLeft size={22} className="text-slate-500"/>
                 </button>
-            )}
-            <div>
-                <div className="flex items-center gap-2 mb-1 text-indigo-600 dark:text-indigo-400">
-                    <Shield size={18}/>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Expediente C.I.B.</span>
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                        <Shield size={14}/>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Expediente C.I.B.</span>
+                    </div>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">Perfil Táctico</h2>
                 </div>
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Perfil Táctico</h2>
             </div>
-        </div>
+        ) : <span />}
 
-        <button onClick={handleSave} disabled={saving} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-70 transition-all">
+        <button onClick={handleSave} disabled={saving} className="min-h-[44px] px-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-70 transition-all shrink-0">
           {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-          {saving ? 'GUARDANDO...' : 'GUARDAR DATOS'}
+          {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8">
         
-        {/* NAVEGACIÓN */}
-        <div className="md:col-span-3 space-y-2">
-           {SECTIONS.map((section) => {
-             const Icon = section.icon;
-             const isActive = activeSection === section.id;
-             return (
-               <button key={section.id} onClick={() => setActiveSection(section.id)} className={`w-full text-left p-4 rounded-xl flex items-center gap-3 transition-all border ${isActive ? 'bg-white dark:bg-slate-900 border-indigo-600 shadow-md scale-105' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-500'}`}>
-                 <div className={`p-2 rounded-lg transition-colors ${isActive ? section.bg + ' text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}><Icon size={18}/></div>
-                 <span className={`text-xs font-bold uppercase tracking-wide ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>{section.label}</span>
-               </button>
-             );
-           })}
+        {/* NAVEGACIÓN.
+
+            Eran cinco filas de 120px apiladas: 600px de menu antes del primer
+            campo del formulario, o sea que en un movil habia que hacer scroll
+            entero solo para ver que habia que rellenar algo. En movil pasa a
+            ser una fila que se arrastra, como las pestañas del panel; desde
+            `md` vuelve la columna, que ahi si cabe al lado. */}
+        <div className="md:col-span-3">
+          <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible">
+            <div className="flex md:flex-col gap-2 min-w-max md:min-w-0">
+             {SECTIONS.map((section) => {
+               const Icon = section.icon;
+               const isActive = activeSection === section.id;
+               return (
+                 <button key={section.id} onClick={() => setActiveSection(section.id)} className={`min-h-[44px] md:w-full text-left px-3 md:p-4 rounded-xl flex items-center gap-2 md:gap-3 transition-all border shrink-0 ${isActive ? 'bg-white dark:bg-slate-900 border-indigo-600 shadow-md' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-500'}`}>
+                   <span className={`p-1.5 md:p-2 rounded-lg transition-colors ${isActive ? section.bg + ' text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}><Icon size={16}/></span>
+                   <span className={`text-[11px] md:text-xs font-bold uppercase tracking-wide ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>{section.label}</span>
+                 </button>
+               );
+             })}
+            </div>
+          </div>
         </div>
 
         {/* CONTENIDO */}
@@ -245,7 +263,12 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
               {/* TEXTO (Formularios normales) */}
               {activeSection !== 'test' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                      <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase mb-6 flex items-center gap-2">
+                      {/* `hidden md:flex`: en movil la pestaña activa ya dice
+                          en que seccion estas, justo encima. Repetirlo cuesta
+                          una linea de titulo grande en la pantalla mas apretada
+                          de la aplicacion. En escritorio la columna de la
+                          izquierda queda lejos y el titulo si ayuda. */}
+                      <h3 className="hidden md:flex text-xl font-black text-slate-900 dark:text-white uppercase mb-6 items-center gap-2">
                           {SECTIONS.find(s=>s.id===activeSection)?.label}
                       </h3>
                       
@@ -339,11 +362,23 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
                   </div>
               )}
            </div>
-           <div className="mt-4 flex justify-between items-center px-2">
+           {/* Y el boton de guardar TAMBIEN aqui abajo. El de la cabecera queda
+               a pantallas de distancia en cuanto se empieza a escribir: quien
+               termina de rellenar el ultimo campo tiene el boton donde acaba de
+               mirar, no donde empezo. */}
+           <button
+             onClick={handleSave}
+             disabled={saving}
+             className="mt-4 w-full min-h-[44px] px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-70 transition-all"
+           >
+             {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+             {saving ? 'Guardando…' : 'Guardar datos'}
+           </button>
+
+           <div className="mt-3 flex justify-between items-center px-2">
               <div className="flex items-center gap-2 text-xs text-slate-400">
                   {lastSaved ? <><CheckCircle2 size={14} className="text-emerald-500"/><span>Guardado: {lastSaved.toLocaleTimeString()}</span></> : <span>Cambios sin guardar...</span>}
               </div>
-              <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">NIVEL 3</div>
            </div>
         </div>
       </div>

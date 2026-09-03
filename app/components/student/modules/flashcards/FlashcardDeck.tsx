@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Zap, Brain, CheckCircle2, 
+  Brain, CheckCircle2, 
   HelpCircle, AlertTriangle, MousePointerClick, Loader2 
 } from 'lucide-react';
 import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '@/actions';
@@ -87,22 +87,27 @@ export default function FlashcardDeck() {
     }
   };
 
+  // SIN CABECERA PROPIA.
+  //
+  // La pantalla ya tiene una: "DRILLS (MEMORIA) · MEMORIZACIÓN ACTIVA", que
+  // pinta `Header`. Este modulo repetia justo debajo "DRILLS · MEMORIZACIÓN
+  // ACTIVA" con su icono, asi que en un movil las dos cabeceras se comian 300px
+  // de los 844 que hay antes de llegar a nada que se pueda usar. Ademas el
+  // texto y el desplegable se tocaban.
+  //
+  // Y `justify-center` sobre `min-h-[70dvh]` centraba el bloque dejando 200px
+  // en blanco arriba y 250 abajo: el boton principal quedaba flotando en mitad
+  // de una pantalla vacia. Se apoya arriba, como el resto de la aplicacion.
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70dvh] w-full max-w-2xl mx-auto px-4">
+    <div className="flex flex-col w-full max-w-2xl mx-auto">
       
-      {/* HEADER */}
-      <div className="w-full flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/20 text-purple-600 rounded-xl">
-                  <Zap size={24} fill="currentColor"/>
-              </div>
-              <div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase">Drills</h2>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Memorización Activa</p>
-              </div>
-          </div>
-          
+      {/* SOLO EL SELECTOR DE TEMA. Es lo unico que decide algo aqui. */}
+      <div className="w-full flex items-center gap-3 mb-5">
+          <label htmlFor="tema-drills" className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">
+              Tema
+          </label>
           <select 
+            id="tema-drills" 
             value={selectedTopic} 
             onChange={(e) => setSelectedTopic(e.target.value)}
             disabled={loading}
@@ -110,7 +115,7 @@ export default function FlashcardDeck() {
                hasta el ancho de su opcion mas larga, y los temas son frases
                enteras. Medido en el banco de pruebas: llegaba a 731px en una
                pantalla de 390 y arrastraba la pagina de lado. */
-            className="min-w-0 max-w-full truncate min-h-[44px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-lg px-4 outline-none focus:border-purple-500 cursor-pointer"
+            className="flex-1 min-w-0 max-w-full truncate min-h-[44px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-lg px-4 outline-none focus:border-purple-500 cursor-pointer"
           >
               {loadingTopics ? <option>Cargando...</option> : topics.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -123,8 +128,12 @@ export default function FlashcardDeck() {
             <div className="w-full h-full bg-slate-100 dark:bg-slate-900/50 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl flex flex-col items-center justify-center text-center p-8">
                 <Brain size={48} className="text-slate-300 mb-4"/>
                 <h3 className="text-lg font-bold text-slate-500 mb-2">Listo para entrenar</h3>
-                <button onClick={loadNextCard} disabled={!selectedTopic} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-wider shadow-lg transition-all hover:scale-105 disabled:opacity-50">
-                    Iniciar Sesión
+                {/* "Iniciar sesión" NO. En una aplicacion en la que se entra
+                    con correo y contraseña, ese texto significa otra cosa: el
+                    boton que empieza un repaso de tarjetas decia literalmente
+                    lo mismo que el de la pantalla de acceso. */}
+                <button onClick={loadNextCard} disabled={!selectedTopic} className="min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-wider shadow-lg transition-all hover:scale-105 disabled:opacity-50">
+                    Empezar a repasar
                 </button>
             </div>
         ) : loading ? (

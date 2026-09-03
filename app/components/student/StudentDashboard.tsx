@@ -298,8 +298,16 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             {/* MÓDULO DE PERFILADO (Con botón flotante para la voz) */}
             {activeTab === 'interview' && (
                 <>
+                    {/* `pb-28`: el boton rojo flotante ocupa una franja fija de
+                        ~150px sobre la barra de pestañas, y sin este hueco se
+                        pintaba ENCIMA del boton de guardar del formulario. El
+                        hueco de la barra se reserva una vez en `<main>`, pero
+                        este boton solo existe en esta pestaña, asi que su hueco
+                        es cosa de esta pestaña. */}
                     <ModuleErrorBoundary moduleName="Perfilado">
-                        <BiodataManager user={user} />
+                        <div className="pb-28 sm:pb-0">
+                            <BiodataManager user={user} />
+                        </div>
                     </ModuleErrorBoundary>
                     
                     {/* Botón Flotante de Acción Táctica (Solo en esta pestaña).
@@ -311,12 +319,20 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                         en movil (`md:` recupera la posicion de escritorio, donde no
                         hay barra inferior). */}
                     <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 animate-in zoom-in duration-300">
+                        {/* EN MOVIL, SOLO EL ICONO.
+                            Con el texto, este boton mide 300px de ancho y flota
+                            SOBRE el formulario: tapaba el titulo de la seccion y
+                            parte de los campos de una pantalla que existe para
+                            escribir en ella. Un boton fijo que oculta contenido
+                            no es un acceso rapido, es un estorbo. Desde `sm`,
+                            donde sobra sitio, vuelve el texto. */}
                         <button
                             onClick={() => setInterviewMode(true)}
-                            className="flex items-center gap-3 bg-red-600 hover:bg-red-500 text-white px-6 py-4 rounded-full font-bold shadow-2xl hover:scale-105 transition-all animate-pulse ring-4 ring-red-600/20 shadow-red-600/40"
+                            aria-label="Iniciar simulación de entrevista"
+                            className="flex items-center justify-center gap-3 bg-red-600 hover:bg-red-500 text-white w-14 h-14 sm:w-auto sm:h-auto sm:px-6 sm:py-4 rounded-full font-bold shadow-2xl hover:scale-105 transition-all ring-4 ring-red-600/20 shadow-red-600/40"
                         >
                             <Fingerprint size={24}/>
-                            INICIAR SIMULACIÓN
+                            <span className="hidden sm:inline">INICIAR SIMULACIÓN</span>
                         </button>
                     </div>
                 </>
