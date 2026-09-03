@@ -22,10 +22,23 @@ async function desbordes(page, donde) {
     // recortado por `overflow-hidden` sobresale del rectangulo pero no
     // provoca scroll: no es un fallo.
     if (raiz.scrollWidth <= w + 1) return [];
+    // Y solo el CULPABLE. Lo que vive dentro de un contenedor con scroll
+    // horizontal propio —la fila de pestañas del panel, que se arrastra a
+    // proposito— sobresale de su rectangulo pero esta recortado por el padre:
+    // no ensancha la pagina. Sin este filtro, seis de cada siete avisos eran
+    // esa fila y el culpable de verdad quedaba enterrado debajo.
+    const recortado = (el) => {
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        if (getComputedStyle(a).overflowX !== 'visible') return true;
+      }
+      return false;
+    };
     const out = [];
     for (const el of document.querySelectorAll('body *')) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
+      if (getComputedStyle(el).position === 'fixed') continue;
+      if (recortado(el)) continue;
       if (r.right > w + 1 || r.left < -1) {
         out.push({
           tag: el.tagName.toLowerCase(),
@@ -120,10 +133,14 @@ async function revisar(page, donde) {
   await revisar(page, 'Pregunta activa');
 
   // Responder la primera
-  const opciones = page.locator('button').filter({ hasText: /^[ABC]/ });
+  // `[data-opcion]` y no un regex sobre el texto: la letra se pinta en
+  // minuscula y se pone en mayuscula con CSS, asi que `/^[ABC]/` contaba CERO
+  // opciones y el recorrido daba por bueno un examen sin responder nada.
+  const opciones = page.locator('[data-opcion]');
   const nOpc = await opciones.count();
   console.log(`  opciones visibles: ${nOpc}`);
-  await page.locator('main button').filter({ hasText: 'opción' }).first().click().catch(() => {});
+  if (nOpc === 0) anota('Pregunta activa: no hay ni una opcion que pulsar');
+  await opciones.first().click().catch(() => {});
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${TOMAS}/alumno-04-respondida.png` });
   await revisar(page, 'Pregunta respondida');

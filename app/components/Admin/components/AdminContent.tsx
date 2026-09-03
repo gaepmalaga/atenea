@@ -398,7 +398,14 @@ export default function AdminContent() {
                                                     
                                                     {/* Título y Estado */}
                                                     <div className="min-w-0">
-                                                        <p className={`text-sm font-bold truncate pr-4 transition-colors ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                                                        {/* `line-clamp-2` y no `truncate`: medido en el
+                                                            banco, a "El Derecho: concepto y acepciones.
+                                                            Norma juridica…" le faltaban 388px, o sea que
+                                                            se leia menos de la mitad. Con 45 temas que
+                                                            empiezan casi igual —"La Constitucion Espanola
+                                                            (I)", "(II)"…— un titulo a medias no identifica
+                                                            la fila, que es lo unico que tiene que hacer. */}
+                                                        <p className={`text-sm font-bold line-clamp-2 pr-4 leading-snug transition-colors ${isSelected ? 'text-white' : 'text-slate-300'}`}>
                                                             {subject.title}
                                                         </p>
                                                         <div className="flex items-center gap-3 mt-1.5">
@@ -432,12 +439,13 @@ export default function AdminContent() {
                                                     {hasDocs && (
                                                         <button 
                                                             onClick={() => { setGenSubject(subject); window.scrollTo({top:0, behavior:'smooth'}); }}
-                                                            className={`p-2.5 rounded-xl transition-all border ${
+                                                            className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition-all border ${
                                                                 genSubject?.id === subject.id 
                                                                 ? 'bg-purple-600 border-purple-500 text-white shadow-lg' 
                                                                 : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-purple-400 hover:bg-slate-700'
                                                             }`}
                                                             title="Generar Test IA"
+                                                            aria-label="Generar preguntas con IA para este tema"
                                                         >
                                                             <Sparkles size={16}/>
                                                         </button>
@@ -449,8 +457,15 @@ export default function AdminContent() {
                                             {hasDocs && subject.documents && subject.documents.length > 0 && (
                                                 <div className="ml-[5rem] mr-6 mb-4 space-y-2 border-l-2 border-slate-800 pl-6 animate-in slide-in-from-left-2 duration-300 py-2">
                                                     {subject.documents.map(doc => (
-                                                        <div key={doc.id} className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs group/doc hover:bg-slate-800 hover:border-slate-600 transition-all shadow-sm">
-                                                            <div className="flex items-center gap-4 overflow-hidden">
+                                                        /* En movil se APILA: el nombre arriba, los tres
+                                                           botones debajo. Con los botones a 44px en una
+                                                           sola fila al nombre le quedaban ~58px de ancho
+                                                           util —"tema-01.pdf" salia como "te…"— porque
+                                                           esta lista va sangrada 80px por la izquierda.
+                                                           Los controles no pueden dejar sin sitio a lo que
+                                                           identifica la fila. */
+                                                        <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs group/doc hover:bg-slate-800 hover:border-slate-600 transition-all shadow-sm">
+                                                            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                                                                 <div className="p-2 bg-slate-800 rounded-lg text-slate-500 group-hover/doc:text-indigo-400 group-hover/doc:bg-indigo-500/10 transition-colors">
                                                                     <File size={14}/>
                                                                 </div>
@@ -491,43 +506,61 @@ export default function AdminContent() {
                                                                 </div>
                                                             </div>
 
-                                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                            {/* Los tres botones de un documento.
+
+                                                                Medidos en el banco de pruebas: 26px de alto,
+                                                                y en movil SIN etiqueta (`hidden sm:inline`),
+                                                                asi que eran tres iconos de 14px pegados en
+                                                                una franja de 26. El mimimo tactil son 44.
+
+                                                                Y el tercero BORRA EL DOCUMENTO. Compartia
+                                                                tamaño, color y sitio con "Reindexar", que es
+                                                                el que se pulsa a diario (regla 26). Ahora va
+                                                                separado, en rojo desde el reposo, y con su
+                                                                nombre en `aria-label`: sin etiqueta visible,
+                                                                era un boton anonimo que destruye archivos. */}
+                                                            <div className="flex items-center justify-end gap-1 flex-shrink-0">
                                                                 {/* Ver lo que ha entrado va DELANTE de reindexar: primero se
                                                                     mira que ha entendido la plataforma, y solo entonces se
                                                                     decide si hay que volver a intentarlo. */}
                                                                 <button
                                                                     onClick={() => handleVerFragmentos(doc.id, doc.filename)}
                                                                     disabled={cargandoVisor === doc.id}
-                                                                    className="flex items-center gap-2 text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+                                                                    aria-label="Ver los fragmentos indexados"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
                                                                     title="Ver los fragmentos que se han indexado de este documento"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">
                                                                         {cargandoVisor === doc.id ? 'Leyendo…' : 'Ver'}
                                                                     </span>
                                                                     {cargandoVisor === doc.id
-                                                                        ? <Loader2 size={14} className="animate-spin"/>
-                                                                        : <Eye size={14}/>}
+                                                                        ? <Loader2 size={16} className="animate-spin"/>
+                                                                        : <Eye size={16}/>}
                                                                 </button>
 
                                                                 <button
                                                                     onClick={() => handleReindex(doc.id, doc.filename)}
                                                                     disabled={reindexando === doc.id}
-                                                                    className="flex items-center gap-2 text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-60"
+                                                                    aria-label="Reindexar el documento"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
                                                                     title="Volver a trocear e indexar este documento"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">
                                                                         {reindexando === doc.id ? 'Indexando…' : 'Reindexar'}
                                                                     </span>
-                                                                    <RefreshCw size={14} className={reindexando === doc.id ? 'animate-spin' : ''}/>
+                                                                    <RefreshCw size={16} className={reindexando === doc.id ? 'animate-spin' : ''}/>
                                                                 </button>
+
+                                                                <span className="w-px h-6 bg-slate-800 mx-1" aria-hidden />
 
                                                                 <button
                                                                     onClick={() => handleDeleteDoc(doc.id, doc.filename)}
-                                                                    className="flex items-center gap-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all"
+                                                                    aria-label="Eliminar el documento permanentemente"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-red-500/70 hover:text-white hover:bg-red-600 px-2 sm:px-3 rounded-lg transition-all"
                                                                     title="Eliminar archivo permanentemente"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">Eliminar</span>
-                                                                    <Trash2 size={14}/>
+                                                                    <Trash2 size={16}/>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -635,7 +668,12 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                                 const n = enteroEnRango(e.target.value, { min: 1, max: 50 });
                                 if (n !== null) setCount(n);
                             }} 
-                            className="bg-transparent text-white w-16 text-center font-black text-xl outline-none focus:text-indigo-400 transition-colors"
+                            aria-label="Cuántas preguntas generar"
+                            /* 28px de alto y sin nombre accesible: el control que
+                               decide cuantas llamadas de pago se hacen a Gemini
+                               era el mas pequeño de la pantalla. 44px, como todo
+                               lo que se toca. */
+                            className="bg-transparent text-white w-16 min-h-[44px] text-center font-black text-xl outline-none focus:text-indigo-400 transition-colors"
                         />
                     </div>
                     

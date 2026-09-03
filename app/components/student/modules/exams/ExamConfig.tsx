@@ -213,7 +213,13 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
               value={settings.questionCount}
               onChange={(e) => setSettings({ ...settings, questionCount: parseInt(e.target.value) })}
               aria-label="Número de preguntas"
-              className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+              /* La barra se ve de 8px, pero lo que hay que ACERTAR con el dedo
+                 es el control entero: `py-4` le da 44px de alto real sin
+                 engordar la linea, y `touch-action: none` evita que arrastrar
+                 el mando desplace la pagina en vez de mover el numero — en un
+                 movil, con la barra a 8px, eso pasaba casi siempre. */
+              style={{ touchAction: 'none' }}
+              className="w-full h-2 box-content py-4 bg-slate-200 dark:bg-slate-800 bg-clip-content rounded-lg appearance-none cursor-pointer accent-indigo-600"
             />
             {settings.mode === 'exam' && (
               <p className={cx(TEXT.muted, 'mt-3')}>

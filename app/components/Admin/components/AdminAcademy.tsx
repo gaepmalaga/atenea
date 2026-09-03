@@ -9,6 +9,7 @@ import { getAcademyOverview, getStudentDetail } from '@/actions';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno } from '@/app/lib/academy';
 import { ERROR_LABELS } from '@/app/lib/stats';
+import { Card } from '../../ui';
 
 /**
  * El panel de la academia (P5).
@@ -151,7 +152,10 @@ export default function AdminAcademy() {
                       </span>
                     )}
                   </div>
-                  <p className="font-bold text-white truncate">{a.email ?? a.id}</p>
+                  {/* `break-all` + dos lineas: un correo recortado no
+                      identifica a nadie, y esta lista existe justo para saber
+                      A QUIEN llamar. Medido: le faltaban 149px. */}
+                  <p className="font-bold text-white break-all line-clamp-2 leading-snug">{a.email ?? a.id}</p>
                 </div>
 
                 <div className="hidden sm:flex items-center gap-6 text-right shrink-0">
@@ -247,7 +251,7 @@ export default function AdminAcademy() {
 
       {/* --- EL CONTENIDO --- */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <Card tone="contrast">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
             <BookOpen size={12} /> El temario
           </p>
@@ -257,7 +261,10 @@ export default function AdminAcademy() {
             no se pueden estudiar aunque el alumno quiera.
           </p>
           <div className="max-h-40 overflow-y-auto text-xs text-slate-500 space-y-1 mb-5">
-            {sinBanco.slice(0, 20).map((c) => <p key={c.subjectId} className="truncate">· {c.title}</p>)}
+            {/* Sin `truncate`: la caja ya tiene scroll propio (`max-h-40`), asi
+                que envolver no la descuadra, y un titulo a medias no dice que
+                tema esta sin preguntas — que es el unico dato de esta lista. */}
+            {sinBanco.slice(0, 20).map((c) => <p key={c.subjectId} className="leading-snug">· {c.title}</p>)}
             {sinBanco.length > 20 && <p className="text-slate-600">…y {sinBanco.length - 20} más</p>}
           </div>
 
@@ -267,12 +274,12 @@ export default function AdminAcademy() {
           </p>
           <div className="max-h-32 overflow-y-auto text-xs text-slate-500 space-y-1">
             {sinAlumnos.slice(0, 12).map((c) => (
-              <p key={c.subjectId} className="truncate">· {c.title} <span className="text-slate-600">({c.preguntas})</span></p>
+              <p key={c.subjectId} className="leading-snug">· {c.title} <span className="text-slate-600">({c.preguntas})</span></p>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <Card tone="contrast">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
             <AlertTriangle size={12} /> Preguntas que falla casi todo el mundo
           </p>
@@ -290,10 +297,10 @@ export default function AdminAcademy() {
           <div className="space-y-3 max-h-72 overflow-y-auto">
             {sospechosas.map((p) => (
               <div key={p.questionId} className="border border-slate-800 rounded-2xl p-3">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1">
                   <span className="text-[10px] font-black text-red-400">{p.winRate}%</span>
                   <span className="text-[10px] text-slate-600 font-mono">{p.aciertos}/{p.veces}</span>
-                  {p.tema && <span className="text-[10px] text-slate-500 truncate">· {p.tema}</span>}
+                  {p.tema && <span className="text-[10px] text-slate-500 leading-snug">· {p.tema}</span>}
                 </div>
                 <p className="text-xs text-slate-300 leading-snug">
                   {p.texto ?? <span className="italic text-slate-500">Ya no está en el banco</span>}
@@ -301,7 +308,7 @@ export default function AdminAcademy() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

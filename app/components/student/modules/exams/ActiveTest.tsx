@@ -632,7 +632,11 @@ export default function ActiveTest({
                   unica, como antes. */}
               <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1 justify-center order-3 sm:order-none">
                   <Layers size={13} className="text-slate-400 flex-shrink-0"/>
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                  {/* Dos lineas en vez de recortado. En movil esto ocupa una
+                      fila entera y aun asi le faltaban 105px: se leia medio
+                      titulo. Saber de que tema te estan examinando cuesta 14px
+                      de cabecera. */}
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 line-clamp-2 leading-snug text-center">
                       {topicName}
                   </span>
                   <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
@@ -821,6 +825,7 @@ export default function ActiveTest({
                   return (
                       <button 
                           key={opt.id} 
+                          data-opcion={opt.id}
                           onClick={() => handleAnswer(opt.id)}
                           disabled={mode === 'practice' && isAnswered}
                           className={`w-full text-left p-4 sm:p-5 rounded-2xl border-2 font-bold transition-all duration-200 flex items-start gap-3 sm:gap-4 group ${style}`}

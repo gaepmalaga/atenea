@@ -10,7 +10,7 @@ import { askAtenea, getStudentSubjects } from '@/actions';
 import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Modal, Button } from '../../../ui';
+import { Modal, Button, useAltoDisponible } from '../../../ui';
 
 interface IntelChatProps { user: AuthUser; }
 
@@ -41,6 +41,13 @@ export default function IntelChat({ user }: IntelChatProps) {
   const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string; reference?: string | null } | null>(null);
   /** El contenedor que hace scroll. NO la ventana: ver el efecto de abajo. */
   const listaRef = useRef<HTMLDivElement>(null);
+  /**
+   * El chat ocupa lo que queda de pantalla, MEDIDO, no calculado a ojo.
+   * Ver `useAltoDisponible`: el numero que habia aqui estaba 22px corto y
+   * dejaba el recuadro de escribir por debajo de la barra de pestañas.
+   */
+  const marcoRef = useRef<HTMLDivElement>(null);
+  const alto = useAltoDisponible(marcoRef);
 
   /**
    * El tema sobre el que se pregunta. Vacío = todo el temario.
@@ -149,13 +156,17 @@ export default function IntelChat({ user }: IntelChatProps) {
     }
   };
 
-  // `100vh` en un navegador movil es la altura CON la barra de direcciones
-  // plegada: al cargar (barra visible) el chat se pasaba de alto y el input
-  // quedaba fuera de la pantalla hasta hacer scroll. `100dvh` (dynamic
-  // viewport height) se ajusta cuando la barra aparece/desaparece, que es
-  // exactamente el caso de un chat con teclado en pantalla.
+  // El alto sale de `useAltoDisponible`: se mide el hueco real entre donde
+  // empieza el chat y donde empieza la barra de pestañas. Mientras no se ha
+  // medido se usa `100dvh` menos un margen generoso — pasarse de corto un
+  // instante es preferible a pintar el recuadro de escribir fuera de la
+  // pantalla, que es lo que hacia el numero fijo de antes.
   return (
-    <div className="flex flex-col h-[calc(100dvh-140px)] md:h-[calc(100dvh-160px)] max-w-6xl mx-auto font-sans">
+    <div
+      ref={marcoRef}
+      style={alto === null ? undefined : { height: alto }}
+      className="flex flex-col h-[calc(100dvh-220px)] max-w-6xl mx-auto font-sans"
+    >
       
       {/* HEADER TÁCTICO */}
       <div className="flex items-center justify-between px-6 py-3 bg-slate-900 border-x border-t border-slate-800 rounded-t-[2rem]">
@@ -184,15 +195,20 @@ export default function IntelChat({ user }: IntelChatProps) {
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-3 sm:gap-6 animate-in fade-in slide-in-from-bottom-5 duration-500 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
 
-            <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex-shrink-0 flex items-center justify-center shadow-lg ${
+            {/* El avatar solo desde `sm`. En un movil costaba 48px (icono + hueco)
+                de los 390 que hay, y no aportaba nada que no diga ya la propia
+                burbuja: la del alumno va a la derecha y en indigo, la de ATENEA
+                a la izquierda y en claro. Medido: el texto pasa de 248px de
+                ancho a ~280, de ~30 caracteres por linea a ~34. En una
+                respuesta larga eso es bastante menos scroll. */}
+            <div className={`hidden sm:flex w-12 h-12 rounded-2xl flex-shrink-0 items-center justify-center shadow-lg ${
                 m.role === 'ai' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
             }`}>
-                {m.role === 'ai' ? <Bot size={18} className="sm:hidden"/> : <User size={18} className="sm:hidden"/>}
-                {m.role === 'ai' ? <Bot size={24} className="hidden sm:block"/> : <User size={24} className="hidden sm:block"/>}
+                {m.role === 'ai' ? <Bot size={24}/> : <User size={24}/>}
             </div>
 
-            <div className={`max-w-[85%] md:max-w-[80%] space-y-2 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
-                <div className={`p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-sm relative overflow-hidden ${
+            <div className={`max-w-[92%] sm:max-w-[85%] md:max-w-[80%] min-w-0 space-y-2 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className={`p-3.5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-sm relative overflow-hidden ${
                     m.role === 'user'
                         ? 'bg-indigo-600 text-white rounded-tr-none'
                         : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
@@ -256,8 +272,8 @@ export default function IntelChat({ user }: IntelChatProps) {
           </div>
         ))}
         {loading && (
-            <div className="flex gap-6 animate-pulse">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white"><Bot size={24} /></div>
+            <div className="flex gap-3 sm:gap-6 animate-pulse">
+                <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-indigo-600 items-center justify-center text-white"><Bot size={24} /></div>
                 <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-3xl rounded-tl-none border border-slate-200 dark:border-slate-800 flex items-center gap-3">
                     <Loader2 size={18} className="animate-spin text-indigo-500" />
                     <span className="text-xs font-black text-indigo-500 uppercase tracking-widest">Analizando...</span>

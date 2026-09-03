@@ -289,8 +289,14 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                               {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
                           </p>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                              {/* Sin `truncate`: el tema estaba limitado al 60% de una
+                                  fila estrecha y le faltaban 254px, o sea que de "El
+                                  Derecho: concepto y acepciones. Norma juridica…" se
+                                  leian tres palabras. La fila ya envuelve
+                                  (`flex-wrap`), asi que dejarlo pasar a la linea
+                                  siguiente no descoloca nada. */}
                               {item.topic && (
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[60%]">{item.topic}</span>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.topic}</span>
                               )}
                               {(item.response_time_ms ?? 0) > 0 && (
                                   <span className="text-[10px] font-mono text-indigo-500 font-bold tabular-nums">{((item.response_time_ms ?? 0) / 1000).toFixed(1)}s</span>
