@@ -48,6 +48,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
 | **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) |
+| — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 
 ## Producción

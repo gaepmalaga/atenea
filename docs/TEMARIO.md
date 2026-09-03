@@ -3,8 +3,8 @@
 Plan para tener el temario oficial de la Escala Básica del CNP dentro de la
 plataforma: descargado de su fuente, versionado en git y subible al panel.
 
-Estado: **tubería montada y probada con el tema 2** (3 sep 2026). Faltan las
-fuentes de los otros 44 temas.
+Estado: **cerrado** (3 sep 2026). Los 45 temas del programa oficial, en 51
+documentos: 29 de texto legal del BOE, 20 de apuntes propios y 2 mixtos.
 
 ```bash
 npm run temario:anexo              # el programa oficial -> temario/temario.json
@@ -14,9 +14,21 @@ npm run temario:pdf -- 2           # -> temario/pdf/tema-02.pdf
 npm run temario:comprobar -- 2     # lo relee como lo hara la plataforma
 ```
 
-Medido sobre el tema 2: 29.727 caracteres, 55 artículos, y al releer el PDF
-salen **64 fragmentos, 60 con referencia legal y los artículos 1 a 55 sin un
-solo hueco**.
+Comprobado sobre los 51: **ni un artículo se pierde al pasar por PDF, ni un
+fragmento sale vacío.**
+
+| Bloque | Temas | Documentos | De dónde salen |
+|---|---|---|---|
+| A · Ciencias Jurídicas | 26 | 31 | 35 normas del BOE; los temas 4 y 24 son apuntes |
+| B · Ciencias Sociales | 11 | 12 | El 27 lleva tres tratados; el resto, apuntes |
+| C · Materias Técnico-Científicas | 8 | 8 | El 42 y el 43 llevan norma; el resto, apuntes |
+
+**Veinte temas no tienen norma detrás y van con apuntes propios** en
+`temario/apuntes/`, etiquetados dentro del documento como *«apuntes propios, NO
+texto oficial — pendientes de revisión»*. Son doctrina (globalización, valores
+sociales, criminología, gramática, redes, inteligencia) que ninguna disposición
+recoge. **Están sin revisar por una persona: esa revisión es el siguiente paso
+del temario, no un adorno.**
 
 ---
 

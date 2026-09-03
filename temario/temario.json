@@ -80,7 +80,13 @@
       "bloque": "A",
       "titulo": "La Unión Europea",
       "enunciado": "La Unión Europea: referencia histórica. El Derecho derivado. Instituciones más importantes de la Unión Europea. La cooperación policial internacional. Especial referencia al Tribunal Europeo de Derechos Humanos y el Tribunal de Justicia de la Unión Europea.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-04.md",
+          "nombre": "Apuntes del tema 4",
+          "nota": "Todo el tema. Los Tratados de la Unión Europea se publican en el Diario Oficial de la Unión Europea, no en el BOE, así que no entran por la tubería del temario."
+        }
+      ]
     },
     {
       "numero": 5,
@@ -709,7 +715,13 @@
       "bloque": "A",
       "titulo": "Introducción a la Prevención de Riesgos Laborales",
       "enunciado": "Introducción a la Prevención de Riesgos Laborales. Concepto general de trabajo. Concepto de salud y condiciones de trabajo. El trabajo y la salud. Concepto general de riesgos Laborales. Principios generales de la actividad preventiva. Conceptos de prevención y protección. Consecuencia de los riesgos. Daños a la salud.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-24.md",
+          "nombre": "Apuntes del tema 24",
+          "nota": "Todo el tema: es doctrina preventiva, no norma. El marco legal va en el tema 25."
+        }
+      ]
     },
     {
       "numero": 25,
@@ -788,133 +800,311 @@
       "bloque": "B",
       "titulo": "Derechos Humanos",
       "enunciado": "Derechos Humanos. Declaración Universal de Derechos Humanos. Convenio Europeo para la Protección de los Derechos Humanos y Libertades Fundamentales. Convenio contra la Tortura. Protocolo facultativo de la Convención contra la tortura. Mecanismo Nacional de Prevención de la Tortura del Defensor del Pueblo.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-27.md",
+          "nombre": "Apuntes del tema 27",
+          "nota": "La Declaración Universal de Derechos Humanos, que es una resolución de la Asamblea General y no un tratado publicado en el BOE, y el Mecanismo Nacional de Prevención de la Tortura."
+        },
+        {
+          "boe_id": "BOE-A-1999-10148",
+          "nombre": "Convenio Europeo de Derechos Humanos (texto refundido de 1999)",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Texto refundido publicado en 1999, posterior al Protocolo n.º 11: es el vigente, y ya no menciona la Comisión Europea de Derechos Humanos que suprimió ese Protocolo."
+        },
+        {
+          "boe_id": "BOE-A-1987-25053",
+          "nombre": "Convención contra la Tortura y otros tratos o penas crueles, inhumanos o degradantes",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Los 33 artículos de la Convención de Nueva York de 1984."
+        },
+        {
+          "boe_id": "BOE-A-2006-11128",
+          "nombre": "Protocolo Facultativo de la Convención contra la Tortura",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Crea el Subcomité para la Prevención y obliga a designar mecanismos nacionales de prevención."
+        }
+      ]
     },
     {
       "numero": 28,
       "bloque": "B",
       "titulo": "Globalización y antiglobalización",
       "enunciado": "Globalización y antiglobalización. Conceptos y características. Consecuencia de la globalización. Reacciones a la globalización. El Movimiento Antiglobalización: Organizaciones, objetivos e historia. El Foro Social Mundial.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-28.md",
+          "nombre": "Apuntes del tema 28",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 29,
       "bloque": "B",
       "titulo": "Actitudes y valores sociales",
       "enunciado": "Actitudes y valores sociales. Formación de las actitudes: concepto, componentes y funciones. Estereotipos, prejuicios y discriminación. Actitudes de la personalidad autoritaria: xenofobia y dogmatismo. Los grupos sociales.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-29.md",
+          "nombre": "Apuntes del tema 29",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 30,
       "bloque": "B",
       "titulo": "Principios éticos de la sociedad actual",
       "enunciado": "Principios éticos de la sociedad actual. Transmisión de valores en la sociedad actual: proceso de socialización. Libertad responsabilidad. Igualdad-solidaridad. Tolerancia. Contravalores, reacciones sociales a los valores mayoritarios: Racismo, fanatismo, fundamentalismo, sectarismo, hooliganismo. Especial consideración de los delitos de odio.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-30.md",
+          "nombre": "Apuntes del tema 30",
+          "nota": "Todo el tema salvo los delitos de odio, cuya base penal está en los artículos 22.4 y 510 del Código Penal (temas 16 y 21)."
+        }
+      ]
     },
     {
       "numero": 31,
       "bloque": "B",
       "titulo": "Inmigración",
       "enunciado": "Inmigración. Movimientos migratorios: concepto y causas de las migraciones. Tipos y efectos. Las grandes migraciones a través de la historia. Las migraciones en la actualidad. Integración social: factor esencial de la cohesión social.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-31.md",
+          "nombre": "Apuntes del tema 31",
+          "nota": "Todo el tema. El régimen jurídico de la extranjería va en los temas 10 y 11."
+        }
+      ]
     },
     {
       "numero": 32,
       "bloque": "B",
       "titulo": "Concepto de geografía humana",
       "enunciado": "Concepto de geografía humana. La ciudad, corrientes de estudio de la misma. Población, estructura y grupos sociales. La demografía: densidad demográfica, tasas de natalidad y mortalidad, crecimiento vegetativo. La sociedad de masas. Contaminación y protección del medio ambiente.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-32.md",
+          "nombre": "Apuntes del tema 32",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 33,
       "bloque": "B",
       "titulo": "La seguridad",
       "enunciado": "La seguridad. Concepto. Seguridad individual y seguridad colectiva. Seguridad pública y seguridad privada. La inseguridad. Teorías explicativas de la delincuencia: concepto, modelos explicativos y clases de delincuencia.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-33.md",
+          "nombre": "Apuntes del tema 33",
+          "nota": "Todo el tema. Es criminología y teoría de la seguridad: no hay norma que lo recoja."
+        }
+      ]
     },
     {
       "numero": 34,
       "bloque": "B",
       "titulo": "Drogodependencias",
       "enunciado": "Drogodependencias. Conceptos de droga, consumidor, métodos de administración, adicción, dependencia, tolerancia, politoxicomanías. Clasificación de las drogas. Últimas tendencias en el consumo de drogas en nuestra sociedad.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-34.md",
+          "nombre": "Apuntes del tema 34",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 35,
       "bloque": "B",
       "titulo": "El desarrollo sostenible",
       "enunciado": "El desarrollo sostenible. Concepto. Coordinación y cooperación internacional. Sociedad y desarrollo sostenible. Instrumentos de gestión ambiental.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-35.md",
+          "nombre": "Apuntes del tema 35",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 36,
       "bloque": "B",
       "titulo": "Gramática de la lengua española",
       "enunciado": "Gramática de la lengua española. Morfología. Sufijos, sustantivos y pronombres. Adjetivos: sus grados y tipos. Los adverbios y sus tipos. Verbos: modos y conjugación. Preposiciones y conjunciones. Sintaxis. La oración: partes y tipos. Análisis sintáctico.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-36.md",
+          "nombre": "Apuntes del tema 36",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 37,
       "bloque": "B",
       "titulo": "Ortografía de la lengua española",
       "enunciado": "Ortografía de la lengua española. Reglas ortográficas. Uso de las letras o grafemas. Uso de la tilde, de los signos ortográficos y de las letras mayúsculas y minúsculas. Representación gráfica de las unidades léxicas. Ortografía de las expresiones procedentes de otras lenguas, de nombres propios y expresiones numéricas.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-37.md",
+          "nombre": "Apuntes del tema 37",
+          "nota": "Todo el tema, sobre la Ortografía de la lengua española de 2010."
+        }
+      ]
     },
     {
       "numero": 38,
       "bloque": "C",
       "titulo": "Fundamentos de sistemas operativos",
       "enunciado": "Fundamentos de sistemas operativos: Funciones de un sistema operativo. Tipologías: MS/DOS; UNIX; Linux; Windows; MAC OS. Sistemas operativos móviles: iOS, Android. Sistemas de almacenamiento. Sistemas de archivos.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-38.md",
+          "nombre": "Apuntes del tema 38",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 39,
       "bloque": "C",
       "titulo": "Redes informáticas",
       "enunciado": "Redes informáticas: Modelo OSI. Modelo TCP/IP. Dispositivos de red: Concentradores (hubs); conmutadores (switches); encaminadores (routers); cortafuegos (firewall); servidores DHCP; servidores DNS; servidores proxy. Direccionamiento IP: clase de redes; IPv4; IPv6.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-39.md",
+          "nombre": "Apuntes del tema 39",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 40,
       "bloque": "C",
       "titulo": "Inteligencia",
       "enunciado": "Inteligencia: dato, información e inteligencia. Tipologías de Inteligencia. Ciclo de la Inteligencia. Inteligencia de Fuentes Abiertas (OSINT). Surface Web. Deep Web. Dark Web. Dark Net.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-40.md",
+          "nombre": "Apuntes del tema 40",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 41,
       "bloque": "C",
       "titulo": "Ciberdelincuencia y agentes de la Amenaza",
       "enunciado": "Ciberdelincuencia y agentes de la Amenaza: Botnet; Business E-mail Compromise; Cartas nigerianas; Cryptojacking; Denegación de servicio; Ingeniería social; Inyección SQL; Malware; Pharming; Phishing; Spear phishing; Ransomware; Skimming; Spoofing; Spyware, Troyano; XSS; Zero-day. Cibercriminales. Crimen as Service. Hacktivistas. Insider threat. APTs. Cyber Kill Chain.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-41.md",
+          "nombre": "Apuntes del tema 41",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 42,
       "bloque": "C",
       "titulo": "Origen de las armas de fuego",
       "enunciado": "Origen de las armas de fuego. Definición, clasificación, categorías y funcionamiento de las armas de fuego: especial referencia al reglamento de armas. Cartucho: definición y componentes. Armas prohibidas. Documentación que ampara la tenencia y porte de armas. Balística forense.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-42.md",
+          "nombre": "Apuntes del tema 42",
+          "nota": "Origen y evolución de las armas de fuego, funcionamiento, componentes del cartucho y balística forense: nada de esto lo dice el Reglamento."
+        },
+        {
+          "boe_id": "BOE-A-1993-6202",
+          "nombre": "Reglamento de Armas",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 6
+          },
+          "nota": "Objeto y ámbito, definiciones, clasificación de las armas reglamentadas en sus siete categorías, armas prohibidas y armas de guerra."
+        },
+        {
+          "boe_id": "BOE-A-1993-6202",
+          "nombre": "Reglamento de Armas",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 88,
+            "hasta": 113
+          },
+          "nota": "Documentación que ampara la tenencia y el porte: guías de pertenencia, licencias y tarjetas de armas."
+        }
+      ]
     },
     {
       "numero": 43,
       "bloque": "C",
       "titulo": "El vehículo prioritario",
       "enunciado": "El vehículo prioritario. Definición de vehículo prioritario. Facultades de los conductores de vehículos prioritarios. Comportamiento de los demás conductores respecto de los vehículos prioritarios. La conducción de vehículos en situación de emergencia. Utilización de las señales de emergencia.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-43.md",
+          "nombre": "Apuntes del tema 43",
+          "nota": "Concepto operativo de la conducción en emergencia y comportamiento de los demás usuarios, que la norma solo enuncia."
+        },
+        {
+          "boe_id": "BOE-A-2003-23514",
+          "nombre": "Reglamento General de Circulación",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 67,
+            "hasta": 70
+          },
+          "nota": "Vehículos en servicio de urgencia: facultades de sus conductores y comportamiento de los demás."
+        },
+        {
+          "boe_id": "BOE-A-2003-23514",
+          "nombre": "Reglamento General de Circulación",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 111,
+            "hasta": 113
+          },
+          "nota": "Advertencias de los vehículos de servicios de urgencia y de otros servicios especiales: señales luminosas y acústicas."
+        }
+      ]
     },
     {
       "numero": 44,
       "bloque": "C",
       "titulo": "La Seguridad en la Conducción de Vehículos Prioritarios",
       "enunciado": "La Seguridad en la Conducción de Vehículos Prioritarios. Definición de Seguridad Activa y Pasiva. Sistemas de Seguridad Activa y Pasiva en vehículos tipo turismo y motocicleta. Influencia de los Sistemas de Seguridad en los accidentes de tráfico. Repercusión de los Sistemas de Seguridad en la conducción policial y traslado de detenidos.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-44.md",
+          "nombre": "Apuntes del tema 44",
+          "nota": "Todo el tema."
+        }
+      ]
     },
     {
       "numero": 45,
       "bloque": "C",
       "titulo": "Prevención de Riesgos Laborales en Seguridad Vial",
       "enunciado": "Prevención de Riesgos Laborales en Seguridad Vial. Factores del Tráfico y su influencia en la siniestralidad vial. Factor Humano, Factor Ambiental y Factor Vehículo. Riesgos Laborales en la conducción de vehículos prioritarios. Equipos de Protección Individual del conductor y pasajeros de vehículos policiales. Estrategias y mantenimiento preventivo del vehículo prioritario. ",
-      "fuentes": []
+      "fuentes": [
+        {
+          "apuntes": "tema-45.md",
+          "nombre": "Apuntes del tema 45",
+          "nota": "Todo el tema. El marco normativo preventivo va en el tema 25."
+        }
+      ]
     }
   ]
 }

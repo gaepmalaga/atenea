@@ -150,3 +150,55 @@ export function numeroDeArticulo(bloque) {
 }
 
 const sinTildes = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+/**
+ * Un documento del diario, para lo que NO esta en legislacion consolidada.
+ *
+ * Los tratados internacionales se publican como "Instrumento de Ratificacion" y
+ * viven en el diario, no en la base de textos consolidados: el Convenio Europeo
+ * de Derechos Humanos (BOE-A-1979-24010) devuelve 404 en /metadatos y 200 en
+ * xml.php. Sin esto, el tema 27 se quedaria sin su texto y habria que contarlo
+ * de memoria, que es justo lo que este temario evita.
+ *
+ * Aqui no hay bloques ni versiones: el diario da parrafos sueltos. Se agrupan
+ * por sus rotulos de articulo, que es lo que despues se convierte en la
+ * referencia legal del fragmento.
+ */
+export async function descargarDocumentoDiario(id) {
+  const xml = await pedir(`https://www.boe.es/diario_boe/xml.php?id=${id}`, 'application/xml');
+
+  const titulo = textoDe(/<titulo>([\s\S]*?)<\/titulo>/.exec(xml)?.[1] ?? id);
+  // OJO: hay varios <texto> en la respuesta. Dentro de <analisis> cada
+  // referencia lleva el suyo ("el texto refundido del Convenio, en BOE num.
+  // 108..."), y el primero que encuentra un regex no codicioso es ESE, que no
+  // tiene ni un parrafo. El cuerpo es el que contiene <p>.
+  const candidatos = [...xml.matchAll(/<texto>([\s\S]*?)<\/texto>/g)].map((m) => m[1]);
+  const cuerpo = candidatos.filter((c) => c.includes('<p')).sort((a, b) => b.length - a.length)[0] ?? xml;
+  const parrafos = [...cuerpo.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)]
+    .map((m) => textoDe(m[1]))
+    .filter(Boolean);
+
+  const bloques = [];
+  let actual = { id: 'preambulo', tipo: 'preambulo', titulo: null, parrafos: [] };
+
+  for (const texto of parrafos) {
+    // Insensible a mayusculas y sin exigir tilde: los documentos antiguos del
+    // diario vienen en versales y sin acentuar ("ARTICULO 1"), que es como esta
+    // la Convencion contra la Tortura de 1987. Con el patron en minusculas, sus
+    // 33 articulos se quedaban en un solo bloque sin una referencia legal.
+    const rotulo = /^(art[íi]?culo\s+[\dIVXLC]+|art[íi]?culo\s+\w+)\.?$/i.exec(texto);
+    if (rotulo) {
+      if (actual.parrafos.length) bloques.push(actual);
+      const crudo = rotulo[1].replace(/\s+/g, ' ');
+      // Se normaliza el rotulo: es lo que acabara siendo la referencia legal del
+      // fragmento, y "ARTICULO 1" y "Articulo 1" no pueden ser dos cosas.
+      const nombre = `Artículo ${crudo.replace(/^art[íi]?culo\s+/i, '')}`;
+      actual = { id: nombre.toLowerCase().replace(/\s+/g, ''), tipo: 'precepto', titulo: nombre, parrafos: [{ clase: 'articulo', texto: nombre }] };
+      continue;
+    }
+    actual.parrafos.push({ clase: 'parrafo', texto });
+  }
+  if (actual.parrafos.length) bloques.push(actual);
+
+  return { titulo, bloques };
+}

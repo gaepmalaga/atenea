@@ -44,6 +44,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MANIFIESTO = join(RAIZ, 'temario', 'temario.json');
 const CACHE = join(RAIZ, 'temario', 'fuentes');
 const SALIDA = join(RAIZ, 'temario', 'md');
+const APUNTES = join(RAIZ, 'temario', 'apuntes');
 
 /**
  * Las notas al pie del texto consolidado ("Se modifica por el art. unico de la
@@ -187,6 +188,24 @@ async function componer(tema, hoy) {
   const secciones = [];
 
   for (const fuente of tema.fuentes) {
+    // Apuntes propios: lo que el programa pide y ninguna norma dice. Van
+    // ETIQUETADOS dentro del mismo documento del tema, nunca colados como si
+    // fueran texto legal: el alumno tiene que saber que esto no lo firma el BOE
+    // y que esta pendiente de revision.
+    if (fuente.apuntes) {
+      const texto = await readFile(join(APUNTES, fuente.apuntes), 'utf8');
+      secciones.push({
+        cita: [
+          `${fuente.nombre ?? 'Apuntes'} (apuntes propios, NO texto oficial)`,
+          '  Redactados para esta plataforma porque el programa pide materia que no',
+          '  recoge ninguna norma. Pendientes de revisión.',
+          fuente.nota ? `  Alcance en este tema: ${fuente.nota}` : null,
+        ].filter(Boolean).join('\n'),
+        texto: texto.trim(),
+      });
+      continue;
+    }
+
     let norma;
     try {
       norma = JSON.parse(await readFile(join(CACHE, `${fuente.boe_id}.json`), 'utf8'));

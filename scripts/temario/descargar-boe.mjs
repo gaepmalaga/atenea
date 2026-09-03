@@ -17,7 +17,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { descargarMetadatos, descargarTexto, parsearTexto, numeroDeArticulo } from './boe.mjs';
+import { descargarMetadatos, descargarTexto, parsearTexto, numeroDeArticulo, descargarDocumentoDiario } from './boe.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MANIFIESTO = join(RAIZ, 'temario', 'temario.json');
@@ -71,7 +71,21 @@ async function main() {
   await mkdir(CACHE, { recursive: true });
 
   for (const id of ids) {
-    const meta = await descargarMetadatos(id);
+    // Lo que no esta consolidado se baja del diario. Ver `descargarDocumentoDiario`.
+    let meta;
+    try {
+      meta = await descargarMetadatos(id);
+    } catch (e) {
+      if (!/404/.test(e.message)) throw e;
+      const doc = await descargarDocumentoDiario(id);
+      await writeFile(rutaCache(id), `${JSON.stringify({
+        id, titulo: doc.titulo, rango: 'Documento del diario (no consolidado)',
+        fecha_disposicion: null, fecha_actualizacion: null,
+        descargado: new Date().toISOString().slice(0, 10), bloques: doc.bloques,
+      }, null, 1)}\n`, 'utf8');
+      console.log(`+ ${id}: ${doc.bloques.length} bloques, del diario - ${doc.titulo.slice(0, 55)}`);
+      continue;
+    }
     const titulo = meta.titulo ?? id;
 
     if (await estaAlDia(id, meta.fecha_actualizacion)) {
