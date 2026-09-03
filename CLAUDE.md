@@ -49,6 +49,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
 | **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
+| — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 
 ## Producción
@@ -951,6 +952,50 @@ Medido contra la base de datos real el 31 ago: 43 de 45 temas **sin una sola
 pregunta**, y el alumno con más actividad al 44 % — 30 % en Constitución y 67 %
 en Inteligencia.
 
+### 36 · Todo lo que se pinta sale de `app/components/ui/`
+
+No es una preferencia de orden: es la regla que cierra la clase de fallo que
+más tiempo ha costado en este repo. Cada pantalla se inventaba su versión de
+una tarjeta, así que **cada pantalla fallaba a su manera** y había que
+descubrirlas de una en una, en un móvil, una captura detrás de otra.
+
+Medido antes de existir la capa: **nueve radios distintos** (`rounded-xl` ×112,
+`2xl` ×96, `3xl` ×43, más seis valores a mano: `[2rem]`, `[2.5rem]`, `[1.5rem]`,
+`[3rem]`, `[30px]`, `[1.25rem]`) y **trece rellenos**, de `p-1` a `p-32`.
+
+Y el aviso más caro: `globals.css` traía desde el principio un sistema escrito
+—`.vip-card`, `.vip-button`, `.vip-input`, `.text-display`— que **no usaba ni un
+componente**. Cero. Un sistema de diseño que no obliga se ignora; por eso este
+tiene un test que muerde (`tests/design-system.test.ts`).
+
+**La regla de oro: la decisión responsiva se toma en el primitivo, no en la
+pantalla.** Una pantalla pide "tarjeta mediana"; cuánto encoge eso en 360px no
+es asunto suyo. Cuando esto no se cumplía, el resultado era literal: el modo de
+examen usaba `grid-cols-2` fijo, así que "ENTRENAMIENTO" en mayúsculas se
+quedaba con ~110px y **tocaba el borde de su caja**. `OptionGroup` apila en
+móvil por definición y ese fallo ya no puede volver.
+
+Cuatro cosas que el sistema arregla de raíz y que ninguna pantalla debe volver
+a decidir por su cuenta:
+
+- **44px de área táctil** en todo lo que se toca. Había botones de 32px en el
+  panel de administración.
+- **`text-base` en los campos en móvil.** Safari de iPhone hace zoom sobre
+  cualquier campo con letra menor de 16px y deja la página descuadrada. Toda la
+  aplicación usaba `text-sm`: escribir en el chat daba un salto de pantalla.
+- **`dvh`, nunca `vh`.** `100vh` es la altura CON la barra de direcciones
+  plegada. Los cinco modales escritos a mano usaban `max-h-[85vh]`/`[95vh]`, así
+  que el pie —donde están "Guardar" y "Publicar"— se salía de la pantalla al
+  abrirlos.
+- **`StatTile` obliga a distinguir `null` de `0`** (regla 8), porque el sitio
+  donde más se confunden es justo un número grande en una tarjeta.
+
+**El hueco de la barra de navegación se reserva UNA vez**, en el `<main>` de
+`StudentDashboard`. `MobileNav` es `fixed`: no empuja el contenido, se pinta
+encima. Cada módulo se lo había ido apañando con su propio `pb-20` —una vez en
+unos, ninguna en otros, y **ninguna en `ExamConfig`**, que es donde se vio: el
+botón "Iniciar operación" quedaba físicamente debajo de la barra.
+
 ---
 
 ## Los tests
@@ -981,6 +1026,7 @@ tests/modules.test.ts           módulos encendidos/apagados y la guarda del ser
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
+tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 ```
 
 **`schema-drift` es el guardián más importante de la lista.** Compara contra
