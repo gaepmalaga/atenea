@@ -16,7 +16,11 @@
     "schema:migration": "node scripts/dump-migration.mjs",
     "smoke": "node scripts/smoke-contratos.mjs",
     "chat:probar": "node --experimental-strip-types scripts/probar-chat.mjs",
-    "temario:anexo": "NODE_USE_ENV_PROXY=1 node scripts/temario/extraer-anexo.mjs"
+    "temario:anexo": "NODE_USE_ENV_PROXY=1 node scripts/temario/extraer-anexo.mjs",
+    "temario:descargar": "NODE_USE_ENV_PROXY=1 node scripts/temario/descargar-boe.mjs",
+    "temario:componer": "node scripts/temario/componer-tema.mjs",
+    "temario:pdf": "node scripts/temario/generar-pdf.mjs",
+    "temario:comprobar": "node --experimental-strip-types scripts/temario/comprobar-tema.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -41,6 +45,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "pdfkit": "^0.20.2",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",

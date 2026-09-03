@@ -33,7 +33,18 @@
       "bloque": "A",
       "titulo": "La Constitución Española (I)",
       "enunciado": "La Constitución Española (I): estructura y caracteres de la Constitución Española de 1978. Los valores de la Constitución. Los principios del régimen constitucional: Estado democrático, Estado de derecho, Estado social, Monarquía parlamentaria y Estado autonomista. Los derechos y deberes fundamentales establecidos en la Constitución: especial referencia a los derechos fundamentales y libertades públicas, así como, a las garantías de los mismos y a la suspensión de los derechos y libertades. El Defensor del Pueblo.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1978-31229",
+          "nombre": "Constitución Española",
+          "ambito": {
+            "tipo": "rango",
+            "desde": "preambulo",
+            "hasta": "a55"
+          },
+          "nota": "Preámbulo, Título Preliminar (arts. 1-9) y Título I completo (arts. 10-55): derechos y deberes fundamentales, sus garantías (arts. 53-54, con el Defensor del Pueblo en el 54) y la suspensión de derechos (art. 55)."
+        }
+      ]
     },
     {
       "numero": 3,

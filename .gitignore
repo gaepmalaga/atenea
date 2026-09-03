@@ -45,3 +45,7 @@ firebase-debug.log
 # claude code: la configuracion del servidor de desarrollo SI se comparte
 # (.claude/launch.json); los ajustes y permisos de cada maquina, no.
 .claude/settings.local.json
+
+# Cache de normas descargadas del BOE. Se regenera con `npm run temario:descargar`;
+# lo que se versiona es el temario compuesto (temario/md y temario/pdf).
+temario/fuentes/BOE-*.json

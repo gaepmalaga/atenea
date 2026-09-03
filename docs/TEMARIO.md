@@ -3,8 +3,20 @@
 Plan para tener el temario oficial de la Escala Básica del CNP dentro de la
 plataforma: descargado de su fuente, versionado en git y subible al panel.
 
-Estado: **plan aprobado, sin ejecutar**. Bloqueado por una cosa que solo puedes
-hacer tú (ver «Lo que necesito de ti»).
+Estado: **tubería montada y probada con el tema 2** (3 sep 2026). Faltan las
+fuentes de los otros 44 temas.
+
+```bash
+npm run temario:anexo              # el programa oficial -> temario/temario.json
+npm run temario:descargar -- 2     # las normas del tema 2 -> cache (no va a git)
+npm run temario:componer -- 2      # -> temario/md/tema-02.md
+npm run temario:pdf -- 2           # -> temario/pdf/tema-02.pdf
+npm run temario:comprobar -- 2     # lo relee como lo hara la plataforma
+```
+
+Medido sobre el tema 2: 29.727 caracteres, 55 artículos, y al releer el PDF
+salen **64 fragmentos, 60 con referencia legal y los artículos 1 a 55 sin un
+solo hueco**.
 
 ---
 
@@ -142,14 +154,20 @@ la fuente.
 
 ---
 
-## Lo que necesito de ti
+## Dos cosas que se aprendieron al montarlo
 
-**Abrir el acceso de red a `www.boe.es` y `boe.es`** en la configuración del
-entorno remoto (Claude Code en web → configuración del entorno → acceso a red).
-Ahora mismo el proxy los rechaza con un 403 y no se puede descargar nada desde
-aquí. Para el bloque II hará falta además `eur-lex.europa.eu`.
+**El artículo puede tener varias redacciones, y la primera del XML es la vieja.**
+En la Constitución, el 49 trae la de 1978 y la reforma de 2024; el 135, la de
+2011; el 69, la de mayo de 2026. Leer el XML en orden sirve texto **derogado**
+con toda la seguridad del mundo, y la reforma del 49 es de las que caen en el
+examen. `versionVigente` (`scripts/temario/boe.mjs`) se queda con la última que
+esté en vigor hoy y descarta las de vigencia futura.
 
-Mientras tanto **no se escribe el parser de la API**. Deducir el esquema de una
-respuesta que no se ha visto y descubrir después que no era así es exactamente
-cómo se escribieron los tres primeros ficheros de `docs/sql/`, nombrando
-columnas que no existían.
+**El `fetch` de Node no lee `HTTPS_PROXY`.** Da un 403 que parece del BOE y no lo
+es; hace falta `NODE_USE_ENV_PROXY=1`, que ya va dentro de los guiones de npm.
+En una máquina sin proxy la variable no molesta.
+
+## Para el bloque II
+
+Hará falta abrir también `eur-lex.europa.eu` en el acceso a red del entorno
+(RGPD y tratados de la Unión Europea).
