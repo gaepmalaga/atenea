@@ -118,7 +118,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
         )}
 
         {/* CONTENEDOR DE MÓDULOS */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[80vh] relative">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[80dvh] relative">
 
             {/* Se pueden apagar los ocho, así que este estado existe de verdad
                 y hay que decirlo en vez de dejar la pantalla en blanco. */}
@@ -182,9 +182,16 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                         <BiodataManager user={user} />
                     </ModuleErrorBoundary>
                     
-                    {/* Botón Flotante de Acción Táctica (Solo en esta pestaña) */}
-                    <div className="fixed bottom-8 right-8 z-50 animate-in zoom-in duration-300">
-                        <button 
+                    {/* Botón Flotante de Acción Táctica (Solo en esta pestaña).
+
+                        En movil `MobileNav` es una barra fija de pie de pantalla con
+                        su propio `z-50`; este boton estaba en `bottom-8` (32px), justo
+                        DENTRO de esa franja, y al pintarse MobileNav despues en el DOM
+                        quedaba encima tapandolo. Se sube por encima de la barra solo
+                        en movil (`md:` recupera la posicion de escritorio, donde no
+                        hay barra inferior). */}
+                    <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 animate-in zoom-in duration-300">
+                        <button
                             onClick={() => setInterviewMode(true)}
                             className="flex items-center gap-3 bg-red-600 hover:bg-red-500 text-white px-6 py-4 rounded-full font-bold shadow-2xl hover:scale-105 transition-all animate-pulse ring-4 ring-red-600/20 shadow-red-600/40"
                         >

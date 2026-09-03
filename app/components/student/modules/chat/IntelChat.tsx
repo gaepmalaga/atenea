@@ -99,8 +99,13 @@ export default function IntelChat({ user }: IntelChatProps) {
     }
   };
 
+  // `100vh` en un navegador movil es la altura CON la barra de direcciones
+  // plegada: al cargar (barra visible) el chat se pasaba de alto y el input
+  // quedaba fuera de la pantalla hasta hacer scroll. `100dvh` (dynamic
+  // viewport height) se ajusta cuando la barra aparece/desaparece, que es
+  // exactamente el caso de un chat con teclado en pantalla.
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-160px)] max-w-6xl mx-auto font-sans">
+    <div className="flex flex-col h-[calc(100dvh-140px)] md:h-[calc(100dvh-160px)] max-w-6xl mx-auto font-sans">
       
       {/* HEADER TÁCTICO */}
       <div className="flex items-center justify-between px-6 py-3 bg-slate-900 border-x border-t border-slate-800 rounded-t-[2rem]">
@@ -119,20 +124,27 @@ export default function IntelChat({ user }: IntelChatProps) {
       </div>
 
       {/* ÁREA DE CHAT */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-10 py-10 space-y-10 scrollbar-hide border-x border-slate-800 bg-white dark:bg-slate-950">
+      {/*
+        `p-8` en cada burbuja + `space-y-10` entre mensajes estaban pensados
+        para escritorio: en un movil de 360-400px, con la burbuja ya
+        limitada a `max-w-[85%]` y el avatar restando otros 48px, ese
+        relleno se comia la mayor parte del ancho util para el texto.
+      */}
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-10 py-6 sm:py-10 space-y-6 sm:space-y-10 scrollbar-hide border-x border-slate-800 bg-white dark:bg-slate-950">
         {messages.map((m, i) => (
-          <div key={i} className={`flex gap-6 animate-in fade-in slide-in-from-bottom-5 duration-500 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            
-            <div className={`w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center shadow-lg ${
+          <div key={i} className={`flex gap-3 sm:gap-6 animate-in fade-in slide-in-from-bottom-5 duration-500 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+
+            <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex-shrink-0 flex items-center justify-center shadow-lg ${
                 m.role === 'ai' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
             }`}>
-                {m.role === 'ai' ? <Bot size={24} /> : <User size={24} />}
+                {m.role === 'ai' ? <Bot size={18} className="sm:hidden"/> : <User size={18} className="sm:hidden"/>}
+                {m.role === 'ai' ? <Bot size={24} className="hidden sm:block"/> : <User size={24} className="hidden sm:block"/>}
             </div>
 
             <div className={`max-w-[85%] md:max-w-[80%] space-y-2 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
-                <div className={`p-8 rounded-[2.5rem] shadow-sm relative overflow-hidden ${
-                    m.role === 'user' 
-                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                <div className={`p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm relative overflow-hidden ${
+                    m.role === 'user'
+                        ? 'bg-indigo-600 text-white rounded-tr-none'
                         : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
                 }`}>
                     
@@ -168,7 +180,7 @@ export default function IntelChat({ user }: IntelChatProps) {
 
                     {/* FUENTES */}
                     {m.sources && m.sources.length > 0 && (
-                        <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-800">
+                        <div className="mt-4 sm:mt-8 pt-4 sm:pt-8 border-t border-slate-200 dark:border-slate-800">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
                                 <Target size={14} className="text-indigo-500" /> Evidencia Documental
                             </span>
@@ -206,7 +218,7 @@ export default function IntelChat({ user }: IntelChatProps) {
       </div>
 
       {/* INPUT */}
-      <div className="p-8 bg-slate-50 dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800 rounded-b-[2.5rem] shadow-xl">
+      <div className="p-4 sm:p-8 bg-slate-50 dark:bg-slate-900 border-x border-b border-slate-200 dark:border-slate-800 rounded-b-[1.5rem] sm:rounded-b-[2.5rem] shadow-xl">
         <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-3">
             {/* Elegir tema es lo que quita la adivinación: se manda ese
                 documento entero y no el que más se le parezca a la frase. */}
@@ -233,8 +245,8 @@ export default function IntelChat({ user }: IntelChatProps) {
             <input 
                 value={query} 
                 onChange={e => setQuery(e.target.value)} 
-                placeholder="Introduzca consulta..." 
-                className="w-full pl-6 pr-16 py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-[1.5rem] text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
+                placeholder="Introduzca consulta..."
+                className="w-full pl-4 sm:pl-6 pr-14 sm:pr-16 py-4 sm:py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-[1.25rem] sm:rounded-[1.5rem] text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
                 disabled={loading}
             />
             <button 
@@ -250,28 +262,29 @@ export default function IntelChat({ user }: IntelChatProps) {
 
       {/* MODAL FUENTE */}
       {activeSource && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-[#020617] w-full max-w-4xl rounded-[3rem] shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
-                <div className="p-8 bg-indigo-600 text-white flex justify-between items-center">
-                    <div className="flex items-center gap-5">
-                        <BookOpen size={30}/>
-                        <div>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-[#020617] w-full max-w-4xl rounded-[1.5rem] sm:rounded-[3rem] shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
+                <div className="p-5 sm:p-8 bg-indigo-600 text-white flex justify-between items-center gap-3">
+                    <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+                        <BookOpen size={24} className="shrink-0 sm:hidden"/>
+                        <BookOpen size={30} className="shrink-0 hidden sm:block"/>
+                        <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Consulta Legislativa</p>
-                            <h4 className="text-2xl font-black">{activeSource.reference?.trim() || activeSource.filename}</h4>
+                            <h4 className="text-lg sm:text-2xl font-black truncate">{activeSource.reference?.trim() || activeSource.filename}</h4>
                             {activeSource.reference?.trim() && (
-                                <p className="text-[10px] font-bold opacity-70 mt-1">{activeSource.filename}</p>
+                                <p className="text-[10px] font-bold opacity-70 mt-1 truncate">{activeSource.filename}</p>
                             )}
                         </div>
                     </div>
-                    <button onClick={() => setActiveSource(null)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={28}/></button>
+                    <button onClick={() => setActiveSource(null)} className="p-2 shrink-0 hover:bg-white/10 rounded-full transition-all"><X size={24} className="sm:hidden"/><X size={28} className="hidden sm:block"/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-10 bg-slate-50 dark:bg-slate-950/50">
-                    <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-lg md:text-xl leading-relaxed italic shadow-inner">
+                <div className="flex-1 overflow-y-auto p-5 sm:p-10 bg-slate-50 dark:bg-slate-950/50">
+                    <div className="bg-white dark:bg-slate-900 p-5 sm:p-10 rounded-[1.25rem] sm:rounded-[2rem] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-base sm:text-lg md:text-xl leading-relaxed italic shadow-inner">
                         “{activeSource.content_chunk}”
                     </div>
                 </div>
-                <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-center">
-                    <button onClick={() => setActiveSource(null)} className="px-12 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95">Cerrar Visor</button>
+                <div className="p-4 sm:p-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-center">
+                    <button onClick={() => setActiveSource(null)} className="w-full sm:w-auto px-12 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95">Cerrar Visor</button>
                 </div>
             </div>
         </div>

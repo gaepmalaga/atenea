@@ -141,7 +141,7 @@ export default function FlashcardDeck() {
             >
                 {/* CARA FRONTAL (PREGUNTA) */}
                 <div 
-                    className="absolute inset-0 w-full h-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center text-center shadow-xl"
+                    className="absolute inset-0 w-full h-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-5 sm:p-8 md:p-12 flex flex-col items-center justify-center text-center shadow-xl"
                     style={{ 
                         backfaceVisibility: 'hidden', 
                         WebkitBackfaceVisibility: 'hidden' // FIX 2: Soporte Safari/Webkit para evitar efecto espejo
@@ -168,7 +168,7 @@ export default function FlashcardDeck() {
 
                 {/* CARA TRASERA (RESPUESTA) */}
                 <div 
-                    className="absolute inset-0 w-full h-full bg-slate-900 text-white rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-2xl"
+                    className="absolute inset-0 w-full h-full bg-slate-900 text-white rounded-3xl p-5 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl"
                     style={{ 
                         backfaceVisibility: 'hidden', 
                         WebkitBackfaceVisibility: 'hidden', // FIX 2
