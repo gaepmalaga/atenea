@@ -48,78 +48,95 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans">
-      
+    <div className="min-h-screen bg-slate-950 text-slate-200 px-4 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] md:p-8 font-sans">
+
       {/* --- HEADER SUPERIOR --- */}
-      <header className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-slate-800 gap-6">
-        
-        {/* Identidad del Admin */}
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="bg-indigo-600/20 p-3 rounded-2xl border border-indigo-500/30 shadow-[0_0_15px_rgba(79,70,229,0.2)]">
-            <Shield className="text-indigo-400" size={28} />
+      {/* Era `flex-col md:flex-row` con `items-center`: en movil eso centraba
+          la identidad y dejaba los dos botones en una fila aparte, ocupando
+          dos alturas completas antes de las pestañas. Ahora es una sola fila
+          desde el principio, con los controles a la derecha. */}
+      <header className="flex items-center justify-between gap-3 mb-5 md:mb-8 pb-4 md:pb-6 border-b border-slate-800">
+
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="bg-indigo-600/20 p-2.5 md:p-3 rounded-2xl border border-indigo-500/30 shrink-0">
+            <Shield className="text-indigo-400 w-5 h-5 md:w-7 md:h-7" />
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight leading-none">Centro de Mando</h1>
-            <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider">GOD MODE</span>
-                <p className="text-xs font-mono text-slate-500 truncate max-w-[200px]">{user.email}</p>
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-2xl font-black text-white tracking-tight leading-none truncate">
+              Centro de Mando
+            </h1>
+            <div className="flex items-center gap-2 mt-1 min-w-0">
+              <span className="text-[9px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                Admin
+              </span>
+              <p className="text-[11px] font-mono text-slate-500 truncate">{user.email}</p>
             </div>
           </div>
         </div>
 
-        {/* Controles Globales */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-             <button 
-                onClick={forceRefresh} 
-                className="p-2.5 bg-slate-900 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all group" 
-                title="Recargar datos"
-             >
-                <RefreshCw size={18} className="group-hover:rotate-180 transition-transform duration-500"/>
-             </button>
-             
-             <button 
-                onClick={onLogout} 
-                className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl transition-all font-bold text-xs uppercase tracking-wide"
-             >
-                <LogOut size={16}/> Salir
-             </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={forceRefresh}
+            className="flex items-center justify-center w-11 h-11 bg-slate-900 border border-slate-700 hover:border-slate-500 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-all group"
+            title="Recargar datos"
+            aria-label="Recargar datos"
+          >
+            <RefreshCw size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+          </button>
+
+          {/* En movil solo el icono: "Salir" escrito al lado empujaba el
+              correo del admin hasta dejarlo en tres letras. */}
+          <button
+            onClick={onLogout}
+            className="flex items-center justify-center gap-2 min-h-[44px] w-11 md:w-auto md:px-5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl transition-all font-bold text-xs uppercase tracking-wide"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={16} />
+            <span className="hidden md:inline">Salir</span>
+          </button>
         </div>
       </header>
 
       {/* --- NAVEGACIÓN PRINCIPAL (PESTAÑAS) --- */}
-      <div className="mb-8 overflow-x-auto pb-2 scrollbar-hide"> {/* Scroll horizontal en móvil */}
-        <div className="flex gap-2 min-w-max">
+      {/* Siete pestañas no caben en un telefono, asi que la fila se desplaza en
+          horizontal. El degradado del borde derecho es la parte que faltaba:
+          sin el, no habia NADA que indicara que hay mas pestañas fuera de
+          pantalla, y las tres ultimas (incluida Modulos) eran invisibles para
+          quien no arrastrara por probar. */}
+      <div className="relative mb-5 md:mb-8">
+        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex gap-2 min-w-max pb-1">
             {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const Icon = tab.icon;
-                
-                return (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`
-                            relative px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all duration-300
-                            ${isActive 
-                                ? 'bg-slate-800 text-white shadow-lg ring-1 ring-slate-700 translate-y-[-2px]' 
-                                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
-                            }
-                        `}
-                    >
-                        {/* Indicador de activo */}
-                        {isActive && (
-                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-[3px] bg-indigo-500 rounded-t-full"></span>
-                        )}
-                        
-                        <Icon size={18} className={isActive ? tab.color : 'opacity-70'} />
-                        {tab.label}
-                    </button>
-                );
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative min-h-[44px] px-4 md:px-5 rounded-xl font-bold text-sm flex items-center gap-2.5 transition-all duration-300 ${
+                    isActive
+                      ? 'bg-slate-800 text-white ring-1 ring-slate-700'
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+                  }`}
+                >
+                  {isActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-[3px] bg-indigo-500 rounded-t-full" />
+                  )}
+                  <Icon size={18} className={isActive ? tab.color : 'opacity-70'} />
+                  {tab.label}
+                </button>
+              );
             })}
+          </div>
         </div>
+        <div className="md:hidden pointer-events-none absolute right-0 top-0 bottom-1 w-10 bg-gradient-to-l from-slate-950 to-transparent" />
       </div>
 
       {/* --- ÁREA DE CONTENIDO (RENDERIZADO DINÁMICO) --- */}
-      <main className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[600px]">
+      {/* `min-h-[600px]` fijo dejaba medio movil en negro en las secciones
+          cortas (Modulos son ocho interruptores). */}
+      <main className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[40dvh]">
         {/* Usamos la 'key' para forzar remontaje si pulsamos Refrescar */}
         <div key={refreshKey}>
             <ModuleErrorBoundary moduleName={tabs.find(t => t.id === activeTab)?.label ?? 'La seccion'}>
