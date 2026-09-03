@@ -15,7 +15,8 @@
     "schema": "node scripts/schema-snapshot.mjs",
     "schema:migration": "node scripts/dump-migration.mjs",
     "smoke": "node scripts/smoke-contratos.mjs",
-    "chat:probar": "node --experimental-strip-types scripts/probar-chat.mjs"
+    "chat:probar": "node --experimental-strip-types scripts/probar-chat.mjs",
+    "temario:anexo": "NODE_USE_ENV_PROXY=1 node scripts/temario/extraer-anexo.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
