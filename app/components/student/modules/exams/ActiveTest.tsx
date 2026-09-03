@@ -662,14 +662,26 @@ export default function ActiveTest({
                   const esActual = i === currentIndex;
                   const marcada = marcadas.has(i);
 
-                  let color = 'bg-slate-200 dark:bg-slate-800';
+                  // `bg-slate-200` sobre la cabecera `slate-50` no se ve: la
+                  // barra de progreso existe para saber de un vistazo cuantas
+                  // van y cuantas quedan, y en el movil era practicamente
+                  // invisible salvo la del anillo de la pregunta actual.
+                  let color = 'bg-slate-300 dark:bg-slate-700';
                   if (mode === 'practice' && respondida) {
                       color = q.userAnswer === q.correctOptionId ? 'bg-emerald-500' : 'bg-red-500';
                   } else if (respondida) {
                       color = 'bg-indigo-500';
                   }
 
-                  const barra = `h-1.5 w-full rounded-full transition-all duration-300 ${color} ${
+                  // `block` NO es decoracion: sin el, este `<span>` es `inline`
+                  // y un elemento inline IGNORA `width` y `height`. La barra
+                  // media 0x0 y la de progreso del examen no se ha visto NUNCA
+                  // —solo se intuia el anillo de la pregunta actual—. En el
+                  // simulacro es ademas el mapa de preguntas en el que se pulsa
+                  // para saltar de una a otra: se navegaba a ciegas.
+                  // Medido en el banco de pruebas: 5 contenedores de 73px con
+                  // su barra dentro a 0x0.
+                  const barra = `block h-1.5 w-full rounded-full transition-all duration-300 ${color} ${
                     esActual ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-slate-950' : ''
                   }`;
 

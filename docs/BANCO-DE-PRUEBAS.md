@@ -11,6 +11,8 @@ node construir.mjs             # empaqueta la interfaz con las acciones falsas
 python3 -m http.server 8899    # y se abre http://localhost:8899/index.html
 node recorrido.cjs             # el recorrido completo, con sus comprobaciones
 node tactiles.cjs              # solo lo que no llega a 44px
+node invisibles.cjs            # lo que pide un tamano y se pinta a 0x0
+node zoom.cjs                  # una captura ampliada de un trozo concreto
 ```
 
 `?vista=admin` abre el panel de administración en vez del alumno.
@@ -32,6 +34,7 @@ En cuanto existió el banco, la primera ejecución encontró en dos minutos:
 | "CONTESTAD…" cortado por tres píxeles | `StatTile` |
 | "INTELIGENCIA" y "OPERACIONES" pisándose | `MobileNav`, `flex-1` sin `min-w-0` |
 | Trece controles por debajo de los 44px táctiles | Todo el panel de administración |
+| La barra de progreso del examen, a 0x0 desde siempre | `ActiveTest`, un `<span>` inline ignora `width` y `height` |
 
 Ninguno se veía leyendo el código.
 
@@ -54,6 +57,23 @@ No es un test de píxeles. Comprueba **comportamiento**:
   rectángulo y no es un fallo.
 - **El texto cortado** por no caber, con cuántos píxeles le faltan.
 - **El área táctil**, contra el mínimo de 44px.
+
+## Qué comprueba `invisibles.cjs`
+
+Elementos que **piden** un tamaño (`h-1.5`, `w-full`, `w-[3rem]`…) y se pintan
+a **0x0**. No es lo mismo que "no se ve": esto es CSS que se escribió, se leyó
+como correcto y el navegador ignoró.
+
+El caso que lo motivó: la barra de progreso del examen era un `<span>` con
+`h-1.5 w-full`. Un `<span>` es `inline` por defecto, y **un elemento inline
+ignora `width` y `height`**. La barra medía 0x0, así que en el simulacro —donde
+además es el mapa de preguntas en el que se pulsa para saltar— se navegaba a
+ciegas. Estuvo así desde que existe la pantalla y no lo delató ningún test:
+las clases eran correctas una por una.
+
+No se puede detectar leyendo el código, porque dentro de un contenedor flex los
+hijos se "bloquifican" y el mismo `<span>` sí funciona. Hay que medirlo en el
+navegador.
 
 ## Lo que NO cubre
 
