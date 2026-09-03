@@ -95,18 +95,29 @@ además le dice al alumno qué redacción está estudiando.
 
 `temario/pdf/tema-01.pdf`, que es lo que se sube hoy por el panel.
 
-**Advertencia sobre el viaje de ida y vuelta:** la plataforma ingiere
-PDF → `pdf2json` → `cleanLegalText` → `chunkDocument`. Generar un PDF desde
-texto limpio para volver a extraer el texto degrada justo lo que se acaba de
-ganar en el punto 2. Por eso:
+**El viaje de ida y vuelta no cuesta nada, y esto está medido.** La plataforma
+ingiere PDF → `pdf2json` → `cleanLegalText` → `chunkDocument`. La sospecha era
+que generar un PDF desde texto limpio para volver a extraerlo degradaría lo
+ganado en el punto 2. Comparado el markdown del tema 2 con lo que sale de leer
+su PDF, normalizando espacios: **29.498 caracteres los dos, idénticos**.
+
+Tiene explicación: el destrozo que arregla `rejoinPdfLines` viene de PDFs
+maquetados a dos columnas, con guiones de partición y titulillos por página.
+Este PDF no tiene nada de eso — una columna, fuentes estándar, sin partir
+palabras y sin encabezado repetido — y por eso sale entero.
+
+Así que:
 
 - el **`.md` es la fuente de verdad** y va en git (diffable);
-- el **PDF se genera y también va en git** (es lo pedido, y es lo que acepta el
-  panel);
-- y en cuanto esté rodado, conviene una entrada que acepte `.md`/`.txt`
-  directamente. `indexarFragmentos` ya está separada de `uploadTopicPDF`
-  (`app/actions/admin.ts`), así que es poco trabajo y se salta el round-trip
-  entero.
+- el **PDF se genera y también va en git**, y es lo que se sube al panel;
+- una entrada que acepte `.md` directamente sigue siendo mejor idea (ahorra un
+  paso y `indexarFragmentos` ya está separada de `uploadTopicPDF`), pero es una
+  comodidad, **no** una necesidad de calidad como se creía aquí.
+
+Y el PDF es feo a propósito de nadie: **ningún componente del alumno lee
+`documents`**. Solo lo tocan el chat, el generador de preguntas, las flashcards
+y el panel de administración. El alumno ve respuestas y preguntas, nunca el
+documento.
 
 Tamaño: PDFs de solo texto, decenas de KB. `.git` pesa hoy 1,2 MB; los 45 temas
 no lo llevarán más allá de unas pocas decenas. No hace falta Git LFS.
