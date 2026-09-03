@@ -241,7 +241,7 @@ export default function AdminContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* 1. TARJETA KPI CON EFECTO CRISTAL */}
-            <div className="bg-slate-800/40 backdrop-blur-md p-8 rounded-[2rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+            <div className="bg-slate-800/40 backdrop-blur-md p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
                 {/* Glow Effect de fondo */}
                 <div className="absolute top-0 right-0 p-32 bg-indigo-600/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none group-hover:bg-indigo-500/30 transition-all duration-1000"></div>
                 
@@ -263,8 +263,8 @@ export default function AdminContent() {
             </div>
 
             {/* 2. ZONA DE SUBIDA (Upload Zone) */}
-            <div className={`relative p-[2px] rounded-[2rem] transition-all duration-500 ${selectedSubject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-indigo-500/20' : 'bg-slate-800 border border-slate-700'}`}>
-                <div className="bg-slate-900 h-full w-full rounded-[30px] overflow-hidden relative">
+            <div className={`relative p-[2px] rounded-2xl sm:rounded-3xl transition-all duration-500 ${selectedSubject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-indigo-500/20' : 'bg-slate-800 border border-slate-700'}`}>
+                <div className="bg-slate-900 h-full w-full rounded-3xl overflow-hidden relative">
                     {uploading ? (
                         <div className="flex flex-col items-center justify-center h-full gap-4 animate-in fade-in bg-slate-900/90 backdrop-blur-sm">
                             <div className="relative">
@@ -320,7 +320,7 @@ export default function AdminContent() {
         />
 
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
-        <div className="bg-slate-900 rounded-[2rem] border border-slate-800 overflow-hidden shadow-2xl">
+        <div className="bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
             {/* Header del Visor */}
             <div className="px-8 py-6 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center sticky top-0 z-20">
                 <h3 className="font-black text-slate-200 text-sm uppercase tracking-widest flex items-center gap-3">
@@ -595,8 +595,8 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
   }
 
   return (
-    <div className={`p-[3px] rounded-[2rem] transition-all duration-700 ${subject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-purple-500/20' : 'bg-slate-800'}`}>
-        <div className="bg-slate-900 p-8 rounded-[30px] h-full relative overflow-hidden">
+    <div className={`p-[3px] rounded-2xl sm:rounded-3xl transition-all duration-700 ${subject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-purple-500/20' : 'bg-slate-800'}`}>
+        <div className="bg-slate-900 p-8 rounded-3xl h-full relative overflow-hidden">
             {/* Decoración de fondo */}
             {subject && <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none"></div>}
 

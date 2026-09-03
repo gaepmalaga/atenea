@@ -88,7 +88,7 @@ export default function FlashcardDeck() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-2xl mx-auto px-4">
+    <div className="flex flex-col items-center justify-center min-h-[70dvh] w-full max-w-2xl mx-auto px-4">
       
       {/* HEADER */}
       <div className="w-full flex justify-between items-center mb-8">

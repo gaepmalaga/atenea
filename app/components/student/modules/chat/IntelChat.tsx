@@ -143,7 +143,7 @@ export default function IntelChat({ user }: IntelChatProps) {
             </div>
 
             <div className={`max-w-[85%] md:max-w-[80%] space-y-2 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
-                <div className={`p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-sm relative overflow-hidden ${
+                <div className={`p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-sm relative overflow-hidden ${
                     m.role === 'user'
                         ? 'bg-indigo-600 text-white rounded-tr-none'
                         : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
@@ -209,7 +209,7 @@ export default function IntelChat({ user }: IntelChatProps) {
         {loading && (
             <div className="flex gap-6 animate-pulse">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white"><Bot size={24} /></div>
-                <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-[2.5rem] rounded-tl-none border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                <div className="bg-slate-100 dark:bg-slate-900 p-5 rounded-3xl rounded-tl-none border border-slate-200 dark:border-slate-800 flex items-center gap-3">
                     <Loader2 size={18} className="animate-spin text-indigo-500" />
                     <span className="text-xs font-black text-indigo-500 uppercase tracking-widest">Analizando...</span>
                 </div>
@@ -247,7 +247,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 value={query} 
                 onChange={e => setQuery(e.target.value)} 
                 placeholder="Introduzca consulta..."
-                className="w-full pl-4 sm:pl-6 pr-14 sm:pr-16 py-4 sm:py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-[1.25rem] sm:rounded-[1.5rem] text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
+                className="w-full pl-4 sm:pl-6 pr-14 sm:pr-16 py-4 sm:py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
                 disabled={loading}
             />
             <button 

@@ -284,7 +284,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
 
       {/* FASE 3: INFORME FINAL */}
       {speechSupported && (phase === 'evaluating' || phase === 'report') && (
-        <div className="relative z-10 w-full max-w-2xl px-6 max-h-[90vh] overflow-y-auto animate-in fade-in duration-500">
+        <div className="relative z-10 w-full max-w-2xl px-6 max-h-[90dvh] overflow-y-auto animate-in fade-in duration-500">
           {phase === 'evaluating' ? (
             <div className="text-center space-y-6 py-20">
               <BrainCircuit size={56} className="mx-auto text-indigo-400 animate-pulse" />

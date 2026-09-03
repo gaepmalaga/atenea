@@ -290,7 +290,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
               {/* TEST PSICOTÉCNICO AMPLIADO (30 Items Scrollable) */}
               {activeSection === 'test' && (
                   <div className="animate-in fade-in zoom-in duration-300 grid md:grid-cols-2 gap-8 h-full">
-                      <div className="overflow-y-auto pr-2 h-[60vh] md:h-[550px] scrollbar-hide space-y-4 pb-10">
+                      <div className="overflow-y-auto pr-2 h-[60dvh] md:h-[550px] scrollbar-hide space-y-4 pb-10">
                           <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase mb-4 sticky top-0 bg-white dark:bg-slate-900 z-10 py-2 border-b border-slate-100 dark:border-slate-800">Cuestionario (30 Ítems)</h3>
                           {TEST_QUESTIONS.map((q, i) => (
                               <div key={q.id} className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">

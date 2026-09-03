@@ -4,9 +4,10 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChevronRight, CheckCircle2, XCircle, Brain,
   BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
-  ThumbsUp, ThumbsDown, Flag, X, Send, MessageSquareWarning, Bookmark, Eraser,
+  ThumbsUp, ThumbsDown, Flag, Send, Bookmark, Eraser,
   Scale
 } from 'lucide-react';
+import { Modal, Button, TextAreaField } from '../../../ui';
 import { formatTime } from '@/app/lib/timer';
 import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
@@ -438,7 +439,7 @@ export default function ActiveTest({
 
     return (
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-24">
-        <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
 
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6 sm:mb-8">
@@ -705,10 +706,10 @@ export default function ActiveTest({
         el telefono. Por debajo de `sm` se usa un minimo relativo al viewport
         en vez de restar un offset de escritorio.
       */}
-      <div className="min-h-[45vh] sm:min-h-[calc(100vh-15rem)] flex flex-col justify-center">
+      <div className="min-h-[45dvh] sm:min-h-[calc(100dvh-15rem)] flex flex-col justify-center">
 
       {/* TARJETA DE PREGUNTA */}
-      <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 md:p-12 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 md:p-12 rounded-2xl sm:rounded-3xl shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
           
           {/* Marca de agua decorativa */}
           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
@@ -968,27 +969,55 @@ export default function ActiveTest({
           </div>
       </div>
 
-      {/* MODAL REPORTE */}
+      {/* REPORTAR UNA PREGUNTA */}
+      {/* Era el quinto modal escrito a mano. Además del `vh`, tenía un detalle
+          propio: la lista de motivos iba en un `max-h-48` con scroll DENTRO de
+          un modal que ya hacía scroll — dos barras anidadas en una pantalla de
+          móvil, donde el dedo nunca sabe cuál va a mover. El primitivo hace
+          scroll una sola vez, en el cuerpo. */}
       {isReportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl p-6 border border-slate-200 dark:border-slate-800">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><MessageSquareWarning className="text-amber-500"/> Reportar</h3>
-              <button onClick={() => setIsReportModalOpen(false)} className="text-slate-400 hover:text-slate-900"><X size={20} /></button>
+        <Modal
+          title="Reportar la pregunta"
+          subtitle="Lo revisa un administrador"
+          width="sm"
+          onClose={() => setIsReportModalOpen(false)}
+          footer={
+            <Button
+              block
+              onClick={submitReport}
+              disabled={!reportData.type || isSubmittingReport}
+              iconRight={!isSubmittingReport ? <Send size={14} /> : undefined}
+            >
+              {isSubmittingReport ? 'Enviando…' : 'Enviar reporte'}
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="space-y-2">
+              {REPORT_TYPES.map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => setReportData({ ...reportData, type: type.id })}
+                  className={`w-full text-left text-sm px-4 py-3 min-h-[44px] rounded-xl border transition-all ${
+                    reportData.type === type.id
+                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500 text-amber-700 dark:text-amber-400 font-bold'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
             </div>
-            <div className="space-y-3 mb-6 max-h-48 overflow-y-auto">
-                {REPORT_TYPES.map((type) => (
-                  <button key={type.id} onClick={() => setReportData({ ...reportData, type: type.id })} className={`w-full text-left text-sm px-4 py-3 rounded-xl border transition-all ${reportData.type === type.id ? 'bg-amber-50 border-amber-500 text-amber-700 font-bold' : 'border-slate-100 hover:border-slate-300 text-slate-600'}`}>
-                    {type.label}
-                  </button>
-                ))}
-            </div>
-            <textarea placeholder="Detalles (opcional)..." className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none mb-6" rows={3} value={reportData.message} onChange={(e) => setReportData({ ...reportData, message: e.target.value })}/>
-            <button onClick={submitReport} disabled={!reportData.type || isSubmittingReport} className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 disabled:opacity-50 flex justify-center gap-2 items-center">
-                {isSubmittingReport ? 'Enviando...' : 'Enviar Reporte'} {!isSubmittingReport && <Send size={14} />}
-            </button>
+
+            <TextAreaField
+              label="Detalles (opcional)"
+              rows={3}
+              placeholder="Qué has visto…"
+              value={reportData.message}
+              onChange={(e) => setReportData({ ...reportData, message: e.target.value })}
+            />
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

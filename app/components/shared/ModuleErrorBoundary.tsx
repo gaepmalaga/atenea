@@ -33,7 +33,7 @@ export default class ModuleErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children;
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 animate-in fade-in">
+      <div className="flex flex-col items-center justify-center min-h-[60dvh] text-center px-6 animate-in fade-in">
         <div className="p-4 bg-amber-100 dark:bg-amber-900/20 text-amber-600 rounded-2xl mb-6">
           <AlertTriangle size={32} />
         </div>

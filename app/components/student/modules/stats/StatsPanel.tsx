@@ -102,7 +102,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           ocupaban una fila entera cada uno solo por el tamaño. Se escala
           desde movil y crece a partir de `sm`/`md`.
         */}
-        <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative overflow-hidden group">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl relative overflow-hidden group">
             <div className={`absolute -right-20 -top-20 w-64 h-64 blur-[100px] opacity-20 rounded-full ${currentRank.id === 'inspector' ? 'bg-amber-500' : 'bg-indigo-600'}`}></div>
 
             <div className="flex flex-col md:flex-row items-center gap-5 sm:gap-8 md:gap-10 relative z-10">
@@ -144,7 +144,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
         </div>
 
         {/* MÉTRICA DE VELOCIDAD (EL "TIEMPO ES VIDA") */}
-        <div className="bg-slate-900 text-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex flex-col justify-center items-center text-center border-b-8 border-indigo-600 shadow-xl">
+        <div className="bg-slate-900 text-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 flex flex-col justify-center items-center text-center border-b-8 border-indigo-600 shadow-xl">
             <Gauge size={40} className="text-indigo-400 mb-4 animate-pulse" />
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Perfil de Respuesta</p>
             <h4 className="text-2xl font-black mb-2">{speedLabel}</h4>
@@ -160,7 +160,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
 
           {/* INDICE DE INCERTIDUMBRE (DUDAS) */}
-          <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-lg">
+          <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
               <div className="flex justify-between items-start mb-6">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                       <MousePointer2 size={16} className="text-purple-500"/> Índice de Incertidumbre
@@ -206,7 +206,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           </div>
 
           {/* DIAGNÓSTICO DE ERRORES (TAXONOMÍA) */}
-          <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-lg">
+          <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-6">
                   <Brain size={16} className="text-red-500"/> Origen de tus Fallos
               </h3>
@@ -238,7 +238,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           </div>
 
           {/* KPI FÍSICO RÁPIDO */}
-          <div className="bg-indigo-600 text-white p-5 sm:p-8 rounded-[2rem] shadow-xl flex flex-col justify-between">
+          <div className="bg-indigo-600 text-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col justify-between">
               <div className="flex justify-between items-center">
                   <HeartPulse size={24}/>
                   <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded">ESTADO FÍSICO</span>
