@@ -45,7 +45,7 @@ export default function AdminActivity() {
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Fallo</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Flashcard</span>
             </div>
-            <button onClick={recargar} className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+            <button onClick={recargar} className="w-11 h-11 flex items-center justify-center hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
         </div>

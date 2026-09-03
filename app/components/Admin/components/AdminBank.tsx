@@ -299,7 +299,7 @@ export default function AdminBank() {
                 <button
                     onClick={handleApproveVisible}
                     disabled={bulkRunning}
-                    className="shrink-0 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95"
+                    className="shrink-0 min-h-[44px] px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95"
                 >
                     {bulkRunning ? <Loader2 className="animate-spin" size={14}/> : <CheckCircle2 size={14}/>}
                     Publicar las {visibleCandidates.length}
@@ -351,14 +351,14 @@ export default function AdminBank() {
                                 <div className="flex gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all transform lg:translate-x-4 group-hover:translate-x-0">
                                     <button 
                                         onClick={() => navigator.clipboard.writeText(q.id)}
-                                        className="p-2 bg-slate-800 text-slate-500 hover:text-white rounded-xl hover:bg-slate-700 transition-colors"
+                                        className="w-11 h-11 flex items-center justify-center bg-slate-800 text-slate-500 hover:text-white rounded-xl hover:bg-slate-700 transition-colors"
                                         title="Copiar ID"
                                     >
                                         <Copy size={16}/>
                                     </button>
                                     <button 
                                         onClick={() => openEditor(q)}
-                                        className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-500 hover:scale-105 transition-all"
+                                        className="w-11 h-11 flex items-center justify-center bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-500 transition-all"
                                         title="Editar"
                                     >
                                         <Edit size={16}/>
@@ -366,7 +366,7 @@ export default function AdminBank() {
                                     <button 
                                         onClick={() => handleDisable(q.id)}
                                         disabled={q.status === QUESTION_STATUS.DISABLED}
-                                        className="p-2 bg-slate-800 text-slate-400 border border-slate-700 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-700 disabled:hover:text-slate-400 rounded-xl transition-colors"
+                                        className="w-11 h-11 flex items-center justify-center bg-slate-800 text-slate-400 border border-slate-700 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-700 disabled:hover:text-slate-400 rounded-xl transition-colors"
                                         title="Descartar del banco"
                                     >
                                         {isDeleting === q.id ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16}/>}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { RADIUS, TEXT, cx } from './tokens';
+import { RADIUS, cx } from './tokens';
 
 type Tone = 'neutral' | 'success' | 'danger' | 'warning' | 'brand';
 
@@ -61,9 +61,14 @@ export default function StatTile({ label, value, suffix, tone = 'neutral', icon 
 
   return (
     <div className={cx(style.box, RADIUS.md, 'p-3 sm:p-4')}>
-      <div className={cx(TEXT.label, style.label, 'flex items-center gap-1.5')}>
-        {icon}
-        <span className="truncate">{label}</span>
+      {/* La etiqueta ENVUELVE en vez de cortarse.
+          Con `truncate` y el `tracking-widest` de TEXT.label, "Contestadas" se
+          quedaba a 3px de caber en un recuadro de tres columnas y salía
+          "CONTESTAD…": el usuario leía una palabra a medias por tres píxeles.
+          Aquí manda que se entienda, no que ocupe una línea. */}
+      <div className={cx(style.label, 'flex items-start gap-1.5 text-[10px] font-black uppercase tracking-wide leading-tight')}>
+        {icon && <span className="shrink-0 mt-px">{icon}</span>}
+        <span>{label}</span>
       </div>
       <p
         className={cx(

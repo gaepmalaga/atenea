@@ -11,6 +11,7 @@ import {
   type ExamSettings,
 } from '../app/lib/exam-session';
 import type { Question } from '../app/lib/questions';
+import { enteroEnRango } from '../app/lib/input-number';
 
 /**
  * El seguro del examen en curso.
@@ -166,5 +167,28 @@ describe('nadie se lleva por delante un examen sin avisar', () => {
     const armazon = ficheros.find((f) => f.nombre.endsWith('StudentDashboard.tsx'));
     expect(armazon).toBeDefined();
     expect(armazon!.src).toMatch(/beforeunload/);
+  });
+});
+
+describe('un campo numerico no puede colar un NaN', () => {
+  // El generador del panel hacia `Number(e.target.value)` sobre un
+  // `<input type="number">`. Un `-` a medio escribir da NaN, y el tope del
+  // servidor (`Math.floor(NaN) || 0` -> `Math.max(1, 0)`) lo convertia en 1:
+  // el admin pedia veinte preguntas y se generaba UNA, sin aviso.
+  it('devuelve null mientras lo escrito no sea un numero', () => {
+    for (const bruto of ['', '   ', '-', 'e', 'abc', '--3']) {
+      expect(enteroEnRango(bruto, { min: 1, max: 50 })).toBeNull();
+    }
+  });
+
+  it('recorta al rango en vez de rechazar', () => {
+    expect(enteroEnRango('500', { min: 1, max: 50 })).toBe(50);
+    expect(enteroEnRango('0', { min: 1, max: 50 })).toBe(1);
+    expect(enteroEnRango('-8', { min: 1, max: 50 })).toBe(1);
+  });
+
+  it('se queda con la parte entera', () => {
+    expect(enteroEnRango('12.9', { min: 1, max: 50 })).toBe(12);
+    expect(enteroEnRango('20', { min: 1, max: 50 })).toBe(20);
   });
 });

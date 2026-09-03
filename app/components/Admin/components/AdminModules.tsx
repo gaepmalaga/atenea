@@ -113,7 +113,11 @@ export default function AdminModules() {
                   disabled={guardando === id || cargando}
                   aria-pressed={activo}
                   title={activo ? 'Desactivar' : 'Activar'}
-                  className={`shrink-0 w-14 h-8 rounded-full flex items-center px-1 transition-all disabled:opacity-40 ${
+                  /* La pastilla sigue midiendo 32px de alto, que es lo que se
+                     ve; lo que crece es el area que se toca, con relleno
+                     vertical hasta los 44px. Un interruptor de 32px se falla
+                     con el pulgar, y aqui fallarlo apaga un modulo entero. */
+                  className={`shrink-0 w-14 h-8 my-1.5 box-content py-1.5 rounded-full flex items-center px-1 transition-all disabled:opacity-40 ${
                     activo ? 'bg-emerald-500 justify-end' : 'bg-slate-700 justify-start'
                   }`}
                 >

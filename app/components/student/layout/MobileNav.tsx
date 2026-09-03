@@ -23,6 +23,24 @@ interface MobileNavProps {
  */
 const VISIBLES = 4;
 
+/**
+ * El nombre que cabe debajo del icono.
+ *
+ * "Inteligencia (RAG)" o "Rango & Estadisticas" no entran en un quinto de
+ * pantalla: tomando la primera palabra salian "INTELIGENCIA" y "OPERACIONES",
+ * que ya se pisaban entre si. Estos son los nombres cortos de verdad.
+ */
+const ETIQUETA_CORTA: Record<string, string> = {
+  home: 'Inicio',
+  chat: 'Chat',
+  test: 'Test',
+  review: 'Fallos',
+  cards: 'Fichas',
+  training: 'Física',
+  interview: 'Perfil',
+  stats: 'Rango',
+};
+
 export default function MobileNav({ activeTab, onTabChange, onLogout, items }: MobileNavProps) {
   const [menuAbierto, setMenuAbierto] = useState(false);
 
@@ -113,7 +131,10 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
                 onClick={() => onTabChange(item.id)}
                 aria-current={activa ? 'page' : undefined}
                 className={cx(
-                  'flex-1 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
+                  // `min-w-0` es imprescindible: un hijo de flex NO encoge por
+                  // debajo de su contenido sin el, asi que `truncate` no hacia
+                  // nada y "INTELIGENCIA" y "OPERACIONES" se pisaban entre si.
+                  'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
                   TAP,
                   activa ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400',
                 )}
@@ -121,8 +142,8 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
                 <Icon size={21} strokeWidth={activa ? 2.6 : 2} />
                 {/* La etiqueta es la mitad del arreglo: ocho iconos sin nombre
                     obligaban a entrar en cada uno para saber qué era. */}
-                <span className="text-[9px] font-black uppercase tracking-wide leading-none truncate max-w-full px-0.5">
-                  {item.label.split(' ')[0]}
+                <span className="w-full text-[9px] font-black uppercase tracking-tight leading-none truncate px-0.5 text-center">
+                  {ETIQUETA_CORTA[item.id] ?? item.label.split(' ')[0]}
                 </span>
               </button>
             );
@@ -132,7 +153,7 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
             <button
               onClick={() => setMenuAbierto(true)}
               className={cx(
-                'flex-1 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
+                'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
                 TAP,
                 activaEnElResto ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400',
               )}

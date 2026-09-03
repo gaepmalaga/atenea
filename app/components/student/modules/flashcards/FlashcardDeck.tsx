@@ -106,7 +106,11 @@ export default function FlashcardDeck() {
             value={selectedTopic} 
             onChange={(e) => setSelectedTopic(e.target.value)}
             disabled={loading}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-lg px-4 py-2 outline-none focus:border-purple-500 cursor-pointer"
+            /* `min-w-0 max-w-full` + `truncate`: un <select> nativo crece
+               hasta el ancho de su opcion mas larga, y los temas son frases
+               enteras. Medido en el banco de pruebas: llegaba a 731px en una
+               pantalla de 390 y arrastraba la pagina de lado. */
+            className="min-w-0 max-w-full truncate min-h-[44px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-lg px-4 outline-none focus:border-purple-500 cursor-pointer"
           >
               {loadingTopics ? <option>Cargando...</option> : topics.map(t => <option key={t} value={t}>{t}</option>)}
           </select>

@@ -277,11 +277,14 @@ export default function IntelChat({ user }: IntelChatProps) {
                     <label htmlFor="tema-chat" className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">
                         Tema
                     </label>
+                    {/* 44px de alto: era un desplegable de 16px, el control mas
+                        pequeño de la pantalla, y es el que decide QUE documento
+                        entero se le manda al modelo. */}
                     <select
                         id="tema-chat"
                         value={subjectId}
                         onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : '')}
-                        className="flex-1 min-w-0 bg-transparent text-xs font-medium text-slate-600 dark:text-slate-300 outline-none cursor-pointer truncate"
+                        className="flex-1 min-w-0 min-h-[44px] bg-transparent text-sm font-medium text-slate-600 dark:text-slate-300 outline-none cursor-pointer truncate"
                     >
                         <option value="">Todo el temario (lo busco yo)</option>
                         {subjects.map((s) => (

@@ -10,6 +10,7 @@ import {
 
 import DocumentChunksViewer from './DocumentChunksViewer';
 import type { DocumentChunkRow } from '@/app/lib/documents';
+import { enteroEnRango } from '@/app/lib/input-number';
 
 // Importamos las Server Actions
 import {
@@ -230,8 +231,12 @@ export default function AdminContent() {
   }
 
   // Calcular total de documentos en el sistema
-  const totalDocs = syllabus.reduce((acc, block) => 
-    acc + block.subjects.reduce((sAcc, sub) => sAcc + sub.docCount, 0), 0
+  // `?? 0`: sumar un campo sin comprobarlo convierte TODO el total en NaN en
+  // cuanto uno llega sin el, y lo que ve el administrador es "NaN documentos
+  // indexados" — un panel que se contradice a si mismo. Es la regla 5 aplicada
+  // a la aritmetica: no se lee un campo dando por hecho que viene.
+  const totalDocs = syllabus.reduce((acc, block) =>
+    acc + block.subjects.reduce((sAcc, sub) => sAcc + (sub.docCount ?? 0), 0), 0
   );
 
   return (
@@ -328,7 +333,7 @@ export default function AdminContent() {
                 </h3>
                 <button 
                     onClick={load} 
-                    className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all active:scale-95" 
+                    className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all active:scale-95" 
                     title="Recargar datos"
                 >
                     <RefreshCw size={18} className={loading ? 'animate-spin' : ''}/>
@@ -414,7 +419,7 @@ export default function AdminContent() {
                                                 <div className="flex items-center gap-3 opacity-100 lg:opacity-40 lg:group-hover/subject:opacity-100 transition-all mr-4">
                                                     <button 
                                                         onClick={() => setSelectedSubject(subject)}
-                                                        className={`p-2.5 rounded-xl transition-all flex items-center gap-2 text-xs font-bold border ${
+                                                        className={`min-h-[44px] px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-xs font-bold border ${
                                                             isSelected 
                                                             ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
                                                             : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'
@@ -623,7 +628,13 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                             type="number" 
                             min="1" max="50"
                             value={count} 
-                            onChange={(e) => setCount(Number(e.target.value))} 
+                            onChange={(e) => {
+                                // `Number('')` es 0 y `Number('-')` es NaN. Ese NaN
+                                // llegaba al servidor y el tope lo convertia en 1:
+                                // pedias veinte preguntas y salia una (regla 16).
+                                const n = enteroEnRango(e.target.value, { min: 1, max: 50 });
+                                if (n !== null) setCount(n);
+                            }} 
                             className="bg-transparent text-white w-16 text-center font-black text-xl outline-none focus:text-indigo-400 transition-colors"
                         />
                     </div>
@@ -631,7 +642,7 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                     <button
                         type="button"
                         onClick={() => setAutoApprove(!autoApprove)}
-                        className="flex flex-col px-3 border-r border-slate-800 text-left group/toggle"
+                        className="min-h-[44px] justify-center flex flex-col px-3 border-r border-slate-800 text-left group/toggle"
                         title="Decide si las preguntas entran directas al banco o pasan por moderación"
                     >
                         <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Destino</span>

@@ -564,7 +564,14 @@ export default function ActiveTest({
     <div className="max-w-3xl mx-auto animate-in fade-in duration-300 relative pb-32">
 
       {/* ================= CABECERA ================= */}
-      <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 mb-6 sm:mb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
+      {/* Sin `-mx-4`: ese margen negativo compensaba el `px-4` del `<main>`
+          para que la cabecera llegara a los bordes, pero durante el examen el
+          armazon entra en modo zen y el `<main>` pasa a `p-0`. Sin padding que
+          compensar, la cabecera se quedaba 16px mas ancha que la pantalla POR
+          CADA LADO: el movil se desplazaba en horizontal y el enunciado bailaba
+          al arrastrar. Medido en el banco de pruebas: -16 a 406px en una
+          pantalla de 390. */}
+      <div className="sticky top-0 z-30 px-1 pt-4 pb-4 mb-6 sm:mb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
 
           {/* Antes era una sola fila con tres grupos (Abortar / tema+modo /
               reloj+contador) peleando por sitio: en un movil de 360px no
@@ -572,7 +579,7 @@ export default function ActiveTest({
               propia fila SOLO en movil (`w-full` fuerza el salto); en sm+
               vuelve a la fila unica de siempre. */}
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3 sm:gap-4 sm:mb-4">
-              <button onClick={onExit} className="text-[11px] font-black text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors order-1">
+              <button onClick={onExit} className="min-h-[44px] pr-2 text-[11px] font-black text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors order-1">
                   <ArrowLeft size={14}/> Abortar
               </button>
 
@@ -748,10 +755,12 @@ export default function ActiveTest({
               hacen nada son peores que no tenerlos. */}
           {currentQ.id && (
             <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
-              <button onClick={() => handleVote('up')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
-              <button onClick={() => handleVote('down')} className={`p-2 rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
-              <div className="w-px h-4 bg-slate-200 mx-1"></div>
-              <button onClick={() => setIsReportModalOpen(true)} className="p-2 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
+              {/* 44px: eran de 34 y son los tres botones mas pequeños que
+                  tiene el alumno delante mientras hace el examen. */}
+              <button aria-label="Buena pregunta" onClick={() => handleVote('up')} className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
+              <button aria-label="Mala pregunta" onClick={() => handleVote('down')} className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
+              <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
+              <button aria-label="Reportar la pregunta" onClick={() => setIsReportModalOpen(true)} className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
             </div>
           )}
 

@@ -49,3 +49,10 @@ firebase-debug.log
 # Cache de normas descargadas del BOE. Se regenera con `npm run temario:descargar`;
 # lo que se versiona es el temario compuesto (temario/md y temario/pdf).
 temario/fuentes/BOE-*.json
+
+# Banco de pruebas de la interfaz: bundle generado, CSS compilado y capturas.
+# Los guiones que lo levantan SI se versionan (ver docs/BANCO-DE-PRUEBAS.md).
+.banco-pruebas/app.js
+.banco-pruebas/estilos.css
+.banco-pruebas/entrada.css
+.banco-pruebas/tomas/

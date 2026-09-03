@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // El banco de pruebas de la interfaz: codigo generado y de un solo uso.
+    // Ver docs/BANCO-DE-PRUEBAS.md
+    ".banco-pruebas/**",
   ]),
 ]);
 
