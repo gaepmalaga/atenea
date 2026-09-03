@@ -37,9 +37,11 @@ import type { ExamSettings } from '@/app/lib/exam-session';
 
 interface ExamManagerProps {
   onZenToggle: (active: boolean) => void;
+  /** Llevar al modulo de repaso al terminar. Ver `ExamResults`. */
+  onRepasarFallos?: () => void;
 }
 
-export default function ExamManager({ onZenToggle }: ExamManagerProps) {
+export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManagerProps) {
   const [step, setStep] = useState<'config' | 'active' | 'results'>('config');
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando...");
@@ -278,7 +280,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
         />
       )}
 
-      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} />}
+      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} onRepasarFallos={onRepasarFallos} />}
     </div>
   );
 }

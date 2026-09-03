@@ -5,7 +5,7 @@ import {
   ChevronRight, CheckCircle2, XCircle, Brain,
   BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
   ThumbsUp, ThumbsDown, Flag, Send, Bookmark, Eraser,
-  Scale
+  Scale, LayoutGrid
 } from 'lucide-react';
 import { Modal, Button, TextAreaField } from '../../../ui';
 import { formatTime } from '@/app/lib/timer';
@@ -364,13 +364,20 @@ export default function ActiveTest({
    * Solo en el simulacro. En entrenamiento cada pregunta se corrige al momento,
    * asi que no hay nada que revisar al final.
    */
-  const [revisando, setRevisando] = useState(false);
+  /**
+   * `'final'` = se llego pulsando REVISAR en la ultima pregunta.
+   * `'mapa'`  = se abrio a proposito en mitad del examen, para saltar a otra.
+   *
+   * Son la misma pantalla y NO deben decir lo mismo: "Antes de entregar" en
+   * mitad del examen suena a que se acabo.
+   */
+  const [revisando, setRevisando] = useState<false | 'mapa' | 'final'>(false);
 
   const handleNext = useCallback(() => {
     if (currentIndex < localQuestions.length - 1) { irA(currentIndex + 1); return; }
     // Al final del simulacro se pasa por la revision; en entrenamiento se
     // entrega directamente.
-    if (navegacionLibre) { cerrarVisita(currentIndex); setRevisando(true); return; }
+    if (navegacionLibre) { cerrarVisita(currentIndex); setRevisando('final'); return; }
     handleFinish();
   }, [cerrarVisita, currentIndex, handleFinish, irA, localQuestions.length, navegacionLibre]);
 
@@ -471,7 +478,7 @@ export default function ActiveTest({
 
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6 sm:mb-8">
-            Antes de entregar
+            {revisando === 'mapa' ? 'Mapa del examen' : 'Antes de entregar'}
           </h2>
 
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-10">
@@ -590,13 +597,41 @@ export default function ActiveTest({
                       <button
                         onClick={alternarMarca}
                         title={estaMarcada ? 'Quitar la marca (M)' : 'Marcar para revisarla luego (M)'}
-                        className={`p-1.5 rounded-lg transition-colors ${
+                        aria-label={estaMarcada ? 'Quitar la marca de esta pregunta' : 'Marcar esta pregunta para revisarla luego'}
+                        aria-pressed={estaMarcada}
+                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors ${
                           estaMarcada
                             ? 'text-amber-500 bg-amber-500/10'
                             : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'
                         }`}
                       >
-                          <Bookmark size={15} fill={estaMarcada ? 'currentColor' : 'none'}/>
+                          <Bookmark size={18} fill={estaMarcada ? 'currentColor' : 'none'}/>
+                      </button>
+                  )}
+
+                  {/* EL MAPA DE PREGUNTAS.
+
+                      La barra de segmentos de la cabecera se podia pulsar para
+                      saltar de pregunta, y medida en el banco de pruebas tenia
+                      12px de alto. Con 20 preguntas cada segmento son ademas
+                      18px de ancho: no es un objetivo tactil pequeno, es uno
+                      IMPOSIBLE. Y en un simulacro con navegacion libre, volver
+                      a una pregunta marcada no es un extra, es la mitad de la
+                      tecnica de examen.
+
+                      La pantalla de resumen ya tenia la cuadricula buena, con
+                      un boton por pregunta y su numero — solo que solo se
+                      llegaba a ella desde la ULTIMA pregunta. Ahora se abre
+                      cuando se quiera, y los segmentos vuelven a ser lo unico
+                      que un trazo de 6px puede ser: un indicador. */}
+                  {navegacionLibre && (
+                      <button
+                        onClick={() => { cerrarVisita(currentIndex); setRevisando('mapa'); }}
+                        title="Ver el mapa de preguntas y saltar a cualquiera"
+                        aria-label="Ver el mapa de preguntas"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
+                      >
+                          <LayoutGrid size={18}/>
                       </button>
                   )}
 
@@ -706,20 +741,10 @@ export default function ActiveTest({
                     respondida ? '' : ' · en blanco'
                   }`;
 
-                  if (!navegacionLibre) {
-                      return <div key={i} className="flex-1" title={titulo}>{contenido}</div>;
-                  }
-
-                  return (
-                      <button
-                        key={i}
-                        onClick={() => irA(i)}
-                        title={titulo}
-                        className="flex-1 cursor-pointer group/seg"
-                      >
-                          {contenido}
-                      </button>
-                  );
+                  // Ya no es un boton: ver el comentario del boton MAPA de la
+                  // cabecera. Un trazo de 6px de alto no se puede pulsar, y
+                  // fingir que si es peor que no ofrecerlo.
+                  return <div key={i} className="flex-1" title={titulo}>{contenido}</div>;
               })}
           </div>
 

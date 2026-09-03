@@ -324,6 +324,7 @@ describe('el reloj y la revision del simulacro', () => {
 
   const activeTest = stripComments(read('app/components/student/modules/exams/ActiveTest.tsx'));
   const manager = stripComments(read('app/components/student/modules/exams/ExamManager.tsx'));
+  const results = stripComments(read('app/components/student/modules/exams/ExamResults.tsx'));
 
   it('el reloj se deriva, no se guarda en estado', () => {
     // Guardarlo obligaria a sincronizarlo con `ahora` en un efecto, que es de
@@ -350,8 +351,32 @@ describe('el reloj y la revision del simulacro', () => {
 
   it('el simulacro pasa por la revision antes de entregar', () => {
     // Entregar es irreversible y estaba a un clic del boton de avanzar.
-    expect(activeTest).toContain('setRevisando(true)');
+    expect(activeTest).toContain("setRevisando('final')");
     expect(activeTest).toContain('volverAlExamen');
+  });
+
+  it('el mapa de preguntas se puede abrir en mitad del simulacro', () => {
+    // La barra de segmentos de la cabecera se podia pulsar para saltar de
+    // pregunta y medía 12px de alto; con 20 preguntas, 18px de ancho cada una.
+    // No era un objetivo tactil pequeño, era uno imposible. La cuadricula
+    // buena —un boton por pregunta, con su numero— vivia en la pantalla de
+    // resumen y solo se llegaba a ella desde la ULTIMA pregunta.
+    expect(activeTest).toContain("setRevisando('mapa')");
+    // Y los segmentos dejan de fingir que se pueden pulsar.
+    expect(activeTest).not.toContain('flex-1 cursor-pointer group/seg');
+  });
+
+  it('la nota lleva al repaso de los fallos', () => {
+    // La pantalla terminaba en "Nueva operación" y nada mas: quien acababa de
+    // fallar cinco preguntas se iba con la nota sin ver ni una. El modulo de
+    // repaso existe desde P3 y era invisible justo donde sirve.
+    expect(results).toContain('onRepasarFallos');
+    // Solo si hay fallos, y solo si la academia no lo ha apagado (P4).
+    // El patron es el de la CONDICION DE PINTADO, no el del `variant` de
+    // debajo: con un `/wrong > 0 && onRepasarFallos/` a secas, quitar el
+    // `wrong > 0` del bloque dejaba el test en verde porque el `variant`
+    // seguia teniendolo. Comprobado rompiendolo.
+    expect(results).toMatch(/\{wrong > 0 && onRepasarFallos && \(/);
   });
 
   it('el reloj no corre en entrenamiento', () => {

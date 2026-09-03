@@ -2,18 +2,23 @@
 
 import { Question } from './ExamManager';
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
-import { XCircle, RotateCcw, Award, AlertTriangle } from 'lucide-react';
+import { XCircle, RotateCcw, Award, AlertTriangle, Target } from 'lucide-react';
 import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
 
 interface ExamResultsProps {
   questions: Question[];
   onRetry: () => void;
+  /**
+   * Ir al modulo de repaso de fallos. Opcional: la academia puede tenerlo
+   * apagado (P4), y entonces no se ofrece un camino que no existe.
+   */
+  onRepasarFallos?: () => void;
 }
 
 /** Dos decimales y coma, como lo publica un tribunal. */
 const nota = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
+export default function ExamResults({ questions, onRetry, onRepasarFallos }: ExamResultsProps) {
   // La nota de la convocatoria, no `aciertos / total`. Ver app/lib/scoring.ts:
   // la de antes mentia hacia arriba y ademas enseñaba a contestar a todo.
   const { correct, wrong, blank, net, score, rawPercentage, passed } = scoreExam(questions);
@@ -85,9 +90,31 @@ export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
           )}
         </Card>
 
-        <Button block size="lg" onClick={onRetry} icon={<RotateCcw size={18} />}>
-          Nueva operación
-        </Button>
+        {/* DESPUES DE UN EXAMEN, LO QUE TOCA ES MIRAR LOS FALLOS.
+            La pantalla terminaba en "Nueva operación" y nada mas: un alumno
+            que acaba de fallar cinco preguntas se iba con la nota y sin ver
+            NI UNA de las que fallo. El modulo de repaso existe desde P3 y era
+            invisible justo en el momento en el que sirve para algo. Va
+            primero, y "Nueva operación" pasa a secundario: repetir el test
+            antes de mirar el error es repetir el error.
+            Solo si hay fallos que repasar, y solo si la academia tiene el
+            modulo encendido. */}
+        <div className="space-y-2">
+          {wrong > 0 && onRepasarFallos && (
+            <Button block size="lg" onClick={onRepasarFallos} icon={<Target size={18} />}>
+              Repasar {wrong === 1 ? 'el fallo' : `los ${wrong} fallos`}
+            </Button>
+          )}
+          <Button
+            block
+            size="lg"
+            variant={wrong > 0 && onRepasarFallos ? 'secondary' : 'primary'}
+            onClick={onRetry}
+            icon={<RotateCcw size={18} />}
+          >
+            Nueva operación
+          </Button>
+        </div>
       </Card>
     </div>
   );

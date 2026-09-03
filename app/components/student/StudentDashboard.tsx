@@ -264,7 +264,10 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
             {activeTab === 'test' && (
                 <ModuleErrorBoundary moduleName="Operaciones">
-                    <ExamManager onZenToggle={setZenMode} />
+                    <ExamManager
+                        onZenToggle={setZenMode}
+                        onRepasarFallos={modules.review ? () => irAPestana('review') : undefined}
+                    />
                 </ModuleErrorBoundary>
             )}
 
