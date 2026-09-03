@@ -22,6 +22,20 @@ interface ActiveTestProps {
   onFinish: (qs: Question[]) => void;
   onExit: () => void;
   /**
+   * Sube cada cambio de las respuestas al padre, que es quien lo persiste.
+   *
+   * Sin esto, `ActiveTest` se guardaba las respuestas para si y lo que el
+   * seguro escribia en disco era el examen EN BLANCO: al reanudar aparecian
+   * todas las preguntas sin contestar.
+   */
+  onProgress?: (qs: Question[]) => void;
+  /**
+   * Cuando empezo el examen. Al reanudar uno a medias llega el original, no
+   * el momento de volver: si no, el cronometro del simulacro arrancaria de
+   * cero y regalaria el tiempo ya consumido.
+   */
+  startedAt?: number;
+  /**
    * Duracion del simulacro. 0 o ausente = sin limite.
    *
    * En entrenamiento nunca hay reloj: correr no aporta nada cuando la pregunta
@@ -41,7 +55,7 @@ const REPORT_TYPES = [
 ];
 
 export default function ActiveTest({
-  questions, mode, topicName, onFinish, onExit, durationSeconds = 0,
+  questions, mode, topicName, onFinish, onExit, onProgress, startedAt, durationSeconds = 0,
 }: ActiveTestProps) {
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -102,7 +116,9 @@ export default function ActiveTest({
   // El tiempo se deriva de marcas de reloj; el intervalo solo decide cada
   // cuanto se repinta. Contar +1 por tick se desfasa con la pestania en
   // segundo plano y con el ahorro de bateria (regla 14).
-  const testStartRef = useRef<number>(Date.now());
+  // `useRef` con valor inicial se evalua UNA vez: al reanudar toma el arranque
+  // original y el tiempo consumido sigue contando.
+  const testStartRef = useRef<number>(startedAt && startedAt > 0 ? startedAt : Date.now());
   const [ahora, setAhora] = useState<number>(Date.now());
 
   useEffect(() => {
@@ -138,6 +154,18 @@ export default function ActiveTest({
    */
   const navegacionLibre = mode === 'exam';
 
+  /**
+   * El unico camino por el que cambian las respuestas.
+   *
+   * Ademas de actualizar el estado, avisa al padre para que lo escriba en el
+   * seguro. Centralizarlo evita que un cuarto sitio que cambie respuestas se
+   * olvide de persistirlas.
+   */
+  const aplicarRespuestas = useCallback((siguiente: Question[]) => {
+    setLocalQuestions(siguiente);
+    onProgress?.(siguiente);
+  }, [onProgress]);
+
   const currentQ = localQuestions[currentIndex];
   const isAnswered = !!currentQ.userAnswer;
   const isCorrect = currentQ.userAnswer === currentQ.correctOptionId;
@@ -163,7 +191,7 @@ export default function ActiveTest({
     const updated = localQuestions.map((q, i) =>
         i === currentIndex ? { ...q, userAnswer: optionId } : q
     );
-    setLocalQuestions(updated);
+    aplicarRespuestas(updated);
 
     if (mode === 'practice') {
         const correct = optionId === currentQ.correctOptionId;
@@ -182,12 +210,12 @@ export default function ActiveTest({
         const saved = await savePromiseRef.current;
         resultIdRef.current = saved.id;
     }
-  }, [currentIndex, currentQ, isAnswered, localQuestions, metricasDe, mode, tiempoActual, topicName]);
+  }, [aplicarRespuestas, currentIndex, currentQ, isAnswered, localQuestions, metricasDe, mode, tiempoActual, topicName]);
 
   // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
       if (errorTagged) return;
-      setLocalQuestions(prev => prev.map((q, i) =>
+      aplicarRespuestas(localQuestions.map((q, i) =>
           i === currentIndex ? { ...q, errorType: type } : q
       ));
       setErrorTagged(true);
@@ -294,10 +322,10 @@ export default function ActiveTest({
    */
   const dejarEnBlanco = useCallback(() => {
     if (mode !== 'exam') return;
-    setLocalQuestions((prev) =>
-      prev.map((q, i) => (i === currentIndex ? { ...q, userAnswer: null } : q))
+    aplicarRespuestas(
+      localQuestions.map((q, i) => (i === currentIndex ? { ...q, userAnswer: null } : q))
     );
-  }, [currentIndex, mode]);
+  }, [aplicarRespuestas, currentIndex, localQuestions, mode]);
 
   /** Marca o desmarca la pregunta actual para revisarla luego. */
   const alternarMarca = useCallback(() => {

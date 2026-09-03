@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Shield, LogOut, RefreshCw, Users, Book,
   Activity, AlertTriangle, Database, Power, GraduationCap
@@ -28,6 +28,13 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   
   // Truco para forzar recarga de componentes hijos sin recargar la página entera
   const [refreshKey, setRefreshKey] = useState(0); 
+
+  // Al cambiar de seccion, arriba del todo. Mismo motivo que en el alumno: el
+  // panel es UNA sola ruta con pestañas, asi que sin esto entras en la seccion
+  // nueva por donde te quedaste en la anterior.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [activeTab]);
 
   const forceRefresh = () => {
     setRefreshKey(prev => prev + 1);

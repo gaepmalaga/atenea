@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Shield, Crown, Medal, Target, Activity, RefreshCw, HeartPulse, Brain, AlertTriangle, Zap, MousePointer2, Gauge
+  Shield, Crown, Medal, Activity, RefreshCw, HeartPulse, Brain, Zap, MousePointer2, Gauge
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getUserStats, getPhysicalProfile } from '@/actions';

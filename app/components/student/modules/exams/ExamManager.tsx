@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { generateAndSaveCandidate, saveExamResults, getQuestionsFromBank } from '@/actions';
 import { buildExamResults } from '@/app/lib/exam-results';
 import {
@@ -10,24 +10,30 @@ import {
   mapBankRowToQuestion,
   mapCandidateToQuestion,
 } from '@/app/lib/questions';
-import { Loader2 } from 'lucide-react';
+import {
+  leerExamenGuardado,
+  serializarExamen,
+  contestadasDe,
+  EXAM_STORAGE_KEY,
+  type ExamSnapshot,
+} from '@/app/lib/exam-session';
+import { Loader2, RotateCcw, Trash2, Clock } from 'lucide-react';
 
 import ExamConfig from './ExamConfig';
 import ActiveTest from './ActiveTest';
 import { examDurationSeconds } from '@/app/lib/scoring';
 import ExamResults from './ExamResults';
+import { Card, Button, cx, TEXT } from '../../../ui';
 
 // Los tipos y el mapeo DB/IA -> UI viven en app/lib/questions.ts (modulo puro
 // y cubierto por tests). Se reexporta Question porque otros modulos lo importan
 // desde aqui.
 export type { Question } from '@/app/lib/questions';
+// `ExamSettings` vive ahora en `lib/exam-session.ts`, junto a lo que lo
+// persiste: un modulo de `lib/` no puede importar tipos de un componente.
+export type { ExamSettings } from '@/app/lib/exam-session';
 
-export type ExamSettings = {
-  mode: 'practice' | 'exam';
-  questionCount: number;
-  difficulty: 'easy' | 'medium' | 'hard';
-  selectedTopics: string[];
-};
+import type { ExamSettings } from '@/app/lib/exam-session';
 
 interface ExamManagerProps {
   onZenToggle: (active: boolean) => void;
@@ -36,7 +42,7 @@ interface ExamManagerProps {
 export default function ExamManager({ onZenToggle }: ExamManagerProps) {
   const [step, setStep] = useState<'config' | 'active' | 'results'>('config');
   const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState("Iniciando..."); 
+  const [loadingMsg, setLoadingMsg] = useState("Iniciando...");
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [settings, setSettings] = useState<ExamSettings>({
     mode: 'practice',
@@ -44,6 +50,49 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
     difficulty: 'medium',
     selectedTopics: []
   });
+  /**
+   * Cuando empezo el examen que se esta haciendo.
+   *
+   * Es lo que hace honesto el reloj al reanudar: si `ActiveTest` volviera a
+   * `Date.now()` al montarse, volver a un simulacro daria los 50 minutos otra
+   * vez.
+   */
+  const [startedAt, setStartedAt] = useState<number>(0);
+
+  /** Un examen a medias encontrado al abrir la pantalla. */
+  const [recuperable, setRecuperable] = useState<ExamSnapshot | null>(null);
+
+  // --- EL SEGURO ---
+  // Busca un examen a medias al entrar. Va en un efecto porque `localStorage`
+  // no existe en el servidor.
+  useEffect(() => {
+    try {
+      const snap = leerExamenGuardado(window.localStorage.getItem(EXAM_STORAGE_KEY), Date.now());
+      if (snap) setRecuperable(snap);
+    } catch {
+      // Modo incognito, almacenamiento lleno o bloqueado por el navegador. No
+      // poder recuperar no puede impedir empezar un examen nuevo.
+    }
+  }, []);
+
+  const olvidarGuardado = useCallback(() => {
+    try {
+      window.localStorage.removeItem(EXAM_STORAGE_KEY);
+    } catch { /* ver arriba */ }
+  }, []);
+
+  // Se guarda en CADA cambio de las preguntas, que es donde viven las
+  // respuestas. Antes, en simulacro, no se escribia nada hasta entregar: una
+  // recarga o que el movil descartara la pestaña se llevaba el examen entero.
+  useEffect(() => {
+    if (step !== 'active' || questions.length === 0) return;
+    try {
+      window.localStorage.setItem(
+        EXAM_STORAGE_KEY,
+        serializarExamen(questions, settings, startedAt, Date.now()),
+      );
+    } catch { /* ver arriba */ }
+  }, [step, questions, settings, startedAt]);
 
   const handleStart = async (newSettings: ExamSettings) => {
     setSettings(newSettings);
@@ -107,7 +156,9 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
 
       if (loadedQuestions.length === 0) throw new Error("No se pudieron obtener preguntas.");
 
+      setRecuperable(null);
       setQuestions(loadedQuestions);
+      setStartedAt(Date.now());
       setStep('active');
       onZenToggle(true);
 
@@ -118,10 +169,29 @@ export default function ExamManager({ onZenToggle }: ExamManagerProps) {
     }
   };
 
+  /** Vuelve al examen que se quedó a medias. */
+  const reanudar = () => {
+    if (!recuperable) return;
+    setQuestions(recuperable.questions);
+    setSettings(recuperable.settings);
+    setStartedAt(recuperable.startedAt);
+    setRecuperable(null);
+    setStep('active');
+    onZenToggle(true);
+  };
+
+  const descartarGuardado = () => {
+    olvidarGuardado();
+    setRecuperable(null);
+  };
+
 const handleFinish = async (finalQuestions: ExamQuestion[]) => {
     setQuestions(finalQuestions);
     setStep('results');
     onZenToggle(false);
+    // Entregado: ya no hay nada que reanudar. Dejarlo puesto haría que la
+    // próxima vez le ofreciera volver a un examen terminado.
+    olvidarGuardado();
 
     // En modo entrenamiento cada respuesta ya se guardo al contestarla.
     if (settings.mode === 'exam') {
@@ -138,6 +208,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
     setStep('config');
     setQuestions([]);
     onZenToggle(false);
+    olvidarGuardado();
   };
 
   if (loading) {
@@ -152,8 +223,36 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {step === 'config' && <ExamConfig initialSettings={settings} onStart={handleStart} />}
-      
+      {step === 'config' && (
+        <>
+          {/* EL EXAMEN QUE SE QUEDÓ A MEDIAS.
+              No se reanuda solo: en un simulacro el reloj ha seguido corriendo
+              mientras no estabas, así que meterte de vuelta sin avisar podría
+              dejarte dentro de un examen ya vencido. Se dice lo que hay y se
+              elige. */}
+          {recuperable && (
+            <Card tone="sunken" className="mb-4 sm:mb-6 border-amber-300 dark:border-amber-500/30">
+              <p className={cx(TEXT.label, 'text-amber-600 dark:text-amber-400 flex items-center gap-2 mb-2')}>
+                <Clock size={14} /> Tienes un examen a medias
+              </p>
+              <p className={cx(TEXT.muted, 'mb-4')}>
+                {recuperable.settings.mode === 'exam' ? 'Simulacro' : 'Entrenamiento'} de{' '}
+                {recuperable.questions.length} preguntas, con {contestadasDe(recuperable)} contestadas.
+                {recuperable.settings.mode === 'exam' && ' El reloj ha seguido corriendo.'}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button onClick={reanudar} icon={<RotateCcw size={16} />}>Reanudarlo</Button>
+                <Button variant="ghost" onClick={descartarGuardado} icon={<Trash2 size={16} />}>
+                  Descartarlo y empezar de cero
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          <ExamConfig initialSettings={settings} onStart={handleStart} />
+        </>
+      )}
+
       {step === 'active' && (
         <ActiveTest
           questions={questions}
@@ -161,6 +260,11 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
           topicName={settings.selectedTopics[0]}
           onFinish={handleFinish}
           onExit={handleExit}
+          // Cada respuesta sube al padre para que el seguro la escriba: sin
+          // esto, `ActiveTest` se guardaba las respuestas para sí y lo
+          // persistido era el examen en blanco.
+          onProgress={setQuestions}
+          startedAt={startedAt}
           // El reloj corre SOLO en el simulacro, y la duración es la de la
           // convocatoria escalada a las preguntas de este test: 30 s cada una,
           // que salen de las 100 preguntas en 50 minutos del BOE. En

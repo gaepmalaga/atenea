@@ -14,6 +14,9 @@ import { Modal, Button } from '../../../ui';
 
 interface IntelChatProps { user: AuthUser; }
 
+/** Donde vive la conversacion mientras dura la sesion del navegador. */
+const CLAVE_CONVERSACION = 'atenea:chat-en-curso';
+
 type Message = {
   role: 'ai' | 'user';
   content: string;
@@ -36,7 +39,8 @@ export default function IntelChat({ user }: IntelChatProps) {
   ]);
   const [loading, setLoading] = useState(false);
   const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string; reference?: string | null } | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  /** El contenedor que hace scroll. NO la ventana: ver el efecto de abajo. */
+  const listaRef = useRef<HTMLDivElement>(null);
 
   /**
    * El tema sobre el que se pregunta. Vacío = todo el temario.
@@ -58,9 +62,54 @@ export default function IntelChat({ user }: IntelChatProps) {
     return () => { vivo = false; };
   }, []);
 
-  useEffect(() => { 
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  /**
+   * Bajar al ultimo mensaje, SOLO dentro de la conversacion.
+   *
+   * Antes era `scrollRef.current?.scrollIntoView(...)`, y `scrollIntoView`
+   * desplaza TODOS los contenedores con scroll que tenga por encima, la
+   * ventana incluida. Efecto real: al entrar en el chat, o al recibir una
+   * respuesta, la pagina entera se iba al fondo — parte del "siempre me lleva
+   * al final de la pagina". Moviendo `scrollTop` del contenedor, la ventana no
+   * se entera.
+   */
+  useEffect(() => {
+    const lista = listaRef.current;
+    if (!lista) return;
+    lista.scrollTo({ top: lista.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
+
+  /**
+   * La conversacion sobrevive a cambiar de pestaña.
+   *
+   * `StudentDashboard` monta cada modulo con `{activeTab === 'chat' && ...}`,
+   * asi que salir del chat DESMONTA el componente y se llevaba la conversacion
+   * entera: preguntabas algo, ibas a mirar el temario, volvias y no habia
+   * nada. `sessionStorage` y no `localStorage`: es una conversacion de trabajo,
+   * no un historial que deba quedarse en el movil para siempre.
+   */
+  useEffect(() => {
+    try {
+      const guardado = window.sessionStorage.getItem(CLAVE_CONVERSACION);
+      if (!guardado) return;
+      const datos: unknown = JSON.parse(guardado);
+      if (!Array.isArray(datos) || datos.length === 0) return;
+      setMessages(
+        datos
+          .filter((m): m is Message & { timestamp: string } =>
+            typeof m === 'object' && m !== null && 'role' in m && 'content' in m)
+          .map((m) => ({ ...m, timestamp: new Date(m.timestamp) })),
+      );
+    } catch {
+      // JSON corrupto o almacenamiento bloqueado: se sigue con el saludo. No
+      // poder recuperar la conversacion no puede impedir usar el chat.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(CLAVE_CONVERSACION, JSON.stringify(messages));
+    } catch { /* ver arriba */ }
+  }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +180,7 @@ export default function IntelChat({ user }: IntelChatProps) {
         limitada a `max-w-[85%]` y el avatar restando otros 48px, ese
         relleno se comia la mayor parte del ancho util para el texto.
       */}
-      <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-10 py-6 sm:py-10 space-y-6 sm:space-y-10 scrollbar-hide border-x border-slate-800 bg-white dark:bg-slate-950">
+      <div ref={listaRef} className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-10 py-6 sm:py-10 space-y-6 sm:space-y-10 scrollbar-hide border-x border-slate-800 bg-white dark:bg-slate-950">
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-3 sm:gap-6 animate-in fade-in slide-in-from-bottom-5 duration-500 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
 
@@ -215,7 +264,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 </div>
             </div>
         )}
-        <div ref={scrollRef} />
+
       </div>
 
       {/* INPUT */}

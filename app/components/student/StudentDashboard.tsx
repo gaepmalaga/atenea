@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   LayoutGrid, MessageSquareText, Crosshair, Zap, 
   Fingerprint, BarChart2, Dumbbell, Target 
@@ -86,6 +86,111 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     }
   }, []);
 
+  /**
+   * Al cambiar de pantalla, arriba del todo.
+   *
+   * ESTE ERA EL "SIEMPRE ME LLEVA AL FINAL DE LA PAGINA".
+   * La aplicacion es UNA sola ruta con pestañas: al cambiar de pestaña no hay
+   * navegacion del navegador, asi que la posicion del scroll se queda donde
+   * estaba. Y como la barra de pestañas vive ABAJO, cuando pulsas una llevas
+   * por definicion la pagina bajada: entrabas en la pantalla nueva por el
+   * final. Si ademas era mas corta que la anterior, el navegador te dejaba
+   * pegado a su ultimo pixel.
+   *
+   * Sin `behavior: 'smooth'` a proposito: cambiar de seccion tiene que ser
+   * instantaneo, y una animacion de scroll aqui se siente como un tiron.
+   */
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [activeTab]);
+
+  /**
+   * El boton ATRAS del movil.
+   *
+   * Siendo una sola ruta, Atras SALIA DE LA APLICACION. En Android es el gesto
+   * que mas se usa: el alumno lo pulsaba esperando volver del test al menu y
+   * se encontraba fuera, con el examen perdido. Ahora cada pestaña deja su
+   * entrada en el historial y Atras vuelve a la anterior.
+   *
+   * `zenModeRef` y no `zenMode`: el manejador se registra una vez, y leer el
+   * estado desde el cierre daria siempre el valor del primer render (regla 13).
+   */
+  const zenModeRef = useRef(zenMode);
+  const activeTabRef = useRef<TabId>(activeTab);
+  // Se sincronizan en un efecto, no durante el render: escribir en un ref
+  // mientras se renderiza es un efecto colateral encubierto.
+  useEffect(() => {
+    zenModeRef.current = zenMode;
+    activeTabRef.current = activeTab;
+  });
+
+  useEffect(() => {
+    // La pestaña de entrada no añade entrada nueva: si lo hiciera, harian falta
+    // dos Atras para salir de la aplicacion desde el inicio.
+    window.history.replaceState({ atenea: 'home' }, '');
+
+    const alVolver = (e: PopStateEvent) => {
+      const destino = (e.state as { atenea?: string } | null)?.atenea;
+
+      // Con un examen abierto, Atras no se lo lleva por delante sin preguntar.
+      // El examen queda guardado y es reanudable, pero perder el sitio de golpe
+      // en mitad de un simulacro cronometrado es lo bastante caro como para
+      // confirmarlo.
+      if (zenModeRef.current) {
+        window.history.pushState({ atenea: 'test' }, '');
+        const salir = window.confirm(
+          'Tienes un examen en curso.\n\n¿Salir? Se guarda y podrás reanudarlo desde donde lo dejaste.',
+        );
+        if (salir) {
+          setZenMode(false);
+          setActiveTab('test');
+        }
+        return;
+      }
+
+      if (destino) setActiveTab(destino as TabId);
+    };
+
+    window.addEventListener('popstate', alVolver);
+    return () => window.removeEventListener('popstate', alVolver);
+  }, []);
+
+  /**
+   * Cambiar de pestaña, dejando huella en el historial.
+   *
+   * Todo lo que navega pasa por aqui: la barra lateral, la barra de abajo y los
+   * accesos del centro de mando. Si alguno llamara a `setActiveTab` a secas, esa
+   * pestaña no existiria para el boton Atras.
+   */
+  const irAPestana = useCallback((id: TabId) => {
+    // El `pushState` va FUERA del actualizador de `setActiveTab`: el
+    // actualizador tiene que ser puro, y en StrictMode se ejecuta dos veces
+    // (regla 14). Metido dentro, cada cambio de pestaña dejaba DOS entradas en
+    // el historial y hacían falta dos Atrás para volver una.
+    if (activeTabRef.current === id) return;
+    window.history.pushState({ atenea: id }, '');
+    setActiveTab(id);
+  }, []);
+
+  /**
+   * Cerrar la pestaña del navegador con un examen abierto.
+   *
+   * El examen ya se guarda solo, pero el aviso del navegador es la unica forma
+   * de que el alumno sepa que se esta yendo de uno: sin el, cerrar sin querer
+   * parece que no ha pasado nada hasta que vuelve y no encuentra el test.
+   */
+  useEffect(() => {
+    if (!zenMode) return;
+    const alCerrar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Los navegadores modernos ignoran el texto y enseñan el suyo, pero
+      // `returnValue` sigue siendo lo que dispara el aviso.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', alCerrar);
+    return () => window.removeEventListener('beforeunload', alCerrar);
+  }, [zenMode]);
+
   return (
     <div className={`relative min-h-screen flex bg-slate-50 dark:bg-slate-950 transition-colors duration-500 font-sans text-slate-900 dark:text-slate-100 ${zenMode ? 'zen-active' : ''}`}>
       
@@ -100,7 +205,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       {/* 2. BARRA LATERAL (SIDEBAR) */}
       <Sidebar 
         activeTab={activeTab} 
-        onTabChange={(id) => setActiveTab(id as TabId)} 
+        onTabChange={(id) => irAPestana(id as TabId)} 
         onLogout={onLogout}
         items={navItems}
         hidden={zenMode}
@@ -147,7 +252,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                 el dashboard entero en blanco (pasaba con 'home' y 'stats'). */}
             {activeTab === 'home' && (
                 <ModuleErrorBoundary moduleName="El centro de mando">
-                    <DashboardHome user={user} onNavigate={setActiveTab} />
+                    <DashboardHome user={user} onNavigate={irAPestana} />
                 </ModuleErrorBoundary>
             )}
 
@@ -221,7 +326,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       {!zenMode && (
         <MobileNav 
             activeTab={activeTab} 
-            onTabChange={(id) => setActiveTab(id as TabId)} 
+            onTabChange={(id) => irAPestana(id as TabId)} 
             onLogout={onLogout}
             items={navItems}
         />
