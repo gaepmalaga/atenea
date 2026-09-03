@@ -17,7 +17,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { descargarMetadatos, descargarTexto, parsearTexto } from './boe.mjs';
+import { descargarMetadatos, descargarTexto, parsearTexto, numeroDeArticulo } from './boe.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MANIFIESTO = join(RAIZ, 'temario', 'temario.json');
@@ -50,9 +50,18 @@ async function estaAlDia(id, fechaRemota) {
 }
 
 async function main() {
-  const soloTema = process.argv[2] ? Number(process.argv[2]) : null;
+  const argumentos = process.argv.slice(2);
+
+  // Se admiten identificadores sueltos ademas del numero de tema: al asignar las
+  // fuentes de un tema hay que mirar la norma ANTES de saber que tramo entra, y
+  // el manifiesto todavia no la nombra.
+  const idsSueltos = argumentos.filter((a) => a.startsWith('BOE-'));
+  const soloTema = argumentos.find((a) => /^\d+$/.test(a));
+
   const manifiesto = JSON.parse(await readFile(MANIFIESTO, 'utf8'));
-  const ids = normasNecesarias(manifiesto, soloTema);
+  const ids = idsSueltos.length > 0
+    ? idsSueltos
+    : normasNecesarias(manifiesto, soloTema ? Number(soloTema) : null);
 
   if (ids.length === 0) {
     console.log('El manifiesto todavia no asigna ninguna fuente. Nada que descargar.');
@@ -87,7 +96,7 @@ async function main() {
       'utf8'
     );
 
-    const articulos = bloques.filter((b) => /^a\d+$/.test(b.id)).length;
+    const articulos = bloques.filter((b) => numeroDeArticulo(b) !== null).length;
     console.log(`+ ${id}: ${bloques.length} bloques (${articulos} articulos) - ${titulo.slice(0, 60)}`);
     // Una reforma que aun no ha entrado en vigor no es lo que se pregunta hoy,
     // pero conviene saber que existe: el temario se quedara corto en esa fecha.

@@ -26,6 +26,17 @@
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { numeroDeArticulo } from './boe.mjs';
+import { MAX_CHARS_DOCUMENTOS } from '../../app/lib/chat.ts';
+
+/**
+ * Lo que cabe en un documento. El tope no se elige aqui: es el mismo que usa el
+ * chat para decidir si manda un documento ENTERO al modelo (regla 33). Un tema
+ * que lo pase viaja troceado, que es justo lo que este temario quiere evitar.
+ *
+ * Se deja margen para la cabecera de fuentes, que se repite en cada parte.
+ */
+const MAX_CHARS_DOCUMENTO = MAX_CHARS_DOCUMENTOS - 10_000;
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,6 +54,28 @@ const SALIDA = join(RAIZ, 'temario', 'md');
  */
 const CLASES_FUERA = new Set(['nota_pie', 'nota_pie_2', 'firma_rey', 'firma_ministro']);
 
+/**
+ * Un articulo derogado, en el texto consolidado, es el rotulo y la palabra
+ * "(Derogado)". Fuera del documento: en la LOFCS son once seguidos --el
+ * Capitulo IV entero, que la LO 9/2015 se llevo-- y dejarlos dentro le da al
+ * generador once articulos vacios de los que sacar preguntas, ademas de once
+ * fragmentos indexados que no dicen nada.
+ *
+ * Que el programa siga pidiendo esa materia (el tema 9 pide "representacion
+ * colectiva" y "Consejo de Policia") no significa que siga en esta ley: esta en
+ * la que la derogo, y ahi hay que ir a buscarla.
+ *
+ * "(Suprimido)" cuenta igual: es como el BOE marca un organo que ya no existe,
+ * y asi sale el articulo 13 del Real Decreto 207/2024 tras la reorganizacion de
+ * abril de 2026.
+ */
+function estaDerogado(bloque) {
+  const cuerpo = bloque.parrafos
+    .filter((p) => !CLASES_FUERA.has(p.clase) && p.clase !== 'articulo')
+    .map((p) => p.texto.trim());
+  return cuerpo.length > 0 && cuerpo.every((t) => /^\((?:Derogad|Suprimid)[oa]\.?\)$/i.test(t));
+}
+
 function resolverAmbito(bloques, ambito) {
   if (ambito.tipo === 'completo') return bloques;
 
@@ -54,12 +87,20 @@ function resolverAmbito(bloques, ambito) {
     return encontrados;
   }
 
-  // `articulos` es azucar sobre `rango`: los ids de articulo son `aN`.
-  const desde = ambito.tipo === 'articulos' ? `a${ambito.desde}` : ambito.desde;
-  const hasta = ambito.tipo === 'articulos' ? `a${ambito.hasta}` : ambito.hasta;
+  // `articulos` se resuelve por el NUMERO leido del rotulo, no por el
+  // identificador: el Codigo Civil usa `art2` y la LOFCS `aprimero`, asi que
+  // componer `a${n}` acertaria solo en la Constitucion. Ver `numeroDeArticulo`.
+  const primero = (n) => bloques.findIndex((b) => numeroDeArticulo(b) === n);
+  // El FINAL se busca por el ultimo bloque con ese numero, no por el primero.
+  // El Codigo Penal numera "156", "156 bis"... "156 quinquies", y los tres leen
+  // 156: cerrando en el primero, el tramo de las lesiones se dejaba fuera
+  // cinco articulos que el programa si pide.
+  const ultimo = (n) => bloques.findLastIndex((b) => numeroDeArticulo(b) === n);
 
-  const i = bloques.findIndex((b) => b.id === desde);
-  const j = bloques.findIndex((b) => b.id === hasta);
+  const i = ambito.tipo === 'articulos' ? primero(ambito.desde) : bloques.findIndex((b) => b.id === ambito.desde);
+  const j = ambito.tipo === 'articulos' ? ultimo(ambito.hasta) : bloques.findIndex((b) => b.id === ambito.hasta);
+  const desde = ambito.tipo === 'articulos' ? `articulo ${ambito.desde}` : ambito.desde;
+  const hasta = ambito.tipo === 'articulos' ? `articulo ${ambito.hasta}` : ambito.hasta;
   if (i === -1) throw new Error(`no existe el bloque inicial "${desde}"`);
   if (j === -1) throw new Error(`no existe el bloque final "${hasta}"`);
   if (j < i) throw new Error(`"${desde}" va despues de "${hasta}" en la norma`);
@@ -67,7 +108,13 @@ function resolverAmbito(bloques, ambito) {
   // El tramo va ENTERO, encabezados incluidos: los TITULO/CAPITULO/SECCION que
   // caen dentro son la estructura del texto, y sin ellos el alumno lee
   // articulos sueltos sin saber de que parte de la ley salen.
-  return bloques.slice(i, j + 1);
+  // Si el tramo empieza en un articulo, se recupera el encabezado que lo abre
+  // ("TITULO III · De las infracciones"): sin el, el alumno lee articulos
+  // sueltos sin saber de que parte de la ley salen.
+  let inicio = i;
+  while (inicio > 0 && bloques[inicio - 1].tipo === 'encabezado') inicio--;
+
+  return bloques.slice(inicio, j + 1);
 }
 
 /**
@@ -97,11 +144,47 @@ function formatearFecha(aaaammdd) {
   return `${aaaammdd.slice(6, 8)}/${aaaammdd.slice(4, 6)}/${aaaammdd.slice(0, 4)}`;
 }
 
-async function componer(tema, hoy) {
-  if (!tema.fuentes?.length) return null;
-
+/**
+ * Reparte las fuentes de un tema en uno o varios documentos.
+ *
+ * Un tema como el 8 --la Orden de estructura de la DGP, cuatro tramos de la Ley
+ * de Regimen de Personal y el regimen disciplinario entero-- son 225.000
+ * caracteres. Partirlo NO es una concesion: es lo que pidio el encargo ("uno o
+ * varios PDF por tema") y es lo unico que mantiene cada documento por debajo
+ * del tope con el que el chat lo manda entero.
+ *
+ * Se parte SIEMPRE por fuente, nunca a mitad de una norma: cortar una ley por
+ * el caracter 140.000 deja media parte sin saber de que ley es.
+ */
+function repartir(secciones) {
   const partes = [];
-  const cabeceraFuentes = [];
+  let actual = [];
+  let largo = 0;
+
+  for (const seccion of secciones) {
+    // Una sola fuente que ya no cabe no se puede repartir sin cortar una norma
+    // por la mitad. Se avisa en vez de sacar un documento grande en silencio:
+    // lo que toca es partir esa fuente en dos tramos en el manifiesto, por un
+    // limite que signifique algo (un titulo, un libro).
+    if (seccion.texto.length > MAX_CHARS_DOCUMENTO) {
+      console.log(`  AVISO: "${seccion.texto.split('\n')[0]}" ocupa ${seccion.texto.length.toLocaleString('es-ES')} caracteres el solo. Partela en el manifiesto.`);
+    }
+    if (actual.length > 0 && largo + seccion.texto.length > MAX_CHARS_DOCUMENTO) {
+      partes.push(actual);
+      actual = [];
+      largo = 0;
+    }
+    actual.push(seccion);
+    largo += seccion.texto.length;
+  }
+  if (actual.length) partes.push(actual);
+  return partes;
+}
+
+async function componer(tema, hoy) {
+  if (!tema.fuentes?.length) return [];
+
+  const secciones = [];
 
   for (const fuente of tema.fuentes) {
     let norma;
@@ -119,37 +202,49 @@ async function componer(tema, hoy) {
     }
     if (seleccion.length === 0) throw new Error(`tema ${tema.numero}: el ambito de ${fuente.boe_id} no selecciona nada`);
 
+    const derogados = seleccion.filter(estaDerogado);
+    seleccion = seleccion.filter((b) => !estaDerogado(b));
+    if (derogados.length) {
+      console.log(`  tema ${tema.numero}: ${derogados.length} preceptos derogados fuera (${derogados.slice(0, 4).map((d) => d.titulo).join(', ')}${derogados.length > 4 ? '...' : ''})`);
+    }
+
     const cambiados = reformados(seleccion, norma.id);
-    cabeceraFuentes.push(
-      [
-        `${fuente.nombre ?? norma.titulo} (${fuente.boe_id})`,
+    const nombre = fuente.nombre ?? norma.titulo;
+
+    secciones.push({
+      cita: [
+        `${nombre} (${fuente.boe_id})`,
         `  Texto consolidado del BOE, actualizado a ${formatearFecha(norma.fecha_actualizacion?.slice(0, 8))}.`,
         `  https://www.boe.es/buscar/act.php?id=${fuente.boe_id}`,
         fuente.nota ? `  Alcance en este tema: ${fuente.nota}` : null,
         cambiados.length ? `  Con redacción reformada: ${cambiados.join('; ')}.` : null,
-      ].filter(Boolean).join('\n')
-    );
-
-    partes.push(`${fuente.nombre ?? norma.titulo}\n\n${seleccion.map(volcarBloque).filter(Boolean).join('\n\n')}`);
+      ].filter(Boolean).join('\n'),
+      texto: `${nombre}\n\n${seleccion.map(volcarBloque).filter(Boolean).join('\n\n')}`,
+    });
   }
 
-  const cabecera = [
-    `Tema ${tema.numero}. ${tema.titulo}`,
-    '',
-    tema.enunciado,
-    '',
-    'FUENTES',
-    '',
-    cabeceraFuentes.join('\n\n'),
-    '',
-    `Documento generado el ${hoy} para Atenea Policial a partir de los textos`,
-    'consolidados del BOE. Contiene únicamente los preceptos que el programa',
-    'oficial asigna a este tema.',
-    '',
-    '---',
-  ].join('\n');
+  const grupos = repartir(secciones);
 
-  return `${cabecera}\n\n${partes.join('\n\n')}\n`;
+  return grupos.map((grupo, indice) => {
+    const deVarias = grupos.length > 1 ? ` (parte ${indice + 1} de ${grupos.length})` : '';
+    const cabecera = [
+      `Tema ${tema.numero}. ${tema.titulo}${deVarias}`,
+      '',
+      tema.enunciado,
+      '',
+      'FUENTES',
+      '',
+      grupo.map((s) => s.cita).join('\n\n'),
+      '',
+      `Documento generado el ${hoy} para Atenea Policial a partir de los textos`,
+      'consolidados del BOE. Contiene únicamente los preceptos que el programa',
+      `oficial asigna a este tema${grupos.length > 1 ? ', repartidos en varios documentos por su extensión' : ''}.`,
+      '',
+      '---',
+    ].join('\n');
+
+    return { sufijo: grupos.length > 1 ? `-${indice + 1}` : '', texto: `${cabecera}\n\n${grupo.map((s) => s.texto).join('\n\n')}\n` };
+  });
 }
 
 async function main() {
@@ -165,15 +260,17 @@ async function main() {
   await mkdir(SALIDA, { recursive: true });
 
   for (const tema of temas) {
-    const documento = await componer(tema, hoy);
-    if (!documento) {
+    const documentos = await componer(tema, hoy);
+    if (documentos.length === 0) {
       console.log(`- tema ${tema.numero}: sin fuentes, se salta`);
       continue;
     }
-    const nombre = `tema-${String(tema.numero).padStart(2, '0')}.md`;
-    await writeFile(join(SALIDA, nombre), documento, 'utf8');
-    const articulos = (documento.match(/^Art[íi]culo /gm) ?? []).length;
-    console.log(`+ ${nombre}: ${documento.length.toLocaleString('es-ES')} caracteres, ${articulos} articulos`);
+    for (const { sufijo, texto } of documentos) {
+      const nombre = `tema-${String(tema.numero).padStart(2, '0')}${sufijo}.md`;
+      await writeFile(join(SALIDA, nombre), texto, 'utf8');
+      const articulos = (texto.match(/^Art[íi]culo /gm) ?? []).length;
+      console.log(`+ ${nombre}: ${texto.length.toLocaleString('es-ES')} caracteres, ${articulos} articulos`);
+    }
   }
 }
 

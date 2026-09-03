@@ -13,6 +13,8 @@
  * XML. El de /metadatos si da JSON.
  */
 
+import { palabrasANumero } from '../../app/lib/chat.ts';
+
 /**
  * Cortesia, no necesidad: el BOE sirve el documento igual sin esto. Se manda
  * para que, si algun dia limitan por robots, el aviso llegue a alguien.
@@ -120,8 +122,31 @@ export function parsearTexto(xml, hoy = new Date().toISOString().slice(0, 10).re
   return { bloques, futuros };
 }
 
-/** El numero de articulo de un bloque, o null si no es un articulo. */
+/**
+ * El numero de articulo de un bloque, o null si no es un articulo.
+ *
+ * NO SE PUEDE MIRAR EL IDENTIFICADOR. Cada norma numera a su manera y esto se
+ * vio en la primera tanda de descargas:
+ *
+ *   Constitucion            a1, a2, a3        "Articulo 1"
+ *   Codigo Civil            a1, art2, art3    "Art 1", "Art 2"
+ *   LOFCS                   aprimero, asegundo "Articulo primero"
+ *
+ * Contando `^a\d+$` el Codigo Civil declaraba 3 articulos de 1.951 y la LOFCS
+ * cero de 54. Es la misma trampa de la regla 30, y por eso se lee el ROTULO y
+ * se reutiliza `palabrasANumero` de `app/lib/chat.ts` en vez de escribir un
+ * segundo lector de ordinales que derive del primero.
+ */
 export function numeroDeArticulo(bloque) {
-  const m = /^a(\d+)$/.exec(bloque.id);
-  return m ? Number(m[1]) : null;
+  const rotulo = (bloque?.titulo ?? '').trim().toLowerCase();
+  const m = /^art(?:[íi]culo|\.|)\s+(.+)$/.exec(sinTildes(rotulo));
+  if (!m) return null;
+
+  const resto = m[1].trim();
+  const cifra = /^(\d{1,4})\b/.exec(resto);
+  if (cifra) return Number(cifra[1]);
+
+  return palabrasANumero(resto);
 }
+
+const sinTildes = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');

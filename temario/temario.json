@@ -26,7 +26,18 @@
       "bloque": "A",
       "titulo": "El Derecho",
       "enunciado": "El Derecho: concepto y acepciones. Las normas jurídicas positivas: concepto, estructura, clases y caracteres. El principio de jerarquía normativa. La persona en sentido jurídico: concepto y clases; su nacimiento y extinción; capacidad jurídica y capacidad de obrar. Adquisición, conservación y pérdida de la nacionalidad española. El domicilio. La vecindad civil.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1889-4763",
+          "nombre": "Código Civil",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 41
+          },
+          "nota": "Título Preliminar (fuentes del Derecho, jerarquía normativa, vecindad civil en los arts. 14-15) y Libro I hasta el domicilio: nacionalidad (17-26), personalidad (29-34), personas jurídicas (35-39) y domicilio (40-41)."
+        }
+      ]
     },
     {
       "numero": 2,
@@ -51,7 +62,18 @@
       "bloque": "A",
       "titulo": "La Constitución Española (II)",
       "enunciado": "La Constitución Española (II): De la Corona. De las Cortes Generales. Del Gobierno y la Administración. De las relaciones entre el Gobierno y las Cortes Generales. Del Poder Judicial. De la organización territorial del Estado. Del Tribunal Constitucional. De la reforma constitucional.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1978-31229",
+          "nombre": "Constitución Española",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 56,
+            "hasta": 169
+          },
+          "nota": "Títulos II a X: Corona, Cortes Generales, Gobierno y Administración, relaciones entre ambos, Poder Judicial, organización territorial, Tribunal Constitucional y reforma constitucional."
+        }
+      ]
     },
     {
       "numero": 4,
@@ -65,133 +87,622 @@
       "bloque": "A",
       "titulo": "La organización y funcionamiento de la Administración General del Estado",
       "enunciado": "La organización y funcionamiento de la Administración General del Estado: Principios de organización, funcionamiento y relaciones con los ciudadanos; órganos superiores y órganos directivos en la organización central. El Gobierno: composición, organización y funciones; el Gobierno en funciones.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2015-10566",
+          "nombre": "Ley 40/2015, de Régimen Jurídico del Sector Público",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 4
+          },
+          "nota": "Principios generales de actuación y relaciones entre Administraciones."
+        },
+        {
+          "boe_id": "BOE-A-2015-10566",
+          "nombre": "Ley 40/2015, de Régimen Jurídico del Sector Público",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 54,
+            "hasta": 68
+          },
+          "nota": "Organización de la Administración General del Estado: órganos superiores y directivos, y estructura interna de los Ministerios."
+        },
+        {
+          "boe_id": "BOE-A-1997-25336",
+          "nombre": "Ley 50/1997, del Gobierno",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 21
+          },
+          "nota": "El Gobierno: composición, organización y funciones (Títulos I y II), funcionamiento (Título III) y el Gobierno en funciones (art. 21). Se dejan fuera la iniciativa legislativa y la potestad reglamentaria (arts. 22-28) y el control del Gobierno (art. 29): no los pide el programa."
+        }
+      ]
     },
     {
       "numero": 6,
       "bloque": "A",
       "titulo": "Los funcionarios públicos",
       "enunciado": "Los funcionarios públicos: concepto y clases. Adquisición y pérdida de la condición de funcionario.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2015-11719",
+          "nombre": "Texto refundido del Estatuto Básico del Empleado Público",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 8,
+            "hasta": 13
+          },
+          "nota": "Clases de personal al servicio de las Administraciones Públicas."
+        },
+        {
+          "boe_id": "BOE-A-2015-11719",
+          "nombre": "Texto refundido del Estatuto Básico del Empleado Público",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 55,
+            "hasta": 68
+          },
+          "nota": "Adquisición y pérdida de la relación de servicio."
+        }
+      ]
     },
     {
       "numero": 7,
       "bloque": "A",
       "titulo": "El Ministerio del Interior",
       "enunciado": "El Ministerio del Interior: estructura orgánica básica. La Secretaría de Estado de Seguridad: estructura y funciones.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2024-3793",
+          "nombre": "Real Decreto 207/2024, estructura orgánica básica del Ministerio del Interior",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Estructura orgánica básica del Ministerio del Interior, incluida la Secretaría de Estado de Seguridad."
+        }
+      ]
     },
     {
       "numero": 8,
       "bloque": "A",
       "titulo": "La Dirección General de la Policía",
       "enunciado": "La Dirección General de la Policía. Estructura orgánica y funciones de los servicios centrales y territoriales de la Policía Nacional. La Policía Nacional: funciones, escalas y categorías; sistemas de acceso; régimen disciplinario y situaciones administrativas.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2023-17072",
+          "nombre": "Orden INT/859/2023, estructura orgánica de la Dirección General de la Policía",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Estructura orgánica y funciones de los servicios centrales y territoriales de la Dirección General de la Policía."
+        },
+        {
+          "boe_id": "BOE-A-2015-8468",
+          "nombre": "Ley Orgánica 9/2015, de Régimen de Personal de la Policía Nacional",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 6
+          },
+          "nota": "Objeto, ámbito y adquisición y pérdida de la condición de funcionario de la Policía Nacional."
+        },
+        {
+          "boe_id": "BOE-A-2015-8468",
+          "nombre": "Ley Orgánica 9/2015, de Régimen de Personal de la Policía Nacional",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 16,
+            "hasta": 22
+          },
+          "nota": "Organización: escalas y categorías, escalafón y registro de personal."
+        },
+        {
+          "boe_id": "BOE-A-2015-8468",
+          "nombre": "Ley Orgánica 9/2015, de Régimen de Personal de la Policía Nacional",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 25,
+            "hasta": 28
+          },
+          "nota": "El ingreso en la Policía Nacional y sus sistemas de acceso."
+        },
+        {
+          "boe_id": "BOE-A-2015-8468",
+          "nombre": "Ley Orgánica 9/2015, de Régimen de Personal de la Policía Nacional",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 52,
+            "hasta": 76
+          },
+          "nota": "Situaciones administrativas, excedencias, suspensión de funciones y segunda actividad."
+        },
+        {
+          "boe_id": "BOE-A-2010-8115",
+          "nombre": "Ley Orgánica 4/2010, del Régimen disciplinario del Cuerpo Nacional de Policía",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Régimen disciplinario del Cuerpo Nacional de Policía."
+        }
+      ]
     },
     {
       "numero": 9,
       "bloque": "A",
       "titulo": "La Ley Orgánica 2/1986, de 13 de marzo, de Fuerzas y Cuerpos de Seguridad",
       "enunciado": "La Ley Orgánica 2/1986, de 13 de marzo, de Fuerzas y Cuerpos de Seguridad: disposiciones generales; principios básicos de actuación; disposiciones estatutarias comunes. De las Fuerzas y Cuerpos de Seguridad del Estado: los derechos de representación colectiva; el Consejo de Policía; organización de las unidades de Policía Judicial; de las Policías de las Comunidades Autónomas; de la colaboración y coordinación entre el Estado y las Comunidades Autónomas; de las Policías Locales.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1986-6859",
+          "nombre": "Ley Orgánica 2/1986, de Fuerzas y Cuerpos de Seguridad",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "La ley completa. Los artículos 16 a 26 salen derogados por la Ley Orgánica 9/2015 y no se incluyen."
+        },
+        {
+          "boe_id": "BOE-A-2015-8468",
+          "nombre": "Ley Orgánica 9/2015, de Régimen de Personal de la Policía Nacional",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 88,
+            "hasta": 95
+          },
+          "nota": "Donde vive hoy lo que el programa pide y la LOFCS ya no tiene: organizaciones sindicales y Consejo de Policía."
+        }
+      ]
     },
     {
       "numero": 10,
       "bloque": "A",
       "titulo": "Entrada, libre circulación y residencia en España de ciudadanos de los Estado...",
       "enunciado": "Entrada, libre circulación y residencia en España de ciudadanos de los Estados miembros de la Unión Europea y de otros Estados parte en el Acuerdo sobre el Espacio Económico Europeo. Derechos y libertades de los extranjeros en España y su integración social. La entrada y salida del territorio español. La autorización de estancia y de residencia.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2007-4184",
+          "nombre": "Real Decreto 240/2007, entrada y residencia de ciudadanos de la UE",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Entrada, libre circulación y residencia de ciudadanos de la UE y del Espacio Económico Europeo."
+        },
+        {
+          "boe_id": "BOE-A-2000-544",
+          "nombre": "Ley Orgánica 4/2000, sobre derechos y libertades de los extranjeros",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 35
+          },
+          "nota": "Disposiciones generales, derechos y libertades de los extranjeros (Título I) y régimen jurídico hasta la autorización de estancia y residencia."
+        }
+      ]
     },
     {
       "numero": 11,
       "bloque": "A",
       "titulo": "De las infracciones en materia de extranjería y su régimen sancionador",
       "enunciado": "De las infracciones en materia de extranjería y su régimen sancionador. Tipos de infracciones: infracciones leves, infracciones graves e infracciones muy graves. Sanciones. Prescripción de las infracciones y de las sanciones. Efectos de la expulsión y devolución. Efectos de la denegación de entrada.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2000-544",
+          "nombre": "Ley Orgánica 4/2000, sobre derechos y libertades de los extranjeros",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 50,
+            "hasta": 66
+          },
+          "nota": "Título III completo: infracciones, sanciones, prescripción y efectos de la expulsión, la devolución y la denegación de entrada."
+        }
+      ]
     },
     {
       "numero": 12,
       "bloque": "A",
       "titulo": "La protección internacional",
       "enunciado": "La protección internacional. Reglas procedimentales para el reconocimiento de la protección internacional. De los menores y otras personas vulnerables. Centros de acogida a refugiados. Apátridas y desplazados.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2009-17242",
+          "nombre": "Ley 12/2009, reguladora del derecho de asilo y de la protección subsidiaria",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "La ley completa: condiciones del asilo y la protección subsidiaria, reglas de procedimiento, menores y personas vulnerables, acogida, apátridas y desplazados."
+        }
+      ]
     },
     {
       "numero": 13,
       "bloque": "A",
       "titulo": "Disposiciones generales en materia de seguridad privada en España",
       "enunciado": "Disposiciones generales en materia de seguridad privada en España. Coordinación. Empresas de seguridad privada y despachos de detectives privados. Personal de seguridad privada. Servicios y medidas de seguridad.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2014-3649",
+          "nombre": "Ley 5/2014, de Seguridad Privada",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 52
+          },
+          "nota": "Disposiciones generales y coordinación, empresas de seguridad y despachos de detectives, personal de seguridad privada, y servicios y medidas de seguridad."
+        }
+      ]
     },
     {
       "numero": 14,
       "bloque": "A",
       "titulo": "La Ley Orgánica 4/2015, de 30 de marzo, de protección de la seguridad ciudadana",
       "enunciado": "La Ley Orgánica 4/2015, de 30 de marzo, de protección de la seguridad ciudadana. Disposiciones generales. Documentación e identificación personal. Actuaciones para el mantenimiento y restablecimiento de la seguridad ciudadana. Potestades especiales de policía administrativa de seguridad. Régimen sancionador.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2015-3442",
+          "nombre": "Ley Orgánica 4/2015, de protección de la seguridad ciudadana",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "La ley completa: disposiciones generales, documentación e identificación, actuaciones de mantenimiento, potestades especiales y régimen sancionador."
+        }
+      ]
     },
     {
       "numero": 15,
       "bloque": "A",
       "titulo": "Medidas para la Protección de Infraestructuras Críticas",
       "enunciado": "Medidas para la Protección de Infraestructuras Críticas. El Catálogo Nacional de Infraestructuras Críticas. El Sistema de Protección de Infraestructuras Críticas. Ciberseguridad.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2011-7630",
+          "nombre": "Ley 8/2011, de protección de las infraestructuras críticas",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Catálogo Nacional y Sistema de Protección de Infraestructuras Críticas."
+        }
+      ]
     },
     {
       "numero": 16,
       "bloque": "A",
       "titulo": "Derecho Penal Parte General",
       "enunciado": "Derecho Penal Parte General: concepto. Principios informadores del Derecho Penal. La infracción penal. Concepto material de delito. Grados de ejecución del delito. Personas físicas y jurídicas criminalmente responsables. Las consecuencias jurídicas de la infracción penal. Vigencia temporal y espacial de la Ley Penal. La edad penal y sus efectos. Circunstancias modificativas de la responsabilidad criminal.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 31
+          },
+          "nota": "Título Preliminar y Títulos I y II del Libro I: garantías penales, aplicación de la ley penal, la infracción penal, grados de ejecución, circunstancias modificativas y personas criminalmente responsables, físicas y jurídicas."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 32,
+            "hasta": 94
+          },
+          "nota": "Título III del Libro I: las penas, su aplicación y las formas sustitutivas de su ejecución."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 95,
+            "hasta": 137
+          },
+          "nota": "Títulos IV a VII del Libro I: medidas de seguridad, responsabilidad civil, consecuencias accesorias y extinción de la responsabilidad criminal."
+        }
+      ]
     },
     {
       "numero": 17,
       "bloque": "A",
       "titulo": "Derecho Penal Especial",
       "enunciado": "Derecho Penal Especial: Del homicidio y sus formas. Del aborto. De las lesiones. Delitos contra la libertad. De las torturas y otros delitos contra la integridad moral. Delitos contra la libertad sexual.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 138,
+            "hasta": 146
+          },
+          "nota": "Del homicidio y sus formas, y del aborto."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 147,
+            "hasta": 156
+          },
+          "nota": "De las lesiones."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 163,
+            "hasta": 177
+          },
+          "nota": "Delitos contra la libertad, y torturas y otros delitos contra la integridad moral."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 178,
+            "hasta": 194
+          },
+          "nota": "Delitos contra la libertad sexual."
+        }
+      ]
     },
     {
       "numero": 18,
       "bloque": "A",
       "titulo": "Delitos contra el patrimonio y contra el orden socioeconómico",
       "enunciado": "Delitos contra el patrimonio y contra el orden socioeconómico. El hurto. El robo. La extorsión. Robo y hurto de uso de vehículos a motor. Usurpación. De las defraudaciones: estafas; apropiación indebida; defraudaciones de fluido eléctrico y análogo.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 234,
+            "hasta": 256
+          },
+          "nota": "Título XIII, capítulos I a VI: hurto, robo, extorsión, robo y hurto de uso de vehículos, usurpación y defraudaciones."
+        }
+      ]
     },
     {
       "numero": 19,
       "bloque": "A",
       "titulo": "Delitos contra el orden público",
       "enunciado": "Delitos contra el orden público: de los atentados contra la autoridad, sus agentes y los funcionarios públicos, resistencia y desobediencia. Desórdenes públicos. Disposición común. Tenencia, tráfico y depósito de armas, municiones o explosivos.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "rango",
+            "desde": "a550",
+            "hasta": "a570"
+          },
+          "nota": "Título XXII, capítulos II a V: atentados, resistencia y desobediencia, desórdenes públicos, disposición común y tenencia, tráfico y depósito de armas. Se corta en el 570 a propósito: lo que sigue (organizaciones criminales y terrorismo) no lo pide este tema."
+        }
+      ]
     },
     {
       "numero": 20,
       "bloque": "A",
       "titulo": "Delitos informáticos",
       "enunciado": "Delitos informáticos. Especial consideración al derecho a la intimidad. La prueba digital en el proceso penal.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 197,
+            "hasta": 201
+          },
+          "nota": "Descubrimiento y revelación de secretos: el núcleo de los delitos informáticos contra la intimidad."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 248,
+            "hasta": 251
+          },
+          "nota": "Estafas, incluida la cometida por medios informáticos."
+        },
+        {
+          "boe_id": "BOE-A-1995-25444",
+          "nombre": "Código Penal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 263,
+            "hasta": 267
+          },
+          "nota": "Daños, con los daños informáticos del 264."
+        },
+        {
+          "boe_id": "BOE-A-1882-6036",
+          "nombre": "Ley de Enjuiciamiento Criminal",
+          "ambito": {
+            "tipo": "rango",
+            "desde": "a588bisa",
+            "hasta": "a588octies"
+          },
+          "nota": "Medidas de investigación tecnológica: la base legal de la prueba digital en el proceso penal."
+        }
+      ]
     },
     {
       "numero": 21,
       "bloque": "A",
       "titulo": "Noción de Derecho Procesal Penal",
       "enunciado": "Noción de Derecho Procesal Penal. Concepto de jurisdicción y de competencia. Los órganos de la jurisdicción penal. Concepto de denuncia y la obligación de denunciar. La detención: concepto y duración. La obligación de detener. Los derechos del detenido. El procedimiento de habeas corpus. Procedimiento integral de la detención policial. El Ministerio Fiscal: funciones. La Policía Judicial.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1985-12666",
+          "nombre": "Ley Orgánica 6/1985, del Poder Judicial",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 53,
+            "hasta": 69
+          },
+          "nota": "Composición y atribuciones del Tribunal Supremo y de la Audiencia Nacional."
+        },
+        {
+          "boe_id": "BOE-A-1985-12666",
+          "nombre": "Ley Orgánica 6/1985, del Poder Judicial",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 70,
+            "hasta": 98
+          },
+          "nota": "Tribunales Superiores de Justicia, Audiencias Provinciales y Tribunales de Instancia, donde estan las secciones de Instruccion y de lo Penal. Se deja fuera a los Jueces de Paz (arts. 99-103): no juzgan en el orden penal."
+        },
+        {
+          "boe_id": "BOE-A-1882-6036",
+          "nombre": "Ley de Enjuiciamiento Criminal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 7
+          },
+          "nota": "Preliminares: jurisdicción y ejercicio de la acción penal."
+        },
+        {
+          "boe_id": "BOE-A-1882-6036",
+          "nombre": "Ley de Enjuiciamiento Criminal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 259,
+            "hasta": 269
+          },
+          "nota": "De la denuncia y la obligación de denunciar."
+        },
+        {
+          "boe_id": "BOE-A-1882-6036",
+          "nombre": "Ley de Enjuiciamiento Criminal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 282,
+            "hasta": 298
+          },
+          "nota": "De la Policía Judicial."
+        },
+        {
+          "boe_id": "BOE-A-1882-6036",
+          "nombre": "Ley de Enjuiciamiento Criminal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 486,
+            "hasta": 527
+          },
+          "nota": "De la citación, la detención y la prisión provisional, con los derechos del detenido en el artículo 520."
+        },
+        {
+          "boe_id": "BOE-A-1984-11620",
+          "nombre": "Ley Orgánica 6/1984, del procedimiento de «Habeas Corpus»",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "El procedimiento de habeas corpus."
+        },
+        {
+          "boe_id": "BOE-A-1982-837",
+          "nombre": "Estatuto Orgánico del Ministerio Fiscal",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 11
+          },
+          "nota": "El Ministerio Fiscal y sus funciones."
+        }
+      ]
     },
     {
       "numero": 22,
       "bloque": "A",
       "titulo": "La Ley 4/2015, de 27 de abril, del Estatuto de la víctima del delito",
       "enunciado": "La Ley 4/2015, de 27 de abril, del Estatuto de la víctima del delito. Ámbito. Concepto general de víctima. Derechos básicos. Protección de las víctimas. Medidas de protección a la víctima.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2015-4606",
+          "nombre": "Ley 4/2015, del Estatuto de la víctima del delito",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "La ley completa: ámbito, concepto de víctima, derechos básicos y medidas de protección."
+        }
+      ]
     },
     {
       "numero": 23,
       "bloque": "A",
       "titulo": "Políticas de igualdad, protección y no discriminación en la AGE",
       "enunciado": "Políticas de igualdad, protección y no discriminación en la AGE. La Ley Orgánica 3/2007, de 22 de marzo, para la igualdad efectiva de mujeres y hombres. Los Planes para la igualdad en la Administración General del Estado y en sus organismos públicos. Políticas contra la violencia de género. La Ley Orgánica 1/2004, de 28 de diciembre, de medidas de protección integral contra la violencia de género. Políticas de integración de las personas con discapacidad. La Ley 39/2006, de 14 de diciembre, de promoción de la autonomía personal y atención a las personas en situación de dependencia. Ley 4/2023, de 28 de febrero, para la igualdad real y efectiva de las personas trans y para la garantía de los derechos de las personas LGTBI.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2007-6115",
+          "nombre": "Ley Orgánica 3/2007, para la igualdad efectiva de mujeres y hombres",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 17
+          },
+          "nota": "Objeto, principio de igualdad y tutela contra la discriminación, y políticas públicas para la igualdad."
+        },
+        {
+          "boe_id": "BOE-A-2007-6115",
+          "nombre": "Ley Orgánica 3/2007, para la igualdad efectiva de mujeres y hombres",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 51,
+            "hasta": 64
+          },
+          "nota": "Los planes de igualdad en la Administración General del Estado y en sus organismos públicos."
+        },
+        {
+          "boe_id": "BOE-A-2004-21760",
+          "nombre": "Ley Orgánica 1/2004, de protección integral contra la violencia de género",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 32
+          },
+          "nota": "Objeto, principios rectores y medidas de sensibilización, prevención y detección."
+        },
+        {
+          "boe_id": "BOE-A-2004-21760",
+          "nombre": "Ley Orgánica 1/2004, de protección integral contra la violencia de género",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 61,
+            "hasta": 72
+          },
+          "nota": "Tutela judicial y medidas de protección de las víctimas."
+        },
+        {
+          "boe_id": "BOE-A-2006-21990",
+          "nombre": "Ley 39/2006, de promoción de la autonomía personal y atención a la dependencia",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 14
+          },
+          "nota": "Objeto, derechos de las personas en situación de dependencia y prestaciones del sistema."
+        },
+        {
+          "boe_id": "BOE-A-2023-5366",
+          "nombre": "Ley 4/2023, para la igualdad real y efectiva de las personas trans y los derechos LGTBI",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 20
+          },
+          "nota": "Objeto, principios y medidas para la igualdad real y efectiva de las personas trans y LGTBI."
+        }
+      ]
     },
     {
       "numero": 24,
@@ -205,14 +716,72 @@
       "bloque": "A",
       "titulo": "Marco normativo básico en prevención de riesgos laborales",
       "enunciado": "Marco normativo básico en prevención de riesgos laborales. La Ley 31/1995, de Prevención de Riesgos Laborales. RD 39/1997, Reglamento de los servicios de prevención. El RD 2/2006, sobre Prevención de Riesgos Laborales en los funcionarios del Cuerpo Nacional de Policía. El RD 67/2010 sobre adaptación de la Prevención de Riesgos Laborales en la Administración General del Estado. Derechos y deberes básicos en materia de Prevención de Riesgos laborales.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-1995-24292",
+          "nombre": "Ley 31/1995, de Prevención de Riesgos Laborales",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 29
+          },
+          "nota": "Objeto y ámbito, política de prevención, y derechos y obligaciones en materia preventiva."
+        },
+        {
+          "boe_id": "BOE-A-1997-1853",
+          "nombre": "Real Decreto 39/1997, Reglamento de los Servicios de Prevención",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 22
+          },
+          "nota": "Evaluación de riesgos, planificación de la actividad preventiva y organización de los recursos."
+        },
+        {
+          "boe_id": "BOE-A-2006-624",
+          "nombre": "Real Decreto 2/2006, prevención de riesgos laborales en el Cuerpo Nacional de Policía",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Prevención de riesgos laborales en la actividad de los funcionarios del Cuerpo Nacional de Policía."
+        },
+        {
+          "boe_id": "BOE-A-2010-2161",
+          "nombre": "Real Decreto 67/2010, adaptación de la prevención de riesgos laborales a la AGE",
+          "ambito": {
+            "tipo": "completo"
+          },
+          "nota": "Adaptación de la prevención de riesgos laborales a la Administración General del Estado."
+        }
+      ]
     },
     {
       "numero": 26,
       "bloque": "A",
       "titulo": "La protección de datos de carácter personal",
       "enunciado": "La protección de datos de carácter personal: la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos Personales y garantía de los derechos digitales. Ley Orgánica 7/2021, de 26 de mayo, de protección de datos personales tratados para fines de prevención, detección, investigación y enjuiciamiento de infracciones penales y de ejecución de sanciones penales.",
-      "fuentes": []
+      "fuentes": [
+        {
+          "boe_id": "BOE-A-2018-16673",
+          "nombre": "Ley Orgánica 3/2018, de Protección de Datos Personales y garantía de los derechos digitales",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 43
+          },
+          "nota": "Disposiciones generales, principios, derechos de las personas, tratamientos concretos, responsable y encargado, y transferencias internacionales."
+        },
+        {
+          "boe_id": "BOE-A-2021-8806",
+          "nombre": "Ley Orgánica 7/2021, de protección de datos para fines penales",
+          "ambito": {
+            "tipo": "articulos",
+            "desde": 1,
+            "hasta": 40
+          },
+          "nota": "Tratamiento de datos con fines de prevención, investigación y enjuiciamiento penal."
+        }
+      ]
     },
     {
       "numero": 27,
