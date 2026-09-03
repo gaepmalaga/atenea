@@ -2,9 +2,10 @@
 
 import { useMemo, useRef, useState } from 'react';
 import {
-  X, Save, Loader2, PenLine, Upload, FileSpreadsheet, Download,
+  Save, Loader2, PenLine, Upload, FileSpreadsheet, Download,
   CheckCircle2, AlertTriangle, Trash2,
 } from 'lucide-react';
+import { Modal, Button } from '../../ui';
 import { createManualQuestion, importManualQuestions } from '@/actions';
 import { OPTION_IDS, DIFFICULTY, DIFFICULTY_DEFAULT, type DifficultyLevel } from '@/app/lib/questions';
 import {
@@ -175,25 +176,39 @@ export default function QuestionComposer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-slate-950 w-full max-w-3xl rounded-3xl border border-slate-800 shadow-[0_0_50px_rgba(79,70,229,0.1)] flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-300">
-
-        {/* --- Cabecera --- */}
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-3xl">
-          <div>
-            <h3 className="font-black text-white text-xl">Nueva pregunta</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Entra directamente en el banco: la escribe un administrador, no pasa por moderación.
-              {guardadas > 0 && <span className="text-emerald-400 font-bold"> · {guardadas} en esta sesión</span>}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 bg-slate-900 border border-slate-800 rounded-full hover:bg-white hover:text-black transition-all">
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal
+      title="Nueva pregunta"
+      subtitle={`Entra directamente en el banco, sin pasar por moderación${guardadas > 0 ? ` · ${guardadas} en esta sesión` : ''}`}
+      width="lg"
+      onClose={onClose}
+      footer={
+        <>
+          <p className="text-[11px] text-slate-500 truncate sm:mr-auto sm:self-center">
+            {temaElegido ? `Tema ${temaElegido.number} · ${temaElegido.title}` : 'Sin tema elegido'}
+          </p>
+          {pestania === 'manual' ? (
+            <Button
+              onClick={handleGuardar}
+              disabled={guardando || !subjectId}
+              icon={guardando ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+            >
+              {guardando ? 'Publicando…' : 'Publicar'}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleImportar}
+              disabled={importando || !subjectId || leidas.length === 0}
+              icon={importando ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+            >
+              {importando ? 'Importando…' : `Importar ${leidas.length || ''}`}
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-5">
         {/* --- Pestañas --- */}
-        <div className="px-6 pt-5 flex gap-2">
+        <div className="flex gap-2">
           {([
             { id: 'manual' as const, icono: <PenLine size={14} />, texto: 'Escribir una' },
             { id: 'csv' as const, icono: <FileSpreadsheet size={14} />, texto: 'Importar una hoja' },
@@ -201,7 +216,7 @@ export default function QuestionComposer({
             <button
               key={t.id}
               onClick={() => { setPestania(t.id); setResultado(null); }}
-              className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
+              className={`min-h-[44px] px-4 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
                 pestania === t.id
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'bg-slate-900 text-slate-500 hover:text-slate-300 border border-slate-800'
@@ -213,7 +228,7 @@ export default function QuestionComposer({
         </div>
 
         {/* --- Cuerpo --- */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
+        <div className="space-y-5">
 
           {/* Tema: común a las dos pestañas */}
           <div className="space-y-2">
@@ -432,31 +447,7 @@ export default function QuestionComposer({
           )}
         </div>
 
-        {/* --- Pie --- */}
-        <div className="p-6 border-t border-slate-800 flex justify-between items-center gap-3 bg-slate-900/30 rounded-b-3xl">
-          <p className="text-[11px] text-slate-600 truncate">
-            {temaElegido ? `Tema ${temaElegido.number} · ${temaElegido.title}` : 'Sin tema elegido'}
-          </p>
-
-          {pestania === 'manual' ? (
-            <button
-              onClick={handleGuardar}
-              disabled={guardando || !subjectId}
-              className="shrink-0 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 flex items-center gap-2 transition-all"
-            >
-              {guardando ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16} /> Publicar</>}
-            </button>
-          ) : (
-            <button
-              onClick={handleImportar}
-              disabled={importando || !subjectId || leidas.length === 0}
-              className="shrink-0 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 flex items-center gap-2 transition-all"
-            >
-              {importando ? <Loader2 className="animate-spin" size={16} /> : <><Upload size={16} /> Importar {leidas.length || ''}</>}
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

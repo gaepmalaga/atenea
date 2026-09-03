@@ -3,13 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 import type { AuthUser } from '@/app/lib/auth';
 import {
-  Send, Bot, User, FileText, X, BookOpen,
+  Send, Bot, User, FileText,
   Loader2, ShieldAlert, Target, Cpu
 } from 'lucide-react';
 import { askAtenea, getStudentSubjects } from '@/actions';
 import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Modal, Button } from '../../../ui';
 
 interface IntelChatProps { user: AuthUser; }
 
@@ -261,33 +262,28 @@ export default function IntelChat({ user }: IntelChatProps) {
       </div>
 
       {/* MODAL FUENTE */}
+      {/* El visor de la fuente citada. Era el cuarto modal escrito a mano de la
+          aplicación, y como los otros tres usaba `max-h-[85vh]`: en un móvil,
+          `vh` es la altura con la barra de direcciones plegada, así que al
+          abrirlo el pie se quedaba fuera de la pantalla. El primitivo usa
+          `dvh` y en móvil se apoya abajo, donde llega el pulgar. */}
       {activeSource && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-[#020617] w-full max-w-4xl rounded-[1.5rem] sm:rounded-[3rem] shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
-                <div className="p-5 sm:p-8 bg-indigo-600 text-white flex justify-between items-center gap-3">
-                    <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-                        <BookOpen size={24} className="shrink-0 sm:hidden"/>
-                        <BookOpen size={30} className="shrink-0 hidden sm:block"/>
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Consulta Legislativa</p>
-                            <h4 className="text-lg sm:text-2xl font-black truncate">{activeSource.reference?.trim() || activeSource.filename}</h4>
-                            {activeSource.reference?.trim() && (
-                                <p className="text-[10px] font-bold opacity-70 mt-1 truncate">{activeSource.filename}</p>
-                            )}
-                        </div>
-                    </div>
-                    <button onClick={() => setActiveSource(null)} className="p-2 shrink-0 hover:bg-white/10 rounded-full transition-all"><X size={24} className="sm:hidden"/><X size={28} className="hidden sm:block"/></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-5 sm:p-10 bg-slate-50 dark:bg-slate-950/50">
-                    <div className="bg-white dark:bg-slate-900 p-5 sm:p-10 rounded-[1.25rem] sm:rounded-[2rem] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-base sm:text-lg md:text-xl leading-relaxed italic shadow-inner">
-                        “{activeSource.content_chunk}”
-                    </div>
-                </div>
-                <div className="p-4 sm:p-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-center">
-                    <button onClick={() => setActiveSource(null)} className="w-full sm:w-auto px-12 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95">Cerrar Visor</button>
-                </div>
-            </div>
-        </div>
+        <Modal
+          accent
+          width="lg"
+          title={activeSource.reference?.trim() || activeSource.filename}
+          subtitle={activeSource.reference?.trim() ? activeSource.filename : 'Consulta legislativa'}
+          onClose={() => setActiveSource(null)}
+          footer={
+            <Button block variant="secondary" onClick={() => setActiveSource(null)}>
+              Cerrar visor
+            </Button>
+          }
+        >
+          <blockquote className="bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-base sm:text-lg leading-relaxed italic">
+            “{activeSource.content_chunk}”
+          </blockquote>
+        </Modal>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getUserStats, getPhysicalProfile } from '@/actions';
+import { EmptyState } from '../../../ui';
 import {
   rankFor,
   nextRankAfter,
@@ -258,54 +259,67 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           </div>
       </div>
 
-      {/* SECCIÓN 3: LOGS DE OPERACIONES (ESTILO TERMINAL) */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
-          <div className="p-6 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Activity size={16}/> Historial de Operaciones Recientes
+      {/* SECCIÓN 3: HISTORIAL */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
+          <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center gap-2">
+              <h3 className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 min-w-0">
+                  <Activity size={15} className="shrink-0"/> <span className="truncate">Historial reciente</span>
               </h3>
-              <button onClick={loadData} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all">
+              <button
+                onClick={loadData}
+                aria-label="Recargar"
+                className="flex items-center justify-center w-11 h-11 -mr-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all shrink-0"
+              >
                   <RefreshCw size={14} className="text-slate-400" />
               </button>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {stats.lastItems?.map((item: RecentItem, i: number) => (
-                  <div key={i} className="p-5 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-                      <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-transform group-hover:scale-110 ${
-                              item.is_correct ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'
-                          }`}>
-                              {item.is_correct ? <Target size={20}/> : <AlertTriangle size={20}/>}
-                          </div>
-                          <div>
-                              <p className="text-sm font-black text-slate-800 dark:text-slate-200 line-clamp-1">
-                                  {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
-                              </p>
-                              <div className="flex gap-3 mt-1">
-                                  {item.topic && (
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.topic}</span>
-                                  )}
-                                  {(item.response_time_ms ?? 0) > 0 && (
-                                      <span className="text-[10px] font-mono text-indigo-500 font-bold">{((item.response_time_ms ?? 0) / 1000).toFixed(1)}s</span>
-                                  )}
-                                  {(item.option_changes ?? 0) >= HESITATION_THRESHOLD && (
-                                      <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
-                                          <MousePointer2 size={10}/> DUDÓ
-                                      </span>
-                                  )}
-                              </div>
-                          </div>
-                      </div>
-                      <div className="text-right">
-                          <p className="text-[10px] font-black text-slate-400 uppercase">
-                              {item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}
+                  <div key={i} className="p-3 sm:p-4 flex items-start gap-3">
+                      {/* Un círculo de 12px en vez del recuadro de 48px: en el
+                          móvil ese recuadro se llevaba una cuarta parte del
+                          ancho de la fila y dejaba el enunciado en dos palabras. */}
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${item.is_correct ? 'bg-emerald-500' : 'bg-red-500'}`}
+                        title={item.is_correct ? 'Acertada' : 'Fallada'}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-snug">
+                              {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
                           </p>
-                          <p className={`text-xs font-black ${item.is_correct ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {item.is_correct ? '+10 XP' : 'FALLO'}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                              {item.topic && (
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[60%]">{item.topic}</span>
+                              )}
+                              {(item.response_time_ms ?? 0) > 0 && (
+                                  <span className="text-[10px] font-mono text-indigo-500 font-bold tabular-nums">{((item.response_time_ms ?? 0) / 1000).toFixed(1)}s</span>
+                              )}
+                              {(item.option_changes ?? 0) >= HESITATION_THRESHOLD && (
+                                  <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
+                                      <MousePointer2 size={10}/> Dudó
+                                  </span>
+                              )}
+                              {/* Antes aquí ponía "+10 XP" en cada acierto. No hay
+                                  ningún sistema de puntos en la plataforma: ni
+                                  columna, ni tabla, ni cálculo. Era un número
+                                  inventado que sugería un progreso que no existe.
+                                  La fecha sí es un dato. */}
+                              <span className="text-[10px] font-mono text-slate-400 tabular-nums ml-auto shrink-0">
+                                  {item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '—'}
+                              </span>
+                          </div>
                       </div>
                   </div>
               ))}
+
+              {(!stats.lastItems || stats.lastItems.length === 0) && (
+                <EmptyState
+                  title="Sin historial"
+                  hint="Aquí aparecerá cada pregunta que contestes, con el tiempo que te costó."
+                  icon={<Activity size={30} />}
+                />
+              )}
           </div>
       </div>
     </div>

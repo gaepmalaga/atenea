@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { X, Search, FileText, AlertTriangle, BookOpen } from 'lucide-react';
+import { Search, FileText, AlertTriangle } from 'lucide-react';
 import { CHUNK_MAX_CHARS } from '@/app/lib/text';
+import { Modal } from '../../ui';
 import {
   groupChunksByReference,
   summarizeChunks,
@@ -55,28 +56,15 @@ export default function DocumentChunksViewer({
   const seHaPasado = resumen.maxCaracteres > CHUNK_MAX_CHARS;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-950 w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[88vh]">
-
-        {/* CABECERA */}
-        <div className="p-6 bg-slate-900 border-b border-slate-800 flex justify-between items-start gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-              <BookOpen size={12} /> Lo que ha entrado
-            </p>
-            <h4 className="text-lg font-bold text-white truncate mt-1">{filename}</h4>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full transition-all flex-shrink-0"
-            title="Cerrar"
-          >
-            <X size={22} />
-          </button>
-        </div>
-
+    <Modal
+      title={filename}
+      subtitle="Lo que ha entrado en el buscador"
+      width="lg"
+      onClose={onClose}
+    >
+      <div className="space-y-4">
         {/* RESUMEN */}
-        <div className="px-6 py-4 bg-slate-900/50 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/50 rounded-2xl p-4">
           <Dato valor={resumen.total} etiqueta="Fragmentos" />
           <Dato
             valor={resumen.conReferencia}
@@ -99,13 +87,13 @@ export default function DocumentChunksViewer({
         </div>
 
         {/* BUSCADOR */}
-        <div className="px-6 py-3 border-b border-slate-800 flex items-center gap-3">
+        <div className="flex items-center gap-3 border border-slate-800 rounded-xl px-3 min-h-[44px]">
           <Search size={14} className="text-slate-600 flex-shrink-0" />
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por artículo o por texto…"
-            className="flex-1 bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-600"
+            className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-slate-200 outline-none placeholder:text-slate-600"
           />
           {filtro.trim() && (
             <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">
@@ -115,7 +103,7 @@ export default function DocumentChunksViewer({
         </div>
 
         {/* FRAGMENTOS */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+        <div className="space-y-3">
           {grupos.length === 0 && (
             <p className="text-center text-sm text-slate-500 py-12">
               {resumen.total === 0
@@ -169,7 +157,7 @@ export default function DocumentChunksViewer({
           ))}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Edit, Trash2, ChevronLeft, ChevronRight, 
-  Database, Loader2, BookOpen, Save, X, CheckCircle2, 
+  Database, Loader2, BookOpen, Save, CheckCircle2,
   MoreHorizontal, AlertTriangle, Copy, Plus
 } from 'lucide-react';
 import {
@@ -24,6 +24,7 @@ import {
 } from '@/app/lib/questions';
 import type { SyllabusSubject } from '@/app/actions/admin';
 import QuestionComposer from './QuestionComposer';
+import { Modal, Button, TextAreaField } from '../../ui';
 
 // --- UTILIDAD VISUAL: ESTADO DE LA PREGUNTA ---
 const STATUS_STYLE: Record<QuestionStatus, string> = {
@@ -471,88 +472,87 @@ export default function AdminBank() {
             />
         )}
 
-        {/* --- MODAL EDITOR QUIRÚRGICO (DISEÑO PRO) --- */}
+        {/* --- EDITOR DE UNA PREGUNTA --- */}
+        {/* Estaba escrito a mano, con `max-h-[95vh]`: en un móvil el pie —donde
+            está "Guardar cambios"— se salía de la pantalla nada más abrirlo,
+            porque `vh` no descuenta la barra de direcciones. El primitivo usa
+            `dvh`, deja fijos cabecera y pie, y en móvil se apoya abajo. */}
         {editingQ && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-                <div className="bg-slate-950 w-full max-w-2xl rounded-3xl border border-slate-800 shadow-[0_0_50px_rgba(79,70,229,0.1)] flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-300">
-                    
-                    {/* Modal Header */}
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-3xl">
-                        <div>
-                            <h3 className="font-black text-white text-xl">Edición Táctica</h3>
-                            <p className="text-xs text-slate-500 font-mono mt-1">ID: {editingQ.id.substring(0,8)}...</p>
-                        </div>
-                        <button onClick={() => setEditingQ(null)} className="p-2 bg-slate-900 border border-slate-800 rounded-full hover:bg-white hover:text-black transition-all">
-                            <X size={20}/>
-                        </button>
-                    </div>
+            <Modal
+                title="Editar pregunta"
+                subtitle={`ID ${editingQ.id.substring(0, 8)}`}
+                onClose={() => setEditingQ(null)}
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => setEditingQ(null)}>Descartar</Button>
+                        <Button
+                            onClick={handleSaveEdit}
+                            disabled={saving}
+                            icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                        >
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </Button>
+                    </>
+                }
+            >
+                <div className="space-y-5">
+                    <TextAreaField
+                        label="Enunciado"
+                        rows={4}
+                        value={editForm.question_text}
+                        onChange={e => setEditForm({ ...editForm, question_text: e.target.value })}
+                    />
 
-                    {/* Modal Body */}
-                    <div className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                            Opciones · marca la válida
+                        </p>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Enunciado</label>
-                            <textarea 
-                                className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none min-h-[100px]"
-                                value={editForm.question_text}
-                                onChange={e => setEditForm({...editForm, question_text: e.target.value})}
-                            />
-                        </div>
-
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Opciones (Marca la válida)</label>
                             {editForm.options.map((opt, i) => (
-                                <div key={i} className={`flex items-center gap-3 p-2 rounded-2xl border transition-all ${
-                                    i === editForm.correct_index ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-slate-900/30 border-slate-800'
-                                }`}>
-                                    <button 
-                                        onClick={() => setEditForm({...editForm, correct_index: i})}
-                                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all ${
-                                            i === editForm.correct_index 
-                                            ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20 scale-105' 
-                                            : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
+                                <div
+                                    key={i}
+                                    className={`flex items-center gap-2 p-2 rounded-2xl border transition-all ${
+                                        i === editForm.correct_index
+                                            ? 'bg-emerald-500/5 border-emerald-500/40'
+                                            : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
+                                    }`}
+                                >
+                                    <button
+                                        onClick={() => setEditForm({ ...editForm, correct_index: i })}
+                                        aria-label={`Marcar la opción ${['A', 'B', 'C'][i]} como correcta`}
+                                        className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center font-black text-sm transition-all ${
+                                            i === editForm.correct_index
+                                                ? 'bg-emerald-500 text-slate-900'
+                                                : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
                                         }`}
                                     >
-                                        {['A','B','C'][i]}
+                                        {['A', 'B', 'C'][i]}
                                     </button>
-                                    <input 
-                                        className="flex-1 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-2 text-sm text-white outline-none transition-colors"
+                                    <input
+                                        className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-3 text-base sm:text-sm text-slate-900 dark:text-white outline-none transition-colors"
                                         value={opt}
                                         onChange={(e) => {
                                             const newOpts = [...editForm.options];
                                             newOpts[i] = e.target.value;
-                                            setEditForm({...editForm, options: newOpts});
+                                            setEditForm({ ...editForm, options: newOpts });
                                         }}
                                     />
-                                    {i === editForm.correct_index && <CheckCircle2 size={16} className="text-emerald-500 mr-2"/>}
+                                    {i === editForm.correct_index && (
+                                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mr-1" />
+                                    )}
                                 </div>
                             ))}
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Justificación</label>
-                            <textarea 
-                                className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-slate-300 text-xs focus:border-indigo-500 outline-none transition-all resize-none min-h-[80px]"
-                                value={editForm.explanation}
-                                onChange={e => setEditForm({...editForm, explanation: e.target.value})}
-                            />
-                        </div>
                     </div>
 
-                    {/* Modal Footer */}
-                    <div className="p-6 border-t border-slate-800 flex justify-end gap-3 bg-slate-900/30 rounded-b-3xl">
-                        <button onClick={() => setEditingQ(null)} className="px-6 py-3 text-xs font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-wider">
-                            Descartar
-                        </button>
-                        <button 
-                            onClick={handleSaveEdit}
-                            disabled={saving}
-                            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50 hover:translate-y-[-2px] transition-all"
-                        >
-                            {saving ? <Loader2 className="animate-spin" size={16}/> : <><Save size={16}/> Guardar Cambios</>}
-                        </button>
-                    </div>
+                    <TextAreaField
+                        label="Justificación"
+                        rows={3}
+                        value={editForm.explanation}
+                        onChange={e => setEditForm({ ...editForm, explanation: e.target.value })}
+                    />
                 </div>
-            </div>
+            </Modal>
         )}
     </div>
   );

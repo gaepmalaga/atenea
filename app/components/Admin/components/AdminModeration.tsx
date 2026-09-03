@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  CheckCircle2, XCircle, Pencil, Save, X,
+  CheckCircle2, XCircle, Pencil, Save,
   AlertTriangle, Loader2, ShieldAlert
 } from 'lucide-react';
+import { Modal, Button, TextAreaField } from '../../ui';
 
 import { 
   getModerationQueue, 
@@ -169,15 +170,21 @@ export default function AdminModeration() {
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-4">
-                        <button onClick={()=>openEditor(q)} className="bg-slate-700 hover:bg-indigo-600 text-slate-300 hover:text-white py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
-                            <Pencil size={14}/> Editar
-                        </button>
-                        <button onClick={()=>handleApprove(q.id)} className="bg-emerald-600/20 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
+                    {/* Botones de 32px de alto y en tres columnas fijas: en un
+                        móvil eran ~100px de ancho por 32 de alto, por debajo del
+                        mínimo táctil de 44. Y el tercero era un icono sin
+                        etiqueta, así que descartar una pregunta —lo único
+                        irreversible de la fila— era el botón que menos se
+                        entendía. */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-white/5 pt-4">
+                        <button onClick={()=>handleApprove(q.id)} className="min-h-[44px] bg-emerald-600/20 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
                             <CheckCircle2 size={14}/> Aprobar
                         </button>
-                        <button onClick={()=>handleDisable(q.id)} className="bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 py-2 rounded-lg text-xs font-bold flex justify-center items-center transition-all">
-                            <XCircle size={14}/>
+                        <button onClick={()=>openEditor(q)} className="min-h-[44px] bg-slate-700 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
+                            <Pencil size={14}/> Editar
+                        </button>
+                        <button onClick={()=>handleDisable(q.id)} className="min-h-[44px] col-span-2 sm:col-span-1 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
+                            <XCircle size={14}/> Descartar
                         </button>
                     </div>
                 </div>
@@ -228,31 +235,35 @@ export default function AdminModeration() {
                             <p className="text-amber-100 text-xs italic">“{r.message}”</p>
                         </div>
 
-                        {/* Actions */}
-                        <div className="grid grid-cols-3 gap-2">
-                             <button 
-                                onClick={() => openEditor(r.question, r)} // Pasamos 'r' como contexto
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 shadow-lg shadow-indigo-500/20 transition-all"
-                                title="Editar y corregir"
+                        {/* Tres acciones en tres columnas fijas de 32px de alto.
+                            Además de no llegar al mínimo táctil, las etiquetas
+                            no decían lo que hacían: "MATAR" para descartar la
+                            pregunta y "OK" para archivar la queja sin tocarla
+                            son dos cosas muy distintas y ahí parecían gemelas. */}
+                        <div className="grid grid-cols-2 gap-2">
+                             <button
+                                onClick={() => openEditor(r.question, r)}
+                                className="min-h-[44px] bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 shadow-lg shadow-indigo-500/20 transition-all"
+                                title="Editar y corregir la pregunta"
                             >
-                                <Pencil size={14}/> CORREGIR
+                                <Pencil size={14}/> Corregir
                             </button>
 
-                             <button 
+                            <button
+                                onClick={()=>handleResolveReport(r.id)}
+                                className="min-h-[44px] bg-slate-700 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
+                                title="Archivar la queja sin tocar la pregunta"
+                            >
+                                <CheckCircle2 size={14}/> Archivar queja
+                            </button>
+
+                             <button
                                 onClick={() => r.question_id && handleDisable(r.question_id, true)}
                                 disabled={!r.question_id}
-                                className="bg-slate-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 border border-transparent hover:border-red-500/30 py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
-                                title="Desactivar Pregunta"
+                                className="min-h-[44px] col-span-2 bg-slate-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 border border-transparent hover:border-red-500/30 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all disabled:opacity-40"
+                                title="Descartar la pregunta del banco"
                             >
-                                <XCircle size={14}/> MATAR
-                            </button>
-                            
-                            <button 
-                                onClick={()=>handleResolveReport(r.id)} 
-                                className="bg-slate-700 hover:bg-emerald-600 text-slate-300 hover:text-white py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
-                                title="Marcar como Resuelto (Sin cambios)"
-                            >
-                                <CheckCircle2 size={14}/> OK
+                                <XCircle size={14}/> Descartar la pregunta
                             </button>
                         </div>
                     </div>
@@ -260,119 +271,92 @@ export default function AdminModeration() {
             })}
         </div>
 
-        {/* === MODAL DE EDICIÓN === */}
+        {/* === EDITOR DE LA PREGUNTA === */}
+        {/* Escrito a mano y con `max-h-[95vh]`, como los otros tres modales de
+            la aplicacion: en un movil el pie —donde esta "Guardar cambios"— se
+            quedaba fuera de la pantalla al abrirlo. El primitivo usa `dvh`. */}
         {editingQ && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-                <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-200">
-                    
-                    {/* Header Modal */}
-                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-                        <h3 className="font-black text-white text-lg flex items-center gap-2">
-                            <Pencil className="text-indigo-400" size={20}/>
-                            <span className="tracking-tight">Editor Quirúrgico</span>
-                        </h3>
-                        <button onClick={() => setEditingQ(null)} className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-full transition-colors">
-                            <X size={20}/>
-                        </button>
-                    </div>
-
-                    {/* CONTEXTO INTELIGENTE (Si venimos de un reporte) */}
+            <Modal
+                title="Editar la pregunta"
+                subtitle={reportContext ? 'Vienes de una queja de un alumno' : undefined}
+                onClose={() => setEditingQ(null)}
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => setEditingQ(null)}>Cancelar</Button>
+                        <Button
+                            onClick={saveChanges}
+                            disabled={saving}
+                            icon={saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
+                        >
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </Button>
+                    </>
+                }
+            >
+                <div className="space-y-5">
                     {reportContext && (
-                        <div className="bg-amber-500/10 border-b border-amber-500/10 p-4 flex gap-3 items-start">
-                             <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={18} />
-                             <div>
-                                <p className="text-amber-500 text-xs font-black uppercase mb-0.5">ESTÁS EDITANDO UNA QUEJA</p>
-                                <p className="text-amber-200 text-sm">“{reportContext.message}”</p>
-                             </div>
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex gap-3 items-start">
+                            <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+                            <div className="min-w-0">
+                                <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-0.5">Lo que dijo el alumno</p>
+                                <p className="text-amber-200 text-sm break-words">“{reportContext.message}”</p>
+                            </div>
                         </div>
                     )}
 
-                    {/* Scrollable Body */}
-                    <div className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
-                        
-                        {/* Enunciado */}
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Enunciado de la Pregunta</label>
-                            <textarea 
-                                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl p-4 text-white text-sm focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none shadow-inner"
-                                rows={3}
-                                value={editForm.question_text}
-                                onChange={(e) => setEditForm({...editForm, question_text: e.target.value})}
-                            />
-                        </div>
+                    <TextAreaField
+                        label="Enunciado de la pregunta"
+                        rows={3}
+                        value={editForm.question_text}
+                        onChange={(e) => setEditForm({...editForm, question_text: e.target.value})}
+                    />
 
-                        {/* Opciones */}
-                        <div className="space-y-3">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Opciones <span className="text-slate-600 lowercase font-normal">(Selecciona la correcta)</span></label>
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                            Opciones · marca la correcta
+                        </p>
+                        <div className="space-y-2">
                             {editForm.options.map((opt, idx) => (
-                                <div key={idx} className={`flex gap-3 items-center p-2 rounded-xl border transition-all ${
-                                     editForm.correct_index === idx ? 'bg-emerald-500/5 border-emerald-500/30' : 'border-transparent hover:bg-slate-800'
+                                <div key={idx} className={`flex gap-2 items-center p-2 rounded-xl border transition-all ${
+                                     editForm.correct_index === idx ? 'bg-emerald-500/5 border-emerald-500/40' : 'border-slate-200 dark:border-slate-800'
                                 }`}>
-                                    <button 
+                                    <button
                                         onClick={() => setEditForm({...editForm, correct_index: idx})}
-                                        className={`w-10 h-10 rounded-xl flex items-center justify-center border font-bold text-sm transition-all shadow-sm ${
-                                            editForm.correct_index === idx 
-                                            ? 'bg-emerald-500 border-emerald-500 text-white scale-110' 
-                                            : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'
+                                        aria-label={`Marcar la opcion ${idx === 0 ? 'A' : idx === 1 ? 'B' : 'C'} como correcta`}
+                                        className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border font-black text-sm transition-all ${
+                                            editForm.correct_index === idx
+                                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
                                         }`}
                                     >
                                         {idx === 0 ? 'A' : idx === 1 ? 'B' : 'C'}
                                     </button>
-                                    <div className="flex-1 relative">
-                                        <input 
-                                            type="text"
-                                            className={`w-full bg-slate-950 border rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none transition-all ${
-                                                editForm.correct_index === idx 
-                                                ? 'border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.1)]' 
-                                                : 'border-slate-800 focus:border-indigo-500'
-                                            }`}
-                                            value={opt}
-                                            onChange={(e) => {
-                                                const newOpts = [...editForm.options];
-                                                newOpts[idx] = e.target.value;
-                                                setEditForm({...editForm, options: newOpts});
-                                            }}
-                                        />
-                                        {editForm.correct_index === idx && (
-                                            <span className="absolute right-3 top-3 text-[10px] font-black text-emerald-500 uppercase tracking-wide pointer-events-none">Correcta</span>
-                                        )}
-                                    </div>
+                                    <input
+                                        type="text"
+                                        className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-3 text-base sm:text-sm text-slate-900 dark:text-white outline-none transition-colors"
+                                        value={opt}
+                                        onChange={(e) => {
+                                            const newOpts = [...editForm.options];
+                                            newOpts[idx] = e.target.value;
+                                            setEditForm({...editForm, options: newOpts});
+                                        }}
+                                    />
+                                    {editForm.correct_index === idx && (
+                                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mr-1" />
+                                    )}
                                 </div>
                             ))}
                         </div>
-
-                        {/* Explicación */}
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Explicación / Retroalimentación</label>
-                            <textarea 
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-300 text-sm focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all shadow-inner"
-                                rows={4}
-                                value={editForm.explanation}
-                                onChange={(e) => setEditForm({...editForm, explanation: e.target.value})}
-                            />
-                        </div>
-
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="p-5 border-t border-slate-800 flex justify-end gap-3 bg-slate-900/50 rounded-b-2xl">
-                        <button 
-                            onClick={() => setEditingQ(null)} 
-                            className="px-5 py-2.5 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
-                        >
-                            Cancelar
-                        </button>
-                        <button 
-                            onClick={saveChanges}
-                            disabled={saving}
-                            className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50 hover:scale-105 transition-all"
-                        >
-                            {saving ? <Loader2 className="animate-spin" size={16}/> : <><Save size={18}/> Guardar Cambios</>}
-                        </button>
-                    </div>
-
+                    <TextAreaField
+                        label="Explicación"
+                        rows={4}
+                        value={editForm.explanation}
+                        onChange={(e) => setEditForm({...editForm, explanation: e.target.value})}
+                    />
                 </div>
-            </div>
+            </Modal>
         )}
 
     </div>
