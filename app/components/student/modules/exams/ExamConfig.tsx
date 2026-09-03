@@ -3,15 +3,19 @@
 import { useState, useEffect } from 'react';
 import { getStudentTopics } from '@/actions';
 import { ExamSettings } from './ExamManager';
-import { 
-  Crosshair, BookOpen, Clock, AlertTriangle, 
-  CheckCircle2, Layers 
-} from 'lucide-react';
+import { Crosshair, BookOpen, Clock, AlertTriangle, CheckCircle2, Layers } from 'lucide-react';
+import { Card, Button, SectionLabel, OptionCard, OptionGroup, EmptyState, cx, TEXT, TAP } from '../../../ui';
 
 interface ExamConfigProps {
   initialSettings: ExamSettings;
   onStart: (s: ExamSettings) => void;
 }
+
+const DIFICULTADES = [
+  { id: 'easy', label: 'Básica' },
+  { id: 'medium', label: 'Estándar' },
+  { id: 'hard', label: 'Extrema' },
+] as const;
 
 export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps) {
   const [topics, setTopics] = useState<string[]>([]);
@@ -57,187 +61,177 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
     }
   };
 
+  const sinTema = settings.selectedTopics.length === 0;
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
-      {/* HEADER
+    /*
+      Esta pantalla NO lleva cabecera propia.
+      Antes abría con un icono de 64px, "CONFIGURACIÓN DE MISIÓN" a 30px y un
+      subtítulo, justo debajo del "OPERACIONES (TEST)" que ya pinta la cabecera
+      de la aplicación: dos títulos seguidos que se comían el primer tercio de
+      la pantalla del móvil antes del primer control. El título lo pone el
+      armazón; aquí se va directo a lo que hay que decidir.
+    */
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-500">
 
-          Icono de 64px + titulo de 30px + subtitulo eran el primer tramo de
-          la pantalla, antes de cualquier control: en movil eso solo ya se
-          comia una parte del viewport. Se reduce por debajo de `sm`. */}
-      <div className="text-center mb-4 sm:mb-6 md:mb-10">
-        <div className="w-11 h-11 sm:w-16 sm:h-16 bg-indigo-600/10 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-4 border border-indigo-600/20">
-            <Crosshair size={22} className="sm:hidden"/>
-            <Crosshair size={32} className="hidden sm:block"/>
-        </div>
-        <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-            Configuración de Misión
-        </h2>
-        <p className="text-slate-500 mt-1 sm:mt-2 text-xs sm:text-base">Personaliza los parámetros del simulacro.</p>
-      </div>
+      <div className="grid md:grid-cols-12 gap-4 sm:gap-6">
 
-      <div className="grid md:grid-cols-12 gap-4 md:gap-8">
-
-        {/* COLUMNA IZQUIERDA: TEMARIO */}
-        {/*
-          La caja llevaba `h-[500px]` FIJO en todos los tamaños. Con pocos
-          temas seleccionables (3, 5...) sobraba casi toda esa altura en
-          blanco, y en móvil eso se traduce en pantallas enteras de hueco
-          vacío antes de llegar a "Modo de Operación". En md+ el layout es a
-          dos columnas y esa altura fija sí compensa (empareja con la columna
-          derecha); en móvil se apila, así que se limita con `max-h` y deja
-          que el contenido decida su alto real por debajo de eso.
-        */}
-        <div className="md:col-span-5 flex flex-col max-h-[50vh] md:h-[500px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-            <div className="p-4 md:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <BookOpen size={16} className="text-slate-400"/>
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Temario ({settings.selectedTopics.length})
-                    </span>
-                </div>
+        {/* TEMARIO */}
+        <Card pad="none" className="md:col-span-5 flex flex-col max-h-[45dvh] md:max-h-[520px] overflow-hidden">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
+            <SectionLabel
+              icon={<BookOpen size={14} />}
+              className="mb-0"
+              aside={
                 <button
-                    onClick={handleSelectAll}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-500 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded"
+                  onClick={handleSelectAll}
+                  className={cx(
+                    'text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider',
+                    'bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg',
+                    TAP,
+                  )}
                 >
-                    {settings.selectedTopics.length === topics.length ? 'Desmarcar' : 'Todos'}
+                  {settings.selectedTopics.length === topics.length ? 'Desmarcar' : 'Todos'}
                 </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
-                {loadingTopics ? (
-                    <div className="p-4 text-center text-slate-400 text-xs">Cargando base de datos...</div>
-                ) : (
-                    topics.map(topic => {
-                        const isSelected = settings.selectedTopics.includes(topic);
-                        return (
-                            <button
-                                key={topic}
-                                onClick={() => toggleTopic(topic)}
-                                className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all border ${
-                                    isSelected
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                    : 'bg-white dark:bg-slate-900 text-slate-500 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'
-                                }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${isSelected ? 'border-white bg-white/20' : 'border-slate-300'}`}>
-                                        {isSelected && <CheckCircle2 size={10} className="text-white"/>}
-                                    </div>
-                                    {/* Antes truncaba con "..." a media palabra: el
-                                        enunciado del tema es lo único que dice al
-                                        alumno qué está seleccionando. */}
-                                    <span className="line-clamp-2 leading-snug">{topic}</span>
-                                </div>
-                            </button>
-                        );
-                    })
-                )}
-            </div>
-        </div>
-
-        {/* COLUMNA DERECHA: PARÁMETROS */}
-        <div className="md:col-span-7 space-y-4 sm:space-y-6">
-            
-            {/* 1. MODO */}
-            <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
-                <label className="text-xs font-bold text-slate-400 uppercase mb-4 block flex items-center gap-2">
-                    <Layers size={14}/> Modo de Operación
-                </label>
-                {/*
-                  `grid-cols-2` fijo obligaba a "ENTRENAMIENTO" y "SIMULACRO
-                  REAL" a compartir fila SIEMPRE. En un movil de 360-400px,
-                  con `p-6` de la tarjeta + `gap-4` + `p-4` de cada boton, a
-                  cada etiqueta le quedaban ~110px de ancho: "ENTRENAMIENTO"
-                  en mayusculas y negrita no entra ahi sin tocar el borde (se
-                  veia literalmente pegado al canto de la caja). Se apila en
-                  una columna hasta `sm`, que es donde por fin sobra sitio
-                  para las dos.
-                */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <button
-                        onClick={() => setSettings({...settings, mode: 'practice'})}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                            settings.mode === 'practice'
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600'
-                            : 'border-slate-100 dark:border-slate-800 hover:border-indigo-300'
-                        }`}
-                    >
-                        <span className={`text-sm font-black uppercase block mb-1 ${settings.mode === 'practice' ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Entrenamiento</span>
-                        <span className="text-[10px] text-slate-400 font-medium leading-tight block">Corrección inmediata y análisis de error. Sin límite de tiempo.</span>
-                    </button>
-
-                    <button
-                        onClick={() => setSettings({...settings, mode: 'exam'})}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                            settings.mode === 'exam'
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600'
-                            : 'border-slate-100 dark:border-slate-800 hover:border-indigo-300'
-                        }`}
-                    >
-                        <span className={`text-sm font-black uppercase block mb-1 ${settings.mode === 'exam' ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Simulacro Real</span>
-                        <span className="text-[10px] text-slate-400 font-medium leading-tight block">Sin feedback. Cronómetro activo. Registro oficial en estadísticas.</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* 2. DIFICULTAD Y CANTIDAD */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-3 sm:mb-4 block flex items-center gap-2">
-                        <AlertTriangle size={14}/> Dificultad
-                    </label>
-                    <div className="flex flex-col gap-2">
-                        {/* `as const`: sin el, el array es string[] y `d` no
-                            encaja en el tipo de `difficulty`. Antes se tapaba
-                            con un `as any` en el onClick. */}
-                        {(['easy', 'medium', 'hard'] as const).map(d => (
-                            <button 
-                                key={d}
-                                onClick={() => setSettings({ ...settings, difficulty: d })}
-                                className={`w-full py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors ${
-                                    settings.difficulty === d 
-                                    ? d === 'hard' ? 'bg-red-100 text-red-600' : d === 'medium' ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'
-                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-400'
-                                }`}
-                            >
-                                {d === 'easy' ? 'Básica' : d === 'medium' ? 'Estándar' : 'Extrema'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-3 sm:mb-4 block flex items-center gap-2">
-                        <Clock size={14}/> Preguntas
-                    </label>
-                    <div className="flex items-center justify-center h-full pb-4">
-                        <div className="text-center w-full">
-                            <span className="text-4xl font-black text-slate-900 dark:text-white">
-                                {settings.questionCount}
-                            </span>
-                            <input 
-                                type="range" 
-                                min="1" max="50" 
-                                value={settings.questionCount} 
-                                onChange={(e) => setSettings({...settings, questionCount: parseInt(e.target.value)})}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mt-4"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* BOTÓN INICIO */}
-            <button 
-                onClick={() => onStart(settings)}
-                disabled={settings.selectedTopics.length === 0}
-                className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3 uppercase tracking-wide group"
+              }
             >
-                {settings.selectedTopics.length === 0 ? 'Selecciona un tema' : 'Iniciar Operación'}
-                <Crosshair size={20} className="group-hover:rotate-45 transition-transform"/>
-            </button>
+              Temario ({settings.selectedTopics.length})
+            </SectionLabel>
+          </div>
 
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+            {loadingTopics ? (
+              <p className={cx(TEXT.muted, 'p-4 text-center')}>Cargando temario…</p>
+            ) : topics.length === 0 ? (
+              <EmptyState
+                title="Sin temas disponibles"
+                hint="Todavía no hay preguntas en el banco. Habla con tu academia."
+              />
+            ) : (
+              topics.map(topic => {
+                const isSelected = settings.selectedTopics.includes(topic);
+                return (
+                  <button
+                    key={topic}
+                    onClick={() => toggleTopic(topic)}
+                    className={cx(
+                      'w-full text-left p-3 rounded-xl text-xs font-bold transition-all border flex items-center gap-3',
+                      TAP,
+                      isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                        : 'bg-transparent text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800',
+                    )}
+                  >
+                    <span
+                      className={cx(
+                        'w-4 h-4 shrink-0 rounded border flex items-center justify-center',
+                        isSelected ? 'border-white bg-white/20' : 'border-slate-300 dark:border-slate-600',
+                      )}
+                    >
+                      {isSelected && <CheckCircle2 size={10} className="text-white" />}
+                    </span>
+                    {/* Dos líneas y sin truncar: el enunciado del tema es lo
+                        único que le dice al alumno qué está eligiendo. */}
+                    <span className="line-clamp-2 leading-snug">{topic}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </Card>
+
+        {/* PARÁMETROS */}
+        <div className="md:col-span-7 space-y-4 sm:space-y-6">
+
+          <Card>
+            <SectionLabel icon={<Layers size={14} />}>Modo de operación</SectionLabel>
+            {/* `OptionGroup` apila en móvil por definición. Es donde estaba el
+                fallo: con dos columnas fijas, "ENTRENAMIENTO" en mayúsculas y
+                negrita se quedaba con ~110px y tocaba el borde de su caja. */}
+            <OptionGroup cols={2}>
+              <OptionCard
+                title="Entrenamiento"
+                description="Corrección inmediata y análisis de error. Sin límite de tiempo."
+                selected={settings.mode === 'practice'}
+                onClick={() => setSettings({ ...settings, mode: 'practice' })}
+              />
+              <OptionCard
+                title="Simulacro real"
+                description="Sin feedback. Cronómetro activo. Registro oficial en estadísticas."
+                selected={settings.mode === 'exam'}
+                onClick={() => setSettings({ ...settings, mode: 'exam' })}
+              />
+            </OptionGroup>
+          </Card>
+
+          <Card>
+            <SectionLabel icon={<AlertTriangle size={14} />}>Dificultad</SectionLabel>
+            {/* Antes eran tres botones apilados dentro de media tarjeta: 150px
+                de alto para elegir entre tres palabras. En fila ocupan 44. */}
+            <div className="grid grid-cols-3 gap-2">
+              {DIFICULTADES.map(d => {
+                const activa = settings.difficulty === d.id;
+                const color =
+                  d.id === 'hard'
+                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                    : d.id === 'medium'
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => setSettings({ ...settings, difficulty: d.id })}
+                    aria-pressed={activa}
+                    className={cx(
+                      'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
+                      TAP,
+                      activa ? color : 'bg-slate-50 dark:bg-slate-800 text-slate-400',
+                    )}
+                  >
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card>
+            <SectionLabel
+              icon={<Clock size={14} />}
+              aside={
+                <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">
+                  {settings.questionCount}
+                </span>
+              }
+            >
+              Preguntas
+            </SectionLabel>
+            <input
+              type="range"
+              min="1"
+              max="50"
+              value={settings.questionCount}
+              onChange={(e) => setSettings({ ...settings, questionCount: parseInt(e.target.value) })}
+              aria-label="Número de preguntas"
+              className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            />
+            {settings.mode === 'exam' && (
+              <p className={cx(TEXT.muted, 'mt-3')}>
+                Son {Math.round((settings.questionCount * 30) / 60)} min de reloj: 30 segundos por
+                pregunta, el ritmo de la convocatoria.
+              </p>
+            )}
+          </Card>
+
+          <Button
+            block
+            size="lg"
+            disabled={sinTema}
+            onClick={() => onStart(settings)}
+            iconRight={<Crosshair size={20} />}
+          >
+            {sinTema ? 'Selecciona un tema' : 'Iniciar operación'}
+          </Button>
         </div>
       </div>
     </div>

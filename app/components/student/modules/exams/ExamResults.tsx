@@ -3,6 +3,7 @@
 import { Question } from './ExamManager';
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
 import { XCircle, RotateCcw, Award, AlertTriangle } from 'lucide-react';
+import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
 
 interface ExamResultsProps {
   questions: Question[];
@@ -22,88 +23,72 @@ export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
   const perdidoPorFallos = rawPercentage - Math.round(score * 10);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in zoom-in duration-500">
+    <div className="flex justify-center animate-in zoom-in duration-500">
+      <Card pad="lg" elevation="floating" className="max-w-md w-full text-center relative overflow-hidden">
 
-      {/* TARJETA DE RESULTADOS */}
-      {/*
-        `p-10` (40px por lado) + `text-7xl` (72px) estaban pensados para
-        escritorio: en un movil de 360-400px de ancho dejaban muy poco margen
-        para el numero de la nota y apretaban la fila de Aciertos/Fallos/
-        Blancos. Se reduce en movil y crece a partir de `sm`.
-      */}
-      <div className="relative bg-white dark:bg-slate-900 p-6 sm:p-10 md:p-14 rounded-[2rem] sm:rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-md w-full overflow-hidden">
-
-        {/* Confeti de fondo si aprueba */}
         {passed && (
-            <div className="absolute inset-0 pointer-events-none opacity-10" style={{ backgroundImage: 'radial-gradient(#10b981 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
+          <div
+            className="absolute inset-0 pointer-events-none opacity-10"
+            style={{ backgroundImage: 'radial-gradient(#10b981 2px, transparent 2px)', backgroundSize: '30px 30px' }}
+          />
         )}
 
-        <div className={`relative z-10 w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 shadow-[0_0_40px_rgba(0,0,0,0.1)] ${passed ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
-            {passed ? <Award size={48} className="sm:hidden"/> : <XCircle size={48} className="sm:hidden"/>}
-            {passed ? <Award size={64} className="hidden sm:block"/> : <XCircle size={64} className="hidden sm:block"/>}
+        <div
+          className={cx(
+            'relative z-10 w-20 h-20 sm:w-28 sm:h-28 rounded-full flex items-center justify-center mx-auto mb-5 sm:mb-7',
+            passed
+              ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+              : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400',
+          )}
+        >
+          {passed ? <Award className="w-10 h-10 sm:w-14 sm:h-14" /> : <XCircle className="w-10 h-10 sm:w-14 sm:h-14" />}
         </div>
 
-        <h2 className="text-5xl sm:text-7xl font-black text-slate-900 dark:text-white mb-2 tracking-tighter">
-            {nota(score)}
-        </h2>
+        {/* La nota escala con la pantalla: a 72px fijos casi tocaba los bordes
+            en un móvil de 360px. */}
+        <h2 className={cx(TEXT.display, 'text-slate-900 dark:text-white mb-2')}>{nota(score)}</h2>
 
-        <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-2">
-            Nota con penalización
-        </p>
-        <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-6 sm:mb-8">
-            Sobre {CNP_SCORING.scale} · se aprueba con {CNP_SCORING.passMark}
+        <p className={cx(TEXT.label, 'text-slate-400 mb-1')}>Nota con penalización</p>
+        <p className={cx(TEXT.muted, 'mb-5 sm:mb-7')}>
+          Sobre {CNP_SCORING.scale} · se aprueba con {CNP_SCORING.passMark}
         </p>
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6 text-left">
-             <div className="p-2.5 sm:p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl">
-                 <p className="text-[9px] sm:text-[10px] font-bold text-emerald-600/60 uppercase">Aciertos</p>
-                 <p className="text-xl sm:text-2xl font-black text-emerald-600">{correct}</p>
-             </div>
-             <div className="p-2.5 sm:p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl">
-                 <p className="text-[9px] sm:text-[10px] font-bold text-red-600/60 uppercase">Fallos</p>
-                 <p className="text-xl sm:text-2xl font-black text-red-600">{wrong}</p>
-             </div>
-             {/* El blanco es una DECISION, no un descuido: por eso tiene su
-                 propia casilla y no se suma a los fallos. */}
-             <div className="p-2.5 sm:p-3 bg-slate-100 dark:bg-slate-800/50 rounded-2xl">
-                 <p className="text-[9px] sm:text-[10px] font-bold text-slate-500/70 uppercase">Blancos</p>
-                 <p className="text-xl sm:text-2xl font-black text-slate-500">{blank}</p>
-             </div>
+        <div className="grid grid-cols-3 gap-2 mb-5 text-left">
+          <StatTile label="Aciertos" value={correct} tone="success" />
+          <StatTile label="Fallos" value={wrong} tone="danger" />
+          {/* El blanco es una DECISIÓN, no un descuido: por eso tiene su propia
+              casilla y no se suma a los fallos (regla 24). */}
+          <StatTile label="Blancos" value={blank} tone="neutral" />
         </div>
 
         {/* LO QUE HAN COSTADO LOS FALLOS.
-            Sin esto la penalizacion es solo un numero mas pequeño; con esto el
+            Sin esto la penalización es solo un número más pequeño; con esto el
             alumno ve la estrategia. */}
-        <div className="mb-6 sm:mb-8 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-left space-y-2">
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                Cada fallo resta <strong>{nota(penaltyPerError())}</strong> aciertos.
-                Te quedan <strong>{nota(net)}</strong> aciertos netos de {questions.length}.
+        <Card tone="sunken" pad="sm" className="mb-5 sm:mb-7 text-left space-y-2">
+          <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+            Cada fallo resta <strong>{nota(penaltyPerError())}</strong> aciertos. Te quedan{' '}
+            <strong>{nota(net)}</strong> aciertos netos de {questions.length}.
+          </p>
+          {perdidoPorFallos > 0 && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-2 leading-relaxed">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <span>
+                Sin penalización habrías visto un {rawPercentage} %. Los {wrong} fallo
+                {wrong !== 1 ? 's' : ''} te cuestan {nota(perdidoPorFallos / 10)} puntos.
+              </span>
             </p>
-            {perdidoPorFallos > 0 && (
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-2 leading-relaxed">
-                    <AlertTriangle size={13} className="mt-0.5 flex-shrink-0"/>
-                    <span>
-                        Sin penalización habrías visto un {rawPercentage} %.
-                        Los {wrong} fallo{wrong !== 1 ? 's' : ''} te cuestan {nota(perdidoPorFallos / 10)} puntos.
-                    </span>
-                </p>
-            )}
-            {wrong === 0 && blank > 0 && (
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 leading-relaxed">
-                    Ni un fallo: dejar en blanco lo que no sabías no te ha restado nada.
-                </p>
-            )}
-        </div>
+          )}
+          {wrong === 0 && blank > 0 && (
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 leading-relaxed">
+              Ni un fallo: dejar en blanco lo que no sabías no te ha restado nada.
+            </p>
+          )}
+        </Card>
 
-        <button
-            onClick={onRetry}
-            className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold uppercase tracking-wide flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-lg"
-        >
-            <RotateCcw size={18}/>
-            Nueva Operación
-        </button>
-
-      </div>
+        <Button block size="lg" onClick={onRetry} icon={<RotateCcw size={18} />}>
+          Nueva operación
+        </Button>
+      </Card>
     </div>
   );
 }
