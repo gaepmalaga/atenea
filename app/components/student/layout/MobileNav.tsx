@@ -12,7 +12,13 @@ interface MobileNavProps {
 
 export default function MobileNav({ activeTab, onTabChange, onLogout, items }: MobileNavProps) {
   return (
-    <div className="md:hidden fixed bottom-0 left-0 w-full bg-white/80 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 z-50 px-6 py-2 flex justify-between items-center pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+    // `pb-safe` no es una utilidad de Tailwind ni esta definida en
+    // globals.css: no generaba ninguna regla y no hacia nada. En un movil con
+    // barra de gestos, la navegacion se quedaba sin margen real hasta el borde
+    // fisico. `env(safe-area-inset-bottom)` es el valor real que da el
+    // navegador; `max()` con 0.5rem asegura un minimo en los moviles que no
+    // report an inset (la mayoria con boton fisico o barra de 3 botones).
+    <div className="md:hidden fixed bottom-0 left-0 w-full bg-white/80 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 z-50 px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
       {items.map((item) => {
         const isActive = activeTab === item.id;
         const Icon = item.icon;

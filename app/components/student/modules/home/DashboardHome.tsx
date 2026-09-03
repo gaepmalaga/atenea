@@ -60,8 +60,9 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
     );
   }
 
+  // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-4">
       
       {/* 1. TARJETA HERO (INFORME DIARIO) */}
       <div className="w-full rounded-3xl bg-indigo-600 p-8 md:p-12 shadow-2xl shadow-indigo-600/20 text-white relative overflow-hidden group transition-all hover:shadow-indigo-600/30 animate-in fade-in slide-in-from-bottom-4 duration-700">

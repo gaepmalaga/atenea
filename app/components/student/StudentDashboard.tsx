@@ -107,7 +107,19 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       />
 
       {/* 3. ÁREA PRINCIPAL */}
-      <main className={`flex-1 w-full min-h-screen transition-all duration-300 ${zenMode ? 'p-0' : 'p-4 md:pl-28 md:pr-10 py-8 md:py-10'}`}>
+      {/*
+        `MobileNav` es `fixed bottom-0`: no empuja el contenido, se pinta
+        ENCIMA. Sin hueco reservado abajo, el ultimo elemento de cualquier
+        modulo (un boton "Iniciar", una tarjeta) queda fisicamente debajo de
+        la barra en vez de terminar visible antes de ella. Cada modulo habia
+        ido añadiendo su propio `pb-20` a ciegas para compensar —una sola vez
+        en unos, ninguna en otros (`ExamConfig` no tenia ninguno)— asi que el
+        hueco real dependia de que cada componente se acordara. Se reserva
+        UNA vez aqui, en el contenedor que ya sabe cuando existe la barra
+        (`!zenMode`, que es tambien cuando `MobileNav` se monta). `pb-24`
+        (96px) cubre la barra (~60-80px con el area segura) con margen.
+      */}
+      <main className={`flex-1 w-full min-h-screen transition-all duration-300 ${zenMode ? 'p-0' : 'px-4 pt-8 pb-24 md:pl-28 md:pr-10 md:pt-10 md:pb-10'}`}>
         
         {/* CABECERA (Header) */}
         {!zenMode && (

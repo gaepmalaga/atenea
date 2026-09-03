@@ -125,8 +125,9 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
         }`;
 
+    // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
     return (
-        <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-10 py-8 pb-20">
+        <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-10 py-8 pb-4">
             <button onClick={onExit} className="mb-6 flex items-center gap-2 text-slate-500 hover:text-white font-bold text-sm">
                 <ChevronRight className="rotate-180" size={16}/> VOLVER AL HUB
             </button>

@@ -21,8 +21,9 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
     const { total: totalDays, completed: completedDays, percentage: progressPercentage, isWeekComplete } =
         planProgress(plan);
 
+    // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
     return (
-        <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 pb-20">
+        <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 pb-4">
             
             {/* HEADER */}
             <div className="flex justify-between items-end mb-8">

@@ -116,8 +116,9 @@ export default function FailedQuestions() {
 
   const reincidentes = lista.filter((i) => i.times > 1).length;
 
+  // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
   return (
-    <div className="max-w-4xl mx-auto pb-20 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto pb-4 animate-in fade-in duration-500">
 
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>

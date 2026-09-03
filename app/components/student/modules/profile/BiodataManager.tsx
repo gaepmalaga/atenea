@@ -188,8 +188,9 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
 
   if (loading) return <div className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-slate-400"/></div>;
 
+  // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
   return (
-    <div className="max-w-6xl mx-auto pb-12 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-500">
       
       {/* HEADER CON BOTÓN DE SALIDA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 pt-4 px-2">

@@ -86,8 +86,11 @@ export default function StatsPanel({ user }: StatsPanelProps) {
 
   const maxPullups = readMaxPullups(physProfile);
 
+  // El hueco para que MobileNav no tape el final ya lo reserva `<main>` en
+  // StudentDashboard; un pb-20 aqui encima solo sumaba espacio en blanco de
+  // mas al final de la pantalla.
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto space-y-6 pb-4 animate-in fade-in duration-700">
       
       {/* HEADER: RANGO Y STATUS QUO */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">

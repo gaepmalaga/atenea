@@ -60,15 +60,20 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* HEADER */}
-      <div className="text-center mb-6 md:mb-10">
-        <div className="w-16 h-16 bg-indigo-600/10 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-600/20">
-            <Crosshair size={32} />
+      {/* HEADER
+
+          Icono de 64px + titulo de 30px + subtitulo eran el primer tramo de
+          la pantalla, antes de cualquier control: en movil eso solo ya se
+          comia una parte del viewport. Se reduce por debajo de `sm`. */}
+      <div className="text-center mb-4 sm:mb-6 md:mb-10">
+        <div className="w-11 h-11 sm:w-16 sm:h-16 bg-indigo-600/10 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-4 border border-indigo-600/20">
+            <Crosshair size={22} className="sm:hidden"/>
+            <Crosshair size={32} className="hidden sm:block"/>
         </div>
-        <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+        <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
             Configuración de Misión
         </h2>
-        <p className="text-slate-500 mt-2">Personaliza los parámetros del simulacro.</p>
+        <p className="text-slate-500 mt-1 sm:mt-2 text-xs sm:text-base">Personaliza los parámetros del simulacro.</p>
       </div>
 
       <div className="grid md:grid-cols-12 gap-4 md:gap-8">
@@ -132,31 +137,41 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
         </div>
 
         {/* COLUMNA DERECHA: PARÁMETROS */}
-        <div className="md:col-span-7 space-y-6">
+        <div className="md:col-span-7 space-y-4 sm:space-y-6">
             
             {/* 1. MODO */}
-            <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
+            <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
                 <label className="text-xs font-bold text-slate-400 uppercase mb-4 block flex items-center gap-2">
                     <Layers size={14}/> Modo de Operación
                 </label>
-                <div className="grid grid-cols-2 gap-4">
-                    <button 
+                {/*
+                  `grid-cols-2` fijo obligaba a "ENTRENAMIENTO" y "SIMULACRO
+                  REAL" a compartir fila SIEMPRE. En un movil de 360-400px,
+                  con `p-6` de la tarjeta + `gap-4` + `p-4` de cada boton, a
+                  cada etiqueta le quedaban ~110px de ancho: "ENTRENAMIENTO"
+                  en mayusculas y negrita no entra ahi sin tocar el borde (se
+                  veia literalmente pegado al canto de la caja). Se apila en
+                  una columna hasta `sm`, que es donde por fin sobra sitio
+                  para las dos.
+                */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <button
                         onClick={() => setSettings({...settings, mode: 'practice'})}
                         className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                            settings.mode === 'practice' 
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600' 
+                            settings.mode === 'practice'
+                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600'
                             : 'border-slate-100 dark:border-slate-800 hover:border-indigo-300'
                         }`}
                     >
                         <span className={`text-sm font-black uppercase block mb-1 ${settings.mode === 'practice' ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-500'}`}>Entrenamiento</span>
                         <span className="text-[10px] text-slate-400 font-medium leading-tight block">Corrección inmediata y análisis de error. Sin límite de tiempo.</span>
                     </button>
-                    
-                    <button 
+
+                    <button
                         onClick={() => setSettings({...settings, mode: 'exam'})}
                         className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                            settings.mode === 'exam' 
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600' 
+                            settings.mode === 'exam'
+                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-600'
                             : 'border-slate-100 dark:border-slate-800 hover:border-indigo-300'
                         }`}
                     >
@@ -167,9 +182,9 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
             </div>
 
             {/* 2. DIFICULTAD Y CANTIDAD */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-4 block flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-3 sm:mb-4 block flex items-center gap-2">
                         <AlertTriangle size={14}/> Dificultad
                     </label>
                     <div className="flex flex-col gap-2">
@@ -192,8 +207,8 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
                     </div>
                 </div>
 
-                <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
-                    <label className="text-xs font-bold text-slate-400 uppercase mb-4 block flex items-center gap-2">
+                <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-3 sm:mb-4 block flex items-center gap-2">
                         <Clock size={14}/> Preguntas
                     </label>
                     <div className="flex items-center justify-center h-full pb-4">
