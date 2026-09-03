@@ -438,36 +438,36 @@ export default function ActiveTest({
 
     return (
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-24">
-        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
 
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-8">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6 sm:mb-8">
             Antes de entregar
           </h2>
 
-          <div className="grid grid-cols-3 gap-4 mb-10">
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-              <p className="text-3xl font-black text-indigo-600">{contestadas}</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Contestadas</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-10">
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
+              <p className="text-2xl sm:text-3xl font-black text-indigo-600">{contestadas}</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Contestadas</p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-              <p className={`text-3xl font-black ${enBlanco.length > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
+              <p className={`text-2xl sm:text-3xl font-black ${enBlanco.length > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
                 {enBlanco.length}
               </p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">En blanco</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">En blanco</p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-              <p className={`text-3xl font-black ${marcadas.size > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
+              <p className={`text-2xl sm:text-3xl font-black ${marcadas.size > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
                 {marcadas.size}
               </p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Marcadas</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Marcadas</p>
             </div>
           </div>
 
           {/* Que un blanco no reste es cierto, pero tampoco suma. Decirlo aqui
               evita que el alumno lo lea como "da igual dejarlas". */}
           {enBlanco.length > 0 && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 sm:mb-8 leading-relaxed">
               Las respuestas en blanco <strong className="text-slate-700 dark:text-slate-200">no restan</strong>,
               pero tampoco suman. Si puedes descartar una opción, arriesgar sale a cuenta.
             </p>
@@ -475,7 +475,7 @@ export default function ActiveTest({
 
           {/* LA CUADRICULA. Aqui si cabe el numero de cada pregunta, que en la
               barra de la cabecera no cabia. */}
-          <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 mb-10">
+          <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5 sm:gap-2 mb-6 sm:mb-10">
             {localQuestions.map((q, i) => {
               const respondida = !!q.userAnswer;
               const marcada = marcadas.has(i);
@@ -535,30 +535,19 @@ export default function ActiveTest({
     <div className="max-w-3xl mx-auto animate-in fade-in duration-300 relative pb-32">
 
       {/* ================= CABECERA ================= */}
-      <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 mb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
+      <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-4 mb-6 sm:mb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
 
-          <div className="flex items-center justify-between gap-4 mb-4">
-              <button onClick={onExit} className="text-[11px] font-black text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+          {/* Antes era una sola fila con tres grupos (Abortar / tema+modo /
+              reloj+contador) peleando por sitio: en un movil de 360px no
+              cabian sin apretarse. Con `flex-wrap` el tema+modo baja a su
+              propia fila SOLO en movil (`w-full` fuerza el salto); en sm+
+              vuelve a la fila unica de siempre. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3 sm:gap-4 sm:mb-4">
+              <button onClick={onExit} className="text-[11px] font-black text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors order-1">
                   <ArrowLeft size={14}/> Abortar
               </button>
 
-              {/* El tema y el modo: antes no habia forma de saber que estabas
-                  haciendo ni de que iba. */}
-              <div className="flex items-center gap-2 min-w-0 flex-1 justify-center">
-                  <Layers size={13} className="text-slate-400 flex-shrink-0"/>
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
-                      {topicName}
-                  </span>
-                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
-                      mode === 'exam'
-                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                        : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300'
-                  }`}>
-                      {mode === 'exam' ? 'Examen' : 'Entreno'}
-                  </span>
-              </div>
-
-              <div className="flex items-center gap-4 flex-shrink-0">
+              <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 order-2">
                   {/* Marcar para revisar. Dudar deja de obligar a decidir en el
                       momento: la marcas, sigues, y vuelves al final. */}
                   {navegacionLibre && (
@@ -598,6 +587,24 @@ export default function ActiveTest({
                   </span>
                   <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono tabular-nums">
                       {currentIndex + 1}<span className="text-slate-400">/{localQuestions.length}</span>
+                  </span>
+              </div>
+
+              {/* El tema y el modo: antes no habia forma de saber que estabas
+                  haciendo ni de que iba. `w-full` en movil lo manda a su
+                  propia fila (order-3); en sm+ vuelve al centro de la fila
+                  unica, como antes. */}
+              <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1 justify-center order-3 sm:order-none">
+                  <Layers size={13} className="text-slate-400 flex-shrink-0"/>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                      {topicName}
+                  </span>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
+                      mode === 'exam'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        : 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300'
+                  }`}>
+                      {mode === 'exam' ? 'Examen' : 'Entreno'}
                   </span>
               </div>
           </div>
@@ -690,10 +697,18 @@ export default function ActiveTest({
           vacio debajo. Es `min-h` y no `h`, asi que cuando el feedback del
           modo entrenamiento es largo el bloque crece hacia abajo en vez de
           recortarse. */}
-      <div className="min-h-[calc(100vh-15rem)] flex flex-col justify-center">
+      {/*
+        El `calc(100vh-15rem)` asume la altura de cabecera y pie de un
+        escritorio. En movil la cabecera ahora puede ocupar dos filas (arriba)
+        y el 100vh de un navegador movil se mueve con la barra de
+        direcciones: ese calculo fijo dejaba huecos en blanco distintos segun
+        el telefono. Por debajo de `sm` se usa un minimo relativo al viewport
+        en vez de restar un offset de escritorio.
+      */}
+      <div className="min-h-[45vh] sm:min-h-[calc(100vh-15rem)] flex flex-col justify-center">
 
       {/* TARJETA DE PREGUNTA */}
-      <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[2rem] shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 md:p-12 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
           
           {/* Marca de agua decorativa */}
           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
@@ -734,11 +749,11 @@ export default function ActiveTest({
              )}
           </div>
 
-          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-10 leading-snug relative z-10">
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-6 sm:mb-10 leading-snug relative z-10">
               {currentQ.question}
           </h3>
 
-          <div className="space-y-4 relative z-10">
+          <div className="space-y-3 sm:space-y-4 relative z-10">
               {currentQ.options.map((opt) => {
                   const isSelected = currentQ.userAnswer === opt.id;
                   const isCorrectOpt = opt.id === currentQ.correctOptionId;
@@ -758,7 +773,7 @@ export default function ActiveTest({
                           key={opt.id} 
                           onClick={() => handleAnswer(opt.id)}
                           disabled={mode === 'practice' && isAnswered}
-                          className={`w-full text-left p-5 rounded-2xl border-2 font-bold transition-all duration-200 flex items-start gap-4 group ${style}`}
+                          className={`w-full text-left p-4 sm:p-5 rounded-2xl border-2 font-bold transition-all duration-200 flex items-start gap-3 sm:gap-4 group ${style}`}
                       >
                           {/* La letra hace de tecla: es el atajo, no un adorno.
                               Con borde de teclado para que se lea como tal. */}

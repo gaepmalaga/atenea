@@ -61,7 +61,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* HEADER */}
-      <div className="text-center mb-10">
+      <div className="text-center mb-6 md:mb-10">
         <div className="w-16 h-16 bg-indigo-600/10 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-600/20">
             <Crosshair size={32} />
         </div>
@@ -71,25 +71,34 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
         <p className="text-slate-500 mt-2">Personaliza los parámetros del simulacro.</p>
       </div>
 
-      <div className="grid md:grid-cols-12 gap-8">
-        
+      <div className="grid md:grid-cols-12 gap-4 md:gap-8">
+
         {/* COLUMNA IZQUIERDA: TEMARIO */}
-        <div className="md:col-span-5 flex flex-col h-[500px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
+        {/*
+          La caja llevaba `h-[500px]` FIJO en todos los tamaños. Con pocos
+          temas seleccionables (3, 5...) sobraba casi toda esa altura en
+          blanco, y en móvil eso se traduce en pantallas enteras de hueco
+          vacío antes de llegar a "Modo de Operación". En md+ el layout es a
+          dos columnas y esa altura fija sí compensa (empareja con la columna
+          derecha); en móvil se apila, así que se limita con `max-h` y deja
+          que el contenido decida su alto real por debajo de eso.
+        */}
+        <div className="md:col-span-5 flex flex-col max-h-[50vh] md:h-[500px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+            <div className="p-4 md:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <BookOpen size={16} className="text-slate-400"/>
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
                         Temario ({settings.selectedTopics.length})
                     </span>
                 </div>
-                <button 
+                <button
                     onClick={handleSelectAll}
                     className="text-[10px] font-bold text-indigo-600 hover:text-indigo-500 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded"
                 >
                     {settings.selectedTopics.length === topics.length ? 'Desmarcar' : 'Todos'}
                 </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
                 {loadingTopics ? (
                     <div className="p-4 text-center text-slate-400 text-xs">Cargando base de datos...</div>
@@ -97,20 +106,23 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
                     topics.map(topic => {
                         const isSelected = settings.selectedTopics.includes(topic);
                         return (
-                            <button 
-                                key={topic} 
+                            <button
+                                key={topic}
                                 onClick={() => toggleTopic(topic)}
                                 className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-all border ${
-                                    isSelected 
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
+                                    isSelected
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
                                     : 'bg-white dark:bg-slate-900 text-slate-500 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'
                                 }`}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'border-white bg-white/20' : 'border-slate-300'}`}>
+                                    <div className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${isSelected ? 'border-white bg-white/20' : 'border-slate-300'}`}>
                                         {isSelected && <CheckCircle2 size={10} className="text-white"/>}
                                     </div>
-                                    <span className="truncate">{topic}</span>
+                                    {/* Antes truncaba con "..." a media palabra: el
+                                        enunciado del tema es lo único que dice al
+                                        alumno qué está seleccionando. */}
+                                    <span className="line-clamp-2 leading-snug">{topic}</span>
                                 </div>
                             </button>
                         );

@@ -25,49 +25,56 @@ export default function ExamResults({ questions, onRetry }: ExamResultsProps) {
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in zoom-in duration-500">
 
       {/* TARJETA DE RESULTADOS */}
-      <div className="relative bg-white dark:bg-slate-900 p-10 md:p-14 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-md w-full overflow-hidden">
+      {/*
+        `p-10` (40px por lado) + `text-7xl` (72px) estaban pensados para
+        escritorio: en un movil de 360-400px de ancho dejaban muy poco margen
+        para el numero de la nota y apretaban la fila de Aciertos/Fallos/
+        Blancos. Se reduce en movil y crece a partir de `sm`.
+      */}
+      <div className="relative bg-white dark:bg-slate-900 p-6 sm:p-10 md:p-14 rounded-[2rem] sm:rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-md w-full overflow-hidden">
 
         {/* Confeti de fondo si aprueba */}
         {passed && (
             <div className="absolute inset-0 pointer-events-none opacity-10" style={{ backgroundImage: 'radial-gradient(#10b981 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
         )}
 
-        <div className={`relative z-10 w-32 h-32 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(0,0,0,0.1)] ${passed ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
-            {passed ? <Award size={64}/> : <XCircle size={64}/>}
+        <div className={`relative z-10 w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 shadow-[0_0_40px_rgba(0,0,0,0.1)] ${passed ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'}`}>
+            {passed ? <Award size={48} className="sm:hidden"/> : <XCircle size={48} className="sm:hidden"/>}
+            {passed ? <Award size={64} className="hidden sm:block"/> : <XCircle size={64} className="hidden sm:block"/>}
         </div>
 
-        <h2 className="text-7xl font-black text-slate-900 dark:text-white mb-2 tracking-tighter">
+        <h2 className="text-5xl sm:text-7xl font-black text-slate-900 dark:text-white mb-2 tracking-tighter">
             {nota(score)}
         </h2>
 
         <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-2">
             Nota con penalización
         </p>
-        <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-8">
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-6 sm:mb-8">
             Sobre {CNP_SCORING.scale} · se aprueba con {CNP_SCORING.passMark}
         </p>
 
-        <div className="grid grid-cols-3 gap-3 mb-6 text-left">
-             <div className="p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl">
-                 <p className="text-[10px] font-bold text-emerald-600/60 uppercase">Aciertos</p>
-                 <p className="text-2xl font-black text-emerald-600">{correct}</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6 text-left">
+             <div className="p-2.5 sm:p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl">
+                 <p className="text-[9px] sm:text-[10px] font-bold text-emerald-600/60 uppercase">Aciertos</p>
+                 <p className="text-xl sm:text-2xl font-black text-emerald-600">{correct}</p>
              </div>
-             <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl">
-                 <p className="text-[10px] font-bold text-red-600/60 uppercase">Fallos</p>
-                 <p className="text-2xl font-black text-red-600">{wrong}</p>
+             <div className="p-2.5 sm:p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl">
+                 <p className="text-[9px] sm:text-[10px] font-bold text-red-600/60 uppercase">Fallos</p>
+                 <p className="text-xl sm:text-2xl font-black text-red-600">{wrong}</p>
              </div>
              {/* El blanco es una DECISION, no un descuido: por eso tiene su
                  propia casilla y no se suma a los fallos. */}
-             <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-2xl">
-                 <p className="text-[10px] font-bold text-slate-500/70 uppercase">Blancos</p>
-                 <p className="text-2xl font-black text-slate-500">{blank}</p>
+             <div className="p-2.5 sm:p-3 bg-slate-100 dark:bg-slate-800/50 rounded-2xl">
+                 <p className="text-[9px] sm:text-[10px] font-bold text-slate-500/70 uppercase">Blancos</p>
+                 <p className="text-xl sm:text-2xl font-black text-slate-500">{blank}</p>
              </div>
         </div>
 
         {/* LO QUE HAN COSTADO LOS FALLOS.
             Sin esto la penalizacion es solo un numero mas pequeño; con esto el
             alumno ve la estrategia. */}
-        <div className="mb-8 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-left space-y-2">
+        <div className="mb-6 sm:mb-8 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-left space-y-2">
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
                 Cada fallo resta <strong>{nota(penaltyPerError())}</strong> aciertos.
                 Te quedan <strong>{nota(net)}</strong> aciertos netos de {questions.length}.
