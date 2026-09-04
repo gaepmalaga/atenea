@@ -124,6 +124,46 @@ const ADMIN = [
     await mira(page, etiqueta);
   }
 
+  // --- LAS SUBPANTALLAS QUE NO SON UNA PESTAÑA ---
+  // Se llega a ellas desde dentro de un modulo, asi que la vuelta por la barra
+  // de pestañas no las ve. Son justo las que llevaban `text-7xl` y `text-9xl`
+  // fijos: cronometro de las pruebas fisicas y contador de series.
+  console.log('\n=== SUBPANTALLAS ===');
+
+  // Prueba fisica: hub -> corredor de la prueba (cronometro incluido)
+  await page.locator('nav.fixed').locator('button', { hasText: 'Más' }).first().click();
+  await page.waitForTimeout(450);
+  await page.locator('div.fixed.inset-0 button', { hasText: 'Prep. Física' }).first().click();
+  await page.waitForTimeout(1300);
+  for (const prueba of ['Fuerza', 'Resistencia']) {
+    const b = page.locator('button', { hasText: prueba }).first();
+    if (await b.count() === 0) { anota(`${prueba}: no se puede abrir`); continue; }
+    await b.click();
+    await page.waitForTimeout(1100);
+    console.log(`\n--- Prueba: ${prueba} ---`);
+    await page.screenshot({ path: `${TOMAS}/a-prueba-${prueba.toLowerCase()}.png`, fullPage: true });
+    await mira(page, 'Prueba ' + prueba);
+    const volver = page.locator('button', { hasText: /Volver a las pruebas/ }).first();
+    if (await volver.count()) { await volver.click(); await page.waitForTimeout(1000); }
+    else anota(`${prueba}: no hay forma de volver a las pruebas`);
+  }
+
+  // La sala de voz: es una capa a pantalla completa, no una pestaña.
+  await page.locator('nav.fixed').locator('button', { hasText: 'Más' }).first().click();
+  await page.waitForTimeout(450);
+  await page.locator('div.fixed.inset-0 button', { hasText: 'Perfilado' }).first().click();
+  await page.waitForTimeout(1200);
+  const simular = page.locator('button[aria-label*="simulación"]').first();
+  if (await simular.count()) {
+    await simular.click();
+    await page.waitForTimeout(1200);
+    console.log('\n--- Sala de voz ---');
+    await page.screenshot({ path: `${TOMAS}/a-sala-voz.png`, fullPage: true });
+    await mira(page, 'Sala de voz');
+  } else {
+    anota('Sala de voz: no se encuentra el boton de iniciar simulacion');
+  }
+
   console.log('\n=== ADMINISTRACIÓN ===');
   await page.goto('http://localhost:8899/index.html?vista=admin', { waitUntil: 'networkidle' });
   await page.waitForTimeout(900);

@@ -161,6 +161,32 @@ describe('no se le enseñan al alumno números que no existen', () => {
     expect(tile).toMatch(/'—'/);
   });
 
+  it('ningún título grande se queda sin escalón de móvil', () => {
+    // `tokens.ts` lo dice desde que existe: los tamaños grandes SIEMPRE
+    // escalan. Un tamaño SIN prefijo es el de MÓVIL, y de `text-6xl` (60px)
+    // hacia arriba no hay pantalla de 360px que lo aguante: el cronometro de
+    // las pruebas fisicas estaba a `text-7xl` (72px) y el contador de series a
+    // `text-9xl` (128px), fijos. Lo grande vive detras de un `sm:`.
+    //
+    // El limite esta en 6xl y no en 4xl a proposito: 36-48px en un movil es un
+    // numero protagonista legitimo —`TEXT.display` es `text-4xl sm:text-6xl`—
+    // y una guardia que se queja de lo razonable acaba desactivada.
+    const culpables: string[] = [];
+    for (const f of pantallas) {
+      // Se analiza el codigo SIN comentarios pero conservando los saltos de
+      // linea, para poder decir donde está sin que un comentario que cita el
+      // patron cuente como codigo (la convencion del repo).
+      const limpio = f.src
+        .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      limpio.split('\n').forEach((linea, i) => {
+        const m = /(?<![:\w-])text-([6-9]xl)\b/.exec(linea);
+        if (m) culpables.push(`${f.nombre}:${i + 1} text-${m[1]} sin escalón de móvil`);
+      });
+    }
+    expect(culpables, 'títulos que no escalan').toEqual([]);
+  });
+
   it('no vuelve el marcador de puntos inventado', () => {
     // El historial pintaba "+10 XP" en cada acierto y el centro de mando una
     // racha de "1 Día" y "5 Flashcards pendientes": ni columna, ni tabla, ni

@@ -259,7 +259,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
             <Mic size={40} />
           </div>
           <div className="space-y-2">
-            <h1 className="text-4xl font-black tracking-tight">SALA DE INTERROGATORIOS</h1>
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight">SALA DE INTERROGATORIOS</h1>
             <p className="text-slate-400 max-w-md mx-auto text-sm uppercase tracking-widest">
               Simulación de estrés nivel 4
             </p>
@@ -303,7 +303,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
               <div className="text-center space-y-3">
                 <FileText size={32} className="mx-auto text-indigo-400" />
                 <h2 className="text-3xl font-black tracking-tight">Informe del Tribunal</h2>
-                <div className="text-6xl font-black text-indigo-400 tabular-nums">{report.score}<span className="text-2xl text-slate-500">/100</span></div>
+                <div className="text-4xl sm:text-6xl font-black text-indigo-400 tabular-nums">{report.score}<span className="text-2xl text-slate-500">/100</span></div>
                 <p className="text-slate-300 text-sm max-w-lg mx-auto leading-relaxed">{report.veredicto}</p>
               </div>
 

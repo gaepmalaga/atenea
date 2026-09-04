@@ -148,7 +148,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
             <Gauge size={40} className="text-indigo-400 mb-4 animate-pulse" />
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Perfil de Respuesta</p>
             <h4 className="text-2xl font-black mb-2">{speedLabel}</h4>
-            <div className="text-4xl font-black text-indigo-400">
+            <div className="text-3xl sm:text-4xl font-black text-indigo-400">
                 {timedCount === 0
                   ? <span className="text-lg text-slate-500">Sin medir</span>
                   : <>{(avgTimeMs / 1000).toFixed(1)}<span className="text-lg text-white">s</span></>}
@@ -251,7 +251,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                     </>
                   ) : (
                     <>
-                      <p className="text-4xl font-black mb-1">{maxPullups}</p>
+                      <p className="text-3xl sm:text-4xl font-black mb-1">{maxPullups}</p>
                       <p className="text-xs font-bold opacity-80 uppercase">Dominadas Máximas</p>
                     </>
                   )}

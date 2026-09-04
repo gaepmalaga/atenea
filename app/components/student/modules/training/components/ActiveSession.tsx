@@ -94,7 +94,7 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
                     {day.exercises.map((ex, idx) => (
                         // CAMBIO: Tarjeta blanca en día, oscura en noche
                         <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500 dark:hover:border-slate-700 transition-all shadow-sm">
-                            <div className="absolute -right-4 -top-4 text-9xl font-black text-slate-100 dark:text-slate-800 opacity-50 dark:opacity-20 pointer-events-none select-none">
+                            <div className="absolute -right-4 -top-4 text-5xl sm:text-9xl font-black text-slate-100 dark:text-slate-800 opacity-50 dark:opacity-20 pointer-events-none select-none">
                                 {idx + 1}
                             </div>
 

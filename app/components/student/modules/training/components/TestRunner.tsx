@@ -128,8 +128,10 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
     // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
     return (
         <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-10 py-8 pb-4">
-            <button onClick={onExit} className="mb-6 flex items-center gap-2 text-slate-500 hover:text-white font-bold text-sm">
-                <ChevronRight className="rotate-180" size={16}/> VOLVER AL HUB
+            {/* 20px de alto y "el hub". Es el unico camino de vuelta de esta
+                pantalla: ni se podia pulsar bien ni decia a donde lleva. */}
+            <button onClick={onExit} className="mb-4 min-h-[44px] pr-3 flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:hover:text-white font-bold text-sm">
+                <ChevronRight className="rotate-180" size={18}/> Volver a las pruebas
             </button>
 
             {/* PANTALLA GIGANTE DE CUENTA ATRÁS */}
@@ -191,7 +193,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
 
                         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                             <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Paso 3: Introduce {method === 'reps' ? 'Repeticiones' : 'Segundos'}</label>
-                            <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-7xl font-black text-center bg-transparent outline-none placeholder-slate-200 text-slate-900 dark:text-white p-2" placeholder="0"/>
+                            <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none placeholder-slate-200 text-slate-900 dark:text-white p-2" placeholder="0"/>
                         </div>
                         {confirmHint}
                         <button onClick={() => confirmarMarca({ pullups_method: method })} disabled={!canConfirm} className={confirmClass(canConfirm)}>
@@ -230,7 +232,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                             <div className="p-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50">
                                 {/* TOGGLE MODO BOLSILLO (SOLO COOPER) */}
                                 {testId === 'cooper' && (
-                                    <div onClick={() => setUsePocketMode(!usePocketMode)} className={`flex items-center justify-between p-4 mb-6 rounded-xl border cursor-pointer transition-all ${usePocketMode ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500'}`}>
+                                    <button type="button" aria-pressed={usePocketMode} onClick={() => setUsePocketMode(!usePocketMode)} className={`w-full flex items-center justify-between p-4 mb-6 rounded-xl border cursor-pointer transition-all ${usePocketMode ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500'}`}>
                                         <div className="flex items-center gap-3">
                                             <Activity size={24}/>
                                             <div className="text-left">
@@ -238,24 +240,28 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                                                 <p className="text-[10px] opacity-80">Apagar pantalla al iniciar (Audio ON)</p>
                                             </div>
                                         </div>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${usePocketMode ? 'border-white bg-white/20' : 'border-slate-300'}`}>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${usePocketMode ? 'border-white bg-white/20' : 'border-slate-300'}`}>
                                             {usePocketMode && <div className="w-3 h-3 bg-white rounded-full"/>}
                                         </div>
-                                    </div>
+                                    </button>
                                 )}
 
                                 <p className="text-slate-500 mb-6 font-medium text-sm text-center">
                                     {testId === 'cooper' ? 'Prepárate. Tienes 5 segundos antes de la salida.' : 'Deja el móvil en la salida. Tienes 5 segundos.'}
                                 </p>
-                                <button onClick={startTest} className="w-full py-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xl rounded-2xl hover:scale-[1.02] transition-transform uppercase shadow-xl flex items-center justify-center gap-3">
-                                    <Timer size={24}/> INICIAR CUENTA ATRÁS
+                                {/* "INICIAR CUENTA ATRÁS" en `text-xl` parte en
+                                    dos lineas en un movil y la segunda queda en
+                                    un "ATRÁS" suelto, que es justo lo contrario
+                                    de lo que hace el boton. */}
+                                <button onClick={startTest} className="w-full min-h-[44px] py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-base sm:text-xl rounded-2xl hover:scale-[1.02] transition-transform uppercase shadow-xl flex items-center justify-center gap-3">
+                                    <Timer size={22}/> Empezar la prueba
                                 </button>
                             </div>
                         )}
 
                         <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                             <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Introduce {testId === 'cooper' ? 'Distancia (Metros)' : 'Tiempo (Segundos)'}</label>
-                            <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
+                            <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
                             {testId === 'cooper' && <p className="text-center text-[10px] text-slate-400 mt-2">Ej: Si diste 6 vueltas a una pista de 400m = 2400m</p>}
                         </div>
 

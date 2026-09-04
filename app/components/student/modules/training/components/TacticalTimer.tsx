@@ -232,7 +232,7 @@ export default function TacticalTimer({
         <Volume2 size={20} />
       </div>
 
-      <div className={`text-7xl md:text-8xl font-black font-mono tabular-nums tracking-tighter mb-8 transition-colors ${running ? 'text-emerald-600 dark:text-emerald-500' : 'text-slate-900 dark:text-slate-600'}`}>
+      <div className={`text-5xl sm:text-7xl md:text-8xl font-black font-mono tabular-nums tracking-tighter mb-8 transition-colors ${running ? 'text-emerald-600 dark:text-emerald-500' : 'text-slate-900 dark:text-slate-600'}`}>
         {formatTime(display)}
       </div>
 

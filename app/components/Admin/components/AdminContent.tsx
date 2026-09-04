@@ -260,7 +260,7 @@ export default function AdminContent() {
                 </div>
                 
                 <div className="relative z-10">
-                    <p className="text-7xl font-black text-white tracking-tighter mb-2 drop-shadow-lg">{totalDocs}</p>
+                    <p className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter mb-2 drop-shadow-lg">{totalDocs}</p>
                     <p className="text-sm text-slate-400 font-bold uppercase tracking-wide flex items-center gap-2">
                         <CheckCircle2 size={16} className="text-emerald-500"/> Documentos Indexados
                     </p>
