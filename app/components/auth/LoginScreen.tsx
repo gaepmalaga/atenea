@@ -1,28 +1,43 @@
 'use client'
 
 import { useId, useState } from 'react';
-import { BookOpen, ArrowRight, AlertTriangle, MailCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Card, Button, TextField, RADIUS, TAP, TEXT, cx } from '../ui';
+import { ArrowRight, AlertTriangle, MailCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { TAP, cx } from '../ui';
 
 /**
  * LA PUERTA DE ENTRADA.
  *
  * POR QUÉ ESTÁ AQUÍ Y NO EN `app/page.tsx`, QUE ES DE DONDE VIENE
  * `tests/design-system.test.ts` recorre `app/components/` y nada más. El login
- * vivía en `app/page.tsx`, o sea **fuera del alcance de la guarda**, y se nota
- * en lo que se encontró al mirarlo: campos sin `text-base` (zoom de Safari en
- * cada toque), `h-screen` en vez de `dvh`, etiquetas a `text-[10px]` fijo,
- * ningún `autoComplete` —así que ningún gestor de contraseñas ofrecía
- * rellenarlo— y tres clases decorativas (`glass-panel`, `animate-float`,
- * `animate-in zoom-in`) que NO EXISTEN en `globals.css` ni vienen de ningún
- * plugin instalado: no hacían nada desde el primer día.
+ * vivía en `app/page.tsx`, o sea **fuera del alcance de la guarda**, y por eso
+ * fue la única pantalla que nunca se migró: campos sin `text-base` (zoom de
+ * Safari en cada toque), `h-screen` en vez de `dvh`, ningún `autoComplete`
+ * —así que ningún gestor de contraseñas ofrecía rellenarlo— y tres clases
+ * decorativas que NO EXISTEN en `globals.css` ni vienen de ningún plugin
+ * instalado.
  *
- * Moverla adentro es la mitad del arreglo. Un sistema de diseño protege lo que
- * alcanza, y ninguna pantalla debería quedarse fuera por estar en la raíz.
+ * POR QUÉ NO SALE DE `Card` Y `Button`, QUE ES LA REGLA 36
+ * Porque esta pantalla tiene un lenguaje visual propio y deliberado —plano,
+ * bordes de 3px, sin degradados, sin sombras, sobre papel— y meterla en unos
+ * primitivos redondeados con sombra índigo la convertiría en otra cosa. Es la
+ * misma excepción que ya se acepta en el panel de administración, que es
+ * oscuro pase lo que pase.
  *
- * ES PRESENTACIONAL A PROPÓSITO. Las llamadas a Supabase y el establecimiento
- * de la sesión se quedan en `page.tsx`: aquí no entra nada que decida quién
- * eres. Esto recoge lo que se escribe y lo entrega.
+ * Lo que NO se salta, que es lo que de verdad protege la regla 36:
+ *   · el área táctil sale de `TAP`, no de un número escrito aquí;
+ *   · los campos llevan `text-base` en móvil (Safari hace zoom por debajo de
+ *     16px y descuadra la página);
+ *   · la altura se mide en `dvh`, nunca en `vh`;
+ *   · ningún tamaño de letra grande se queda sin escalón de móvil.
+ * Y hay un test que lo fija: `tests/auth-messages.test.ts`.
+ *
+ * NO SIGUE EL TEMA CLARO/OSCURO, y es una decisión, no un olvido: el diseño
+ * ES el papel. Un brutalista sobre hueso invertido a negro deja de ser el
+ * mismo diseño. Por eso pinta su fondo explícitamente en vez de heredar el de
+ * la aplicación.
+ *
+ * ES PRESENTACIONAL. Las llamadas a Supabase y el establecimiento de la sesión
+ * se quedan en `page.tsx`: aquí no entra nada que decida quién eres.
  */
 
 export type ModoAuth = 'login' | 'signup';
@@ -30,138 +45,116 @@ export type ModoAuth = 'login' | 'signup';
 interface Props {
   modo: ModoAuth;
   onModo: (modo: ModoAuth) => void;
-  /** Se le entrega lo escrito. Quien decide qué hacer con ello es `page.tsx`. */
   onSubmit: (email: string, password: string) => void;
   cargando: boolean;
   /** Ya traducido con `mensajeDeAuth`. */
   error: string | null;
-  /** El aviso de «revisa tu correo» tras registrarse. */
   aviso: string | null;
 }
+
+/** La paleta, en un solo sitio. Hueso, tinta y el rojo de la bandera. */
+const C = {
+  fondo: 'bg-[#f7f4ee]',
+  tinta: 'text-[#111820]',
+  tinta2: 'text-[#3d4a5a]',
+  borde: 'border-[#111820]',
+  rojo: 'bg-[#c60b1e]',
+  rojoTx: 'text-[#c60b1e]',
+} as const;
+
+const CAMPO = cx(
+  'w-full bg-transparent border-[3px] border-[#111820] px-4 outline-none',
+  // 16px en móvil o Safari hace zoom al tocarlo y deja la página torcida.
+  'text-base sm:text-lg font-semibold text-[#111820] placeholder:text-[#8d99a8]',
+  'focus:border-[#c60b1e] transition-colors',
+  TAP,
+  'min-h-[56px]',
+);
+
+const ETIQUETA = 'block text-[11px] font-black uppercase tracking-[0.14em] text-[#3d4a5a] mb-2';
 
 export default function LoginScreen({ modo, onModo, onSubmit, cargando, error, aviso }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [verClave, setVerClave] = useState(false);
 
-  // `useId` en vez de un literal: si algún día hubiera dos formularios en la
-  // misma página, dos `id="email"` romperían la asociación con la etiqueta y
-  // el lector de pantalla leería el campo equivocado.
+  // `useId` y no un literal: dos `id="email"` en la misma página romperían la
+  // asociación con la etiqueta y el lector de pantalla leería otro campo.
   const idEmail = useId();
   const idClave = useId();
-
   const esAlta = modo === 'signup';
 
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md space-y-6 sm:space-y-8">
+    <main className={cx('min-h-dvh flex flex-col', C.fondo, C.tinta)}>
 
-        {/* Marca */}
-        <header className="text-center space-y-4">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto">
-            <div
-              className={cx(
-                'absolute inset-0 bg-indigo-500/40 blur-xl',
-                RADIUS.lg,
-              )}
-              aria-hidden
-            />
-            <div
-              className={cx(
-                'relative w-full h-full flex items-center justify-center',
-                'bg-gradient-to-br from-blue-600 to-indigo-700 text-white',
-                'border border-white/20 shadow-lg shadow-indigo-900/30',
-                RADIUS.lg,
-              )}
-            >
-              <BookOpen size={38} aria-hidden />
-            </div>
-          </div>
+      {/* Cinta */}
+      <div className="bg-[#111820] text-[#f7f4ee] px-5 py-3 flex justify-between items-center gap-3">
+        <span className="text-[11px] font-black uppercase tracking-[0.16em]">Atenea Policial</span>
+        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ff5a68]">
+          Policía Nacional
+        </span>
+      </div>
 
-          <div className="space-y-1">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-slate-900 dark:text-white">
-              Atenea Policial
-            </h1>
-            <p className={cx(TEXT.muted, 'font-semibold')}>
-              Preparación para Policía Nacional
-            </p>
-          </div>
-        </header>
+      {/* El filete de la bandera, en proporciones REALES (1:2:1). En tres
+          franjas iguales la bandera canta, y una bandera mal puesta en una
+          plataforma de oposiciones a policía se nota más que en ningún sitio. */}
+      <div
+        className="h-1.5 shrink-0"
+        style={{
+          background:
+            'linear-gradient(to right,#c60b1e 0 22%,#ffc400 22% 78%,#c60b1e 78% 100%)',
+        }}
+        aria-hidden
+      />
 
-        <Card pad="md" elevation="raised" className="space-y-6">
+      <div className="flex-1 px-5 py-8 sm:py-10 flex flex-col max-w-md w-full mx-auto">
 
-          {/* Entrar / Crear cuenta.
-              Antes esto era un enlace de 12px al pie de la tarjeta, debajo de
-              una línea: en un móvil no se veía que hubiera dos modos, y el
-              botón grande cambiaba de significado sin avisar. */}
-          <div
-            className={cx(
-              'grid grid-cols-2 gap-1 p-1',
-              RADIUS.md,
-              'bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800',
-            )}
-          >
-            {(['login', 'signup'] as const).map((m) => (
-              <Button
-                key={m}
-                type="button"
-                size="sm"
-                variant={modo === m ? 'primary' : 'ghost'}
-                onClick={() => onModo(m)}
-                aria-pressed={modo === m}
-              >
-                {m === 'login' ? 'Entrar' : 'Crear cuenta'}
-              </Button>
-            ))}
-          </div>
-
-          {error && (
-            <div
-              role="alert"
-              className={cx(
-                'flex items-start gap-3 p-3',
-                RADIUS.md,
-                'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900',
-                'text-red-800 dark:text-red-200',
-              )}
-            >
-              {/* El icono de antes era `ShieldCheck` —un escudo con un VISTO—
-                  para anunciar un fallo. Decía lo contrario de lo que pasaba. */}
-              <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden />
-              <p className="text-sm leading-relaxed">{error}</p>
-            </div>
+        {/* `text-5xl sm:text-6xl`: un tamaño SIN prefijo es el de móvil, y de
+            60px hacia arriba no hay pantalla de 360px que lo aguante. */}
+        <h1 className="text-5xl sm:text-6xl font-black uppercase leading-[0.88] tracking-[-0.045em]">
+          {esAlta ? (
+            <>Crea<br />tu <span className={cx(C.rojo, 'text-white px-2 -ml-2 inline-block')}>cuenta</span></>
+          ) : (
+            <>Entra<br />y <span className={cx(C.rojo, 'text-white px-2 -ml-2 inline-block')}>saca</span><br />tu plaza</>
           )}
+        </h1>
 
-          {aviso && (
-            <div
-              role="status"
-              className={cx(
-                'flex items-start gap-3 p-3',
-                RADIUS.md,
-                'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900',
-                'text-emerald-800 dark:text-emerald-200',
-              )}
-            >
-              <MailCheck size={18} className="shrink-0 mt-0.5" aria-hidden />
-              <p className="text-sm leading-relaxed">{aviso}</p>
-            </div>
-          )}
+        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c60b1e] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
+          {esAlta
+            ? 'Te enviaremos un correo para confirmar la cuenta. Hasta que pulses ese enlace no podrás entrar.'
+            : 'El temario oficial completo, con tests que puntúan como la convocatoria: cada dos fallos, un acierto menos.'}
+        </p>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              onSubmit(email.trim(), password);
-            }}
-            className="space-y-4"
-          >
-            <TextField
+        {error && (
+          <div role="alert" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#c60b1e] bg-[#c60b1e]/5">
+            {/* Antes esto era `ShieldCheck` —un escudo con un VISTO— para
+                anunciar un fallo. Decía lo contrario de lo que pasaba. */}
+            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.rojoTx)} aria-hidden />
+            <p className="text-sm font-semibold leading-relaxed">{error}</p>
+          </div>
+        )}
+
+        {aviso && (
+          <div role="status" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#111820] bg-[#ffc400]/25">
+            <MailCheck size={19} className="shrink-0 mt-0.5" aria-hidden />
+            <p className="text-sm font-semibold leading-relaxed">{aviso}</p>
+          </div>
+        )}
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); onSubmit(email.trim(), password); }}
+          className="space-y-5"
+        >
+          <div>
+            <label htmlFor={idEmail} className={ETIQUETA}>Correo</label>
+            <input
               id={idEmail}
-              label="Correo electrónico"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="tu@correo.com"
+              className={CAMPO}
               // Sin esto NINGÚN gestor de contraseñas ofrece rellenar el
               // formulario, que en un móvil es la diferencia entre entrar de
               // un toque y teclear una contraseña larga con el pulgar.
@@ -176,65 +169,69 @@ export default function LoginScreen({ modo, onModo, onSubmit, cargando, error, a
               enterKeyHint="next"
               disabled={cargando}
             />
+          </div>
 
-            <TextField
-              id={idClave}
-              label="Contraseña"
-              type={verClave ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-              autoComplete={esAlta ? 'new-password' : 'current-password'}
-              enterKeyHint="go"
-              disabled={cargando}
-              hint={esAlta ? 'Mínimo 6 caracteres.' : undefined}
-              trailing={
-                <button
-                  type="button"
-                  onClick={() => setVerClave((v) => !v)}
-                  // El área táctil es la del sistema (44px): un ojo de 18px
-                  // suelto se falla con el pulgar.
-                  className={cx(
-                    'flex items-center justify-center px-3',
-                    TAP,
-                    RADIUS.sm,
-                    'text-slate-500 dark:text-slate-400',
-                    'hover:text-slate-900 dark:hover:text-white transition-colors',
-                  )}
-                  aria-label={verClave ? 'Ocultar la contraseña' : 'Ver la contraseña'}
-                  aria-pressed={verClave}
-                  tabIndex={-1}
-                >
-                  {verClave ? <Eye size={18} aria-hidden /> : <EyeOff size={18} aria-hidden />}
-                </button>
-              }
-            />
+          <div>
+            <label htmlFor={idClave} className={ETIQUETA}>Contraseña</label>
+            <div className="relative">
+              <input
+                id={idClave}
+                type={verClave ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                className={cx(CAMPO, 'pr-14')}
+                autoComplete={esAlta ? 'new-password' : 'current-password'}
+                enterKeyHint="go"
+                disabled={cargando}
+              />
+              <button
+                type="button"
+                onClick={() => setVerClave((v) => !v)}
+                // El área táctil sale del sistema: un ojo de 20px suelto se
+                // falla con el pulgar.
+                className={cx('absolute inset-y-0 right-0 flex items-center justify-center px-4', TAP, C.tinta2)}
+                aria-label={verClave ? 'Ocultar la contraseña' : 'Ver la contraseña'}
+                aria-pressed={verClave}
+                tabIndex={-1}
+              >
+                {verClave ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
+              </button>
+            </div>
+            {esAlta && (
+              <p className={cx('mt-2 text-xs font-semibold', C.tinta2)}>Mínimo 6 caracteres.</p>
+            )}
+          </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              block
-              disabled={cargando}
-              aria-busy={cargando}
-              iconRight={cargando ? undefined : <ArrowRight size={18} aria-hidden />}
-              icon={cargando ? <Loader2 size={18} className="animate-spin" aria-hidden /> : undefined}
-              className="mt-2"
-            >
-              {cargando ? 'Un momento…' : esAlta ? 'Crear cuenta' : 'Entrar'}
-            </Button>
-          </form>
-        </Card>
+          <button
+            type="submit"
+            disabled={cargando}
+            aria-busy={cargando}
+            className={cx(
+              'w-full min-h-[62px] bg-[#111820] text-[#f7f4ee] px-5',
+              'flex items-center justify-between gap-3',
+              'text-[17px] font-black uppercase tracking-[0.05em]',
+              'disabled:opacity-60 disabled:cursor-not-allowed active:translate-y-px transition-transform',
+            )}
+          >
+            {cargando ? 'Un momento…' : esAlta ? 'Crear cuenta' : 'Entrar'}
+            {cargando
+              ? <Loader2 size={24} className="animate-spin shrink-0" aria-hidden />
+              : <ArrowRight size={24} className="shrink-0" aria-hidden />}
+          </button>
+        </form>
 
-        {/* La plataforma tiene `Confirm email` activado. Decirlo ANTES de que
-            alguien se registre evita el «me he registrado y no me deja
-            entrar», que es exactamente lo que pasa si no lo lee. */}
-        {esAlta && (
-          <p className={cx(TEXT.muted, 'text-center px-4')}>
-            Te enviaremos un correo para confirmar la cuenta. Hasta que pulses
-            ese enlace no podrás entrar.
-          </p>
-        )}
+        <p className="mt-auto pt-10 text-[13px] font-bold">
+          {esAlta ? '¿Ya tienes cuenta?' : '¿Sin cuenta?'}{' '}
+          <button
+            type="button"
+            onClick={() => onModo(esAlta ? 'login' : 'signup')}
+            className={cx(C.rojo, 'text-white px-1.5 py-0.5 font-bold', TAP, 'inline-flex items-center')}
+          >
+            {esAlta ? 'Inicia sesión' : 'Regístrate aquí'}
+          </button>
+        </p>
       </div>
     </main>
   );

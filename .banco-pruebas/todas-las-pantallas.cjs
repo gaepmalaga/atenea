@@ -269,13 +269,17 @@ const ADMIN = [
   // vivia en `app/page.tsx`, fuera de `app/components/`, asi que ni el banco
   // ni el test estatico la alcanzaban. Es la primera pantalla que ve nadie.
   console.log('\n=== ENTRADA ===');
-  for (const modo of ['Entrar', 'Crear cuenta']) {
+  // Los dos modos. El de alta NO es una pestaña: se llega por el enlace del
+  // pie, que es como esta ahora la pantalla.
+  for (const [modo, comoLlegar] of [['Entrar', null], ['Crear cuenta', 'Regístrate aquí']]) {
     await page.goto('http://localhost:8899/index.html?vista=login', { waitUntil: 'networkidle' });
     await page.waitForTimeout(600);
-    const boton = page.locator('button', { hasText: modo }).first();
-    if (await boton.count() === 0) { anota(`Entrada ${modo}: no hay pestaña`); continue; }
-    await boton.click();
-    await page.waitForTimeout(500);
+    if (comoLlegar) {
+      const boton = page.locator('button', { hasText: comoLlegar }).first();
+      if (await boton.count() === 0) { anota(`Entrada ${modo}: no hay forma de llegar`); continue; }
+      await boton.click();
+      await page.waitForTimeout(500);
+    }
     console.log(`\n--- Entrada · ${modo} ---`);
     await page.screenshot({ path: `${TOMAS}/entrada-${modo === 'Entrar' ? 'login' : 'alta'}.png`, fullPage: true });
     await mira(page, 'Entrada · ' + modo, fallosJS);
