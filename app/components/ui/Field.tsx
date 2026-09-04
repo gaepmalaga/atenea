@@ -36,17 +36,40 @@ interface FieldWrap {
   id?: string;
 }
 
+/**
+ * Un control (un botón, casi siempre) pegado al borde derecho del campo:
+ * el ojo de «ver contraseña», un botón de limpiar, una unidad.
+ *
+ * Está AQUÍ y no en la pantalla por la regla de oro del sistema: el hueco que
+ * hay que dejarle al icono (`pr-12`) y su área táctil son decisiones del
+ * control, no de quien lo usa. Escrito a mano en cada pantalla, cada una
+ * elegiría un `pr-` distinto y el texto acabaría pasando por debajo del icono
+ * en el campo más largo — que es como se descubren estas cosas, en un móvil.
+ */
+function ConTrailing({ trailing, children }: { trailing?: ReactNode; children: ReactNode }) {
+  if (!trailing) return <>{children}</>;
+  return (
+    <div className="relative">
+      {children}
+      <div className="absolute inset-y-0 right-0 flex items-center pr-1.5">{trailing}</div>
+    </div>
+  );
+}
+
 export function TextField({
   label,
   hint,
   id,
   className,
+  trailing,
   ...rest
-}: FieldWrap & InputHTMLAttributes<HTMLInputElement>) {
+}: FieldWrap & { trailing?: ReactNode } & InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div>
       {label && <Label htmlFor={id}>{label}</Label>}
-      <input id={id} className={cx(CONTROL, className)} {...rest} />
+      <ConTrailing trailing={trailing}>
+        <input id={id} className={cx(CONTROL, trailing ? 'pr-12' : null, className)} {...rest} />
+      </ConTrailing>
       {hint && <p className={cx(TEXT.muted, 'mt-1.5')}>{hint}</p>}
     </div>
   );
