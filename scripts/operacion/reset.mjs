@@ -26,10 +26,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { createInterface } from 'node:readline/promises';
 import { config } from 'dotenv';
+import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 
 config({ path: '.env.local' });
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Se normaliza: el panel de Supabase enseña la URL del endpoint REST
+// (`…/rest/v1/`) y es la que se copia; el cliente quiere la base.
+const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!URL || !KEY) {

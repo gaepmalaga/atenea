@@ -40,6 +40,7 @@ import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import PDFParser from 'pdf2json';
 import { config } from 'dotenv';
+import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 
 import { cleanLegalText, chunkDocument } from '../../app/lib/text.ts';
 import { questionHash } from '../../app/lib/question-hash.ts';
@@ -49,7 +50,9 @@ import { buildQuestionPrompt, QUESTION_SCHEMA } from '../../app/lib/question-pro
 
 config({ path: '.env.local' });
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Se normaliza: el panel de Supabase enseña la URL del endpoint REST
+// (`…/rest/v1/`) y es la que se copia; el cliente quiere la base.
+const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI = process.env.GEMINI_API_KEY;
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { normalizeSupabaseUrl } from '../app/lib/supabase-url';
 
 /**
  * LOS GUIONES DE OPERACIÓN NO PUEDEN SEPARARSE DE LA APLICACIÓN.
@@ -122,5 +123,43 @@ describe('el reset no puede llevarse por delante el acceso', () => {
 
   it('comprueba el resultado releyendo, no fiándose de sus contadores', () => {
     expect(reset).toContain('Comprobando que ha quedado vacío');
+  });
+});
+
+describe('la URL de Supabase aguanta las dos formas que se copian', () => {
+  const BASE = 'https://ecupmlqimmpybbrlrmpx.supabase.co';
+
+  it('deja la URL base como está', () => {
+    expect(normalizeSupabaseUrl(BASE)).toBe(BASE);
+  });
+
+  it('quita el endpoint REST, que es el que enseña el panel', () => {
+    // Pasó de verdad configurando la siembra: el panel de Supabase enseña
+    // `…/rest/v1/` en la pantalla de API y es la que se copia. Con esa, el
+    // cliente pide `/rest/v1/rest/v1/subjects` y Supabase contesta «Invalid
+    // path specified in request URL», que no dice nada de lo que ha pasado.
+    expect(normalizeSupabaseUrl(`${BASE}/rest/v1/`)).toBe(BASE);
+    expect(normalizeSupabaseUrl(`${BASE}/rest/v1`)).toBe(BASE);
+  });
+
+  it('quita también los otros endpoints y las barras de más', () => {
+    for (const sufijo of ['/auth/v1', '/storage/v1', '/functions/v1', '/realtime/v1']) {
+      expect(normalizeSupabaseUrl(`${BASE}${sufijo}/`)).toBe(BASE);
+    }
+    expect(normalizeSupabaseUrl(`${BASE}///`)).toBe(BASE);
+    expect(normalizeSupabaseUrl(`  ${BASE}  `)).toBe(BASE);
+  });
+
+  it('sin valor devuelve cadena vacía, no revienta', () => {
+    // Es lo que hace que el guion pueda decir «falta la variable» en vez de
+    // fallar con un error de red incomprensible.
+    for (const v of [undefined, null, '']) expect(normalizeSupabaseUrl(v)).toBe('');
+  });
+
+  it('los tres guiones la usan', () => {
+    for (const g of ['reset.mjs', 'crear-cuenta.mjs', 'sembrar.mjs']) {
+      const src = leer(`scripts/operacion/${g}`);
+      expect(src, g).toContain('normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)');
+    }
   });
 });
