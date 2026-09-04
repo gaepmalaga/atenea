@@ -59,8 +59,14 @@ export default function AdminActivity() {
             const typeLabel = isFlashcard ? 'MEMORIA' : 'TEST';
             
             return (
-              <div key={log.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center justify-between group hover:border-slate-600 transition-all">
-                <div className="flex items-center gap-4">
+              <div key={log.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center justify-between gap-2 group hover:border-slate-600 transition-all">
+                {/* `min-w-0`: sin el, este grupo no puede encoger por debajo de
+                    su contenido y el `truncate` de dentro no trunca NADA — el
+                    contenedor crece. Medido en el banco de pruebas: filas de
+                    634px en una pantalla de 390, con el registro entero
+                    arrastrandose de lado. Es el mismo fallo que tenian las
+                    tarjetas del panel de academia. */}
+                <div className="flex items-start gap-3 sm:gap-4 min-w-0">
                   <div className={`p-2.5 rounded-xl border flex-shrink-0 ${
                     isFlashcard
                       ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
@@ -70,21 +76,25 @@ export default function AdminActivity() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-white font-medium text-sm truncate pr-4">
+                    {/* Dos lineas en vez de recortar. Medido: al enunciado le
+                        faltaban 281px y al tema 341, o sea que de una fila del
+                        registro se leia un tercio. Y el registro existe para
+                        leer QUE ha contestado el alumno. */}
+                    <p className="text-white font-medium text-sm line-clamp-2 leading-snug">
                       {log.question_text?.replace('[FLASHCARD] ', '') || "Pregunta sin texto"}
                     </p>
 
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                      <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${
                           isFlashcard ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' : 'bg-blue-900/30 text-blue-300 border-blue-500/30'
                       }`}>
                         {typeLabel}
                       </span>
-                      <span className="text-slate-500 text-xs font-bold uppercase truncate max-w-[150px]">{log.topic}</span>
+                      <span className="text-slate-500 text-xs font-bold uppercase leading-snug">{log.topic}</span>
                     </div>
                   </div>
                 </div>
-                <span className="text-slate-600 text-xs font-mono whitespace-nowrap bg-slate-900 px-2 py-1 rounded border border-white/5 ml-2">
+                <span className="text-slate-600 text-xs font-mono whitespace-nowrap bg-slate-900 px-2 py-1 rounded border border-white/5 shrink-0 self-start">
                   {log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                 </span>
               </div>

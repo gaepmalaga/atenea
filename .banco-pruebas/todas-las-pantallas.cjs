@@ -53,6 +53,11 @@ const REVISAR = () => {
     if (!/\b(?:w|h)-(?:\d|\[|full|px)/.test(cls)) continue;
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) continue;
+    // Un tamaño puesto A CERO a proposito no es un fallo: una barra de
+    // progreso al 0 % mide 0 y esta bien. Lo que se busca es lo que PIDE un
+    // tamaño y el navegador se lo ignora.
+    const inline = el.getAttribute('style') || '';
+    if (/(?:width|height)\s*:\s*0(?:%|px)?\s*(?:;|$)/.test(inline)) continue;
     const s = getComputedStyle(el);
     if (s.display === 'none' || s.visibility === 'hidden') continue;
     let oculto = false;
@@ -174,6 +179,15 @@ const ADMIN = [
   await page.waitForTimeout(450);
   await page.locator('div.fixed.inset-0 button', { hasText: 'Prep. Física' }).first().click();
   await page.waitForTimeout(1300);
+  // Con un plan activo se entra al panel del plan, no al hub de pruebas. El
+  // engranaje de la cabecera vuelve a reconfigurar.
+  if (await page.locator('button', { hasText: 'Fuerza' }).count() === 0) {
+    console.log('\n--- Plan de entrenamiento ---');
+    await page.screenshot({ path: `${TOMAS}/a-plan.png`, fullPage: true });
+    await mira(page, 'Plan de entrenamiento', fallosJS);
+    const engranaje = page.locator('main button, [class*="max-w"] button').filter({ hasNotText: /\w/ }).first();
+    if (await engranaje.count()) { await engranaje.click(); await page.waitForTimeout(1000); }
+  }
   for (const prueba of ['Fuerza', 'Resistencia']) {
     const b = page.locator('button', { hasText: prueba }).first();
     if (await b.count() === 0) { anota(`${prueba}: no se puede abrir`); continue; }

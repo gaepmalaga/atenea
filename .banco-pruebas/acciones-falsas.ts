@@ -16,6 +16,25 @@ const TEMAS = [
   'Inteligencia: Ciclo, OSINT, Deep/Dark Web.',
 ];
 
+/** Un plan semanal ya normalizado, como lo devuelve `normalizePlan`. */
+const PLAN = {
+  id: 'plan-1',
+  week_number: 3,
+  status: 'active',
+  plan_data: {
+    focus: 'Fuerza de tracción y base aeróbica',
+    days: [
+      { title: 'Lunes · Tracción', exercises: ['4x3 dominadas negativas', '3x8 remo invertido', '3x30s plancha'] },
+      { title: 'Martes · Rodaje suave', exercises: ['30 min a ritmo cómodo'] },
+      { title: 'Miércoles · Descanso', exercises: [] },
+      { title: 'Jueves · Series', exercises: ['6x400m con 90s de recuperación'] },
+      { title: 'Viernes · Circuito', exercises: ['3 vueltas: 10 burpees, 15 sentadillas, 20 abdominales'] },
+    ],
+  },
+  feedback: {},
+  created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+};
+
 const pregunta = (i: number) => ({
   id: `q-${i}`,
   question_text: `¿Cuál de estas afirmaciones sobre el artículo ${i + 10} es correcta, según la redacción vigente del texto consolidado?`,
@@ -36,6 +55,15 @@ const pregunta = (i: number) => ({
 });
 
 // ---------- ALUMNO ----------
+
+/** La sesion. En el banco no hay login: siempre el mismo usuario. */
+export async function getCurrentUser() {
+  return { id: '11111111-1111-1111-1111-111111111111', email: 'gaepmalaga@gmail.com', role: 'admin' as const };
+}
+
+export async function getPsychProfile() {
+  return ok({ data: { user_id: '11111111-1111-1111-1111-111111111111', answers: {} } });
+}
 
 export async function getModuleSettings() {
   return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, training: true, interview: true, stats: true } });
@@ -135,15 +163,27 @@ export async function getPhysicalProfile() {
   return ok({ data: { height: 178, weight: 74, max_pullups: 9, cooper_meters: 2650, agility_seconds: 9.4 } });
 }
 export async function savePhysicalProfile() { return { success: true as const }; }
-export async function getActiveTrainingPlan() { return ok({ data: null }); }
+export async function getActiveTrainingPlan() { return ok({ plan: PLAN }); }
 export async function generateWeeklyPlan() { return ok({ data: null }); }
-export async function generateNextWeek() { return ok({ data: null }); }
+export async function generateNextWeek() { return ok({ plan: PLAN }); }
 export async function completeTrainingDay() { return { success: true as const }; }
 
 export async function getBiodata() { return ok({ data: null }); }
 export async function saveBiodata() { return { success: true as const }; }
-export async function processInterviewTurn() { return ok({ reply: 'Cuénteme por qué quiere ser policía.', finished: false }); }
-export async function evaluateInterview() { return ok({ report: null }); }
+export async function processInterviewTurn() { return ok({ response: 'Cuénteme por qué quiere ser policía. Y sea concreto.' }); }
+export async function evaluateInterview() {
+  return ok({
+    report: {
+      score: 62,
+      summary: 'Motivación creíble pero poco concreta. Se ha puesto nervioso al preguntarle por sus límites.',
+      strengths: ['Explica bien por qué quiere el Cuerpo', 'Reconoce que le falta preparación física'],
+      weaknesses: ['Frases hechas al hablar de vocación', 'Evita la pregunta sobre antecedentes'],
+      contradictions: [],
+      recommendations: ['Prepara dos ejemplos concretos de trabajo en equipo', 'Ensaya la respuesta sobre tus límites'],
+    },
+    transcript: 'INSPECTOR: ¿Por qué quiere ser policía?\nASPIRANTE: Por vocación de servicio.',
+  });
+}
 
 // ---------- ADMINISTRACIÓN ----------
 
@@ -167,7 +207,7 @@ export async function getOfficialSyllabus() {
 }
 
 export async function getAdminQuestionBank() {
-  return ok({ data: Array.from({ length: 6 }, (_, i) => pregunta(i)), total: 6, page: 1, totalPages: 1 });
+  return ok({ data: Array.from({ length: 6 }, (_, i) => pregunta(i)), total: 6, page: 1, totalPages: 1, status: 'active' });
 }
 
 export async function getModerationQueue() {
@@ -205,10 +245,29 @@ export async function getAcademyOverview() {
 
 export async function getStudentDetail() { return ok({ data: null }); }
 export async function getGlobalActivity() {
-  return ok({ data: Array.from({ length: 5 }, (_, i) => ({ id: `a${i}`, user_id: 'u3', topic: TEMAS[i % TEMAS.length], is_correct: i % 2 === 0, created_at: new Date(Date.now() - i * 3600000).toISOString(), question: { question_text: `Actividad ${i}` } })) });
+  // `activity`, no `data`, y con `question_text` YA APLANADO: la accion de
+  // verdad deshace el join antes de devolverlo.
+  return ok({
+    activity: Array.from({ length: 5 }, (_, i) => ({
+      id: `a${i}`,
+      user_id: 'u3',
+      topic: TEMAS[i % TEMAS.length],
+      is_correct: i % 2 === 0,
+      created_at: new Date(Date.now() - i * 3600000).toISOString(),
+      question_text: `Pregunta contestada hace ${i + 1} hora${i === 0 ? '' : 's'} sobre el articulado del tema.`,
+    })),
+  });
 }
 export async function getDocumentChunks() {
-  return ok({ data: Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, content_chunk: `Artículo ${i + 1}. Contenido del fragmento indexado número ${i + 1}, con texto suficiente para ver cómo se pliega y se despliega en la pantalla.`, reference: i < 4 ? `Artículo ${i + 1}` : null })) });
+  // `chunks`, no `data`: con el nombre equivocado el visor de fragmentos salia
+  // vacio y parecia que el documento no estaba indexado.
+  return ok({
+    chunks: Array.from({ length: 6 }, (_, i) => ({
+      id: i + 1,
+      content_chunk: `Artículo ${i + 1}. Contenido del fragmento indexado número ${i + 1}, con texto suficiente para ver cómo se pliega y se despliega en la pantalla.`,
+      reference: i < 4 ? `Artículo ${i + 1}` : null,
+    })),
+  });
 }
 
 export async function approveQuestion() { return { success: true as const }; }
@@ -221,6 +280,7 @@ export async function createManualQuestion() { return { success: true as const }
 export async function importManualQuestions() { return ok({ inserted: 3, rejected: [] }); }
 export async function seedQuestionBank() { return ok({ inserted: 5, duplicated: 1, failed: 0, requested: 6, status: 'active' }); }
 export async function uploadTopicPDF() { return ok({ complete: true, indexed: 42, total: 42, failures: [], withReference: 40, message: 'Indexado completo: 42 fragmentos.' }); }
-export async function reindexDocument() { return ok({ status: 'indexado', indexed: 42, total: 42, withReference: 40 }); }
+export async function reindexDocument() { return ok({ status: 'indexado', indexed: 42, total: 42, withReference: 40, failures: [] }); }
 export async function deleteDocument() { return { success: true as const }; }
+export async function deleteTopic() { return { success: true as const }; }
 export async function setModuleEnabled() { return { success: true as const }; }
