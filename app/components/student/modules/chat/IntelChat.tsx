@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { AuthUser } from '@/app/lib/auth';
 import {
   Send, Bot, User, FileText,
-  Loader2, ShieldAlert, Target, Cpu
+  Loader2, ShieldAlert, Target, Cpu,
+  History, Plus, Trash2, Lock
 } from 'lucide-react';
-import { askAtenea, getStudentSubjects } from '@/actions';
+import {
+  askAtenea, getStudentSubjects,
+  listConversations, getConversation, appendTurn, closeConversation, deleteConversation,
+  type ConversacionResumen,
+} from '@/actions';
 import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,16 +32,17 @@ type Message = {
   timestamp: Date;
 };
 
+/** El saludo. Fuera del estado para poder volver a el al abrir una nueva. */
+const SALUDO: Message = {
+  role: 'ai',
+  content: '# SISTEMA ATENEA INTEL\nConexión segura establecida. Base legislativa sincronizada. Esperando entrada de datos para análisis táctico.',
+  isSystem: true,
+  timestamp: new Date(),
+};
+
 export default function IntelChat({ user }: IntelChatProps) {
   const [query, setQuery] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: 'ai', 
-      content: '# SISTEMA ATENEA INTEL\nConexión segura establecida. Base legislativa sincronizada. Esperando entrada de datos para análisis táctico.',
-      isSystem: true,
-      timestamp: new Date() 
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([SALUDO]);
   const [loading, setLoading] = useState(false);
   const [activeSource, setActiveSource] = useState<{ filename: string; content_chunk: string; reference?: string | null } | null>(null);
   /** El contenedor que hace scroll. NO la ventana: ver el efecto de abajo. */
@@ -60,6 +66,71 @@ export default function IntelChat({ user }: IntelChatProps) {
    */
   const [subjectId, setSubjectId] = useState<number | ''>('');
   const [subjects, setSubjects] = useState<{ id: number; title: string }[]>([]);
+
+  /**
+   * EL HISTORIAL.
+   *
+   * `conversationId` es la conversacion en la que se esta escribiendo. `null`
+   * significa que la siguiente pregunta abrira una nueva — no significa "no
+   * hay conversacion", que es la confusion facil aqui.
+   *
+   * `soloLectura` es lo que se enciende al abrir una conversacion CERRADA: se
+   * puede releer, pero no aporta contexto ni admite preguntas nuevas. Dejar
+   * escribir en ella seria mentir sobre lo que va a pasar — la IA no
+   * recordaria nada de lo que hay encima.
+   */
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversaciones, setConversaciones] = useState<ConversacionResumen[]>([]);
+  const [panelHistorial, setPanelHistorial] = useState(false);
+  const [soloLectura, setSoloLectura] = useState(false);
+  const [cargandoConv, setCargandoConv] = useState(false);
+
+  const recargarHistorial = useCallback(async () => {
+    const res = await listConversations();
+    if (res.success) setConversaciones(res.conversaciones);
+  }, []);
+
+  useEffect(() => { recargarHistorial(); }, [recargarHistorial]);
+
+  /** Empezar de cero. Cierra la de antes: cerrada se lee, pero ya no se paga. */
+  async function nuevaConversacion() {
+    if (conversationId) await closeConversation(conversationId);
+    setConversationId(null);
+    setSoloLectura(false);
+    setMessages([SALUDO]);
+    setPanelHistorial(false);
+    try { window.sessionStorage.removeItem(CLAVE_CONVERSACION); } catch { /* da igual */ }
+    recargarHistorial();
+  }
+
+  async function abrirConversacion(c: ConversacionResumen) {
+    setCargandoConv(true);
+    setPanelHistorial(false);
+    const res = await getConversation(c.id);
+    setCargandoConv(false);
+    if (!res.success) return;
+
+    setConversationId(c.id);
+    setSoloLectura(Boolean(c.closedAt));
+    if (c.subjectId) setSubjectId(c.subjectId);
+    setMessages(
+      res.mensajes.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.createdAt),
+      })),
+    );
+  }
+
+  async function borrarConversacion(id: string) {
+    await deleteConversation(id);
+    if (id === conversationId) {
+      setConversationId(null);
+      setSoloLectura(false);
+      setMessages([SALUDO]);
+    }
+    recargarHistorial();
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -120,7 +191,7 @@ export default function IntelChat({ user }: IntelChatProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim() || loading) return;
+    if (!query.trim() || loading || soloLectura) return;
 
     const userText = query.trim();
     setQuery('');
@@ -146,6 +217,26 @@ export default function IntelChat({ user }: IntelChatProps) {
             sources: res.sources, 
             timestamp: new Date() 
         }]);
+
+        // AL HISTORIAL. Se guarda DESPUES de pintar: la respuesta ya la tiene
+        // el alumno, y hacerle esperar a que se escriba en la base de datos
+        // seria cobrarle en latencia algo que no le aporta. Si el guardado
+        // falla, la conversacion sigue viva en la pantalla y en
+        // `sessionStorage` — se pierde el archivo, no el trabajo.
+        appendTurn({
+          conversationId,
+          subjectId: subjectId === '' ? null : subjectId,
+          pregunta: userText,
+          respuesta: cleanAnswer,
+          sources: res.sources,
+        }).then((guardado) => {
+          if (!guardado.success) { console.error('historial:', guardado.error); return; }
+          // La primera pregunta ABRE la conversacion: sin quedarse con el id,
+          // cada pregunta siguiente abriria otra y el historial saldria
+          // partido en conversaciones de un solo turno.
+          if (!conversationId) setConversationId(guardado.conversationId);
+          recargarHistorial();
+        });
       } else {
         setMessages(prev => [...prev, { role: 'ai', content: `⚠️ ERROR DE PROTOCOLO: ${res.error}`, isError: true, timestamp: new Date() }]);
       }
@@ -179,10 +270,101 @@ export default function IntelChat({ user }: IntelChatProps) {
                 <Cpu size={12} className="text-indigo-500"/> Atenea Intel v3.0
               </span>
           </div>
-          <div className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-mono text-indigo-400">
-                USR_{user.id?.substring(0,6).toUpperCase() || 'ROOT'}
+          {/* EL HISTORIAL, donde antes solo habia un identificador de usuario
+              que el alumno ya sabe. Dos botones y ninguna palabra: en 390px de
+              ancho, "Nueva conversacion" no cabe al lado de nada. */}
+          <div className="flex items-center gap-1.5">
+              <button
+                  type="button"
+                  onClick={() => setPanelHistorial(true)}
+                  className="min-h-[44px] px-3 flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                  aria-label="Ver mis conversaciones"
+              >
+                  <History size={18} />
+                  {conversaciones.length > 0 && (
+                    <span className="text-[10px] font-mono text-indigo-400">{conversaciones.length}</span>
+                  )}
+              </button>
+              <button
+                  type="button"
+                  onClick={nuevaConversacion}
+                  className="min-h-[44px] px-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                  aria-label="Empezar una conversación nueva"
+              >
+                  <Plus size={18} />
+              </button>
           </div>
       </div>
+
+      {/* Una conversacion cerrada se LEE, no se continua. Decirlo aqui evita
+          que el alumno escriba una repregunta y no entienda por que Atenea no
+          se acuerda de nada de lo que hay encima. */}
+      {soloLectura && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-x border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200">
+              <Lock size={14} className="shrink-0" aria-hidden />
+              <p className="text-xs font-semibold leading-relaxed">
+                Conversación archivada: puedes releerla, pero no continúa.
+              </p>
+              <button
+                type="button"
+                onClick={nuevaConversacion}
+                className="ml-auto shrink-0 min-h-[44px] px-3 text-xs font-black uppercase tracking-wider underline"
+              >
+                Nueva
+              </button>
+          </div>
+      )}
+
+      {panelHistorial && (
+          <Modal title="Mis conversaciones" onClose={() => setPanelHistorial(false)}>
+              <div className="space-y-2">
+                  <Button block onClick={nuevaConversacion} icon={<Plus size={16} />}>
+                      Nueva conversación
+                  </Button>
+
+                  {conversaciones.length === 0 ? (
+                      /* Cero conversaciones NO es un error ni un hueco en
+                         blanco: es alguien que acaba de empezar (regla 8). */
+                      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed pt-4">
+                        Todavía no has guardado ninguna consulta. Las que hagas
+                        a partir de ahora se quedan aquí.
+                      </p>
+                  ) : (
+                      <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+                          {conversaciones.map((c) => (
+                              <li key={c.id} className="flex items-center gap-2">
+                                  <button
+                                      type="button"
+                                      onClick={() => abrirConversacion(c)}
+                                      className="flex-1 min-w-0 text-left py-3 min-h-[44px]"
+                                  >
+                                      <span className="flex items-center gap-1.5">
+                                        {c.closedAt && <Lock size={11} className="shrink-0 text-slate-400" aria-label="archivada" />}
+                                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                                          {c.title}
+                                        </span>
+                                      </span>
+                                      <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                        {new Date(c.updatedAt).toLocaleDateString('es-ES', {
+                                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                                        })}
+                                      </span>
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => borrarConversacion(c.id)}
+                                      className="min-h-[44px] px-3 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                                      aria-label={`Borrar «${c.title}»`}
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                              </li>
+                          ))}
+                      </ul>
+                  )}
+              </div>
+          </Modal>
+      )}
 
       {/* ÁREA DE CHAT */}
       {/*
@@ -327,7 +509,7 @@ export default function IntelChat({ user }: IntelChatProps) {
             <input 
                 value={query} 
                 onChange={e => setQuery(e.target.value)} 
-                placeholder="Introduzca consulta..."
+                placeholder={soloLectura ? 'Conversación archivada' : 'Introduzca consulta...'}
                 /* `pr-20`, no `pr-14`. El boton de enviar mide 48px (p-3 +
                    icono de 24) y va a 12px del borde: ocupa los 60px de la
                    derecha. El hueco reservado eran 56, asi que las ultimas
@@ -335,11 +517,15 @@ export default function IntelChat({ user }: IntelChatProps) {
                    flecha. Ahora son 80px: los 60 del boton y 20 de aire, para
                    que el cursor tampoco toque el icono. */
                 className="w-full pl-4 sm:pl-6 pr-20 sm:pr-24 py-4 sm:py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-base sm:text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
-                disabled={loading}
+                /* Deshabilitado de verdad, no solo bloqueado al enviar: un
+                   campo que se puede escribir y no manda nada es peor que uno
+                   apagado — el alumno teclea la pregunta entera antes de
+                   descubrir que no iba a ninguna parte. */
+                disabled={loading || soloLectura}
             />
             <button 
                 type="submit" 
-                disabled={loading || !query.trim()} 
+                disabled={loading || soloLectura || !query.trim()} 
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 active:scale-95 transition-all shadow-lg"
             >
                 <Send size={24}/>

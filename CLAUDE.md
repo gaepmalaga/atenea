@@ -1245,6 +1245,44 @@ prompt del chat: lo que impresiona en una lectura, en la décima estorba.
 De paso salió un fallo real: la opción marcada tenía `scale-[1.02]`, así que al
 cambiar de respuesta **las opciones de abajo se movían**.
 
+### 44 · Guardar el historial y usarlo como contexto son dos cosas distintas
+
+La conversación vivía solo en el `sessionStorage`: se borraba al cerrar la
+pestaña y no llegaba nunca a la base de datos. Un alumno que hacía una buena
+pregunta el martes no podía releer la respuesta el jueves.
+
+**Guardar es casi gratis; lo que cuesta dinero es meter el historial en el
+prompt.** Así que se guarda TODO y se le manda al modelo MUY POCO. Y el recorte
+lo impone el SERVIDOR (`trimHistory`: 6 turnos, 600 caracteres cada uno), no el
+cliente — una Server Action es un endpoint público y el navegador podría mandar
+quinientos turnos.
+
+**Una conversación CERRADA no es contexto de nada.** Se relee, pero no viaja al
+modelo: `contextoDeConversacion` devuelve vacío si tiene `closed_at`. Eso es lo
+que hace que tener historial entero no encarezca ni una pregunta.
+
+**Pero una ABIERTA sí arrastra sus últimos turnos**, y esto no es negociable: si
+«el historial no es contexto» se aplicara también a la abierta, volvería el
+fallo de la regla 11 — *«¿y qué plazo aplica en ese caso?»* dejaba de recuperar
+nada del temario porque el buscador no sabía de qué se hablaba.
+
+Tres decisiones de la implementación:
+
+- **Todo va con el cliente de la SESIÓN** (regla 34). Las dos tablas tienen
+  política de propietario `for all`, así que es Postgres quien impone que un
+  alumno solo vea lo suyo. Con la clave de servicio, RLS no protegería nada.
+- **La pregunta y la respuesta se guardan en UN solo insert.** En dos, una
+  caída entre medias dejaría una pregunta sin respuesta y al releerla parecería
+  que Atenea no contestó. Y la respuesta lleva un milisegundo más: dos filas con
+  el mismo `created_at` pueden salir al revés.
+- **El guardado NO bloquea la respuesta.** Se escribe después de pintarla: si
+  falla, se pierde el archivo, no el trabajo.
+
+En la pantalla, una conversación archivada **apaga el recuadro de escribir**, no
+solo el envío. Un campo que se puede escribir y no manda nada es peor que uno
+apagado: el alumno teclea la pregunta entera antes de descubrir que no iba a
+ninguna parte.
+
 ---
 
 ## Los tests

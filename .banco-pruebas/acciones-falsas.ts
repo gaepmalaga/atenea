@@ -312,3 +312,25 @@ export async function reindexDocument() { return ok({ status: 'indexado', indexe
 export async function deleteDocument() { return { success: true as const }; }
 export async function deleteTopic() { return { success: true as const }; }
 export async function setModuleEnabled() { return { success: true as const }; }
+
+// ── EL HISTORIAL DEL CHAT ──────────────────────────────────────────────────
+// Una ABIERTA y una CERRADA: el panel tiene que distinguirlas (la cerrada
+// lleva candado y no se puede continuar), y con todas iguales no se ve si lo
+// hace. Es el mismo motivo por el que la ficha de prueba pasó a ser larga.
+export async function listConversations() {
+  return ok({ conversaciones: [
+    { id: 'c1', title: '¿Cuántos artículos tiene la Constitución?', subjectId: 2,
+      closedAt: null, updatedAt: new Date().toISOString() },
+    { id: 'c2', title: 'Diferencia entre proyecto y proposición de ley, y quién puede presentar cada una',
+      subjectId: null, closedAt: new Date().toISOString(), updatedAt: new Date(Date.now() - 864e5).toISOString() },
+  ] });
+}
+export async function getConversation() {
+  return ok({ mensajes: [
+    { id: 'm1', role: 'user', content: '¿Cuántos artículos tiene la Constitución?', createdAt: new Date().toISOString() },
+    { id: 'm2', role: 'ai', content: 'Tiene 169 artículos, del 1 al 169 y sin huecos, según el índice del temario.', createdAt: new Date().toISOString() },
+  ] });
+}
+export async function appendTurn() { return ok({ conversationId: 'c1' }); }
+export async function closeConversation() { return ok({}); }
+export async function deleteConversation() { return ok({}); }
