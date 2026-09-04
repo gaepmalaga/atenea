@@ -1113,11 +1113,17 @@ tres columnas existe. **PostgREST rechaza la escritura entera si una sola column
 existe**, y el error solo se registraba en consola, así que ni un resultado de test ni un
 repaso llegaron a guardarse nunca.
 
-`.github/workflows/check.yml` ejecuta `npm run check` en cada push. Las guardas
-estáticas solo sirven si corren solas: depender de que alguien se acuerde de
-lanzarlas es lo mismo que no tenerlas. El `build` no está en CI a propósito —
-`core.ts` construye los clientes al importarse, así que el prerender exige las
-cuatro variables reales.
+`.github/workflows/check.yml` ejecuta `npm run check` **y `npm run build`** en
+cada push. Las guardas estáticas solo sirven si corren solas: depender de que
+alguien se acuerde de lanzarlas es lo mismo que no tenerlas.
+
+**El build sí está en CI, con variables de mentira.** Aquí ponía que no se podía
+porque el prerender exige "las cuatro variables reales"; comprobado el 4 sep,
+exige que **existan**, no que sirvan: con cuatro valores inventados el build pasa
+entero (`next build` prerenderiza HTML, no consulta nada). Importa porque cada
+push a `main` despliega solo, y `npm run check` **no compila la aplicación**: un
+`import` que no resuelve o un tipo que solo mira `next build` llegaba a
+producción y dejaba la plataforma caída hasta que alguien la abriera.
 
 `srs.test.ts` cubre la repetición espaciada; el resto de la tabla sigue igual.
 

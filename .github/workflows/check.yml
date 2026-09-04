@@ -27,10 +27,26 @@ jobs:
       # es lógica pura o lectura estática del código.
       - run: npm run check
 
-      # `npm run build` NO está aquí a propósito: `core.ts` construye los
-      # clientes en tiempo de importación, así que el prerender exige las cuatro
-      # variables de entorno reales. Cuando dejen de construirse en el módulo
-      # (o se pongan como secrets del repositorio), añadir el paso.
+      # EL BUILD SÍ ESTÁ, y con variables de mentira.
+      #
+      # Aquí ponía que no se podía porque `core.ts` construye los clientes al
+      # importarse y el prerender exigía "las cuatro variables reales".
+      # Comprobado: exige que EXISTAN, no que sirvan. Con cuatro valores
+      # inventados el build pasa entero.
+      #
+      # Importa porque cada push a `main` despliega solo en Vercel: sin esto, un
+      # fallo que solo aparece en el build de producción —un `import` que no
+      # resuelve, un tipo que `next build` comprueba y `tsc` no— llega a
+      # producción y la plataforma se queda caída hasta que alguien la abre.
+      # `npm run check` no lo ve: no compila la aplicación.
+      #
+      # No se conecta a nada: `next build` prerenderiza HTML, no hace consultas.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-solo-para-compilar
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-solo-para-compilar
+          GEMINI_API_KEY: placeholder-solo-para-compilar
 
       # El lint todavía no es puerta de calidad: quedan errores heredados de la
       # fase 5. Se ejecuta para verlo, pero no tumba la ejecución.
