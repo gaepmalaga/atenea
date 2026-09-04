@@ -4,8 +4,48 @@ Tres guiones para dejar la plataforma en un estado limpio y conocido: sin
 contenido viejo, con el temario entero indexado y con el banco de preguntas
 lleno.
 
-**Los ejecutas tú.** Necesitan `SUPABASE_SERVICE_ROLE_KEY` y `GEMINI_API_KEY`
-en tu `.env.local`, que no salen del repositorio.
+Necesitan la clave de servicio de Supabase y la de Gemini. Hay dos formas de
+dárselas, y ninguna pasa por el repositorio ni por un chat.
+
+## A · Desde el navegador, con GitHub Actions  ← la cómoda
+
+**Actions → «Operación» → «Run workflow»**, eliges qué hacer y le das. Funciona
+desde el móvil y el registro queda guardado.
+
+Hace falta configurarlo una vez, en **Settings → Secrets and variables →
+Actions**:
+
+| Dónde | Nombre | Qué es |
+|---|---|---|
+| Secrets | `SUPABASE_SERVICE_ROLE_KEY` | La clave de servicio |
+| Secrets | `GEMINI_API_KEY` | La de Gemini |
+| Secrets | `CUENTA_PRUEBA_PASSWORD` | La contraseña de la cuenta de prueba |
+| **Variables** | `NEXT_PUBLIC_SUPABASE_URL` | La URL del proyecto. **No es secreta**: va en el bundle del navegador. |
+
+La contraseña va en un **secret** y no en un campo del formulario a propósito:
+los inputs de un workflow quedan a la vista en la página de la ejecución.
+
+Lo que hay que saber antes: **los Secrets de Actions protegen de quien MIRA el
+repositorio, no de quien puede ESCRIBIR en él.** Cualquiera con permiso de
+escritura podría leerlos con otro workflow. Con un repositorio tuyo y sin
+colaboradores, no hay problema; si algún día entra alguien más, esto se piensa
+otra vez.
+
+El orden es el mismo de siempre, eligiendo cada acción en el desplegable:
+
+```
+comprobar-pdfs    → 1. mirar, sin tocar nada ni gastar nada
+reset-ensayo      → 2. qué se borraría
+reset             → 3. borrar (hay que escribir RESET en el formulario)
+crear-cuenta      → 4. el alumno de prueba
+sembrar-indexar   → 5. los 51 documentos  (una hora larga)
+sembrar-preguntas → 6. el banco de preguntas
+estado            → cuándo quieras: qué hay ahora mismo
+```
+
+## B · Desde tu ordenador
+
+Con las dos claves en `.env.local`:
 
 ```bash
 npm run sembrar -- --comprobar-pdfs   # 1. mirar, sin tocar nada ni gastar nada
@@ -14,6 +54,9 @@ npm run reset -- --hazlo              # 3. borrar de verdad (pide escribir RESET
 npm run cuenta -- alumno@ejemplo.com 'unaContraseña' student
 npm run sembrar                       # 4. indexar los 51 PDF y sembrar el banco
 ```
+
+Es la vía buena para iterar: si algo falla, se ve al momento y se reintenta sin
+esperar a un runner.
 
 ---
 
@@ -44,7 +87,8 @@ Medido el 4 sep sobre los 51:
 
 Vacía **contenido y actividad**. Sin argumentos es un ensayo: enseña tabla por
 tabla lo que hay y no borra nada. Con `--hazlo` pide escribir `RESET` y luego
-borra, y al terminar **relee las tablas** para decir si algo ha quedado — no se
+borra —desde GitHub Actions la palabra se escribe en el formulario y llega como
+`--confirmacion=RESET`, que no es un atajo: hay que escribirla igual—, y al terminar **relee las tablas** para decir si algo ha quedado — no se
 fía de sus propios contadores.
 
 ### Lo que NO toca, y por qué

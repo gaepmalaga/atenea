@@ -18,8 +18,10 @@
  * Recrearlos renumera los temas y deja huérfana cualquier fila que sobreviva.
  *
  * USO
- *   npm run reset              -- enseña lo que hay y NO borra nada
- *   npm run reset -- --hazlo   -- borra de verdad, pidiendo confirmación
+ *   npm run reset                       enseña lo que hay y NO borra nada
+ *   npm run reset -- --hazlo            borra, preguntando por la consola
+ *   npm run reset -- --hazlo --confirmacion=RESET
+ *                                       borra sin terminal (GitHub Actions)
  */
 import { createClient } from '@supabase/supabase-js';
 import { createInterface } from 'node:readline/promises';
@@ -86,8 +88,10 @@ async function cuenta(tabla) {
   return { count: count ?? 0 };
 }
 
+const args = process.argv.slice(2);
+
 async function main() {
-  const hazlo = process.argv.includes('--hazlo');
+  const hazlo = args.includes('--hazlo');
 
   console.log(`\nProyecto: ${URL}`);
   console.log(hazlo ? '\n⚠  MODO REAL: se va a borrar.\n' : '\nEnsayo. No se borra nada. Añade --hazlo para ejecutarlo.\n');
@@ -120,9 +124,23 @@ async function main() {
     return;
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const escrito = await rl.question(`\nEscribe RESET para borrar esas ${total} filas: `);
-  rl.close();
+  // La confirmación se puede dar por argumento (`--confirmacion=RESET`) para
+  // que esto se pueda lanzar desde GitHub Actions, donde no hay terminal a la
+  // que preguntar. NO es un atajo: el que lanza el workflow tiene que escribir
+  // la palabra igual, solo que en el formulario en vez de en la consola.
+  const porArgumento = args.find((a) => a.startsWith('--confirmacion='))?.split('=')[1];
+  let escrito;
+  if (porArgumento !== undefined) {
+    escrito = porArgumento;
+    console.log(`\nConfirmación recibida por argumento: "${escrito}"`);
+  } else if (!process.stdin.isTTY) {
+    console.error('\nSin terminal y sin --confirmacion=RESET. No se borra nada.');
+    process.exit(1);
+  } else {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    escrito = await rl.question(`\nEscribe RESET para borrar esas ${total} filas: `);
+    rl.close();
+  }
   if (escrito.trim() !== 'RESET') {
     console.log('Cancelado. No se ha borrado nada.\n');
     return;

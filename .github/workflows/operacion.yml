@@ -1,0 +1,153 @@
+# OPERACIONES SOBRE LA BASE DE DATOS, DESDE EL NAVEGADOR.
+#
+# Se lanza a mano desde la pestaña Actions (o desde el móvil): Actions →
+# "Operación" → "Run workflow" → eliges qué hacer.
+#
+# POR QUÉ EXISTE
+# `npm run reset` y `npm run sembrar` necesitan la clave de servicio de Supabase
+# y la de Gemini. Esas claves no pueden vivir en el repositorio ni pasar por un
+# chat: aquí salen de los Secrets de GitHub, que están cifrados y que GitHub
+# enmascara en los registros aunque algo intente imprimirlos.
+#
+# Y la siembra tarda una hora larga. En un portátil eso es tener la terminal
+# abierta sin cerrar la tapa; aquí corre en la infraestructura de GitHub, con
+# hasta seis horas de margen, y el registro queda guardado.
+#
+# QUIÉN PUEDE LANZARLO
+# Solo quien tenga permiso de escritura en el repositorio. Ten presente que esa
+# misma persona podría leer los secrets escribiendo otro workflow: los Secrets
+# de Actions protegen de quien MIRA el repositorio, no de quien puede ESCRIBIR
+# en él.
+name: Operación
+
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: 'Qué hacer'
+        required: true
+        type: choice
+        default: comprobar-pdfs
+        options:
+          - comprobar-pdfs      # lee los 51 PDF y los trocea. No toca nada. Gratis.
+          - reset-ensayo        # enseña qué se borraría. No borra.
+          - reset               # BORRA contenido y actividad. Pide escribir RESET.
+          - crear-cuenta        # una cuenta con el correo ya confirmado
+          - sembrar-indexar     # sube e indexa los 51 documentos
+          - sembrar-preguntas   # genera preguntas de cada tema
+          - estado              # solo dice qué hay ahora mismo
+      confirmacion:
+        description: 'Escribe RESET (solo para la acción "reset")'
+        required: false
+        type: string
+      correo:
+        description: 'Correo (solo para "crear-cuenta")'
+        required: false
+        type: string
+      rol:
+        description: 'Rol de la cuenta'
+        required: false
+        type: choice
+        default: student
+        options: [student, admin]
+      preguntas:
+        description: 'Preguntas por tema (para "sembrar-preguntas")'
+        required: false
+        type: string
+        default: '20'
+      tema:
+        description: 'Un tema suelto, por número. Vacío = todos.'
+        required: false
+        type: string
+
+# Este workflow no escribe en el repositorio: solo habla con Supabase y Gemini.
+permissions: {}
+
+jobs:
+  operar:
+    runs-on: ubuntu-latest
+    # La siembra completa son 4.970 embeddings y hasta 900 llamadas de
+    # generación. Con los límites de tasa, una hora larga.
+    timeout-minutes: 330
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CUENTA_PRUEBA_PASSWORD: ${{ secrets.CUENTA_PRUEBA_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `--comprobar-pdfs` no habla con nadie, así que puede correr sin nada
+      # configurado. El resto no: mejor parar aquí con un mensaje claro que
+      # fallar a mitad con un error de red.
+      - name: Comprobar que están las claves
+        if: inputs.accion != 'comprobar-pdfs'
+        run: |
+          faltan=""
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL(Variables)"
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
+          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ]; then
+            [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
+          fi
+          if [ -n "$faltan" ]; then
+            echo "Faltan en Settings → Secrets and variables → Actions:$faltan"
+            exit 1
+          fi
+          echo "Todo lo necesario está configurado."
+
+      - run: npm ci
+
+      # ---- Las acciones ----
+
+      - name: Comprobar los PDF (sin red, sin gasto)
+        if: inputs.accion == 'comprobar-pdfs'
+        run: npm run sembrar -- --comprobar-pdfs ${{ inputs.tema && format('--tema={0}', inputs.tema) || '' }}
+
+      - name: Estado actual
+        if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'
+        run: npm run reset
+
+      # El borrado exige escribir RESET en el formulario. No es ceremonia: es
+      # que este paso deja la plataforma sin contenido y sin historial, y un
+      # desplegable se pulsa sin leerlo.
+      - name: BORRAR contenido y actividad
+        if: inputs.accion == 'reset'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "RESET" ]; then
+            echo "Para borrar hay que escribir RESET en el campo de confirmación."
+            echo "Recibido: \"${{ inputs.confirmacion }}\""
+            exit 1
+          fi
+          npm run reset -- --hazlo --confirmacion=RESET
+
+      # La contraseña sale de un secret, NO de un campo del formulario: los
+      # inputs de un workflow quedan a la vista en la página de la ejecución.
+      - name: Crear la cuenta
+        if: inputs.accion == 'crear-cuenta'
+        run: |
+          if [ -z "$CUENTA_PRUEBA_PASSWORD" ]; then
+            echo "Falta el secret CUENTA_PRUEBA_PASSWORD."
+            echo "Se pone en Settings → Secrets → Actions, y así la contraseña"
+            echo "no aparece en el formulario ni en el registro de la ejecución."
+            exit 1
+          fi
+          if [ -z "${{ inputs.correo }}" ]; then
+            echo "Falta el correo."
+            exit 1
+          fi
+          npm run cuenta -- "${{ inputs.correo }}" "$CUENTA_PRUEBA_PASSWORD" "${{ inputs.rol }}"
+
+      - name: Indexar el temario
+        if: inputs.accion == 'sembrar-indexar'
+        run: npm run sembrar -- --solo-indexar ${{ inputs.tema && format('--tema={0}', inputs.tema) || '' }}
+
+      - name: Generar las preguntas
+        if: inputs.accion == 'sembrar-preguntas'
+        run: npm run sembrar -- --solo-preguntas --preguntas=${{ inputs.preguntas }} ${{ inputs.tema && format('--tema={0}', inputs.tema) || '' }}
