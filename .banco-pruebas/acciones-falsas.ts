@@ -169,7 +169,15 @@ export async function getFailedQuestions() {
 
 export async function generateFlashcard() {
   await new Promise((r) => setTimeout(r, 400));
-  return ok({ data: { id: 'fc-1', front: '¿Qué órgano nombra al Defensor del Pueblo?', back: 'Las Cortes Generales, según el artículo 54 de la Constitución.', isReview: false } });
+  // UNA FICHA LARGA DE VERDAD, y no es capricho: con la respuesta corta que
+  // habia aqui antes, el banco daba por buena una tarjeta que en el movil de
+  // un alumno salia CORTADA por arriba y por abajo. El stub mentia — que es
+  // el modo de fallo que avisa la regla 38 — porque ningun dato de prueba se
+  // parecia a lo que escribe el modelo con el temario real delante.
+  return ok({ data: { id: 'fc-1',
+    front: '¿Qué debe contener la resolución judicial que autoriza el registro de dispositivos de almacenamiento masivo de información?',
+    back: 'La resolución del juez de instrucción debe determinar los términos y el alcance del registro; podrá autorizar la realización de copias de los datos informáticos, y fijará las condiciones necesarias para asegurar la integridad de los datos y las garantías de su preservación para hacer posible, en su caso, la práctica de un dictamen pericial. Debe identificar a los investigados y afectados, la extensión y alcance de la medida, la unidad investigadora de Policía Judicial que la ejecute, la duración, y la forma y periodicidad de la información al juez.',
+    isReview: false } });
 }
 export async function saveFlashcardProgress() { return { success: true as const }; }
 

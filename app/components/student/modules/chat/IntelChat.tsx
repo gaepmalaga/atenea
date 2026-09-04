@@ -224,6 +224,19 @@ export default function IntelChat({ user }: IntelChatProps) {
                         <ReactMarkdown 
                           remarkPlugins={[remarkGfm]}
                           components={{
+                            // LA TABLA VA DENTRO DE UNA CAJA QUE SE ARRASTRA.
+                            // Sin esto, un cuadro comparativo de tres columnas
+                            // se corta por la derecha en un movil y se pierde
+                            // justo la columna que se queria comparar: se veia
+                            // "Caracteristica | Proyecto de Ley | Propo..." y
+                            // ahi se acababa. `w-full` no arregla nada cuando
+                            // el contenido no cabe; lo que hace falta es poder
+                            // arrastrarla.
+                            table: ({ ...props }) => (
+                              <div className="my-6 -mx-1 overflow-x-auto overscroll-x-contain">
+                                <table {...props} className="min-w-full w-max text-left" />
+                              </div>
+                            ),
                             // Detección visual de "FOCO EXAMEN"
                             strong: ({ ...props }) => {
                               if (props.children?.toString().includes("🎯 FOCO EXAMEN")) {
@@ -315,7 +328,13 @@ export default function IntelChat({ user }: IntelChatProps) {
                 value={query} 
                 onChange={e => setQuery(e.target.value)} 
                 placeholder="Introduzca consulta..."
-                className="w-full pl-4 sm:pl-6 pr-14 sm:pr-16 py-4 sm:py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
+                /* `pr-20`, no `pr-14`. El boton de enviar mide 48px (p-3 +
+                   icono de 24) y va a 12px del borde: ocupa los 60px de la
+                   derecha. El hueco reservado eran 56, asi que las ultimas
+                   letras de lo que se escribia pasaban POR DEBAJO de la
+                   flecha. Ahora son 80px: los 60 del boton y 20 de aire, para
+                   que el cursor tampoco toque el icono. */
+                className="w-full pl-4 sm:pl-6 pr-20 sm:pr-24 py-4 sm:py-5 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-base sm:text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500 transition-all shadow-inner"
                 disabled={loading}
             />
             <button 

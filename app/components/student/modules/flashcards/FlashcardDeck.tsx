@@ -121,8 +121,23 @@ export default function FlashcardDeck() {
           </select>
       </div>
 
-      {/* ÁREA DE JUEGO */}
-      <div className="relative w-full aspect-[4/3] md:aspect-[16/9]" style={{ perspective: '1000px' }}>
+      {/* ÁREA DE JUEGO
+
+          NO LLEVA PROPORCION FIJA, Y ESA ERA LA AVERIA. Con `aspect-[4/3]` la
+          tarjeta medía ~290px de alto en un móvil de 390px, dijera lo que
+          dijera la ficha. Una respuesta larga —y las del temario lo son: "la
+          unidad investigadora de Policía Judicial; la duración; la forma y
+          periodicidad de la información…"— se salía por arriba Y por abajo, y
+          como el contenido iba con `scrollbar-hide` NO HABIA NI BARRA que
+          avisara de que aquello seguía. El alumno leía media frase y no tenía
+          forma de saberlo.
+
+          Ahora las dos caras se apilan con `grid` en la MISMA celda (1/1) en
+          vez de con `absolute inset-0`. La diferencia es que una celda de
+          grid SÍ mide lo que mide su contenido: la tarjeta crece con el texto
+          y el giro sigue funcionando igual. `min-h` es solo el suelo, para
+          que una ficha corta no salga raquítica. */}
+      <div className="relative w-full min-h-[20rem] sm:min-h-[22rem]" style={{ perspective: '1000px' }}>
         
         {!currentCard && !loading ? (
             <div className="w-full h-full bg-slate-100 dark:bg-slate-900/50 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl flex flex-col items-center justify-center text-center p-8">
@@ -144,7 +159,7 @@ export default function FlashcardDeck() {
         ) : (
             // --- CARTA 3D INTERACTIVA ---
             <div 
-                className="relative w-full h-full transition-transform duration-500 cursor-pointer group"
+                className="grid w-full h-full transition-transform duration-500 cursor-pointer group"
                 style={{ 
                     transformStyle: 'preserve-3d', 
                     transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' 
@@ -154,10 +169,11 @@ export default function FlashcardDeck() {
             >
                 {/* CARA FRONTAL (PREGUNTA) */}
                 <div 
-                    className="absolute inset-0 w-full h-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-5 sm:p-8 md:p-12 flex flex-col items-center justify-center text-center shadow-xl"
+                    className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-5 pt-14 sm:p-8 sm:pt-16 flex flex-col items-center justify-center text-center shadow-xl"
                     style={{ 
+                        gridArea: '1 / 1',
                         backfaceVisibility: 'hidden', 
-                        WebkitBackfaceVisibility: 'hidden' // FIX 2: Soporte Safari/Webkit para evitar efecto espejo
+                        WebkitBackfaceVisibility: 'hidden' // Safari/Webkit: sin esto se ve el efecto espejo
                     }} 
                 >
                     <div className="absolute top-6 left-6 flex items-center gap-2">
@@ -167,8 +183,8 @@ export default function FlashcardDeck() {
                         </span>
                     </div>
 
-                    <div className="flex-1 flex items-center justify-center">
-                        <h3 className="text-xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">
+                    <div className="flex-1 w-full flex items-center justify-center overflow-y-auto max-h-[50dvh] py-2">
+                        <h3 className="text-lg sm:text-xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight [overflow-wrap:anywhere]">
                             {currentCard?.front}
                         </h3>
                     </div>
@@ -181,17 +197,22 @@ export default function FlashcardDeck() {
 
                 {/* CARA TRASERA (RESPUESTA) */}
                 <div 
-                    className="absolute inset-0 w-full h-full bg-slate-900 text-white rounded-3xl p-5 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl"
+                    className="w-full bg-slate-900 text-white rounded-3xl p-5 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl"
                     style={{ 
+                        gridArea: '1 / 1',
                         backfaceVisibility: 'hidden', 
-                        WebkitBackfaceVisibility: 'hidden', // FIX 2
+                        WebkitBackfaceVisibility: 'hidden',
                         transform: 'rotateY(180deg)',
                         background: 'linear-gradient(145deg, #1e293b, #0f172a)'
                     }}
                 >
-                    {/* FIX 3: Forzar texto blanco y centrado explícito */}
-                    <div className="flex-1 w-full flex items-center justify-center overflow-y-auto scrollbar-hide">
-                        <p className="text-lg md:text-2xl font-medium leading-relaxed text-white">
+                    {/* SIN `scrollbar-hide`. Esconder la barra en una caja que
+                        SÍ se desborda es esconder la única señal de que hay
+                        más texto: el alumno leía media respuesta convencido de
+                        que era entera. Si algún día una ficha se pasa de
+                        `max-h`, ahora se ve que se puede arrastrar. */}
+                    <div className="flex-1 w-full flex items-center justify-center overflow-y-auto max-h-[50dvh] py-2">
+                        <p className="text-base sm:text-lg md:text-2xl font-medium leading-relaxed text-white [overflow-wrap:anywhere]">
                             {currentCard?.back}
                         </p>
                     </div>
