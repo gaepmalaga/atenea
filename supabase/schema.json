@@ -1,5 +1,5 @@
 {
-  "generado": "2026-08-31",
+  "generado": "2026-09-04",
   "tablas": {
     "ai_quota": {
       "columnas": [
@@ -21,6 +21,40 @@
         "user_id": "uuid"
       }
     },
+    "ai_usage": {
+      "columnas": [
+        "cached_tokens",
+        "cost_usd",
+        "created_at",
+        "id",
+        "input_tokens",
+        "output_tokens",
+        "route",
+        "subject_id",
+        "user_id"
+      ],
+      "obligatorias": [
+        "cached_tokens",
+        "cost_usd",
+        "created_at",
+        "id",
+        "input_tokens",
+        "output_tokens",
+        "route",
+        "user_id"
+      ],
+      "tipos": {
+        "cached_tokens": "integer",
+        "cost_usd": "numeric",
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "input_tokens": "integer",
+        "output_tokens": "integer",
+        "route": "text",
+        "subject_id": "integer",
+        "user_id": "uuid"
+      }
+    },
     "blocks": {
       "columnas": [
         "id",
@@ -33,6 +67,61 @@
       "tipos": {
         "id": "integer",
         "name": "text"
+      }
+    },
+    "chat_conversations": {
+      "columnas": [
+        "closed_at",
+        "created_at",
+        "id",
+        "subject_id",
+        "title",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "title",
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "closed_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "subject_id": "integer",
+        "title": "text",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
+    "chat_messages": {
+      "columnas": [
+        "content",
+        "conversation_id",
+        "created_at",
+        "id",
+        "role",
+        "sources",
+        "user_id"
+      ],
+      "obligatorias": [
+        "content",
+        "conversation_id",
+        "created_at",
+        "id",
+        "role",
+        "user_id"
+      ],
+      "tipos": {
+        "content": "text",
+        "conversation_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "role": "text",
+        "sources": "jsonb",
+        "user_id": "uuid"
       }
     },
     "content_documents": {

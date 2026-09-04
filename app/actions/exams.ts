@@ -161,7 +161,7 @@ async function generateTestQuestion(
     // script ni desde un test, así que este prompt solo corría en producción.
     // Y el script de siembra masiva lo necesita: sin sacarlo, habría dos.
     const result = await questionModel.generateContent(buildQuestionPrompt(contexto, nivel));
-    registraGasto({ ruta: 'pregunta', userId: quienGenera, uso: result.response.usageMetadata, detalle: `tema=${subjectId}` });
+    registraGasto({ ruta: 'pregunta', userId: quienGenera, uso: result.response.usageMetadata, detalle: `tema=${subjectId}`, subjectId });
     const parsed = parseAIJson(result.response.text());
     if (!parsed) return { success: false, error: "La IA no devolvió un JSON legible." };
 

@@ -14,28 +14,21 @@
  * COMO SE USA
  *   node scripts/schema-snapshot.mjs
  *
- * Lee NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY de .env. No hace
+ * Necesita NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY, del entorno
+ * o de `.env.local`. No hace
  * falta la contrasena de la base de datos: se saca del documento OpenAPI que
  * PostgREST publica en la raiz de /rest/v1/.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 
-function leerEnv() {
-  const texto = readFileSync('.env', 'utf-8');
-  const valor = (clave) => {
-    const linea = texto.split(/\r?\n/).find((l) => l.startsWith(clave + '='));
-    return linea ? linea.slice(clave.length + 1).trim().replace(/^"|"$/g, '') : null;
-  };
-  const url = valor('NEXT_PUBLIC_SUPABASE_URL');
-  const key = valor('SUPABASE_SERVICE_ROLE_KEY');
-  if (!url || !key) {
-    throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env');
-  }
-  return { url, key };
-}
+// Las credenciales salen de `scripts/lib/env.mjs`, compartido con
+// `smoke-contratos.mjs`. Los dos leian su propio `.env` a mano y los dos
+// reventaban con la configuracion que el repo documenta, que es `.env.local`.
+import { env, urlSupabase } from './lib/env.mjs';
 
-const { url, key } = leerEnv();
+const url = urlSupabase();
+const key = env('SUPABASE_SERVICE_ROLE_KEY');
 
 const respuesta = await fetch(`${url}/rest/v1/`, {
   headers: { apikey: key, Authorization: `Bearer ${key}` },

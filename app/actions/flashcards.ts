@@ -312,7 +312,7 @@ export async function seedFlashcardBank(params: {
 
     try {
       const r = await flashcardModel.generateContent(buildFlashcardPrompt(fragmento, anversos));
-      registraGasto({ ruta: 'ficha', userId: auth.user.id, uso: r.response.usageMetadata, detalle: `tema=${params.subjectId}` });
+      registraGasto({ ruta: 'ficha', userId: auth.user.id, uso: r.response.usageMetadata, detalle: `tema=${params.subjectId}`, subjectId: params.subjectId });
       const parsed = parseAIJson(r.response.text());
       const check = validateFlashcard(parsed);
       if (!check.ok) { failed++; continue; }

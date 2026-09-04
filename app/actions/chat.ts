@@ -405,6 +405,7 @@ export async function askAtenea(
       userId: auth.user.id,
       uso: result.response.usageMetadata,
       detalle: conTema ? `tema=${tema}` : 'sin-tema',
+      subjectId: conTema ? tema : null,
     });
 
     return { 

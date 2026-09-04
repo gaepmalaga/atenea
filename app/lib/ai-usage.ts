@@ -109,23 +109,80 @@ export function lineaDeGasto(params: {
 }
 
 /**
- * Registra el gasto de una llamada. Nunca lanza.
+ * Registra el gasto de una llamada: al log del servidor y a `ai_usage`.
  *
- * Que no lance es la mitad de su valor: esto se llama DESPUÉS de una respuesta
- * buena del modelo, así que un fallo aquí no puede llevarse por delante una
- * respuesta que el alumno ya tiene y que ya se ha pagado.
+ * NUNCA LANZA, Y ESO ES LA MITAD DE SU VALOR. Esto se llama DESPUÉS de una
+ * respuesta buena del modelo, así que un fallo del contador no puede llevarse
+ * por delante una respuesta que el alumno ya tiene y que ya se ha pagado.
+ *
+ * NO SE ESPERA A QUE TERMINE EL INSERT. Devuelve el gasto en cuanto lo ha
+ * calculado y la escritura viaja sola: hacer esperar al alumno a que se apunte
+ * la contabilidad sería cobrarle en latencia una cosa que no le sirve de nada.
+ * La contrapartida es que un insert que falle solo se ve en el log — por eso
+ * el log se escribe SIEMPRE y primero, y no solo cuando la base de datos no
+ * contesta.
+ *
+ * Va con la clave de servicio: `ai_usage` tiene RLS y CERO políticas a
+ * propósito (es de administración), así que con el cliente de la sesión no
+ * escribiría nada y, peor, no protestaría (regla 34).
  */
 export function registraGasto(params: {
   ruta: string;
   userId: string;
   uso: UsoBruto | null | undefined;
   detalle?: string;
+  /** El tema, cuando la llamada lo tiene. Es lo que explica el coste. */
+  subjectId?: number | null;
 }): Gasto {
   const gasto = calculaGasto(params.uso);
+
   try {
     console.log(lineaDeGasto({ ruta: params.ruta, userId: params.userId, gasto, detalle: params.detalle }));
   } catch {
     // Un registro que rompe la petición es peor que no tener registro.
   }
+
+  // Una llamada sin gasto medible no se guarda: serían filas a cero que
+  // ensucian la media sin aportar nada. El log ya la ha dejado anotada.
+  if (gasto.entrada === 0 && gasto.salida === 0) return gasto;
+
+  void persisteGasto(params.ruta, params.userId, gasto, params.subjectId ?? null);
   return gasto;
+}
+
+/**
+ * El insert. Aparte y `async` para que `registraGasto` no tenga que serlo:
+ * si lo fuera, cada sitio que la llama tendría que decidir si esperarla, y
+ * alguno acabaría esperándola.
+ *
+ * El import de `actions/core` es DINÁMICO por lo mismo que en `rate-limit.ts`:
+ * ese módulo es `server-only` y arrastra el cliente de Gemini, así que
+ * cargarlo arriba obligaría a tener entorno de servidor solo para importar la
+ * aritmética de costes — y esta la usan los tests.
+ */
+async function persisteGasto(
+  route: string,
+  userId: string,
+  gasto: Gasto,
+  subjectId: number | null,
+): Promise<void> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    const { supabaseAdmin } = await import('../actions/core');
+    const { error } = await supabaseAdmin.from('ai_usage').insert({
+      user_id: userId,
+      route,
+      input_tokens: gasto.entrada,
+      output_tokens: gasto.salida,
+      cached_tokens: gasto.cacheados,
+      cost_usd: gasto.coste,
+      subject_id: subjectId,
+    });
+    // Se registra el fallo en vez de tragárselo: un contador de gasto que deja
+    // de escribir en silencio es peor que no tenerlo, porque enseña un total
+    // que parece bueno y está bajo.
+    if (error) console.error('[gasto-ia] no se pudo guardar:', error.message);
+  } catch (e) {
+    console.error('[gasto-ia] no se pudo guardar:', e instanceof Error ? e.message : e);
+  }
 }

@@ -20,17 +20,12 @@
  *   node scripts/smoke-contratos.mjs
  */
 
-import { readFileSync } from 'node:fs';
+// Las credenciales salen de `scripts/lib/env.mjs` y no de un `readFileSync`
+// aqui: este guion leia SOLO `.env` y reventaba con la configuracion que el
+// propio repo documenta, que es `.env.local`.
+import { env, urlSupabase } from './lib/env.mjs';
 
-const env = (clave) => {
-  const linea = readFileSync('.env', 'utf-8')
-    .split(/\r?\n/)
-    .find((l) => l.startsWith(clave + '='));
-  if (!linea) throw new Error(`Falta ${clave} en .env`);
-  return linea.slice(clave.length + 1).trim().replace(/^"|"$/g, '');
-};
-
-const URL_BASE = env('NEXT_PUBLIC_SUPABASE_URL');
+const URL_BASE = urlSupabase();
 const KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 const cabeceras = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 
@@ -69,6 +64,39 @@ const QUESTION_ID = preguntas.datos?.[0]?.id ?? null;
  * arma la Server Action, con los valores de prueba puestos.
  */
 const CASOS = [
+  {
+    tabla: 'ai_usage',
+    accion: 'lib/ai-usage.ts · registraGasto (persistencia del gasto)',
+    payload: {
+      user_id: USER_ID,
+      route: MARCA,
+      input_tokens: 34675,
+      output_tokens: 412,
+      cached_tokens: 0,
+      // El coste va en `numeric`, no en `float`: sumar dinero en coma flotante
+      // acumula error y este numero acaba en una factura.
+      cost_usd: 0.011433,
+      subject_id: SUBJECT_ID,
+      created_at: AHORA,
+    },
+    borrarPor: `route=eq.${MARCA}`,
+  },
+  {
+    tabla: 'chat_conversations',
+    accion: 'historial del chat · una conversacion del alumno',
+    payload: {
+      user_id: USER_ID,
+      title: MARCA,
+      subject_id: SUBJECT_ID,
+      created_at: AHORA,
+      updated_at: AHORA,
+    },
+    borrarPor: `title=eq.${MARCA}`,
+    // Cerrar una conversacion es un UPDATE, y `question_attempts` ya ensenio
+    // lo que cuesta quedarse sin politica de UPDATE: no falla, simplemente no
+    // toca ninguna fila y el cambio se pierde en silencio.
+    luegoActualizar: { closed_at: AHORA },
+  },
   {
     tabla: 'question_attempts',
     accion: 'exams.ts · saveTestResult / saveExamResults',
