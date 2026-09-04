@@ -3,6 +3,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { QUESTION_SCHEMA } from '../lib/question-prompt';
 
 // --- CONFIGURACIÓN BLINDADA ---
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -27,27 +28,14 @@ export const smartModel = genAI.getGenerativeModel({ model: TEXT_MODEL });
 // vallas de markdown, el texto de cortesía por delante y las comas colgantes que
 // el parser tenía que limpiar a base de expresiones regulares.
 
+// El esquema vive en `lib/question-prompt.ts`, junto al prompt: los dos tienen
+// que cambiar a la vez, y el script de siembra masiva necesita los dos sin
+// poder importar este fichero.
 export const questionModel = genAI.getGenerativeModel({
   model: TEXT_MODEL,
   generationConfig: {
     responseMimeType: "application/json",
-    responseSchema: {
-      type: SchemaType.OBJECT,
-      properties: {
-        question: { type: SchemaType.STRING },
-        options: {
-          type: SchemaType.ARRAY,
-          items: { type: SchemaType.STRING },
-          minItems: 3,
-          maxItems: 3,
-        },
-        // El índice sigue validándose en el servidor: el esquema fija el tipo,
-        // no el rango.
-        correctIndex: { type: SchemaType.INTEGER },
-        explanation: { type: SchemaType.STRING },
-      },
-      required: ["question", "options", "correctIndex", "explanation"],
-    },
+    responseSchema: QUESTION_SCHEMA,
   },
 });
 

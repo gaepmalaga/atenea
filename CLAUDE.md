@@ -52,6 +52,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 | — | **La capa de comportamiento** | ✅ **hecha** (4 sep): el examen ya no se pierde, el scroll y el botón Atrás funcionan, y el chat sobrevive a cambiar de pestaña. Ver **regla 37** |
+| — | **Reset y siembra** | ✅ **hecho** (4 sep): tres guiones para dejar la plataforma limpia, indexar los 51 documentos y llenar el banco. Ver [`docs/RESET-Y-SIEMBRA.md`](docs/RESET-Y-SIEMBRA.md) |
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
 
 ## Producción
@@ -110,6 +111,11 @@ npm run dev
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
 npm run lint                   # 5 errores, todos el mismo falso positivo (ver abajo)
+
+npm run sembrar -- --comprobar-pdfs # lee los 51 PDF y los trocea, SIN red ni gasto
+npm run reset                      # ensayo: qué se borraría. `-- --hazlo` borra
+npm run cuenta -- correo 'clave' student   # una cuenta con el correo ya confirmado
+npm run sembrar                    # indexa los 51 PDF y llena el banco (de pago)
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
@@ -799,6 +805,14 @@ sin levantar la aplicación. Un prompt que solo se ejecuta en producción es un
 prompt que nadie revisa — y este llevaba meses así, con todos los tests en
 verde.
 
+**Lo mismo vale para el prompt que ESCRIBE LAS PREGUNTAS** (4 sep). Estaba
+dentro de `actions/exams.ts`, así que el prompt del que sale todo el banco solo
+corría en producción. Ahora está en `app/lib/question-prompt.ts` junto al
+esquema JSON del modelo —los dos tienen que cambiar a la vez, separarlos es
+cómo el prompt acabó pidiendo unos campos y la UI leyendo otros— y lo usan las
+dos vías: la Server Action y el guion de siembra masiva. Sin sacarlo habría
+dos prompts, y dos prompts son dos preguntas distintas.
+
 ```bash
 npm run chat:probar
 npm run chat:probar -- "¿qué dice el artículo 27?"
@@ -1112,6 +1126,7 @@ tests/academy.test.ts           panel de academia: abandono, fichas y cobertura 
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
+tests/operacion.test.ts         los guiones de reset y siembra usan la lógica de la app
 ```
 
 **`schema-drift` es el guardián más importante de la lista.** Compara contra

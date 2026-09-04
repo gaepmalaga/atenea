@@ -21,7 +21,10 @@
     "temario:esquema": "node --experimental-strip-types scripts/temario/esquema.mjs",
     "temario:componer": "node --experimental-strip-types scripts/temario/componer-tema.mjs",
     "temario:pdf": "node scripts/temario/generar-pdf.mjs",
-    "temario:comprobar": "node --experimental-strip-types scripts/temario/comprobar-tema.mjs"
+    "temario:comprobar": "node --experimental-strip-types scripts/temario/comprobar-tema.mjs",
+    "reset": "node --experimental-strip-types scripts/operacion/reset.mjs",
+    "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",
+    "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

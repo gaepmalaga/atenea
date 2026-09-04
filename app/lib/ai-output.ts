@@ -10,7 +10,7 @@
  * equivocada.
  */
 
-import { OPTION_IDS } from './questions';
+import { OPTION_IDS } from './questions.ts';
 
 // ============================================================
 // PARSEO

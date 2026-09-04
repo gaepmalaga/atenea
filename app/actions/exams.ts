@@ -11,13 +11,13 @@ import {
   indexToOptionId,
   shuffle,
   toDifficultyLevel,
-  DIFFICULTY_BRIEF,
   DIFFICULTY_DEFAULT,
   type QuestionStatus,
   type DifficultyLevel,
   type BankRow,
 } from '../lib/questions';
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
+import { buildQuestionPrompt } from '../lib/question-prompt';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -145,27 +145,11 @@ async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = 
     const contexto = await elegirContexto(subjectId);
     if (!contexto) return { success: false, error: "Tema vacío o sin texto suficiente." };
 
-    const contextSlice = contexto.texto;
-
-    // El formato lo impone `responseSchema` en el modelo, no el prompt: por eso
-    // aquí solo van las instrucciones pedagógicas.
-    const prompt = `
-      ACTÚA COMO: Tribunal Calificador de Policía Nacional.
-      TAREA: Redactar UNA pregunta de test basada en este texto legal.
-      TEXTO: """${contextSlice}"""
-
-      REGLAS:
-      1. Exactamente 3 opciones, y solo UNA correcta.
-      2. Dificultad: ${DIFFICULTY_BRIEF[nivel]}
-      3. Las tres opciones deben ser distintas y plausibles.
-      4. 'correctIndex' es la posición de la opción correcta: 0, 1 o 2.
-      5. 'explanation' justifica la respuesta citando el texto.
-      ${contexto.legal_reference
-        ? `6. El texto es el ${contexto.legal_reference}. Cítalo en 'explanation'.`
-        : ''}
-    `;
-
-    const result = await questionModel.generateContent(prompt);
+    // El prompt vive en `lib/`, no aquí: es la regla 32 aplicada al generador
+    // de preguntas. Un fichero `'use server'` no se puede importar desde un
+    // script ni desde un test, así que este prompt solo corría en producción.
+    // Y el script de siembra masiva lo necesita: sin sacarlo, habría dos.
+    const result = await questionModel.generateContent(buildQuestionPrompt(contexto, nivel));
     const parsed = parseAIJson(result.response.text());
     if (!parsed) return { success: false, error: "La IA no devolvió un JSON legible." };
 

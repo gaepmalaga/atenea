@@ -149,8 +149,24 @@ describe('la dificultad no se queda por el camino', () => {
   });
 
   it('el prompt recibe la descripcion del nivel, no un texto fijo', () => {
-    expect(src).toContain('DIFFICULTY_BRIEF[nivel]');
-    expect(src).not.toContain('Dificultad Media/Alta');
+    // El prompt se mudó a `lib/question-prompt.ts` (regla 32), así que la
+    // comprobación va allí. Lo que sigue igual es la exigencia: la dificultad
+    // que pide la interfaz tiene que llegar al modelo.
+    const prompt = readFileSync(join(__dirname, '..', 'app/lib/question-prompt.ts'), 'utf-8');
+    expect(prompt).toContain('DIFFICULTY_BRIEF[nivel]');
+    expect(prompt).not.toContain('Dificultad Media/Alta');
+    // Y la acción lo USA en vez de escribir el suyo.
+    expect(src).toContain('buildQuestionPrompt(contexto, nivel)');
+  });
+
+  it('el prompt de generación NO vuelve a escribirse dentro de la acción', () => {
+    // Un fichero `'use server'` no se puede importar desde un script ni desde
+    // un test: mientras el prompt vivió ahí dentro, el que de verdad genera
+    // las preguntas del banco solo corría en producción, donde nadie lo lee.
+    // Y hay un segundo consumidor —el script de siembra masiva— que sin esto
+    // tendría que copiarlo. Dos copias de un prompt son dos prompts.
+    expect(src).not.toContain('ACTÚA COMO: Tribunal Calificador');
+    expect(src).not.toContain('DIFFICULTY_BRIEF');
   });
 
   it('lo que llega del cliente se normaliza antes de tocar la BD', () => {

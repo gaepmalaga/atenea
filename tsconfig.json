@@ -11,6 +11,12 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Permite `from './questions.ts'` con la extensión puesta. Hace falta
+    // porque `app/lib/` lo importan TAMBIÉN los guiones de `scripts/`, que
+    // corren en Node pelado con `--experimental-strip-types`: Node no adivina
+    // la extensión, y sin ella el guion de siembra tendría que copiar el
+    // troceado y la validación en vez de usar los de la aplicación.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
