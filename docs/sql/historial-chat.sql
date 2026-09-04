@@ -67,18 +67,20 @@ create index if not exists chat_msg_conv    on public.chat_messages (conversatio
 alter table public.chat_conversations enable row level security;
 alter table public.chat_messages      enable row level security;
 
-do $$
-begin
-  if not exists (select 1 from pg_policies where tablename = 'chat_conversations' and policyname = 'conv_propietario') then
-    create policy conv_propietario on public.chat_conversations
-      for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-  end if;
+-- SIN BLOQUE `do $$`, y no es estilo: al pegar esto en el editor SQL del
+-- panel desde un movil, el editor auto-cerro un parentesis detras del
+-- `end $$;` y la consulta entera fallo con
+--   ERROR: 42601: syntax error at or near ")"
+-- Un guion que solo se puede pegar sin que el editor lo toque es un guion
+-- fragil. `drop policy if exists` da la misma idempotencia sin `$$` de por
+-- medio, y aqui eso vale mas que la elegancia.
+drop policy if exists conv_propietario on public.chat_conversations;
+create policy conv_propietario on public.chat_conversations
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-  if not exists (select 1 from pg_policies where tablename = 'chat_messages' and policyname = 'msg_propietario') then
-    create policy msg_propietario on public.chat_messages
-      for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-  end if;
-end $$;
+drop policy if exists msg_propietario on public.chat_messages;
+create policy msg_propietario on public.chat_messages
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Las políticas cubren SELECT, INSERT, UPDATE y DELETE (`for all`). Es a
 -- propósito: `question_attempts` se quedó sin política de UPDATE y el
