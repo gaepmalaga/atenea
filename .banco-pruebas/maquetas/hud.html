@@ -16,6 +16,12 @@ body{background:var(--bg);color:var(--tx);
   border-bottom:1px solid var(--li);font-size:9.5px;letter-spacing:.16em;color:var(--mu)}
 .on{color:var(--ac);display:flex;align-items:center;gap:6px}
 .on::before{content:"";width:6px;height:6px;background:var(--ac);border-radius:50%}
+/* EL FILETE DE LA BANDERA. Rojo-amarillo-rojo en las proporciones reales
+   (1:2:1), no tres franjas iguales: puesta mal, la bandera canta.
+   Es un filete de 3px y no un dibujo grande a proposito — en una plataforma
+   privada, envolverse en la bandera se lee como querer pasar por oficial. */
+.bandera{height:3px;background:linear-gradient(to right,
+  var(--rojo) 0 22%, var(--oro) 22% 78%, var(--rojo) 78% 100%);display:var(--verBandera,none)}
 .cuerpo{flex:1;display:flex;flex-direction:column;justify-content:center;padding:32px 24px}
 .marco{position:relative;padding:34px 22px}
 .marco::before,.marco::after{content:"";position:absolute;width:22px;height:22px;border:1.5px solid var(--ac)}
@@ -39,21 +45,29 @@ label{display:block;font-size:9.5px;letter-spacing:.2em;color:var(--mu);margin-b
 .pie{border-top:1px solid var(--li);padding:13px 18px;font-size:9px;letter-spacing:.14em;
   color:var(--mu);display:flex;justify-content:space-between}
 
-/* A · EL INDIGO DE LA PLATAFORMA. El mismo `--brand-primary` que ya usa todo
-      lo demas, asi que la entrada y el interior son la misma aplicacion. */
-body.a{--bg:#0b1020;--li:#1e2745;--ac:#818cf8;--tx:#cbd5e1;--hi:#fff;--mu:#64748b;
-  --pl:#3b4763;--bt:#6366f1;--btx:#fff}
-/* B · AZUL INSTITUCIONAL. Marino profundo. Menos "videojuego", mas
-      administracion publica: es el azul con el que se viste el cuerpo. */
-body.b{--bg:#081426;--li:#14304f;--ac:#60a5fa;--tx:#c7d6e8;--hi:#fff;--mu:#5c7characters;
-  --pl:#33506f;--bt:#1d4ed8;--btx:#fff}
-body.b{--mu:#5c7590}
-/* C · GRAFITO. Sin color: solo blanco, negro y grises. El unico acento es el
-      propio blanco. Es la version que no puede pasar de moda ni cansar. */
-body.c{--bg:#0c0e11;--li:#23262c;--ac:#f8fafc;--tx:#c3c8d0;--hi:#fff;--mu:#6b7280;
-  --pl:#3a3f48;--bt:#f8fafc;--btx:#0c0e11}
+/* Los dos colores de la bandera, iguales en todas las paletas. */
+body{--rojo:#c60b1e;--oro:#ffc400}
+
+/* A · BANDERA. El acento es el ROJO de la bandera sobre marino, y el filete
+      tricolor bajo la barra. Lo mas español sin disfrazarse de oficial. */
+body.a{--bg:#0a1424;--li:#1b3252;--ac:#e33a4c;--tx:#c5d2e2;--hi:#fff;--mu:#5f7displaced;
+  --pl:#33506f;--bt:#c60b1e;--btx:#fff;--verBandera:block}
+body.a{--mu:#5f7a99}
+
+/* B · ORO SOBRE MARINO. El otro color de la bandera. Es el de los galones y
+      las divisas: policial sin ser rojo de alarma, que en una pantalla donde
+      tambien se pintan errores importa. */
+body.b{--bg:#081426;--li:#16304f;--ac:#e8b53a;--tx:#c7d6e8;--hi:#fff;--mu:#5c7590;
+  --pl:#33506f;--bt:#e8b53a;--btx:#12203a;--verBandera:block}
+
+/* C · AZUL POLICIAL. El azul del uniforme, con el filete de la bandera como
+      unica nota de color. Es la mas sobria de las tres y la que menos
+      compite con el rojo y el verde de los avisos del resto de la app. */
+body.c{--bg:#0b1a2e;--li:#1c3a5e;--ac:#7fb2e8;--tx:#c3d4e6;--hi:#fff;--mu:#5f8199;
+  --pl:#3a5a7a;--bt:#0e4d92;--btx:#fff;--verBandera:block}
 </style></head><body><div class="pantalla">
   <div class="barra"><span>ATENEA</span><span class="on">EN LÍNEA</span></div>
+  <div class="bandera"></div>
   <div class="cuerpo"><div class="marco">
     <div class="id">// ACCESO</div>
     <h1>ATENEA<br>POLICIAL</h1>

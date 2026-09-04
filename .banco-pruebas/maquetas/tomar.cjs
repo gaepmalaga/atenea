@@ -10,7 +10,7 @@
  */
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const CASOS = [
-  ['hud', 'a', 'hud-indigo'], ['hud', 'b', 'hud-marino'], ['hud', 'c', 'hud-grafito'],
+  ['hud', 'a', 'hud-bandera'], ['hud', 'b', 'hud-oro'], ['hud', 'c', 'hud-azul'],
   ['brut', 'a', 'brut-indigo'], ['brut', 'b', 'brut-hueso'], ['brut', 'c', 'brut-oscuro'],
 ];
 (async () => {
