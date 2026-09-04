@@ -5,7 +5,7 @@ import {
   Save, Loader2, PenLine, Upload, FileSpreadsheet, Download,
   CheckCircle2, AlertTriangle, Trash2,
 } from 'lucide-react';
-import { Modal, Button } from '../../ui';
+import { Modal, Button, TextAreaField, SelectField } from '../../ui';
 import { createManualQuestion, importManualQuestions } from '@/actions';
 import { OPTION_IDS, DIFFICULTY, DIFFICULTY_DEFAULT, type DifficultyLevel } from '@/app/lib/questions';
 import {
@@ -210,8 +210,8 @@ export default function QuestionComposer({
         {/* --- Pestañas --- */}
         <div className="flex gap-2">
           {([
-            { id: 'manual' as const, icono: <PenLine size={14} />, texto: 'Escribir una' },
-            { id: 'csv' as const, icono: <FileSpreadsheet size={14} />, texto: 'Importar una hoja' },
+            { id: 'manual' as const, icono: <PenLine size={14} />, texto: 'A mano' },
+            { id: 'csv' as const, icono: <FileSpreadsheet size={14} />, texto: 'Desde un CSV' },
           ]).map((t) => (
             <button
               key={t.id}
@@ -219,7 +219,7 @@ export default function QuestionComposer({
               className={`min-h-[44px] px-4 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
                 pestania === t.id
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                  : 'bg-slate-900 text-slate-500 hover:text-slate-300 border border-slate-800'
+                  : 'bg-slate-100 dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-800'
               }`}
             >
               {t.icono}{t.texto}
@@ -230,32 +230,36 @@ export default function QuestionComposer({
         {/* --- Cuerpo --- */}
         <div className="space-y-5">
 
-          {/* Tema: común a las dos pestañas */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Tema</label>
-            <select
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : '')}
-              className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all cursor-pointer"
-            >
-              <option value="">Elige el tema…</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>Tema {s.number}: {s.title}</option>
-              ))}
-            </select>
-          </div>
+          {/* Tema: común a las dos pestañas.
+
+              Los campos salen de `ui/` y no escritos a mano. Este formulario se
+              escribio con la paleta del panel —que es oscura siempre— pero vive
+              dentro del `Modal` del sistema de diseño, que SIGUE EL TEMA: en un
+              movil en modo claro quedaban recuadros casi negros con texto
+              blanco dentro de un dialogo blanco. Practicamente ilegible, y es
+              la pantalla donde se escriben las preguntas a mano.
+              De paso ganan el `text-base sm:text-sm` que evita que Safari haga
+              zoom al tocar un campo (regla 36). */}
+          <SelectField
+            label="Tema"
+            value={subjectId}
+            onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value="">Elige el tema…</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>Tema {s.number}: {s.title}</option>
+            ))}
+          </SelectField>
 
           {pestania === 'manual' ? (
             <>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Enunciado</label>
-                <textarea
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="¿Qué órgano…?"
-                  className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none min-h-[100px] placeholder:text-slate-700"
-                />
-              </div>
+              <TextAreaField
+                label="Enunciado"
+                rows={3}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="¿Qué órgano…?"
+              />
 
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
@@ -265,7 +269,9 @@ export default function QuestionComposer({
                   <div
                     key={i}
                     className={`flex items-center gap-3 p-2 rounded-2xl border transition-all ${
-                      i === correctIndex ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-slate-900/30 border-slate-800'
+                      i === correctIndex
+                        ? 'bg-emerald-50 dark:bg-emerald-500/5 border-emerald-500/40'
+                        : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     <button
@@ -273,7 +279,7 @@ export default function QuestionComposer({
                       className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all ${
                         i === correctIndex
                           ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20 scale-105'
-                          : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
                       }`}
                     >
                       {LETRAS[i]}
@@ -285,7 +291,7 @@ export default function QuestionComposer({
                         nuevas[i] = e.target.value;
                         setOptions(nuevas);
                       }}
-                      className="flex-1 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-2 text-sm text-white outline-none transition-colors placeholder:text-slate-700"
+                      className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-3 text-base sm:text-sm text-slate-900 dark:text-white outline-none transition-colors placeholder:text-slate-400 dark:placeholder:text-slate-700"
                       placeholder={`Opción ${LETRAS[i]}`}
                     />
                     {i === correctIndex && <CheckCircle2 size={16} className="text-emerald-500 mr-2" />}
@@ -293,17 +299,14 @@ export default function QuestionComposer({
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                  Justificación <span className="text-slate-600 normal-case tracking-normal font-medium">— es lo que lee el alumno al fallar</span>
-                </label>
-                <textarea
-                  value={explanation}
-                  onChange={(e) => setExplanation(e.target.value)}
-                  placeholder="Artículo 68.1 CE…"
-                  className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-slate-300 text-xs focus:border-indigo-500 outline-none transition-all resize-none min-h-[80px] placeholder:text-slate-700"
-                />
-              </div>
+              <TextAreaField
+                label="Justificación"
+                hint="Es lo que lee el alumno cuando falla."
+                rows={3}
+                value={explanation}
+                onChange={(e) => setExplanation(e.target.value)}
+                placeholder="Artículo 68.1 CE…"
+              />
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Dificultad</label>
@@ -315,7 +318,7 @@ export default function QuestionComposer({
                       className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
                         difficulty === n.valor
                           ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-slate-300'
+                          : 'bg-slate-100 dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800 hover:text-slate-700 dark:hover:text-slate-300'
                       }`}
                     >
                       {n.nombre}
@@ -329,13 +332,13 @@ export default function QuestionComposer({
               <div className="flex flex-wrap gap-3 items-center">
                 <button
                   onClick={() => inputFichero.current?.click()}
-                  className="px-5 py-3 bg-slate-900 border border-slate-800 hover:border-indigo-500/50 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
+                  className="min-h-[44px] px-5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 text-slate-900 dark:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                 >
                   <Upload size={14} /> Elegir fichero
                 </button>
                 <button
                   onClick={descargaPlantilla}
-                  className="px-5 py-3 bg-transparent border border-slate-800 text-slate-400 hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
+                  className="min-h-[44px] px-5 bg-transparent border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                 >
                   <Download size={14} /> Plantilla
                 </button>
@@ -351,12 +354,12 @@ export default function QuestionComposer({
                 )}
               </div>
 
-              <div className="text-xs text-slate-500 leading-relaxed bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-1">
+              <div className="text-xs text-slate-500 leading-relaxed bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-1">
                 <p>
-                  Columnas: <span className="font-mono text-slate-300">enunciado · A · B · C · correcta</span>
-                  {' '}(obligatorias) y <span className="font-mono text-slate-300">explicacion · dificultad</span> (opcionales).
+                  Columnas: <span className="font-mono text-slate-500 dark:text-slate-300">enunciado · A · B · C · correcta</span>
+                  {' '}(obligatorias) y <span className="font-mono text-slate-500 dark:text-slate-300">explicacion · dificultad</span> (opcionales).
                 </p>
-                <p>La columna <span className="font-mono text-slate-300">correcta</span> admite A, B, C o 1, 2, 3. Hasta {MAX_IMPORT} preguntas por fichero, todas del tema elegido arriba.</p>
+                <p>La columna <span className="font-mono text-slate-500 dark:text-slate-300">correcta</span> admite A, B, C o 1, 2, 3. Hasta {MAX_IMPORT} preguntas por fichero, todas del tema elegido arriba.</p>
               </div>
 
               {(leidas.length > 0 || rechazadas.length > 0) && (
@@ -366,9 +369,9 @@ export default function QuestionComposer({
                       <p className="text-2xl font-black text-emerald-400">{leidas.length}</p>
                       <p className="text-[10px] uppercase tracking-widest text-emerald-200/60 font-bold">listas</p>
                     </div>
-                    <div className="flex-1 min-w-[120px] bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3">
+                    <div className="flex-1 min-w-[120px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
                       <p className="text-2xl font-black text-slate-400">{repetidas}</p>
-                      <p className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">repetidas</p>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">repetidas</p>
                     </div>
                     <div className="flex-1 min-w-[120px] bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
                       <p className="text-2xl font-black text-amber-400">{rechazadas.length}</p>
@@ -389,8 +392,8 @@ export default function QuestionComposer({
                       <div className="max-h-48 overflow-y-auto divide-y divide-slate-800/60">
                         {rechazadas.map((r, i) => (
                           <div key={i} className="px-4 py-2 flex gap-3 text-xs">
-                            <span className="font-mono text-slate-600 shrink-0">línea {r.fila}</span>
-                            <span className="text-slate-400">{r.motivo}</span>
+                            <span className="font-mono text-slate-500 shrink-0">línea {r.fila}</span>
+                            <span className="text-slate-500 dark:text-slate-400">{r.motivo}</span>
                           </div>
                         ))}
                       </div>
@@ -398,14 +401,14 @@ export default function QuestionComposer({
                   )}
 
                   {leidas.length > 0 && (
-                    <div className="border border-slate-800 rounded-2xl overflow-hidden">
-                      <div className="px-4 py-2 bg-slate-900/60 flex items-center justify-between">
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+                      <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                           Vista previa
                         </p>
                         <button
                           onClick={() => { setLeidas([]); setRechazadas([]); setRepetidas(0); setNombreFichero(''); if (inputFichero.current) inputFichero.current.value = ''; }}
-                          className="text-slate-600 hover:text-red-400 transition-colors"
+                          className="text-slate-500 hover:text-red-400 transition-colors"
                           title="Descartar el fichero"
                         >
                           <Trash2 size={14} />
@@ -414,14 +417,14 @@ export default function QuestionComposer({
                       <div className="max-h-56 overflow-y-auto divide-y divide-slate-800/60">
                         {leidas.slice(0, 20).map((p, i) => (
                           <div key={i} className="px-4 py-3">
-                            <p className="text-xs text-slate-300 leading-snug">{p.question}</p>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug">{p.question}</p>
                             <p className="text-[11px] text-emerald-400/80 mt-1 font-mono">
                               {LETRAS[p.correctIndex]} · {p.options[p.correctIndex]}
                             </p>
                           </div>
                         ))}
                         {leidas.length > 20 && (
-                          <p className="px-4 py-2 text-[11px] text-slate-600 font-mono">
+                          <p className="px-4 py-2 text-[11px] text-slate-500 font-mono">
                             …y {leidas.length - 20} más
                           </p>
                         )}

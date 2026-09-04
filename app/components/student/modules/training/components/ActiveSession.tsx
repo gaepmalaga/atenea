@@ -46,7 +46,7 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
                     <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase">{day.title}</h2>
                     <p className="text-sm text-emerald-600 dark:text-emerald-500 font-bold uppercase tracking-widest">{day.type} • {day.day}</p>
                 </div>
-                <button onClick={onExit} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <button onClick={onExit} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 dark:text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                     <X size={24}/>
                 </button>
             </div>
@@ -100,7 +100,7 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
 
                             <div className="relative z-10">
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{ex.name}</h3>
-                                <div className="flex flex-wrap gap-4 text-sm text-slate-500 dark:text-slate-400 mb-4 font-mono">
+                                <div className="flex flex-wrap gap-4 text-sm text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-4 font-mono">
                                     <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">SETS: {ex.sets}</span>
                                     <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">REPS: {ex.reps}</span>
                                     <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">REST: {ex.rest}</span>
@@ -132,7 +132,7 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
 
                     {/* RPE SLIDER */}
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                        <label className="text-xs font-bold text-slate-400 uppercase mb-4 block flex justify-between">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-4 block flex justify-between">
                             <span>Esfuerzo Percibido (RPE)</span>
                             <span className="text-emerald-600 dark:text-emerald-500">{sessionRPE}/10</span>
                         </label>
@@ -142,7 +142,7 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
                             onChange={(e) => setSessionRPE(Number(e.target.value))} 
                             className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                         />
-                        <div className="flex justify-between text-[10px] text-slate-400 mt-2 font-bold uppercase">
+                        <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-bold uppercase">
                             <span>Paseo</span>
                             <span>Moderado</span>
                             <span>Muy Duro</span>

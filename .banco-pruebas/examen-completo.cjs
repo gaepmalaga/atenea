@@ -22,16 +22,33 @@ const REVISAR = () => {
   const out = [];
 
   if (raiz.scrollWidth > W + 1) {
-    const recortado = (el) => {
+    // Recortado por un padre que SE PUEDE ARRASTRAR (`auto`/`scroll`) no es un
+    // fallo: la fila de pestañas del panel se desplaza a proposito.
+    //
+    // Pero `overflow-x: hidden` NO es lo mismo: ahi el contenido que se sale
+    // es INALCANZABLE, y eso siempre es un fallo. Con las dos cosas metidas en
+    // el mismo saco, el boton "EJECUTAR" del motor de generacion IA salia
+    // cortado por el borde de su tarjeta y el recorrido no decia nada.
+    const arrastrable = (el) => {
       for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
-        if (getComputedStyle(a).overflowX !== 'visible') return true;
+        const o = getComputedStyle(a).overflowX;
+        if (o === 'auto' || o === 'scroll') return true;
       }
       return false;
+    };
+    /** El primer padre que recorta con `hidden`, si lo hay. */
+    const cajaQueRecorta = (el) => {
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const o = getComputedStyle(a).overflowX;
+        if (o === 'auto' || o === 'scroll') return null;
+        if (o === 'hidden' || o === 'clip') return a;
+      }
+      return null;
     };
     for (const el of document.querySelectorAll('body *')) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
-      if (getComputedStyle(el).position === 'fixed' || recortado(el)) continue;
+      if (getComputedStyle(el).position === 'fixed' || arrastrable(el)) continue;
       if (r.right > W + 1 || r.left < -1) {
         out.push(`se sale <${el.tagName.toLowerCase()}> "${(el.textContent || '').trim().slice(0, 32)}" hasta ${Math.round(r.right)}px`);
       }

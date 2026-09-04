@@ -175,7 +175,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </div>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <Cpu size={12} className="text-indigo-500"/> Atenea Intel v3.0
               </span>
           </div>
@@ -202,7 +202,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 ancho a ~280, de ~30 caracteres por linea a ~34. En una
                 respuesta larga eso es bastante menos scroll. */}
             <div className={`hidden sm:flex w-12 h-12 rounded-2xl flex-shrink-0 items-center justify-center shadow-lg ${
-                m.role === 'ai' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                m.role === 'ai' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 dark:text-slate-400'
             }`}>
                 {m.role === 'ai' ? <Bot size={24}/> : <User size={24}/>}
             </div>
@@ -247,7 +247,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                     {/* FUENTES */}
                     {m.sources && m.sources.length > 0 && (
                         <div className="mt-4 sm:mt-8 pt-4 sm:pt-8 border-t border-slate-200 dark:border-slate-800">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-4">
                                 <Target size={14} className="text-indigo-500" /> Evidencia Documental
                             </span>
                             <div className="flex flex-wrap gap-2">
@@ -265,7 +265,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                         </div>
                     )}
                 </div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2">
+                <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-2">
                     {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
             </div>
@@ -290,7 +290,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 documento entero y no el que más se le parezca a la frase. */}
             {subjects.length > 0 && (
                 <div className="flex items-center gap-2 px-2">
-                    <label htmlFor="tema-chat" className="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">
+                    <label htmlFor="tema-chat" className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 shrink-0">
                         Tema
                     </label>
                     {/* 44px de alto: era un desplegable de 16px, el control mas

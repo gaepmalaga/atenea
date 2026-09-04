@@ -52,7 +52,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 | — | **La capa de comportamiento** | ✅ **hecha** (4 sep): el examen ya no se pierde, el scroll y el botón Atrás funcionan, y el chat sobrevive a cambiar de pestaña. Ver **regla 37** |
-| — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
+| — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
 
 ## Producción
 
@@ -1003,6 +1003,17 @@ a decidir por su cuenta:
   un `sm:`. El límite está en 6xl y no en 4xl a propósito: 36-48px en un móvil
   es un número protagonista legítimo —`TEXT.display` es `text-4xl sm:text-6xl`—
   y una guardia que se queja de lo razonable acaba desactivada.
+- **Un formulario dentro de un `Modal` NO puede usar la paleta del panel.**
+  El panel de administración es oscuro siempre; el `Modal` sigue el tema del
+  usuario. El compositor de preguntas (P2) mezclaba las dos: en un móvil en
+  modo claro salían recuadros casi negros con texto blanco dentro de un
+  diálogo blanco, y dos de las tres opciones eran gris sobre gris. Los campos
+  salen de `ui/Field`, que ya lleva los dos temas — y de paso el
+  `text-base sm:text-sm` que evita el zoom de Safari.
+- **`text-slate-400` sobre blanco son 2,6:1, y `text-slate-600` sobre el panel
+  oscuro, 2,4.** Los dos estaban por toda la aplicación. El par
+  `text-slate-500 dark:text-slate-400` funciona en los dos temas. Lo mide
+  `contraste.cjs` (80 textos por debajo de 3:1 → 0).
 - **`Card` lleva `min-w-0`.** Un hijo de `grid` o de `flex` tiene
   `min-width: auto`, y el ancho mínimo de un texto con `truncate` es el texto
   ENTERO: **`truncate` no sirve de nada si el contenedor crece para no

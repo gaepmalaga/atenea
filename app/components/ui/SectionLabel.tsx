@@ -21,7 +21,7 @@ interface SectionLabelProps {
 export default function SectionLabel({ children, icon, aside, className }: SectionLabelProps) {
   return (
     <div className={cx('flex items-center justify-between gap-2 mb-3 sm:mb-4', className)}>
-      <span className={cx(TEXT.label, 'text-slate-400 flex items-center gap-2 min-w-0')}>
+      <span className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 flex items-center gap-2 min-w-0')}>
         {icon}
         <span className="truncate">{children}</span>
       </span>

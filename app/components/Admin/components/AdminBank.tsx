@@ -231,17 +231,6 @@ export default function AdminBank() {
                 <Plus size={16} strokeWidth={3}/> Nueva
             </button>
 
-            {/* Vaciar el banco entero de golpe (soft-delete: pasa todo a `disabled`) */}
-            <button
-                onClick={handleDiscardAll}
-                disabled={clearingAll}
-                title="Descarta TODAS las preguntas del banco, sin importar el filtro"
-                className="shrink-0 px-5 py-3 bg-red-950/60 hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-300 hover:text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95"
-            >
-                {clearingAll ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16} strokeWidth={3}/>}
-                Vaciar banco
-            </button>
-
             {/* Filtros Avanzados */}
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <div className="relative group w-full sm:w-64">
@@ -250,7 +239,7 @@ export default function AdminBank() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar por contenido..." 
-                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-600"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-500"
                     />
                 </div>
 
@@ -265,7 +254,7 @@ export default function AdminBank() {
                             <option key={st} value={st}>{QUESTION_STATUS_LABEL[st]}</option>
                         ))}
                     </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-600">
+                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500">
                         <MoreHorizontal size={14}/>
                     </div>
                 </div>
@@ -282,7 +271,7 @@ export default function AdminBank() {
                             <option key={s.id} value={s.id}>Tema {s.number}: {s.title.substring(0,25)}...</option>
                         ))}
                     </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-600">
+                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500">
                         <MoreHorizontal size={14}/>
                     </div>
                 </div>
@@ -393,7 +382,7 @@ export default function AdminBank() {
                                         }`}>
                                             <div className="flex gap-3 items-start">
                                                 <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold border ${
-                                                    isCorrect ? 'bg-emerald-500 text-slate-900 border-emerald-500' : 'border-slate-700 text-slate-600'
+                                                    isCorrect ? 'bg-emerald-500 text-slate-900 border-emerald-500' : 'border-slate-700 text-slate-500'
                                                 }`}>
                                                     {['A','B','C'][i]}
                                                 </span>
@@ -430,7 +419,7 @@ export default function AdminBank() {
                     <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/30">
                         <Database size={48} className="mx-auto mb-4 text-slate-700"/>
                         <p className="text-slate-500 font-bold">No hay preguntas que coincidan.</p>
-                        <p className="text-xs text-slate-600">Prueba a generar más en la pestaña “Temario”.</p>
+                        <p className="text-xs text-slate-500">Prueba a generar más en la pestaña “Temario”.</p>
                     </div>
                 )}
             </div>
@@ -448,7 +437,7 @@ export default function AdminBank() {
                 </button>
                 
                 <span className="px-4 font-mono text-sm text-indigo-400 font-bold">
-                    {stats.page} <span className="text-slate-600">/</span> {stats.totalPages}
+                    {stats.page} <span className="text-slate-500">/</span> {stats.totalPages}
                 </span>
                 
                 <button 
@@ -460,6 +449,37 @@ export default function AdminBank() {
                 </button>
             </div>
         )}
+
+        {/* --- VACIAR EL BANCO ---
+
+            AL FINAL, Y APARTE. Estaba pegado a "Nueva", del mismo tamaño y con
+            la misma forma: en un movil, doce pixeles separaban el boton de
+            CREAR una pregunta del que DESCARTA TODAS. Es la regla 26 del
+            proyecto —una accion irreversible no comparte sitio, color ni
+            tamaño con la que se repite— y es la accion mas destructiva de la
+            plataforma.
+
+            Sigue estando a un toque de distancia, con su confirmacion escrita
+            ("BORRAR"), pero al final de la pantalla y en la zona de peligro:
+            donde no se llega sin querer. */}
+        <div className="mt-10 pt-6 border-t border-dashed border-red-500/20">
+            <p className="text-[10px] font-black uppercase tracking-widest text-red-400 mb-2">Zona de peligro</p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <p className="text-xs text-slate-500 flex-1 leading-snug">
+                    Descarta <strong className="text-slate-400">todas</strong> las preguntas del banco, sin
+                    importar el filtro. Dejan de servirse a los alumnos; no se borran de la base de datos.
+                </p>
+                <button
+                    onClick={handleDiscardAll}
+                    disabled={clearingAll}
+                    title="Descarta TODAS las preguntas del banco, sin importar el filtro"
+                    className="shrink-0 min-h-[44px] px-5 bg-transparent hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-400 hover:text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
+                    {clearingAll ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16} strokeWidth={3}/>}
+                    Vaciar banco
+                </button>
+            </div>
+        </div>
 
         {/* --- ALTA MANUAL / IMPORTACIÓN (P2) --- */}
         {componiendo && (

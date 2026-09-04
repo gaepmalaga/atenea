@@ -103,7 +103,7 @@ export default function FlashcardDeck() {
       
       {/* SOLO EL SELECTOR DE TEMA. Es lo unico que decide algo aqui. */}
       <div className="w-full flex items-center gap-3 mb-5">
-          <label htmlFor="tema-drills" className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">
+          <label htmlFor="tema-drills" className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest shrink-0">
               Tema
           </label>
           <select 
@@ -173,7 +173,7 @@ export default function FlashcardDeck() {
                         </h3>
                     </div>
 
-                    <div className="mt-auto flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider opacity-60">
+                    <div className="mt-auto flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider opacity-60">
                         <MousePointerClick size={14}/> 
                         <span>Tocar para ver respuesta</span>
                     </div>

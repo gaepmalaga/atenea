@@ -35,7 +35,7 @@ export default function Header({ title, activeTab }: HeaderProps) {
   return (
     <header className="flex items-end justify-between gap-3 mb-5 sm:mb-8 select-none">
       <div className="min-w-0">
-        <p className={cx(TEXT.label, 'text-slate-400 flex items-center gap-2 mb-1')}>
+        <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-1')}>
           <span className="font-mono tabular-nums">{hora} ZULU</span>
           <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" />
           <span className="truncate">{SUBTITULO[activeTab] ?? 'Panel de control'}</span>

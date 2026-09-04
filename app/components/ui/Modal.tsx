@@ -69,8 +69,12 @@ export default function Modal({
             <h3 className={cx(TEXT.heading, accent ? 'text-white' : 'text-slate-900 dark:text-white')}>
               {title}
             </h3>
+            {/* Dos líneas, no `truncate`. El subtítulo de un diálogo explica lo
+                que va a pasar al aceptar —"Entra directamente en el banco, sin
+                pasar por moderación"— y en un móvil se cortaba en "sin pasar
+                por m…", que es justo la mitad que importa. */}
             {subtitle && (
-              <p className={cx('text-xs mt-0.5 truncate', accent ? 'text-white/70' : 'text-slate-500')}>
+              <p className={cx('text-xs mt-0.5 line-clamp-2 leading-snug', accent ? 'text-white/70' : 'text-slate-500')}>
                 {subtitle}
               </p>
             )}

@@ -32,7 +32,7 @@ interface StatsPanelProps {
 // Solo presentacion: los umbrales y el calculo de progreso viven en
 // app/lib/stats.ts, donde se pueden testear.
 const RANK_STYLE: Record<Rank['id'], { icon: LucideIcon; color: string; bg: string }> = {
-  cadet:        { icon: Shield, color: 'text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800' },
+  cadet:        { icon: Shield, color: 'text-slate-500 dark:text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800' },
   officer:      { icon: Medal,  color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
   subinspector: { icon: Medal,  color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
   inspector:    { icon: Crown,  color: 'text-amber-500',  bg: 'bg-amber-50 dark:bg-amber-900/20' },
@@ -124,7 +124,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                     <p className="text-slate-500 font-bold flex items-center justify-center md:justify-start gap-2 uppercase text-xs tracking-[0.2em]">
                         <Zap size={14} className="text-yellow-500"/> Efectividad: {winRate}% en {answered} {answered === 1 ? 'operación' : 'operaciones'}
                         {blank > 0 && (
-                            <span className="text-slate-400 normal-case tracking-normal font-medium">
+                            <span className="text-slate-500 dark:text-slate-400 normal-case tracking-normal font-medium">
                                 (+{blank} en blanco)
                             </span>
                         )}
@@ -162,7 +162,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           {/* INDICE DE INCERTIDUMBRE (DUDAS) */}
           <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
               <div className="flex justify-between items-start mb-6">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <h3 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
                       <MousePointer2 size={16} className="text-purple-500"/> Índice de Incertidumbre
                   </h3>
               </div>
@@ -184,7 +184,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                   )}
               </div>
 
-              <div className="flex justify-between text-[9px] font-black uppercase tracking-wider text-slate-400 mb-4">
+              <div className="flex justify-between text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4">
                   <span>Firme</span>
                   <span>Dudoso</span>
               </div>
@@ -192,7 +192,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
               {changesCount > 0 && (
                   <p className="text-3xl font-black text-slate-900 dark:text-white mb-1 leading-none">
                       {uncertaintyIndex}
-                      <span className="text-base text-slate-400">/100</span>
+                      <span className="text-base text-slate-500 dark:text-slate-400">/100</span>
                   </p>
               )}
 
@@ -207,7 +207,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
 
           {/* DIAGNÓSTICO DE ERRORES (TAXONOMÍA) */}
           <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-6">
+              <h3 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-6">
                   <Brain size={16} className="text-red-500"/> Origen de tus Fallos
               </h3>
               <div className="space-y-3">
@@ -230,7 +230,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                       );
                   })}
                   {taggedErrors === 0 && (
-                    <p className="text-[11px] text-slate-400 pt-2">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-2">
                         Aún no has etiquetado ningún fallo. Se pide al fallar en modo entrenamiento.
                     </p>
                   )}
@@ -270,7 +270,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                 aria-label="Recargar"
                 className="flex items-center justify-center w-11 h-11 -mr-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all shrink-0"
               >
-                  <RefreshCw size={14} className="text-slate-400" />
+                  <RefreshCw size={14} className="text-slate-500 dark:text-slate-400" />
               </button>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -296,13 +296,13 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                                   (`flex-wrap`), asi que dejarlo pasar a la linea
                                   siguiente no descoloca nada. */}
                               {item.topic && (
-                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.topic}</span>
+                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.topic}</span>
                               )}
                               {(item.response_time_ms ?? 0) > 0 && (
                                   <span className="text-[10px] font-mono text-indigo-500 font-bold tabular-nums">{((item.response_time_ms ?? 0) / 1000).toFixed(1)}s</span>
                               )}
                               {(item.option_changes ?? 0) >= HESITATION_THRESHOLD && (
-                                  <span className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
+                                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 flex items-center gap-1">
                                       <MousePointer2 size={10}/> Dudó
                                   </span>
                               )}
@@ -311,7 +311,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                                   columna, ni tabla, ni cálculo. Era un número
                                   inventado que sugería un progreso que no existe.
                                   La fecha sí es un dato. */}
-                              <span className="text-[10px] font-mono text-slate-400 tabular-nums ml-auto shrink-0">
+                              <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 tabular-nums ml-auto shrink-0">
                                   {item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '—'}
                               </span>
                           </div>

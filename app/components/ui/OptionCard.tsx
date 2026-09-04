@@ -58,7 +58,7 @@ export default function OptionCard({
         </span>
       </span>
       {description && (
-        <span className="block text-[11px] text-slate-400 font-medium leading-snug mt-1">
+        <span className="block text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-snug mt-1">
           {description}
         </span>
       )}

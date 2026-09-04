@@ -27,11 +27,28 @@ async function desbordes(page, donde) {
     // proposito— sobresale de su rectangulo pero esta recortado por el padre:
     // no ensancha la pagina. Sin este filtro, seis de cada siete avisos eran
     // esa fila y el culpable de verdad quedaba enterrado debajo.
-    const recortado = (el) => {
+    // Recortado por un padre que SE PUEDE ARRASTRAR (`auto`/`scroll`) no es un
+    // fallo: la fila de pestañas del panel se desplaza a proposito.
+    //
+    // Pero `overflow-x: hidden` NO es lo mismo: ahi el contenido que se sale
+    // es INALCANZABLE, y eso siempre es un fallo. Con las dos cosas metidas en
+    // el mismo saco, el boton "EJECUTAR" del motor de generacion IA salia
+    // cortado por el borde de su tarjeta y el recorrido no decia nada.
+    const arrastrable = (el) => {
       for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
-        if (getComputedStyle(a).overflowX !== 'visible') return true;
+        const o = getComputedStyle(a).overflowX;
+        if (o === 'auto' || o === 'scroll') return true;
       }
       return false;
+    };
+    /** El primer padre que recorta con `hidden`, si lo hay. */
+    const cajaQueRecorta = (el) => {
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const o = getComputedStyle(a).overflowX;
+        if (o === 'auto' || o === 'scroll') return null;
+        if (o === 'hidden' || o === 'clip') return a;
+      }
+      return null;
     };
     const out = [];
     for (const el of document.querySelectorAll('body *')) {

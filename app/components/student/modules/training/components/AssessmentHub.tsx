@@ -99,7 +99,7 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
                     onEditBio && (
                         <button
                             onClick={onEditBio}
-                            className="min-h-[44px] px-3 flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-emerald-500 transition-colors"
+                            className="min-h-[44px] px-3 flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-emerald-500 transition-colors"
                         >
                             <Settings size={15} /> Editar datos
                         </button>

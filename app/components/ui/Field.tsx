@@ -23,7 +23,7 @@ const CONTROL = cx(
 
 function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className={cx(TEXT.label, 'text-slate-400 block mb-2')}>
+    <label htmlFor={htmlFor} className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 block mb-2')}>
       {children}
     </label>
   );

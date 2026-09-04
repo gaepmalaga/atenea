@@ -112,7 +112,8 @@ export default function AdminAcademy() {
           <div>
             <h3 className="font-black text-white text-base tracking-tight uppercase">La clase</h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              {alumnos.length} personas · se considera abandono a partir de {DIAS_ABANDONO} días sin entrar
+              {alumnos.length} {alumnos.length === 1 ? 'persona' : 'personas'} · se considera abandono a
+              partir de {DIAS_ABANDONO} días sin entrar
             </p>
           </div>
         </div>
@@ -163,18 +164,18 @@ export default function AdminAcademy() {
                     <p className="text-lg font-black text-slate-300">
                       {a.diasSinEntrar === null ? '—' : a.diasSinEntrar}
                     </p>
-                    <p className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">días fuera</p>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">días fuera</p>
                   </div>
                   <div>
                     <p className="text-lg font-black text-slate-300">{a.contestadas}</p>
-                    <p className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">respuestas</p>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">respuestas</p>
                   </div>
                   <div>
                     {/* `null` no es 0 %: es que todavía no ha contestado nada. */}
                     <p className="text-lg font-black text-slate-300">
                       {a.winRate === null ? '—' : `${a.winRate}%`}
                     </p>
-                    <p className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">acierto</p>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">acierto</p>
                   </div>
                 </div>
 
@@ -257,24 +258,26 @@ export default function AdminAcademy() {
           </p>
 
           <p className="text-xs text-slate-400 mb-2">
-            <span className="font-black text-amber-400">{sinBanco.length}</span> temas sin ninguna pregunta:
-            no se pueden estudiar aunque el alumno quiera.
+            <span className="font-black text-amber-400">{sinBanco.length}</span>{' '}
+            {sinBanco.length === 1 ? 'tema sin ninguna pregunta: no se puede' : 'temas sin ninguna pregunta: no se pueden'}{' '}
+            estudiar aunque el alumno quiera.
           </p>
           <div className="max-h-40 overflow-y-auto text-xs text-slate-500 space-y-1 mb-5">
             {/* Sin `truncate`: la caja ya tiene scroll propio (`max-h-40`), asi
                 que envolver no la descuadra, y un titulo a medias no dice que
                 tema esta sin preguntas — que es el unico dato de esta lista. */}
             {sinBanco.slice(0, 20).map((c) => <p key={c.subjectId} className="leading-snug">· {c.title}</p>)}
-            {sinBanco.length > 20 && <p className="text-slate-600">…y {sinBanco.length - 20} más</p>}
+            {sinBanco.length > 20 && <p className="text-slate-500">…y {sinBanco.length - 20} más</p>}
           </div>
 
           <p className="text-xs text-slate-400 mb-2">
-            <span className="font-black text-slate-300">{sinAlumnos.length}</span> temas con preguntas que
-            no ha tocado nadie: contenido preparado que no le sirve a ninguno.
+            <span className="font-black text-slate-300">{sinAlumnos.length}</span>{' '}
+            {sinAlumnos.length === 1 ? 'tema con preguntas que' : 'temas con preguntas que'} no ha tocado
+            nadie: contenido preparado que no le sirve a ninguno.
           </p>
           <div className="max-h-32 overflow-y-auto text-xs text-slate-500 space-y-1">
             {sinAlumnos.slice(0, 12).map((c) => (
-              <p key={c.subjectId} className="leading-snug">· {c.title} <span className="text-slate-600">({c.preguntas})</span></p>
+              <p key={c.subjectId} className="leading-snug">· {c.title} <span className="text-slate-500">({c.preguntas})</span></p>
             ))}
           </div>
         </Card>
@@ -299,7 +302,7 @@ export default function AdminAcademy() {
               <div key={p.questionId} className="border border-slate-800 rounded-2xl p-3">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1">
                   <span className="text-[10px] font-black text-red-400">{p.winRate}%</span>
-                  <span className="text-[10px] text-slate-600 font-mono">{p.aciertos}/{p.veces}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">{p.aciertos}/{p.veces}</span>
                   {p.tema && <span className="text-[10px] text-slate-500 leading-snug">· {p.tema}</span>}
                 </div>
                 <p className="text-xs text-slate-300 leading-snug">

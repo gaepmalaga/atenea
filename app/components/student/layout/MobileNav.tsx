@@ -66,11 +66,11 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className={cx(TEXT.label, 'text-slate-400')}>Todo lo demás</span>
+              <span className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400')}>Todo lo demás</span>
               <button
                 onClick={() => setMenuAbierto(false)}
                 aria-label="Cerrar"
-                className={cx('flex items-center justify-center w-11 h-11 -mr-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800', TAP)}
+                className={cx('flex items-center justify-center w-11 h-11 -mr-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800', TAP)}
               >
                 <X size={20} />
               </button>
@@ -136,7 +136,7 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
                   // nada y "INTELIGENCIA" y "OPERACIONES" se pisaban entre si.
                   'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
                   TAP,
-                  activa ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400',
+                  activa ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400',
                 )}
               >
                 <Icon size={21} strokeWidth={activa ? 2.6 : 2} />
@@ -155,7 +155,7 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
               className={cx(
                 'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
                 TAP,
-                activaEnElResto ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400',
+                activaEnElResto ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400',
               )}
             >
               <MoreHorizontal size={21} strokeWidth={activaEnElResto ? 2.6 : 2} />

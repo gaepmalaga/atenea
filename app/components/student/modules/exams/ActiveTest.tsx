@@ -476,7 +476,7 @@ export default function ActiveTest({
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-24">
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
 
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
+          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6 sm:mb-8">
             {revisando === 'mapa' ? 'Mapa del examen' : 'Antes de entregar'}
           </h2>
@@ -484,26 +484,26 @@ export default function ActiveTest({
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-10">
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
               <p className="text-2xl sm:text-3xl font-black text-indigo-600">{contestadas}</p>
-              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Contestadas</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">Contestadas</p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
               <p className={`text-2xl sm:text-3xl font-black ${enBlanco.length > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
                 {enBlanco.length}
               </p>
-              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">En blanco</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">En blanco</p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
               <p className={`text-2xl sm:text-3xl font-black ${marcadas.size > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
                 {marcadas.size}
               </p>
-              <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">Marcadas</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">Marcadas</p>
             </div>
           </div>
 
           {/* Que un blanco no reste es cierto, pero tampoco suma. Decirlo aqui
               evita que el alumno lo lea como "da igual dejarlas". */}
           {enBlanco.length > 0 && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 sm:mb-8 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-6 sm:mb-8 leading-relaxed">
               Las respuestas en blanco <strong className="text-slate-700 dark:text-slate-200">no restan</strong>,
               pero tampoco suman. Si puedes descartar una opción, arriesgar sale a cuenta.
             </p>
@@ -523,7 +523,7 @@ export default function ActiveTest({
                   className={`relative aspect-square rounded-xl text-xs font-black flex items-center justify-center border-2 transition-all hover:scale-105 ${
                     respondida
                       ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white dark:bg-slate-950 text-slate-400 border-dashed border-slate-300 dark:border-slate-700'
+                      : 'bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-dashed border-slate-300 dark:border-slate-700'
                   }`}
                 >
                   {i + 1}
@@ -554,7 +554,7 @@ export default function ActiveTest({
 
           {conLimite && (
             <p className={`text-center text-[11px] font-black uppercase tracking-wider mt-6 font-mono ${
-              reloj.urgency === 'critical' ? 'text-red-500' : 'text-slate-400'
+              reloj.urgency === 'critical' ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'
             }`}>
               El reloj sigue corriendo · {formatTime(reloj.remaining)}
             </p>
@@ -586,7 +586,7 @@ export default function ActiveTest({
               propia fila SOLO en movil (`w-full` fuerza el salto); en sm+
               vuelve a la fila unica de siempre. */}
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-3 sm:gap-4 sm:mb-4">
-              <button onClick={onExit} className="min-h-[44px] pr-2 text-[11px] font-black text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors order-1">
+              <button onClick={onExit} className="min-h-[44px] pr-2 text-[11px] font-black text-slate-500 dark:text-slate-400 hover:text-red-500 uppercase tracking-wider flex items-center gap-1.5 transition-colors order-1">
                   <ArrowLeft size={14}/> Abortar
               </button>
 
@@ -602,7 +602,7 @@ export default function ActiveTest({
                         className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors ${
                           estaMarcada
                             ? 'text-amber-500 bg-amber-500/10'
-                            : 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'
                         }`}
                       >
                           <Bookmark size={18} fill={estaMarcada ? 'currentColor' : 'none'}/>
@@ -629,7 +629,7 @@ export default function ActiveTest({
                         onClick={() => { cerrarVisita(currentIndex); setRevisando('mapa'); }}
                         title="Ver el mapa de preguntas y saltar a cualquiera"
                         aria-label="Ver el mapa de preguntas"
-                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
+                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
                       >
                           <LayoutGrid size={18}/>
                       </button>
@@ -647,17 +647,17 @@ export default function ActiveTest({
                       ? `Quedan ${formatTime(reloj.remaining)} de ${formatTime(durationSeconds)}`
                       : 'Sin límite de tiempo'}
                     className={`text-[11px] font-black font-mono flex items-center gap-1.5 tabular-nums transition-colors ${
-                      !conLimite ? 'text-slate-500 dark:text-slate-400'
+                      !conLimite ? 'text-slate-500 dark:text-slate-500 dark:text-slate-400'
                         : reloj.urgency === 'critical' ? 'text-red-500 animate-pulse'
                         : reloj.urgency === 'warning' ? 'text-amber-500'
-                        : 'text-slate-500 dark:text-slate-400'
+                        : 'text-slate-500 dark:text-slate-500 dark:text-slate-400'
                     }`}
                   >
-                      <Clock size={13} className={conLimite && reloj.urgency !== 'calm' ? '' : 'text-slate-400'}/>
+                      <Clock size={13} className={conLimite && reloj.urgency !== 'calm' ? '' : 'text-slate-500 dark:text-slate-400'}/>
                       {conLimite ? formatTime(reloj.remaining) : formatTime(segundosTest)}
                   </span>
                   <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono tabular-nums">
-                      {currentIndex + 1}<span className="text-slate-400">/{localQuestions.length}</span>
+                      {currentIndex + 1}<span className="text-slate-500 dark:text-slate-400">/{localQuestions.length}</span>
                   </span>
               </div>
 
@@ -666,12 +666,12 @@ export default function ActiveTest({
                   propia fila (order-3); en sm+ vuelve al centro de la fila
                   unica, como antes. */}
               <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1 justify-center order-3 sm:order-none">
-                  <Layers size={13} className="text-slate-400 flex-shrink-0"/>
+                  <Layers size={13} className="text-slate-500 dark:text-slate-400 flex-shrink-0"/>
                   {/* Dos lineas en vez de recortado. En movil esto ocupa una
                       fila entera y aun asi le faltaban 105px: se leia medio
                       titulo. Saber de que tema te estan examinando cuesta 14px
                       de cabecera. */}
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 line-clamp-2 leading-snug text-center">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 line-clamp-2 leading-snug text-center">
                       {topicName}
                   </span>
                   <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${
@@ -752,7 +752,7 @@ export default function ActiveTest({
               saber cuantas lleva en blanco ANTES de entregar: son las que no
               restan, y decidir sobre ellas es media estrategia del examen. */}
           {navegacionLibre && (
-              <p className="mt-2 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-wider text-slate-400">
+              <p className="mt-2 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <span className="text-indigo-500">
                       {localQuestions.filter((q) => q.userAnswer).length} contestadas
                   </span>
@@ -885,7 +885,7 @@ export default function ActiveTest({
                   <button
                     onClick={dejarEnBlanco}
                     title="Retirar la respuesta y dejarla en blanco (0)"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                       <Eraser size={14} />
                       Dejar en blanco
@@ -934,7 +934,7 @@ export default function ActiveTest({
 
                       {!errorTagged ? (
                         <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Diagnóstico del Error (Obligatorio)</p>
+                            <p className="text-center text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Diagnóstico del Error (Obligatorio)</p>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[
                                     {id:'olvido',label:'OLVIDO',icon:Brain},
@@ -943,7 +943,7 @@ export default function ActiveTest({
                                     {id:'fallo_procesamiento',label:'LECTURA',icon:Eye}
                                 ].map((e)=>(
                                     <button key={e.id} onClick={()=>handleErrorTag(e.id)} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl flex flex-col items-center gap-2 transition-all group">
-                                        <e.icon size={20} className="text-slate-400 group-hover:text-indigo-500 transition-colors"/>
+                                        <e.icon size={20} className="text-slate-500 dark:text-slate-400 group-hover:text-indigo-500 transition-colors"/>
                                         <span className="text-[10px] font-bold text-slate-500 group-hover:text-indigo-600 transition-colors">{e.label}</span>
                                     </button>
                                 ))}
@@ -975,7 +975,7 @@ export default function ActiveTest({
 
               {/* La pista de atajos, visible pero discreta. Un atajo que nadie
                   descubre es un atajo que no existe. */}
-              <p className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <p className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <span className="flex items-center gap-1">
                       {currentQ.options.map((o) => (
                           <kbd key={o.id} className="px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono uppercase">
@@ -1041,7 +1041,7 @@ export default function ActiveTest({
                       <ChevronRight size={16}/>
                   </button>
               ) : (
-                  <span className="ml-auto text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="ml-auto text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Elige una respuesta
                   </span>
               )}

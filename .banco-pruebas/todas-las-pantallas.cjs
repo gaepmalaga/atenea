@@ -20,20 +20,53 @@ const REVISAR = () => {
   const raiz = document.documentElement;
   const W = raiz.clientWidth;
   const out = [];
-  const recortado = (el) => {
+  // Recortado por un padre que SE PUEDE ARRASTRAR (`auto`/`scroll`) no es un
+  // fallo: la fila de pestañas del panel se desplaza a proposito.
+  const arrastrable = (el) => {
     for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
-      if (getComputedStyle(a).overflowX !== 'visible') return true;
+      const o = getComputedStyle(a).overflowX;
+      if (o === 'auto' || o === 'scroll') return true;
     }
     return false;
   };
+  /** El primer padre que recorta SIN dejar arrastrar. */
+  const cajaQueRecorta = (el) => {
+    for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      const o = getComputedStyle(a).overflowX;
+      if (o === 'auto' || o === 'scroll') return null;
+      if (o === 'hidden' || o === 'clip') return a;
+    }
+    return null;
+  };
+
   if (raiz.scrollWidth > W + 1) {
     for (const el of document.querySelectorAll('body *')) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
-      if (getComputedStyle(el).position === 'fixed' || recortado(el)) continue;
+      if (getComputedStyle(el).position === 'fixed' || arrastrable(el)) continue;
       if (r.right > W + 1 || r.left < -1) {
         out.push(`se sale <${el.tagName.toLowerCase()}> "${(el.textContent || '').trim().slice(0, 30)}" hasta ${Math.round(r.right)}px :: ${String(el.className).slice(0, 50)}`);
       }
+    }
+  }
+
+  // UN CONTROL CORTADO POR SU PROPIA CAJA.
+  //
+  // `overflow-x: hidden` no es lo mismo que `auto`: lo que se sale es
+  // INALCANZABLE, no hay forma de arrastrarlo a la vista. Y la pagina no crece,
+  // asi que la comprobacion de arriba —que empieza por `scrollWidth > W`— no lo
+  // ve nunca. Asi salia cortado el boton "EJECUTAR" del motor de generacion de
+  // preguntas, por el borde de su propia tarjeta, sin que el recorrido dijera
+  // nada.
+  for (const el of document.querySelectorAll('button, a, input, select, textarea, [role="button"]')) {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    const caja = cajaQueRecorta(el);
+    if (!caja) continue;
+    const c = caja.getBoundingClientRect();
+    const fuera = Math.round(Math.max(0, r.right - c.right) + Math.max(0, c.left - r.left));
+    if (fuera > 2) {
+      out.push(`control cortado por su caja: <${el.tagName.toLowerCase()}> "${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 26)}" se sale ${fuera}px :: ${String(el.className).slice(0, 45)}`);
     }
   }
   for (const el of document.querySelectorAll('body *')) {

@@ -88,12 +88,12 @@ export default function DocumentChunksViewer({
 
         {/* BUSCADOR */}
         <div className="flex items-center gap-3 border border-slate-800 rounded-xl px-3 min-h-[44px]">
-          <Search size={14} className="text-slate-600 flex-shrink-0" />
+          <Search size={14} className="text-slate-500 flex-shrink-0" />
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por artículo o por texto…"
-            className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-slate-200 outline-none placeholder:text-slate-600"
+            className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-slate-200 outline-none placeholder:text-slate-500"
           />
           {filtro.trim() && (
             <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">
@@ -122,7 +122,7 @@ export default function DocumentChunksViewer({
                     <span className="text-slate-500 italic font-medium">Sin artículo (preámbulo o texto suelto)</span>
                   )}
                 </span>
-                <span className="text-[10px] font-mono text-slate-600 flex-shrink-0">
+                <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">
                   {grupo.chunks.length} frag.
                 </span>
               </div>

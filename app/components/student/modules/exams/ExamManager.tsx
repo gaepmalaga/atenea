@@ -218,7 +218,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
       <div className="flex flex-col items-center justify-center h-96 animate-in fade-in">
         <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
         <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-widest">PREPARANDO SIMULACRO</h3>
-        <p className="text-slate-400 mt-2 font-mono text-sm">{loadingMsg}</p>
+        <p className="text-slate-500 dark:text-slate-400 mt-2 font-mono text-sm">{loadingMsg}</p>
       </div>
     );
   }

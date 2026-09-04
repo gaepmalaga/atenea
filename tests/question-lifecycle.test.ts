@@ -172,3 +172,31 @@ describe('la dificultad no se queda por el camino', () => {
     expect(cuerpo, 'el relleno debe deduplicar contra las ya elegidas').toContain('yaEstan');
   });
 });
+
+describe('vaciar el banco no está a un dedo de crear una pregunta', () => {
+  const src = readFileSync(
+    join(__dirname, '..', 'app/components/Admin/components/AdminBank.tsx'),
+    'utf-8',
+  );
+
+  it('vive en su propia zona de peligro, al final', () => {
+    // Estaba pegado a "Nueva", del mismo tamaño y con la misma forma: en un
+    // movil, doce pixeles separaban el boton de CREAR una pregunta del que
+    // DESCARTA TODAS. Es la regla 26 —una accion irreversible no comparte
+    // sitio, color ni tamaño con la que se repite— aplicada a la accion mas
+    // destructiva de la plataforma.
+    expect(src).toContain('Zona de peligro');
+
+    // Y va DESPUÉS del boton de crear, no al lado. Si alguien lo devuelve
+    // arriba, este orden se invierte.
+    const crear = src.indexOf('setComponiendo(true)');
+    const vaciar = src.lastIndexOf('onClick={handleDiscardAll}');
+    expect(crear, 'no se encuentra el botón de crear').toBeGreaterThan(-1);
+    expect(vaciar, 'no se encuentra el botón de vaciar').toBeGreaterThan(crear);
+  });
+
+  it('sigue pidiendo escribir BORRAR', () => {
+    // Un `confirm()` se acepta sin leerlo. Escribir la palabra no.
+    expect(src).toContain("escrito !== 'BORRAR'");
+  });
+});

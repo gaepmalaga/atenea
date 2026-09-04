@@ -94,7 +94,7 @@ export default function AdminActivity() {
                     </div>
                   </div>
                 </div>
-                <span className="text-slate-600 text-xs font-mono whitespace-nowrap bg-slate-900 px-2 py-1 rounded border border-white/5 shrink-0 self-start">
+                <span className="text-slate-500 text-xs font-mono whitespace-nowrap bg-slate-900 px-2 py-1 rounded border border-white/5 shrink-0 self-start">
                   {log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                 </span>
               </div>

@@ -35,7 +35,7 @@ export default function EmptyState({
       )}
     >
       {icon && <div className="flex justify-center mb-3 text-slate-300 dark:text-slate-700">{icon}</div>}
-      <p className={cx(TEXT.label, 'text-slate-400')}>{title}</p>
+      <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400')}>{title}</p>
       {hint && <p className={cx(TEXT.muted, 'mt-2 max-w-sm mx-auto')}>{hint}</p>}
       {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>

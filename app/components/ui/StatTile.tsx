@@ -7,27 +7,27 @@ const TONE: Record<Tone, { box: string; value: string; label: string }> = {
   neutral: {
     box: 'bg-slate-100 dark:bg-slate-800/50',
     value: 'text-slate-600 dark:text-slate-300',
-    label: 'text-slate-500/80',
+    label: 'text-slate-600 dark:text-slate-400',
   },
   success: {
     box: 'bg-emerald-50 dark:bg-emerald-900/10',
     value: 'text-emerald-600 dark:text-emerald-400',
-    label: 'text-emerald-600/70',
+    label: 'text-emerald-700 dark:text-emerald-400/80',
   },
   danger: {
     box: 'bg-red-50 dark:bg-red-900/10',
     value: 'text-red-600 dark:text-red-400',
-    label: 'text-red-600/70',
+    label: 'text-red-700 dark:text-red-400/80',
   },
   warning: {
     box: 'bg-amber-50 dark:bg-amber-900/10',
     value: 'text-amber-600 dark:text-amber-400',
-    label: 'text-amber-600/70',
+    label: 'text-amber-700 dark:text-amber-400/80',
   },
   brand: {
     box: 'bg-indigo-50 dark:bg-indigo-900/20',
     value: 'text-indigo-600 dark:text-indigo-400',
-    label: 'text-indigo-600/70',
+    label: 'text-indigo-700 dark:text-indigo-400/80',
   },
 };
 

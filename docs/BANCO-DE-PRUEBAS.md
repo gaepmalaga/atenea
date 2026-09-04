@@ -15,6 +15,7 @@ node recorrido.cjs             # el camino del examen: scroll, Atrás, reanudar
 node examen-completo.cjs       # un examen entero, las dos modalidades, hasta la nota
 node tactiles.cjs              # solo lo que no llega a 44px
 node invisibles.cjs            # lo que pide un tamaño y se pinta a 0x0
+node contraste.cjs             # texto que no se lee, medido contra su fondo real
 node comparar-formas.mjs       # en qué se desvía cada stub de su acción
 node zoom.cjs                  # una captura ampliada de un trozo concreto
 ```
@@ -46,6 +47,10 @@ Lo que ha encontrado, por orden de aparición:
 | El registro de actividad, filas de 634px | `AdminActivity`, el mismo `min-w-0` que faltaba |
 | Tres módulos con DOS cabeceras seguidas, 300px antes de nada | Drills, Prep. Física, Perfilado |
 | El plan de entrenamiento tapado por la barra de pestañas | `sticky bottom-6` en un móvil cae dentro de la navegación |
+| "EJECUTAR" cortado por el borde de su propia tarjeta | El generador de preguntas: `overflow-hidden` recorta y la página no crece, así que nada lo delataba |
+| El compositor de preguntas, ilegible en modo claro | Campos casi negros con texto blanco dentro de un diálogo blanco |
+| 80 textos por debajo de 3:1 de contraste | Sobre todo `text-slate-400` sobre blanco y `text-slate-600` sobre el panel oscuro |
+| "Vaciar banco" pegado a "Nueva", igual de grande | La acción más destructiva a 12px del botón de crear (regla 26) |
 
 Ninguno se veía leyendo el código.
 
@@ -102,6 +107,38 @@ flex los hijos se "bloquifican" y el mismo `<span>` sí funciona.
 
 Un tamaño puesto **a cero a propósito** no cuenta: una barra de progreso al 0 %
 mide 0 y está bien.
+
+## Qué comprueba `contraste.cjs`
+
+El contraste real de cada texto contra el fondo que de verdad tiene detrás,
+con la fórmula de la WCAG, en las 19 pantallas y en los diálogos.
+
+Existe por el compositor de preguntas (alta manual, P2): se escribió con la
+paleta del panel de administración —que es oscura siempre— pero vive dentro
+del `Modal` del sistema de diseño, que **sigue el tema del usuario**. En un
+móvil en modo claro quedaban recuadros casi negros con texto blanco dentro de
+un diálogo blanco, y las opciones B y C eran gris sobre gris. **Ilegible, en la
+pantalla donde se escriben las preguntas a mano.** No lo veía nada: las clases
+eran correctas una por una, el elemento tenía su tamaño y el texto no se salía
+de ningún sitio. Hay que medirlo.
+
+Dos cosas que el detector tuvo que aprender, y las dos costaron un rato:
+
+- **Tailwind v4 emite `oklch()`.** Con un regex de `rgb()`, todo color de
+  Tailwind salía `null`, el detector se saltaba ese fondo y subía hasta el
+  `<body>` blanco: decía que el panel de administración —que es negro— tenía
+  texto blanco sobre blanco. 71 avisos, todos falsos. Se resuelve pintando el
+  color en un canvas de 1×1 y leyendo el píxel: la conversión la hace el
+  navegador, que es quien sabe.
+- **Un degradado no tiene un color.** Si algún ancestro trae `background-image`
+  no se puede medir, y adivinarlo daría avisos inventados: ahí no se opina.
+
+El umbral es **3:1** y no el 4.5:1 de la WCAG a propósito. Esto no es una
+auditoría de accesibilidad, es un detector de "esto no se ve": con 4.5 salen
+cientos de avisos de texto de apoyo que está bien como está, y una guardia que
+se queja de lo razonable acaba desactivada.
+
+Medido: de **80 textos por debajo de 3:1 a 0**.
 
 ## Que el banco no pueda mentir: `formas.ts`
 

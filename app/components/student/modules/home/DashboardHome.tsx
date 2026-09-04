@@ -148,7 +148,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
               <span className={cx(TEXT.muted, 'block')}>Tarjetas de memoria por temas</span>
             </span>
           </span>
-          <ArrowRight size={18} className="text-slate-400 group-hover:text-purple-600 transition-colors shrink-0" />
+          <ArrowRight size={18} className="text-slate-500 dark:text-slate-400 group-hover:text-purple-600 transition-colors shrink-0" />
         </Card>
       </button>
 
@@ -171,7 +171,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
                 <p className="flex-1 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 line-clamp-1">
                   {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
                 </p>
-                <span className={cx(TEXT.hud, 'text-slate-400 shrink-0')}>
+                <span className={cx(TEXT.hud, 'text-slate-500 dark:text-slate-400 shrink-0')}>
                   {item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '—'}
                 </span>
               </div>

@@ -253,7 +253,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                 y hay que decirlo en vez de dejar la pantalla en blanco. */}
             {sinModulos && (
                 <div className="py-32 text-center">
-                    <p className="font-black text-slate-400 uppercase tracking-widest text-sm">Sin módulos activos</p>
+                    <p className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest text-sm">Sin módulos activos</p>
                     <p className="text-sm text-slate-500 mt-2">
                         Tu academia ha desactivado todos los módulos. Ponte en contacto con ella.
                     </p>

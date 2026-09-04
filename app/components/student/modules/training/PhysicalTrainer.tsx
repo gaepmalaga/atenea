@@ -197,7 +197,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
       return (
           <div className="h-96 w-full flex flex-col items-center justify-center gap-4 animate-pulse">
               <Loader2 className="animate-spin text-emerald-500 w-12 h-12"/>
-              <p className="text-slate-400 text-sm font-mono uppercase tracking-widest">Cargando Sistema Táctico...</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-mono uppercase tracking-widest">Cargando Sistema Táctico...</p>
           </div>
       );
   }

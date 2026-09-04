@@ -228,7 +228,7 @@ export default function AdminModeration() {
                              <div className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1.5 ${badge.bg} ${badge.color}`}>
                                 <AlertTriangle size={10} /> {badge.label}
                              </div>
-                             <span className="text-[10px] text-slate-600 font-mono">ID: {r.id.split('-')[0]}</span>
+                             <span className="text-[10px] text-slate-500 font-mono">ID: {r.id.split('-')[0]}</span>
                         </div>
                         
                         {/* Pregunta Contexto */}

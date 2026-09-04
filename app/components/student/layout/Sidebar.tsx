@@ -36,7 +36,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, items, hidde
               className={`group relative flex items-center justify-center w-full aspect-square rounded-xl transition-all duration-300 
                 ${isActive 
                   ? 'bg-indigo-600 text-white shadow-md scale-105' 
-                  : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600'
                 }`}
             >
               <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
@@ -56,7 +56,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, items, hidde
       <div className="flex flex-col gap-3 w-full px-2 mt-auto">
         <button 
           onClick={onLogout} 
-          className="group w-full aspect-square flex items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+          className="group w-full aspect-square flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
           title="Cerrar Sesión"
         >
           <Power size={20} className="group-hover:drop-shadow-[0_0_8px_rgba(239,68,68,0.5)] transition-all"/>

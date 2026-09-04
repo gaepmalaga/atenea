@@ -53,7 +53,7 @@ export default function ExamResults({ questions, onRetry, onRepasarFallos }: Exa
             en un móvil de 360px. */}
         <h2 className={cx(TEXT.display, 'text-slate-900 dark:text-white mb-2')}>{nota(score)}</h2>
 
-        <p className={cx(TEXT.label, 'text-slate-400 mb-1')}>Nota con penalización</p>
+        <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 mb-1')}>Nota con penalización</p>
         <p className={cx(TEXT.muted, 'mb-5 sm:mb-7')}>
           Sobre {CNP_SCORING.scale} · se aprueba con {CNP_SCORING.passMark}
         </p>

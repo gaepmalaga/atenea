@@ -262,7 +262,7 @@ export default function AdminContent() {
                 <div className="relative z-10">
                     <p className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter mb-2 drop-shadow-lg">{totalDocs}</p>
                     <p className="text-sm text-slate-400 font-bold uppercase tracking-wide flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-500"/> Documentos Indexados
+                        <CheckCircle2 size={16} className="text-emerald-500"/> {totalDocs === 1 ? 'Documento indexado' : 'Documentos indexados'}
                     </p>
                 </div>
             </div>
@@ -306,7 +306,7 @@ export default function AdminContent() {
                                         <FolderOpen className="text-slate-400" size={32} />
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-500 mb-1">Selecciona un Tema</h3>
-                                    <p className="text-xs text-slate-600 font-medium">Elige un tema de la lista inferior para activar la subida</p>
+                                    <p className="text-xs text-slate-500 font-medium">Elige un tema de la lista inferior para activar la subida</p>
                                 </>
                             )}
                         </div>
@@ -358,7 +358,7 @@ export default function AdminContent() {
                             className="w-full flex items-center justify-between p-6 hover:bg-slate-800/30 transition-all cursor-pointer"
                         >
                             <span className="font-bold text-sm text-slate-300 uppercase flex items-center gap-4 group-hover/block:text-white transition-colors">
-                                <div className={`p-1 rounded-lg transition-colors ${openBlocks[block.id] ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-600'}`}>
+                                <div className={`p-1 rounded-lg transition-colors ${openBlocks[block.id] ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>
                                     {openBlocks[block.id] 
                                         ? <ChevronDown size={18} strokeWidth={3}/> 
                                         : <ChevronRight size={18} strokeWidth={3}/>
@@ -367,7 +367,7 @@ export default function AdminContent() {
                                 {block.name}
                             </span>
                             <span className="text-[10px] font-black tracking-wider bg-slate-950 text-slate-500 px-3 py-1.5 rounded-lg border border-slate-800">
-                                {block.subjects.length} TEMAS
+                                {block.subjects.length} {block.subjects.length === 1 ? 'TEMA' : 'TEMAS'}
                             </span>
                         </button>
 
@@ -385,8 +385,16 @@ export default function AdminContent() {
                                             {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 shadow-[0_0_10px_#6366f1]"></div>}
 
                                             {/* Fila del Tema */}
-                                            <div className="p-4 pl-8 flex items-center justify-between">
-                                                <div className="flex items-center gap-5 flex-1 min-w-0">
+                                            {/* En movil, los dos botones bajan a su
+                                                propia fila. Ocupaban ~110px de los
+                                                390, y esta lista va sangrada por la
+                                                izquierda: al titulo del tema le
+                                                quedaban ~130px, o sea "El Derecho:
+                                                concepto y…". Con 45 temas que
+                                                empiezan igual, eso no identifica la
+                                                fila. */}
+                                            <div className="p-4 pl-5 sm:pl-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                <div className="flex items-center gap-4 sm:gap-5 flex-1 min-w-0">
                                                     {/* Número del Tema */}
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black shadow-sm flex-shrink-0 transition-all ${
                                                         hasDocs 
@@ -405,7 +413,7 @@ export default function AdminContent() {
                                                             empiezan casi igual —"La Constitucion Espanola
                                                             (I)", "(II)"…— un titulo a medias no identifica
                                                             la fila, que es lo unico que tiene que hacer. */}
-                                                        <p className={`text-sm font-bold line-clamp-2 pr-4 leading-snug transition-colors ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                                                        <p className={`text-sm font-bold line-clamp-2 leading-snug transition-colors ${isSelected ? 'text-white' : 'text-slate-300'}`}>
                                                             {subject.title}
                                                         </p>
                                                         <div className="flex items-center gap-3 mt-1.5">
@@ -414,7 +422,7 @@ export default function AdminContent() {
                                                                     <FileText size={10} strokeWidth={3}/> {subject.docCount} archivo{subject.docCount !== 1 ? 's' : ''}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-[10px] font-bold text-slate-600 bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1.5">
                                                                     <AlertCircle size={10}/> Vacío
                                                                 </span>
                                                             )}
@@ -423,7 +431,7 @@ export default function AdminContent() {
                                                 </div>
 
                                                 {/* Botones de Acción */}
-                                                <div className="flex items-center gap-3 opacity-100 lg:opacity-40 lg:group-hover/subject:opacity-100 transition-all mr-4">
+                                                <div className="flex items-center justify-end gap-3 shrink-0 opacity-100 lg:opacity-40 lg:group-hover/subject:opacity-100 transition-all sm:mr-4">
                                                     <button 
                                                         onClick={() => setSelectedSubject(subject)}
                                                         className={`min-h-[44px] px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-xs font-bold border ${
@@ -471,7 +479,7 @@ export default function AdminContent() {
                                                                 </div>
                                                                 <div className="min-w-0">
                                                                     <p className="text-slate-300 truncate font-medium group-hover/doc:text-white transition-colors">{doc.filename}</p>
-                                                                    <p className="text-[10px] text-slate-600 flex items-center gap-2 mt-1 flex-wrap">
+                                                                    <p className="text-[10px] text-slate-500 flex items-center gap-2 mt-1 flex-wrap">
                                                                         <span className="flex items-center gap-1.5">
                                                                             <Calendar size={10}/>
                                                                             {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'Fecha desconocida'}
@@ -492,7 +500,7 @@ export default function AdminContent() {
                                                                             );
                                                                         })()}
 
-                                                                        <span className="font-mono text-slate-600">
+                                                                        <span className="font-mono text-slate-500">
                                                                             {doc.chunk_count} fragmento{doc.chunk_count !== 1 ? 's' : ''}
                                                                         </span>
                                                                     </p>
@@ -527,7 +535,7 @@ export default function AdminContent() {
                                                                     onClick={() => handleVerFragmentos(doc.id, doc.filename)}
                                                                     disabled={cargandoVisor === doc.id}
                                                                     aria-label="Ver los fragmentos indexados"
-                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-600 hover:text-emerald-400 hover:bg-emerald-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
                                                                     title="Ver los fragmentos que se han indexado de este documento"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">
@@ -542,7 +550,7 @@ export default function AdminContent() {
                                                                     onClick={() => handleReindex(doc.id, doc.filename)}
                                                                     disabled={reindexando === doc.id}
                                                                     aria-label="Reindexar el documento"
-                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
                                                                     title="Volver a trocear e indexar este documento"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">
@@ -634,17 +642,17 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
 
   return (
     <div className={`p-[3px] rounded-2xl sm:rounded-3xl transition-all duration-700 ${subject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-purple-500/20' : 'bg-slate-800'}`}>
-        <div className="bg-slate-900 p-8 rounded-3xl h-full relative overflow-hidden">
+        <div className="bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl h-full relative overflow-hidden">
             {/* Decoración de fondo */}
             {subject && <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none"></div>}
 
-            <div className="flex flex-col md:flex-row gap-8 items-center justify-between relative z-10">
+            <div className="flex flex-col md:flex-row gap-5 md:gap-8 items-stretch md:items-center justify-between relative z-10">
                 
-                <div className="flex items-center gap-6 w-full md:w-auto">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner transition-all duration-500 ${subject ? 'bg-indigo-600 text-white shadow-indigo-500/30 scale-105' : 'bg-slate-800 text-slate-600'}`}>
-                        <Sparkles size={32} className={running ? 'animate-spin-slow' : ''} />
+                <div className="flex items-center gap-4 sm:gap-6 w-full md:w-auto min-w-0">
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-inner transition-all duration-500 ${subject ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-slate-800 text-slate-500'}`}>
+                        <Sparkles className={`w-6 h-6 sm:w-8 sm:h-8 ${running ? 'animate-spin-slow' : ''}`} />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <h4 className="font-black text-white uppercase tracking-widest text-sm mb-1.5">Motor de Generación IA</h4>
                         <p className="text-xs text-slate-400">
                             {subject 
@@ -654,8 +662,18 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto bg-slate-950/80 p-3 rounded-2xl border border-slate-800 shadow-lg">
-                    <div className="flex flex-col px-3 border-r border-slate-800">
+                {/* EN MÓVIL SE APILA.
+
+                    Los tres controles en una fila suman mas de 390px con el
+                    relleno de la tarjeta, y la tarjeta es `overflow-hidden`: el
+                    boton "EJECUTAR" quedaba CORTADO por su propio borde, 62px
+                    fuera, sin forma de alcanzarlo. Y no lo veia ningun
+                    detector, porque la pagina no crece: `hidden` recorta y ya.
+                    Ahora los dos ajustes van en una fila y "Ejecutar" a lo
+                    ancho debajo, que ademas es lo que se pulsa. */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full md:w-auto bg-slate-950/80 p-3 rounded-2xl border border-slate-800 shadow-lg">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="flex flex-col px-2 sm:px-3 border-r border-slate-800">
                         <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Preguntas</label>
                         <input 
                             type="number" 
@@ -680,7 +698,7 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                     <button
                         type="button"
                         onClick={() => setAutoApprove(!autoApprove)}
-                        className="min-h-[44px] justify-center flex flex-col px-3 border-r border-slate-800 text-left group/toggle"
+                        className="min-h-[44px] justify-center flex flex-col px-2 sm:px-3 sm:border-r border-slate-800 text-left group/toggle"
                         title="Decide si las preguntas entran directas al banco o pasan por moderación"
                     >
                         <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Destino</span>
@@ -688,13 +706,14 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                             {autoApprove ? 'Banco' : 'Moderación'}
                         </span>
                     </button>
+                  </div>
 
                     <button
                         onClick={run}
                         disabled={running || !subject}
-                        className="h-14 px-8 bg-white hover:bg-indigo-50 text-slate-900 rounded-xl font-black uppercase text-xs tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 hover:scale-105 active:scale-95 shadow-xl hover:shadow-indigo-500/20"
+                        className="min-h-[44px] h-12 sm:h-14 w-full sm:w-auto px-6 sm:px-8 bg-white hover:bg-indigo-50 text-slate-900 rounded-xl font-black uppercase text-xs tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-95 shadow-xl hover:shadow-indigo-500/20"
                     >
-                        {running ? <Loader2 className="animate-spin" size={20}/> : <>EJECUTAR <Sparkles size={16} className="text-purple-600 fill-purple-600"/></>}
+                        {running ? <Loader2 className="animate-spin" size={20}/> : <>Ejecutar <Sparkles size={16} className="text-purple-600 fill-purple-600"/></>}
                     </button>
                 </div>
             </div>

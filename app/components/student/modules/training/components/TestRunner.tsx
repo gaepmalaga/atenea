@@ -112,7 +112,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                 </p>
             )}
             {!error && parsed === null && (
-                <p className="text-xs text-slate-400 text-center mb-4 font-medium">
+                <p className="text-xs text-slate-500 dark:text-slate-400 text-center mb-4 font-medium">
                     Introduce tu marca para poder confirmarla.
                 </p>
             )}
@@ -122,7 +122,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
     const confirmClass = (ok: boolean) =>
         `w-full py-5 font-black uppercase rounded-xl shadow-lg transition-colors ${
             ok ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-               : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+               : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed'
         }`;
 
     // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
@@ -182,7 +182,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                             <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase mb-2 tracking-wider">Paso 2: Protocolo</h3>
                             <div className="flex gap-3">
                                 <Info size={18} className="flex-shrink-0 mt-0.5 text-indigo-500"/>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                <p className="text-xs text-slate-600 dark:text-slate-500 dark:text-slate-400 leading-relaxed">
                                     {method === 'reps' 
                                         ? "Cuélgate de la barra con brazos totalmente estirados. Sube hasta pasar la barbilla. Baja controlado hasta estirar brazos de nuevo. Realiza todas las que puedas sin soltarte."
                                         : "Usa un banco para subir hasta que tu barbilla esté por encima de la barra. Quita los pies y aguanta en esa posición estática todo el tiempo posible."
@@ -206,7 +206,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                     <div className="space-y-8">
                         <div className="bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
                             <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase mb-2 tracking-wider">Instrucciones de Misión</h3>
-                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed flex gap-2">
+                            <p className="text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400 leading-relaxed flex gap-2">
                                 <Info size={16} className="flex-shrink-0 mt-0.5 text-indigo-500"/>
                                 {testId === 'cooper' 
                                     ? "Corre la máxima distancia posible en 12 minutos. Busca un terreno llano o pista de atletismo, tú deberás medir la distancia. El asistente por voz te avisará del tiempo restante."
@@ -262,7 +262,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                         <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                             <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Introduce {testId === 'cooper' ? 'Distancia (Metros)' : 'Tiempo (Segundos)'}</label>
                             <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
-                            {testId === 'cooper' && <p className="text-center text-[10px] text-slate-400 mt-2">Ej: Si diste 6 vueltas a una pista de 400m = 2400m</p>}
+                            {testId === 'cooper' && <p className="text-center text-[10px] text-slate-500 dark:text-slate-400 mt-2">Ej: Si diste 6 vueltas a una pista de 400m = 2400m</p>}
                         </div>
 
                         {confirmHint}

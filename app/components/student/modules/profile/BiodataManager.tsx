@@ -186,7 +186,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
       }));
   };
 
-  if (loading) return <div className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-slate-400"/></div>;
+  if (loading) return <div className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-slate-500 dark:text-slate-400"/></div>;
 
   // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
   return (
@@ -241,7 +241,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
                const isActive = activeSection === section.id;
                return (
                  <button key={section.id} onClick={() => setActiveSection(section.id)} className={`min-h-[44px] md:w-full text-left px-3 md:p-4 rounded-xl flex items-center gap-2 md:gap-3 transition-all border shrink-0 ${isActive ? 'bg-white dark:bg-slate-900 border-indigo-600 shadow-md' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-500'}`}>
-                   <span className={`p-1.5 md:p-2 rounded-lg transition-colors ${isActive ? section.bg + ' text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}><Icon size={16}/></span>
+                   <span className={`p-1.5 md:p-2 rounded-lg transition-colors ${isActive ? section.bg + ' text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}><Icon size={16}/></span>
                    <span className={`text-[11px] md:text-xs font-bold uppercase tracking-wide ${isActive ? 'text-slate-900 dark:text-white' : ''}`}>{section.label}</span>
                  </button>
                );
@@ -298,7 +298,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
                               <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-xl text-xs text-red-700 dark:text-red-300 font-medium">Sinceridad absoluta obligatoria.</div>
                               {/* El alumno tiene derecho a saber qué sale de aquí antes de
                                   escribirlo. Ver `buildInterviewProfile` en app/lib/interview.ts. */}
-                              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl text-xs text-slate-600 dark:text-slate-500 dark:text-slate-400 leading-relaxed">
                                   <b className="text-slate-900 dark:text-white">Lo que escribas aquí no sale de la aplicación.</b>{' '}
                                   El simulador de entrevista solo recibe si has declarado
                                   incidencias o no, para saber que tiene que preguntarte por
@@ -319,11 +319,11 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
                               <div key={q.id} className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
                                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{i + 1}. {q.text}</p>
                                   <div className="flex justify-between items-center gap-2">
-                                      <span className="text-[10px] font-bold text-slate-400">NO</span>
+                                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">NO</span>
                                       {[1, 2, 3, 4, 5].map((val) => (
-                                          <button key={val} onClick={() => handleTestAnswer(q.id, val)} className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${formData.psych_answers[q.id] === val ? 'bg-emerald-500 text-white scale-110 shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-400 border hover:border-emerald-500'}`}>{val}</button>
+                                          <button key={val} onClick={() => handleTestAnswer(q.id, val)} className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${formData.psych_answers[q.id] === val ? 'bg-emerald-500 text-white scale-110 shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border hover:border-emerald-500'}`}>{val}</button>
                                       ))}
-                                      <span className="text-[10px] font-bold text-slate-400">SÍ</span>
+                                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">SÍ</span>
                                   </div>
                               </div>
                           ))}
@@ -376,7 +376,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
            </button>
 
            <div className="mt-3 flex justify-between items-center px-2">
-              <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   {lastSaved ? <><CheckCircle2 size={14} className="text-emerald-500"/><span>Guardado: {lastSaved.toLocaleTimeString()}</span></> : <span>Cambios sin guardar...</span>}
               </div>
            </div>

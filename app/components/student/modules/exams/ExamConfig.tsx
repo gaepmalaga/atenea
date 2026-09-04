@@ -119,7 +119,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
                       TAP,
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                        : 'bg-transparent text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800',
+                        : 'bg-transparent text-slate-500 dark:text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800',
                     )}
                   >
                     <span
@@ -185,7 +185,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
                     className={cx(
                       'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
                       TAP,
-                      activa ? color : 'bg-slate-50 dark:bg-slate-800 text-slate-400',
+                      activa ? color : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
                     )}
                   >
                     {d.label}

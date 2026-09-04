@@ -160,7 +160,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
           onClick={cargar}
           title="Volver a cargar"
           aria-label="Volver a cargar los fallos"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
         >
           <RefreshCw size={16} />
         </button>
@@ -230,7 +230,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-3">
                     {q.topic && (
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <Layers size={11} /> {q.topic}
                       </span>
                     )}
@@ -248,12 +248,12 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
                   <p className="font-bold text-slate-900 dark:text-white leading-snug">
                     {/* Regla 5: el enunciado viene por join y puede faltar si la
                         pregunta se borró del banco. Se dice, no se revienta. */}
-                    {q.questionText || <span className="text-slate-400 italic">Pregunta ya no disponible en el banco</span>}
+                    {q.questionText || <span className="text-slate-500 dark:text-slate-400 italic">Pregunta ya no disponible en el banco</span>}
                   </p>
                 </div>
                 <ChevronDown
                   size={18}
-                  className={`text-slate-400 flex-shrink-0 mt-1 transition-transform ${estaAbierta ? 'rotate-180' : ''}`}
+                  className={`text-slate-500 dark:text-slate-400 flex-shrink-0 mt-1 transition-transform ${estaAbierta ? 'rotate-180' : ''}`}
                 />
               </button>
 
@@ -286,7 +286,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
                       );
                     })}
                     {opciones.length === 0 && (
-                      <p className="text-sm text-slate-400 italic">
+                      <p className="text-sm text-slate-500 dark:text-slate-400 italic">
                         Las opciones ya no están disponibles.
                       </p>
                     )}
@@ -294,7 +294,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
 
                   {q.explanation && (
                     <div className="bg-slate-50 dark:bg-slate-950 rounded-xl p-4 border border-slate-100 dark:border-slate-800 mb-4">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                      <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
                         Por qué
                       </p>
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -315,7 +315,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
                       Clasificar el error solo sirve si luego se le dice qué
                       hacer con esa clasificación. */}
                   {meta && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-2 leading-relaxed">
+                    <p className="text-xs text-slate-500 dark:text-slate-500 dark:text-slate-400 flex items-start gap-2 leading-relaxed">
                       <Target size={13} className="text-indigo-500 flex-shrink-0 mt-0.5" />
                       {meta.hint}
                     </p>

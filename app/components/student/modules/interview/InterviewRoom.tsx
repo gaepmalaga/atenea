@@ -269,7 +269,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
           </div>
           <div className="space-y-3">
             <h1 className="text-3xl font-black tracking-tight">Este navegador no reconoce voz</h1>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
               La sala de entrevistas necesita reconocimiento de voz, que hoy solo funciona en
               Chrome, Edge y navegadores basados en Chromium. En Firefox y Safari no está disponible.
             </p>
@@ -288,7 +288,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl sm:text-4xl font-black tracking-tight">SALA DE INTERROGATORIOS</h1>
-            <p className="text-slate-400 max-w-md mx-auto text-sm uppercase tracking-widest">
+            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto text-sm uppercase tracking-widest">
               Simulación de estrés nivel 4
             </p>
             <p className="text-slate-500 max-w-sm mx-auto text-xs pt-4">
@@ -316,7 +316,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
           {phase === 'evaluating' ? (
             <div className="text-center space-y-6 py-20">
               <BrainCircuit size={56} className="mx-auto text-indigo-400 animate-pulse" />
-              <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Redactando informe</p>
+              <p className="text-sm uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Redactando informe</p>
             </div>
           ) : reportError || !report ? (
             <div className="text-center space-y-6 py-16">
@@ -385,7 +385,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
           <div className={`mb-16 px-6 py-2 rounded-full border backdrop-blur-md flex items-center gap-3 transition-colors duration-500 ${
             phase === 'speaking' ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400' :
             phase === 'listening' ? 'bg-red-500/10 border-red-500 text-red-500' :
-            'bg-slate-800/50 border-slate-700 text-slate-400'
+            'bg-slate-800/50 border-slate-700 text-slate-500 dark:text-slate-400'
           }`}>
             <div className={`w-2 h-2 rounded-full ${phase === 'speaking' ? 'bg-indigo-500 animate-pulse' : phase === 'listening' ? 'bg-red-500 animate-pulse' : 'bg-slate-500'}`}></div>
             <span className="text-xs font-black tracking-[0.2em] uppercase">

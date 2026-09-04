@@ -6,13 +6,13 @@ type Size = 'sm' | 'md' | 'lg';
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:shadow-none',
+    'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 disabled:shadow-none',
   secondary:
     'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500',
   ghost:
     'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800',
   danger:
-    'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 disabled:bg-slate-300 dark:disabled:bg-slate-700',
+    'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400',
 };
 
 const SIZE: Record<Size, string> = {
@@ -55,7 +55,10 @@ export default function Button({
     <button
       className={cx(
         'inline-flex items-center justify-center gap-2 font-black uppercase tracking-wider transition-all active:scale-[0.98]',
-        'disabled:cursor-not-allowed disabled:active:scale-100 disabled:opacity-60',
+        // `opacity-60` sobre blanco dejaba el texto de un boton deshabilitado a
+        // 1.5:1: no se leia QUE es lo que no se puede pulsar. El color del
+        // deshabilitado lo pone cada variante; aqui solo se quita el relieve.
+        'disabled:cursor-not-allowed disabled:active:scale-100 disabled:opacity-80',
         RADIUS.md,
         TAP,
         VARIANT[variant],

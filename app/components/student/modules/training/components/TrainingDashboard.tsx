@@ -44,7 +44,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                     onClick={onReconfigure}
                     aria-label="Volver a las pruebas físicas"
                     title="Volver a las pruebas físicas"
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-emerald-500 transition-colors shrink-0"
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-emerald-500 transition-colors shrink-0"
                 >
                     <Settings size={20}/>
                 </button>
@@ -77,18 +77,18 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                          </div>
 
                          {esDescanso ? (
-                             <p className="text-xs text-slate-400 mb-4">Descanso. No hay nada que hacer hoy.</p>
+                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Descanso. No hay nada que hacer hoy.</p>
                          ) : (
-                             <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1 mb-4 leading-snug">
+                             <ul className="text-xs text-slate-500 dark:text-slate-500 dark:text-slate-400 space-y-1 mb-4 leading-snug">
                                  {ejercicios.slice(0, 4).map((e, i) => (
                                      <li key={i}>
                                          · {e.name}
                                          {(e.sets || e.reps) && (
-                                             <span className="text-slate-400"> · {[e.sets, e.reps].filter(Boolean).join(' × ')}</span>
+                                             <span className="text-slate-500 dark:text-slate-400"> · {[e.sets, e.reps].filter(Boolean).join(' × ')}</span>
                                          )}
                                      </li>
                                  ))}
-                                 {ejercicios.length > 4 && <li className="text-slate-400">…y {ejercicios.length - 4} más</li>}
+                                 {ejercicios.length > 4 && <li className="text-slate-500 dark:text-slate-400">…y {ejercicios.length - 4} más</li>}
                              </ul>
                          )}
 
@@ -100,7 +100,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                             ) : esDescanso ? (
                                 // Un dia de descanso no se "inicia": ofrecerlo era
                                 // un boton que empieza una sesion de cero ejercicios.
-                                <div className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800/50 text-slate-400 rounded-xl text-xs font-black uppercase flex items-center justify-center border border-slate-100 dark:border-slate-800">
+                                <div className="w-full min-h-[44px] bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 rounded-xl text-xs font-black uppercase flex items-center justify-center border border-slate-100 dark:border-slate-800">
                                     Descanso
                                 </div>
                             ) : (
@@ -115,7 +115,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                                         onClick={(e) => { e.stopPropagation(); onReportIssue(day); }}
                                         aria-label={`Avisar de una molestia en ${day.title}`}
                                         title="Avisar de una molestia"
-                                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-slate-200 dark:border-slate-800 transition-colors shrink-0"
+                                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-slate-200 dark:border-slate-800 transition-colors shrink-0"
                                     >
                                         <AlertTriangle size={18}/>
                                     </button>
@@ -164,7 +164,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                             min-h-[44px] px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs sm:text-sm flex items-center justify-center gap-3 transition-all shrink-0
                             ${isWeekComplete
                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-70'}
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-70'}
                         `}
                     >
                         {generating ? <Loader2 size={20} className="animate-spin"/> : isWeekComplete ? <Activity size={20}/> : <Lock size={20}/>}
