@@ -264,6 +264,23 @@ const ADMIN = [
   }
 
 
+  // LA PUERTA DE ENTRADA.
+  // No estaba aqui, igual que no estaba en la guarda del sistema de diseno:
+  // vivia en `app/page.tsx`, fuera de `app/components/`, asi que ni el banco
+  // ni el test estatico la alcanzaban. Es la primera pantalla que ve nadie.
+  console.log('\n=== ENTRADA ===');
+  for (const modo of ['Entrar', 'Crear cuenta']) {
+    await page.goto('http://localhost:8899/index.html?vista=login', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(600);
+    const boton = page.locator('button', { hasText: modo }).first();
+    if (await boton.count() === 0) { anota(`Entrada ${modo}: no hay pestaña`); continue; }
+    await boton.click();
+    await page.waitForTimeout(500);
+    console.log(`\n--- Entrada · ${modo} ---`);
+    await page.screenshot({ path: `${TOMAS}/entrada-${modo === 'Entrar' ? 'login' : 'alta'}.png`, fullPage: true });
+    await mira(page, 'Entrada · ' + modo, fallosJS);
+  }
+
   console.log('\n=== RESUMEN ===');
   console.log('fallos de JavaScript: ' + fallosJS.length);
   for (const f of [...new Set(fallosJS)].slice(0, 8)) console.log('   ' + f.slice(0, 170));
