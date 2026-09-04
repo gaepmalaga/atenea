@@ -24,11 +24,25 @@ const PLAN = {
   plan_data: {
     focus: 'Fuerza de tracción y base aeróbica',
     days: [
-      { title: 'Lunes · Tracción', exercises: ['4x3 dominadas negativas', '3x8 remo invertido', '3x30s plancha'] },
-      { title: 'Martes · Rodaje suave', exercises: ['30 min a ritmo cómodo'] },
-      { title: 'Miércoles · Descanso', exercises: [] },
-      { title: 'Jueves · Series', exercises: ['6x400m con 90s de recuperación'] },
-      { title: 'Viernes · Circuito', exercises: ['3 vueltas: 10 burpees, 15 sentadillas, 20 abdominales'] },
+      { day: 'Lunes', type: 'Fuerza', title: 'Lunes · Tracción', exercises: [
+        { name: 'Dominadas negativas', sets: 4, reps: '3' },
+        { name: 'Remo invertido', sets: 3, reps: '8' },
+        { name: 'Plancha', sets: 3, reps: '30 s' },
+      ] },
+      { day: 'Martes', type: 'Resistencia', title: 'Martes · Rodaje suave', exercises: [
+        { name: 'Carrera continua', sets: 1, reps: '30 min' },
+      ] },
+      // Un dia sin ejercicios: es descanso, y la pantalla no puede ofrecer
+      // "iniciar" una sesion de cero ejercicios.
+      { day: 'Miércoles', type: 'Resistencia', title: 'Miércoles · Descanso', exercises: [] },
+      { day: 'Jueves', type: 'Resistencia', title: 'Jueves · Series', exercises: [
+        { name: 'Series de 400 m', sets: 6, reps: '400 m' },
+      ] },
+      { day: 'Viernes', type: 'Fuerza', title: 'Viernes · Circuito', exercises: [
+        { name: 'Burpees', sets: 3, reps: '10' },
+        { name: 'Sentadillas', sets: 3, reps: '15' },
+        { name: 'Abdominales', sets: 3, reps: '20' },
+      ] },
     ],
   },
   feedback: {},
