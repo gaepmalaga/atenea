@@ -30,6 +30,7 @@ export type Quota = {
 
 const MINUTO = 60_000;
 const HORA = 60 * MINUTO;
+const DIA = 24 * HORA;
 
 /**
  * Cuota de cada ruta. Los numeros salen de lo que cuesta cada llamada y de que
@@ -48,7 +49,45 @@ export const QUOTAS = {
   index: { limit: 20, windowMs: HORA },
 } as const satisfies Record<string, Quota>;
 
-export type QuotaName = keyof typeof QUOTAS;
+/**
+ * EL TOPE DIARIO. Es el que acota la factura; el de la hora solo acota la
+ * rafaga.
+ *
+ * POR QUE HACIA FALTA
+ * Con solo la ventana de una hora, 30 chats/hora son 720 al dia. A ~0,005 EUR
+ * la pregunta —el chat manda el documento entero, regla 33— eso son 4 EUR/dia
+ * y ~120 EUR al mes DE UN SOLO ALUMNO. Nadie estudia asi, pero el limite lo
+ * consentia, y un limite que consiente lo que no puedes pagar no es un limite.
+ *
+ * Los numeros salen de lo que hace alguien que estudia de verdad, con holgura:
+ * 60 preguntas al chat en un dia son muchas mas de las que nadie hace, y aun
+ * asi acotan el gasto de ese alumno a ~0,30 EUR/dia.
+ *
+ * OJO: esto son LLAMADAS, no tokens, y no es la unidad correcta —una pregunta
+ * sobre el tema 7 son 34.675 tokens y sobre el mas corto 1.419, o sea 25x, y
+ * las dos cuentan como una. Es un tope provisional y deliberadamente
+ * conservador para que no llegue una factura inesperada MIENTRAS se instrumenta
+ * el gasto real. Cuando se cuenten tokens, esto se sustituye por un tope en la
+ * unidad que de verdad cuesta.
+ */
+export const TOPES_DIARIOS = {
+  chat: 60,
+  flashcard: 80,
+  question: 100,
+  interview: 60,
+  report: 10,
+  plan: 4,
+  seed: 40,
+  index: 60,
+} as const satisfies Record<QuotaNameBase, number>;
+
+/** El nombre del contador diario de una ruta. `chat` -> `chat:dia`. */
+export function bucketDiario(name: QuotaNameBase): string {
+  return `${name}:dia`;
+}
+
+export type QuotaNameBase = keyof typeof QUOTAS;
+export type QuotaName = QuotaNameBase;
 
 export type RateLimitResult =
   | { ok: true; remaining: number }
@@ -86,20 +125,35 @@ export function consume(
   now = Date.now(),
 ): RateLimitResult {
   const quota = QUOTAS[name];
-  const key = `${name}:${userId}`;
+  return consumeBucket(`${name}:${userId}`, quota.limit, quota.windowMs, now);
+}
+
+/**
+ * La aritmetica, con la clave y el limite por parametro.
+ *
+ * Sale de `consume` para que el tope diario use EXACTAMENTE la misma, en vez
+ * de una copia: dos contadores con dos aritmeticas es como se acaba teniendo
+ * dos comportamientos distintos sin que nadie lo decida.
+ */
+export function consumeBucket(
+  key: string,
+  limit: number,
+  windowMs: number,
+  now = Date.now(),
+): RateLimitResult {
   const bucket = buckets.get(key);
 
   // Ventana fija: al expirar se empieza de cero. Mas simple de razonar que una
   // deslizante, y aqui no hace falta la precision.
   if (!bucket || now >= bucket.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + quota.windowMs });
-    return { ok: true, remaining: quota.limit - 1 };
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true, remaining: limit - 1 };
   }
 
-  if (bucket.count >= quota.limit) return agotada(bucket.resetAt - now);
+  if (bucket.count >= limit) return agotada(bucket.resetAt - now);
 
   bucket.count++;
-  return { ok: true, remaining: quota.limit - bucket.count };
+  return { ok: true, remaining: limit - bucket.count };
 }
 
 /**
@@ -198,9 +252,62 @@ export async function checkQuota(
     sweep(now);
   }
 
+  // EL TOPE DIARIO VA PRIMERO, y el orden importa: si se comprobara despues,
+  // una peticion que el dia ya no admite habria consumido igualmente un hueco
+  // de la hora. Contar de mas en el que corta es inofensivo; contar de mas en
+  // el que no corta le quita al alumno peticiones que si podia hacer.
+  const dia = await consumirTopeDiario(userId, name, now);
+  if (!dia.ok) return dia;
+
   const enMemoria = consume(userId, name, now);
   // Ya agotada aqui: la BD solo puede ser mas permisiva, y no queremos eso.
   if (!enMemoria.ok) return enMemoria;
 
   return (await consumirEnBaseDeDatos(userId, name, now)) ?? enMemoria;
+}
+
+/**
+ * El contador del dia, en la base de datos.
+ *
+ * Usa la MISMA funcion `consume_ai_quota` con otro `bucket` y otra ventana:
+ * `ai_quota.bucket` es texto libre y el limite y la ventana son parametros, asi
+ * que esto no ha necesitado ni una linea de SQL nueva — que en este repo es el
+ * cuello de botella de todo lo demas.
+ *
+ * Si la base de datos no contesta, se cae al contador en memoria del dia. Es
+ * mas debil (con varias instancias el limite real se multiplica) pero es lo
+ * que sostiene el tope si la BD se cae a mitad de una ventana, y contar de
+ * menos aqui es justo lo que no se quiere.
+ */
+async function consumirTopeDiario(
+  userId: string,
+  name: QuotaNameBase,
+  now: number,
+): Promise<RateLimitResult> {
+  const limit = TOPES_DIARIOS[name];
+  const bucket = bucketDiario(name);
+
+  const enMemoria = consumeBucket(`${userId}:${bucket}`, limit, DIA, now);
+  if (!enMemoria.ok) return enMemoria;
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return enMemoria;
+
+  try {
+    const { supabaseAdmin } = await import('../actions/core');
+    const { data, error } = await supabaseAdmin.rpc('consume_ai_quota', {
+      p_user_id: userId,
+      p_bucket: bucket,
+      p_limit: limit,
+      p_window: `${DIA} milliseconds`,
+    });
+    if (error) {
+      console.error('tope diario (se usa el contador en memoria):', error.message);
+      return enMemoria;
+    }
+    const fila = (Array.isArray(data) ? data[0] : data) as FilaCuota | undefined;
+    return fila ? interpretarCuota(fila, now) : enMemoria;
+  } catch (e) {
+    console.error('tope diario (se usa el contador en memoria):', e instanceof Error ? e.message : e);
+    return enMemoria;
+  }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { consume, sweep, buckets, QUOTAS, interpretarCuota, type QuotaName } from '../app/lib/rate-limit';
+import { consume, consumeBucket, sweep, buckets, QUOTAS, TOPES_DIARIOS, bucketDiario, interpretarCuota, type QuotaName } from '../app/lib/rate-limit';
 
 const T0 = 1_700_000_000_000;
 
@@ -256,5 +256,52 @@ describe('interpretarCuota: la respuesta de consume_ai_quota', () => {
     if (r.ok) return;
     expect(Number.isFinite(r.retryAfterMs)).toBe(true);
     expect(r.retryAfterMs).toBe(60 * 60_000);
+  });
+});
+
+describe('el tope diario acota la factura, no solo la rafaga', () => {
+  /**
+   * CON SOLO LA VENTANA DE UNA HORA, 30 CHATS/HORA SON 720 AL DIA.
+   *
+   * A ~0,005 EUR la pregunta —el chat manda el documento entero, regla 33—
+   * eso son 4 EUR/dia y ~120 EUR al mes DE UN SOLO ALUMNO. Nadie estudia asi,
+   * pero el limite lo consentia, y un limite que consiente lo que no puedes
+   * pagar no es un limite.
+   */
+  it('hay un tope diario para cada ruta que gasta', () => {
+    for (const ruta of Object.keys(QUOTAS)) {
+      expect(TOPES_DIARIOS).toHaveProperty(ruta);
+      expect(TOPES_DIARIOS[ruta as keyof typeof TOPES_DIARIOS]).toBeGreaterThan(0);
+    }
+  });
+
+  it('el tope del dia es MENOR que lo que permitiria la ventana de una hora', () => {
+    // Si no, no acota nada: seria decorativo.
+    for (const [ruta, quota] of Object.entries(QUOTAS)) {
+      const enUnDia = quota.limit * 24;
+      expect(TOPES_DIARIOS[ruta as keyof typeof TOPES_DIARIOS]).toBeLessThan(enUnDia);
+    }
+  });
+
+  it('el contador del dia usa su propio bucket, no pisa el de la hora', () => {
+    // `ai_quota.bucket` es texto libre, asi que el diario cabe en la misma
+    // tabla con otro nombre. Por eso esto no ha necesitado SQL nuevo.
+    expect(bucketDiario('chat')).toBe('chat:dia');
+    expect(bucketDiario('chat')).not.toBe('chat');
+  });
+
+  it('la aritmetica del dia es LA MISMA que la de la hora', () => {
+    // Dos contadores con dos aritmeticas acaban teniendo dos comportamientos
+    // distintos sin que nadie lo decida.
+    buckets.clear();
+    const r1 = consumeBucket('x:chat:dia', 2, 1000, 0);
+    const r2 = consumeBucket('x:chat:dia', 2, 1000, 10);
+    const r3 = consumeBucket('x:chat:dia', 2, 1000, 20);
+    expect(r1.ok && r1.remaining).toBe(1);
+    expect(r2.ok && r2.remaining).toBe(0);
+    expect(r3.ok).toBe(false);
+    // Y al pasar la ventana, se empieza de cero.
+    const r4 = consumeBucket('x:chat:dia', 2, 1000, 1001);
+    expect(r4.ok).toBe(true);
   });
 });
