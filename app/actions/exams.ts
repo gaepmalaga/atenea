@@ -3,6 +3,7 @@ import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjec
 import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
+import { registraGasto } from '../lib/ai-usage';
 import { checkQuota } from '../lib/rate-limit';
 import { requireModule } from '../lib/module-guard';
 import {
@@ -137,7 +138,17 @@ type SavedQuestion = { id: string; subject_id: number; status: string } | null;
  * prompt decia siempre "Dificultad Media/Alta" y la columna se quedaba con su
  * valor por defecto, asi que las tres opciones de la interfaz daban lo mismo.
  */
-async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = DIFFICULTY_DEFAULT) {
+/**
+ * `quienGenera` no es decorativo: sin el id, el registro de gasto no puede
+ * decir A QUIEN cargarle la llamada, y un contador de gasto sin dueño solo
+ * sirve para saber el total — no para ver que un alumno concreto se ha
+ * disparado, que es justo lo que hay que poder ver.
+ */
+async function generateTestQuestion(
+  subjectId: number,
+  nivel: DifficultyLevel = DIFFICULTY_DEFAULT,
+  quienGenera = 'desconocido',
+) {
   try {
     if (!subjectId) return { success: false, error: "ID de tema inválido." };
 
@@ -150,6 +161,7 @@ async function generateTestQuestion(subjectId: number, nivel: DifficultyLevel = 
     // script ni desde un test, así que este prompt solo corría en producción.
     // Y el script de siembra masiva lo necesita: sin sacarlo, habría dos.
     const result = await questionModel.generateContent(buildQuestionPrompt(contexto, nivel));
+    registraGasto({ ruta: 'pregunta', userId: quienGenera, uso: result.response.usageMetadata, detalle: `tema=${subjectId}` });
     const parsed = parseAIJson(result.response.text());
     if (!parsed) return { success: false, error: "La IA no devolvió un JSON legible." };
 
@@ -240,7 +252,7 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number, d
     // B. Generar Pregunta
     // `toDifficultyLevel` normaliza lo que llegue: es un endpoint publico.
     const nivel = toDifficultyLevel(difficulty);
-    const genResult = await generateTestQuestion(subjectId, nivel);
+    const genResult = await generateTestQuestion(subjectId, nivel, auth.user.id);
     // Se construye la respuesta de error en vez de reenviar `genResult`: aquel
     // no traía `id`, así que el tipo de retorno era una unión que la UI no podía
     // consumir sin comprobaciones.
@@ -370,7 +382,7 @@ export async function seedQuestionBank(params: {
 
   const worker = async () => {
     for (let i = 0; i < 3; i++) {
-        const res = await generateTestQuestion(subjectId, nivel);
+        const res = await generateTestQuestion(subjectId, nivel, auth.user.id);
         if (res.success && res.data) return { ok: true, data: res.data };
         await new Promise(r => setTimeout(r, 500));
     }

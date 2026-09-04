@@ -4,6 +4,7 @@ import { supabaseAdmin as supabase, chatModel, embeddingModel } from './core';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
+import { registraGasto } from '../lib/ai-usage';
 import {
   buildRetrievalQuery,
   citaDe,
@@ -393,6 +394,18 @@ export async function askAtenea(
     // 7. Generación de la respuesta
     const result = await chatModel.generateContent(prompt);
     const answer = result.response.text()?.trim() || 'Error en la generación de respuesta.';
+
+    // El gasto REAL de esta llamada, al registro del servidor. El chat es con
+    // diferencia lo más caro de la plataforma —manda el documento entero— así
+    // que es donde primero hace falta saber el número en vez de estimarlo.
+    // `conTema` va en el detalle porque es exactamente lo que explica que una
+    // pregunta cueste 25× más que otra.
+    registraGasto({
+      ruta: 'chat',
+      userId: auth.user.id,
+      uso: result.response.usageMetadata,
+      detalle: conTema ? `tema=${tema}` : 'sin-tema',
+    });
 
     return { 
       success: true, 

@@ -146,6 +146,8 @@ npm run sembrar -- --solo-indexar     # solo los documentos
 npm run sembrar -- --solo-preguntas   # solo las preguntas
 npm run sembrar -- --preguntas=20     # cuántas por tema (por defecto 20)
 npm run sembrar -- --tema=4           # un tema suelto
+npm run sembrar -- --solo-fichas      # solo el banco de fichas
+npm run sembrar -- --fichas=15        # cuántas fichas por tema (por defecto 15)
 ```
 
 **Fase A · indexar.** Por cada PDF: extraer el texto con `pdf2json`, limpiarlo
@@ -153,6 +155,16 @@ con `cleanLegalText`, trocearlo con `chunkDocument`, calcular los embeddings por
 lotes de cinco e insertarlos en orden. Si un documento no produce ni un
 fragmento, **su fila se borra**: un documento huérfano se ve en el panel igual
 que uno sano y el chat no encuentra nada de ese tema.
+
+**Fase C · las fichas.** `--solo-fichas` escribe el banco de tarjetas de
+repaso en `flashcard_bank`. Existe desde que las fichas dejaron de generarse
+una por alumno y por tarjeta (regla 39): ahora se escriben una vez y las
+repasan todos. Va **en serie y no en paralelo** a propósito — a cada ficha se
+le pasan los anversos ya escritos del tema para que no repita, y en paralelo
+las N saldrían todas del mismo punto de partida.
+
+También se puede desde el panel: **Temario & IA → Fichas de repaso**, que
+además enseña cuántas hay ya del tema para no sembrar a ciegas.
 
 **Fase B · generar.** Por cada tema, N preguntas. El contexto de cada una sale
 de un **fragmento** (un artículo, con su referencia) y solo si el tema no tiene

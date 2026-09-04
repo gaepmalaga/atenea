@@ -53,6 +53,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
 | — | **La capa de comportamiento** | ✅ **hecha** (4 sep): el examen ya no se pierde, el scroll y el botón Atrás funcionan, y el chat sobrevive a cambiar de pestaña. Ver **regla 37** |
 | — | **Reset y siembra** | ✅ **hecho** (4 sep): tres guiones para dejar la plataforma limpia, indexar los 51 documentos y llenar el banco. Ver [`docs/RESET-Y-SIEMBRA.md`](docs/RESET-Y-SIEMBRA.md) |
+| — | **Generación solo del admin · topes de gasto · login nuevo** | ✅ **hecho** (4 sep): alumno y admin dejan de compartir quién paga la IA. Ver **reglas 39, 40 y 41** |
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
 
 ## Producción
@@ -74,6 +75,17 @@ funcionando).
 Los tres guiones de Supabase que estaban pendientes **ya están ejecutados** (RLS, cuota
 de IA y `question_attempts`). Lo que queda necesita algo que no se puede hacer desde
 aquí:
+
+0. **HAY DOS GUIONES SQL NUEVOS SIN EJECUTAR** (4 sep), los dos escritos
+   contra `supabase/schema.json` y idempotentes:
+   - [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql) — la tabla `ai_usage`,
+     para persistir lo que hoy solo va al registro del servidor (regla 41) y
+     poder poner topes en tokens en vez de en llamadas.
+   - [`docs/sql/historial-chat.sql`](docs/sql/historial-chat.sql) — las
+     conversaciones del chat, que hoy mueren al cerrar la pestaña.
+
+   **No se escribe el código antes:** PostgREST rechaza la escritura *entera*
+   si falta una sola columna.
 
 1. **Ejecutar SQL. Ya no hay nada pendiente:** los guiones de P3.7 (`legal_reference`
    en `question_bank`) y P3.8 (tabla `question_notes` con RLS) se ejecutaron el
@@ -116,6 +128,7 @@ npm run sembrar -- --comprobar-pdfs # lee los 51 PDF y los trocea, SIN red ni ga
 npm run reset                      # ensayo: qué se borraría. `-- --hazlo` borra
 npm run cuenta -- correo 'clave' student   # una cuenta con el correo ya confirmado
 npm run sembrar                    # indexa los 51 PDF y llena el banco (de pago)
+npm run sembrar -- --solo-fichas --fichas=15   # el BANCO DE FICHAS (de pago)
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
@@ -1094,6 +1107,144 @@ Antes de dar por buena una pantalla:
 cd .banco-pruebas && node todas-las-pantallas.cjs
 ```
 
+### 39 · El gasto de IA no lo decide quien no paga la factura
+
+Había **dos sitios** donde un alumno disparaba llamadas de pago con un clic, y
+el dinero era el menor de los tres problemas:
+
+- **La pantalla del examen** tenía una «FASE IA (Relleno)»: si el banco no
+  cubría los temas elegidos, le pedía a Gemini las que faltaban, **en paralelo
+  y sin avisar**. Abrir un simulacro de 100 preguntas sobre un tema vacío eran
+  100 llamadas de pago.
+- **Drills** generaba una ficha nueva por alumno y por tarjeta.
+
+Los otros dos problemas: el alumno estudiaba con preguntas **sin revisar**
+mezcladas con las del banco y sin forma de distinguirlas; y cada alumno veía
+contenido distinto del mismo tema, así que **«esta pregunta la falla el 40 %»**
+—el panel de academia— dejaba de significar nada.
+
+Ahora **el contenido lo siembra el administrador**: `generateAndSaveCandidate`
+y `seedFlashcardBank` exigen `requireAdmin`, y si el banco no llega, la pantalla
+del examen **dice cuántas faltan** en vez de gastar. Un examen más corto y
+dicho es mejor que uno completo a medias de preguntas sin revisar.
+
+**Y lo que apareció al hacerlo:** `flashcard_bank` existía desde el principio,
+con su `card_hash` y su `status`, igual que `question_bank`, y **no la usaba
+nadie**; `flashcard_progress` tenía una columna `card_id` que **no se escribía
+nunca**. El esquema estaba diseñado exactamente para esto y se quedó sin
+conectar, así que el cambio no necesitó **una sola línea de SQL**. Sin
+`card_id` no hay forma de saber qué fichas ha visto ya un alumno, que es justo
+lo que hace falta para servirle la siguiente.
+
+Los dos finales legítimos de Drills —«este tema aún no tiene fichas» y «ya las
+has visto todas»— **no son errores** y por eso no salen en un `alert()`: uno
+pide avisar a la academia y el otro es una buena noticia.
+
+### 40 · El tope por hora acota la ráfaga; el que acota la factura es el del día
+
+30 chats/hora son **720 al día**. A ~0,005 € la pregunta —el chat manda el
+documento entero, regla 33— eso son 4 €/día y **~120 € al mes de un solo
+alumno**. Nadie estudia así, pero el límite lo consentía, y **un límite que
+consiente lo que no puedes pagar no es un límite**.
+
+`TOPES_DIARIOS` en `app/lib/rate-limit.ts`. **No necesitó SQL**:
+`ai_quota.bucket` es texto libre y `consume_ai_quota` recibe límite y ventana
+como parámetros, así que el contador del día cabe en la misma tabla con otro
+nombre (`chat:dia`).
+
+**El tope del día se comprueba ANTES que el de la hora**, y el orden no es
+casual: al revés, una petición que el día ya no admite habría consumido
+igualmente un hueco de la hora. Contar de más en el contador que corta es
+inofensivo; contar de más en el que no corta le quita al alumno peticiones que
+sí podía hacer.
+
+**Pero esto son LLAMADAS, no tokens, y no es la unidad correcta.** Una pregunta
+sobre el tema 7 son 34.675 tokens y sobre el más corto 1.419 —25×— y las dos
+cuentan como una. Es un tope provisional y a propósito conservador mientras se
+instrumenta el gasto real (regla 41).
+
+### 41 · No se afina lo que no se mide
+
+`app/lib/ai-usage.ts` calcula el gasto de cada llamada en tokens y en dólares,
+y lo escribe en el registro del servidor con un prefijo filtrable
+(`[gasto-ia] ruta=… usuario=… entrada=… salida=… usd=…`). Así hay **números
+reales desde hoy**, antes de que exista ninguna tabla.
+
+Tres decisiones que no son obvias:
+
+- **Un campo que falta cuenta CERO, nunca `NaN`.** Un `undefined` propagándose
+  convierte la suma entera en `NaN`, y entonces el contador enseña «NaN €» y
+  **ciega la vigilancia**. Cero infravalora una llamada; `NaN` ciega el
+  contador entero. Un recuento negativo se descarta por lo mismo.
+- **`registraGasto` nunca lanza.** Se llama DESPUÉS de una respuesta buena del
+  modelo: un fallo aquí no puede llevarse por delante una respuesta que el
+  alumno ya tiene y que ya se ha pagado.
+- **El precio lleva la fecha en que se comprobó** (`PRECIO_FLASH.revisadoEl`).
+  Un precio sin fecha es un precio que nadie sabe si sigue vigente. Y va en un
+  objeto, no en dos constantes sueltas, por lo mismo que `CNP_SCORING`.
+
+Hay una guarda que exige que **ningún `generateContent` se quede sin su
+`registraGasto`**: es fácil añadir una llamada nueva y olvidar el contador, y
+entonces el gasto se va por un sitio que nadie mira.
+
+Persistirlo necesita SQL: [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql),
+**escrito y sin ejecutar**.
+
+### 42 · El documento entero se paga solo si el alumno elige tema
+
+La opción cómoda del desplegable era **la más cara**: sin tema se pagaba el
+embedding Y podían viajar **dos** documentos enteros (hasta 34.675 tokens cada
+uno). Con tema viaja uno y el embedding no se paga. Como la gente tira de lo
+cómodo, el desplegable empujaba a todo el mundo por el camino caro.
+
+Ahora, sin tema, se responde con los fragmentos de la búsqueda semántica: como
+funcionó la plataforma siempre, ~3.000 tokens. **La regla 33 sigue en pie donde
+importa** — con tema, documento entero.
+
+**No se quitó la opción**, que era la otra salida sobre la mesa. Un alumno que
+no sabe en qué tema entra *«la prueba de alcoholemia»* —lo normal las primeras
+semanas— se quedaría sin poder preguntar justo lo que más le ayuda. En vez de
+eso el desplegable lo dice: **«Todo el temario — respuesta más general»**. Que
+lo sepa antes, en lugar de descubrirlo con una respuesta floja y pensar que la
+plataforma no sabe.
+
+**Lo que NO se tocó:** el índice y el artículo buscado por su número siguen
+yendo delante. Son coincidencias exactas y deterministas, no parecidos, y no
+cuestan un documento entero (regla 30).
+
+`documentosEnteros` se borró en vez de quedarse comentada. Lo que queda en
+`lib/chat.ts` —`documentosNombrados` y compañía— **se conserva con un aviso
+encima** de que ahora mismo no lo usa nadie: ahí está escrita la lección de la
+regla 33 con sus tests, y es lo que habría que volver a enchufar para un modo
+«todo el temario con el documento delante». Código muerto que nadie marca es
+como este repo acabó con `flashcard_bank` sin usar y `.vip-card` en
+`globals.css`.
+
+### 43 · Una puerta y un escritorio no hacen el mismo trabajo
+
+El login es brutalista sobre hueso: plano, bordes de 3px, mayúsculas enormes y
+el filete de la bandera en proporciones reales (1:2:1 — en tres franjas iguales
+la bandera canta).
+
+**No sale de `Card` y `Button`**, que es la regla 36, y es deliberado: meter un
+diseño plano de bordes gruesos en unos primitivos redondeados con sombra índigo
+lo convertiría en otra cosa. Es la misma excepción que ya se acepta con el
+panel de administración, que es oscuro pase lo que pase. Lo que **no** se salta
+es lo que esa regla protege de verdad: el área táctil sale de `TAP`, los campos
+llevan `text-base` en móvil, la altura va en `dvh` y ningún tamaño grande se
+queda sin escalón. Hay tests que lo fijan.
+
+**Y al llevar ese aire a `ActiveTest` apareció el límite.** Viaja la *firma*
+—superficies planas, bordes en vez de sombras, el filete, el rojo como
+acento— pero **el enunciado BAJA de peso**, de `font-black` a `font-bold`. Es
+el texto que el alumno mira cincuenta minutos seguidos, y la tipografía del
+login a ese tamaño y durante ese rato cansa. La firma vive en los bordes y las
+etiquetas; **la zona que se LEE se deja tranquila**. Es la misma lección que el
+prompt del chat: lo que impresiona en una lectura, en la décima estorba.
+
+De paso salió un fallo real: la opción marcada tenía `scale-[1.02]`, así que al
+cambiar de respuesta **las opciones de abajo se movían**.
+
 ---
 
 ## Los tests
@@ -1127,6 +1278,9 @@ tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no ex
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
 tests/operacion.test.ts         los guiones de reset y siembra usan la lógica de la app
+tests/auth-messages.test.ts     la pantalla de entrada: errores en cristiano y sus guardas
+tests/generacion-solo-admin.test.ts  quién puede gastar en IA y quién no
+tests/ai-usage.test.ts          el coste de cada llamada, y que ninguna se queda sin contar
 ```
 
 **`schema-drift` es el guardián más importante de la lista.** Compara contra

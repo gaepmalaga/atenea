@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { QuestionStatus } from '@/app/lib/questions';
 import {
   Upload, FileText, Trash2, Loader2, RefreshCw,
   Book, Sparkles, ChevronDown, ChevronRight, FolderOpen,
-  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle, Eye
+  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle, Eye, Layers
 } from 'lucide-react';
 
 import DocumentChunksViewer from './DocumentChunksViewer';
@@ -19,7 +19,9 @@ import {
   deleteDocument,
   reindexDocument,
   getDocumentChunks,
-  seedQuestionBank
+  seedQuestionBank,
+  seedFlashcardBank,
+  getFlashcardBankCounts
 } from '@/actions'; 
 
 // --- TIPOS DE DATOS (CORREGIDOS Y COMPLETOS) ---
@@ -324,6 +326,9 @@ export default function AdminContent() {
             setAutoApprove={setGenAutoApprove}
         />
 
+        {/* --- 3b. GENERADOR DE FICHAS --- */}
+        <SeedCardsPanel subject={genSubject} />
+
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
         <div className="bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
             {/* Header del Visor */}
@@ -593,6 +598,112 @@ export default function AdminContent() {
                 onClose={() => setVisor(null)}
             />
         )}
+    </div>
+  );
+}
+
+/**
+ * EL GENERADOR DE FICHAS.
+ *
+ * Existe desde que las fichas salen de un banco compartido en vez de generarse
+ * una por alumno y por tarjeta. Alguien tiene que llenar ese banco, y hasta
+ * ahora lo unico que lo hacia era `npm run sembrar -- --solo-fichas`: pedirle
+ * una consola a quien lleva la academia es pedirle que no lo use.
+ *
+ * Ensena CUANTAS FICHAS HAY YA del tema antes de sembrar. Sin ese numero se
+ * siembra a ciegas: el guion se salta los temas que ya llegan al objetivo,
+ * pero desde el panel no habia forma de saber si un tema estaba a cero o a
+ * quince, y cada intento a ciegas son llamadas de pago.
+ */
+function SeedCardsPanel({ subject }: { subject: Subject | null }) {
+  const [count, setCount] = useState(15);
+  const [running, setRunning] = useState(false);
+  const [yaHay, setYaHay] = useState<Record<string, number> | null>(null);
+  type Resultado =
+    | { success: true; inserted: number; duplicated: number; failed: number; requested: number }
+    | { success: false; error?: string };
+  const [result, setResult] = useState<Resultado | null>(null);
+
+  const recargarRecuento = useCallback(async () => {
+    const res = await getFlashcardBankCounts();
+    if (res.success) setYaHay(res.porTema);
+  }, []);
+
+  useEffect(() => { recargarRecuento(); }, [recargarRecuento]);
+
+  // `null` mientras no se ha leido el recuento: NO es lo mismo que cero, y en
+  // esta tarjeta menos que en ningun sitio (regla 8). Cero significa "hay que
+  // sembrar este tema"; sin dato significa "todavia no lo se".
+  const tiene = subject && yaHay ? (yaHay[subject.title] ?? 0) : null;
+
+  async function run() {
+    if (!subject) return;
+    setRunning(true);
+    setResult(null);
+    const res = await seedFlashcardBank({ subjectId: subject.id, topic: subject.title, count });
+    setResult(res);
+    setRunning(false);
+    await recargarRecuento();
+  }
+
+  return (
+    <div className="bg-slate-900 border-[3px] border-slate-700 p-5 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 justify-between">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={`w-12 h-12 flex items-center justify-center shrink-0 ${subject ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
+            <Layers className="w-6 h-6" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="font-black text-white uppercase tracking-widest text-sm mb-1.5">
+              Fichas de repaso
+            </h4>
+            <p className="text-xs text-slate-400">
+              {subject ? (
+                <>
+                  Tema {subject.number} ·{' '}
+                  {tiene === null
+                    ? <span className="opacity-60">contando…</span>
+                    : <span className={tiene === 0 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                        {tiene} en el banco
+                      </span>}
+                </>
+              ) : (
+                <span className="italic opacity-50">Selecciona un tema arriba</span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <label className="sr-only" htmlFor="cuantas-fichas">Cuántas fichas</label>
+          <input
+            id="cuantas-fichas"
+            type="number"
+            min={1}
+            max={100}
+            value={count}
+            onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+            disabled={!subject || running}
+            className="w-20 min-h-[44px] bg-slate-950 border-2 border-slate-700 text-white text-base sm:text-sm text-center font-bold outline-none focus:border-purple-500 disabled:opacity-40"
+          />
+          <button
+            onClick={run}
+            disabled={!subject || running}
+            className="min-h-[44px] px-5 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-wider text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {running ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {running ? 'Escribiendo…' : 'Escribir fichas'}
+          </button>
+        </div>
+      </div>
+
+      {result && (
+        <div className={`mt-4 p-3 border-2 text-xs font-bold ${result.success ? 'border-emerald-700 bg-emerald-900/20 text-emerald-300' : 'border-red-800 bg-red-900/20 text-red-300'}`}>
+          {result.success
+            ? `${result.inserted} nuevas · ${result.duplicated} repetidas · ${result.failed} fallidas (de ${result.requested} pedidas)`
+            : `No se pudo: ${result.error ?? 'error desconocido'}`}
+        </div>
+      )}
     </div>
   );
 }

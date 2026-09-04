@@ -7,6 +7,7 @@ import { QUESTION_STATUS } from '../lib/questions';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
+import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 
@@ -311,6 +312,7 @@ export async function seedFlashcardBank(params: {
 
     try {
       const r = await flashcardModel.generateContent(buildFlashcardPrompt(fragmento, anversos));
+      registraGasto({ ruta: 'ficha', userId: auth.user.id, uso: r.response.usageMetadata, detalle: `tema=${params.subjectId}` });
       const parsed = parseAIJson(r.response.text());
       const check = validateFlashcard(parsed);
       if (!check.ok) { failed++; continue; }

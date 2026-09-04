@@ -301,6 +301,12 @@ export async function resolveReport() { return { success: true as const }; }
 export async function createManualQuestion() { return { success: true as const }; }
 export async function importManualQuestions() { return ok({ inserted: 3, rejected: [] }); }
 export async function seedQuestionBank() { return ok({ inserted: 5, duplicated: 1, failed: 0, requested: 6, status: 'active' }); }
+export async function seedFlashcardBank() { return ok({ inserted: 12, duplicated: 2, failed: 1, requested: 15 }); }
+// Un tema a CERO y otro con fichas: el panel tiene que distinguir "hay que
+// sembrar este" de "este ya esta", y con todos iguales no se ve si lo hace.
+export async function getFlashcardBankCounts() {
+  return ok({ porTema: { 'El Derecho: concepto y acepciones. Normas jurídicas positivas.': 15 } });
+}
 export async function uploadTopicPDF() { return ok({ complete: true, indexed: 42, total: 42, failures: [], withReference: 40, message: 'Indexado completo: 42 fragmentos.' }); }
 export async function reindexDocument() { return ok({ status: 'indexado', indexed: 42, total: 42, withReference: 40, failures: [] }); }
 export async function deleteDocument() { return { success: true as const }; }
