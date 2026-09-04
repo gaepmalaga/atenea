@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
 import {
   Mic, LogOut, Volume2, AlertTriangle,
-  Wifi, Loader2, BrainCircuit, FileText, CheckCircle2, Target
+  Wifi, Loader2, BrainCircuit, FileText, CheckCircle2, Target, X
 } from 'lucide-react';
 import { processInterviewTurn, evaluateInterview } from '@/actions';
 import {
@@ -224,8 +224,36 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
   const respuestas = history.filter(t => t.speaker === 'candidato').length;
   const puedeEvaluar = canEvaluate(history);
 
+  /** Salir de la sala cortando la voz y el microfono. */
+  const cerrarSala = () => {
+    finishedRef.current = true;
+    window.speechSynthesis.cancel();
+    recognitionRef.current?.abort();
+    onExit();
+  };
+
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center font-sans text-white select-none">
+
+      {/* LA SALIDA, SIEMPRE.
+
+          Esta pantalla es una capa a pantalla completa por encima de todo, y en
+          la fase de INICIO no habia NINGUNA forma de salir: si el navegador no
+          terminaba de cargar las voces —lo que deja el boton en
+          "SINTONIZANDO…" para siempre— o si el alumno simplemente cambiaba de
+          idea, se quedaba encerrado en una pantalla negra. Atras tampoco valia:
+          el modo entrevista no dependia de la pestaña.
+
+          Cierra igual que "Abandonar sin informe": cortando la voz y el
+          reconocimiento, que si no siguen sonando por debajo de la aplicacion. */}
+      <button
+        onClick={cerrarSala}
+        aria-label="Salir de la sala de entrevistas"
+        title="Salir"
+        className="absolute top-4 right-4 z-30 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-slate-500 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        <X size={22} />
+      </button>
 
       {/* FONDO */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -406,7 +434,7 @@ export default function InterviewRoom({ onExit }: InterviewRoomProps) {
             </p>
 
             <button
-              onClick={() => { finishedRef.current = true; window.speechSynthesis.cancel(); recognitionRef.current?.abort(); onExit(); }}
+              onClick={cerrarSala}
               className="mt-4 px-6 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-slate-500 hover:text-white transition-all flex items-center gap-3 uppercase tracking-widest text-[10px] font-bold"
             >
               <LogOut size={14} /> Abandonar sin informe

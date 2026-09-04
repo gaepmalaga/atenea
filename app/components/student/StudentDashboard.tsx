@@ -117,11 +117,13 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
    */
   const zenModeRef = useRef(zenMode);
   const activeTabRef = useRef<TabId>(activeTab);
+  const interviewModeRef = useRef(interviewMode);
   // Se sincronizan en un efecto, no durante el render: escribir en un ref
   // mientras se renderiza es un efecto colateral encubierto.
   useEffect(() => {
     zenModeRef.current = zenMode;
     activeTabRef.current = activeTab;
+    interviewModeRef.current = interviewMode;
   });
 
   useEffect(() => {
@@ -131,6 +133,16 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
     const alVolver = (e: PopStateEvent) => {
       const destino = (e.state as { atenea?: string } | null)?.atenea;
+
+      // La sala de voz es una capa a pantalla completa que no depende de la
+      // pestaña: Atras cambiaba la de debajo y la sala seguia encima. Ahora la
+      // cierra, que es lo que espera cualquiera al pulsar Atras sobre algo que
+      // ocupa la pantalla entera.
+      if (interviewModeRef.current) {
+        window.history.pushState({ atenea: activeTabRef.current }, '');
+        setInterviewMode(false);
+        return;
+      }
 
       // Con un examen abierto, Atras no se lo lleva por delante sin preguntar.
       // El examen queda guardado y es reanudable, pero perder el sitio de golpe

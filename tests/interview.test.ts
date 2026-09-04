@@ -284,3 +284,34 @@ describe('guardas estáticas sobre lo que se envía al modelo', () => {
     expect(leer('app/actions/training.ts')).toContain('buildCoachProfile');
   });
 });
+
+describe('de la sala de voz siempre se puede salir', () => {
+  const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf-8');
+
+  it('la salida no depende de la fase', () => {
+    // La sala es una capa a pantalla completa por encima de todo, y en la fase
+    // de INICIO no habia NINGUNA forma de salir: si el navegador no terminaba
+    // de cargar las voces —el boton se queda en "SINTONIZANDO…"— el alumno se
+    // quedaba encerrado en una pantalla negra.
+    //
+    // El boton va FUERA de los bloques `phase === ...`, en la raiz del overlay.
+    const src = leer('app/components/student/modules/interview/InterviewRoom.tsx');
+    const raiz = src.slice(src.indexOf('fixed inset-0 z-[200]'), src.indexOf("phase === 'intro'"));
+    expect(raiz).toContain('Salir de la sala de entrevistas');
+  });
+
+  it('salir corta la voz y el micrófono', () => {
+    // Sin esto el tribunal sigue hablando por debajo de la aplicacion y el
+    // microfono sigue abierto.
+    const src = leer('app/components/student/modules/interview/InterviewRoom.tsx');
+    expect(src).toMatch(/const cerrarSala = \(\) => \{[\s\S]*?speechSynthesis\.cancel\(\)[\s\S]*?recognitionRef\.current\?\.abort\(\)[\s\S]*?onExit\(\)/);
+  });
+
+  it('Atrás cierra la sala en vez de cambiar la pestaña de debajo', () => {
+    // La sala no depende de la pestaña, asi que Atras cambiaba la de debajo y
+    // la sala seguia encima, tapandolo todo.
+    const src = leer('app/components/student/StudentDashboard.tsx');
+    expect(src).toContain('interviewModeRef');
+    expect(src).toMatch(/if \(interviewModeRef\.current\) \{[\s\S]*?setInterviewMode\(false\)/);
+  });
+});
