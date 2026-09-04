@@ -20,10 +20,15 @@ Actions**:
 | Secrets | `SUPABASE_SERVICE_ROLE_KEY` | La clave de servicio |
 | Secrets | `GEMINI_API_KEY` | La de Gemini |
 | Secrets | `CUENTA_PRUEBA_PASSWORD` | La contraseña de la cuenta de prueba |
-| **Variables** | `NEXT_PUBLIC_SUPABASE_URL` | La URL del proyecto. **No es secreta**: va en el bundle del navegador. |
 
 La contraseña va en un **secret** y no en un campo del formulario a propósito:
 los inputs de un workflow quedan a la vista en la página de la ejecución.
+
+La URL del proyecto (`NEXT_PUBLIC_SUPABASE_URL`) está escrita en el propio
+workflow, en claro. No es un descuido: `NEXT_PUBLIC_` significa que Next la mete
+en el bundle del navegador, así que ya la tiene cualquiera que abra la
+aplicación. Pedirla como variable solo añadía un paso de configuración y un modo
+de fallo.
 
 Lo que hay que saber antes: **los Secrets de Actions protegen de quien MIRA el
 repositorio, no de quien puede ESCRIBIR en él.** Cualquiera con permiso de

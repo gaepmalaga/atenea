@@ -71,7 +71,13 @@ jobs:
     timeout-minutes: 330
 
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      # La URL del proyecto va AQUÍ, en claro, y no en un secret ni en una
+      # variable: `NEXT_PUBLIC_` significa que Next la mete en el bundle del
+      # navegador, así que ya la tiene cualquiera que abra la aplicación. No
+      # hay nada que proteger, y pedirla como variable solo añadía un paso de
+      # configuración y un modo de fallo — que es justo lo que pasó.
+      # `vars` la puede sobrescribir, por si algún día apunta a otro proyecto.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://ecupmlqimmpybbrlrmpx.supabase.co' }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       CUENTA_PRUEBA_PASSWORD: ${{ secrets.CUENTA_PRUEBA_PASSWORD }}
@@ -91,7 +97,7 @@ jobs:
         if: inputs.accion != 'comprobar-pdfs'
         run: |
           faltan=""
-          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL(Variables)"
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
           if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ]; then
             [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
