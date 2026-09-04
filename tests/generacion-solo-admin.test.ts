@@ -51,12 +51,36 @@ describe('solo el administrador gasta en IA', () => {
     expect(src).toMatch(/preguntasQueFaltan/);
   });
 
-  it('pedir una ficha no llama al modelo', () => {
-    // `generateFlashcard` conserva el nombre por compatibilidad con quien la
-    // importa, pero ya no genera: sirve del banco compartido.
+  it('pedir una ficha COMO ALUMNO no llama al modelo', () => {
+    // La comprobacion es sobre el CUERPO de `generateFlashcard`, no sobre el
+    // fichero entero: en el mismo modulo vive ahora `seedFlashcardBank`, que
+    // SI llama al modelo y debe hacerlo. Prohibirlo en todo el fichero era
+    // una guarda mal apuntada — vigilaba el sitio en vez de la ruta.
     const src = sinComentarios(leer('app/actions/flashcards.ts'));
-    expect(src).not.toMatch(/generateContent/);
-    expect(src).toMatch(/flashcard_bank/);
+    const desde = src.indexOf('export async function generateFlashcard');
+    const hasta = src.indexOf('export async function saveFlashcardProgress');
+    expect(desde).toBeGreaterThan(-1);
+    expect(hasta).toBeGreaterThan(desde);
+    const cuerpo = src.slice(desde, hasta);
+    expect(cuerpo).not.toMatch(/generateContent/);
+    expect(cuerpo).toMatch(/flashcard_bank/);
+  });
+
+  it('sembrar fichas exige requireAdmin', () => {
+    const src = sinComentarios(leer('app/actions/flashcards.ts'));
+    const desde = src.indexOf('export async function seedFlashcardBank');
+    expect(desde).toBeGreaterThan(-1);
+    const cabecera = src.slice(desde, desde + 600);
+    expect(cabecera).toMatch(/requireAdmin\(\)/);
+    expect(cabecera).not.toMatch(/requireUser\(\)/);
+  });
+
+  it('sembrar fichas tiene un tope por lote', () => {
+    // Cada ficha es una llamada de pago: un cero de mas en el formulario no
+    // puede convertirse en cinco mil llamadas.
+    const src = sinComentarios(leer('app/actions/flashcards.ts'));
+    expect(src).toMatch(/MAX_FICHAS_LOTE/);
+    expect(src).toMatch(/Math\.min\(MAX_FICHAS_LOTE/);
   });
 
   it('el progreso de una ficha guarda de QUÉ ficha del banco sale', () => {

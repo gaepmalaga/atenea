@@ -1,8 +1,11 @@
 'use server'
 import { supabaseAdmin as supabase, flashcardModel, getSubjectIdByName, getSubjectNameById } from './core';
 import { parseAIJson, validateFlashcard, randomContextWindow } from '../lib/ai-output';
+import { buildFlashcardPrompt } from '../lib/flashcard-prompt';
+import { flashcardHash } from '../lib/question-hash';
+import { QUESTION_STATUS } from '../lib/questions';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
-import { requireUser } from '../lib/auth';
+import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
@@ -242,4 +245,114 @@ async function recordFlashcardResult(entry: {
         next_review: entry.nextReview,
     });
     if (error) console.error('flashcard_results (no bloqueante):', error.message);
+}
+
+
+// ==========================================
+// SEMBRAR EL BANCO DE FICHAS (SOLO ADMIN)
+// ==========================================
+
+/** Tope por lote. Cada ficha es una llamada de pago a Gemini. */
+const MAX_FICHAS_LOTE = 100;
+
+/**
+ * Escribe N fichas de un tema en `flashcard_bank`.
+ *
+ * Es el gemelo de `seedQuestionBank`, y existe por lo mismo: desde que las
+ * fichas salen de un banco compartido, alguien tiene que llenarlo. El guion
+ * `npm run sembrar -- --solo-fichas` hace lo mismo desde la terminal; esto lo
+ * pone al alcance de quien lleva la academia sin pedirle una consola.
+ *
+ * Va con la clave de servicio a propósito: `flashcard_bank` es contenido
+ * compartido, tiene RLS y CERO políticas, así que con el cliente de la sesión
+ * devolvería cero filas en silencio (regla 34). Lo que lo protege es
+ * `requireAdmin`.
+ */
+export async function seedFlashcardBank(params: {
+  subjectId: number;
+  topic: string;
+  count: number;
+}) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const modulo = await requireModule('cards');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  // El tope se aplica ANTES de la cuota: pedir 5.000 fichas por un cero de más
+  // no puede llegar siquiera a intentarse.
+  const pedidas = Math.max(1, Math.min(MAX_FICHAS_LOTE, Math.floor(params.count) || 0));
+
+  const quota = await checkQuota(auth.user.id, 'seed');
+  if (!quota.ok) return { success: false as const, error: quota.error };
+
+  const { data: docs } = await supabase
+    .from('documents').select('full_text').eq('subject_id', params.subjectId).limit(5);
+  if (!docs || docs.length === 0) {
+    return { success: false as const, error: 'Ese tema no tiene documentos indexados todavía.' };
+  }
+
+  // Los anversos que ya existen viajan al prompt para que no vuelva a escribir
+  // lo mismo. La huella frena las fichas IDÉNTICAS; esto frena las parecidas,
+  // que la huella no ve.
+  const { data: previas } = await supabase
+    .from('flashcard_bank').select('front').eq('topic', params.topic).limit(30);
+  const anversos = (previas ?? []).map((f) => f.front as string);
+
+  let inserted = 0, duplicated = 0, failed = 0;
+
+  // En serie y no en paralelo: son llamadas de pago y cada ficha nueva mejora
+  // el prompt de la siguiente (se le pasa el anverso recién escrito para que
+  // no repita). En paralelo, las N saldrían todas del mismo punto de partida.
+  for (let i = 0; i < pedidas; i++) {
+    const doc = docs[Math.floor(Math.random() * docs.length)];
+    const fragmento = randomContextWindow(doc.full_text ?? '', 2500);
+    if (fragmento.trim().length < 200) { failed++; continue; }
+
+    try {
+      const r = await flashcardModel.generateContent(buildFlashcardPrompt(fragmento, anversos));
+      const parsed = parseAIJson(r.response.text());
+      const check = validateFlashcard(parsed);
+      if (!check.ok) { failed++; continue; }
+
+      const { data: fila, error } = await supabase
+        .from('flashcard_bank')
+        .upsert(
+          {
+            topic: params.topic,
+            front: check.value.front,
+            back: check.value.back,
+            card_hash: flashcardHash(params.topic, check.value.front, check.value.back),
+            status: QUESTION_STATUS.ACTIVE,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: 'card_hash', ignoreDuplicates: true },
+        )
+        .select()
+        .maybeSingle();
+
+      if (error) failed++;
+      else if (fila) { inserted++; anversos.push(check.value.front); }
+      else duplicated++;
+    } catch { failed++; }
+  }
+
+  return { success: true as const, inserted, duplicated, failed, requested: pedidas };
+}
+
+/** Cuántas fichas hay por tema. Para que el panel no siembre a ciegas. */
+export async function getFlashcardBankCounts() {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const { data, error } = await supabase
+    .from('flashcard_bank').select('topic').eq('status', QUESTION_STATUS.ACTIVE);
+  if (error) return { success: false as const, error: error.message };
+
+  const porTema: Record<string, number> = {};
+  for (const f of data ?? []) {
+    const t = (f.topic as string) ?? '';
+    porTema[t] = (porTema[t] ?? 0) + 1;
+  }
+  return { success: true as const, porTema };
 }
