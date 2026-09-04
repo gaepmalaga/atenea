@@ -14,21 +14,6 @@
  * sustituye con algo que sí se usa, porque los componentes de `ui/` son la
  * única forma de pintar una tarjeta o un botón.
  *
- * EL AIRE DEL LOGIN, TRAÍDO AQUÍ (4 sep). El login es plano: bordes en vez de
- * sombras, radios pequeños, cero degradados. Llevarlo a mano a las 35
- * pantallas sería el trabajo que este fichero existe para evitar, así que se
- * cambia AQUÍ y las 18 que ya salen de `ui/` lo siguen solas.
- *
- * Lo que se ha movido: los radios bajan un escalón (`rounded-3xl` era una
- * esquina de 24px en una tarjeta de 340px), `ELEVATION.flat` deja de tener
- * sombra —una tarjeta apoyada en el fondo no proyecta nada— y las superficies
- * separan con un borde de 2px en vez de con uno de 1 y una sombra.
- *
- * Lo que NO se ha movido, y es la decisión de fondo: la ESCALA TIPOGRÁFICA.
- * Las mayúsculas enormes del login funcionan diez segundos; el alumno mira la
- * pantalla del test cincuenta minutos. La firma viaja en los bordes y las
- * etiquetas, no en el texto que se lee (regla 43).
- *
  * LA REGLA DE ORO: la decisión responsiva se toma AQUÍ, no en la pantalla.
  * Una pantalla elige "tarjeta mediana"; cuánto encoge eso en un móvil de
  * 360px no es asunto suyo. Así, arreglar el móvil se hace una vez y vale para
@@ -45,13 +30,13 @@
  */
 export const RADIUS = {
   /** Chips, etiquetas, cosas pequeñas. */
-  sm: 'rounded-md',
+  sm: 'rounded-lg',
   /** Controles: botones, campos, opciones. */
-  md: 'rounded-lg',
+  md: 'rounded-xl sm:rounded-2xl',
   /** Tarjetas y paneles. */
-  lg: 'rounded-xl',
+  lg: 'rounded-2xl sm:rounded-3xl',
   /** Contenedores grandes (modales, pantallas completas). */
-  xl: 'rounded-xl sm:rounded-2xl',
+  xl: 'rounded-3xl sm:rounded-[2rem]',
 } as const;
 
 /**
@@ -87,19 +72,19 @@ export const GAP = {
  */
 export const ELEVATION = {
   /** Apoyada en el fondo. El de la mayoría. */
-  flat: '',
+  flat: 'shadow-sm',
   /** Separada del fondo: algo que se ha abierto o está activo. */
-  raised: 'shadow-md shadow-slate-900/5 dark:shadow-black/40',
+  raised: 'shadow-lg shadow-slate-900/5 dark:shadow-black/30',
   /** Flotando por encima de todo: modales, barras fijas. */
-  floating: 'shadow-xl shadow-slate-900/10 dark:shadow-black/60',
+  floating: 'shadow-2xl shadow-slate-900/10 dark:shadow-black/50',
 } as const;
 
 /** El borde y el fondo de una superficie, por tono. */
 export const SURFACE = {
   /** Tarjeta normal sobre el fondo de la aplicación. */
-  base: 'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800',
+  base: 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800',
   /** Un escalón por debajo: cajas dentro de una tarjeta. */
-  sunken: 'bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800',
+  sunken: 'bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800',
   /** Con la marca: lo que hay que mirar primero. */
   brand: 'bg-indigo-600 text-white border border-indigo-600',
   /** Oscura siempre, en claro y en oscuro: paneles de datos. */

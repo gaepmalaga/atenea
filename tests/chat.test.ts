@@ -24,6 +24,7 @@ import {
   documentosPorRelevancia,
   documentosQueCaben,
   MAX_CHARS_DOCUMENTOS,
+  tituloDeConversacion
 } from '../app/lib/chat';
 
 /**
@@ -671,5 +672,70 @@ describe('el documento entero se paga solo cuando el alumno elige tema', () => {
       'utf-8',
     );
     expect(ui).toMatch(/Todo el temario — respuesta más general/);
+  });
+});
+
+describe('el historial se guarda, pero no encarece la siguiente pregunta', () => {
+  /**
+   * GUARDAR Y USAR COMO CONTEXTO SON DOS COSAS DISTINTAS.
+   *
+   * Guardar es casi gratis; lo que cuesta dinero es meter el historial en el
+   * prompt. Por eso se guarda TODO y se manda MUY POCO — y el recorte lo
+   * impone el SERVIDOR, no el cliente: una Server Action es un endpoint
+   * publico y el navegador podria mandar quinientos turnos.
+   */
+  it('el modelo nunca recibe mas de MAX_HISTORY_TURNS, mande lo que mande el cliente', () => {
+    const enorme = Array.from({ length: 500 }, (_, i) => ({
+      role: (i % 2 ? 'ai' : 'user') as 'ai' | 'user',
+      content: `turno ${i}`,
+    }));
+    expect(trimHistory(enorme)).toHaveLength(MAX_HISTORY_TURNS);
+  });
+
+  it('un turno larguisimo tampoco pasa entero', () => {
+    const largo = [{ role: 'user' as const, content: 'a'.repeat(50_000) }];
+    expect(trimHistory(largo)[0].content.length).toBeLessThanOrEqual(600);
+  });
+
+  it('el titulo de la conversacion sale de la primera pregunta, cortado por palabra', () => {
+    expect(tituloDeConversacion('¿Cuántos artículos tiene la Constitución?'))
+      .toBe('¿Cuántos artículos tiene la Constitución?');
+    const largo = tituloDeConversacion('a'.repeat(20) + ' palabra ' + 'b'.repeat(80));
+    expect(largo.length).toBeLessThanOrEqual(61);
+    expect(largo.endsWith('…')).toBe(true);
+    // Sin pregunta no hay titulo vacio: la lista quedaria con una fila en
+    // blanco que no se puede pulsar porque no se ve.
+    expect(tituloDeConversacion('   ')).toBe('Consulta');
+  });
+});
+
+describe('las conversaciones son del alumno, y lo impone Postgres', () => {
+  const src = readFileSync(join(__dirname, '..', 'app', 'actions', 'chat-history.ts'), 'utf-8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('nunca usa la clave de servicio', () => {
+    // Regla 34: con `supabaseAdmin`, RLS no protege nada y la unica barrera
+    // vuelve a ser acordarse de escribir `.eq('user_id', …)` en cada consulta.
+    expect(src).not.toMatch(/supabaseAdmin/);
+    expect(src).toMatch(/createSupabaseServerClient\(\)/);
+  });
+
+  it('ninguna accion acepta un id de usuario por parametro', () => {
+    // Regla 1: una Server Action es un endpoint HTTP publico.
+    expect(src).not.toMatch(/userId\s*:\s*string/);
+    expect(src).toMatch(/requireUser\(\)/);
+  });
+
+  it('una conversacion CERRADA no aporta contexto', () => {
+    // Es lo que hace que tener historial entero no encarezca ni una pregunta.
+    expect(src).toMatch(/if \(conv\.closed_at\) return/);
+  });
+
+  it('la pregunta y la respuesta se guardan en UN solo insert', () => {
+    // En dos, una caida entre medias dejaria una pregunta sin respuesta y al
+    // releerla pareceria que Atenea no contesto.
+    const cuerpo = src.slice(src.indexOf('export async function appendTurn'));
+    expect(cuerpo).toMatch(/from\('chat_messages'\)\.insert\(\[/);
   });
 });

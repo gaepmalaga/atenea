@@ -296,6 +296,24 @@ export default function ActiveTest({
     cerrarVisita(currentIndex);
     setCurrentIndex(destino);
 
+    // ARRIBA DEL TODO AL CAMBIAR DE PREGUNTA.
+    //
+    // Sin esto, la pagina se queda donde estaba: si la pregunta anterior era
+    // larga —y las de este temario lo son— el alumno llegaba a la siguiente
+    // CON EL ENUNCIADO YA FUERA DE PANTALLA, viendo las opciones B y C sueltas
+    // y teniendo que subir a mano para saber que le estaban preguntando. En un
+    // simulacro con el reloj corriendo, eso es tiempo regalado en cada
+    // pregunta.
+    //
+    // Es el mismo fallo de la regla 37 —una aplicacion de una sola ruta no
+    // reinicia el scroll porque no hay navegacion del navegador— pero DENTRO
+    // de una pantalla: cambiar de pregunta tampoco es navegar.
+    //
+    // Sin `smooth` a proposito, igual que al cambiar de pestaña: pasar de
+    // pregunta tiene que ser instantaneo, y una animacion de scroll con el
+    // cronometro en marcha se percibe como que la aplicacion va lenta.
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+
     // El estado de diagnóstico es de la pregunta, no de la pantalla: al llegar
     // a una ya respondida y etiquetada no hay que volver a etiquetarla.
     const q = localQuestions[destino];
@@ -474,7 +492,7 @@ export default function ActiveTest({
 
     return (
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-24">
-        <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 md:p-10 border-[3px] border-slate-900 dark:border-slate-100">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 md:p-12 shadow-2xl border border-slate-100 dark:border-slate-800">
 
           <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">{topicName}</p>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6 sm:mb-8">
@@ -520,7 +538,7 @@ export default function ActiveTest({
                   key={i}
                   onClick={() => volverAlExamen(i)}
                   title={`Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${respondida ? '' : ' · en blanco'}`}
-                  className={`relative aspect-square text-xs font-black flex items-center justify-center border-2 transition-colors ${
+                  className={`relative aspect-square rounded-xl text-xs font-black flex items-center justify-center border-2 transition-all hover:scale-105 ${
                     respondida
                       ? 'bg-indigo-600 text-white border-indigo-600'
                       : 'bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-dashed border-slate-300 dark:border-slate-700'
@@ -538,14 +556,14 @@ export default function ActiveTest({
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => volverAlExamen(enBlanco[0] ?? [...marcadas][0] ?? currentIndex)}
-              className="flex-1 px-6 py-4 font-black text-sm uppercase tracking-wider border-[3px] border-slate-900 dark:border-slate-100 text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-4 rounded-xl font-black text-sm border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-400 transition-colors flex items-center justify-center gap-2"
             >
               <ArrowLeft size={16} />
               {pendientes > 0 ? 'Volver a las pendientes' : 'Volver al examen'}
             </button>
             <button
               onClick={handleFinish}
-              className="flex-1 px-6 py-4 font-black text-sm uppercase tracking-wider bg-slate-900 dark:bg-white text-white dark:text-black active:translate-y-px transition-transform flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-4 rounded-xl font-black text-sm bg-slate-900 dark:bg-white text-white dark:text-black shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >
               Entregar y corregir
               <CheckCircle2 size={16} />
@@ -578,14 +596,7 @@ export default function ActiveTest({
           CADA LADO: el movil se desplazaba en horizontal y el enunciado bailaba
           al arrastrar. Medido en el banco de pruebas: -16 a 406px en una
           pantalla de 390. */}
-      <div className="sticky top-0 z-30 px-1 pt-4 pb-4 mb-6 sm:mb-8 bg-slate-50 dark:bg-slate-950 border-b-[3px] border-slate-900 dark:border-slate-100">
-        {/* El filete de la bandera, la firma que viene del login. Va arriba del
-            todo y en proporciones reales (1:2:1). */}
-        <div
-          className="h-1 -mx-1 -mt-4 mb-4"
-          style={{ background: 'linear-gradient(to right,#c60b1e 0 22%,#ffc400 22% 78%,#c60b1e 78% 100%)' }}
-          aria-hidden
-        />
+      <div className="sticky top-0 z-30 px-1 pt-4 pb-4 mb-6 sm:mb-8 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
 
           {/* Antes era una sola fila con tres grupos (Abortar / tema+modo /
               reloj+contador) peleando por sitio: en un movil de 360px no
@@ -792,15 +803,10 @@ export default function ActiveTest({
       <div className="min-h-[45dvh] sm:min-h-[calc(100dvh-15rem)] flex flex-col justify-center">
 
       {/* TARJETA DE PREGUNTA */}
-      {/* PLANA Y CON BORDE, no flotando sobre una sombra índigo.
-          La firma del login son cuatro cosas y esta es la primera: separar con
-          un borde en vez de con una sombra de color. Se lee igual de bien con
-          el móvil al 20 % de brillo, que es como se estudia de noche. */}
-      <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 md:p-10 border-[3px] border-slate-900 dark:border-slate-100 relative overflow-hidden group/card">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 md:p-12 rounded-2xl sm:rounded-3xl shadow-2xl shadow-indigo-500/10 border border-slate-100 dark:border-slate-800 relative overflow-hidden group/card">
           
           {/* Marca de agua decorativa */}
-          {/* El orbe difuminado de aquí se ha quitado: era decoración pura y
-              contradice lo plano. */}
+          <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
           {/* TOOLBAR DE CALIDAD */}
           {/* Solo si la pregunta tiene fila en la base de datos: sin id, votar o
@@ -840,13 +846,7 @@ export default function ActiveTest({
              )}
           </div>
 
-          {/* EL ENUNCIADO BAJA DE PESO A PROPÓSITO.
-              Es el texto que el alumno mira cincuenta minutos seguidos, y
-              `font-black` a 20px durante ese rato cansa. La firma del login
-              vive en los bordes, las etiquetas y el filete; la zona que se LEE
-              se deja tranquila. Es la misma lección que el prompt del chat:
-              lo que impresiona en una lectura, en la décima estorba. */}
-          <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-6 sm:mb-10 leading-snug relative z-10">
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-6 sm:mb-10 leading-snug relative z-10">
               {currentQ.question}
           </h3>
 
@@ -862,10 +862,10 @@ export default function ActiveTest({
                       else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 opacity-60";
                       else style = "border-slate-100 dark:border-slate-800 opacity-40";
                   } else if (isSelected) {
-                      // El rojo de la bandera como acento, plano y sin
-                      // agrandar la opción: el `scale` movía las de abajo cada
-                      // vez que se cambiaba de respuesta.
-                      style = "border-[#c60b1e] bg-[#c60b1e] text-white";
+                      // SIN `scale`: agrandar la opcion elegida empujaba a las
+                      // de abajo, asi que cada vez que el alumno cambiaba de
+                      // respuesta la lista se movia bajo su dedo.
+                      style = "border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-600/30";
                   }
 
                   return (
@@ -874,11 +874,11 @@ export default function ActiveTest({
                           data-opcion={opt.id}
                           onClick={() => handleAnswer(opt.id)}
                           disabled={mode === 'practice' && isAnswered}
-                          className={`w-full text-left p-4 sm:p-5 border-[3px] font-bold transition-colors duration-150 flex items-start gap-3 sm:gap-4 group ${style}`}
+                          className={`w-full text-left p-4 sm:p-5 rounded-2xl border-2 font-bold transition-all duration-200 flex items-start gap-3 sm:gap-4 group ${style}`}
                       >
                           {/* La letra hace de tecla: es el atajo, no un adorno.
                               Con borde de teclado para que se lea como tal. */}
-                          <kbd className={`w-7 h-7 flex items-center justify-center text-[11px] font-black uppercase border-b-2 flex-shrink-0 mt-0.5 transition-colors ${
+                          <kbd className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black uppercase border-b-2 flex-shrink-0 mt-0.5 transition-colors ${
                             isSelected || (mode === 'practice' && isCorrectOpt && isAnswered)
                               ? 'border-transparent bg-white/25 text-current'
                               : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-500 group-hover:border-indigo-400 group-hover:text-indigo-500'
@@ -922,8 +922,8 @@ export default function ActiveTest({
       {mode === 'practice' && isAnswered && (
           <div className="mt-6 animate-in slide-in-from-bottom-4 fade-in duration-500">
               {isCorrect ? (
-                  <div className="bg-emerald-600 text-white p-5 sm:p-6 border-[3px] border-emerald-800 flex items-start gap-4 relative overflow-hidden">
-                      <div className="p-3 bg-white/20"><CheckCircle2 size={28} /></div>
+                  <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg flex items-start gap-4 relative overflow-hidden">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><CheckCircle2 size={28} /></div>
                       <div className="relative z-10">
                           <p className="font-black text-lg uppercase tracking-wide">¡Correcto!</p>
                           <p className="text-emerald-50 font-medium mt-1 leading-relaxed text-sm opacity-90">{currentQ.explanation}</p>
@@ -939,7 +939,7 @@ export default function ActiveTest({
                       </div>
                   </div>
               ) : (
-                  <div className="bg-white dark:bg-slate-900 border-[3px] border-[#c60b1e] p-5 sm:p-6">
+                  <div className="bg-white dark:bg-slate-900 border-2 border-red-100 dark:border-red-900/30 p-6 rounded-3xl shadow-xl">
                       <div className="flex items-start gap-4 mb-6">
                           <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl"><XCircle size={28} /></div>
                           <div>
@@ -991,7 +991,7 @@ export default function ActiveTest({
       {/* ================= PIE ================= */}
       {/* Fijo abajo: el boton de avanzar no deberia obligar a buscar con el
           raton ni a hacer scroll cuando el enunciado es largo. */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-slate-50 dark:bg-slate-950 border-t-[3px] border-slate-900 dark:border-slate-100">
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-slate-50/85 dark:bg-slate-950/85 backdrop-blur-xl border-t border-slate-200/70 dark:border-slate-800/70">
           <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
 
               {/* La pista de atajos, visible pero discreta. Un atajo que nadie
@@ -1049,7 +1049,7 @@ export default function ActiveTest({
                   <button
                     onClick={handleNext}
                     disabled={!puedeAvanzar}
-                    className="ml-auto bg-slate-900 dark:bg-white text-white dark:text-black px-8 py-4 font-black text-sm uppercase tracking-wider active:translate-y-px transition-transform disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-3"
+                    className="ml-auto bg-slate-900 dark:bg-white text-white dark:text-black px-8 py-3.5 rounded-xl font-black text-sm shadow-xl hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed flex items-center gap-3"
                   >
                       {/* En el simulacro la última NO entrega: lleva al
                           resumen. Decir "FINALIZAR" donde se abre una revisión

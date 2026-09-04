@@ -383,3 +383,41 @@ describe('el reloj y la revision del simulacro', () => {
     expect(manager).toMatch(/settings\.mode === 'exam' \? examDurationSeconds/);
   });
 });
+
+describe('al cambiar de pregunta se ve el enunciado', () => {
+  /**
+   * SIN ESTO, EL ALUMNO LLEGABA A LA PREGUNTA SIGUIENTE CON EL ENUNCIADO YA
+   * FUERA DE PANTALLA.
+   *
+   * La pagina se queda donde estaba al cambiar de pregunta, porque cambiar de
+   * pregunta no es navegar. Con una pregunta larga —y las de este temario lo
+   * son— se aterrizaba viendo las opciones B y C sueltas, sin saber que se
+   * preguntaba, y habia que subir a mano. Con el cronometro en marcha, eso es
+   * tiempo regalado en CADA pregunta.
+   *
+   * Es la regla 37 aplicada dentro de una pantalla.
+   */
+  const src = readFileSync(
+    join(__dirname, '..', 'app', 'components', 'student', 'modules', 'exams', 'ActiveTest.tsx'),
+    'utf-8',
+  ).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('`irA` sube al principio', () => {
+    const cuerpo = src.slice(src.indexOf('const irA'), src.indexOf('const irA') + 1400);
+    expect(cuerpo).toMatch(/window\.scrollTo\(\{\s*top:\s*0/);
+  });
+
+  it('el scroll NO es suave', () => {
+    // Pasar de pregunta tiene que ser instantaneo: una animacion de scroll con
+    // el cronometro corriendo se percibe como que la aplicacion va lenta.
+    const cuerpo = src.slice(src.indexOf('const irA'), src.indexOf('const irA') + 1400);
+    expect(cuerpo).not.toMatch(/behavior:\s*'smooth'/);
+  });
+
+  it('la opcion elegida no empuja a las de abajo', () => {
+    // `scale` sobre la opcion marcada movia la lista bajo el dedo del alumno
+    // cada vez que cambiaba de respuesta.
+    const opciones = src.slice(src.indexOf('let style ='), src.indexOf('let style =') + 900);
+    expect(opciones).not.toMatch(/scale-\[1\.02\]/);
+  });
+});

@@ -96,6 +96,25 @@ export function trimHistory(history: ChatTurn[]): ChatTurn[] {
     }));
 }
 
+/**
+ * El titulo de una conversacion, sacado de la primera pregunta.
+ *
+ * Se GUARDA en vez de derivarse al leer: asi renombrar una conversacion es
+ * posible sin tocar los mensajes, y una pregunta muy larga no obliga a leer el
+ * primer mensaje entero solo para pintar la lista.
+ *
+ * Corta por palabra entera y no a mitad: "La Constitucion espa..." se lee peor
+ * que "La Constitucion...".
+ */
+export function tituloDeConversacion(pregunta: string, maxChars = 60): string {
+  const limpio = pregunta.replace(/\s+/g, ' ').trim();
+  if (!limpio) return 'Consulta';
+  if (limpio.length <= maxChars) return limpio;
+  const corte = limpio.slice(0, maxChars);
+  const hueco = corte.lastIndexOf(' ');
+  return `${(hueco > maxChars / 2 ? corte.slice(0, hueco) : corte).trimEnd()}…`;
+}
+
 /** Historial en texto para el prompt. Vacio si no hay conversacion previa. */
 export function formatHistory(history: ChatTurn[]): string {
   const turns = trimHistory(history);

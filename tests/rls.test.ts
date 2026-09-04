@@ -41,6 +41,10 @@ const DEL_ALUMNO = [
   'flashcard_progress',
   'flashcard_results',
   'question_votes',
+  // El historial del chat: politica de propietario `for all`, asi que es
+  // Postgres quien impone que un alumno solo vea SUS conversaciones.
+  'chat_conversations',
+  'chat_messages',
 ];
 
 /**
@@ -59,6 +63,10 @@ const SOLO_SERVICIO = [
   'profiles',
   'module_settings',
   'ai_quota',
+  // El gasto de IA: RLS activada y CERO politicas a proposito. Es una tabla de
+  // administracion — un alumno no tiene por que leer cuanto gasta nadie, ni el
+  // mismo. Con el cliente de la sesion devolveria vacio EN SILENCIO.
+  'ai_usage',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */

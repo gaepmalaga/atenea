@@ -9,4 +9,4 @@ export * from './academy';
 export * from './training';
 export * from './interview';
 export * from './flashcards';
-export * from './chat';
+export * from './chat';export * from './chat-history';
