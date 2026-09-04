@@ -64,14 +64,29 @@ const REVISAR = () => {
   }
   // Un modulo caido deja su aviso: es el peor fallo posible y no se ve en las
   // otras comprobaciones porque la pantalla "funciona".
-  if (/Este módulo ha fallado|ha fallado al cargar/i.test(document.body.innerText)) {
+  // El texto exacto de `ModuleErrorBoundary`. Lo tenia mal ("ha fallado") y
+  // por eso una pantalla de repaso que reventaba entera se contaba como
+  // "0 problemas de interfaz": el detector buscaba unas palabras que el aviso
+  // no dice.
+  if (/no se ha podido cargar/i.test(document.body.innerText)) {
     out.push('EL MÓDULO SE HA CAÍDO (ModuleErrorBoundary)');
   }
   return [...new Set(out)].slice(0, 10);
 };
 
-const mira = async (page, donde) => {
+/** Los errores de consola se VACIAN en cada mirada: `window` se reinicia en
+ *  cada navegacion, asi que si se leen solo al final se pierden los de todas
+ *  las pantallas menos la ultima. */
+const mira = async (page, donde, fallosJS) => {
   for (const p of await page.evaluate(REVISAR)) anota(`${donde}: ${p}`);
+  if (!fallosJS) return;
+  const errores = await page.evaluate(() => {
+    const w = window;
+    const v = w.__errores ?? [];
+    w.__errores = [];
+    return v;
+  });
+  for (const e of errores) if (!e.includes('404')) fallosJS.push(`${donde}: ${e}`);
 };
 
 // Las cinco de la barra + las del cajon "Más".
@@ -96,7 +111,31 @@ const ADMIN = [
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const fallosJS = [];
   page.on('pageerror', (e) => fallosJS.push('pageerror: ' + e.message));
-  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('404')) fallosJS.push(m.text()); });
+  // El texto de un `console.error` con formato ("%o", "%s") no se puede sacar
+  // desde fuera: `m.text()` devuelve la PLANTILLA y los handles ya estan
+  // liberados cuando se intenta resolverlos. El recorrido decia "2 fallos de
+  // JavaScript" y los imprimia como "%o" y "%s", que no sirve de nada.
+  // Se envuelve `console.error` DENTRO de la pagina, antes de que cargue nada,
+  // y se formatea alli.
+  await page.addInitScript(() => {
+    const w = window;
+    w.__errores = [];
+    const original = console.error;
+    console.error = (...args) => {
+      try {
+        let i = 1;
+        const texto = typeof args[0] === 'string' && /%[sdifoOc]/.test(args[0])
+          ? args[0].replace(/%[sdifoOc]/g, () => {
+              const v = args[i++];
+              return typeof v === 'string' ? v : (() => { try { return JSON.stringify(v); } catch { return String(v); } })();
+            })
+          : args.map((v) => (typeof v === 'string' ? v : String(v))).join(' ');
+        w.__errores.push(texto);
+      } catch { /* nunca romper la pagina por registrar un error */ }
+      original.apply(console, args);
+    };
+  });
+
   page.on('dialog', (d) => d.accept());
 
   console.log('\n=== ALUMNO ===');
@@ -121,7 +160,7 @@ const ADMIN = [
     await page.waitForTimeout(1400);
     console.log(`\n--- ${etiqueta} ---`);
     await page.screenshot({ path: `${TOMAS}/${fichero}.png`, fullPage: true });
-    await mira(page, etiqueta);
+    await mira(page, etiqueta, fallosJS);
   }
 
   // --- LAS SUBPANTALLAS QUE NO SON UNA PESTAÑA ---
@@ -142,7 +181,7 @@ const ADMIN = [
     await page.waitForTimeout(1100);
     console.log(`\n--- Prueba: ${prueba} ---`);
     await page.screenshot({ path: `${TOMAS}/a-prueba-${prueba.toLowerCase()}.png`, fullPage: true });
-    await mira(page, 'Prueba ' + prueba);
+    await mira(page, 'Prueba ' + prueba, fallosJS);
     const volver = page.locator('button', { hasText: /Volver a las pruebas/ }).first();
     if (await volver.count()) { await volver.click(); await page.waitForTimeout(1000); }
     else anota(`${prueba}: no hay forma de volver a las pruebas`);
@@ -159,7 +198,7 @@ const ADMIN = [
     await page.waitForTimeout(1200);
     console.log('\n--- Sala de voz ---');
     await page.screenshot({ path: `${TOMAS}/a-sala-voz.png`, fullPage: true });
-    await mira(page, 'Sala de voz');
+    await mira(page, 'Sala de voz', fallosJS);
   } else {
     anota('Sala de voz: no se encuentra el boton de iniciar simulacion');
   }
@@ -174,8 +213,9 @@ const ADMIN = [
     await page.waitForTimeout(1300);
     console.log(`\n--- Admin · ${etiqueta} ---`);
     await page.screenshot({ path: `${TOMAS}/${fichero}.png`, fullPage: true });
-    await mira(page, 'Admin · ' + etiqueta);
+    await mira(page, 'Admin · ' + etiqueta, fallosJS);
   }
+
 
   console.log('\n=== RESUMEN ===');
   console.log('fallos de JavaScript: ' + fallosJS.length);

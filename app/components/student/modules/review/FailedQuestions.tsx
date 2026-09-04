@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshCw, Target, Brain, BookX, AlertTriangle, Eye,
-  CheckCircle2, ChevronDown, Layers, Repeat, Scale,
+  CheckCircle2, ChevronDown, Layers, Repeat, Scale, Crosshair,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getFailedQuestions } from '@/actions';
@@ -11,6 +11,7 @@ import { indexToOptionId } from '@/app/lib/questions';
 import type { FailedQuestion } from '@/app/lib/review';
 import { ERROR_LABELS } from '@/app/lib/stats';
 import QuestionNote from '../../QuestionNote';
+import { Button } from '../../../ui';
 
 /**
  * REPASO DE LO FALLADO.
@@ -46,7 +47,15 @@ const ERROR_META: Record<string, { label: string; icon: LucideIcon; hint: string
   },
 };
 
-export default function FailedQuestions() {
+interface FailedQuestionsProps {
+  /**
+   * Ir a hacer un test. Opcional: la academia puede tener el modulo de test
+   * apagado (P4), y entonces no se ofrece un camino que no existe.
+   */
+  onHacerTest?: () => void;
+}
+
+export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
   const [items, setItems] = useState<FailedQuestion[] | null>(null);
   const [byTopic, setByTopic] = useState<{ topic: string; count: number }[]>([]);
   const [temaFiltrado, setTemaFiltrado] = useState<string | null>(null);
@@ -101,7 +110,7 @@ export default function FailedQuestions() {
   // ningún test.
   if (lista.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-24 animate-in fade-in duration-500">
+      <div className="max-w-2xl mx-auto text-center py-16 sm:py-24 animate-in fade-in duration-500">
         <CheckCircle2 className="mx-auto text-emerald-500 mb-6" size={56} />
         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
           No hay nada que repasar
@@ -110,6 +119,16 @@ export default function FailedQuestions() {
           Aquí aparecerán las preguntas que falles, agrupadas y con el diagnóstico
           que les pusiste. Las que dejes en blanco no cuentan: no son fallos.
         </p>
+        {/* Una pantalla vacia que no dice como dejar de estarlo es un callejon
+            sin salida. El unico modo de que aqui aparezca algo es hacer un test,
+            y estaba a dos toques de distancia sin que nada lo dijera. */}
+        {onHacerTest && (
+          <div className="mt-7 flex justify-center">
+            <Button onClick={onHacerTest} icon={<Crosshair size={18} />}>
+              Hacer un test
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -120,11 +139,11 @@ export default function FailedQuestions() {
   return (
     <div className="max-w-4xl mx-auto pb-4 animate-in fade-in duration-500">
 
-      <div className="flex items-start justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
-            Tus fallos
-          </h2>
+      {/* Sin titulo propio: `Header` ya pone "REPASAR FALLOS · ANÁLISIS DE
+          FALLOS" justo encima, y debajo iba "Tus fallos" en `text-3xl`. Lo que
+          si hace falta es el recuento, que es informacion. */}
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="min-w-0">
           <p className="text-sm text-slate-500">
             {lista.length} pregunta{lista.length !== 1 ? 's' : ''} fallada{lista.length !== 1 ? 's' : ''}
             {reincidentes > 0 && (
@@ -140,7 +159,8 @@ export default function FailedQuestions() {
         <button
           onClick={cargar}
           title="Volver a cargar"
-          className="p-2.5 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Volver a cargar los fallos"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
         >
           <RefreshCw size={16} />
         </button>
@@ -148,11 +168,18 @@ export default function FailedQuestions() {
 
       {/* FILTRO POR TEMA. Ordenado por número de fallos: el tema que más duele
           va primero, que es la información y no solo un filtro. */}
+      {/* UNA FILA QUE SE ARRASTRA, no `flex-wrap`.
+
+          Los temas del CNP son frases enteras ("La Unión Europea:
+          Instituciones y Derecho derivado"), asi que cada pastilla ocupaba el
+          ancho completo: con cuatro temas eran 280px de filtro antes del primer
+          fallo, y el temario tiene 45. Ahora cada una es de una linea, se
+          recorta si hace falta y la fila se desplaza de lado. */}
       {byTopic.length > 1 && (
-        <div className="flex flex-wrap gap-2 mb-8">
+        <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">
           <button
             onClick={() => setTemaFiltrado(null)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors ${
+            className={`min-h-[44px] px-3 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors shrink-0 ${
               temaFiltrado === null
                 ? 'bg-slate-900 dark:bg-white text-white dark:text-black'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -164,7 +191,7 @@ export default function FailedQuestions() {
             <button
               key={topic}
               onClick={() => setTemaFiltrado(topic === temaFiltrado ? null : topic)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors ${
+              className={`min-h-[44px] px-3 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors ${
                 temaFiltrado === topic
                   ? 'bg-slate-900 dark:bg-white text-white dark:text-black'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -183,7 +210,13 @@ export default function FailedQuestions() {
           // Un distractor repetido dice más que el número de fallos: si cayó
           // dos veces en la MISMA opción, no es que no se lo sepa, es que esa
           // opción le convence.
-          const insiste = q.times > 1 && q.chosenIndexes.length === 1;
+          // Regla 5: nada se lee sin comprobar que esta. Estos datos llegan
+          // de una Server Action, o sea de la red: un `chosenIndexes` ausente
+          // tumbaba la pantalla ENTERA de repaso —no la tarjeta, la pantalla—
+          // y lo unico que quedaba era el aviso del ModuleErrorBoundary.
+          const marcadas = q.chosenIndexes ?? [];
+          const opciones = q.options ?? [];
+          const insiste = q.times > 1 && marcadas.length === 1;
 
           return (
             <div
@@ -227,9 +260,9 @@ export default function FailedQuestions() {
               {estaAbierta && (
                 <div className="px-6 pb-6 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="space-y-2 mb-5">
-                    {q.options.map((texto, i) => {
+                    {opciones.map((texto, i) => {
                       const esCorrecta = i === q.correctIndex;
-                      const laMarco = q.chosenIndexes.includes(i);
+                      const laMarco = marcadas.includes(i);
                       return (
                         <div
                           key={i}
@@ -252,7 +285,7 @@ export default function FailedQuestions() {
                         </div>
                       );
                     })}
-                    {q.options.length === 0 && (
+                    {opciones.length === 0 && (
                       <p className="text-sm text-slate-400 italic">
                         Las opciones ya no están disponibles.
                       </p>

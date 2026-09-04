@@ -273,7 +273,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
             {activeTab === 'review' && (
                 <ModuleErrorBoundary moduleName="Repaso de fallos">
-                    <FailedQuestions />
+                    <FailedQuestions onHacerTest={modules.test ? () => irAPestana('test') : undefined} />
                 </ModuleErrorBoundary>
             )}
 

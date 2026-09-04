@@ -149,7 +149,14 @@ export default function AdminModeration() {
             {queue.candidates.map((q) => (
                 <div key={q.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
                     <div className="flex justify-between items-start mb-3">
-                        <span className="text-[10px] font-black tracking-wider text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
+                        {/* Sin tema, sin insignia. `topic` es `subject?.title ??
+                            null`: una pregunta puede no tener tema resuelto, y
+                            entonces se pintaba una pastilla azul VACIA, que es
+                            peor que no pintar nada — parece un dato que no se ha
+                            cargado (regla 8). */}
+                        {q.topic
+                          ? <span className="text-[10px] font-black tracking-wider text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
+                          : <span className="text-[10px] font-black tracking-wider text-slate-500">Sin tema</span>}
                         <span className="text-[10px] font-mono text-slate-500">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
                     </div>
                     

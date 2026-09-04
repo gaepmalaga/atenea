@@ -92,21 +92,37 @@ export async function askAtenea(pregunta_: string) {
   });
 }
 
+/**
+ * Ojo con la FORMA: la accion de verdad devuelve `{ success, items, byTopic }`,
+ * no `{ data }`, y los campos van en camelCase porque ya han pasado por
+ * `groupFailedAttempts`. Este stub los tenia en snake_case dentro de `data`,
+ * asi que `res.items` era `undefined` y la pantalla de repaso salia SIEMPRE
+ * vacia en el banco de pruebas: nunca se llego a ver la lista de fallos, que
+ * es la pantalla entera.
+ */
 export async function getFailedQuestions() {
-  return ok({
-    data: Array.from({ length: 5 }, (_, i) => ({
-      question_id: `q-${i}`,
-      question_text: `Pregunta fallada ${i + 1}: ¿cuál es el plazo previsto en el artículo ${i + 20}?`,
-      options: ['Quince días', 'Un mes', 'Tres meses'],
-      correct_index: 1,
-      explanation: 'El plazo es de un mes desde la notificación.',
-      topic: TEMAS[i % TEMAS.length],
-      legal_reference: `Artículo ${i + 20}`,
-      times: i === 0 ? 3 : 1,
-      last_error_type: ['olvido', 'trampa', 'desconocimiento', 'fallo_procesamiento'][i % 4],
-      last_failed_at: new Date(Date.now() - i * 86400000).toISOString(),
-    })),
-  });
+  const items = Array.from({ length: 5 }, (_, i) => ({
+    questionId: `q-${i}`,
+    questionText: `Pregunta fallada ${i + 1}: ¿cuál es el plazo previsto en el artículo ${i + 20}?`,
+    options: ['Quince días', 'Un mes', 'Tres meses'],
+    correctIndex: 1,
+    explanation: 'El plazo es de un mes desde la notificación.',
+    topic: TEMAS[i % TEMAS.length],
+    legalReference: `Artículo ${i + 20}`,
+    times: i === 0 ? 3 : 1,
+    lastErrorType: ['olvido', 'trampa', 'desconocimiento', 'fallo_procesamiento'][i % 4],
+    lastFailedAt: new Date(Date.now() - i * 86400000).toISOString(),
+    // `chosenIndexes` NO es opcional en `FailedQuestion`, y sin el la
+    // pantalla de repaso reventaba entera (`chosenIndexes.length`).
+    chosenIndexes: i === 0 ? [0, 2] : [(i + 1) % 3],
+  }));
+  const conteo = new Map<string, number>();
+  for (const it of items) conteo.set(it.topic, (conteo.get(it.topic) ?? 0) + 1);
+  return {
+    success: true as const,
+    items,
+    byTopic: [...conteo].map(([topic, count]) => ({ topic, count })).sort((a, b) => b.count - a.count),
+  };
 }
 
 export async function generateFlashcard() {
@@ -157,7 +173,12 @@ export async function getAdminQuestionBank() {
 export async function getModerationQueue() {
   return ok({
     data: {
-      candidates: Array.from({ length: 2 }, (_, i) => ({ ...pregunta(i), subject_title: TEMAS[0] })),
+      // `topic`, NO `subject_title`: la accion de verdad aplana
+      // `subject.title` a `topic`, que es lo que pinta la pantalla. Con el
+      // nombre equivocado la insignia del tema salia vacia en el banco de
+      // pruebas — y de paso destapo que la pantalla pintaba una pastilla azul
+      // en blanco en vez de decir "sin tema".
+      candidates: Array.from({ length: 2 }, (_, i) => ({ ...pregunta(i), topic: TEMAS[0] })),
       reports: [{ id: 'r1', question_id: 'q-1', report_type: 'wrong_correct_answer', message: 'La respuesta buena es la C, no la B. Lo dice el artículo 14.', status: 'pending', question: pregunta(1) }],
     },
   });
