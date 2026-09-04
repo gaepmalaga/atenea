@@ -56,3 +56,7 @@ temario/fuentes/BOE-*.json
 .banco-pruebas/estilos.css
 .banco-pruebas/entrada.css
 .banco-pruebas/tomas/
+# Las maquetas SE GENERAN (`maquetas/tomar.cjs`). Lo que se guarda es el guion
+# que las dibuja, no los PNG: una imagen en el repositorio envejece sin que
+# nadie lo note y acaba enseñando algo que ya no es la pantalla.
+.banco-pruebas/maquetas/*.png
