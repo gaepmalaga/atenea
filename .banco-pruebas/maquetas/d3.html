@@ -1,0 +1,53 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>3 · Hoja</title>
+<link rel="stylesheet" href="base.css"><style>
+/* HOJA INFERIOR. Lo que hace una aplicacion movil nativa: la marca ocupa la
+   mitad de arriba y el formulario vive abajo, donde llega el pulgar. Es la
+   unica de las seis pensada para usarse con UNA mano de pie en el metro,
+   que es como se usa esto de verdad. */
+body{background:#0a0e27;color:#fff;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased}
+.pantalla{justify-content:flex-end}
+.cabecera{position:absolute;top:0;left:0;right:0;height:56%;
+  background:radial-gradient(120% 90% at 20% 10%,#3b3ff5 0%,#1e1b7a 45%,#0a0e27 100%);
+  display:flex;flex-direction:column;justify-content:center;padding:0 32px 70px}
+.chip{display:inline-flex;align-self:flex-start;align-items:center;gap:7px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);
+  padding:7px 13px;border-radius:99px;font-size:11px;font-weight:600;
+  letter-spacing:.04em;margin-bottom:20px;backdrop-filter:blur(8px)}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ade80}
+h1{font-size:44px;line-height:1.02;letter-spacing:-.035em;font-weight:800}
+.sub{margin-top:12px;font-size:15px;line-height:1.5;color:rgba(255,255,255,.68);max-width:270px}
+.hoja{position:relative;background:#fff;color:#0a0e27;border-radius:34px 34px 0 0;
+  padding:32px 26px 30px;box-shadow:0 -24px 60px rgba(0,0,0,.45)}
+.asa{width:38px;height:4px;background:#dde1ea;border-radius:99px;margin:-14px auto 24px}
+h2{font-size:21px;letter-spacing:-.02em;font-weight:800;margin-bottom:22px}
+label{display:block;font-size:12px;font-weight:700;color:#5b6478;margin-bottom:7px}
+.campo{background:#f2f4f8;border:1.5px solid #f2f4f8;border-radius:15px;
+  padding:0 15px;margin-bottom:16px;display:flex;align-items:center;gap:10px;min-height:54px}
+.campo:focus-within{border-color:#3b3ff5;background:#fff}
+.campo input{font-size:16px;min-height:26px}
+.campo input::placeholder{color:#a4acbd}
+.ojo{color:#8b93a6;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;margin-right:-11px}
+.enviar{width:100%;min-height:56px;border-radius:99px;background:#3b3ff5;color:#fff;
+  font-size:16px;font-weight:700;letter-spacing:-.01em;margin-top:10px;
+  box-shadow:0 10px 26px rgba(59,63,245,.34)}
+.alt{margin-top:20px;text-align:center;font-size:14px;color:#5b6478}
+.alt b{color:#3b3ff5}
+</style></head><body><div class="pantalla">
+  <div class="cabecera">
+    <div class="chip">898 preguntas listas</div>
+    <h1>Prepara tu<br>plaza en el<br>CNP.</h1>
+    <div class="sub">Los 45 temas del temario oficial, con tests que puntúan como el examen real.</div>
+  </div>
+  <div class="hoja"><div class="asa"></div>
+    <h2>Entrar</h2>
+    <label for="e">Correo</label>
+    <div class="campo"><input id="e" placeholder="tu@correo.com"></div>
+    <label for="c">Contraseña</label>
+    <div class="campo"><input id="c" type="password" value="12345678">
+      <button class="ojo"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+    <button class="enviar">Entrar</button>
+    <div class="alt">¿No tienes cuenta? <b>Regístrate</b></div>
+  </div>
+</div></body></html>
