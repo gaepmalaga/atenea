@@ -1,8 +1,64 @@
-# Traspaso — 30 y 31 de agosto de 2026
+# Traspaso — 30 y 31 de agosto, y 3–4 de septiembre de 2026
 
 Punto de partida para la siguiente conversación. Lo que hay que leer antes de
 tocar nada sigue siendo [`CLAUDE.md`](../CLAUDE.md); esto es sólo el estado del
 día y por qué está donde está.
+
+---
+
+## 4 de septiembre · La interfaz, usándola de verdad
+
+Hasta ahora la interfaz se corregía **a ciegas**: leyendo código, razonando
+sobre CSS y pidiendo capturas. Esta tanda empieza por montar un
+[**banco de pruebas**](BANCO-DE-PRUEBAS.md) que levanta la aplicación entera en
+un navegador de verdad, a tamaño de móvil, con las 48 Server Actions
+sustituidas por datos de prueba. Y a partir de ahí, usarla.
+
+### Lo que se rompía y no se veía
+
+| | |
+|---|---|
+| **Un examen a medias no existía en ningún sitio** hasta entregarlo. Una recarga, un Atrás o que el móvil descartara la pestaña se llevaban cuarenta minutos. | Ahora se guarda en cada respuesta y ofrece reanudarlo. Nunca solo: el reloj sigue corriendo. |
+| **Atrás salía de la aplicación.** En Android es el gesto que más se usa. | Cada pestaña deja su entrada en el historial. Con un examen abierto, pregunta. |
+| **Cada cambio de pestaña te dejaba al final de la página** — "siempre me lleva al final". La barra de pestañas vive abajo, así que pulsarla implica llevar la página bajada. | Arriba del todo al cambiar de pantalla. |
+| **El chat se borraba** al ir a mirar el temario y volver. | Sobrevive en `sessionStorage`. |
+| **De la sala de voz no se podía salir.** Sin botón y sin Atrás, y el botón de empezar se queda en "SINTONIZANDO…" si el navegador no carga las voces. | Salida siempre presente, que corta la voz y el micrófono. |
+| **El recuadro de escribir del chat quedaba 22px por debajo de la barra de pestañas.** Un `100dvh-140px` a ojo cuando eran 162. | Se mide el hueco real. Con el teclado abierto, encoge con él. |
+| **El mapa de preguntas del simulacro se podía ver pero no pulsar**: 12px de alto, 18px por segmento con 20 preguntas. | Un botón abre la cuadrícula buena, con un botón por pregunta. |
+| **La barra de progreso del examen no se había visto NUNCA**: un `<span>` es inline y un elemento inline ignora `width` y `height`. Medía 0x0. | `block`, y más contraste. |
+| **La pantalla de la nota era un callejón sin salida**: quien acababa de fallar cinco preguntas se iba con la nota sin ver ni una. | "Repasar los N fallos" va primero. |
+
+### Pantallas que nadie había mirado
+
+El banco mentía sin querer: varios stubs devolvían otra forma que la acción de
+verdad, así que la pantalla se pintaba con `undefined` y el recorrido la daba
+por buena. **La pantalla de repaso de fallos, el registro de actividad, el
+visor de fragmentos y el panel del plan de entrenamiento no se habían visto
+nunca con datos.** Al arreglarlos aparecieron: un módulo que reventaba entero
+por leer un campo sin comprobarlo, filas de 634px en una pantalla de 390, y un
+plan semanal que ocupaba 1.100px de scroll sin enseñar ni un ejercicio.
+
+Ahora las formas se comprueban **a nivel de tipos** y `npm run check` lo exige.
+
+### Lo que además se llevó por delante
+
+- **Tres módulos ponían su propia cabecera** debajo de la que ya había: entre
+  las dos, 300px de un móvil de 844 antes de llegar a nada usable.
+- **Nueve controles por debajo de los 44px táctiles**, uno de ellos el que
+  borra un documento, con el mismo aspecto que el que se pulsa a diario.
+- **Letra de 72px y de 128px fija en un móvil.** Ahora lo vigila un test.
+- **El panel de academia se arrastraba de lado** por un `min-w-0` que faltaba:
+  `truncate` no sirve de nada si el contenedor crece para no truncar.
+- **`npm run build` entra en CI.** Decía que no podía porque el prerender
+  exigía "las cuatro variables reales": exige que existan, no que sirvan. Cada
+  push a `main` despliega solo, y hasta ahora nada compilaba la aplicación
+  antes de que llegara a producción.
+
+### Lo que sigue sin verse
+
+Todo esto está medido en un navegador de verdad, pero **con datos de mentira**.
+Sigue faltando entrar como alumno en producción y hacer un test entero: es lo
+único que comprueba que lo que se guarda es lo que se lee.
 
 ---
 
