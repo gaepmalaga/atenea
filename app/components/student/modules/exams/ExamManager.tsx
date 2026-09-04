@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { generateAndSaveCandidate, saveExamResults, getQuestionsFromBank } from '@/actions';
+import { saveExamResults, getQuestionsFromBank } from '@/actions';
 import { buildExamResults } from '@/app/lib/exam-results';
 import {
   type Question as ExamQuestion,
   difficultyToNumber,
   shuffle,
   mapBankRowToQuestion,
-  mapCandidateToQuestion,
 } from '@/app/lib/questions';
 import {
   leerExamenGuardado,
@@ -17,7 +16,7 @@ import {
   EXAM_STORAGE_KEY,
   type ExamSnapshot,
 } from '@/app/lib/exam-session';
-import { Loader2, RotateCcw, Trash2, Clock } from 'lucide-react';
+import { Loader2, RotateCcw, Trash2, Clock, AlertTriangle } from 'lucide-react';
 
 import ExamConfig from './ExamConfig';
 import ActiveTest from './ActiveTest';
@@ -62,6 +61,9 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
   const [startedAt, setStartedAt] = useState<number>(0);
 
   /** Un examen a medias encontrado al abrir la pantalla. */
+  // Cuantas preguntas se han quedado sin cubrir porque el banco no llegaba.
+  // `null` es "no falta ninguna", que NO es lo mismo que 0 (regla 8).
+  const [preguntasQueFaltan, setPreguntasQueFaltan] = useState<number | null>(null);
   const [recuperable, setRecuperable] = useState<ExamSnapshot | null>(null);
 
   // --- EL SEGURO ---
@@ -134,29 +136,31 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
 
       loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
 
-      // 2. FASE IA (Relleno)
-      const missing = targetCount - loadedQuestions.length;
-      if (missing > 0) {
-        setLoadingMsg(`Generando ${missing} nuevas preguntas...`);
-        const aiPromises = Array.from({ length: missing }).map(async () => {
-          const randomTopic = newSettings.selectedTopics[Math.floor(Math.random() * newSettings.selectedTopics.length)];
-          // El tema viaja con la respuesta: hace falta para etiquetar la fila.
-          // La dificultad tambien va al relleno por IA: si no, un examen
-          // "dificil" mezclaria preguntas del nivel pedido con otras medias.
-          return { topic: randomTopic, resultado: await generateAndSaveCandidate(randomTopic, difficultyNum) };
-        });
-        const aiResults = await Promise.all(aiPromises);
-        // flatMap en vez de filter+map: `filter` no estrecha el tipo, así que
-        // una respuesta sin `data` llegaba al mapeo como undefined.
-        const newCandidates = aiResults.flatMap(({ topic, resultado }) =>
-          resultado.success && resultado.data
-            ? [{ ...mapCandidateToQuestion(resultado.data), topic }]
-            : []
+      // 2. SI EL BANCO NO LLEGA, SE DICE. NO SE GENERA.
+      //
+      // Aqui habia una "FASE IA (Relleno)": lo que faltaba se le pedia a
+      // Gemini en el momento, en paralelo, una llamada de pago por pregunta.
+      // Se ha quitado a proposito y el motivo del dinero es el menor de tres:
+      //
+      //   · El gasto lo decidia quien no lo paga. Abrir un simulacro de 100
+      //     preguntas sobre un tema vacio eran 100 llamadas de pago.
+      //   · El alumno estudiaba con preguntas SIN REVISAR, mezcladas con las
+      //     del banco y sin forma de distinguirlas.
+      //   · Cada alumno veia preguntas distintas del mismo tema, asi que
+      //     "esta pregunta la falla el 40%" dejaba de significar nada.
+      //
+      // El banco lo llena el administrador. Aqui solo se informa, que es lo
+      // honesto: un examen mas corto de lo pedido con el motivo delante es
+      // mejor que uno completo a medias de preguntas sin revisar.
+      const faltan = targetCount - loadedQuestions.length;
+
+      if (loadedQuestions.length === 0) {
+        throw new Error(
+          'No hay preguntas en el banco para los temas elegidos. Avisa a tu academia para que las añada.'
         );
-        loadedQuestions = [...loadedQuestions, ...newCandidates];
       }
 
-      if (loadedQuestions.length === 0) throw new Error("No se pudieron obtener preguntas.");
+      setPreguntasQueFaltan(faltan > 0 ? faltan : null);
 
       setRecuperable(null);
       setQuestions(loadedQuestions);
@@ -253,6 +257,22 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
 
           <ExamConfig initialSettings={settings} onStart={handleStart} />
         </>
+      )}
+
+      {step === 'active' && preguntasQueFaltan !== null && (
+        /* El banco no cubria todo lo pedido. Se dice ANTES de empezar y con
+           el numero exacto: antes esto se rellenaba con la IA y el alumno no
+           se enteraba de que la mitad del examen eran preguntas sin revisar.
+           Un examen mas corto, dicho, es mejor que uno completo a medias. */
+        <div className="mb-4 flex items-start gap-3 p-3 rounded-xl sm:rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200">
+          <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden />
+          <p className="text-sm leading-relaxed">
+            El banco solo tenía {questions.length} preguntas de los temas que has
+            elegido, así que este test es de {questions.length} y no de{' '}
+            {questions.length + preguntasQueFaltan}. La nota se calcula sobre las
+            que hay.
+          </p>
+        </div>
       )}
 
       {step === 'active' && (

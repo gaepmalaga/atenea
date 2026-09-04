@@ -9,6 +9,16 @@ import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '@/ac
 
 type CardData = {
   db_id?: string | null;
+  /**
+   * La ficha del BANCO COMPARTIDO de la que sale este repaso.
+   *
+   * Sin arrastrarlo hasta el guardado no hay forma de saber qué fichas ha
+   * visto ya el alumno, y la siguiente que se le sirviera podría ser la misma.
+   * Este tipo se escribió a mano y se quedó sin el campo cuando se añadió en
+   * el servidor: es el desajuste cliente-servidor de la regla 6, que compila
+   * tan tranquilo porque el campo sobrante se descarta en silencio.
+   */
+  card_id?: string | null;
   front: string;
   back: string;
   topic: string;
@@ -23,6 +33,9 @@ export default function FlashcardDeck() {
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [currentCard, setCurrentCard] = useState<CardData | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  // Lo que hay que contarle al alumno cuando no hay ficha que servir. `null`
+  // es "no hay nada que decir", que no es lo mismo que cadena vacia.
+  const [aviso, setAviso] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(true);
 
@@ -37,22 +50,32 @@ export default function FlashcardDeck() {
     });
   }, []);
 
-  // 2. GENERAR TARJETA
+  // 2. PEDIR LA SIGUIENTE FICHA DEL BANCO
+  //
+  // Ya no se genera nada aqui: la ficha sale del banco compartido que siembra
+  // el administrador. Los dos finales legitimos —"este tema aun no tiene
+  // fichas" y "ya las has visto todas"— NO son errores, y por eso dejan de
+  // salir en un `alert()` del navegador: uno pide avisar a la academia y el
+  // otro es una buena noticia. Un cuadro de alerta del sistema para decirle a
+  // alguien que va bien es exactamente el ruido que ensena a cerrar avisos sin
+  // leerlos.
   const loadNextCard = async () => {
     if (!selectedTopic) return;
     setLoading(true);
     setIsFlipped(false);
     setCurrentCard(null);
+    setAviso(null);
 
     try {
       const res = await generateFlashcard(selectedTopic);
       if (res.success && res.data) {
         setCurrentCard(res.data);
       } else {
-        alert("Error: " + (('error' in res && res.error) || "Inténtalo de nuevo."));
+        setAviso(('error' in res && res.error) || 'No se ha podido cargar la ficha.');
       }
     } catch (e) {
       console.error(e);
+      setAviso('No se ha podido cargar la ficha. Comprueba tu conexión.');
     } finally {
       setLoading(false);
     }
@@ -78,8 +101,11 @@ export default function FlashcardDeck() {
       }
 
       const res = await generateFlashcard(selectedTopic);
-      if (res.success && res.data) setCurrentCard(res.data);
-      else setCurrentCard(null);
+      if (res.success && res.data) { setCurrentCard(res.data); setAviso(null); }
+      else {
+        setCurrentCard(null);
+        setAviso(('error' in res && res.error) || null);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -142,7 +168,14 @@ export default function FlashcardDeck() {
         {!currentCard && !loading ? (
             <div className="w-full h-full bg-slate-100 dark:bg-slate-900/50 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl flex flex-col items-center justify-center text-center p-8">
                 <Brain size={48} className="text-slate-300 mb-4"/>
-                <h3 className="text-lg font-bold text-slate-500 mb-2">Listo para entrenar</h3>
+                <h3 className="text-lg font-bold text-slate-500 mb-2">
+                  {aviso ? 'Nada que repasar ahora' : 'Listo para entrenar'}
+                </h3>
+                {aviso && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-4 max-w-xs">
+                    {aviso}
+                  </p>
+                )}
                 {/* "Iniciar sesión" NO. En una aplicacion en la que se entra
                     con correo y contraseña, ese texto significa otra cosa: el
                     boton que empieza un repaso de tarjetas decia literalmente

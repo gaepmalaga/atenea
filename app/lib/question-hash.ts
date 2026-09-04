@@ -35,3 +35,21 @@ export function questionHash(subjectId: number, question: string, correctIndex: 
   });
   return crypto.createHash('sha256').update(payload).digest('hex');
 }
+
+/**
+ * La huella de una ficha del banco.
+ *
+ * Vive en el MISMO sitio que la de las preguntas y por el mismo motivo
+ * (regla 27): en cuanto hay más de un camino de escritura, dos huellas
+ * calculadas distinto meten la misma ficha dos veces y el alumno se la
+ * encuentra repetida. Hoy el camino es uno —el guion de siembra— y justo por
+ * eso conviene fijarlo antes de que sean dos.
+ *
+ * Entra el TEMA además del anverso porque la misma pregunta ("¿Cuál es el
+ * plazo?") es una ficha legítimamente distinta en dos temas distintos.
+ */
+export function flashcardHash(topic: string, front: string, back: string): string {
+  return crypto.createHash('sha256')
+    .update(`${topic.trim().toLowerCase()}|${front.trim().toLowerCase()}|${back.trim().toLowerCase()}`)
+    .digest('hex');
+}

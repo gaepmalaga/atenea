@@ -196,8 +196,30 @@ function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
   };
 }
 
+/**
+ * Genera UNA pregunta con la IA y la guarda como candidata.
+ *
+ * SOLO ADMINISTRACION, y eso es un cambio deliberado.
+ *
+ * Antes la llamaba el alumno: cuando el banco no tenia suficientes preguntas
+ * de los temas elegidos, la pantalla del examen pedia a Gemini las que
+ * faltaban, en paralelo y sin avisar de nada. Tres problemas, y el del dinero
+ * era el menor:
+ *
+ *   1. El gasto lo decidia quien no lo paga. Un alumno que abriera un examen
+ *      de 100 preguntas sobre un tema vacio disparaba 100 llamadas de pago.
+ *   2. Se estudiaba con preguntas SIN REVISAR. Una candidata no ha pasado por
+ *      moderacion; el `validateGeneratedQuestion` filtra lo que esta roto, no
+ *      lo que esta mal. El alumno no distinguia unas de otras.
+ *   3. Cada alumno recibia preguntas distintas para el mismo tema, asi que
+ *      "el 40% falla esta pregunta" (el panel de academia) dejaba de
+ *      significar nada.
+ *
+ * El banco lo llena el administrador, con `npm run sembrar` o desde el panel.
+ * Si un tema se queda corto, la pantalla del examen lo DICE en vez de gastar.
+ */
 export async function generateAndSaveCandidate(topicNameOrId: string | number, difficulty?: number) {
-  const auth = await requireUser();
+  const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   const modulo = await requireModule('test');

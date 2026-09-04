@@ -9,6 +9,16 @@ import { createSupabaseServerClient } from '../lib/supabase/server';
 
 /** Tarjeta que devuelve la UI al puntuarla. */
 export type FlashcardInput = {
+  /**
+   * La ficha del banco de la que sale este repaso.
+   *
+   * Es lo que permite saber que tarjetas del banco ha visto ya el alumno para
+   * poder servirle la siguiente. La columna existia en `flashcard_progress`
+   * desde el principio y NO SE ESCRIBIA NUNCA; sin ella, el banco compartido
+   * no puede funcionar. Sigue siendo opcional porque las filas anteriores a
+   * esto no la tienen.
+   */
+  card_id?: string | null;
     /** Id de la fila de `flashcard_progress` si es un repaso. */
     db_id?: string | null;
     front: string;
@@ -66,6 +76,7 @@ export async function generateFlashcard(topicNameOrId: string | number) {
             success: true as const,
             data: {
                 db_id: card.id,
+                card_id: card.card_id ?? null,
                 front: card.front,
                 back: card.back,
                 topic: card.topic ?? topicName,
@@ -76,37 +87,70 @@ export async function generateFlashcard(topicNameOrId: string | number) {
         };
     }
 
-    const { data: docs } = await supabase.from('documents')
-        .select('full_text').eq('subject_id', subjectId).limit(5);
-    
-    if (!docs || docs.length === 0) return { success: false, error: "Tema vacío." };
+    // NO SE GENERA NADA AQUI. La ficha sale del BANCO COMPARTIDO.
+    //
+    // Antes, cuando el alumno no tenia ninguna tarjeta que repasar, esta
+    // accion le pedia una nueva a Gemini: una llamada de pago por tarjeta,
+    // decidida por quien no paga la factura, y una tarjeta distinta para cada
+    // alumno del mismo tema. Ahora las escribe el administrador una vez
+    // (`npm run sembrar -- --fichas`) y las repasan todos.
+    //
+    // El esquema ya estaba preparado para esto desde el principio y nadie lo
+    // habia usado: `flashcard_bank` existia con `card_hash` y `status`, y
+    // `flashcard_progress` tenia una columna `card_id` que NO SE ESCRIBIA
+    // NUNCA. Sin ella no habia forma de saber que tarjetas del banco ya ha
+    // visto un alumno, que es justo lo que hace falta para servir la
+    // siguiente.
+    //
+    // Se lee con la clave de servicio: `flashcard_bank` es contenido
+    // compartido y tiene RLS sin politicas, asi que con la sesion del alumno
+    // devolveria cero filas en silencio (regla 34).
+    const { data: vistas } = await db.from('flashcard_progress')
+        .select('card_id')
+        .eq('user_id', userId)
+        .eq('topic', topicName)
+        .not('card_id', 'is', null);
 
-    const doc = docs[Math.floor(Math.random() * docs.length)];
-    // Ventana ALEATORIA del documento. Antes era siempre `substring(0, 2500)`:
-    // los mismos 2500 primeros caracteres del mismo tema una y otra vez, así que
-    // repasar producía tarjetas prácticamente idénticas.
-    const textSlice = randomContextWindow(doc.full_text ?? '', 2500);
-    if (textSlice.trim().length < 200) return { success: false as const, error: "Texto insuficiente en el tema." };
+    const yaVistas = (vistas ?? []).map(v => v.card_id).filter(Boolean);
 
-    const prompt = `
-      Genera UNA flashcard de estudio a partir de este fragmento de temario.
-      El anverso es una pregunta breve o un concepto; el reverso, el dato exacto.
-      No repitas el enunciado en la respuesta.
+    let consulta = supabase.from('flashcard_bank')
+        .select('id, front, back, topic')
+        .eq('topic', topicName)
+        .eq('status', 'active')
+        .limit(1);
+    if (yaVistas.length > 0) consulta = consulta.not('id', 'in', `(${yaVistas.join(',')})`);
 
-      FRAGMENTO: """${textSlice}"""
-    `;
+    const { data: nuevas, error: errorBanco } = await consulta;
+    if (errorBanco) return { success: false as const, error: errorBanco.message };
 
-    const result = await flashcardModel.generateContent(prompt);
-    const parsed = parseAIJson(result.response.text());
-    if (!parsed) return { success: false as const, error: "La IA no devolvió un JSON legible." };
+    if (!nuevas || nuevas.length === 0) {
+        // Se distinguen los dos casos, porque piden cosas distintas del
+        // alumno: si no hay NINGUNA ficha del tema, falta sembrar; si las ha
+        // visto todas, es que va bien y le toca esperar al repaso.
+        const { count } = await supabase.from('flashcard_bank')
+            .select('id', { count: 'exact', head: true })
+            .eq('topic', topicName).eq('status', 'active');
 
-    const check = validateFlashcard(parsed);
-    if (!check.ok) {
-      console.error("Flashcard descartada:", check.reason);
-      return { success: false as const, error: `Tarjeta descartada: ${check.reason}` };
+        return {
+            success: false as const,
+            error: (count ?? 0) === 0
+                ? 'Este tema todavía no tiene fichas. Avisa a tu academia para que las añada.'
+                : 'Ya has visto todas las fichas de este tema. Vuelve cuando toque repasarlas.',
+        };
     }
 
-    return { success: true as const, data: { ...check.value, subjectId, topic: topicName, isReview: false } };
+    const ficha = nuevas[0];
+    return {
+        success: true as const,
+        data: {
+            card_id: ficha.id,
+            front: ficha.front,
+            back: ficha.back,
+            topic: ficha.topic ?? topicName,
+            subjectId,
+            isReview: false,
+        },
+    };
 
   } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
@@ -130,6 +174,7 @@ export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'f
         // `flashcard_results`, que es otra tabla, si lo guarda.
         const payload = {
             user_id: userId,
+            card_id: cardData.card_id ?? null,
             front: cardData.front,
             back: cardData.back,
             box: newBox,

@@ -16,6 +16,12 @@ body{background:var(--bg);color:var(--tx);
 .cinta{background:var(--tx);color:var(--bg);padding:11px 20px;font-size:11px;font-weight:800;
   letter-spacing:.16em;display:flex;justify-content:space-between}
 .cinta span:last-child{color:var(--ac)}
+/* El filete de la bandera, en proporciones reales (1:2:1). En el brutalista
+   es mas grueso que en el HUD —6px— porque aqui TODO es grueso: un filete
+   fino al lado de un titular de 58px y bordes de 3px se veria como un error
+   de impresion, no como una decision. */
+.bandera{height:6px;background:linear-gradient(to right,
+  var(--rojo) 0 22%, var(--oro) 22% 78%, var(--rojo) 78% 100%)}
 .cuerpo{flex:1;padding:34px 20px;display:flex;flex-direction:column}
 h1{font-size:58px;line-height:.88;letter-spacing:-.055em;font-weight:900;text-transform:uppercase}
 .marca{background:var(--ac);color:var(--acx);display:inline-block;padding:0 7px;margin-left:-7px}
@@ -35,17 +41,25 @@ label{display:block;font-size:11px;font-weight:900;letter-spacing:.14em;
 .alt{margin-top:auto;padding-top:30px;font-size:13px;font-weight:700;color:var(--tx2)}
 .alt b{background:var(--ac);color:var(--acx);padding:2px 5px}
 
-/* A · BLANCO Y NEGRO CON INDIGO. El indigo es el de la plataforma; el resto
-      es tinta. El contraste maximo del brutalismo, sin el amarillo. */
-body.a{--bg:#fff;--tx:#000;--tx2:#000;--ac:#4f46e5;--acx:#fff;--pl:#8c8c8c;--bt:#000;--btx:#fff}
-/* B · MARINO SOBRE HUESO. La misma fuerza, bajada un tono: en vez de negro
-      puro, el azul del cuerpo sobre papel. Menos agresivo a la vista. */
-body.b{--bg:#f7f4ee;--tx:#0f2745;--tx2:#0f2745;--ac:#1d4ed8;--acx:#fff;--pl:#8d99a8;--bt:#0f2745;--btx:#f7f4ee}
-/* C · BRUTALISTA OSCURO. La misma estructura en negativo. Es la que encaja
-      con el resto de la plataforma, que es oscura, sin dejar de ser plana. */
-body.c{--bg:#0b0d10;--tx:#fff;--tx2:#a8b0bd;--ac:#6366f1;--acx:#fff;--pl:#4a515e;--bt:#fff;--btx:#0b0d10}
+body{--rojo:#c60b1e;--oro:#ffc400}
+
+/* A · BANDERA SOBRE NEGRO. El rojo de la bandera donde estaba el amarillo.
+      El contraste maximo del brutalismo, en los colores del pais. */
+body.a{--bg:#0b0d10;--tx:#fff;--tx2:#aab2be;--ac:#c60b1e;--acx:#fff;--pl:#4a515e;--bt:#fff;--btx:#0b0d10}
+
+/* B · ORO SOBRE NEGRO. El otro color de la bandera, y el que menos choca
+      con los rojos y verdes que el resto de la aplicacion ya usa para
+      aciertos y fallos. El resaltado en oro se lee mejor que el rojo sobre
+      negro, que a este tamaño vibra. */
+body.b{--bg:#0b0d10;--tx:#fff;--tx2:#aab2be;--ac:#ffc400;--acx:#0b0d10;--pl:#4a515e;--bt:#ffc400;--btx:#0b0d10}
+
+/* C · ROJO SOBRE HUESO. La version en claro: papel, tinta marino y el rojo
+      de la bandera. Es la que menos cansa de las tres y la unica que se
+      puede imprimir. */
+body.c{--bg:#f7f4ee;--tx:#111820;--tx2:#3d4a5a;--ac:#c60b1e;--acx:#fff;--pl:#8d99a8;--bt:#111820;--btx:#f7f4ee}
 </style></head><body><div class="pantalla">
   <div class="cinta"><span>ATENEA POLICIAL</span><span>POLICÍA NACIONAL</span></div>
+  <div class="bandera"></div>
   <div class="cuerpo">
     <h1>Entra<br>y <span class="marca">saca</span><br>tu plaza</h1>
     <div class="sub">El temario oficial completo, con tests que puntúan como la convocatoria: cada dos fallos, un acierto menos.</div>

@@ -43,10 +43,11 @@ import { config } from 'dotenv';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 
 import { cleanLegalText, chunkDocument } from '../../app/lib/text.ts';
-import { questionHash } from '../../app/lib/question-hash.ts';
-import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../../app/lib/ai-output.ts';
+import { questionHash, flashcardHash } from '../../app/lib/question-hash.ts';
+import { parseAIJson, validateGeneratedQuestion, validateFlashcard, randomContextWindow } from '../../app/lib/ai-output.ts';
 import { QUESTION_STATUS, QUESTION_ORIGIN, DIFFICULTY_DEFAULT } from '../../app/lib/questions.ts';
 import { buildQuestionPrompt, QUESTION_SCHEMA } from '../../app/lib/question-prompt.ts';
+import { buildFlashcardPrompt, FLASHCARD_SCHEMA } from '../../app/lib/flashcard-prompt.ts';
 
 config({ path: '.env.local' });
 
@@ -84,6 +85,13 @@ const valor = (f, pordefecto) => {
 const ENSAYO = tiene('--ensayo');
 const SOLO_INDEXAR = tiene('--solo-indexar');
 const SOLO_PREGUNTAS = tiene('--solo-preguntas');
+const SOLO_FICHAS = tiene('--solo-fichas');
+// Cuantas fichas por tema. Van al BANCO COMPARTIDO: se escriben una vez y las
+// repasan todos los alumnos, en vez de una por alumno y de pago (regla nueva:
+// el gasto de IA no lo decide quien no paga la factura).
+const FICHAS_POR_TEMA = Number(
+  (args.find((a) => a.startsWith('--fichas=')) ?? '').split('=')[1] ?? 15,
+);
 const POR_TEMA = Math.max(1, Math.min(200, parseInt(valor('preguntas', '20'), 10) || 20));
 const TEMA_UNICO = valor('tema', null) ? parseInt(valor('tema'), 10) : null;
 
@@ -487,6 +495,114 @@ async function comprobarPdfs() {
 
 // =====================================================================
 
+// =====================================================================
+// FASE C · ESCRIBIR EL BANCO DE FICHAS
+// =====================================================================
+
+/**
+ * Las fichas van a `flashcard_bank`, que es CONTENIDO COMPARTIDO.
+ *
+ * Antes no existía esta fase: cuando un alumno abría Drills y no tenía nada
+ * que repasar, la aplicación le pedía a Gemini una tarjeta nueva. Una llamada
+ * de pago por tarjeta y por alumno, decidida por quien no paga la factura, y
+ * una tarjeta distinta para cada uno del mismo tema.
+ *
+ * La tabla existía desde el principio y NO LA USABA NADIE — con su
+ * `card_hash` y su `status`, igual que `question_bank`. Estaba pensada para
+ * esto y se quedó sin conectar.
+ */
+async function faseFichas(temas) {
+  console.log(`\n══ FASE C · ESCRIBIR ${FICHAS_POR_TEMA} FICHAS POR TEMA ══\n`);
+
+  const resumen = { insertadas: 0, duplicadas: 0, fallidas: 0, sinTexto: 0 };
+
+  for (const [numero, tema] of [...temas].sort((a, b) => a[0] - b[0])) {
+    if (TEMA_UNICO && numero !== TEMA_UNICO) continue;
+
+    // Ya sembrado: no se vuelve a pagar. Igual que en las preguntas.
+    const { count: yaHay } = await db
+      .from('flashcard_bank')
+      .select('id', { count: 'exact', head: true })
+      .eq('topic', tema.title);
+    if ((yaHay ?? 0) >= FICHAS_POR_TEMA) {
+      console.log(`  ·  Tema ${String(numero).padStart(2)}  ya tiene ${yaHay} fichas`);
+      continue;
+    }
+    const faltan = FICHAS_POR_TEMA - (yaHay ?? 0);
+
+    const { data: docs } = await db
+      .from('documents').select('full_text').eq('subject_id', tema.id).limit(5);
+    if (!docs?.length) {
+      console.log(`  ·  Tema ${String(numero).padStart(2)}  sin documentos: no se pueden escribir fichas`);
+      resumen.sinTexto++;
+      continue;
+    }
+
+    if (ENSAYO) {
+      console.log(`  →  Tema ${String(numero).padStart(2)}  escribiría ${faltan}  ${tema.title.slice(0, 40)}`);
+      continue;
+    }
+
+    // Los anversos que ya existen del tema viajan al prompt para que no
+    // escriba otra vez lo mismo. La huella frena las fichas IDÉNTICAS; esto
+    // frena las parecidas, que la huella no ve.
+    const { data: previas } = await db
+      .from('flashcard_bank').select('front').eq('topic', tema.title).limit(30);
+    const anversos = (previas ?? []).map((f) => f.front);
+
+    let ins = 0, dup = 0, fall = 0;
+    for (let i = 0; i < faltan; i++) {
+      process.stdout.write(`\r  →  Tema ${String(numero).padStart(2)}  ${i + 1}/${faltan}`);
+
+      const doc = docs[Math.floor(Math.random() * docs.length)];
+      const fragmento = randomContextWindow(doc.full_text ?? '', 2500);
+      if (fragmento.trim().length < 200) { fall++; continue; }
+
+      let ficha;
+      try {
+        const modelo = genAI.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+          generationConfig: { responseMimeType: 'application/json', responseSchema: FLASHCARD_SCHEMA },
+        });
+        const r = await modelo.generateContent(buildFlashcardPrompt(fragmento, anversos));
+        const parsed = parseAIJson(r.response.text());
+        const check = validateFlashcard(parsed);
+        if (!check.ok) { fall++; continue; }
+        ficha = check.value;
+      } catch { fall++; continue; }
+
+      const { data: fila, error } = await db
+        .from('flashcard_bank')
+        .upsert(
+          {
+            topic: tema.title,
+            front: ficha.front,
+            back: ficha.back,
+            card_hash: flashcardHash(tema.title, ficha.front, ficha.back),
+            status: QUESTION_STATUS.ACTIVE,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: 'card_hash', ignoreDuplicates: true },
+        )
+        .select()
+        .maybeSingle();
+
+      if (error) fall++;
+      else if (fila) { ins++; anversos.push(ficha.front); }
+      else dup++;
+
+      await espera(400);
+    }
+
+    console.log(`\r  ✓  Tema ${String(numero).padStart(2)}  ${ins} nuevas, ${dup} repetidas, ${fall} fallidas   ${tema.title.slice(0, 40)}`);
+    resumen.insertadas += ins; resumen.duplicadas += dup; resumen.fallidas += fall;
+  }
+
+  console.log(`\n  ${resumen.insertadas} fichas nuevas · ${resumen.duplicadas} repetidas · ${resumen.fallidas} fallidas`);
+  if (resumen.sinTexto) console.log(`  ${resumen.sinTexto} temas sin documento: indexa primero`);
+  return resumen;
+}
+
 async function main() {
   if (SOLO_PDFS) { await comprobarPdfs(); return; }
 
@@ -502,8 +618,10 @@ async function main() {
   const temas = new Map(filas.map((f) => [f.topic_number, f]));
   console.log(`Temas dados de alta: ${temas.size}`);
 
-  if (!SOLO_PREGUNTAS) await faseIndexar(temas);
-  if (!SOLO_INDEXAR) await faseGenerar(temas);
+  const soloAlgo = SOLO_INDEXAR || SOLO_PREGUNTAS || SOLO_FICHAS;
+  if (SOLO_INDEXAR || !soloAlgo) await faseIndexar(temas);
+  if (SOLO_PREGUNTAS || !soloAlgo) await faseGenerar(temas);
+  if (SOLO_FICHAS || !soloAlgo) await faseFichas(temas);
 
   // El recuento final se lee de la base de datos, no de los contadores del
   // guion: lo que importa es lo que hay, no lo que creemos haber escrito.
@@ -523,7 +641,16 @@ async function main() {
   // estudiar de verdad o solo mirar el menú.
   const { data: conBanco } = await db.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE);
   const cubiertos = new Set((conBanco ?? []).map((q) => q.subject_id)).size;
-  console.log(`  temas con preguntas  : ${cubiertos} de ${temas.size}\n`);
+  console.log(`  temas con preguntas  : ${cubiertos} de ${temas.size}`);
+
+  const { count: fichas } = await db
+    .from('flashcard_bank')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', QUESTION_STATUS.ACTIVE);
+  const { data: conFichas } = await db.from('flashcard_bank').select('topic').eq('status', QUESTION_STATUS.ACTIVE);
+  const temasConFichas = new Set((conFichas ?? []).map((f) => f.topic)).size;
+  console.log(`  fichas en el banco   : ${fichas ?? 0}`);
+  console.log(`  temas con fichas     : ${temasConFichas} de ${temas.size}\n`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
