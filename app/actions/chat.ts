@@ -13,11 +13,7 @@ import {
   resumeIndice,
   formatIndice,
   numeroDeArticulo,
-  documentosPorRelevancia,
-  documentosNombrados,
   documentosQueCaben,
-  MAX_DOCUMENTOS_ENTEROS,
-  MIN_SIMILITUD_DOCUMENTO,
   resumeEstructura,
   pidePartesInternas,
   buildChatPrompt,
@@ -195,115 +191,15 @@ async function construyeIndice(conEstructura: boolean): Promise<Chunk | null> {
 }
 
 
-/**
- * Cambia los recortes por los DOCUMENTOS ENTEROS que quepan.
- *
- * La busqueda semantica sigue haciendo falta, pero para ELEGIR: dice de que
- * documento habla la pregunta. Una vez elegido, mandarlo entero es lo que
- * permite responder "el Título I comprende los artículos 10 a 52" sin haber
- * preparado nada — algo que con seis recortes de mil caracteres no sale por
- * mucho que se afine el prompt.
- *
- * Devuelve los documentos que caben y los fragmentos de los que NO caben, para
- * que esos sigan viajando como hasta ahora. Un documento que no cabe no se
- * parte: partirlo seria volver al problema que esto viene a quitar.
- */
-async function documentosEnteros(
-  semanticos: Chunk[],
-  pregunta: string
-): Promise<{ enteros: Chunk[]; sobrantes: Chunk[] }> {
-  // 1. Qué documentos hay, y cómo se llaman. SIN el texto completo: con 85
-  //    temas, traérselos todos para elegir uno sería absurdo.
-  const { data: catalogo, error: errorCatalogo } = await supabase
-    .from('documents')
-    .select('id, filename, subject:subjects(title)');
-
-  if (errorCatalogo) {
-    console.error('documentosEnteros (catálogo):', errorCatalogo.message);
-    return { enteros: [], sobrantes: semanticos };
-  }
-
-  type FilaCatalogo = { id: string; filename: string | null; subject: { title: string | null } | null };
-  const catalogados = ((catalogo as unknown as FilaCatalogo[]) ?? []).map((d) => {
-    const subject = Array.isArray(d.subject) ? d.subject[0] : d.subject;
-    return { id: d.id, nombre: [subject?.title, d.filename].filter(Boolean).join(' ') };
-  });
-
-  // 2. ¿La pregunta NOMBRA un tema? Eso manda sobre el parecido. Es lo que
-  //    arregla "¿qué artículos comprende el Título I de la Constitución?",
-  //    que elegía la Ley de Fuerzas y Cuerpos de Seguridad.
-  const nombrados = documentosNombrados(pregunta, catalogados);
-
-  // 3. Si no lo nombra, decide el parecido, como hasta ahora. Solo se asciende
-  //    a documento entero lo que ha quedado cerca.
-  const buenos = semanticos.filter((c) => (c.similarity ?? 0) >= MIN_SIMILITUD_DOCUMENTO);
-  const ids = buenos.map((c) => c.id).filter(Boolean);
-
-  const deChunk = new Map<string, string>();
-  if (ids.length) {
-    // `match_document_chunks` no devuelve `document_id` —se escribió antes de
-    // que esto hiciera falta— así que se resuelve aparte: dos columnas de hasta
-    // ocho filas.
-    const { data: mapa, error: errorMapa } = await supabase
-      .from('document_chunks')
-      .select('id, document_id')
-      .in('id', ids);
-
-    if (errorMapa) console.error('documentosEnteros (mapa):', errorMapa.message);
-    for (const f of ((mapa as unknown as { id: number | string; document_id: string }[]) ?? [])) {
-      deChunk.set(String(f.id), f.document_id);
-    }
-  }
-
-  const porParecido = documentosPorRelevancia(
-    buenos.map((c) => ({ ...c, document_id: deChunk.get(String(c.id)) ?? null }))
-  );
-
-  // Los nombrados primero; el resto detrás, sin repetir.
-  const orden = [...nombrados, ...porParecido.filter((id) => !nombrados.includes(id))];
-  if (!orden.length) return { enteros: [], sobrantes: semanticos };
-
-  // 4. Ahora sí: el texto completo, solo de los candidatos.
-  const candidatos = orden.slice(0, MAX_DOCUMENTOS_ENTEROS + 2);
-  const { data: docs, error: errorDocs } = await supabase
-    .from('documents')
-    .select('id, filename, full_text')
-    .in('id', candidatos);
-
-  if (errorDocs) {
-    console.error('documentosEnteros (documentos):', errorDocs.message);
-    return { enteros: [], sobrantes: semanticos };
-  }
-
-  type FilaDocumento = { id: string; filename: string | null; full_text: string | null };
-  const porId = new Map<string, FilaDocumento>();
-  for (const d of ((docs as unknown as FilaDocumento[]) ?? [])) porId.set(d.id, d);
-
-  const cabe = documentosQueCaben(
-    orden.filter((id) => porId.has(id)).map((id) => ({ id, chars: (porId.get(id)?.full_text ?? '').length }))
-  );
-
-  const dentro = new Set(cabe);
-
-  const enteros: Chunk[] = cabe.map((id) => {
-    const d = porId.get(id) as FilaDocumento;
-    return {
-      filename: d.filename ?? '',
-      content_chunk: d.full_text ?? '',
-      // El documento entero no sale de un artículo concreto: la referencia la
-      // pone el modelo leyendo el texto, que es justo lo que ahora puede hacer.
-      reference: null,
-      similarity: 1,
-    };
-  });
-
-  const sobrantes = semanticos.filter((c) => {
-    const doc = deChunk.get(String(c.id));
-    return !doc || !dentro.has(doc);
-  });
-
-  return { enteros, sobrantes };
-}
+// AQUI VIVIA `documentosEnteros`: elegia hasta DOS documentos por parecido y
+// los mandaba enteros cuando el alumno no habia escogido tema.
+//
+// Se ha quitado con el cambio de `askAtenea`: sin tema se responde con los
+// fragmentos de la busqueda, y el documento entero se reserva para cuando el
+// alumno elige. No se deja comentada ni con un interruptor: el codigo muerto
+// de este repo —la tabla `flashcard_bank` que nadie usaba, las clases
+// `.vip-card` de `globals.css`— siempre ha costado mas de lo que ahorro.
+// Esta en git si vuelve a hacer falta.
 
 /**
  * Evita enviar información redundante al modelo de IA
@@ -426,12 +322,29 @@ export async function askAtenea(
       semanticos = (Array.isArray(data) ? data : []) as Chunk[];
     }
 
-    // Lo que de verdad cambia el resultado: el documento se manda ENTERO, no en
-    // seis recortes de mil caracteres. El temario completo son 72.355 tokens y
-    // el modelo admite 1.048.576.
+    // EL DOCUMENTO ENTERO, SOLO CUANDO EL ALUMNO ELIGE TEMA.
+    //
+    // La regla 33 sigue en pie: un documento entero responde muchisimo mejor
+    // que seis recortes de mil caracteres, y en la ventana del modelo cabe de
+    // sobra. Lo que cambia es que ahora hay que ELEGIR TEMA para tenerlo.
+    //
+    // El motivo es el gasto, y el numero lo explica solo: sin tema se pagaba
+    // el embedding Y podian viajar DOS documentos enteros (hasta 34.675 tokens
+    // cada uno). Con tema viaja uno y el embedding no se paga. O sea que la
+    // opcion comoda del desplegable era ademas la mas cara — y por pereza la
+    // iba a usar todo el mundo, que es justo lo que no se puede permitir.
+    //
+    // Sin tema se responde con los fragmentos de la busqueda semantica, que es
+    // como funciono la plataforma siempre y cuesta ~3.000 tokens. Se pierde
+    // precision, y por eso el desplegable LO DICE en vez de dejar que el
+    // alumno lo descubra con una respuesta floja.
+    //
+    // Lo que NO se toca: el indice y el articulo buscado por su numero siguen
+    // yendo delante. Son coincidencias exactas y deterministas, no parecidos,
+    // y no cuestan un documento entero.
     const { enteros, sobrantes } = conTema
       ? { enteros: delTema, sobrantes: [] as Chunk[] }
-      : await documentosEnteros(semanticos, safeQuery);
+      : { enteros: [] as Chunk[], sobrantes: semanticos };
 
     // El índice y el artículo exacto van DELANTE: son coincidencias seguras,
     // no parecidos. Después el documento entero, y al final los fragmentos de

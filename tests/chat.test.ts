@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   isFollowUp,
   lastUserTurn,
@@ -620,5 +622,54 @@ describe('cuántos documentos caben enteros', () => {
 
   it('un documento vacío no ocupa un hueco', () => {
     expect(documentosQueCaben([{ id: 'vacio', chars: 0 }, { id: 'a', chars: 10 }])).toEqual(['a']);
+  });
+});
+
+describe('el documento entero se paga solo cuando el alumno elige tema', () => {
+  /**
+   * LA OPCION COMODA ERA LA MAS CARA.
+   *
+   * Sin tema elegido se pagaba el embedding Y podian viajar DOS documentos
+   * enteros (hasta 34.675 tokens cada uno). Con tema viaja uno y el embedding
+   * no se paga. Como la gente tira de lo comodo, el desplegable empujaba a
+   * todo el mundo hacia el camino caro.
+   *
+   * Ahora sin tema van los fragmentos de la busqueda, que es como funciono la
+   * plataforma siempre y cuesta ~3.000 tokens.
+   */
+  const accion = readFileSync(
+    join(__dirname, '..', 'app', 'actions', 'chat.ts'),
+    'utf-8',
+  ).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('sin tema NO se mandan documentos enteros', () => {
+    expect(accion).not.toMatch(/await documentosEnteros\(/);
+    expect(accion).toMatch(/enteros:\s*\[\]\s*as\s*Chunk\[\]/);
+  });
+
+  it('con tema SI se manda el documento entero: la regla 33 sigue en pie', () => {
+    expect(accion).toMatch(/enteros:\s*delTema/);
+  });
+
+  it('el embedding se sigue evitando cuando hay tema', () => {
+    // Es la mitad del ahorro y ya estaba: que no se pierda al tocar esto.
+    expect(accion).toMatch(/conTema \? Promise\.resolve\(null\) : embeddingModel\.embedContent/);
+  });
+
+  it('el indice y el articulo exacto NO se han perdido', () => {
+    // Son coincidencias deterministas y baratas: no tienen nada que ver con
+    // mandar un documento entero y deben seguir yendo delante (regla 30).
+    expect(accion).toMatch(/construyeIndice\(/);
+    expect(accion).toMatch(/buscaArticulo\(/);
+  });
+
+  it('el desplegable AVISA de que sin tema la respuesta es mas general', () => {
+    // Que el alumno lo sepa antes, en vez de descubrirlo con una respuesta
+    // floja y pensar que la plataforma no sabe.
+    const ui = readFileSync(
+      join(__dirname, '..', 'app', 'components', 'student', 'modules', 'chat', 'IntelChat.tsx'),
+      'utf-8',
+    );
+    expect(ui).toMatch(/Todo el temario — respuesta más general/);
   });
 });

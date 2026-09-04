@@ -642,6 +642,23 @@ PREGUNTA:
  * relevante entero y sobra un poco; lo que no entre sigue viajando en
  * fragmentos, que es como viajaba todo hasta ahora.
  */
+/**
+ * AVISO: LO QUE VIENE (hasta `documentosQueCaben`) NO LO USA LA APLICACION
+ * AHORA MISMO.
+ *
+ * Era la maquinaria de elegir documentos por parecido y mandarlos enteros
+ * cuando el alumno NO habia escogido tema. Se apago por coste: sin tema se
+ * pagaba el embedding y podian viajar DOS documentos enteros, asi que la
+ * opcion comoda del desplegable era la mas cara. Ahora sin tema van
+ * fragmentos, y el documento entero se reserva para cuando el alumno elige.
+ *
+ * Se conserva, y no es por nostalgia: aqui esta escrita la leccion de la regla
+ * 33 —que si el alumno NOMBRA el documento no se adivina— con sus tests, y es
+ * exactamente lo que habria que volver a enchufar el dia que se quiera un modo
+ * "buscar en todo el temario con el documento delante". Si se decide que ese
+ * dia no va a llegar, esto se borra: codigo muerto que nadie marca es como
+ * este repo acabo con `flashcard_bank` sin usar y `.vip-card` en `globals.css`.
+ */
 export const MAX_CHARS_DOCUMENTOS = 150_000;
 
 /**
