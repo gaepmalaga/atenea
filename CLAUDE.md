@@ -51,6 +51,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
+| — | **La capa de comportamiento** | ✅ **hecha** (4 sep): el examen ya no se pierde, el scroll y el botón Atrás funcionan, y el chat sobrevive a cambiar de pestaña. Ver **regla 37** |
+| — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
 
 ## Producción
 
@@ -112,16 +114,21 @@ npm run lint                   # 5 errores, todos el mismo falso positivo (ver a
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
 
+cd .banco-pruebas && node todas-las-pantallas.cjs   # LAS 19 PANTALLAS en un navegador de verdad
+
 npm run chat:probar                # QUE RESPONDE el chat, preguntándole de verdad (de pago)
 npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
 ```
 
-Los 5 errores de `lint` son el mismo falso positivo de
-`react-hooks/set-state-in-effect`, en tres paneles de administración y en dos
-pantallas del alumno (el repaso de fallos y la nota de una pregunta): la regla ve
-el `setState` dentro de la función que el efecto llama, pero va **después** del
-`await`. Retorcer el código para callarla sería peor que el aviso.
+Los 7 errores de `lint` son el mismo falso positivo de
+`react-hooks/set-state-in-effect`, en tres paneles de administración
+(`AdminActivity`, `AdminModeration`, `AdminUsers`) y en cuatro pantallas del
+alumno (`DashboardHome`, `FailedQuestions`, `QuestionNote`, `IntelChat`): la
+regla ve el `setState` dentro de la función que el efecto llama, pero va
+**después** del `await`. Retorcer el código para callarla sería peor que el
+aviso. El de `IntelChat` es además a propósito: recupera del `sessionStorage` la
+conversación al montar (regla 37).
 
 **`npm run dev` usa webpack, no Turbopack.** Turbopack infiere mal la raíz del proyecto
 en modo desarrollo y se va al directorio padre, desde donde no resuelve el
@@ -989,12 +996,78 @@ a decidir por su cuenta:
   abrirlos.
 - **`StatTile` obliga a distinguir `null` de `0`** (regla 8), porque el sitio
   donde más se confunden es justo un número grande en una tarjeta.
+- **Un tamaño de letra SIN prefijo es el de MÓVIL**, y de `text-6xl` (60px)
+  hacia arriba no hay pantalla de 360px que lo aguante. Estaban así el
+  cronómetro de las pruebas físicas (72px), el contador de series (`text-9xl`,
+  128px) y los dos campos donde se escribe la marca. Lo grande vive detrás de
+  un `sm:`. El límite está en 6xl y no en 4xl a propósito: 36-48px en un móvil
+  es un número protagonista legítimo —`TEXT.display` es `text-4xl sm:text-6xl`—
+  y una guardia que se queja de lo razonable acaba desactivada.
+- **`Card` lleva `min-w-0`.** Un hijo de `grid` o de `flex` tiene
+  `min-width: auto`, y el ancho mínimo de un texto con `truncate` es el texto
+  ENTERO: **`truncate` no sirve de nada si el contenedor crece para no
+  truncar**. Dos tarjetas del panel de academia empujaban la página a 470px de
+  ancho en una pantalla de 390. El mismo fallo tenía el registro de actividad,
+  con filas de 634px.
 
 **El hueco de la barra de navegación se reserva UNA vez**, en el `<main>` de
 `StudentDashboard`. `MobileNav` es `fixed`: no empuja el contenido, se pinta
 encima. Cada módulo se lo había ido apañando con su propio `pb-20` —una vez en
 unos, ninguna en otros, y **ninguna en `ExamConfig`**, que es donde se vio: el
 botón "Iniciar operación" quedaba físicamente debajo de la barra.
+
+### 37 · Una aplicación de una sola ruta tiene que fingir que son varias
+
+Toda la plataforma vive en `/` con pestañas. Eso no es un detalle de
+implementación: es lo que rompía **cuatro comportamientos** que el usuario da
+por hechos en cualquier aplicación, y ninguno de ellos se ve leyendo el código
+ni en una captura de pantalla. Se encontraron **usándola** (regla 38).
+
+- **El scroll no se reinicia solo.** Al cambiar de pestaña no hay navegación
+  del navegador, así que la posición se queda donde estaba. Y como la barra de
+  pestañas vive ABAJO, cuando pulsas una llevas por definición la página
+  bajada: entrabas en cada pantalla nueva **por el final**. Era el
+  *"siempre me lleva al final de la página"*. Un `window.scrollTo({ top: 0 })`
+  al cambiar de `activeTab`, sin `smooth`: cambiar de sección tiene que ser
+  instantáneo.
+- **Atrás salía de la aplicación.** En Android es el gesto que más se usa: el
+  alumno lo pulsaba esperando volver del test al menú y se encontraba fuera,
+  con el examen perdido. Cada pestaña deja su entrada con `pushState`, y el
+  `popstate` la restaura. Con un examen abierto, además, pregunta antes.
+  **El `pushState` va FUERA del actualizador de `setState`** (regla 14): metido
+  dentro, StrictMode lo ejecuta dos veces y hacían falta dos Atrás para volver
+  uno.
+- **Cambiar de pestaña DESMONTA el módulo.** `{activeTab === 'chat' && ...}`
+  destruía la conversación entera: preguntabas algo, ibas a mirar el temario,
+  volvías y no había nada. El chat se guarda en `sessionStorage` —de trabajo,
+  no un historial que deba quedarse en el móvil para siempre— y el examen en
+  `localStorage` (`app/lib/exam-session.ts`), con versión y caducidad.
+- **Un examen a medias no existía en ningún sitio hasta entregarlo.** En
+  simulacro no se escribe nada en la base de datos hasta el final, así que una
+  recarga, un Atrás o que el móvil descartara la pestaña se llevaban cuarenta
+  minutos de trabajo. Ahora se guarda en cada respuesta y se ofrece reanudarlo.
+  **Nunca se reanuda solo**: el reloj del simulacro sigue corriendo y decidir
+  eso por el alumno es decidir su nota.
+
+### 38 · Lo que no se ha usado, no funciona
+
+Muchas de las reglas de arriba salieron de leer el código. Estas dos no, y son
+las que más han corregido:
+
+1. **Verde no es lo mismo que visto.** El chat contestaba disparates con los
+   tests en verde (regla 32). La pantalla de repaso de fallos tenía 24 tests y
+   nadie la había abierto NUNCA con datos. El plan de entrenamiento tampoco.
+2. **Un banco de pruebas puede mentir**, y entonces es peor que no tenerlo. Si
+   un stub devuelve otra forma que la acción de verdad, la pantalla se pinta
+   con `undefined` y el recorrido la da por buena. Por eso las formas se
+   comprueban a nivel de tipos y `npm run check` lo exige
+   ([`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md)).
+
+Antes de dar por buena una pantalla:
+
+```bash
+cd .banco-pruebas && node todas-las-pantallas.cjs
+```
 
 ---
 
@@ -1027,6 +1100,7 @@ tests/rls.test.ts               quién entra con la clave de servicio y quién c
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
+tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
 ```
 
 **`schema-drift` es el guardián más importante de la lista.** Compara contra

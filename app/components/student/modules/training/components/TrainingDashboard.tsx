@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Activity, Dumbbell, Timer, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Calendar, Activity, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2 } from 'lucide-react';
 import { planProgress, type TrainingDay, type WeeklyPlan } from '@/app/lib/training-plan';
 
 interface TrainingDashboardProps {

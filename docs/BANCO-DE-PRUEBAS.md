@@ -9,13 +9,18 @@ cd .banco-pruebas
 node compilar-css.mjs          # Tailwind del proyecto -> estilos.css
 node construir.mjs             # empaqueta la interfaz con las acciones falsas
 python3 -m http.server 8899    # y se abre http://localhost:8899/index.html
-node recorrido.cjs             # el recorrido completo, con sus comprobaciones
+
+node todas-las-pantallas.cjs   # LAS 19 PANTALLAS, una por una. Empieza por aquí.
+node recorrido.cjs             # el camino del examen: scroll, Atrás, reanudar
+node examen-completo.cjs       # un examen entero, las dos modalidades, hasta la nota
 node tactiles.cjs              # solo lo que no llega a 44px
-node invisibles.cjs            # lo que pide un tamano y se pinta a 0x0
+node invisibles.cjs            # lo que pide un tamaño y se pinta a 0x0
+node comparar-formas.mjs       # en qué se desvía cada stub de su acción
 node zoom.cjs                  # una captura ampliada de un trozo concreto
 ```
 
 `?vista=admin` abre el panel de administración en vez del alumno.
+Las capturas van a `.banco-pruebas/tomas/`.
 
 ## Por qué existe
 
@@ -24,7 +29,7 @@ código, razonando sobre CSS y pidiendo capturas de pantalla. Así se arreglaron
 cosas, pero se colaron otras que solo se ven usando la aplicación, y algunas las
 introdujeron esas mismas correcciones.
 
-En cuanto existió el banco, la primera ejecución encontró en dos minutos:
+Lo que ha encontrado, por orden de aparición:
 
 | Fallo | Dónde |
 |---|---|
@@ -35,12 +40,36 @@ En cuanto existió el banco, la primera ejecución encontró en dos minutos:
 | "INTELIGENCIA" y "OPERACIONES" pisándose | `MobileNav`, `flex-1` sin `min-w-0` |
 | Trece controles por debajo de los 44px táctiles | Todo el panel de administración |
 | La barra de progreso del examen, a 0x0 desde siempre | `ActiveTest`, un `<span>` inline ignora `width` y `height` |
+| El recuadro de escribir del chat, 22px por debajo de la barra de pestañas | `IntelChat`, un `100dvh-140px` a ojo cuando eran 162 |
+| El panel de academia se arrastraba de lado (470px en 390) | Un hijo de `grid` sin `min-w-0`: `truncate` no trunca, el contenedor crece |
+| El mapa de preguntas del simulacro, 12px de alto y 18px por segmento | `ActiveTest`: se podía ver, no pulsar |
+| El registro de actividad, filas de 634px | `AdminActivity`, el mismo `min-w-0` que faltaba |
+| Tres módulos con DOS cabeceras seguidas, 300px antes de nada | Drills, Prep. Física, Perfilado |
+| El plan de entrenamiento tapado por la barra de pestañas | `sticky bottom-6` en un móvil cae dentro de la navegación |
 
 Ninguno se veía leyendo el código.
 
-## Qué comprueba `recorrido.cjs`
+## Qué comprueba cada guion
 
-No es un test de píxeles. Comprueba **comportamiento**:
+**`todas-las-pantallas.cjs`** — las 19: los ocho módulos del alumno, las siete
+secciones del panel, las subpantallas que no son una pestaña (el corredor de
+las pruebas físicas, la sala de voz) y el plan de entrenamiento. En cada una:
+
+- **Lo que se sale de la pantalla**, pero solo si de verdad provoca scroll
+  horizontal Y no está recortado por un contenedor con scroll propio. Sin ese
+  segundo filtro, seis de cada siete avisos eran la fila de pestañas del panel
+  —que se arrastra a propósito— y el culpable de verdad quedaba enterrado.
+- **El texto cortado** por no caber, con cuántos píxeles le faltan.
+- **El área táctil**, contra el mínimo de 44px.
+- **Lo que pide un tamaño y se pinta a 0x0** (ver abajo).
+- **Que el módulo no se haya caído.** Busca el texto exacto de
+  `ModuleErrorBoundary`. Lo tuvo mal un tiempo y por eso una pantalla de repaso
+  que reventaba entera se contaba como "0 problemas".
+- **Los errores de consola.** Se envuelve `console.error` DENTRO de la página:
+  desde fuera, `m.text()` de un error con formato devuelve la plantilla, así que
+  el resumen decía "2 fallos de JavaScript" y los imprimía como `%o` y `%s`.
+
+**`recorrido.cjs`** — comportamiento, no píxeles:
 
 - **El scroll al cambiar de pantalla.** Baja del todo, cambia de pestaña y
   exige que la nueva empiece arriba. Es el fallo que se notaba en toda la
@@ -52,28 +81,61 @@ No es un test de píxeles. Comprueba **comportamiento**:
   minutos.
 - **El botón Atrás.** Comprueba que vuelve a la pestaña anterior en vez de
   salir de la aplicación.
-- **Lo que se sale de la pantalla**, pero solo si de verdad provoca scroll
-  horizontal: un adorno recortado por `overflow-hidden` sobresale del
-  rectángulo y no es un fallo.
-- **El texto cortado** por no caber, con cuántos píxeles le faltan.
-- **El área táctil**, contra el mínimo de 44px.
 
-## Qué comprueba `invisibles.cjs`
+**`examen-completo.cjs`** — el examen de principio a fin, en las dos
+modalidades: entrenamiento (corrige al momento, con diagnóstico obligatorio del
+fallo) y simulacro (navegación libre, revisión y entrega). Termina imprimiendo
+**lo que ve el alumno en la pantalla de la nota**, que es de lo que más se
+acuerda un opositor y era lo último que se había mirado.
 
-Elementos que **piden** un tamaño (`h-1.5`, `w-full`, `w-[3rem]`…) y se pintan
-a **0x0**. No es lo mismo que "no se ve": esto es CSS que se escribió, se leyó
-como correcto y el navegador ignoró.
+**`invisibles.cjs`** — elementos que **piden** un tamaño (`h-1.5`, `w-full`,
+`w-[3rem]`…) y se pintan a **0x0**. No es lo mismo que "no se ve": esto es CSS
+que se escribió, se leyó como correcto y el navegador ignoró.
 
 El caso que lo motivó: la barra de progreso del examen era un `<span>` con
 `h-1.5 w-full`. Un `<span>` es `inline` por defecto, y **un elemento inline
-ignora `width` y `height`**. La barra medía 0x0, así que en el simulacro —donde
-además es el mapa de preguntas en el que se pulsa para saltar— se navegaba a
-ciegas. Estuvo así desde que existe la pantalla y no lo delató ningún test:
-las clases eran correctas una por una.
+ignora `width` y `height`**. La barra medía 0x0, así que en el simulacro
+—donde además es el mapa de preguntas— se navegaba a ciegas. Estuvo así desde
+que existe la pantalla y no lo delató ningún test: las clases eran correctas una
+por una. No se puede detectar leyendo el código, porque dentro de un contenedor
+flex los hijos se "bloquifican" y el mismo `<span>` sí funciona.
 
-No se puede detectar leyendo el código, porque dentro de un contenedor flex los
-hijos se "bloquifican" y el mismo `<span>` sí funciona. Hay que medirlo en el
-navegador.
+Un tamaño puesto **a cero a propósito** no cuenta: una barra de progreso al 0 %
+mide 0 y está bien.
+
+## Que el banco no pueda mentir: `formas.ts`
+
+`acciones-falsas.ts` tiene que exportar cada acción **con la forma exacta que
+devuelve la de verdad**. Si no, la pantalla se pinta con `undefined` y el banco
+da por buena una pantalla que en producción no lo es. Pasó tres veces:
+
+- `getAcademyOverview` en inglés (`coverage`, `students`) cuando la de verdad
+  usa `cobertura` y `alumnos`: **Academia se caía entera**.
+- `getFailedQuestions` devolvía `{ data }` en snake_case y la de verdad devuelve
+  `{ success, items, byTopic }` en camelCase: `res.items` era `undefined`, así
+  que **la pantalla de repaso salía siempre vacía** y el módulo entero no lo
+  había visto nadie con datos.
+- `getDocumentChunks`, `getGlobalActivity`, `getActiveTrainingPlan` y
+  `generateNextWeek` devolvían `data` donde la acción devuelve `chunks`,
+  `activity` y `plan`. Tres pantallas más, vacías siempre.
+
+Ahora es un **error de compilación**. [`formas.ts`](../.banco-pruebas/formas.ts)
+compara, a nivel de tipos, las claves obligatorias de la rama de éxito de cada
+stub contra las de su acción. `npm run check` lo comprueba.
+
+Dos decisiones para que sea usable y no ruido:
+
+- **En un solo sentido.** Todo lo que promete la acción tiene que estar en el
+  stub; al revés no, porque un campo de más no rompe ninguna pantalla.
+- **Solo las claves obligatorias.** Casi todas las acciones declaran
+  `error?: string` también en la rama buena; contarla daba 43 falsos positivos.
+
+`comparar-formas.mjs` imprime, campo a campo, en qué se desvía cada uno: el
+fichero de tipos dice *cuál*, el guion dice *en qué*.
+
+> Para que esto corra hubo que meter `.banco-pruebas/**/*.ts` en el `include`
+> del `tsconfig.json`: **TypeScript se salta los directorios que empiezan por
+> punto**, así que el fichero de acciones falsas nunca se había comprobado.
 
 ## Lo que NO cubre
 
@@ -85,13 +147,3 @@ navegador.
   letra menor de 16px es un comportamiento de Safari en iPhone que aquí no se
   reproduce: por eso vive en el sistema de diseño y lo vigila un test estático
   (`tests/design-system.test.ts`), no el banco.
-
-## Al añadir una acción nueva
-
-`acciones-falsas.ts` tiene que exportarla, **con la forma exacta que devuelve la
-de verdad**. Si no, la pantalla revienta al montarse — que es justo lo que pasó
-con `getAcademyOverview`: el stub la escribió en inglés (`coverage`,
-`students`) y la de verdad usa `cobertura` y `alumnos`, así que Academia se caía
-entera. Merece la pena mirarlo: si tu stub tiene que mentir para que la pantalla
-funcione, probablemente la pantalla no aguanta lo que el servidor puede
-devolverle.
