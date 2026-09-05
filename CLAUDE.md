@@ -745,6 +745,12 @@ Medido contra la base de datos real: Constitución **169 artículos (1–169), s
 huecos**, más 15 disposiciones; LOFCS **54 (1–54), sin huecos**, más 18
 disposiciones; el tema 40, apuntes, sin artículos — que es lo correcto.
 
+> Con el temario completo (51 documentos) esto tiene un fleco nuevo: **el mismo
+> número de artículo aparece en varias leyes** —el «Artículo 27» está en el
+> Código Civil, la CE, Extranjería y el Código Penal— y `buscaArticulo` los
+> trae todos. Que el modelo responda por el que encaja y no liste los cinco lo
+> resuelve **el prompt**, no la recuperación (regla 32).
+
 ### 31 · Apagar un módulo tiene que apagarlo también en el servidor
 
 P4 salió de una respuesta concreta: **«lo suyo es que se pudiera apagar
@@ -799,10 +805,28 @@ preguntado. Todo eso lo **obligaba el prompt**:
 | `ESTRUCTURA` fija | un dato de una línea servido como ficha de cuatrocientas palabras |
 
 Ahora todo es **proporcional y condicional**: la respuesta en la primera línea,
-la longitud la marca la pregunta, las citas solo si se usa la fuente, y el
-cierre solo si hay una confusión real. Una sección de relleno no es neutra:
-**enseña al alumno a saltársela**, y el día que traiga algo importante ya no la
-lee.
+la longitud la marca la pregunta, las citas solo si se usa la fuente. Una
+sección de relleno no es neutra: **enseña al alumno a saltársela**, y el día
+que traiga algo importante ya no la lee.
+
+**La «🎯 FOCO EXAMEN» se retiró del todo (5 sep 2026).** El «CIERRE OPCIONAL»
+sonaba a mejora sobre el obligatorio, pero el modelo lo disparaba en casi toda
+respuesta con relleno genérico —«identifica siempre el tema», «conoce los seis
+principios»—: la misma clase de fallo, un escalón abajo. Si hay una confusión
+de verdad con el contenido, va en una frase dentro de la respuesta.
+
+**Dos flecos más, arreglados el 5 sep con el temario ya completo (51
+documentos):**
+
+- **Las citas mostraban «tema-02», «tema-09»** —el nombre del fichero desde que
+  el temario está completo— y el modelo lo copiaba tal cual («según el
+  tema-02…»). `resuelveTemas` (`actions/chat.ts`) pone el TÍTULO del tema en
+  cada fuente antes del prompt; `citaDe` lo antepone al fichero. El prompt
+  además prohíbe escribir el nombre del fichero.
+- **Un número de artículo que está en varias leyes** —«¿qué dice el artículo
+  27?» trae el 27 del Código Civil, la CE, Extranjería, el Código Penal…— hacía
+  que el modelo listara las cinco. El prompt ahora manda responder por la que
+  encaja con la pregunta y mencionar en una frase que el número existe en otras.
 
 **Y el índice cuenta artículos, no la estructura.** La siguiente pregunta del
 alumno —*«¿cuántos títulos tiene la Constitución?»*— volvía a caer en «no
@@ -858,71 +882,50 @@ Medido después del cambio, con las preguntas reales:
 
 La plataforma nació troceando el temario en fragmentos de mil caracteres y
 mandándole al modelo los seis más parecidos a la pregunta. Eso era obligatorio
-cuando un modelo aceptaba 8.000 tokens. **Ya no**, y esto está medido, no
-supuesto (`node scripts/medir-contexto.mjs`):
+cuando un modelo aceptaba 8.000 tokens. Con TRES documentos dejó de serlo. Pero
+el temario ya está **completo: 45 temas en 51 documentos**, y eso vuelve a
+cambiar la cuenta (`node scripts/medir-contexto.mjs`, 5 sep 2026):
 
 | | tokens |
 |---|---|
-| Constitución completa | 35.009 |
-| El temario entero (3 documentos) | 72.355 |
+| El temario entero (51 documentos) | 643.208 |
 | Lo que admite `gemini-2.5-flash` | 1.048.576 |
 
-El temario entero ocupa el **6,9 %** de la ventana. Y casi todo lo que se había
-ido arreglando a mano —el recuento de artículos, la búsqueda del artículo
-exacto, contar los títulos— eran **rodeos para recuperar información que el
-troceado había destruido**. Con el documento delante, el modelo responde «el
-Título I comprende los artículos 10 a 55» sin que nadie le prepare nada.
+El temario entero ya ocupa el **61 %** de la ventana: **«todo el temario» de
+golpe ya no cabe**, y sería carísimo aunque cupiera. Así que el chat funciona en
+dos modos:
 
-**Lo que se queda de la búsqueda semántica: elegir.** Los fragmentos siguen
-siendo la forma barata de saber *de qué documento* habla la pregunta. Lo que
-cambia es que, una vez elegido, se manda entero.
+- **Con tema elegido en el desplegable:** se mandan los documentos ENTEROS de
+  ese tema (`documentosDelTema`), y no se paga ni el embedding. Un documento
+  entero responde muchísimo mejor que seis recortes, y de un solo tema cabe de
+  sobra.
+- **Sin tema:** solo la búsqueda semántica en FRAGMENTOS (los 8 más parecidos,
+  `match_document_chunks`), como funcionó siempre. Cuesta ~3.000 tokens. El
+  desplegable avisa de que elegir tema afina la respuesta.
 
-**Y elegir es ahora el punto débil, no el tamaño.** Con TRES documentos ya
-fallaba: *«¿qué artículos comprende el Título I de la Constitución?»* seleccionaba
-la Ley de Fuerzas y Cuerpos de Seguridad, porque sus fragmentos sobre títulos y
-artículos se parecen más a esa frase que el articulado de la Constitución. La
-pregunta lo decía y nadie la escuchaba. Por eso `documentosNombrados` va
-**delante** del parecido: si el alumno nombra el tema, no se adivina. Con 85
-temas eso deja de ser un fallo ocasional para ser la norma.
+**El índice y el artículo buscado por su número van delante en los dos modos**
+(`construyeIndice`, `buscaArticulo`): son coincidencias exactas y deterministas,
+no parecidos, y no cuestan un documento entero. Siguen siendo lo que contesta
+«¿cuántos artículos tiene la Constitución?» (regla 30).
 
-**Y la pieza que lo cierra: que el alumno elija tema.** El chat tiene un
-desplegable, como ya lo tienen los tests. Si elige, se manda ESE documento
-entero y no se paga ni el embedding: se acabo adivinar. Si no elige, decide el
-buscador como hasta ahora. El temario ya tiene 45 temas dados de alta (3 con
-PDF), asi que esto no es una precaucion para el futuro.
+**Código que ya no se usa pero se conserva a propósito:** `documentosNombrados`,
+`documentosPorRelevancia`, `documentosQueCaben`, `MIN_SIMILITUD_DOCUMENTO`,
+`MAX_DOCUMENTOS_ENTEROS` eran la maquinaria de elegir documentos por parecido y
+mandarlos enteros SIN tema. Se apagó por coste (sin tema se pagaba el embedding
+Y podían viajar dos documentos enteros — la opción cómoda era la más cara). Se
+deja porque ahí está escrita, con tests, la lección de que si el alumno NOMBRA
+el tema no se adivina — y es lo que habría que re-enchufar el día que se quiera
+un modo «buscar en todo con el documento delante». Si se decide que ese día no
+llega: **se borra**, empezando por `medir-contexto.mjs`, que aún prueba ese
+camino muerto.
 
-**Dos topes que separan «hoy funciona» de «seguirá funcionando»:**
-
-- `MAX_CHARS_DOCUMENTOS` (150.000) y `MAX_DOCUMENTOS_ENTEROS` (2). Lo que no
-  cabe **no se parte**: viaja en fragmentos, como antes. Partirlo sería volver
-  al problema que esto quita.
-- `MIN_SIMILITUD_DOCUMENTO`. A *«¿cuál es la capital de Francia?»* la búsqueda
-  devuelve igualmente los fragmentos menos malos del temario; traerse la
-  Constitución entera —35.000 tokens de pago— para acabar diciendo que no consta
-  es tirar el dinero.
-
-**El coste es real y hay que mirarlo:** una pregunta sobre la Constitución pasa
-de ~3.000 a ~35.000 tokens de entrada. Lo que lo sostiene es que solo se manda
-**el documento que hace falta**, nunca el temario entero, y que la cuota por
-usuario y ruta ya existe (regla 20).
-
-**Y con 85 temas el coste por pregunta NO crece.** Siguen haciendo falta uno o
-dos documentos: lo que no escala es *adivinar cuál*, no el tamaño del temario.
-Por eso `documentosNombrados` y el desplegable van por delante del parecido.
-
-**Cómo se revisa todo esto**, sin levantar la aplicación y con el mismo prompt y
-la misma recuperación que usa el alumno:
+**Cómo se revisa**, con el mismo prompt y la misma recuperación que el alumno
+(`probar-chat.mjs` se realineó con `askAtenea` el 5 sep — había divergido):
 
 ```bash
 npm run chat:probar
 npm run chat:probar -- --tema=39 "¿cuántos artículos tiene?"
-node scripts/medir-contexto.mjs
 ```
-
-Si algún día el selector de tema deja «todo el temario» sin uso, **la búsqueda
-semántica sobra entera** —embeddings, fragmentos e índice— y el chat se queda en
-tema + documento. Es mucho menos código, y ahora es una decisión que se puede
-medir en vez de opinar.
 
 ### 34 · Con la clave de servicio, RLS no protege nada
 
