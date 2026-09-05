@@ -45,21 +45,21 @@ type DocFile = {
 const ESTADO_INDEXADO: Record<string, { texto: string; clase: string; aviso?: string }> = {
     indexado: {
         texto: 'Indexado',
-        clase: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        clase: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
     },
     parcial: {
         texto: 'Parcial',
-        clase: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        clase: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
         aviso: 'Faltan fragmentos: parte de este tema no la encuentra el chat.',
     },
     fallido: {
         texto: 'Sin indexar',
-        clase: 'bg-red-500/10 text-red-400 border-red-500/20',
+        clase: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20',
         aviso: 'El chat NO encuentra nada de este documento. Pulsa Reindexar.',
     },
     pendiente: {
         texto: 'Pendiente',
-        clase: 'bg-slate-700/50 text-slate-400 border-slate-600',
+        clase: 'bg-slate-300/50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-600',
         aviso: 'Todavia no se ha indexado.',
     },
 };
@@ -248,7 +248,7 @@ export default function AdminContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* 1. TARJETA KPI CON EFECTO CRISTAL */}
-            <div className="bg-slate-800/40 backdrop-blur-md p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
+            <div className="bg-slate-200/40 dark:bg-slate-800/40 backdrop-blur-md p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
                 {/* Glow Effect de fondo */}
                 <div className="absolute top-0 right-0 p-32 bg-indigo-600/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none group-hover:bg-indigo-500/30 transition-all duration-1000"></div>
                 
@@ -256,31 +256,31 @@ export default function AdminContent() {
                     <div className="p-3.5 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-lg shadow-indigo-500/20 text-white transform group-hover:scale-110 transition-transform duration-300">
                         <Book size={28} strokeWidth={2.5} />
                     </div>
-                    <span className="text-[10px] font-black bg-slate-900/60 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-full uppercase tracking-widest backdrop-blur-md">
+                    <span className="text-[10px] font-black bg-slate-100/60 dark:bg-slate-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-full uppercase tracking-widest backdrop-blur-md">
                         Biblioteca Oficial
                     </span>
                 </div>
                 
                 <div className="relative z-10">
-                    <p className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter mb-2 drop-shadow-lg">{totalDocs}</p>
-                    <p className="text-sm text-slate-400 font-bold uppercase tracking-wide flex items-center gap-2">
+                    <p className="text-4xl sm:text-6xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter mb-2 drop-shadow-lg">{totalDocs}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide flex items-center gap-2">
                         <CheckCircle2 size={16} className="text-emerald-500"/> {totalDocs === 1 ? 'Documento indexado' : 'Documentos indexados'}
                     </p>
                 </div>
             </div>
 
             {/* 2. ZONA DE SUBIDA (Upload Zone) */}
-            <div className={`relative p-[2px] rounded-2xl sm:rounded-3xl transition-all duration-500 ${selectedSubject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-indigo-500/20' : 'bg-slate-800 border border-slate-700'}`}>
-                <div className="bg-slate-900 h-full w-full rounded-3xl overflow-hidden relative">
+            <div className={`relative p-[2px] rounded-2xl sm:rounded-3xl transition-all duration-500 ${selectedSubject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700'}`}>
+                <div className="bg-white dark:bg-slate-900 h-full w-full rounded-3xl overflow-hidden relative">
                     {uploading ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 animate-in fade-in bg-slate-900/90 backdrop-blur-sm">
+                        <div className="flex flex-col items-center justify-center h-full gap-4 animate-in fade-in bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-sm">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 animate-pulse"></div>
-                                <Loader2 className="animate-spin text-indigo-400 relative z-10" size={48} />
+                                <Loader2 className="animate-spin text-indigo-700 dark:text-indigo-400 relative z-10" size={48} />
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-bold text-white mb-1">Indexando Documento...</p>
-                                <p className="text-xs font-mono text-indigo-300 animate-pulse">Generando vectores semánticos</p>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">Indexando Documento...</p>
+                                <p className="text-xs font-mono text-indigo-700 dark:text-indigo-300 animate-pulse">Generando vectores semánticos</p>
                             </div>
                         </div>
                     ) : (
@@ -294,21 +294,21 @@ export default function AdminContent() {
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50" 
                                     />
                                     <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 border border-indigo-500/20 shadow-inner">
-                                        <Upload className="text-indigo-400" size={36} />
+                                        <Upload className="text-indigo-700 dark:text-indigo-400" size={36} />
                                     </div>
-                                    <h3 className="text-xl font-black text-white mb-1">Subir PDF al Tema {selectedSubject.number}</h3>
-                                    <p className="text-xs text-slate-400 max-w-xs mx-auto line-clamp-1 font-medium">{selectedSubject.title}</p>
+                                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Subir PDF al Tema {selectedSubject.number}</h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto line-clamp-1 font-medium">{selectedSubject.title}</p>
                                     <div className="mt-5 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all">
                                         Seleccionar Archivo
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4 border border-slate-700 grayscale opacity-50">
-                                        <FolderOpen className="text-slate-400" size={32} />
+                                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 border border-slate-300 dark:border-slate-700 grayscale opacity-50">
+                                        <FolderOpen className="text-slate-500 dark:text-slate-400" size={32} />
                                     </div>
-                                    <h3 className="text-lg font-bold text-slate-500 mb-1">Selecciona un Tema</h3>
-                                    <p className="text-xs text-slate-500 font-medium">Elige un tema de la lista inferior para activar la subida</p>
+                                    <h3 className="text-lg font-bold text-slate-500 dark:text-slate-400 mb-1">Selecciona un Tema</h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Elige un tema de la lista inferior para activar la subida</p>
                                 </>
                             )}
                         </div>
@@ -330,15 +330,15 @@ export default function AdminContent() {
         <SeedCardsPanel subject={genSubject} />
 
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
-        <div className="bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
             {/* Header del Visor */}
-            <div className="px-8 py-6 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center sticky top-0 z-20">
-                <h3 className="font-black text-slate-200 text-sm uppercase tracking-widest flex items-center gap-3">
+            <div className="px-8 py-6 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-20">
+                <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest flex items-center gap-3">
                     <Book size={18} className="text-indigo-500"/> Estructura Oficial
                 </h3>
                 <button 
                     onClick={load} 
-                    className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 rounded-xl transition-all active:scale-95" 
+                    className="w-11 h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-95" 
                     title="Recargar datos"
                 >
                     <RefreshCw size={18} className={loading ? 'animate-spin' : ''}/>
@@ -347,23 +347,23 @@ export default function AdminContent() {
             
             {/* Loading State */}
             {loading && (
-                <div className="p-24 flex flex-col items-center justify-center text-slate-500 bg-slate-900/50">
+                <div className="p-24 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 bg-slate-100/50 dark:bg-slate-900/50">
                     <Loader2 className="animate-spin mb-4 text-indigo-500" size={32}/>
                     <p className="text-[10px] font-black tracking-[0.2em] uppercase opacity-70">Sincronizando Temario...</p>
                 </div>
             )}
             
             {/* Lista de Bloques */}
-            <div className="divide-y divide-slate-800/50">
+            <div className="divide-y divide-slate-200 dark:divide-slate-800/50">
                 {syllabus.map((block) => (
-                    <div key={block.id} className="bg-slate-900 group/block">
+                    <div key={block.id} className="bg-white dark:bg-slate-900 group/block">
                         {/* Botón del Bloque */}
                         <button 
                             onClick={() => toggleBlock(block.id)}
-                            className="w-full flex items-center justify-between p-6 hover:bg-slate-800/30 transition-all cursor-pointer"
+                            className="w-full flex items-center justify-between p-6 hover:bg-slate-200/30 dark:hover:bg-slate-800/30 transition-all cursor-pointer"
                         >
-                            <span className="font-bold text-sm text-slate-300 uppercase flex items-center gap-4 group-hover/block:text-white transition-colors">
-                                <div className={`p-1 rounded-lg transition-colors ${openBlocks[block.id] ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>
+                            <span className="font-bold text-sm text-slate-700 dark:text-slate-300 uppercase flex items-center gap-4 group-hover/block:text-slate-900 dark:group-hover/block:text-white transition-colors">
+                                <div className={`p-1 rounded-lg transition-colors ${openBlocks[block.id] ? 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
                                     {openBlocks[block.id] 
                                         ? <ChevronDown size={18} strokeWidth={3}/> 
                                         : <ChevronRight size={18} strokeWidth={3}/>
@@ -371,20 +371,20 @@ export default function AdminContent() {
                                 </div>
                                 {block.name}
                             </span>
-                            <span className="text-[10px] font-black tracking-wider bg-slate-950 text-slate-500 px-3 py-1.5 rounded-lg border border-slate-800">
+                            <span className="text-[10px] font-black tracking-wider bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
                                 {block.subjects.length} {block.subjects.length === 1 ? 'TEMA' : 'TEMAS'}
                             </span>
                         </button>
 
                         {/* Lista de Temas (Desplegable) */}
                         {openBlocks[block.id] && (
-                            <div className="bg-black/20 border-t border-slate-800/50 animate-in slide-in-from-top-2 duration-300 shadow-inner">
+                            <div className="bg-slate-50 dark:bg-black/20 border-t border-slate-200 dark:border-slate-800/50 animate-in slide-in-from-top-2 duration-300">
                                 {block.subjects.map(subject => {
                                     const isSelected = selectedSubject?.id === subject.id;
                                     const hasDocs = subject.docCount > 0;
 
                                     return (
-                                        <div key={subject.id} className={`group/subject relative transition-all duration-300 ${isSelected ? 'bg-indigo-900/10' : 'hover:bg-white/5'}`}>
+                                        <div key={subject.id} className={`group/subject relative transition-all duration-300 ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/10' : 'hover:bg-slate-100 dark:hover:bg-white/5'}`}>
                                             
                                             {/* Indicador lateral de selección */}
                                             {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 shadow-[0_0_10px_#6366f1]"></div>}
@@ -403,8 +403,8 @@ export default function AdminContent() {
                                                     {/* Número del Tema */}
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black shadow-sm flex-shrink-0 transition-all ${
                                                         hasDocs 
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                                                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20' 
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
                                                     }`}>
                                                         {subject.number}
                                                     </div>
@@ -418,16 +418,16 @@ export default function AdminContent() {
                                                             empiezan casi igual —"La Constitucion Espanola
                                                             (I)", "(II)"…— un titulo a medias no identifica
                                                             la fila, que es lo unico que tiene que hacer. */}
-                                                        <p className={`text-sm font-bold line-clamp-2 leading-snug transition-colors ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                                                        <p className={`text-sm font-bold line-clamp-2 leading-snug transition-colors ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
                                                             {subject.title}
                                                         </p>
                                                         <div className="flex items-center gap-3 mt-1.5">
                                                             {hasDocs ? (
-                                                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1.5">
                                                                     <FileText size={10} strokeWidth={3}/> {subject.docCount} archivo{subject.docCount !== 1 ? 's' : ''}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1.5">
+                                                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded flex items-center gap-1.5">
                                                                     <AlertCircle size={10}/> Vacío
                                                                 </span>
                                                             )}
@@ -442,7 +442,7 @@ export default function AdminContent() {
                                                         className={`min-h-[44px] px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-xs font-bold border ${
                                                             isSelected 
                                                             ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-                                                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700'
+                                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300 dark:hover:bg-slate-700'
                                                         }`}
                                                         title="Seleccionar para subir"
                                                     >
@@ -455,7 +455,7 @@ export default function AdminContent() {
                                                             className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition-all border ${
                                                                 genSubject?.id === subject.id 
                                                                 ? 'bg-purple-600 border-purple-500 text-white shadow-lg' 
-                                                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-purple-400 hover:bg-slate-700'
+                                                                : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-400 hover:bg-slate-300 dark:hover:bg-slate-700'
                                                             }`}
                                                             title="Generar Test IA"
                                                             aria-label="Generar preguntas con IA para este tema"
@@ -468,7 +468,7 @@ export default function AdminContent() {
 
                                             {/* LISTA DE ARCHIVOS (SUB-NIVEL) */}
                                             {hasDocs && subject.documents && subject.documents.length > 0 && (
-                                                <div className="ml-[5rem] mr-6 mb-4 space-y-2 border-l-2 border-slate-800 pl-6 animate-in slide-in-from-left-2 duration-300 py-2">
+                                                <div className="ml-[5rem] mr-6 mb-4 space-y-2 border-l-2 border-slate-200 dark:border-slate-800 pl-6 animate-in slide-in-from-left-2 duration-300 py-2">
                                                     {subject.documents.map(doc => (
                                                         /* En movil se APILA: el nombre arriba, los tres
                                                            botones debajo. Con los botones a 44px en una
@@ -477,14 +477,14 @@ export default function AdminContent() {
                                                            esta lista va sangrada 80px por la izquierda.
                                                            Los controles no pueden dejar sin sitio a lo que
                                                            identifica la fila. */
-                                                        <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs group/doc hover:bg-slate-800 hover:border-slate-600 transition-all shadow-sm">
+                                                        <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl text-xs group/doc hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shadow-sm">
                                                             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                                                                <div className="p-2 bg-slate-800 rounded-lg text-slate-500 group-hover/doc:text-indigo-400 group-hover/doc:bg-indigo-500/10 transition-colors">
+                                                                <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 group-hover/doc:text-indigo-700 dark:group-hover/doc:text-indigo-400 group-hover/doc:bg-indigo-500/10 transition-colors">
                                                                     <File size={14}/>
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <p className="text-slate-300 truncate font-medium group-hover/doc:text-white transition-colors">{doc.filename}</p>
-                                                                    <p className="text-[10px] text-slate-500 flex items-center gap-2 mt-1 flex-wrap">
+                                                                    <p className="text-slate-700 dark:text-slate-300 truncate font-medium group-hover/doc:text-slate-900 dark:group-hover/doc:text-white transition-colors">{doc.filename}</p>
+                                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-1 flex-wrap">
                                                                         <span className="flex items-center gap-1.5">
                                                                             <Calendar size={10}/>
                                                                             {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'Fecha desconocida'}
@@ -505,7 +505,7 @@ export default function AdminContent() {
                                                                             );
                                                                         })()}
 
-                                                                        <span className="font-mono text-slate-500">
+                                                                        <span className="font-mono text-slate-500 dark:text-slate-400">
                                                                             {doc.chunk_count} fragmento{doc.chunk_count !== 1 ? 's' : ''}
                                                                         </span>
                                                                     </p>
@@ -540,7 +540,7 @@ export default function AdminContent() {
                                                                     onClick={() => handleVerFragmentos(doc.id, doc.filename)}
                                                                     disabled={cargandoVisor === doc.id}
                                                                     aria-label="Ver los fragmentos indexados"
-                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
                                                                     title="Ver los fragmentos que se han indexado de este documento"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">
@@ -555,7 +555,7 @@ export default function AdminContent() {
                                                                     onClick={() => handleReindex(doc.id, doc.filename)}
                                                                     disabled={reindexando === doc.id}
                                                                     aria-label="Reindexar el documento"
-                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
+                                                                    className="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] text-slate-500 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-400 hover:bg-indigo-500/10 px-2 sm:px-3 rounded-lg transition-all disabled:opacity-60"
                                                                     title="Volver a trocear e indexar este documento"
                                                                 >
                                                                     <span className="font-bold text-[10px] uppercase hidden sm:inline">
@@ -564,7 +564,7 @@ export default function AdminContent() {
                                                                     <RefreshCw size={16} className={reindexando === doc.id ? 'animate-spin' : ''}/>
                                                                 </button>
 
-                                                                <span className="w-px h-6 bg-slate-800 mx-1" aria-hidden />
+                                                                <span className="w-px h-6 bg-slate-100 dark:bg-slate-800 mx-1" aria-hidden />
 
                                                                 <button
                                                                     onClick={() => handleDeleteDoc(doc.id, doc.filename)}
@@ -647,23 +647,23 @@ function SeedCardsPanel({ subject }: { subject: Subject | null }) {
   }
 
   return (
-    <div className="bg-slate-900 border-[3px] border-slate-700 p-5 sm:p-6">
+    <div className="bg-white dark:bg-slate-900 border-[3px] border-slate-300 dark:border-slate-700 p-5 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 justify-between">
         <div className="flex items-center gap-4 min-w-0">
-          <div className={`w-12 h-12 flex items-center justify-center shrink-0 ${subject ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
+          <div className={`w-12 h-12 flex items-center justify-center shrink-0 ${subject ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
             <Layers className="w-6 h-6" />
           </div>
           <div className="min-w-0">
-            <h4 className="font-black text-white uppercase tracking-widest text-sm mb-1.5">
+            <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm mb-1.5">
               Fichas de repaso
             </h4>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {subject ? (
                 <>
                   Tema {subject.number} ·{' '}
                   {tiene === null
                     ? <span className="opacity-60">contando…</span>
-                    : <span className={tiene === 0 ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                    : <span className={tiene === 0 ? 'text-amber-700 dark:text-amber-400 font-bold' : 'text-emerald-700 dark:text-emerald-400 font-bold'}>
                         {tiene} en el banco
                       </span>}
                 </>
@@ -684,7 +684,7 @@ function SeedCardsPanel({ subject }: { subject: Subject | null }) {
             value={count}
             onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
             disabled={!subject || running}
-            className="w-20 min-h-[44px] bg-slate-950 border-2 border-slate-700 text-white text-base sm:text-sm text-center font-bold outline-none focus:border-purple-500 disabled:opacity-40"
+            className="w-20 min-h-[44px] bg-slate-50 dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base sm:text-sm text-center font-bold outline-none focus:border-purple-500 disabled:opacity-40"
           />
           <button
             onClick={run}
@@ -698,7 +698,7 @@ function SeedCardsPanel({ subject }: { subject: Subject | null }) {
       </div>
 
       {result && (
-        <div className={`mt-4 p-3 border-2 text-xs font-bold ${result.success ? 'border-emerald-700 bg-emerald-900/20 text-emerald-300' : 'border-red-800 bg-red-900/20 text-red-300'}`}>
+        <div className={`mt-4 p-3 border-2 text-xs font-bold ${result.success ? 'border-emerald-700 bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'border-red-800 bg-red-900/20 text-red-700 dark:text-red-300'}`}>
           {result.success
             ? `${result.inserted} nuevas · ${result.duplicated} repetidas · ${result.failed} fallidas (de ${result.requested} pedidas)`
             : `No se pudo: ${result.error ?? 'error desconocido'}`}
@@ -752,22 +752,22 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
   }
 
   return (
-    <div className={`p-[3px] rounded-2xl sm:rounded-3xl transition-all duration-700 ${subject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-purple-500/20' : 'bg-slate-800'}`}>
-        <div className="bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl h-full relative overflow-hidden">
+    <div className={`p-[3px] rounded-2xl sm:rounded-3xl transition-all duration-700 ${subject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+        <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl h-full relative overflow-hidden">
             {/* Decoración de fondo */}
             {subject && <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none"></div>}
 
             <div className="flex flex-col md:flex-row gap-5 md:gap-8 items-stretch md:items-center justify-between relative z-10">
                 
                 <div className="flex items-center gap-4 sm:gap-6 w-full md:w-auto min-w-0">
-                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-inner transition-all duration-500 ${subject ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-slate-800 text-slate-500'}`}>
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-inner transition-all duration-500 ${subject ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
                         <Sparkles className={`w-6 h-6 sm:w-8 sm:h-8 ${running ? 'animate-spin-slow' : ''}`} />
                     </div>
                     <div className="min-w-0">
-                        <h4 className="font-black text-white uppercase tracking-widest text-sm mb-1.5">Motor de Generación IA</h4>
-                        <p className="text-xs text-slate-400">
+                        <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm mb-1.5">Motor de Generación IA</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                             {subject 
-                                ? <span className="flex items-center gap-2">Objetivo: <span className="text-indigo-300 font-bold bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">Tema {subject.number}</span></span> 
+                                ? <span className="flex items-center gap-2">Objetivo: <span className="text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">Tema {subject.number}</span></span> 
                                 : <span className="italic opacity-50 flex items-center gap-2"><AlertCircle size={12}/> Selecciona un tema arriba para empezar</span>}
                         </p>
                     </div>
@@ -782,10 +782,10 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                     detector, porque la pagina no crece: `hidden` recorta y ya.
                     Ahora los dos ajustes van en una fila y "Ejecutar" a lo
                     ancho debajo, que ademas es lo que se pulsa. */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full md:w-auto bg-slate-950/80 p-3 rounded-2xl border border-slate-800 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full md:w-auto bg-slate-50/80 dark:bg-slate-950/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg">
                   <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="flex flex-col px-2 sm:px-3 border-r border-slate-800">
-                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Preguntas</label>
+                    <div className="flex flex-col px-2 sm:px-3 border-r border-slate-200 dark:border-slate-800">
+                        <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 text-center">Preguntas</label>
                         <input 
                             type="number" 
                             min="1" max="50"
@@ -802,18 +802,18 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
                                decide cuantas llamadas de pago se hacen a Gemini
                                era el mas pequeño de la pantalla. 44px, como todo
                                lo que se toca. */
-                            className="bg-transparent text-white w-16 min-h-[44px] text-center font-black text-xl outline-none focus:text-indigo-400 transition-colors"
+                            className="bg-transparent text-slate-900 dark:text-white w-16 min-h-[44px] text-center font-black text-xl outline-none focus:text-indigo-700 dark:focus:text-indigo-400 transition-colors"
                         />
                     </div>
                     
                     <button
                         type="button"
                         onClick={() => setAutoApprove(!autoApprove)}
-                        className="min-h-[44px] justify-center flex flex-col px-2 sm:px-3 sm:border-r border-slate-800 text-left group/toggle"
+                        className="min-h-[44px] justify-center flex flex-col px-2 sm:px-3 sm:border-r border-slate-200 dark:border-slate-800 text-left group/toggle"
                         title="Decide si las preguntas entran directas al banco o pasan por moderación"
                     >
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Destino</span>
-                        <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${autoApprove ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Destino</span>
+                        <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${autoApprove ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
                             {autoApprove ? 'Banco' : 'Moderación'}
                         </span>
                     </button>
@@ -831,7 +831,7 @@ function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }
 
             {/* Consola de Resultados con animación */}
             {result && (
-                <div className={`mt-8 p-5 rounded-2xl text-xs font-mono border flex justify-between items-center animate-in slide-in-from-top-4 duration-500 ${result.success ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                <div className={`mt-8 p-5 rounded-2xl text-xs font-mono border flex justify-between items-center animate-in slide-in-from-top-4 duration-500 ${result.success ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400'}`}>
                     <div className="flex items-center gap-4">
                         <div className={`p-2 rounded-lg ${result.success ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
                             {result.success ? <CheckCircle2 size={18}/> : <XCircle size={18}/>}

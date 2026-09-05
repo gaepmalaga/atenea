@@ -64,7 +64,7 @@ export default function DocumentChunksViewer({
     >
       <div className="space-y-4">
         {/* RESUMEN */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/50 rounded-2xl p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl p-4">
           <Dato valor={resumen.total} etiqueta="Fragmentos" />
           <Dato
             valor={resumen.conReferencia}
@@ -87,16 +87,16 @@ export default function DocumentChunksViewer({
         </div>
 
         {/* BUSCADOR */}
-        <div className="flex items-center gap-3 border border-slate-800 rounded-xl px-3 min-h-[44px]">
-          <Search size={14} className="text-slate-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 border border-slate-200 dark:border-slate-800 rounded-xl px-3 min-h-[44px]">
+          <Search size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por artículo o por texto…"
-            className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-slate-200 outline-none placeholder:text-slate-500"
+            className="flex-1 min-w-0 bg-transparent text-base sm:text-sm text-slate-800 dark:text-slate-200 outline-none placeholder:text-slate-500 dark:placeholder:text-slate-400"
           />
           {filtro.trim() && (
-            <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">
+            <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 flex-shrink-0">
               {fragmentosFiltrados} de {resumen.total}
             </span>
           )}
@@ -105,7 +105,7 @@ export default function DocumentChunksViewer({
         {/* FRAGMENTOS */}
         <div className="space-y-3">
           {grupos.length === 0 && (
-            <p className="text-center text-sm text-slate-500 py-12">
+            <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-12">
               {resumen.total === 0
                 ? 'Este documento no tiene ni un fragmento indexado: el chat no encuentra nada de él.'
                 : 'Nada casa con la búsqueda.'}
@@ -113,16 +113,16 @@ export default function DocumentChunksViewer({
           )}
 
           {grupos.map((grupo, i) => (
-            <div key={`${grupo.reference ?? 'sin'}-${i}`} className="border border-slate-800 rounded-2xl overflow-hidden">
-              <div className="px-4 py-2.5 bg-slate-900 flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-slate-200 truncate">
+            <div key={`${grupo.reference ?? 'sin'}-${i}`} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+              <div className="px-4 py-2.5 bg-white dark:bg-slate-900 flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                   {grupo.reference ?? (
                     /* El preambulo, la exposicion de motivos… no salen de
                        ningun articulo, y decirlo es mas util que dejarlo vacio. */
-                    <span className="text-slate-500 italic font-medium">Sin artículo (preámbulo o texto suelto)</span>
+                    <span className="text-slate-500 dark:text-slate-400 italic font-medium">Sin artículo (preámbulo o texto suelto)</span>
                   )}
                 </span>
-                <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">
+                <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 flex-shrink-0">
                   {grupo.chunks.length} frag.
                 </span>
               </div>
@@ -134,13 +134,12 @@ export default function DocumentChunksViewer({
                     <button
                       key={chunk.id}
                       onClick={() => setAbierto(estaAbierto ? null : chunk.id)}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-900/60 transition-colors"
+                      className="w-full text-left px-4 py-3 hover:bg-slate-100/60 dark:hover:bg-slate-900/60 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <FileText size={12} className="text-slate-700 mt-1 flex-shrink-0" />
                         <p
-                          className={`text-xs text-slate-400 leading-relaxed whitespace-pre-wrap ${
-                            estaAbierto ? '' : 'line-clamp-2'
+                          className={`text-xs text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap ${ estaAbierto ?'' : 'line-clamp-2'
                           }`}
                         >
                           {chunk.content_chunk}
@@ -175,11 +174,11 @@ function Dato({
 }) {
   return (
     <div title={pista}>
-      <p className={`text-xl font-black ${alerta ? 'text-amber-400' : 'text-white'}`}>
+      <p className={`text-xl font-black ${alerta ? 'text-amber-700 dark:text-amber-400' : 'text-slate-900 dark:text-white'}`}>
         {valor.toLocaleString('es-ES')}
       </p>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-        {alerta && <AlertTriangle size={10} className="text-amber-400" />}
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+        {alerta && <AlertTriangle size={10} className="text-amber-700 dark:text-amber-400" />}
         {etiqueta}
       </p>
     </div>

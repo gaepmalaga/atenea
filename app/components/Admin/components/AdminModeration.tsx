@@ -17,13 +17,13 @@ import type { ModerationCandidate, ModerationQueue, ModerationReport } from '@/a
 
 // Mapeo de colores y textos para los tipos de reporte
 const REPORT_BADGES: Record<string, { label: string, color: string, bg: string }> = {
-  wrong_correct_answer: { label: 'Respuesta Errónea', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20' },
-  ambiguous_question: { label: 'Ambigua', color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
-  bad_explanation: { label: 'Mala Explicación', color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },
-  out_of_syllabus: { label: 'Fuera de Temario', color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
-  typo_or_format: { label: 'Errata / Formato', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
-  source_mismatch: { label: 'Fuente Incorrecta', color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
-  other: { label: 'Otro', color: 'text-slate-400', bg: 'bg-slate-400/10 border-slate-400/20' },
+  wrong_correct_answer: { label: 'Respuesta Errónea', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-400/10 border-red-400/20' },
+  ambiguous_question: { label: 'Ambigua', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
+  bad_explanation: { label: 'Mala Explicación', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },
+  out_of_syllabus: { label: 'Fuera de Temario', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
+  typo_or_format: { label: 'Errata / Formato', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
+  source_mismatch: { label: 'Fuente Incorrecta', color: 'text-pink-700 dark:text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
+  other: { label: 'Otro', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-400/10 border-slate-400/20' },
 };
 
 export default function AdminModeration() {
@@ -124,7 +124,7 @@ export default function AdminModeration() {
     setSaving(false);
   }
 
-  if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500 mb-4"/> <p className="text-slate-500 text-sm font-mono">Cargando cola de moderación...</p></div>;
+  if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500 mb-4"/> <p className="text-slate-500 dark:text-slate-400 text-sm font-mono">Cargando cola de moderación...</p></div>;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-20">
@@ -132,22 +132,22 @@ export default function AdminModeration() {
         {/* === COLUMNA 1: CANDIDATOS (Nuevos Ingresos) === */}
         <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-white uppercase tracking-widest text-xs flex items-center gap-2">
+                <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></span>
                     Candidatos ({queue.candidates.length})
                 </h3>
-                {queue.candidates.length > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded border border-blue-500/20">Pendientes de aprobación</span>}
+                {queue.candidates.length > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 px-2 py-1 rounded border border-blue-500/20">Pendientes de aprobación</span>}
             </div>
             
             {queue.candidates.length === 0 && (
-                <div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center">
+                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
                     <CheckCircle2 className="mx-auto text-slate-700 mb-2" size={32}/>
-                    <p className="text-slate-500 text-sm">Bandeja de entrada limpia.</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Bandeja de entrada limpia.</p>
                 </div>
             )}
 
             {queue.candidates.map((q) => (
-                <div key={q.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
+                <div key={q.id} className="bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-300 dark:border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
                     <div className="flex justify-between items-start mb-3">
                         {/* Sin tema, sin insignia. `topic` es `subject?.title ??
                             null`: una pregunta puede no tener tema resuelto, y
@@ -155,12 +155,12 @@ export default function AdminModeration() {
                             peor que no pintar nada — parece un dato que no se ha
                             cargado (regla 8). */}
                         {q.topic
-                          ? <span className="text-[10px] font-black tracking-wider text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
-                          : <span className="text-[10px] font-black tracking-wider text-slate-500">Sin tema</span>}
-                        <span className="text-[10px] font-mono text-slate-500">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
+                          ? <span className="text-[10px] font-black tracking-wider text-blue-700 dark:text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
+                          : <span className="text-[10px] font-black tracking-wider text-slate-500 dark:text-slate-400">Sin tema</span>}
+                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
                     </div>
                     
-                    <p className="font-bold text-slate-200 text-sm mb-4 leading-relaxed">{q.question_text}</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-4 leading-relaxed">{q.question_text}</p>
                     
                     <div className="space-y-1.5 mb-5">
                         {/* `options` es jsonb: puede no ser un array. Sin esta
@@ -168,8 +168,8 @@ export default function AdminModeration() {
                         {(Array.isArray(q.options) ? q.options : []).map((opt: string, i: number) => (
                             <div key={i} className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${
                                 i === q.correct_index 
-                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' 
-                                : 'bg-slate-900/30 text-slate-400 border-transparent'
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' 
+                                : 'bg-slate-100/30 dark:bg-slate-900/30 text-slate-500 dark:text-slate-400 border-transparent'
                             }`}>
                                 <div className={`w-1.5 h-1.5 rounded-full ${i === q.correct_index ? 'bg-emerald-400' : 'bg-slate-600'}`}></div>
                                 {opt}
@@ -184,13 +184,13 @@ export default function AdminModeration() {
                         irreversible de la fila— era el botón que menos se
                         entendía. */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-white/5 pt-4">
-                        <button onClick={()=>handleApprove(q.id)} className="min-h-[44px] bg-emerald-600/20 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
+                        <button onClick={()=>handleApprove(q.id)} className="min-h-[44px] bg-emerald-600/20 hover:bg-emerald-500 text-emerald-700 dark:text-emerald-400 hover:text-white border border-emerald-500/20 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
                             <CheckCircle2 size={14}/> Aprobar
                         </button>
-                        <button onClick={()=>openEditor(q)} className="min-h-[44px] bg-slate-700 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
+                        <button onClick={()=>openEditor(q)} className="min-h-[44px] bg-slate-300 dark:bg-slate-700 hover:bg-indigo-600 text-slate-700 dark:text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
                             <Pencil size={14}/> Editar
                         </button>
-                        <button onClick={()=>handleDisable(q.id)} className="min-h-[44px] col-span-2 sm:col-span-1 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
+                        <button onClick={()=>handleDisable(q.id)} className="min-h-[44px] col-span-2 sm:col-span-1 bg-slate-100 dark:bg-slate-800 hover:bg-red-500/20 text-slate-500 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-400 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
                             <XCircle size={14}/> Descartar
                         </button>
                     </div>
@@ -201,17 +201,17 @@ export default function AdminModeration() {
         {/* === COLUMNA 2: REPORTES (Quejas de usuarios) === */}
         <div className="space-y-4">
              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-white uppercase tracking-widest text-xs flex items-center gap-2">
+                <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_10px_#f59e0b]"></span>
                     Reportes ({queue.reports.length})
                 </h3>
-                {queue.reports.length > 0 && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-1 rounded border border-amber-500/20 animate-pulse">Requieren atención</span>}
+                {queue.reports.length > 0 && <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-1 rounded border border-amber-500/20 animate-pulse">Requieren atención</span>}
             </div>
 
             {queue.reports.length === 0 && (
-                 <div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center">
+                 <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
                     <ShieldAlert className="mx-auto text-slate-700 mb-2" size={32}/>
-                    <p className="text-slate-500 text-sm">Todo tranquilo. Sin quejas.</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Todo tranquilo. Sin quejas.</p>
                 </div>
             )}
 
@@ -221,25 +221,25 @@ export default function AdminModeration() {
                 // y la tarjeta reventaria al leer `badge.label`.
                 const badge = REPORT_BADGES[r.report_type ?? ''] ?? REPORT_BADGES.other;
                 return (
-                    <div key={r.id} className="bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-amber-500/20 relative group hover:border-amber-500/40 transition-all shadow-lg hover:shadow-amber-900/10">
+                    <div key={r.id} className="bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-amber-500/20 relative group hover:border-amber-500/40 transition-all shadow-lg hover:shadow-amber-900/10">
                         
                         {/* Header Reporte */}
                         <div className="flex justify-between items-start mb-3">
                              <div className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1.5 ${badge.bg} ${badge.color}`}>
                                 <AlertTriangle size={10} /> {badge.label}
                              </div>
-                             <span className="text-[10px] text-slate-500 font-mono">ID: {r.id.split('-')[0]}</span>
+                             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">ID: {r.id.split('-')[0]}</span>
                         </div>
                         
                         {/* Pregunta Contexto */}
-                        <div className="mb-4 pl-3 border-l-2 border-slate-700">
-                             <p className="font-bold text-slate-300 text-sm line-clamp-2 italic">“{r.question?.question_text || 'Pregunta no encontrada'}”</p>
+                        <div className="mb-4 pl-3 border-l-2 border-slate-300 dark:border-slate-700">
+                             <p className="font-bold text-slate-700 dark:text-slate-300 text-sm line-clamp-2 italic">“{r.question?.question_text || 'Pregunta no encontrada'}”</p>
                         </div>
                         
                         {/* Mensaje Usuario */}
                         <div className="bg-amber-500/5 p-3 rounded-xl border border-amber-500/10 mb-4">
-                            <p className="text-[10px] text-amber-500 uppercase font-black mb-1">Comentario del alumno:</p>
-                            <p className="text-amber-100 text-xs italic">“{r.message}”</p>
+                            <p className="text-[10px] text-amber-700 dark:text-amber-500 uppercase font-black mb-1">Comentario del alumno:</p>
+                            <p className="text-amber-900 dark:text-amber-100 text-xs italic">“{r.message}”</p>
                         </div>
 
                         {/* Tres acciones en tres columnas fijas de 32px de alto.
@@ -258,7 +258,7 @@ export default function AdminModeration() {
 
                             <button
                                 onClick={()=>handleResolveReport(r.id)}
-                                className="min-h-[44px] bg-slate-700 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
+                                className="min-h-[44px] bg-slate-300 dark:bg-slate-700 hover:bg-emerald-600 text-slate-700 dark:text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
                                 title="Archivar la queja sin tocar la pregunta"
                             >
                                 <CheckCircle2 size={14}/> Archivar queja
@@ -267,7 +267,7 @@ export default function AdminModeration() {
                              <button
                                 onClick={() => r.question_id && handleDisable(r.question_id, true)}
                                 disabled={!r.question_id}
-                                className="min-h-[44px] col-span-2 bg-slate-800 hover:bg-red-900/30 text-red-400 hover:text-red-300 border border-transparent hover:border-red-500/30 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all disabled:opacity-40"
+                                className="min-h-[44px] col-span-2 bg-slate-100 dark:bg-slate-800 hover:bg-red-900/30 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-transparent hover:border-red-500/30 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all disabled:opacity-40"
                                 title="Descartar la pregunta del banco"
                             >
                                 <XCircle size={14}/> Descartar la pregunta
@@ -306,7 +306,7 @@ export default function AdminModeration() {
                             <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
                             <div className="min-w-0">
                                 <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-0.5">Lo que dijo el alumno</p>
-                                <p className="text-amber-200 text-sm break-words">“{reportContext.message}”</p>
+                                <p className="text-amber-800 dark:text-amber-200 text-sm break-words">“{reportContext.message}”</p>
                             </div>
                         </div>
                     )}
@@ -319,7 +319,7 @@ export default function AdminModeration() {
                     />
 
                     <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
                             Opciones · marca la correcta
                         </p>
                         <div className="space-y-2">

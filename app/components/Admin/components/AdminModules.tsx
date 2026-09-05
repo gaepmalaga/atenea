@@ -61,14 +61,14 @@ export default function AdminModules() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-24">
-      <div className="bg-slate-900/80 border border-white/10 p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-slate-100/80 dark:bg-slate-900/80 border border-white/10 p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
             <Power size={24} strokeWidth={2.5} />
           </div>
           <div>
-            <h3 className="font-black text-white text-base tracking-tight uppercase">Módulos del alumno</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight uppercase">Módulos del alumno</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {cargando ? 'Cargando…' : `${activos} de ${MODULE_IDS.length} activos`}
               {' · '}lo que se apaga aquí deja de servirse también en el servidor
             </p>
@@ -77,7 +77,7 @@ export default function AdminModules() {
       </div>
 
       {error && (
-        <div className="bg-red-500/5 border border-red-500/20 text-red-300 rounded-2xl px-4 py-3 text-xs font-medium flex items-center gap-2">
+        <div className="bg-red-500/5 border border-red-500/20 text-red-700 dark:text-red-300 rounded-2xl px-4 py-3 text-xs font-medium flex items-center gap-2">
           <AlertTriangle size={14} /> {error}
         </div>
       )}
@@ -97,15 +97,15 @@ export default function AdminModules() {
             <div
               key={id}
               className={`border rounded-3xl p-5 transition-all ${
-                activo ? 'bg-slate-900 border-slate-800' : 'bg-slate-950 border-slate-800/60'
+                activo ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800' : 'bg-slate-50 dark:bg-slate-950 border-slate-800/60'
               }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className={`font-black text-sm ${activo ? 'text-white' : 'text-slate-500'}`}>
+                  <p className={`font-black text-sm ${activo ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
                     {MODULE_LABEL[id]}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{MODULE_DESCRIPCION[id]}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{MODULE_DESCRIPCION[id]}</p>
                 </div>
 
                 <button
@@ -118,7 +118,7 @@ export default function AdminModules() {
                      vertical hasta los 44px. Un interruptor de 32px se falla
                      con el pulgar, y aqui fallarlo apaga un modulo entero. */
                   className={`shrink-0 w-14 h-8 my-1.5 box-content py-1.5 rounded-full flex items-center px-1 transition-all disabled:opacity-40 ${
-                    activo ? 'bg-emerald-500 justify-end' : 'bg-slate-700 justify-start'
+                    activo ? 'bg-emerald-500 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
                   }`}
                 >
                   <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-slate-900">

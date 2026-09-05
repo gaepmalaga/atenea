@@ -28,16 +28,16 @@ import { Modal, Button, TextAreaField } from '../../ui';
 
 // --- UTILIDAD VISUAL: ESTADO DE LA PREGUNTA ---
 const STATUS_STYLE: Record<QuestionStatus, string> = {
-  [QUESTION_STATUS.ACTIVE]: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  [QUESTION_STATUS.CANDIDATE]: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  [QUESTION_STATUS.DISABLED]: 'bg-slate-700/40 text-slate-500 border-slate-600/30',
+  [QUESTION_STATUS.ACTIVE]: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+  [QUESTION_STATUS.CANDIDATE]: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
+  [QUESTION_STATUS.DISABLED]: 'bg-slate-300/40 dark:bg-slate-700/40 text-slate-500 dark:text-slate-400 border-slate-600/30',
 };
 
 // --- UTILIDAD VISUAL: COLORES POR BLOQUE ---
 const getTopicStyle = (num: number) => {
-    if (num <= 26) return { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20', label: 'JURÍDICAS' };
-    if (num <= 37) return { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', label: 'SOCIALES' };
-    return { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20', label: 'TÉCNICAS' };
+    if (num <= 26) return { bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-500/20', label: 'JURÍDICAS' };
+    if (num <= 37) return { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-500/20', label: 'SOCIALES' };
+    return { bg: 'bg-purple-500/10', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-500/20', label: 'TÉCNICAS' };
 };
 
 export default function AdminBank() {
@@ -202,7 +202,7 @@ export default function AdminBank() {
     <div className="space-y-8 animate-in fade-in pb-24">
         
         {/* --- HEADER CONTROL PANEL --- */}
-        <div className="sticky top-4 z-30 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-3xl shadow-2xl flex flex-col lg:flex-row gap-4 justify-between items-center transition-all">
+        <div className="sticky top-4 z-30 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-3xl shadow-2xl flex flex-col lg:flex-row gap-4 justify-between items-center transition-all">
             
             {/* Título & Stats */}
             <div className="flex items-center gap-4 w-full lg:w-auto">
@@ -210,13 +210,13 @@ export default function AdminBank() {
                     <Database size={24} strokeWidth={2.5}/>
                 </div>
                 <div>
-                    <h3 className="font-black text-white text-base tracking-tight uppercase">Banco Maestro</h3>
+                    <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight uppercase">Banco Maestro</h3>
                     <div className="flex items-center gap-2">
                         <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
-                        <p className="text-xs font-mono text-slate-400">
+                        <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
                             {stats.total} {statusFilter === 'all' ? 'preguntas' : QUESTION_STATUS_LABEL[statusFilter].toLowerCase()}
                         </p>
                     </div>
@@ -234,12 +234,12 @@ export default function AdminBank() {
             {/* Filtros Avanzados */}
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <div className="relative group w-full sm:w-64">
-                    <Search className="absolute left-4 top-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={18}/>
+                    <Search className="absolute left-4 top-3 text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-400 transition-colors" size={18}/>
                     <input 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar por contenido..." 
-                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-500 dark:placeholder:text-slate-400"
                     />
                 </div>
 
@@ -247,31 +247,31 @@ export default function AdminBank() {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as QuestionStatus | 'all')}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer"
                     >
                         <option value="all">Todos los estados</option>
                         {QUESTION_STATUSES.map(st => (
                             <option key={st} value={st}>{QUESTION_STATUS_LABEL[st]}</option>
                         ))}
                     </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500">
+                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500 dark:text-slate-400">
                         <MoreHorizontal size={14}/>
                     </div>
                 </div>
 
                 <div className="relative group w-full sm:w-64">
-                    <Filter className="absolute left-4 top-3 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={18}/>
+                    <Filter className="absolute left-4 top-3 text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-400 transition-colors" size={18}/>
                     <select 
                         value={selectedSubject || ''}
                         onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-10 py-3 text-sm text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer truncate"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer truncate"
                     >
                         <option value="">Todos los Temas</option>
                         {subjects.map(s => (
                             <option key={s.id} value={s.id}>Tema {s.number}: {s.title.substring(0,25)}...</option>
                         ))}
                     </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500">
+                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500 dark:text-slate-400">
                         <MoreHorizontal size={14}/>
                     </div>
                 </div>
@@ -281,8 +281,8 @@ export default function AdminBank() {
         {/* --- APROBACIÓN EN LOTE --- */}
         {!loading && visibleCandidates.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-amber-500/5 border border-amber-500/20 rounded-2xl px-6 py-4 animate-in fade-in">
-                <p className="text-sm text-amber-200/80">
-                    <span className="font-black text-amber-400">{visibleCandidates.length}</span> preguntas pendientes en esta página.
+                <p className="text-sm text-amber-800 dark:text-amber-200/80">
+                    <span className="font-black text-amber-700 dark:text-amber-400">{visibleCandidates.length}</span> preguntas pendientes en esta página.
                     Los alumnos no las reciben hasta que se publiquen.
                 </p>
                 <button
@@ -305,7 +305,7 @@ export default function AdminBank() {
                         <Loader2 size={24} className="text-indigo-500 animate-pulse"/>
                     </div>
                 </div>
-                <p className="text-sm font-mono text-indigo-400 uppercase tracking-widest">Accediendo a la BBDD...</p>
+                <p className="text-sm font-mono text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Accediendo a la BBDD...</p>
             </div>
         ) : (
             <div className="grid grid-cols-1 gap-6">
@@ -314,7 +314,7 @@ export default function AdminBank() {
                     const style = getTopicStyle(topicNum);
                     
                     return (
-                        <div key={q.id} className="group relative bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300">
+                        <div key={q.id} className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300">
                             
                             {/* Header de la Tarjeta */}
                             <div className="flex justify-between items-start mb-5">
@@ -330,7 +330,7 @@ export default function AdminBank() {
                                         `difficulty`. Con el estado en `any` esto era
                                         siempre undefined y el distintivo no salio nunca. */}
                                     {q.difficulty_level === DIFFICULTY.hard && (
-                                        <span className="text-[10px] font-bold bg-red-500/10 text-red-400 px-2 py-1 rounded-full border border-red-500/20 flex items-center gap-1">
+                                        <span className="text-[10px] font-bold bg-red-500/10 text-red-700 dark:text-red-400 px-2 py-1 rounded-full border border-red-500/20 flex items-center gap-1">
                                             <AlertTriangle size={10}/> DIFÍCIL
                                         </span>
                                     )}
@@ -340,7 +340,7 @@ export default function AdminBank() {
                                 <div className="flex gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all transform lg:translate-x-4 group-hover:translate-x-0">
                                     <button 
                                         onClick={() => navigator.clipboard.writeText(q.id)}
-                                        className="w-11 h-11 flex items-center justify-center bg-slate-800 text-slate-500 hover:text-white rounded-xl hover:bg-slate-700 transition-colors"
+                                        className="w-11 h-11 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
                                         title="Copiar ID"
                                     >
                                         <Copy size={16}/>
@@ -355,7 +355,7 @@ export default function AdminBank() {
                                     <button 
                                         onClick={() => handleDisable(q.id)}
                                         disabled={q.status === QUESTION_STATUS.DISABLED}
-                                        className="w-11 h-11 flex items-center justify-center bg-slate-800 text-slate-400 border border-slate-700 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-700 disabled:hover:text-slate-400 rounded-xl transition-colors"
+                                        className="w-11 h-11 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-300 dark:disabled:hover:border-slate-700 disabled:hover:text-slate-500 dark:disabled:hover:text-slate-400 rounded-xl transition-colors"
                                         title="Descartar del banco"
                                     >
                                         {isDeleting === q.id ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16}/>}
@@ -365,7 +365,7 @@ export default function AdminBank() {
 
                             {/* Contenido */}
                             <div className="mb-6">
-                                <p className="text-slate-200 font-bold text-base md:text-lg leading-relaxed selection:bg-indigo-500/30">
+                                <p className="text-slate-800 dark:text-slate-200 font-bold text-base md:text-lg leading-relaxed selection:bg-indigo-500/30">
                                     {q.question_text}
                                 </p>
                             </div>
@@ -378,15 +378,15 @@ export default function AdminBank() {
                                         <div key={i} className={`relative p-4 rounded-2xl border transition-all ${
                                             isCorrect 
                                             ? 'bg-emerald-500/5 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
-                                            : 'bg-slate-950 border-slate-800 text-slate-500'
+                                            : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                                         }`}>
                                             <div className="flex gap-3 items-start">
                                                 <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold border ${
-                                                    isCorrect ? 'bg-emerald-500 text-slate-900 border-emerald-500' : 'border-slate-700 text-slate-500'
+                                                    isCorrect ? 'bg-emerald-500 text-slate-900 border-emerald-500' : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
                                                 }`}>
                                                     {['A','B','C'][i]}
                                                 </span>
-                                                <p className={`text-xs leading-snug ${isCorrect ? 'text-emerald-200 font-medium' : ''}`}>
+                                                <p className={`text-xs leading-snug ${isCorrect ? 'text-emerald-800 dark:text-emerald-200 font-medium' : ''}`}>
                                                     {opt}
                                                 </p>
                                             </div>
@@ -403,10 +403,10 @@ export default function AdminBank() {
                             {/* Explicación (Acordeón sutil) */}
                             {q.explanation && (
                                 <div className="mt-4 pt-4 border-t border-slate-800/50">
-                                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">
+                                    <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest mb-1">
                                         Retroalimentación Oficial
                                     </p>
-                                    <p className="text-xs text-slate-400 leading-relaxed max-w-4xl">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-4xl">
                                         {q.explanation}
                                     </p>
                                 </div>
@@ -416,10 +416,10 @@ export default function AdminBank() {
                 })}
 
                 {questions.length === 0 && (
-                    <div className="py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl bg-slate-900/30">
+                    <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-100/30 dark:bg-slate-900/30">
                         <Database size={48} className="mx-auto mb-4 text-slate-700"/>
-                        <p className="text-slate-500 font-bold">No hay preguntas que coincidan.</p>
-                        <p className="text-xs text-slate-500">Prueba a generar más en la pestaña “Temario”.</p>
+                        <p className="text-slate-500 dark:text-slate-400 font-bold">No hay preguntas que coincidan.</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Prueba a generar más en la pestaña “Temario”.</p>
                     </div>
                 )}
             </div>
@@ -427,23 +427,23 @@ export default function AdminBank() {
 
         {/* --- PAGINACIÓN MODERNA --- */}
         {stats.totalPages > 1 && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl flex items-center gap-2 z-40">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-300 dark:border-slate-700 p-2 rounded-2xl shadow-2xl flex items-center gap-2 z-40">
                 <button 
                     disabled={stats.page === 1}
                     onClick={() => { loadQuestions(stats.page - 1); window.scrollTo({top:0, behavior:'smooth'}); }}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-colors text-white"
+                    className="p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-colors text-slate-900 dark:text-white"
                 >
                     <ChevronLeft size={18}/>
                 </button>
                 
-                <span className="px-4 font-mono text-sm text-indigo-400 font-bold">
-                    {stats.page} <span className="text-slate-500">/</span> {stats.totalPages}
+                <span className="px-4 font-mono text-sm text-indigo-700 dark:text-indigo-400 font-bold">
+                    {stats.page} <span className="text-slate-500 dark:text-slate-400">/</span> {stats.totalPages}
                 </span>
                 
                 <button 
                     disabled={stats.page === stats.totalPages}
                     onClick={() => { loadQuestions(stats.page + 1); window.scrollTo({top:0, behavior:'smooth'}); }}
-                    className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-colors text-white"
+                    className="p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-colors text-slate-900 dark:text-white"
                 >
                     <ChevronRight size={18}/>
                 </button>
@@ -463,17 +463,17 @@ export default function AdminBank() {
             ("BORRAR"), pero al final de la pantalla y en la zona de peligro:
             donde no se llega sin querer. */}
         <div className="mt-10 pt-6 border-t border-dashed border-red-500/20">
-            <p className="text-[10px] font-black uppercase tracking-widest text-red-400 mb-2">Zona de peligro</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-400 mb-2">Zona de peligro</p>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <p className="text-xs text-slate-500 flex-1 leading-snug">
-                    Descarta <strong className="text-slate-400">todas</strong> las preguntas del banco, sin
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-snug">
+                    Descarta <strong className="text-slate-500 dark:text-slate-400">todas</strong> las preguntas del banco, sin
                     importar el filtro. Dejan de servirse a los alumnos; no se borran de la base de datos.
                 </p>
                 <button
                     onClick={handleDiscardAll}
                     disabled={clearingAll}
                     title="Descarta TODAS las preguntas del banco, sin importar el filtro"
-                    className="shrink-0 min-h-[44px] px-5 bg-transparent hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-400 hover:text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
+                    className="shrink-0 min-h-[44px] px-5 bg-transparent hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-700 dark:text-red-400 hover:text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                     {clearingAll ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16} strokeWidth={3}/>}
                     Vaciar banco
@@ -524,7 +524,7 @@ export default function AdminBank() {
                     />
 
                     <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
                             Opciones · marca la válida
                         </p>
                         <div className="space-y-2">

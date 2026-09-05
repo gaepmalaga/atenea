@@ -1283,6 +1283,42 @@ solo el envío. Un campo que se puede escribir y no manda nada es peor que uno
 apagado: el alumno teclea la pregunta entera antes de descubrir que no iba a
 ninguna parte.
 
+### 45 · El panel de administración sigue el tema, menos su barra
+
+Era oscuro **a fuego**: de los 367 colores que tenía, solo 27 llevaban variante
+`dark:`. No había un interruptor apagado — no había interruptor. Y se usa en un
+móvil, de día, donde el oscuro se lee peor.
+
+Ahora el **contenido** sigue el tema del sistema, como el resto de la
+plataforma. La **barra de arriba se queda oscura siempre**, con el filete de la
+bandera, y eso no es un resto del panel viejo: es la **señal de contexto**. Este
+es el sitio donde se borra temario y se publican preguntas para todos los
+alumnos, y conviene saber de un vistazo que ya no estás en el de estudiar.
+
+**La conversión se hizo con un guion, y hacía falta**: 367 colores en 10
+ficheros. A mano se olvida uno, y **un texto blanco sobre fondo blanco no da
+error — simplemente desaparece**. Tres trampas, y las tres las cantó
+`contraste.cjs`, no una revisión a ojo:
+
+- **`text-white` significa dos cosas.** Sobre `bg-slate-900` es «el texto de un
+  panel oscuro» y debe volverse `text-slate-900 dark:text-white`. Sobre
+  `bg-indigo-600` —un botón— es «blanco sobre el color de marca» y **tiene que
+  quedarse blanco**. Por eso se analiza la clase entera, no cada palabra.
+- **Los prefijos.** `hover:bg-slate-800` no puede convertirse en
+  `hover:bg-slate-100 dark:bg-slate-800`: la mitad oscura pierde el `hover:` y
+  pasa a aplicarse siempre. Lo correcto es `dark:hover:bg-slate-800`.
+- **Los acentos estaban elegidos para fondo oscuro.** `text-emerald-400` sobre
+  blanco son 1,8:1: el porcentaje de acierto de un alumno quedaba ilegible en
+  el panel de academia. En claro hay que bajar a la versión 700.
+
+Y lo que el guion NO debe tocar: la propia barra (se convirtió a sí misma y
+dejó «Centro de Mando» blanco sobre casi blanco, 1,0:1) y lo que va dentro de
+`Card tone="contrast"`, que es oscura en los dos temas por diseño.
+
+Medido: de 0 a **64** textos por debajo de 3:1 tras la conversión automática, y
+de vuelta a **0** tras arreglar esas tres clases. Sin `contraste.cjs` esto no se
+podía hacer: son 80 textos por pantalla y siete secciones.
+
 ---
 
 ## Los tests

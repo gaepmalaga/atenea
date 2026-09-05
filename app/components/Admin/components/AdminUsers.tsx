@@ -10,9 +10,9 @@ import { EmptyState, cx, TEXT } from '../../ui';
 function Efectividad({ winRate }: { winRate: number | null }) {
   // Sin datos NO es lo mismo que 0 % de aciertos (regla 8): antes ambos casos
   // se pintaban igual, y en rojo.
-  if (winRate === null) return <span className="text-slate-500 font-mono text-xs">sin datos</span>;
+  if (winRate === null) return <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">sin datos</span>;
   return (
-    <span className={cx('font-bold tabular-nums', winRate >= 50 ? 'text-emerald-400' : 'text-red-400')}>
+    <span className={cx('font-bold tabular-nums', winRate >= 50 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400')}>
       {winRate}%
     </span>
   );
@@ -24,6 +24,9 @@ function RolBadge({ role }: { role: string | null }) {
     <span
       className={cx(
         'px-2 py-1 rounded text-[10px] font-black uppercase shrink-0',
+        // `slate-600` es oscuro en los dos temas, asi que el texto se queda BLANCO:
+        // el tematizado automatico le puso `text-slate-900` en claro y el rol
+        // quedaba a 2,4:1 sobre su propia pastilla.
         role === 'admin' ? 'bg-amber-500 text-black' : 'bg-slate-600 text-white',
       )}
     >
@@ -55,17 +58,17 @@ export default function AdminUsers() {
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in">
 
-      <div className="bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700 w-full md:w-1/3">
+      <div className="bg-slate-100 dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-300 dark:border-slate-700 w-full md:w-1/3">
         <div className="flex justify-between items-start mb-3">
-          <span className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><Users size={20} /></span>
+          <span className="p-2 bg-blue-500/10 rounded-lg text-blue-700 dark:text-blue-400"><Users size={20} /></span>
           <span className="text-[10px] font-black bg-blue-500 text-slate-900 px-2 py-0.5 rounded uppercase">Total</span>
         </div>
-        <p className="text-3xl sm:text-4xl font-black text-white tabular-nums">{users.length}</p>
-        <p className="text-sm text-slate-500 font-medium">Usuarios registrados</p>
+        <p className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums">{users.length}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Usuarios registrados</p>
       </div>
 
       {users.length === 0 ? (
-        <div className="bg-slate-800 rounded-2xl border border-slate-700">
+        <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
           <EmptyState
             title="No se encontraron usuarios"
             hint="Si esperabas ver alguno, comprueba las políticas RLS de `profiles`: con la sesión equivocada la consulta devuelve cero filas sin dar error."
@@ -82,16 +85,16 @@ export default function AdminUsers() {
               esta pantalla, era invisible en móvil. */}
           <div className="md:hidden space-y-2">
             {users.map((u) => (
-              <div key={u.id} className="bg-slate-800 rounded-2xl border border-slate-700 p-4">
+              <div key={u.id} className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 p-4">
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <p className="font-medium text-white text-sm break-all min-w-0">{u.email}</p>
+                  <p className="font-medium text-slate-900 dark:text-white text-sm break-all min-w-0">{u.email}</p>
                   <RolBadge role={u.role} />
                 </div>
                 <div className="flex items-center gap-4 text-xs">
-                  <span className="text-slate-500">
-                    Tests <span className="font-mono text-slate-300 tabular-nums">{u.total_tests}</span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Tests <span className="font-mono text-slate-700 dark:text-slate-300 tabular-nums">{u.total_tests}</span>
                   </span>
-                  <span className="text-slate-500">
+                  <span className="text-slate-500 dark:text-slate-400">
                     Efectividad <Efectividad winRate={u.win_rate} />
                   </span>
                 </div>
@@ -100,9 +103,9 @@ export default function AdminUsers() {
           </div>
 
           {/* ESCRITORIO: la tabla, que aquí sí cabe. */}
-          <div className="hidden md:block bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-            <table className="w-full text-left text-sm text-slate-400">
-              <thead className="bg-slate-900/50 text-xs uppercase font-bold text-slate-500">
+          <div className="hidden md:block bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 overflow-hidden">
+            <table className="w-full text-left text-sm text-slate-500 dark:text-slate-400">
+              <thead className="bg-slate-100/50 dark:bg-slate-900/50 text-xs uppercase font-bold text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="px-6 py-4">Usuario</th>
                   <th className="px-6 py-4">Rol</th>
@@ -112,8 +115,8 @@ export default function AdminUsers() {
               </thead>
               <tbody className="divide-y divide-slate-700">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-700/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-white">{u.email}</td>
+                  <tr key={u.id} className="hover:bg-slate-300/50 dark:hover:bg-slate-700/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.email}</td>
                     <td className="px-6 py-4"><RolBadge role={u.role} /></td>
                     <td className="px-6 py-4 text-center font-mono tabular-nums">{u.total_tests}</td>
                     <td className="px-6 py-4 text-center"><Efectividad winRate={u.win_rate} /></td>

@@ -183,7 +183,7 @@ export default function QuestionComposer({
       onClose={onClose}
       footer={
         <>
-          <p className="text-[11px] text-slate-500 truncate sm:mr-auto sm:self-center">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate sm:mr-auto sm:self-center">
             {temaElegido ? `Tema ${temaElegido.number} · ${temaElegido.title}` : 'Sin tema elegido'}
           </p>
           {pestania === 'manual' ? (
@@ -262,7 +262,7 @@ export default function QuestionComposer({
               />
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">
                   Opciones (marca la válida)
                 </label>
                 {options.map((opt, i) => (
@@ -309,7 +309,7 @@ export default function QuestionComposer({
               />
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Dificultad</label>
+                <label className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Dificultad</label>
                 <div className="flex gap-2">
                   {NIVELES.map((n) => (
                     <button
@@ -350,7 +350,7 @@ export default function QuestionComposer({
                   className="hidden"
                 />
                 {nombreFichero && (
-                  <span className="text-xs font-mono text-slate-500 truncate max-w-[220px]">{nombreFichero}</span>
+                  <span className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate max-w-[220px]">{nombreFichero}</span>
                 )}
               </div>
 
@@ -366,15 +366,15 @@ export default function QuestionComposer({
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-3">
                     <div className="flex-1 min-w-[120px] bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-3">
-                      <p className="text-2xl font-black text-emerald-400">{leidas.length}</p>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{leidas.length}</p>
                       <p className="text-[10px] uppercase tracking-widest text-emerald-200/60 font-bold">listas</p>
                     </div>
                     <div className="flex-1 min-w-[120px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
-                      <p className="text-2xl font-black text-slate-400">{repetidas}</p>
-                      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">repetidas</p>
+                      <p className="text-2xl font-black text-slate-500 dark:text-slate-400">{repetidas}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-bold">repetidas</p>
                     </div>
                     <div className="flex-1 min-w-[120px] bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
-                      <p className="text-2xl font-black text-amber-400">{rechazadas.length}</p>
+                      <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{rechazadas.length}</p>
                       <p className="text-[10px] uppercase tracking-widest text-amber-200/60 font-bold">rechazadas</p>
                     </div>
                   </div>
@@ -384,15 +384,15 @@ export default function QuestionComposer({
                   {rechazadas.length > 0 && (
                     <div className="border border-amber-500/20 rounded-2xl overflow-hidden">
                       <div className="px-4 py-2 bg-amber-500/5 flex items-center gap-2">
-                        <AlertTriangle size={12} className="text-amber-400" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                        <AlertTriangle size={12} className="text-amber-700 dark:text-amber-400" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
                           Estas filas no se importan
                         </p>
                       </div>
                       <div className="max-h-48 overflow-y-auto divide-y divide-slate-800/60">
                         {rechazadas.map((r, i) => (
                           <div key={i} className="px-4 py-2 flex gap-3 text-xs">
-                            <span className="font-mono text-slate-500 shrink-0">línea {r.fila}</span>
+                            <span className="font-mono text-slate-500 dark:text-slate-400 shrink-0">línea {r.fila}</span>
                             <span className="text-slate-500 dark:text-slate-400">{r.motivo}</span>
                           </div>
                         ))}
@@ -403,12 +403,12 @@ export default function QuestionComposer({
                   {leidas.length > 0 && (
                     <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
                       <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                           Vista previa
                         </p>
                         <button
                           onClick={() => { setLeidas([]); setRechazadas([]); setRepetidas(0); setNombreFichero(''); if (inputFichero.current) inputFichero.current.value = ''; }}
-                          className="text-slate-500 hover:text-red-400 transition-colors"
+                          className="text-slate-500 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-400 transition-colors"
                           title="Descartar el fichero"
                         >
                           <Trash2 size={14} />
@@ -424,7 +424,7 @@ export default function QuestionComposer({
                           </div>
                         ))}
                         {leidas.length > 20 && (
-                          <p className="px-4 py-2 text-[11px] text-slate-500 font-mono">
+                          <p className="px-4 py-2 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                             …y {leidas.length - 20} más
                           </p>
                         )}
@@ -440,8 +440,8 @@ export default function QuestionComposer({
             <div
               className={`rounded-2xl px-4 py-3 text-xs font-medium border flex items-start gap-2 ${
                 resultado.tipo === 'ok'
-                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
-                  : 'bg-red-500/5 border-red-500/20 text-red-300'
+                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-red-500/5 border-red-500/20 text-red-700 dark:text-red-300'
               }`}
             >
               {resultado.tipo === 'ok' ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" /> : <AlertTriangle size={14} className="mt-0.5 shrink-0" />}
