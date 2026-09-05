@@ -38,7 +38,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, ya en la BD: regla 20) |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
-| **5** | **Higiene** | ✅ **cerrada** (0 `any`, lint en 4 falsos positivos) |
+| **5** | **Higiene** | ✅ **cerrada** (0 `any`, lint solo en el falso positivo de `set-state-in-effect`) |
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
@@ -48,7 +48,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
 | **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) — falta P5e (invitar) y P5f (clase: guion escrito, sin ejecutar) |
-| **P6** | **Cobros** (plan de producto) | ✅ **parte 1** (5 sep): panel de consumo de IA. Cobrar de verdad sigue aplazado tras el piloto |
+| **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso por invitación + registro de pagos. Sin pasarela, a propósito |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -124,7 +124,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # 5 errores, todos el mismo falso positivo (ver abajo)
+npm run lint                   # ~13 errores, todos el mismo falso positivo (ver abajo)
 
 npm run sembrar -- --comprobar-pdfs # lee los 51 PDF y los trocea, SIN red ni gasto
 npm run reset                      # ensayo: qué se borraría. `-- --hazlo` borra
@@ -142,14 +142,16 @@ npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
 ```
 
-Los 7 errores de `lint` son el mismo falso positivo de
-`react-hooks/set-state-in-effect`, en tres paneles de administración
-(`AdminActivity`, `AdminModeration`, `AdminUsers`) y en cuatro pantallas del
-alumno (`DashboardHome`, `FailedQuestions`, `QuestionNote`, `IntelChat`): la
-regla ve el `setState` dentro de la función que el efecto llama, pero va
-**después** del `await`. Retorcer el código para callarla sería peor que el
-aviso. El de `IntelChat` es además a propósito: recupera del `sessionStorage` la
-conversación al montar (regla 37).
+Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
+`react-hooks/set-state-in-effect`: en cada panel que carga datos, un
+`useEffect(() => cargar(), [])` donde `cargar` hace `setState` **después** de un
+`await`. La regla lo ve como un `setState` síncrono dentro del efecto y no lo
+es. Está en casi todos los paneles de administración (`AdminActivity`,
+`AdminCost`, `AdminMembers`, `AdminModeration`, `AdminUsers`, `AdminContent`,
+`PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
+`QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
+aviso, y el número solo crece al añadir paneles. El de `IntelChat` es además a
+propósito: recupera del `sessionStorage` la conversación al montar (regla 37).
 
 **`npm run dev` usa webpack, no Turbopack.** Turbopack infiere mal la raíz del proyecto
 en modo desarrollo y se va al directorio padre, desde donde no resuelve el
@@ -1444,9 +1446,47 @@ siempre a propósito para que los tests los vigilen:
 - **Por debajo de un céntimo se dice «< $0.01», no «$0.00»** (`formateaUSD`).
 
 Va con la clave de servicio y `requireAdmin` (regla 34/35: `ai_usage` tiene RLS
-y cero políticas). **Lo que NO se hizo, a propósito:** nada de cobrar — ni
-pasarela, ni suscripciones. El modelo (cobrar a la academia vs. al alumno) no
-está decidido y construir el que no toca es trabajo tirado.
+y cero políticas).
+
+### 52 · El cobro es en efectivo; el código solo controla el acceso
+
+La decisión de P6 se tomó al final: **no hay pasarela**. La academia cobra en
+persona, y lo que hace falta es una puerta que el administrador abre y cierra y
+un registro de lo que cada alumno ha pagado. Nada de Stripe, suscripciones ni
+IVA de la UE — construir eso habría sido trabajo tirado.
+
+Tres tablas ([`docs/sql/P6-acceso-y-pagos.sql`](docs/sql/P6-acceso-y-pagos.sql)),
+todas de administración (RLS y cero políticas):
+
+- **`membership_settings.required`** — el interruptor global. **Por defecto
+  `false`**: la plataforma sigue abierta para todos, y ejecutar el guion no
+  cierra nada. Solo cuando se pone a `true` empieza a filtrar.
+- **`memberships`** — acceso y estado de pago por alumno. **SIN FILA =
+  PENDIENTE**, al revés que `module_settings` (P4): allí un módulo nuevo debe
+  aparecer, aquí un alumno nuevo NO debe entrar solo. `access_status` es
+  `active` | `suspended`; no hay `pending`, que es la ausencia de fila.
+- **`academy_payments`** — un registro por pago en efectivo.
+
+La puerta la decide `decideAccess` (`app/lib/membership.ts`, pura) y la aplica
+`getSessionUser` (`auth.ts`), no la pantalla: una Server Action es un endpoint
+público, así que `requireUser` también corta a un alumno suspendido que
+conserve la sesión. Un admin es siempre `ok`. **El orden de las reglas no es
+negociable:** admin → interruptor apagado → fallo de lectura → sin fila → fila
+suspendida. Si la lectura falla se ABRE la puerta (regla 34): dejar a la
+academia entera fuera por un blip de la BD es peor que colar a alguien sin
+activar — y aquí el coste es mayor que en `module-guard` porque son alumnos que
+sí han pagado.
+
+**El acceso NO caduca solo.** `payment_status` (`al_dia` | `debe`) es un aviso
+visual; cortar el acceso lo hace el administrador a mano. Un despiste apuntando
+un pago no puede dejar fuera a quien sí pagó.
+
+**El importe de un pago vacío es `null`, nunca `0`** (regla 16): `recordPayment`
+convierte `''` en `null` antes de escribir, y `formateaEUR(null)` es «—».
+
+Antes de encender el interruptor, `activateAllCurrentStudents` da acceso de
+golpe a todos los alumnos que ya existen (`ignoreDuplicates: true`: no
+resucita a un suspendido).
 
 ---
 
@@ -1478,6 +1518,7 @@ tests/modules.test.ts           módulos encendidos/apagados y la guarda del ser
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
+tests/membership.test.ts        control de acceso (decideAccess) y registro de pagos en efectivo
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga

@@ -640,26 +640,43 @@ Vale la pena anticiparlo, porque es lo que decide si el piloto funciona:
 
 ---
 
-## P6 · Cobros
+## P6 · Cobros → control de acceso y pagos en efectivo
 
-> **Decidido (27 ago):** primero un piloto gratis con una academia amiga para
-> validar el modelo. Los cobros **no se construyen todavía**.
+> **Cerrada el 5 sep 2026.** El modelo lo decidió el dueño: **cobro EN EFECTIVO
+> en la academia**, en persona. Nada de pasarela, ni pagos online, ni IVA de la
+> UE. Lo que hacía falta era un control de acceso y un registro de pagos, no una
+> tienda.
 
-### Por qué esperar es lo correcto
+### El modelo real
 
-Los dos caminos que planteas llevan a productos distintos:
+No es «marca blanca a academias» ni «captar alumnos por internet». Es **una
+academia física que cobra a sus alumnos en mano**, y quiere:
 
-- **Marca blanca a academias.** Cobras a la academia. Pocos clientes, factura
-  grande, contrato. Probablemente ni necesites pasarela al principio: con dos o
-  tres clientes, una transferencia y una factura hecha a mano funcionan.
-- **Captar alumnos tú directamente.** Cobras al alumno. Muchos clientes, importe
-  pequeño, altas y bajas constantes. **Esto sí exige pasarela desde el día uno**,
-  además de gestionar bajas, devoluciones y morosidad.
+- saber quién ha pagado y quién no (un registro que lleva el administrador);
+- que solo entren los alumnos que él ha activado — acceso por invitación;
+- poder quitarle el acceso a quien deja de pagar o pide la baja.
 
-Construir cobros antes de saber cuál de los dos es sería trabajo tirado. Y el
-piloto es exactamente lo que resuelve esa duda.
+Todo eso son tres tablas y unas cuantas guardas. Ver la **regla 52** de
+[`CLAUDE.md`](../CLAUDE.md) y [`docs/sql/P6-acceso-y-pagos.sql`](sql/P6-acceso-y-pagos.sql).
 
-### Lo único que conviene hacer ya — ✅ hecho (5 sep 2026)
+### Estado de P6 · 5 de septiembre de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P6a | Medir el gasto de IA por alumno (`ai_usage`) | ✅ regla 41 (4 sep) |
+| P6b | Panel de consumo de IA (**Consumo IA**) | ✅ regla 51 |
+| P6c | Interruptor global de acceso, apagado por defecto | ✅ `membership_settings` |
+| P6d | Acceso por invitación: el alumno se registra, el admin lo activa | ✅ «sin fila = pendiente» |
+| P6e | Quitar el acceso a mano (baja / deja de pagar) | ✅ `access_status = 'suspended'` |
+| P6f | Registro de pagos en efectivo por alumno | ✅ `academy_payments` |
+| P6g | Pantalla **Acceso & Pagos** en el Centro de Mando | ✅ `AdminMembers` |
+| P6h | Guion SQL | ⬜ **escrito, sin ejecutar**: `docs/sql/P6-acceso-y-pagos.sql` |
+
+**Lo que NO se hizo, a propósito:** Stripe, suscripciones, facturas automáticas,
+cálculo de IVA. El día que el modelo cambie a captar alumnos por internet, eso
+es otro proyecto — pero hoy sería trabajo tirado.
+
+### Lo del gasto de IA — ✅ hecho (5 sep 2026)
 
 **Medir el uso desde el principio.** Cuando llegue el momento de poner precio,
 vas a necesitar saber cuánto cuesta servir a un alumno: cuántas llamadas a Gemini

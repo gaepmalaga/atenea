@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 import StudentDashboard from './components/student/StudentDashboard';
 import AdminView from './components/Admin/AdminView';
 import LoginScreen, { type ModoAuth } from './components/auth/LoginScreen';
+import AccessLocked from './components/auth/AccessLocked';
 
 export default function Home() {
   // Cliente con sesion en COOKIES: es lo que permite que las Server Actions
@@ -123,6 +124,12 @@ export default function Home() {
         aviso={avisoMsg}
       />
     );
+  }
+
+  // P6: si la academia ha cerrado el acceso y este alumno no está activo, no ve
+  // el dashboard — ve por qué y a quién dirigirse. Un admin siempre es `ok`.
+  if (user.access !== 'ok') {
+    return <AccessLocked motivo={user.access} email={user.email} onLogout={handleLogout} />;
   }
 
   return role === 'admin'

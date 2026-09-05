@@ -51,6 +51,12 @@ const PENDIENTE_SQL: Record<string, string> = {
   admin_audit_log: 'docs/sql/admin-audit-log.sql',
   academy_settings: 'docs/sql/academia-ajustes.sql',
   academy_staff: 'docs/sql/academia-ajustes.sql',
+  // P6: control de acceso y pagos en efectivo. El código degrada con gracia
+  // (`tablaFalta` en membership.ts, la puerta se abre en auth.ts) mientras no
+  // se ejecute.
+  membership_settings: 'docs/sql/P6-acceso-y-pagos.sql',
+  memberships: 'docs/sql/P6-acceso-y-pagos.sql',
+  academy_payments: 'docs/sql/P6-acceso-y-pagos.sql',
 };
 
 const ficheros = readdirSync(ACTIONS)

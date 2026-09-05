@@ -22,7 +22,13 @@ export type AccionAuditada =
   | 'resolve_report'
   | 'save_academy_settings'
   | 'save_staff'
-  | 'delete_staff';
+  | 'delete_staff'
+  | 'set_membership_required'
+  | 'set_member_access'
+  | 'set_member_payment'
+  | 'record_payment'
+  | 'delete_payment'
+  | 'activate_all_students';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -37,4 +43,10 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   save_academy_settings: 'Editó los datos de la academia',
   save_staff: 'Guardó un profesor',
   delete_staff: 'Borró un profesor',
+  set_membership_required: 'Cambió el control de acceso',
+  set_member_access: 'Cambió el acceso de un alumno',
+  set_member_payment: 'Cambió el estado de pago de un alumno',
+  record_payment: 'Apuntó un pago',
+  delete_payment: 'Borró un pago',
+  activate_all_students: 'Dio acceso a todos los alumnos actuales',
 };

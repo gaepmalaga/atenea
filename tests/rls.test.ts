@@ -67,6 +67,13 @@ const SOLO_SERVICIO = [
   // administracion — un alumno no tiene por que leer cuanto gasta nadie, ni el
   // mismo. Con el cliente de la sesion devolveria vacio EN SILENCIO.
   'ai_usage',
+  // P6: control de acceso y pagos. Las tres son de administracion, con RLS y
+  // cero politicas. `auth.ts` (que este test no analiza) SI lee `memberships`
+  // y `membership_settings` con la clave de servicio, y ahi es lo correcto:
+  // la puerta la decide el servidor, no el alumno.
+  'membership_settings',
+  'memberships',
+  'academy_payments',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */

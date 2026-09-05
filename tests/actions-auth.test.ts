@@ -90,6 +90,15 @@ describe('superficie de las Server Actions', () => {
       'importManualQuestions',
       // P6: el gasto de IA es dato de administración (ai_usage sin políticas).
       'getAiCostOverview',
+      // P6: control de acceso y pagos. Todo lo lleva el administrador.
+      'getMembershipOverview',
+      'getMemberPayments',
+      'setMembershipRequired',
+      'setMemberAccess',
+      'setMemberPaymentStatus',
+      'recordPayment',
+      'deletePayment',
+      'activateAllCurrentStudents',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

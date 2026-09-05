@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Shield, LogOut, RefreshCw, Users, Book,
-  Activity, AlertTriangle, Database, Power, GraduationCap, Coins
+  Activity, AlertTriangle, Database, Power, GraduationCap, Coins, KeyRound
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -16,11 +16,12 @@ import AdminBank from './components/AdminBank';
 import AdminModules from './components/AdminModules';
 import AdminAcademy from './components/AdminAcademy';
 import AdminCost from './components/AdminCost';
+import AdminMembers from './components/AdminMembers';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'users' | 'academy' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost';
+type AdminTab = 'users' | 'academy' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'members';
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
@@ -48,6 +49,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   const tabs = [
     { id: 'users', label: 'Usuarios', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'academy', label: 'Academia', icon: GraduationCap, color: 'text-sky-700 dark:text-sky-400' },
+    { id: 'members', label: 'Acceso & Pagos', icon: KeyRound, color: 'text-rose-700 dark:text-rose-400' },
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-700 dark:text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-700 dark:text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400' },
@@ -180,6 +182,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
                 {activeTab === 'academy' && <AdminAcademy />}
                 {activeTab === 'modules' && <AdminModules />}
                 {activeTab === 'cost' && <AdminCost />}
+                {activeTab === 'members' && <AdminMembers />}
                 {activeTab === 'activity' && <AdminActivity />}
             </ModuleErrorBoundary>
         </div>
