@@ -47,7 +47,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
-| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) — falta P5e (invitar). P5f (clase/promoción): columna `profiles.class_group` **ejecutada** el 5 sep; falta el código |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada** (P5f — agrupar por clase — hecha el 5 sep). Solo falta P5e (invitar por correo), que es decisión, no código |
 | **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso por invitación + registro de pagos. Sin pasarela, a propósito |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
@@ -992,6 +992,15 @@ lo protege es `requireAdmin`, y hay un test que lo exige para cada acción.
 Medido contra la base de datos real el 31 ago: 43 de 45 temas **sin una sola
 pregunta**, y el alumno con más actividad al 44 % — 30 % en Constitución y 67 %
 en Inteligencia.
+
+**P5f · agrupar por clase o promoción** (5 sep). `profiles.class_group` es
+**texto libre**, no una tabla `academy_classes`: con una academia, «Promoción
+2026» es una etiqueta, no una entidad con horario y profesor propios (misma
+decisión que `academy_settings.schedule`, regla 50). `normalizeClase`
+(`app/lib/academy.ts`) convierte vacío o solo espacios en `null` —la cadena
+vacía sería un segundo «sin asignar» (reglas 8 y 16)— y vaciar el campo en el
+panel le quita la clase al alumno. El filtro solo ofrece las clases que tienen
+a alguien (`clasesDe`): una clase vacía no es una opción real.
 
 ### 36 · Todo lo que se pinta sale de `app/components/ui/`
 
