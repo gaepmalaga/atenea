@@ -119,6 +119,37 @@ describe('superficie de las Server Actions', () => {
   });
 });
 
+describe('un fichero `use server` solo exporta funciones async', () => {
+  it('ningún `export { ... }` ni `export type { ... }` de reexportación', () => {
+    // `export type { GroupKind }` en un módulo 'use server' — Next lo compila a
+    // una referencia de VERDAD y el servidor revienta al evaluar el módulo:
+    //   ReferenceError: GroupKind is not defined
+    // Pasó con `TrainingDayLog` (training.ts) y otra vez con `GroupKind`
+    // (groups.ts), y las dos veces tumbó `getCurrentUser` en producción porque
+    // el barril `actions/index.ts` evalúa todos los módulos. El tipo se importa
+    // de `app/lib/`, no se reexporta desde la acción.
+    const culpables: string[] = [];
+    for (const { name, src } of files) {
+      for (const m of src.matchAll(/^\s*export\s+(?:type\s+)?\{/gm)) {
+        const linea = src.slice(0, m.index).split('\n').length;
+        culpables.push(`${name}:${linea}`);
+      }
+    }
+    expect(culpables).toEqual([]);
+  });
+
+  it('ningún `export const/let/var/class` — rompería la serialización', () => {
+    const culpables: string[] = [];
+    for (const { name, src } of files) {
+      for (const m of src.matchAll(/^\s*export\s+(const|let|var|class)\s/gm)) {
+        const linea = src.slice(0, m.index).split('\n').length;
+        culpables.push(`${name}:${linea} export ${m[1]}`);
+      }
+    }
+    expect(culpables).toEqual([]);
+  });
+});
+
 describe('escritura de perfiles', () => {
   it('no se expande el objeto del cliente sobre una fila', () => {
     // `upsert({ user_id: userId, ...formData })` dejaba que un `user_id` dentro

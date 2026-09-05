@@ -3,7 +3,7 @@
 import { supabaseAdmin } from './core';
 import { requireAdmin } from '../lib/auth';
 import { registraAccion } from '../lib/admin-audit';
-import { normalizeGroupInput, admitePlan, type GroupKind } from '../lib/groups';
+import { normalizeGroupInput, admitePlan } from '../lib/groups';
 import { normalizePlan, buildManualPlan, type Exercise, type WeeklyPlan } from '../lib/training-plan';
 
 /**
@@ -251,4 +251,9 @@ export async function deleteGroupTrainingPlan(groupId: string) {
   return { success: !error, error: error?.message };
 }
 
-export type { GroupKind };
+// `GroupKind` NO se reexporta desde aquí: este módulo es 'use server' y el
+// bundler convierte `export type { GroupKind }` en una referencia de VERDAD,
+// así que el servidor revienta al evaluar el módulo con
+//   ReferenceError: GroupKind is not defined
+// (pasó igual con `TrainingDayLog` en training.ts). Quien lo necesite lo
+// importa de '@/app/lib/groups'.
