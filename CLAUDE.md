@@ -67,9 +67,9 @@ El 30 ago se corrigió lo que impedía entrar: **Supabase tenía la Site URL apu
 y hay dos Redirect URLs (producción y localhost, para que el desarrollo local siga
 funcionando).
 
-> **Hay un proyecto duplicado en Vercel**, `atenea-jw3h`, apuntando al mismo repositorio.
-> Despliega en paralelo y no molesta, pero conviene borrarlo para no tener dos URLs
-> vivas de lo mismo. Es tu decisión: borrar un proyecto no se puede deshacer.
+> El proyecto duplicado `atenea-jw3h` **ya no existe** (borrado el 31 ago 2026;
+> confirmado el 5 sep: en Vercel solo quedan `atenea` y el no relacionado
+> `brand-os`). El dominio de producción cuelga del proyecto `atenea`.
 
 ### Lo que solo puedes hacer tú
 
@@ -77,21 +77,16 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-0. **HAY DOS GUIONES SQL NUEVOS SIN EJECUTAR** (5 sep), los dos escritos
-   contra `supabase/schema.json` y idempotentes:
+0. **Los dos guiones SQL nuevos YA ESTÁN EJECUTADOS** (confirmado el 5 sep 2026
+   contra el proyecto real con `node scripts/schema-snapshot.mjs`):
    - [`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql) — la tabla
-     `admin_audit_log`, para persistir quién ha borrado, publicado o apagado
-     algo (regla 49). Mientras no se ejecute, la pestaña "Logs & Auditoría" lo
-     dice con un aviso en vez de fallar en silencio.
+     `admin_audit_log` (regla 49) existe con sus 6 columnas.
    - [`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql) — las
-     tablas `academy_settings` y `academy_staff`: nombre, dirección, horario,
-     contacto y profesores de la academia (regla 50). Mientras no se ejecute,
-     la pestaña "Ajustes" lo dice igual.
+     tablas `academy_settings` y `academy_staff` (regla 50) existen con sus
+     columnas exactas.
 
-   **No se escribe el código antes:** PostgREST rechaza la escritura *entera*
-   si falta una sola columna. Aquí el código ya está escrito —degrada con
-   gracia mientras la tabla no exista— porque las dos funcionalidades se
-   aprobaron completas; lo único que falta es que tú ejecutes los guiones.
+   La pestaña "Logs & Auditoría" y la de "Ajustes" ya no enseñan el aviso
+   ámbar de "falta ejecutar". No queda ningún guion SQL pendiente.
 
 1. **Ejecutar SQL. Ya no hay nada pendiente de fases anteriores:** los guiones de P3.7 (`legal_reference`
    en `question_bank`) y P3.8 (tabla `question_notes` con RLS) se ejecutaron el
@@ -1403,8 +1398,9 @@ que ya obliga la regla 21 con `core.ts`.
 **La tabla puede no existir todavía y la pantalla lo dice**, no un error
 genérico: `getAdminAuditLog` reconoce el mensaje de PostgREST
 ("could not find the table") y `AdminActivity` enseña un aviso ámbar en vez
-de un "algo ha ido mal". El guion está escrito y sin ejecutar:
-[`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql).
+de un "algo ha ido mal". El guion [`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql)
+**ya está ejecutado** (5 sep 2026), así que ese aviso ya no salta; la degradación
+con gracia se queda por si la tabla se cae.
 
 ### 50 · Los datos de la academia no viven solo en la cabeza del dueño
 
@@ -1415,15 +1411,15 @@ vivía fuera de la aplicación, en la cabeza de quien la lleva.
 `academy_settings` es una fila única (`id = 1`, forzado por un `CHECK`) con
 nombre, dirección, horario y contacto; `academy_staff` es la lista de quién da
 clase, con su propio alta/edición/borrado. Los dos con `requireAdmin` y la
-clave de servicio (regla 34/35: es administración pura, no del alumno) y
-ambos guiones son idempotentes y están sin ejecutar:
-[`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql).
+clave de servicio (regla 34/35: es administración pura, no del alumno). El guion
+[`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql) es idempotente y
+**ya está ejecutado** (5 sep 2026): las dos tablas existen en producción.
 
 Vive en la pestaña que antes se llamaba «Módulos» — renombrada a «Ajustes» —
 porque los dos son la misma clase de pantalla: cosas que se configuran una
-vez y rara vez se tocan, no algo que el alumno vea. Mientras el guion SQL no
-se ejecute, la sección lo dice con un aviso en vez de fallar en silencio,
-mismo patrón que la regla 49.
+vez y rara vez se tocan, no algo que el alumno vea. El aviso «falta ejecutar»
+(mismo patrón que la regla 49) se queda en el código por si la tabla se cae,
+pero ya no salta.
 
 Un profesor sin nombre no se guarda (`normalizeStaffInput` devuelve `null`), y
 `role` cae a `'profesor'` si llega vacío — un puesto sin nombre es un

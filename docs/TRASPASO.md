@@ -82,9 +82,8 @@ rompa.
 Cada push a `main` despliega solo. Los 12 commits que estaban sin subir ya
 están en GitHub.
 
-> **Queda un proyecto duplicado en Vercel**, `atenea-jw3h`, apuntando al mismo
-> repositorio. Despliega en paralelo y no molesta, pero son dos URLs vivas de lo
-> mismo. Borrarlo es decisión del dueño: no se puede deshacer.
+> El proyecto duplicado `atenea-jw3h` **ya está borrado** (31 ago; reconfirmado
+> el 5 sep 2026: en Vercel solo quedan `atenea` y el no relacionado `brand-os`).
 
 ---
 
