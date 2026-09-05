@@ -16,7 +16,7 @@ const h = { apikey: K, Authorization: 'Bearer ' + K };
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-const docs = await (await fetch(U + '/rest/v1/documents?select=id,filename,full_text', { headers: h })).json();
+const docs = await (await fetch(U + '/rest/v1/documents?select=id,filename,full_text,subject_id,subjects(title)', { headers: h })).json();
 
 console.log('=== TAMAÑO DEL TEMARIO ===');
 let total = 0;
@@ -31,7 +31,12 @@ console.log(`\nVentana de gemini-2.5-flash: 1.048.576 tokens de entrada.`);
 console.log(`El temario entero ocupa el ${((total / 1048576) * 100).toFixed(1)}% de la ventana.`);
 
 // --- Responder con el DOCUMENTO ENTERO --------------------------------------
-const ce = docs.find((d) => /BOE-A-1978/.test(d.filename));
+// La Constitución (I) — desde el temario completo es el tema 2 (`tema-02`), no
+// el viejo `BOE-A-1978`. Se busca por el título del tema para que no vuelva a
+// romperse si el nombre del fichero cambia.
+const ce =
+  docs.find((d) => /Constituci[oó]n Española \(I\)/i.test(d.subjects?.title ?? '')) ??
+  docs.find((d) => /tema-0?2\b/.test(d.filename));
 
 const PREGUNTAS = [
   '¿Cuántos artículos tiene la Constitución?',
