@@ -94,7 +94,7 @@ function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
           <span className="block font-bold text-slate-900 dark:text-white truncate">{g.name}</span>
           <span className={cx(TEXT.muted, 'flex items-center gap-2')}>
             {g.miembros} {g.miembros === 1 ? 'alumno' : 'alumnos'}
-            {g.staffName && ` · ${g.staffName}`}
+            {g.staffNames.length > 0 && ` · ${g.staffNames.join(", ")}`}
             {' · '}
             <span className={g.tienePlan ? 'text-emerald-700 dark:text-emerald-400 font-bold' : ''}>
               {g.tienePlan ? 'con plan' : 'sin plan'}

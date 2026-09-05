@@ -90,21 +90,23 @@ describe('superficie de las Server Actions', () => {
       'importManualQuestions',
       // P6: el gasto de IA es dato de administración (ai_usage sin políticas).
       'getAiCostOverview',
-      // P6: control de acceso y pagos. Todo lo lleva el administrador.
-      'getMembershipOverview',
-      'getMemberPayments',
+      // P6/P8: control de acceso.
+      'getMembershipRequired',
       'setMembershipRequired',
       'setMemberAccess',
-      'setMemberPaymentStatus',
-      'recordPayment',
-      'deletePayment',
       'activateAllCurrentStudents',
-      // P7: grupos y planes de entrenamiento de grupo.
+      // P8: pagos mensuales.
+      'getMonthlyPayments',
+      'setPayment',
+      // P7/P8: grupos, tipos de grupo y asignación desde el alumno.
       'getGroups',
+      'getGroupKinds',
+      'saveGroupKind',
+      'deleteGroupKind',
       'createGroup',
       'updateGroup',
       'deleteGroup',
-      'setGroupMembers',
+      'setStudentGroups',
       'getGroupTrainingPlan',
       'saveGroupTrainingPlan',
       'deleteGroupTrainingPlan',

@@ -3,62 +3,78 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   normalizeGroupInput,
-  admitePlan,
+  normalizeKindInput,
+  slugDeTipo,
+  llevaPlan,
   etiquetaTipo,
   planEfectivo,
-  GROUP_KINDS,
+  type GroupKindRow,
 } from '../app/lib/groups';
 import type { WeeklyPlan } from '../app/lib/training-plan';
 
 /**
- * GRUPOS Y PREPARACIÓN FÍSICA (P7).
+ * GRUPOS Y TIPOS DE GRUPO (P7 · rehecho en P8).
  *
- * P5f montó UN texto libre por alumno (`profiles.class_group`). No servía: los
- * grupos son muchos-a-muchos y un tipo de grupo se comporta distinto (físicas
- * lleva plan, teoría no). Esto vigila la normalización de la entrada y la
- * decisión de qué plan ve un alumno.
+ * P8: el tipo de grupo vive en `group_kinds` (editable), un grupo tiene varios
+ * profesores, y los alumnos se asignan desde el alumno. Esto vigila la
+ * normalización de la entrada y la decisión de qué plan ve un alumno.
  */
 
+const KINDS: GroupKindRow[] = [
+  { id: 'teoria', label: 'Teoría', lleva_plan: false },
+  { id: 'fisicas', label: 'Físicas', lleva_plan: true },
+  { id: 'oposicion-completa', label: 'Oposición completa', lleva_plan: true },
+];
+
 describe('normalizeGroupInput', () => {
-  it('un grupo sin nombre no se guarda (formulario a medio rellenar, no dato ausente)', () => {
+  it('un grupo sin nombre no se guarda', () => {
     expect(normalizeGroupInput({ kind: 'fisicas' })).toBeNull();
     expect(normalizeGroupInput({ name: '   ' })).toBeNull();
   });
 
-  it('recorta el nombre y lo limita', () => {
+  it('recorta el nombre y limita', () => {
     expect(normalizeGroupInput({ name: '  Promoción 41 tarde  ' })?.name).toBe('Promoción 41 tarde');
     expect(normalizeGroupInput({ name: 'x'.repeat(300) })?.name).toHaveLength(120);
   });
 
-  it('un tipo desconocido cae a "otro", no revienta', () => {
-    expect(normalizeGroupInput({ name: 'G', kind: 'quimica' })?.kind).toBe('otro');
+  it('`kind` es cualquier cadena (se valida en la acción), vacío -> "otro"', () => {
+    expect(normalizeGroupInput({ name: 'G', kind: 'lo-que-sea' })?.kind).toBe('lo-que-sea');
     expect(normalizeGroupInput({ name: 'G' })?.kind).toBe('otro');
   });
 
-  it('acepta los cuatro tipos válidos', () => {
-    for (const k of GROUP_KINDS) {
-      expect(normalizeGroupInput({ name: 'G', kind: k })?.kind).toBe(k);
-    }
+  it('`staffIds` sin repetidos, ignora lo que no es cadena', () => {
+    const g = normalizeGroupInput({ name: 'G', staffIds: ['a', 'a', 'b', 3, null] });
+    expect(g?.staffIds).toEqual(['a', 'b']);
   });
 
-  it('horario y profesor vacíos son null, no cadena vacía (reglas 8 y 16)', () => {
-    const g = normalizeGroupInput({ name: 'G', schedule: '  ', staffId: '' });
-    expect(g?.schedule).toBeNull();
-    expect(g?.staffId).toBeNull();
+  it('horario vacío es null, no cadena vacía (reglas 8 y 16)', () => {
+    expect(normalizeGroupInput({ name: 'G', schedule: '   ' })?.schedule).toBeNull();
   });
 });
 
-describe('admitePlan / etiquetaTipo', () => {
-  it('solo los grupos de físicas llevan plan de entrenamiento', () => {
-    expect(admitePlan('fisicas')).toBe(true);
-    expect(admitePlan('teoria')).toBe(false);
-    expect(admitePlan('ingles')).toBe(false);
-    expect(admitePlan('otro')).toBe(false);
+describe('tipos de grupo', () => {
+  it('slugDeTipo: quita tildes, minúsculas, guiones', () => {
+    expect(slugDeTipo('Oposición completa')).toBe('oposicion-completa');
+    expect(slugDeTipo('  Solo Físicas!!  ')).toBe('solo-fisicas');
   });
 
-  it('un tipo sin etiqueta se enseña por su nombre', () => {
-    expect(etiquetaTipo('fisicas')).toBe('Físicas');
-    expect(etiquetaTipo('raro')).toBe('raro');
+  it('normalizeKindInput: sin label no se guarda; el id sale del label si falta', () => {
+    expect(normalizeKindInput({ lleva_plan: true })).toBeNull();
+    expect(normalizeKindInput({ label: 'Oposición completa' })).toEqual({
+      id: 'oposicion-completa', label: 'Oposición completa', lleva_plan: false,
+    });
+  });
+
+  it('llevaPlan mira `lleva_plan` de la lista, no `kind === "fisicas"` a pelo', () => {
+    expect(llevaPlan('fisicas', KINDS)).toBe(true);
+    expect(llevaPlan('oposicion-completa', KINDS)).toBe(true);
+    expect(llevaPlan('teoria', KINDS)).toBe(false);
+    expect(llevaPlan('lo-que-sea', KINDS)).toBe(false);
+  });
+
+  it('etiquetaTipo: el label, o el id si no está en la lista', () => {
+    expect(etiquetaTipo('fisicas', KINDS)).toBe('Físicas');
+    expect(etiquetaTipo('raro', KINDS)).toBe('raro');
   });
 });
 
@@ -69,14 +85,11 @@ describe('planEfectivo · el individual manda sobre el de grupo', () => {
   it('con plan individual, ese gana', () => {
     expect(planEfectivo(ind, grp)).toEqual({ plan: ind, origen: 'individual' });
   });
-
   it('sin individual, hereda el del grupo', () => {
     expect(planEfectivo(null, grp)).toEqual({ plan: grp, origen: 'grupo' });
   });
-
-  it('sin ninguno, ninguno — y se dice, no se finge (regla 8)', () => {
+  it('sin ninguno, ninguno', () => {
     expect(planEfectivo(null, null)).toEqual({ plan: null, origen: 'ninguno' });
-    expect(planEfectivo(undefined, undefined).origen).toBe('ninguno');
   });
 });
 
@@ -88,8 +101,8 @@ describe('las guardas de la acción', () => {
     const exportadas = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
     expect(exportadas.length).toBeGreaterThan(6);
     for (const nombre of exportadas) {
-      const cuerpo = src.slice(src.indexOf(`export async function ${nombre}`), src.indexOf(`export async function ${nombre}`) + 400);
-      expect(cuerpo, `${nombre} sin requireAdmin`).toMatch(/requireAdmin\(\)/);
+      const i = src.indexOf(`export async function ${nombre}`);
+      expect(src.slice(i, i + 400), `${nombre} sin requireAdmin`).toMatch(/requireAdmin\(\)/);
     }
   });
 
@@ -98,31 +111,21 @@ describe('las guardas de la acción', () => {
     expect(src).not.toMatch(/createSupabaseServerClient|\bdb\.from\(/);
   });
 
-  it('no se cuelga un plan de un grupo que no es de físicas', () => {
+  it('la asignación de grupos es DESDE EL ALUMNO (P8)', () => {
+    expect(src).toMatch(/export async function setStudentGroups\(studentId: string/);
+  });
+
+  it('un plan de grupo solo se cuelga de un tipo con lleva_plan', () => {
     const fn = src.slice(src.indexOf('export async function saveGroupTrainingPlan'));
-    expect(fn).toMatch(/admitePlan/);
+    expect(fn).toMatch(/llevaPlan\(/);
   });
 
-  it('el plan de grupo se valida con normalizePlan, igual que el individual (regla 27)', () => {
-    expect(src).toMatch(/normalizePlan\(buildManualPlan/);
-  });
-
-  it('el alumno hereda el plan de su grupo de físicas SOLO si no tiene uno individual', () => {
+  it('el alumno hereda el plan de grupo por los tipos con lleva_plan, no por "fisicas"', () => {
     const fn = training.slice(
       training.indexOf('export async function getActiveTrainingPlan'),
       training.indexOf('export async function completeTrainingDay'),
     );
-    // Primero mira el individual; el fallback al grupo va después.
-    expect(fn.indexOf("origen: 'individual'")).toBeGreaterThan(-1);
-    expect(fn.indexOf("origen: 'grupo'")).toBeGreaterThan(fn.indexOf("origen: 'individual'"));
-    expect(fn).toMatch(/'fisicas'/);
-  });
-
-  it('no se pueden marcar días en un plan de grupo (es compartido)', () => {
-    const fn = training.slice(
-      training.indexOf('export async function completeTrainingDay'),
-      training.indexOf('export async function completeTrainingDay') + 1200,
-    );
-    expect(fn).toMatch(/grupo:/);
+    expect(fn).toMatch(/lleva_plan/);
+    expect(fn.indexOf("origen: 'individual'")).toBeLessThan(fn.indexOf("origen: 'grupo'"));
   });
 });

@@ -129,14 +129,22 @@ export async function getActiveTrainingPlan(): Promise<
 
     // El grupo y su membresía son de administración (RLS sin políticas de
     // miembro), así que se leen con la clave de servicio filtrando por el
-    // propio usuario — igual que `auth.ts` con `memberships` (regla 34). Van en
-    // dos pasos: PostgREST no puede embeber `group_training_plans` desde
-    // `class_members` porque su relación pasa por `class_groups`, no es directa.
+    // propio usuario — igual que `auth.ts` con `memberships` (regla 34).
+    //
+    // «Grupo que lleva plan» ya no es `kind === 'fisicas'` a pelo (P8): sale de
+    // `group_kinds.lleva_plan`, que el admin edita.
+    const { data: kindsConPlan } = await supabaseAdmin
+        .from('group_kinds')
+        .select('id')
+        .eq('lleva_plan', true);
+    const idsKind = (kindsConPlan ?? []).map((k) => k.id as string);
+    if (!idsKind.length) return { success: true, plan: null };
+
     const { data: susGrupos } = await supabaseAdmin
         .from('class_members')
         .select('class_id, class_groups!inner(kind)')
         .eq('user_id', userId)
-        .eq('class_groups.kind', 'fisicas');
+        .in('class_groups.kind', idsKind);
 
     const idsFisicas = (susGrupos ?? []).map((m) => m.class_id as string);
     if (idsFisicas.length) {

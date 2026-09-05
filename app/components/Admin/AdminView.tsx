@@ -3,32 +3,30 @@
 import { useState, useEffect } from 'react';
 import {
   Shield, LogOut, RefreshCw, Users, Book,
-  Activity, AlertTriangle, Database, Power, GraduationCap, Coins, KeyRound, Users2, Dumbbell
+  Activity, AlertTriangle, Database, Power, Coins, KeyRound, Users2, Dumbbell
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-// Importamos TODOS los sub-componentes (incluyendo el nuevo AdminBank)
-import AdminUsers from './components/AdminUsers';
+import AdminStudents from './components/AdminStudents';
+import AdminPayments from './components/AdminPayments';
 import AdminContent from './components/AdminContent';
 import AdminActivity from './components/AdminActivity';
 import AdminModeration from './components/AdminModeration';
 import AdminBank from './components/AdminBank';
 import AdminModules from './components/AdminModules';
-import AdminAcademy from './components/AdminAcademy';
 import AdminCost from './components/AdminCost';
-import AdminMembers from './components/AdminMembers';
 import AdminGroups from './components/AdminGroups';
 import AdminPhysical from './components/AdminPhysical';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'users' | 'academy' | 'groups' | 'physical' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'members';
+type AdminTab = 'students' | 'groups' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost';
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
   // Añadimos 'bank' a los tipos permitidos
-  const [activeTab, setActiveTab] = useState<AdminTab>('users');
+  const [activeTab, setActiveTab] = useState<AdminTab>('students');
   
   // Truco para forzar recarga de componentes hijos sin recargar la página entera
   const [refreshKey, setRefreshKey] = useState(0); 
@@ -49,11 +47,10 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // sin borrar el tipo literal de cada uno. Antes se colaba con `as any` en el
   // onClick, asi que una pestaña mal escrita compilaba y no hacia nada.
   const tabs = [
-    { id: 'users', label: 'Usuarios', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
-    { id: 'academy', label: 'Academia', icon: GraduationCap, color: 'text-sky-700 dark:text-sky-400' },
+    { id: 'students', label: 'Alumnos', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'groups', label: 'Grupos', icon: Users2, color: 'text-teal-700 dark:text-teal-400' },
     { id: 'physical', label: 'Prep. física', icon: Dumbbell, color: 'text-orange-700 dark:text-orange-400' },
-    { id: 'members', label: 'Acceso & Pagos', icon: KeyRound, color: 'text-rose-700 dark:text-rose-400' },
+    { id: 'payments', label: 'Pagos', icon: KeyRound, color: 'text-rose-700 dark:text-rose-400' },
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-700 dark:text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-700 dark:text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400' },
@@ -175,20 +172,15 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
         {/* Usamos la 'key' para forzar remontaje si pulsamos Refrescar */}
         <div key={refreshKey}>
             <ModuleErrorBoundary moduleName={tabs.find(t => t.id === activeTab)?.label ?? 'La seccion'}>
-                {activeTab === 'users' && <AdminUsers />}
-
-                {activeTab === 'content' && <AdminContent />}
-
-                {activeTab === 'bank' && <AdminBank />}
-
-                {activeTab === 'moderation' && <AdminModeration />}
-
-                {activeTab === 'academy' && <AdminAcademy />}
+                {activeTab === 'students' && <AdminStudents />}
                 {activeTab === 'groups' && <AdminGroups />}
                 {activeTab === 'physical' && <AdminPhysical />}
+                {activeTab === 'payments' && <AdminPayments />}
+                {activeTab === 'content' && <AdminContent />}
+                {activeTab === 'bank' && <AdminBank />}
+                {activeTab === 'moderation' && <AdminModeration />}
                 {activeTab === 'modules' && <AdminModules />}
                 {activeTab === 'cost' && <AdminCost />}
-                {activeTab === 'members' && <AdminMembers />}
                 {activeTab === 'activity' && <AdminActivity />}
             </ModuleErrorBoundary>
         </div>
