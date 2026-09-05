@@ -93,8 +93,8 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      `group_training_plans`; retira `profiles.class_group`) — 6 sep.
 
    **Ya no queda ningún guion SQL pendiente**, y `question_attempts` ya se movió
-   a la sesión (6 sep, regla 34), verificado con el token de un usuario real.
-   Lo único sin ver en pantalla es el ciclo completo del modo entrenamiento.
+   a la sesión (6 sep, regla 34), verificado en pantalla end-to-end: una
+   pregunta de entrenamiento fallada y diagnosticada guarda su `error_type`.
 
    La regla no cambia para el próximo: **no se escribe el código antes** de que
    exista la columna — PostgREST rechaza la escritura *entera* si falta una
@@ -965,10 +965,11 @@ Postgres impone `auth.uid() = user_id` en las tres operaciones.
 ninguna política de lectura —es contenido compartido—, así que con la sesión el
 join devolvería vacío. El test `rls.test.ts` vigila las dos direcciones.
 
-**Verificado el 6 sep:** con el token de un usuario real (no la clave de
-servicio), `question_attempts` acepta el `insert`, el `update` de `error_type`
-toca la fila, y un `user_id` que no sea el suyo lo rechaza Postgres. Lo que no
-se ha comprobado en pantalla es el ciclo completo del modo entrenamiento.
+**Verificado el 6 sep, end-to-end:** con una sesión de alumno real en el
+preview, una pregunta de entrenamiento fallada y diagnosticada (`OLVIDO` /
+`LAGUNA` / `TRAMPA` / `LECTURA`) guarda la fila con su `error_type` en
+`question_attempts` — la escritura que fallaba en silencio sin la política de
+UPDATE. A nivel de RLS: un `user_id` ajeno lo rechaza Postgres (403).
 
 Y una cosa que se aprendió al hacerlo: **hay accesos partidos en dos líneas**
 (`await supabase` y `.from(...)` debajo). Un reemplazo literal no los ve y los
@@ -1738,8 +1739,7 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
 
 4. **Fase 1.2 cerrada del todo** (6 sep): TODAS las tablas del alumno van con el
    cliente de su sesión, incluida `question_attempts` (`exams.ts`). RLS por fin
-   protege de verdad (regla 34). Verificado con el token de un usuario real; sin
-   ver en pantalla el ciclo completo del modo entrenamiento.
+   protege de verdad (regla 34). Verificado en pantalla end-to-end el 6 sep.
 
 5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
 
