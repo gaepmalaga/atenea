@@ -141,7 +141,7 @@ const ALUMNO = [
 ];
 const ADMIN = [
   ['Usuarios', 'b-usuarios'], ['Academia', 'b-academia'], ['Temario', 'b-temario'],
-  ['Banco', 'b-banco'], ['Moderación', 'b-moderacion'], ['Módulos', 'b-modulos'], ['Logs', 'b-logs'],
+  ['Banco', 'b-banco'], ['Moderación', 'b-moderacion'], ['Ajustes', 'b-ajustes'], ['Logs', 'b-logs'],
 ];
 
 (async () => {

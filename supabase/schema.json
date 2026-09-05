@@ -1,6 +1,107 @@
 {
-  "generado": "2026-09-04",
+  "generado": "2026-09-05",
   "tablas": {
+    "academy_payments": {
+      "columnas": [
+        "amount_eur",
+        "created_at",
+        "id",
+        "note",
+        "paid_on",
+        "recorded_by",
+        "user_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "paid_on",
+        "user_id"
+      ],
+      "tipos": {
+        "amount_eur": "numeric",
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "note": "text",
+        "paid_on": "date",
+        "recorded_by": "uuid",
+        "user_id": "uuid"
+      }
+    },
+    "academy_settings": {
+      "columnas": [
+        "address",
+        "contact_email",
+        "contact_phone",
+        "id",
+        "name",
+        "schedule",
+        "updated_at"
+      ],
+      "obligatorias": [
+        "id",
+        "updated_at"
+      ],
+      "tipos": {
+        "address": "text",
+        "contact_email": "text",
+        "contact_phone": "text",
+        "id": "integer",
+        "name": "text",
+        "schedule": "text",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "academy_staff": {
+      "columnas": [
+        "active",
+        "created_at",
+        "email",
+        "id",
+        "name",
+        "phone",
+        "role"
+      ],
+      "obligatorias": [
+        "active",
+        "created_at",
+        "id",
+        "name",
+        "role"
+      ],
+      "tipos": {
+        "active": "boolean",
+        "created_at": "timestamp with time zone",
+        "email": "text",
+        "id": "uuid",
+        "name": "text",
+        "phone": "text",
+        "role": "text"
+      }
+    },
+    "admin_audit_log": {
+      "columnas": [
+        "action",
+        "actor_id",
+        "created_at",
+        "detail",
+        "id",
+        "target"
+      ],
+      "obligatorias": [
+        "action",
+        "actor_id",
+        "created_at",
+        "id"
+      ],
+      "tipos": {
+        "action": "text",
+        "actor_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "detail": "jsonb",
+        "id": "uuid",
+        "target": "text"
+      }
+    },
     "ai_quota": {
       "columnas": [
         "bucket",
@@ -121,6 +222,47 @@
         "id": "uuid",
         "role": "text",
         "sources": "jsonb",
+        "user_id": "uuid"
+      }
+    },
+    "class_groups": {
+      "columnas": [
+        "created_at",
+        "id",
+        "kind",
+        "name",
+        "schedule",
+        "staff_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "kind",
+        "name"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "kind": "text",
+        "name": "text",
+        "schedule": "text",
+        "staff_id": "uuid"
+      }
+    },
+    "class_members": {
+      "columnas": [
+        "class_id",
+        "created_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "class_id",
+        "created_at",
+        "user_id"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "created_at": "timestamp with time zone",
         "user_id": "uuid"
       }
     },
@@ -345,6 +487,64 @@
         "next_review": "timestamp with time zone",
         "subject_id": "bigint",
         "topic": "text",
+        "user_id": "uuid"
+      }
+    },
+    "group_training_plans": {
+      "columnas": [
+        "class_id",
+        "plan_data",
+        "updated_at",
+        "week_start"
+      ],
+      "obligatorias": [
+        "class_id",
+        "plan_data",
+        "updated_at"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "plan_data": "jsonb",
+        "updated_at": "timestamp with time zone",
+        "week_start": "date"
+      }
+    },
+    "membership_settings": {
+      "columnas": [
+        "id",
+        "required",
+        "updated_at"
+      ],
+      "obligatorias": [
+        "id",
+        "required",
+        "updated_at"
+      ],
+      "tipos": {
+        "id": "integer",
+        "required": "boolean",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "memberships": {
+      "columnas": [
+        "access_status",
+        "note",
+        "payment_status",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "access_status",
+        "payment_status",
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "access_status": "text",
+        "note": "text",
+        "payment_status": "text",
+        "updated_at": "timestamp with time zone",
         "user_id": "uuid"
       }
     },

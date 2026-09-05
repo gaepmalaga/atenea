@@ -13,6 +13,7 @@ import {
 import { validateGeneratedQuestion } from '../lib/ai-output';
 import { questionHash } from '../lib/question-hash';
 import { MAX_IMPORT } from '../lib/question-import';
+import { registraAccion } from '../lib/admin-audit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 
 /**
@@ -112,6 +113,9 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
         .eq('status', QUESTION_STATUS.CANDIDATE)  // nunca resucita una descartada
         .select('id');
 
+    if (!error && data?.length) {
+        registraAccion({ actorId: auth.user.id, action: 'approve_questions', detail: { cantidad: data.length } });
+    }
     return { success: !error, error: error?.message, approved: data?.length ?? 0 };
 }
 
@@ -120,6 +124,7 @@ export async function disableQuestion(questionId: string): Promise<ModerationRes
     if (!auth.ok) return { success: false, error: auth.error };
 
     const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.DISABLED }).eq('id', questionId);
+    if (!error) registraAccion({ actorId: auth.user.id, action: 'disable_question', target: questionId });
     return { success: !error, error: error?.message };
 }
 
@@ -146,6 +151,9 @@ export async function discardAllQuestions(): Promise<ModerationResult & { discar
         .neq('status', QUESTION_STATUS.DISABLED)
         .select('id');
 
+    if (!error) {
+        registraAccion({ actorId: auth.user.id, action: 'discard_all_candidates', detail: { cantidad: data?.length ?? 0 } });
+    }
     return { success: !error, error: error?.message, discarded: data?.length ?? 0 };
 }
 
@@ -154,6 +162,7 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
     if (!auth.ok) return { success: false, error: auth.error };
 
     const { error } = await supabaseAdmin.from('question_reports').update({ status: 'dismissed' }).eq('id', reportId);
+    if (!error) registraAccion({ actorId: auth.user.id, action: 'resolve_report', target: reportId });
     return { success: !error, error: error?.message };
 }
 

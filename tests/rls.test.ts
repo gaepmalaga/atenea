@@ -67,6 +67,20 @@ const SOLO_SERVICIO = [
   // administracion — un alumno no tiene por que leer cuanto gasta nadie, ni el
   // mismo. Con el cliente de la sesion devolveria vacio EN SILENCIO.
   'ai_usage',
+  // P6: control de acceso y pagos. Las tres son de administracion, con RLS y
+  // cero politicas. `auth.ts` (que este test no analiza) SI lee `memberships`
+  // y `membership_settings` con la clave de servicio, y ahi es lo correcto:
+  // la puerta la decide el servidor, no el alumno.
+  'membership_settings',
+  'memberships',
+  'academy_payments',
+  // P7: grupos. `class_groups` y `class_members` son administracion pura.
+  // `group_training_plans` tiene politica de SELECT abierta (el plan tiene que
+  // llegar al alumno), pero `training.ts` lo lee con la clave de servicio de una
+  // vez, filtrando por el propio usuario — no con `db`.
+  'class_groups',
+  'class_members',
+  'group_training_plans',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */
@@ -186,12 +200,15 @@ describe('lo compartido sigue con la clave de servicio', () => {
   }
 });
 
-describe('question_attempts sigue esperando su política', () => {
-  it('no se ha movido a la sesión antes de tiempo', () => {
-    // Tiene politica de INSERT y de SELECT, pero NO de UPDATE, y
-    // `setResultErrorType` actualiza. Con la sesion, ese update no daria error:
-    // no tocaria ninguna fila, y el diagnostico del alumno se perderia en
-    // silencio. El guion que lo desbloquea es docs/sql/1.2-attempts-update.sql.
+describe('question_attempts: la política de UPDATE ya existe, el código aún no se ha movido', () => {
+  it('sigue con la clave de servicio hasta verificar el movimiento con una sesión real', () => {
+    // `1.2-attempts-update.sql` SE EJECUTÓ el 5 sep 2026: `question_attempts`
+    // ya tiene las tres políticas (insert, select, update). Así que el guion ya
+    // NO es el bloqueo — el bloqueo ahora es que mover `saveTestResult` /
+    // `setResultErrorType` / `saveExamResults` a `createSupabaseServerClient()`
+    // es el camino más crítico del repo («el fallo más caro») y no se puede
+    // comprobar sin una sesión de alumno de verdad. Cuando se mueva y se
+    // verifique, este test se invierte: pasará a exigir `db.from(...)`.
     const culpables: string[] = [];
     for (const { nombre, src } of fuentes) {
       for (const receptor of receptoresDe(src, 'question_attempts')) {

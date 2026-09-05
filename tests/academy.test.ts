@@ -291,6 +291,13 @@ describe('cobertura del temario', () => {
 // GUARDAS
 // ============================================================
 
+describe('los grupos los pone la acción, no resumeAlumnos (P7)', () => {
+  it('resumeAlumnos deja `grupos` vacío: es un dato de administración', () => {
+    const [a] = resumeAlumnos([{ id: 'a' }], [], AHORA);
+    expect(a.grupos).toEqual([]);
+  });
+});
+
 describe('guardas del panel de academia', () => {
   const ACTIONS = join(__dirname, '..', 'app', 'actions');
   const stripComments = (src: string) =>

@@ -412,11 +412,28 @@ describe('el prompt del chat', () => {
     expect(prompt).toMatch(/citas detrás de un "no consta"/i);
   });
 
-  it('el cierre de examen es CONDICIONAL, no obligatorio', () => {
-    // Era lo que soltaba cuatro trampas sobre algo que nadie habia preguntado.
+  it('no hay sección de cierre fija: la "🎯 FOCO EXAMEN" se retiró', () => {
+    // El "CIERRE OPCIONAL" seguia disparándose en casi toda respuesta, con
+    // relleno generico ("identifica siempre el tema") — la misma clase de fallo
+    // que un cierre obligatorio, un escalón más abajo (regla 32). Se quita la
+    // sección: si hay una confusión de verdad, va en prosa dentro de la respuesta.
     expect(prompt).not.toMatch(/CIERRE OBLIGATORIO/i);
-    expect(prompt).toMatch(/CIERRE OPCIONAL/i);
-    expect(prompt).toMatch(/solo si/i);
+    expect(prompt).not.toMatch(/FOCO EXAMEN/i);
+    expect(prompt).not.toMatch(/🎯/);
+    expect(prompt).toMatch(/Nada de secciones fijas/i);
+  });
+
+  it('prohíbe escribir el nombre del fichero ("tema-02") en la respuesta', () => {
+    // Desde el temario completo el fichero es "tema-NN" y el modelo lo copiaba
+    // tal cual ("según el tema-02…"). Tiene que decir el título del tema o la ley.
+    expect(prompt).toMatch(/NUNCA escribas el nombre del fichero/i);
+  });
+
+  it('dice qué hacer cuando el mismo artículo está en varias normas', () => {
+    // "¿qué dice el artículo 27?" traía el 27 de cinco leyes y el modelo las
+    // listaba las cinco en vez de responder por la que encaja.
+    expect(prompt).toMatch(/MISMO NÚMERO DE ARTÍCULO EN VARIAS NORMAS/i);
+    expect(prompt).toMatch(/No hagas una lista con las cinco/i);
   });
 
   it('no impone tono militar ni estructura fija', () => {

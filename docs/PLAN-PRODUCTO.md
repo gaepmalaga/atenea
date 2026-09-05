@@ -564,7 +564,8 @@ es un proyecto y no toca todavía.
 
 > **Ahora se puede hacer antes**, porque con una sola academia no depende de P4.
 >
-> **Hecha en parte el 31 de agosto de 2026.** Ver *Estado de P5*, al final.
+> **Casi cerrada.** P5a–P5d el 31 ago, P5f el 5 sep. Solo queda P5e (invitar por
+> correo), que es una decisión, no código. Ver *Estado de P5*, al final.
 
 ### Qué debería tener
 
@@ -614,7 +615,7 @@ más ruidoso.
 | P5c | Qué temas tienen banco y cuáles no | ✅ 43 de 45 sin ninguna pregunta |
 | P5d | Qué preguntas falla todo el mundo | ✅ con un mínimo de intentos, para no señalar ruido |
 | P5e | Invitar por correo | ⬜ manda correos: decisión tuya, no técnica |
-| P5f | Agrupar por clase o promoción | ⬜ necesita una columna nueva |
+| P5f | Agrupar por clase o promoción | ✅ **hecha** (5 sep): `profiles.class_group` (texto libre), filtro y edición en el panel de Academia. Ver regla 35 |
 
 La aritmética vive en [`app/lib/academy.ts`](../app/lib/academy.ts) y está
 testeada: es donde este repositorio se ha equivocado siempre, y aquí duele más
@@ -640,35 +641,62 @@ Vale la pena anticiparlo, porque es lo que decide si el piloto funciona:
 
 ---
 
-## P6 · Cobros
+## P6 · Cobros → control de acceso y pagos en efectivo
 
-> **Decidido (27 ago):** primero un piloto gratis con una academia amiga para
-> validar el modelo. Los cobros **no se construyen todavía**.
+> **Cerrada el 5 sep 2026.** El modelo lo decidió el dueño: **cobro EN EFECTIVO
+> en la academia**, en persona. Nada de pasarela, ni pagos online, ni IVA de la
+> UE. Lo que hacía falta era un control de acceso y un registro de pagos, no una
+> tienda.
 
-### Por qué esperar es lo correcto
+### El modelo real
 
-Los dos caminos que planteas llevan a productos distintos:
+No es «marca blanca a academias» ni «captar alumnos por internet». Es **una
+academia física que cobra a sus alumnos en mano**, y quiere:
 
-- **Marca blanca a academias.** Cobras a la academia. Pocos clientes, factura
-  grande, contrato. Probablemente ni necesites pasarela al principio: con dos o
-  tres clientes, una transferencia y una factura hecha a mano funcionan.
-- **Captar alumnos tú directamente.** Cobras al alumno. Muchos clientes, importe
-  pequeño, altas y bajas constantes. **Esto sí exige pasarela desde el día uno**,
-  además de gestionar bajas, devoluciones y morosidad.
+- saber quién ha pagado y quién no (un registro que lleva el administrador);
+- que solo entren los alumnos que él ha activado — acceso por invitación;
+- poder quitarle el acceso a quien deja de pagar o pide la baja.
 
-Construir cobros antes de saber cuál de los dos es sería trabajo tirado. Y el
-piloto es exactamente lo que resuelve esa duda.
+Todo eso son tres tablas y unas cuantas guardas. Ver la **regla 52** de
+[`CLAUDE.md`](../CLAUDE.md) y [`docs/sql/P6-acceso-y-pagos.sql`](sql/P6-acceso-y-pagos.sql).
 
-### Lo único que conviene hacer ya
+### Estado de P6 · 5 de septiembre de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P6a | Medir el gasto de IA por alumno (`ai_usage`) | ✅ regla 41 (4 sep) |
+| P6b | Panel de consumo de IA (**Consumo IA**) | ✅ regla 51 |
+| P6c | Interruptor global de acceso, apagado por defecto | ✅ `membership_settings` |
+| P6d | Acceso por invitación: el alumno se registra, el admin lo activa | ✅ «sin fila = pendiente» |
+| P6e | Quitar el acceso a mano (baja / deja de pagar) | ✅ `access_status = 'suspended'` |
+| P6f | Registro de pagos en efectivo por alumno | ✅ `academy_payments` |
+| P6g | Pantalla **Acceso & Pagos** en el Centro de Mando | ✅ `AdminMembers` |
+| P6h | Guion SQL | ✅ **ejecutado** el 5 sep 2026, comprobado contra la BD real |
+
+**Lo que NO se hizo, a propósito:** Stripe, suscripciones, facturas automáticas,
+cálculo de IVA. El día que el modelo cambie a captar alumnos por internet, eso
+es otro proyecto — pero hoy sería trabajo tirado.
+
+### Lo del gasto de IA — ✅ hecho (5 sep 2026)
 
 **Medir el uso desde el principio.** Cuando llegue el momento de poner precio,
 vas a necesitar saber cuánto cuesta servir a un alumno: cuántas llamadas a Gemini
 consume al mes, cuánto ocupa su temario. Ese dato solo existe si se ha ido
 guardando.
 
-La tabla `ai_quota` ya cuenta las llamadas por usuario y ruta. Basta con **no
-borrar el histórico** y añadir un panel simple de consumo. Cuesta poco ahora y no
-se puede reconstruir después.
+- **El registro:** `ai_usage` guarda una fila por llamada a Gemini —tokens de
+  entrada y salida, cacheados, coste en dólares, ruta y tema— desde la regla 41
+  (4 sep). `ai_quota` cuenta llamadas; `ai_usage` cuenta lo que cuestan.
+- **El panel:** pestaña **Consumo IA** en el Centro de Mando (5 sep). Solo
+  lectura: total gastado, coste medio por alumno, y el desglose por ruta, por
+  mes y por alumno. Aritmética en [`app/lib/ai-cost.ts`](../app/lib/ai-cost.ts),
+  testeada (reglas 4 y 8: un campo ilegible cuenta 0 y nunca `NaN`; sin alumnos
+  el coste medio es `null`, no `0`).
+
+**Lo que NO se hizo, a propósito:** nada de cobrar. Ni pasarela, ni suscripciones,
+ni facturas. Eso sigue esperando a que el piloto diga si el modelo es cobrar a la
+academia o al alumno — son productos distintos y construir el que no toca es
+trabajo tirado.
 
 ### Y una conversación que no es técnica
 
@@ -680,6 +708,75 @@ una discusión incómoda justo cuando la cosa empieza a funcionar.
 
 No es trabajo mío, pero es lo que puede hundir el proyecto teniendo el código
 perfecto.
+
+---
+
+## P7 · Grupos y preparación física
+
+> **Cerrada el 6 sep 2026.** Salió de probar el panel: *«no puedo generar varias
+> clases (promoción 41 tarde, promoción 42 mañanas, inglés, físicas…); cada
+> alumno puede estar en una o varias»*, y *«las físicas están dentro de cada
+> alumno pero merecen un apartado, y poder preparar entrenamientos de grupo en
+> vez de uno a uno»*. Ver *Estado de P7*, al final, y la **regla 53** de
+> [`CLAUDE.md`](../CLAUDE.md).
+
+### Lo que P5f dejó corto
+
+P5f montó `profiles.class_group`: **un** texto libre por alumno. No sirve: los
+grupos son **muchos-a-muchos** (un alumno en «Inglés» Y «Promoción 41 tarde»,
+pero no en «Físicas»). Se retira esa columna —nunca llegó a producción— y se
+sustituye por tablas de verdad.
+
+### El modelo
+
+- **`class_groups`** — un grupo: nombre, **tipo** (`teoria` | `ingles` |
+  `fisicas` | `otro`), horario en texto libre (regla 50) y un profesor de
+  `academy_staff`. El tipo decide qué se le puede colgar: a uno de `fisicas`, un
+  plan de entrenamiento; a uno de `teoria`, no. Sin tipo, un plan de
+  entrenamiento acabaría colgado de «Inglés B2» por error.
+- **`class_members`** — el par `(class_id, user_id)`. Un alumno en varios
+  grupos, un grupo con varios alumnos.
+- **`group_training_plans`** — el plan de entrenamiento de un grupo de físicas.
+  **El individual manda sobre el de grupo:** el alumno ve el plan de su grupo
+  por defecto; si tiene uno individual (`training_plans` con `status='active'`),
+  ese gana. Así no hay que ponerle un plan a cada uno, pero se puede afinar.
+
+Las tres son de administración: RLS y cero políticas, clave de servicio detrás
+de `requireAdmin` (regla 34/35). `group_training_plans` es la excepción —
+`SELECT` para cualquier autenticado, porque el plan tiene que llegar al alumno;
+escribir, solo servicio.
+
+### Las pantallas
+
+- **Grupos** (pestaña nueva): crear grupos, asignar profesor, meter y sacar
+  alumnos, y el filtro por grupo en la lista de Academia.
+- **Preparación física** (pestaña nueva): saca el entrenamiento de la ficha de
+  cada alumno a su sitio. Enseña los grupos de físicas, el editor del plan de
+  grupo, y las marcas de cada miembro (Cooper, dominadas…) juntas.
+- **Academia**: la lista se puede filtrar por grupo; cada alumno enseña sus
+  grupos como etiquetas. El editor de plan individual se queda (es el que
+  «manda»).
+- **Usuarios**: deja de mostrar la lista de progreso (nombre + preguntas +
+  acierto), que duplicaba Academia. Se queda con lo de cuentas: rol, acceso
+  (P6), alta y baja.
+
+### Estado de P7 · 6 de septiembre de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P7a | `class_groups` + `class_members` + `group_training_plans` | ✅ ejecutado y comprobado |
+| P7b | Retirar `profiles.class_group` de P5f | ✅ |
+| P7c | Pestaña **Grupos** | ✅ crear/editar/borrar + casillas de miembros |
+| P7d | Pestaña **Preparación física** con plan de grupo | ✅ reutiliza el editor del entrenador |
+| P7e | Filtro por grupo en Academia | ✅ + badges de grupo por alumno |
+| P7f | Herencia plan grupo → individual en el módulo del alumno | ✅ `getActiveTrainingPlan`, con `origen` |
+| P7g | Usuarios deja de duplicar la lista de Academia | ✅ se queda con correo + rol |
+
+**Lo que NO se hizo:** marcar días sobre un plan de grupo (es compartido —
+reescribiría el de todos). Para eso la academia le pone al alumno un plan
+individual, que manda. Y las marcas físicas de cada alumno (Cooper, dominadas)
+siguen en su ficha de Academia, no en «Preparación física» — mover eso también
+es otra tanda.
 
 ---
 

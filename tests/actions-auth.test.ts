@@ -88,6 +88,26 @@ describe('superficie de las Server Actions', () => {
       // P2: escriben directamente en el banco de los alumnos.
       'createManualQuestion',
       'importManualQuestions',
+      // P6: el gasto de IA es dato de administración (ai_usage sin políticas).
+      'getAiCostOverview',
+      // P6: control de acceso y pagos. Todo lo lleva el administrador.
+      'getMembershipOverview',
+      'getMemberPayments',
+      'setMembershipRequired',
+      'setMemberAccess',
+      'setMemberPaymentStatus',
+      'recordPayment',
+      'deletePayment',
+      'activateAllCurrentStudents',
+      // P7: grupos y planes de entrenamiento de grupo.
+      'getGroups',
+      'createGroup',
+      'updateGroup',
+      'deleteGroup',
+      'setGroupMembers',
+      'getGroupTrainingPlan',
+      'saveGroupTrainingPlan',
+      'deleteGroupTrainingPlan',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

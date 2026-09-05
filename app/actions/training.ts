@@ -24,6 +24,7 @@ import {
 } from '../lib/training-plan';
 import { requireAdmin } from '../lib/auth';
 import { supabaseAdmin } from './core';
+import { registraAccion } from '../lib/admin-audit';
 
 // `TrainingDayLog` NO se reexporta desde aqui. Este modulo es 'use server' y
 // Next exige que solo exporte funciones async: el bundler convertia el
@@ -100,7 +101,12 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
 
-export type StoredPlan = { id: string; plan_data: WeeklyPlan | null };
+export type StoredPlan = {
+    id: string;
+    plan_data: WeeklyPlan | null;
+    /** De dónde sale (P7): el plan propio del alumno, o el de su grupo de físicas. */
+    origen: 'individual' | 'grupo';
+};
 
 export async function getActiveTrainingPlan(): Promise<
     { success: false; error: string; plan: null } | { success: true; plan: StoredPlan | null }
@@ -111,12 +117,46 @@ export async function getActiveTrainingPlan(): Promise<
     const userId = auth.user.id;
 
     const { data } = await db.from('training_plans').select('*').eq('user_id', userId).eq('status', 'active').order('created_at', {ascending:false}).limit(1).single();
-    if (!data) return { success: true, plan: null };
 
-    // El plan guardado se normaliza al leerlo, no solo al escribirlo: en la BD
-    // hay filas anteriores a esta fase, generadas sin `title` y sin garantia de
-    // que `exercises` sea un array.
-    return { success: true, plan: { id: data.id, plan_data: normalizePlan(data.plan_data) } };
+    // EL PLAN INDIVIDUAL MANDA SOBRE EL DE GRUPO (P7). Si el alumno tiene uno
+    // propio activo, es el que ve. Si no, se busca el de su grupo de físicas.
+    // El plan guardado se normaliza al leerlo, no solo al escribirlo: hay filas
+    // anteriores a esta fase, sin `title` ni garantia de que `exercises` sea un
+    // array.
+    if (data) {
+        return { success: true, plan: { id: data.id, plan_data: normalizePlan(data.plan_data), origen: 'individual' } };
+    }
+
+    // El grupo y su membresía son de administración (RLS sin políticas de
+    // miembro), así que se leen con la clave de servicio filtrando por el
+    // propio usuario — igual que `auth.ts` con `memberships` (regla 34). Van en
+    // dos pasos: PostgREST no puede embeber `group_training_plans` desde
+    // `class_members` porque su relación pasa por `class_groups`, no es directa.
+    const { data: susGrupos } = await supabaseAdmin
+        .from('class_members')
+        .select('class_id, class_groups!inner(kind)')
+        .eq('user_id', userId)
+        .eq('class_groups.kind', 'fisicas');
+
+    const idsFisicas = (susGrupos ?? []).map((m) => m.class_id as string);
+    if (idsFisicas.length) {
+        const { data: gtp } = await supabaseAdmin
+            .from('group_training_plans')
+            .select('class_id, plan_data, updated_at')
+            .in('class_id', idsFisicas)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (gtp?.plan_data) {
+            return {
+                success: true,
+                plan: { id: `grupo:${gtp.class_id}`, plan_data: normalizePlan(gtp.plan_data), origen: 'grupo' },
+            };
+        }
+    }
+
+    return { success: true, plan: null };
 }
 
 export async function completeTrainingDay(
@@ -126,6 +166,14 @@ export async function completeTrainingDay(
     if (!auth.ok) return { success: false, error: auth.error };
     const db = await createSupabaseServerClient();
     const userId = auth.user.id;
+
+    // Un plan de grupo (P7) es COMPARTIDO: no se pueden marcar días encima —
+    // eso reescribiría el plan de todos los del grupo. Para llevar el registro,
+    // la academia le pone al alumno un plan individual (que manda sobre el de
+    // grupo). El id `grupo:` es la señal.
+    if (planId.startsWith('grupo:')) {
+        return { success: false, error: 'Este es el plan de tu grupo. Pídele a la academia un plan individual para ir marcando los días.' };
+    }
 
     // Nota: el filtro por user_id evita que un usuario marque como completado
     // el plan de otro (antes `userId` se recibía y se ignoraba).
@@ -352,6 +400,10 @@ export async function saveManualTrainingPlan(params: {
         plan_data: plan,
         status: 'active',
     });
+
+    if (!error) {
+        registraAccion({ actorId: auth.user.id, action: 'save_manual_training_plan', target: params.studentId });
+    }
 
     return { success: !error, error: error?.message };
 }

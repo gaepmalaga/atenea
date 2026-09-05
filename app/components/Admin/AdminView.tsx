@@ -1,25 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
+import {
   Shield, LogOut, RefreshCw, Users, Book,
-  Activity, AlertTriangle, Database, Power, GraduationCap
+  Activity, AlertTriangle, Database, Power, GraduationCap, Coins, KeyRound, Users2, Dumbbell
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // Importamos TODOS los sub-componentes (incluyendo el nuevo AdminBank)
 import AdminUsers from './components/AdminUsers';
 import AdminContent from './components/AdminContent';
-import AdminActivity from './components/AdminActivity'; 
+import AdminActivity from './components/AdminActivity';
 import AdminModeration from './components/AdminModeration';
 import AdminBank from './components/AdminBank';
 import AdminModules from './components/AdminModules';
 import AdminAcademy from './components/AdminAcademy';
+import AdminCost from './components/AdminCost';
+import AdminMembers from './components/AdminMembers';
+import AdminGroups from './components/AdminGroups';
+import AdminPhysical from './components/AdminPhysical';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'users' | 'academy' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules';
+type AdminTab = 'users' | 'academy' | 'groups' | 'physical' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'members';
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
@@ -47,10 +51,14 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   const tabs = [
     { id: 'users', label: 'Usuarios', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'academy', label: 'Academia', icon: GraduationCap, color: 'text-sky-700 dark:text-sky-400' },
+    { id: 'groups', label: 'Grupos', icon: Users2, color: 'text-teal-700 dark:text-teal-400' },
+    { id: 'physical', label: 'Prep. física', icon: Dumbbell, color: 'text-orange-700 dark:text-orange-400' },
+    { id: 'members', label: 'Acceso & Pagos', icon: KeyRound, color: 'text-rose-700 dark:text-rose-400' },
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-700 dark:text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-700 dark:text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400' },
-    { id: 'modules', label: 'Módulos', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
+    { id: 'modules', label: 'Ajustes', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
+    { id: 'cost', label: 'Consumo IA', icon: Coins, color: 'text-lime-700 dark:text-lime-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-500 dark:text-slate-400' },
   ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
 
@@ -176,7 +184,11 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
                 {activeTab === 'moderation' && <AdminModeration />}
 
                 {activeTab === 'academy' && <AdminAcademy />}
+                {activeTab === 'groups' && <AdminGroups />}
+                {activeTab === 'physical' && <AdminPhysical />}
                 {activeTab === 'modules' && <AdminModules />}
+                {activeTab === 'cost' && <AdminCost />}
+                {activeTab === 'members' && <AdminMembers />}
                 {activeTab === 'activity' && <AdminActivity />}
             </ModuleErrorBoundary>
         </div>

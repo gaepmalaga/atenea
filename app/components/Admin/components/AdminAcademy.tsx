@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Users, PhoneCall, Loader2, AlertTriangle, ChevronDown,
-  BookOpen, Target, Layers,
+  BookOpen, Target, Layers, GraduationCap,
 } from 'lucide-react';
 import { getAcademyOverview, getStudentDetail, getStudentActivePlan, saveManualTrainingPlan } from '@/actions';
 import { Dumbbell } from 'lucide-react';
 import PlanEntrenadorEditor from './PlanEntrenadorEditor';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno } from '@/app/lib/academy';
+import { etiquetaTipo } from '@/app/lib/groups';
 import { ERROR_LABELS } from '@/app/lib/stats';
 import { Card } from '../../ui';
 
@@ -55,16 +56,20 @@ export default function AdminAcademy() {
   const [plan, setPlan] = useState<Awaited<ReturnType<typeof getStudentActivePlan>>['plan'] | undefined>(undefined);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
-  useEffect(() => {
-    let vivo = true;
-    getAcademyOverview().then((res) => {
-      if (!vivo) return;
-      if (res.success) setDatos(res.data);
-      else setError(res.error);
-      setCargando(false);
-    });
-    return () => { vivo = false; };
+  /** '' = todos. '__sin__' = alumnos sin ningún grupo (P7). */
+  const SIN_GRUPO = '__sin__';
+  const [filtroGrupo, setFiltroGrupo] = useState('');
+
+  const recargar = useCallback(async () => {
+    const res = await getAcademyOverview();
+    if (res.success) setDatos(res.data);
+    else setError(res.error);
+    setCargando(false);
   }, []);
+
+  useEffect(() => {
+    recargar();
+  }, [recargar]);
 
   async function abre(id: string) {
     if (abierto === id) {
@@ -103,9 +108,15 @@ export default function AdminAcademy() {
 
   if (!datos) return null;
 
-  const { alumnos, porEstado, cobertura, sospechosas } = datos;
+  const { alumnos, porEstado, grupos, cobertura, sospechosas } = datos;
   const sinBanco = cobertura.filter((c) => c.preguntas === 0);
   const sinAlumnos = cobertura.filter((c) => c.preguntas > 0 && c.alumnos === 0);
+
+  const hayAlgunSinGrupo = alumnos.some((a) => a.role !== 'admin' && a.grupos.length === 0);
+  const alumnosVistos =
+    filtroGrupo === '' ? alumnos
+    : filtroGrupo === SIN_GRUPO ? alumnos.filter((a) => a.grupos.length === 0)
+    : alumnos.filter((a) => a.grupos.some((g) => g.id === filtroGrupo));
 
   return (
     <div className="space-y-8 animate-in fade-in pb-24">
@@ -137,9 +148,34 @@ export default function AdminAcademy() {
         </div>
       </div>
 
+      {/* --- FILTRO POR GRUPO (P7) --- */}
+      {grupos.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <GraduationCap size={14} className="text-slate-500 dark:text-slate-400" />
+          <select
+            value={filtroGrupo}
+            onChange={(e) => setFiltroGrupo(e.target.value)}
+            className="text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 font-semibold"
+          >
+            <option value="">Todos los grupos ({alumnos.length})</option>
+            {grupos.map((g) => (
+              <option key={g.id} value={g.id}>{g.name} · {etiquetaTipo(g.kind)}</option>
+            ))}
+            {hayAlgunSinGrupo && <option value={SIN_GRUPO}>Sin grupo asignado</option>}
+          </select>
+          {filtroGrupo !== '' && (
+            <span className="text-xs text-slate-500 dark:text-slate-400">{alumnosVistos.length} de {alumnos.length}</span>
+          )}
+          <span className="text-[11px] text-slate-400">Los grupos se gestionan en la pestaña «Grupos».</span>
+        </div>
+      )}
+
       {/* --- LISTA, ORDENADA POR URGENCIA --- */}
       <div className="space-y-3">
-        {alumnos.map((a) => {
+        {alumnosVistos.length === 0 && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">Nadie en este grupo.</p>
+        )}
+        {alumnosVistos.map((a) => {
           const estaAbierto = abierto === a.id;
           return (
             <div key={a.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden">
@@ -154,6 +190,11 @@ export default function AdminAcademy() {
                         admin
                       </span>
                     )}
+                    {a.grupos.map((g) => (
+                      <span key={g.id} className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center gap-1">
+                        <GraduationCap size={10} /> {g.name}
+                      </span>
+                    ))}
                     {(a.estado === 'abandonado' || a.estado === 'nunca_entro') && (
                       <span className="text-[10px] font-bold text-red-700 dark:text-red-400/80 flex items-center gap-1">
                         <PhoneCall size={10} /> llamar
@@ -221,6 +262,12 @@ export default function AdminAcademy() {
 
               {estaAbierto && (
                 <div className="px-5 pb-5 border-t border-slate-800/60 pt-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {a.role !== 'admin' && a.grupos.length > 0 && (
+                    <p className="mb-4 text-[11px] text-slate-500 dark:text-slate-400">
+                      Grupos: {a.grupos.map((g) => `${g.name} (${etiquetaTipo(g.kind)})`).join(', ')}
+                    </p>
+                  )}
+
                   {cargandoFicha && (
                     <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
                       <Loader2 size={12} className="animate-spin" /> Abriendo la ficha…

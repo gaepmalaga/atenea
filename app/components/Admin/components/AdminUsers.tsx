@@ -6,18 +6,6 @@ import { getAdminUsersList } from '@/actions';
 import type { AdminUser } from '@/app/actions/admin';
 import { EmptyState, cx, TEXT } from '../../ui';
 
-/** El acierto, con el mismo criterio en móvil y en escritorio. */
-function Efectividad({ winRate }: { winRate: number | null }) {
-  // Sin datos NO es lo mismo que 0 % de aciertos (regla 8): antes ambos casos
-  // se pintaban igual, y en rojo.
-  if (winRate === null) return <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">sin datos</span>;
-  return (
-    <span className={cx('font-bold tabular-nums', winRate >= 50 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400')}>
-      {winRate}%
-    </span>
-  );
-}
-
 /** `profiles.role` puede llegar a null: la fila existe pero sin rol asignado. */
 function RolBadge({ role }: { role: string | null }) {
   return (
@@ -83,34 +71,24 @@ export default function AdminUsers() {
               las columnas que no cabían quedaban CORTADAS y no había forma de
               llegar a ellas: la efectividad, que es el dato por el que se mira
               esta pantalla, era invisible en móvil. */}
+          {/* Solo la CUENTA: correo y rol. El progreso —tests, acierto, a quién
+              llamar, grupos— vive en «Academia», que lo enseña ordenado por
+              urgencia (P7g). Aquí duplicarlo era leer la misma lista dos veces. */}
           <div className="md:hidden space-y-2">
             {users.map((u) => (
-              <div key={u.id} className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 p-4">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <p className="font-medium text-slate-900 dark:text-white text-sm break-all min-w-0">{u.email}</p>
-                  <RolBadge role={u.role} />
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    Tests <span className="font-mono text-slate-700 dark:text-slate-300 tabular-nums">{u.total_tests}</span>
-                  </span>
-                  <span className="text-slate-500 dark:text-slate-400">
-                    Efectividad <Efectividad winRate={u.win_rate} />
-                  </span>
-                </div>
+              <div key={u.id} className="bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 p-4 flex items-center justify-between gap-3">
+                <p className="font-medium text-slate-900 dark:text-white text-sm break-all min-w-0">{u.email}</p>
+                <RolBadge role={u.role} />
               </div>
             ))}
           </div>
 
-          {/* ESCRITORIO: la tabla, que aquí sí cabe. */}
           <div className="hidden md:block bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 overflow-hidden">
             <table className="w-full text-left text-sm text-slate-500 dark:text-slate-400">
               <thead className="bg-slate-100/50 dark:bg-slate-900/50 text-xs uppercase font-bold text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="px-6 py-4">Usuario</th>
                   <th className="px-6 py-4">Rol</th>
-                  <th className="px-6 py-4 text-center">Tests</th>
-                  <th className="px-6 py-4 text-center">Efectividad</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
@@ -118,8 +96,6 @@ export default function AdminUsers() {
                   <tr key={u.id} className="hover:bg-slate-300/50 dark:hover:bg-slate-700/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.email}</td>
                     <td className="px-6 py-4"><RolBadge role={u.role} /></td>
-                    <td className="px-6 py-4 text-center font-mono tabular-nums">{u.total_tests}</td>
-                    <td className="px-6 py-4 text-center"><Efectividad winRate={u.win_rate} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -128,13 +104,10 @@ export default function AdminUsers() {
         </>
       )}
 
-      {/* La columna "Estado" pintaba un punto verde y la palabra "Activo" para
-          TODOS los usuarios, siempre: no sale de ninguna columna, estaba escrita
-          en el HTML. Un administrador podía leer ahí que una cuenta suspendida
-          estaba activa. Se retira hasta que exista el dato de verdad. */}
       <p className={cx(TEXT.muted, 'flex items-center gap-2')}>
         <ShieldCheck size={13} className="shrink-0" />
-        El acierto va sobre las preguntas contestadas, sin contar las dejadas en blanco.
+        El progreso de cada alumno —tests, acierto, grupos, a quién llamar— está en «Academia».
+        El acceso y los pagos, en «Acceso &amp; Pagos».
       </p>
     </div>
   );

@@ -75,6 +75,9 @@ export type IntentoAlumno = {
   selected_index?: number | null;
 };
 
+/** Un grupo al que pertenece un alumno (P7), tal y como lo enseña el panel. */
+export type GrupoDeAlumno = { id: string; name: string; kind: string };
+
 /** Una fila de `profiles`. */
 export type PerfilAlumno = {
   id: string;
@@ -104,6 +107,8 @@ export type FilaAlumno = {
   id: string;
   email: string | null;
   role: string | null;
+  /** Grupos a los que pertenece (P7). Los pone la acción, no `resumeAlumnos`. */
+  grupos: GrupoDeAlumno[];
   /** Respuestas CONTESTADAS. Los blancos van aparte (regla 24). */
   contestadas: number;
   blancos: number;
@@ -197,6 +202,7 @@ export function resumeAlumnos(
       id: p.id,
       email: p.email ?? null,
       role: p.role ?? null,
+      grupos: [],
       contestadas: acc?.contestadas ?? 0,
       blancos: acc?.blancos ?? 0,
       aciertos: acc?.aciertos ?? 0,

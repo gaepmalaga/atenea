@@ -595,28 +595,29 @@ CÓMO RESPONDER:
 
 4. CITAS. Al final de la frase que sostiene, entre corchetes y SOLO el número:
    [1]. Nada más dentro del corchete.
-   Y cuando la fuente traiga artículo, nómbralo en la prosa LA PRIMERA VEZ que
-   lo uses —"El artículo 5 de la LOFCS exige…"—, no en cada línea: repetirlo en
-   todas las viñetas es ruido. Un [1] suelto no le dice a nadie qué releer; el
-   número del artículo sí.
+   Nombra la NORMA o el TEMA en la prosa la primera vez que lo uses —"El
+   artículo 5 de la LOFCS exige…", "Según la Constitución…"—, no en cada línea.
+   NUNCA escribas el nombre del fichero ("tema-02", "tema-09"): eso es un código
+   interno, no le dice nada al alumno; di el título del tema o la ley.
    Nunca inventes un artículo que no venga en la cabecera de la fuente. Y nunca
-   pongas citas detrás de un "no consta": citar seis fuentes para respaldar que
-   no sabes algo es ruido.
+   pongas citas detrás de un "no consta".
 
-5. LA FUENTE «${FUENTE_INDICE}» NO ES TEXTO DE LA NORMA: es el recuento de lo
+5. EL MISMO NÚMERO DE ARTÍCULO EN VARIAS NORMAS. Si el contexto trae "Artículo
+   27" de varias leyes distintas y la pregunta no dice de cuál, responde por la
+   que encaje con lo que se pregunta y menciona en UNA frase que ese número
+   también existe en otras. No hagas una lista con las cinco: eso no es
+   responder, es esquivar.
+
+6. LA FUENTE «${FUENTE_INDICE}» NO ES TEXTO DE LA NORMA: es el recuento de lo
    que la plataforma tiene indexado. Úsala para decir cuántos artículos o
    disposiciones hay, aclarando que sale del índice del temario. Si esa fuente
    avisa de que faltan artículos en el rango, el número es un MÍNIMO y lo dices.
 
-6. FORMATO: usa viñetas o una tabla solo si hay varias cosas que comparar. Para
-   una respuesta corta, prosa.
-
-7. CIERRE OPCIONAL. Si —y solo si— has respondido y existe una confusión REAL y
-   concreta con este contenido (un plazo que cambia, dos figuras que se
-   parecen, una excepción), añade al final:
-   **🎯 FOCO EXAMEN**
-   con 1 a 3 puntos, cada uno de una línea. Si no hay ninguna de verdad, no
-   pongas la sección: una sección de relleno enseña a saltársela.
+7. FORMATO: viñetas o tabla solo si hay varias cosas que comparar; para una
+   respuesta corta, prosa. Nada de secciones fijas ni de "trampas de examen"
+   añadidas al final: si hay una confusión de verdad con este contenido (un
+   plazo que cambia, dos figuras que se parecen), dilo en una frase dentro de
+   la respuesta y ya.
 
 PREGUNTA:
 "${pregunta}"
@@ -826,20 +827,29 @@ export type SourceRef = {
    * (docs/sql/P1g-referencia-en-la-busqueda.sql).
    */
   reference?: string | null;
+  /**
+   * El título del TEMA del que sale («La Constitución Española (I)»). Es lo que
+   * el alumno reconoce; el `filename` desde el temario completo es «tema-02»,
+   * que no le dice nada. `null`/`undefined` cuando no se ha podido resolver
+   * —entonces se cae al `filename`.
+   */
+  subject?: string | null;
 };
 
 /**
  * Como se nombra una fuente delante del alumno.
  *
- * El nombre del fichero —«TEMA 9 - La Ley Organica 2-1986 - de 13 de marzo - de
- * Fuerzas y Cuerpos de Seguridad»— no le dice a un opositor QUE RELEER. El
- * articulo si. Se antepone la referencia cuando existe y el fichero se queda
- * detras como respaldo: unos apuntes no tienen articulos.
+ * El nombre del fichero —«tema-02», «tema-09»— no le dice a un opositor NADA, y
+ * el modelo lo copia tal cual en la respuesta («según el tema-02…»). Lo que sí
+ * reconoce es el TÍTULO del tema y, si el fragmento es de un texto legal, el
+ * ARTÍCULO. Orden: «Artículo 27 · La Constitución Española (I)». Sin título se
+ * cae al fichero, y sin ninguno de los dos —el índice— al nombre que traiga.
  *
  * Vive aqui y no en la accion por dos motivos: un fichero `'use server'` solo
  * puede exportar funciones async, y esto es logica pura (regla 21).
  */
 export function citaDe(fuente: SourceRef): string {
   const referencia = fuente.reference?.trim();
-  return referencia ? `${referencia} · ${fuente.filename}` : fuente.filename;
+  const nombre = fuente.subject?.trim() || fuente.filename;
+  return referencia ? `${referencia} · ${nombre}` : nombre;
 }

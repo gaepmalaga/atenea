@@ -32,11 +32,7 @@ import {
   resumeEstructura,
   pidePartesInternas,
   formatIndice,
-  documentosPorRelevancia,
-  documentosNombrados,
   documentosQueCaben,
-  MIN_SIMILITUD_DOCUMENTO,
-  MAX_DOCUMENTOS_ENTEROS,
   FUENTE_INDICE,
 } from '../app/lib/chat.ts';
 
@@ -123,56 +119,6 @@ async function elIndice(conEstructura) {
   return texto ? { filename: FUENTE_INDICE, content_chunk: texto, reference: null, similarity: 1 } : null;
 }
 
-// El documento entero: la misma logica que la accion.
-async function enteros(semanticos, pregunta) {
-  const catalogo = await get('documents?select=id,filename,subject:subjects(title)');
-  const catalogados = catalogo.map((d) => {
-    const subject = Array.isArray(d.subject) ? d.subject[0] : d.subject;
-    return { id: d.id, nombre: [subject?.title, d.filename].filter(Boolean).join(' ') };
-  });
-
-  const nombrados = documentosNombrados(pregunta, catalogados);
-
-  const buenos = semanticos.filter((c) => (c.similarity ?? 0) >= MIN_SIMILITUD_DOCUMENTO);
-  const ids = buenos.map((c) => c.id).filter(Boolean);
-
-  const deChunk = new Map();
-  if (ids.length) {
-    const mapa = await get(`document_chunks?select=id,document_id&id=in.(${ids.join(',')})`);
-    for (const f of mapa) deChunk.set(String(f.id), f.document_id);
-  }
-
-  const porParecido = documentosPorRelevancia(
-    buenos.map((c) => ({ ...c, document_id: deChunk.get(String(c.id)) ?? null }))
-  );
-
-  const orden = [...nombrados, ...porParecido.filter((id) => !nombrados.includes(id))];
-  if (!orden.length) return { enteros: [], sobrantes: semanticos, nombrados };
-
-  const candidatos = orden.slice(0, MAX_DOCUMENTOS_ENTEROS + 2);
-  const docs = await get(`documents?select=id,filename,full_text&id=in.(${candidatos.join(',')})`);
-  const porId = new Map(docs.map((d) => [d.id, d]));
-
-  const cabe = documentosQueCaben(
-    orden.filter((id) => porId.has(id)).map((id) => ({ id, chars: (porId.get(id).full_text ?? '').length }))
-  );
-  const dentro = new Set(cabe);
-
-  return {
-    enteros: cabe.map((id) => ({
-      filename: porId.get(id).filename ?? '',
-      content_chunk: porId.get(id).full_text ?? '',
-      reference: null,
-      similarity: 1,
-    })),
-    sobrantes: semanticos.filter((c) => {
-      const d = deChunk.get(String(c.id));
-      return !d || !dentro.has(d);
-    }),
-    nombrados,
-  };
-}
-
 /**
  * Lo que hace la accion cuando el alumno ELIGE tema: sus documentos enteros y
  * ni una llamada al embedding.
@@ -212,20 +158,29 @@ async function pregunta(texto, subjectId = null) {
     numero ? porReferencia(numero) : Promise.resolve([]),
   ]);
 
-  const { enteros: completos, sobrantes, nombrados } = conTema
-    ? { enteros: enterosDelTema, sobrantes: [], nombrados: [] }
-    : await enteros(semanticos, texto);
+  // MISMO CAMINO QUE `askAtenea`: sin tema NO se mandan documentos enteros —
+  // solo los fragmentos de la búsqueda semántica (+ índice + artículo exacto).
+  // El documento entero se reserva para cuando el alumno elige tema.
+  const { completos, sobrantes } = conTema
+    ? { completos: enterosDelTema, sobrantes: [] }
+    : { completos: [], sobrantes: semanticos };
   const fuentes = [...(indice ? [indice] : []), ...exactos, ...completos, ...sobrantes].slice(0, 8);
+
+  // Mismo `resuelveTemas` que la accion: el titulo del tema en cada fuente, que
+  // «tema-02» no le dice nada a nadie.
+  const catalogo = await get('documents?select=filename,subject:subjects(title)');
+  const temaDe = new Map(
+    catalogo.map((d) => [d.filename, (Array.isArray(d.subject) ? d.subject[0] : d.subject)?.title]).filter(([, t]) => t)
+  );
+  for (const f of fuentes) if (f.filename && temaDe.has(f.filename)) f.subject = temaDe.get(f.filename);
 
   console.log(
     'vías: ' +
       [
         indice ? 'ÍNDICE' : null,
         numero ? `artículo ${numero} (${exactos.length} frag.)` : null,
-        conTema ? 'TEMA ELEGIDO (sin embedding)' : null,
-        completos.length ? `DOCUMENTO ENTERO x${completos.length}` : null,
-        conTema ? null : nombrados.length ? 'elegido POR NOMBRE' : 'elegido por parecido',
-        conTema ? null : `semántica (${semanticos.length}, mejor ${(semanticos[0]?.similarity ?? 0).toFixed(2)})`,
+        conTema ? `TEMA ELEGIDO (sin embedding) · ${completos.length} doc. entero(s)` : null,
+        conTema ? null : `semántica en fragmentos (${semanticos.length}, mejor ${(semanticos[0]?.similarity ?? 0).toFixed(2)})`,
       ]
         .filter(Boolean)
         .join(' · ')

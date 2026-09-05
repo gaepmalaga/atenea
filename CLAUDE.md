@@ -38,7 +38,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **1.5 / 1.6** | **Cuota por usuario en IA · qué se manda a Gemini** | ✅ **cerradas** (la cuota, ya en la BD: regla 20) |
 | **4** | **SRS, analítica e informe de la entrevista** | ✅ **cerrada en parte** |
 | **2.7** | **Perfil físico y plan de entrenamiento** | ✅ **cerrada** |
-| **5** | **Higiene** | ✅ **cerrada** (0 `any`, lint en 4 falsos positivos) |
+| **5** | **Higiene** | ✅ **cerrada** (0 `any`, lint solo en el falso positivo de `set-state-in-effect`) |
 | **2.8** | **Resultados a `question_attempts` + esquema versionado** | ✅ **cerrada** (26 ago 2026) |
 | **2.5** | **Dificultad** | ✅ **cerrada** (la columna ya existía: `difficulty_level`) |
 | **P1** | **Ingesta fiable del temario** (plan de producto) | ✅ **cerrada** (27 ago 2026) |
@@ -47,7 +47,9 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
-| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada**. P5f (agrupar por clase) se **rehízo como P7** — era muchos-a-muchos. Solo falta P5e (invitar por correo), que es decisión, no código |
+| **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso por invitación + registro de pagos. Sin pasarela, a propósito |
+| **P7** | **Grupos y preparación física** (plan de producto) | ✅ **cerrada** (6 sep): grupos muchos-a-muchos con tipo, pestañas Grupos y Prep. física, plan de entrenamiento de grupo. Ver **regla 53** |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -55,6 +57,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Reset y siembra** | ✅ **hecho** (4 sep): tres guiones para dejar la plataforma limpia, indexar los 51 documentos y llenar el banco. Ver [`docs/RESET-Y-SIEMBRA.md`](docs/RESET-Y-SIEMBRA.md) |
 | — | **Generación solo del admin · topes de gasto · login nuevo** | ✅ **hecho** (4 sep): alumno y admin dejan de compartir quién paga la IA. Ver **reglas 39, 40 y 41** |
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
+| — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **ejecutados** (5 sep) |
 
 ## Producción
 
@@ -66,33 +69,40 @@ El 30 ago se corrigió lo que impedía entrar: **Supabase tenía la Site URL apu
 y hay dos Redirect URLs (producción y localhost, para que el desarrollo local siga
 funcionando).
 
-> **Hay un proyecto duplicado en Vercel**, `atenea-jw3h`, apuntando al mismo repositorio.
-> Despliega en paralelo y no molesta, pero conviene borrarlo para no tener dos URLs
-> vivas de lo mismo. Es tu decisión: borrar un proyecto no se puede deshacer.
+> El proyecto duplicado `atenea-jw3h` **ya no existe** (borrado el 31 ago 2026;
+> confirmado el 5 sep: en Vercel solo quedan `atenea` y el no relacionado
+> `brand-os`). El dominio de producción cuelga del proyecto `atenea`.
 
 ### Lo que solo puedes hacer tú
 
-Los tres guiones de Supabase que estaban pendientes **ya están ejecutados** (RLS, cuota
-de IA y `question_attempts`). Lo que queda necesita algo que no se puede hacer desde
-aquí:
+Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota de IA,
+`question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
+**ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-0. **HAY DOS GUIONES SQL NUEVOS SIN EJECUTAR** (4 sep), los dos escritos
-   contra `supabase/schema.json` y idempotentes:
-   - [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql) — la tabla `ai_usage`,
-     para persistir lo que hoy solo va al registro del servidor (regla 41) y
-     poder poner topes en tokens en vez de en llamadas.
-   - [`docs/sql/historial-chat.sql`](docs/sql/historial-chat.sql) — las
-     conversaciones del chat, que hoy mueren al cerrar la pestaña.
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (confirmado el 5 sep 2026
+   con `node scripts/schema-snapshot.mjs` — 33 tablas):
+   - P3.7 / P3.8 (`legal_reference`, `question_notes`) — 31 ago.
+   - `admin-audit-log.sql`, `academia-ajustes.sql`, `gasto-ia.sql`,
+     `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
+     41/44/49/50.
+   - `P6-acceso-y-pagos.sql` (`membership_settings` con su fila id=1,
+     `memberships`, `academy_payments`) — 5 sep, comprobados contra la BD real.
+   - `1.2-attempts-update.sql` — la política de UPDATE de `question_attempts`
+     (regla 34). 5 sep. Ya tiene las tres políticas (insert/select/update).
+   - `P7-grupos-y-fisica.sql` (`class_groups`, `class_members`,
+     `group_training_plans`; retira `profiles.class_group`) — 6 sep.
 
-   **No se escribe el código antes:** PostgREST rechaza la escritura *entera*
-   si falta una sola columna.
+   **Ya no queda ningún guion SQL pendiente.** Lo que sí queda es MOVER el
+   código de `question_attempts` a la sesión (`saveTestResult`,
+   `setResultErrorType`, `saveExamResults` en `exams.ts`), y eso no se hace a
+   ciegas: es el camino más crítico del repo y hay que verlo guardar con una
+   sesión de alumno de verdad (regla 34).
 
-1. **Ejecutar SQL. Ya no hay nada pendiente:** los guiones de P3.7 (`legal_reference`
-   en `question_bank`) y P3.8 (tabla `question_notes` con RLS) se ejecutaron el
-   **31 ago 2026** y están comprobados contra la base de datos real con `npm run smoke`.
-   Los ficheros siguen en `docs/sql/` y son idempotentes. Cuando aparezca uno nuevo,
-   la regla no cambia: **no se escribe el código antes** de que exista la columna —
-   PostgREST rechaza la escritura *entera* si falta una sola.
+   La regla no cambia para el próximo: **no se escribe el código antes** de que
+   exista la columna — PostgREST rechaza la escritura *entera* si falta una
+   sola. La única excepción, documentada, es construir una funcionalidad nueva
+   a la espera de su propio guion (audit-log, academia, P6), con el código
+   degradando con gracia hasta que se ejecute.
 2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
@@ -122,7 +132,7 @@ npm run dev
 
 npm run check                  # typecheck + tests — pásalo ANTES de cada commit
 npm run build                  # necesita las variables de entorno definidas
-npm run lint                   # 5 errores, todos el mismo falso positivo (ver abajo)
+npm run lint                   # ~13 errores, todos el mismo falso positivo (ver abajo)
 
 npm run sembrar -- --comprobar-pdfs # lee los 51 PDF y los trocea, SIN red ni gasto
 npm run reset                      # ensayo: qué se borraría. `-- --hazlo` borra
@@ -140,14 +150,16 @@ npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
 ```
 
-Los 7 errores de `lint` son el mismo falso positivo de
-`react-hooks/set-state-in-effect`, en tres paneles de administración
-(`AdminActivity`, `AdminModeration`, `AdminUsers`) y en cuatro pantallas del
-alumno (`DashboardHome`, `FailedQuestions`, `QuestionNote`, `IntelChat`): la
-regla ve el `setState` dentro de la función que el efecto llama, pero va
-**después** del `await`. Retorcer el código para callarla sería peor que el
-aviso. El de `IntelChat` es además a propósito: recupera del `sessionStorage` la
-conversación al montar (regla 37).
+Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
+`react-hooks/set-state-in-effect`: en cada panel que carga datos, un
+`useEffect(() => cargar(), [])` donde `cargar` hace `setState` **después** de un
+`await`. La regla lo ve como un `setState` síncrono dentro del efecto y no lo
+es. Está en casi todos los paneles de administración (`AdminActivity`,
+`AdminCost`, `AdminMembers`, `AdminModeration`, `AdminUsers`, `AdminContent`,
+`PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
+`QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
+aviso, y el número solo crece al añadir paneles. El de `IntelChat` es además a
+propósito: recupera del `sessionStorage` la conversación al montar (regla 37).
 
 **`npm run dev` usa webpack, no Turbopack.** Turbopack infiere mal la raíz del proyecto
 en modo desarrollo y se va al directorio padre, desde donde no resuelve el
@@ -735,6 +747,12 @@ Medido contra la base de datos real: Constitución **169 artículos (1–169), s
 huecos**, más 15 disposiciones; LOFCS **54 (1–54), sin huecos**, más 18
 disposiciones; el tema 40, apuntes, sin artículos — que es lo correcto.
 
+> Con el temario completo (51 documentos) esto tiene un fleco nuevo: **el mismo
+> número de artículo aparece en varias leyes** —el «Artículo 27» está en el
+> Código Civil, la CE, Extranjería y el Código Penal— y `buscaArticulo` los
+> trae todos. Que el modelo responda por el que encaja y no liste los cinco lo
+> resuelve **el prompt**, no la recuperación (regla 32).
+
 ### 31 · Apagar un módulo tiene que apagarlo también en el servidor
 
 P4 salió de una respuesta concreta: **«lo suyo es que se pudiera apagar
@@ -789,10 +807,28 @@ preguntado. Todo eso lo **obligaba el prompt**:
 | `ESTRUCTURA` fija | un dato de una línea servido como ficha de cuatrocientas palabras |
 
 Ahora todo es **proporcional y condicional**: la respuesta en la primera línea,
-la longitud la marca la pregunta, las citas solo si se usa la fuente, y el
-cierre solo si hay una confusión real. Una sección de relleno no es neutra:
-**enseña al alumno a saltársela**, y el día que traiga algo importante ya no la
-lee.
+la longitud la marca la pregunta, las citas solo si se usa la fuente. Una
+sección de relleno no es neutra: **enseña al alumno a saltársela**, y el día
+que traiga algo importante ya no la lee.
+
+**La «🎯 FOCO EXAMEN» se retiró del todo (5 sep 2026).** El «CIERRE OPCIONAL»
+sonaba a mejora sobre el obligatorio, pero el modelo lo disparaba en casi toda
+respuesta con relleno genérico —«identifica siempre el tema», «conoce los seis
+principios»—: la misma clase de fallo, un escalón abajo. Si hay una confusión
+de verdad con el contenido, va en una frase dentro de la respuesta.
+
+**Dos flecos más, arreglados el 5 sep con el temario ya completo (51
+documentos):**
+
+- **Las citas mostraban «tema-02», «tema-09»** —el nombre del fichero desde que
+  el temario está completo— y el modelo lo copiaba tal cual («según el
+  tema-02…»). `resuelveTemas` (`actions/chat.ts`) pone el TÍTULO del tema en
+  cada fuente antes del prompt; `citaDe` lo antepone al fichero. El prompt
+  además prohíbe escribir el nombre del fichero.
+- **Un número de artículo que está en varias leyes** —«¿qué dice el artículo
+  27?» trae el 27 del Código Civil, la CE, Extranjería, el Código Penal…— hacía
+  que el modelo listara las cinco. El prompt ahora manda responder por la que
+  encaja con la pregunta y mencionar en una frase que el número existe en otras.
 
 **Y el índice cuenta artículos, no la estructura.** La siguiente pregunta del
 alumno —*«¿cuántos títulos tiene la Constitución?»*— volvía a caer en «no
@@ -848,71 +884,50 @@ Medido después del cambio, con las preguntas reales:
 
 La plataforma nació troceando el temario en fragmentos de mil caracteres y
 mandándole al modelo los seis más parecidos a la pregunta. Eso era obligatorio
-cuando un modelo aceptaba 8.000 tokens. **Ya no**, y esto está medido, no
-supuesto (`node scripts/medir-contexto.mjs`):
+cuando un modelo aceptaba 8.000 tokens. Con TRES documentos dejó de serlo. Pero
+el temario ya está **completo: 45 temas en 51 documentos**, y eso vuelve a
+cambiar la cuenta (`node scripts/medir-contexto.mjs`, 5 sep 2026):
 
 | | tokens |
 |---|---|
-| Constitución completa | 35.009 |
-| El temario entero (3 documentos) | 72.355 |
+| El temario entero (51 documentos) | 643.208 |
 | Lo que admite `gemini-2.5-flash` | 1.048.576 |
 
-El temario entero ocupa el **6,9 %** de la ventana. Y casi todo lo que se había
-ido arreglando a mano —el recuento de artículos, la búsqueda del artículo
-exacto, contar los títulos— eran **rodeos para recuperar información que el
-troceado había destruido**. Con el documento delante, el modelo responde «el
-Título I comprende los artículos 10 a 55» sin que nadie le prepare nada.
+El temario entero ya ocupa el **61 %** de la ventana: **«todo el temario» de
+golpe ya no cabe**, y sería carísimo aunque cupiera. Así que el chat funciona en
+dos modos:
 
-**Lo que se queda de la búsqueda semántica: elegir.** Los fragmentos siguen
-siendo la forma barata de saber *de qué documento* habla la pregunta. Lo que
-cambia es que, una vez elegido, se manda entero.
+- **Con tema elegido en el desplegable:** se mandan los documentos ENTEROS de
+  ese tema (`documentosDelTema`), y no se paga ni el embedding. Un documento
+  entero responde muchísimo mejor que seis recortes, y de un solo tema cabe de
+  sobra.
+- **Sin tema:** solo la búsqueda semántica en FRAGMENTOS (los 8 más parecidos,
+  `match_document_chunks`), como funcionó siempre. Cuesta ~3.000 tokens. El
+  desplegable avisa de que elegir tema afina la respuesta.
 
-**Y elegir es ahora el punto débil, no el tamaño.** Con TRES documentos ya
-fallaba: *«¿qué artículos comprende el Título I de la Constitución?»* seleccionaba
-la Ley de Fuerzas y Cuerpos de Seguridad, porque sus fragmentos sobre títulos y
-artículos se parecen más a esa frase que el articulado de la Constitución. La
-pregunta lo decía y nadie la escuchaba. Por eso `documentosNombrados` va
-**delante** del parecido: si el alumno nombra el tema, no se adivina. Con 85
-temas eso deja de ser un fallo ocasional para ser la norma.
+**El índice y el artículo buscado por su número van delante en los dos modos**
+(`construyeIndice`, `buscaArticulo`): son coincidencias exactas y deterministas,
+no parecidos, y no cuestan un documento entero. Siguen siendo lo que contesta
+«¿cuántos artículos tiene la Constitución?» (regla 30).
 
-**Y la pieza que lo cierra: que el alumno elija tema.** El chat tiene un
-desplegable, como ya lo tienen los tests. Si elige, se manda ESE documento
-entero y no se paga ni el embedding: se acabo adivinar. Si no elige, decide el
-buscador como hasta ahora. El temario ya tiene 45 temas dados de alta (3 con
-PDF), asi que esto no es una precaucion para el futuro.
+**Código que ya no se usa pero se conserva a propósito:** `documentosNombrados`,
+`documentosPorRelevancia`, `documentosQueCaben`, `MIN_SIMILITUD_DOCUMENTO`,
+`MAX_DOCUMENTOS_ENTEROS` eran la maquinaria de elegir documentos por parecido y
+mandarlos enteros SIN tema. Se apagó por coste (sin tema se pagaba el embedding
+Y podían viajar dos documentos enteros — la opción cómoda era la más cara). Se
+deja porque ahí está escrita, con tests, la lección de que si el alumno NOMBRA
+el tema no se adivina — y es lo que habría que re-enchufar el día que se quiera
+un modo «buscar en todo con el documento delante». Si se decide que ese día no
+llega: **se borra**, empezando por `medir-contexto.mjs`, que aún prueba ese
+camino muerto.
 
-**Dos topes que separan «hoy funciona» de «seguirá funcionando»:**
-
-- `MAX_CHARS_DOCUMENTOS` (150.000) y `MAX_DOCUMENTOS_ENTEROS` (2). Lo que no
-  cabe **no se parte**: viaja en fragmentos, como antes. Partirlo sería volver
-  al problema que esto quita.
-- `MIN_SIMILITUD_DOCUMENTO`. A *«¿cuál es la capital de Francia?»* la búsqueda
-  devuelve igualmente los fragmentos menos malos del temario; traerse la
-  Constitución entera —35.000 tokens de pago— para acabar diciendo que no consta
-  es tirar el dinero.
-
-**El coste es real y hay que mirarlo:** una pregunta sobre la Constitución pasa
-de ~3.000 a ~35.000 tokens de entrada. Lo que lo sostiene es que solo se manda
-**el documento que hace falta**, nunca el temario entero, y que la cuota por
-usuario y ruta ya existe (regla 20).
-
-**Y con 85 temas el coste por pregunta NO crece.** Siguen haciendo falta uno o
-dos documentos: lo que no escala es *adivinar cuál*, no el tamaño del temario.
-Por eso `documentosNombrados` y el desplegable van por delante del parecido.
-
-**Cómo se revisa todo esto**, sin levantar la aplicación y con el mismo prompt y
-la misma recuperación que usa el alumno:
+**Cómo se revisa**, con el mismo prompt y la misma recuperación que el alumno
+(`probar-chat.mjs` se realineó con `askAtenea` el 5 sep — había divergido):
 
 ```bash
 npm run chat:probar
 npm run chat:probar -- --tema=39 "¿cuántos artículos tiene?"
-node scripts/medir-contexto.mjs
 ```
-
-Si algún día el selector de tema deja «todo el temario» sin uso, **la búsqueda
-semántica sobra entera** —embeddings, fragmentos e índice— y el chat se queda en
-tema + documento. Es mucho menos código, y ahora es una decisión que se puede
-medir en vez de opinar.
 
 ### 34 · Con la clave de servicio, RLS no protege nada
 
@@ -938,12 +953,17 @@ lee con la sesión una tabla sin políticas, Postgres no protesta: devuelve cero
 filas. La pantalla se queda en blanco y nadie sabe por qué. Por eso el test
 vigila **las dos direcciones**, no solo una.
 
-**`question_attempts` se quedó fuera a propósito.** Tiene políticas de INSERT y
-SELECT pero **no de UPDATE**, y `setResultErrorType` actualiza: con la sesión, ese
-update no fallaría, simplemente no tocaría ninguna fila, y el diagnóstico del
-error del alumno se perdería en silencio — el fallo más caro de este repo otra
-vez, por otra puerta. El guion que lo desbloquea está escrito y **sin ejecutar**:
-[`docs/sql/1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql).
+**`question_attempts` se quedó fuera a propósito**, y sigue con la clave de
+servicio aunque el bloqueo ya no exista. Le faltaba la política de UPDATE
+—`setResultErrorType` actualiza, y con la sesión ese update no fallaría, solo
+no tocaría ninguna fila, y el diagnóstico del error se perdería en silencio: el
+fallo más caro de este repo, otra vez, por otra puerta—. El guion
+[`1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql) **se ejecutó el
+5 sep 2026** y ahora tiene las tres políticas. Lo que frena el movimiento del
+código (`saveTestResult` / `setResultErrorType` / `saveExamResults`) es que es
+el camino más crítico del repo y no se puede comprobar sin una sesión de alumno
+real. Cuando se mueva, el test `rls.test.ts` se invierte: pasará a exigir
+`db.from('question_attempts')`.
 
 Y una cosa que se aprendió al hacerlo: **hay accesos partidos en dos líneas**
 (`await supabase` y `.from(...)` debajo). Un reemplazo literal no los ve y los
@@ -985,6 +1005,12 @@ lo protege es `requireAdmin`, y hay un test que lo exige para cada acción.
 Medido contra la base de datos real el 31 ago: 43 de 45 temas **sin una sola
 pregunta**, y el alumno con más actividad al 44 % — 30 % en Constitución y 67 %
 en Inteligencia.
+
+**P5f se rehízo como P7** (6 sep). El primer intento fue `profiles.class_group`,
+un texto libre por alumno. El dueño lo probó y era muchos-a-muchos: un alumno en
+«Inglés» Y «Teoría». Se retiró la columna y el filtro de esta pantalla pasó a
+ser **por grupo** (`class_groups`), con badges de los grupos de cada alumno. Los
+grupos se gestionan en su propia pestaña. Ver **regla 53**.
 
 ### 36 · Todo lo que se pinta sale de `app/components/ui/`
 
@@ -1187,8 +1213,8 @@ Hay una guarda que exige que **ningún `generateContent` se quede sin su
 `registraGasto`**: es fácil añadir una llamada nueva y olvidar el contador, y
 entonces el gasto se va por un sitio que nadie mira.
 
-Persistirlo necesita SQL: [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql),
-**escrito y sin ejecutar**.
+Persistirlo lo hace [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql)
+(`ai_usage`), **ejecutado**. El panel que lo lee es la regla 51.
 
 ### 42 · El documento entero se paga solo si el alumno elige tema
 
@@ -1369,6 +1395,157 @@ Lo que entra a mano se valida IGUAL que lo que escribe la IA (regla 27):
 `buildManualPlan` construye la entrada y pasa por el mismo `normalizePlan` —
 un preparador se equivoca con un campo vacío igual que Gemini.
 
+### 49 · «Logs» no es un registro si no dice quién
+
+La pestaña enseñaba las últimas 20 respuestas de cualquier alumno a cualquier
+pregunta. Eso no dice QUIÉN hizo QUÉ, y con un solo admin no importaba — pero
+en cuanto hay más de una persona con acceso, borrar un tema o apagar un
+módulo sin dejar rastro de quién lo hizo es el fallo que solo se nota cuando
+ya ha pasado.
+
+`admin_audit_log` (`app/lib/admin-audit.ts`, mismo patrón que `ai-usage.ts`:
+se registra en el log del servidor SIEMPRE, con prefijo filtrable
+`[admin-audit]`, y se intenta persistir; nunca lanza) guarda quién borró un
+documento, quién publicó preguntas, quién apagó un módulo. Generar contenido
+con IA no se duplica aquí: ya lo cuenta `ai-usage.ts` con su propio detalle.
+
+**El mapa de etiquetas vive separado del registro**, en
+`app/lib/audit-labels.ts`. No es capricho de organización: `admin-audit.ts`
+importa `actions/core` (de forma dinámica, pero lo importa) para persistir, y
+ese módulo es `server-only`. La pantalla (`AdminActivity.tsx`) es un
+componente de CLIENTE que solo necesita leer la etiqueta de cada acción —
+importarla del fichero que arrastra el cliente de Supabase de servicio se lo
+llevaría entero al navegador, y el bundle del banco de pruebas dejó de
+compilar la primera vez que se probó, con `server-only` sin resolver. Separar
+el dato puro (`ACCION_LABEL`) del efecto (`registraAccion`) es la misma idea
+que ya obliga la regla 21 con `core.ts`.
+
+**La tabla puede no existir todavía y la pantalla lo dice**, no un error
+genérico: `getAdminAuditLog` reconoce el mensaje de PostgREST
+("could not find the table") y `AdminActivity` enseña un aviso ámbar en vez
+de un "algo ha ido mal". El guion [`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql)
+**ya está ejecutado** (5 sep 2026), así que ese aviso ya no salta; la degradación
+con gracia se queda por si la tabla se cae.
+
+### 50 · Los datos de la academia no viven solo en la cabeza del dueño
+
+Pregunta directa: *"algún lugar para poner el nombre de la academia,
+dirección, horarios, emails, profesores...?"*. No había ninguno: ese texto
+vivía fuera de la aplicación, en la cabeza de quien la lleva.
+
+`academy_settings` es una fila única (`id = 1`, forzado por un `CHECK`) con
+nombre, dirección, horario y contacto; `academy_staff` es la lista de quién da
+clase, con su propio alta/edición/borrado. Los dos con `requireAdmin` y la
+clave de servicio (regla 34/35: es administración pura, no del alumno). El guion
+[`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql) es idempotente y
+**ya está ejecutado** (5 sep 2026): las dos tablas existen en producción.
+
+Vive en la pestaña que antes se llamaba «Módulos» — renombrada a «Ajustes» —
+porque los dos son la misma clase de pantalla: cosas que se configuran una
+vez y rara vez se tocan, no algo que el alumno vea. El aviso «falta ejecutar»
+(mismo patrón que la regla 49) se queda en el código por si la tabla se cae,
+pero ya no salta.
+
+Un profesor sin nombre no se guarda (`normalizeStaffInput` devuelve `null`), y
+`role` cae a `'profesor'` si llega vacío — un puesto sin nombre es un
+formulario a medio rellenar, no un dato ausente legítimo.
+
+### 51 · El panel de consumo suma, no cobra
+
+P6 salió de *«pagos etc…»* y el plan lo aplazó entero hasta después del piloto,
+menos una pieza: **saber cuánto cuesta servir a un alumno antes de ponerle
+precio**. `ai_usage` (regla 41) ya guarda cada llamada a Gemini; la pestaña
+**Consumo IA** la agrega.
+
+`app/lib/ai-cost.ts` es lógica pura (regla 21) y repite los dos errores de
+siempre a propósito para que los tests los vigilen:
+
+- **`cost_usd` llega como CADENA.** Es `numeric` en Postgres y PostgREST lo
+  serializa como `"0.001234"`. Sumarlo sin `parseFloat` da 0, y el panel diría
+  que servir a los alumnos es gratis (regla 4).
+- **El coste medio por alumno es `null` sin alumnos, no `0`** (regla 8): dividir
+  entre cero da `NaN`, y «0,00 $» es la misma mentira tranquilizadora.
+- **Por debajo de un céntimo se dice «< $0.01», no «$0.00»** (`formateaUSD`).
+
+Va con la clave de servicio y `requireAdmin` (regla 34/35: `ai_usage` tiene RLS
+y cero políticas).
+
+### 52 · El cobro es en efectivo; el código solo controla el acceso
+
+La decisión de P6 se tomó al final: **no hay pasarela**. La academia cobra en
+persona, y lo que hace falta es una puerta que el administrador abre y cierra y
+un registro de lo que cada alumno ha pagado. Nada de Stripe, suscripciones ni
+IVA de la UE — construir eso habría sido trabajo tirado.
+
+Tres tablas ([`docs/sql/P6-acceso-y-pagos.sql`](docs/sql/P6-acceso-y-pagos.sql)),
+todas de administración (RLS y cero políticas):
+
+- **`membership_settings.required`** — el interruptor global. **Por defecto
+  `false`**: la plataforma sigue abierta para todos, y ejecutar el guion no
+  cierra nada. Solo cuando se pone a `true` empieza a filtrar.
+- **`memberships`** — acceso y estado de pago por alumno. **SIN FILA =
+  PENDIENTE**, al revés que `module_settings` (P4): allí un módulo nuevo debe
+  aparecer, aquí un alumno nuevo NO debe entrar solo. `access_status` es
+  `active` | `suspended`; no hay `pending`, que es la ausencia de fila.
+- **`academy_payments`** — un registro por pago en efectivo.
+
+La puerta la decide `decideAccess` (`app/lib/membership.ts`, pura) y la aplica
+`getSessionUser` (`auth.ts`), no la pantalla: una Server Action es un endpoint
+público, así que `requireUser` también corta a un alumno suspendido que
+conserve la sesión. Un admin es siempre `ok`. **El orden de las reglas no es
+negociable:** admin → interruptor apagado → fallo de lectura → sin fila → fila
+suspendida. Si la lectura falla se ABRE la puerta (regla 34): dejar a la
+academia entera fuera por un blip de la BD es peor que colar a alguien sin
+activar — y aquí el coste es mayor que en `module-guard` porque son alumnos que
+sí han pagado.
+
+**El acceso NO caduca solo.** `payment_status` (`al_dia` | `debe`) es un aviso
+visual; cortar el acceso lo hace el administrador a mano. Un despiste apuntando
+un pago no puede dejar fuera a quien sí pagó.
+
+**El importe de un pago vacío es `null`, nunca `0`** (regla 16): `recordPayment`
+convierte `''` en `null` antes de escribir, y `formateaEUR(null)` es «—».
+
+Antes de encender el interruptor, `activateAllCurrentStudents` da acceso de
+golpe a todos los alumnos que ya existen (`ignoreDuplicates: true`: no
+resucita a un suspendido).
+
+**El guion está ejecutado** (5 sep 2026): las tres tablas existen y
+`membership_settings` tiene su fila `id = 1` con `required = false`, así que
+hoy la puerta está abierta para todos. Encenderla es un clic en la pestaña
+**Acceso & Pagos**, después de activar a los alumnos actuales.
+
+### 53 · Los grupos son muchos-a-muchos, y el tipo del grupo manda
+
+P5f montó `profiles.class_group` —UN texto libre por alumno— y no servía:
+*«promoción 41 tarde, promoción 42 mañanas, inglés, físicas… cada alumno puede
+estar en varias (inglés y teoría, físicas no)»*. Eso es una relación
+muchos-a-muchos. Se retiró la columna (nunca llegó a producción) y P7 la
+sustituyó por `class_groups` + `class_members` + `group_training_plans`.
+
+- **El `kind` del grupo no es una etiqueta:** `admitePlan` (`app/lib/groups.ts`)
+  dice que solo un grupo de `fisicas` lleva plan de entrenamiento.
+  `saveGroupTrainingPlan` comprueba el tipo **antes de escribir** — un plan
+  colgado de «Inglés B2» no le sirve a nadie. Es un `CHECK` en la BD y una
+  constante en el código: añadir un tipo no puede pedir una migración (regla 50).
+- **El plan individual manda sobre el de grupo** (`planEfectivo`, y lo aplica
+  `getActiveTrainingPlan`): el alumno ve el de su grupo de físicas por defecto;
+  si tiene uno individual activo, ese gana. El resultado lleva `origen`
+  (`individual` | `grupo` | `ninguno`) — el alumno tiene derecho a saber cuál ve.
+- **No se marcan días sobre un plan de grupo.** Es compartido: `completeTrainingDay`
+  rechaza los ids `grupo:…`. Para llevar el registro, la academia le pone al
+  alumno un plan individual.
+- **`setGroupMembers` recibe la lista entera** que la pantalla quiere y calcula
+  la diferencia (meter/sacar). Un solo camino, sin dos acciones que puedan
+  divergir.
+- **`class_groups` y `class_members`: RLS y cero políticas** (administración,
+  regla 34). `group_training_plans` es la excepción —`SELECT` para cualquier
+  autenticado, porque el plan tiene que llegar al alumno—, pero `training.ts` lo
+  lee con la clave de servicio filtrando por el propio usuario.
+
+Y de paso (P7g): **la pestaña «Usuarios» dejó de mostrar tests y acierto**, que
+duplicaban «Academia». Se queda con lo de cuenta (correo, rol).
+
 ---
 
 ## Los tests
@@ -1377,7 +1554,7 @@ un preparador se equivoca con un campo vacío igual que Gemini.
 tests/text.test.ts              limpieza de respuestas IA, texto legal, troceado de PDF
 tests/srs.test.ts               repetición espaciada (Leitner)
 tests/questions.test.ts         mapeo BD/IA → UI, barajado y dificultad
-tests/actions-auth.test.ts      guardas estáticas sobre las 43 Server Actions
+tests/actions-auth.test.ts      guardas estáticas sobre las Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
@@ -1398,6 +1575,9 @@ tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
+tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
+tests/membership.test.ts        control de acceso (decideAccess) y registro de pagos en efectivo
+tests/groups.test.ts            grupos (muchos-a-muchos), tipo del grupo y herencia del plan de físicas
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
@@ -1552,10 +1732,11 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    (hoy el tema se elige una vez y vale para todo el fichero).
 
 4. **Fase 1.2 está cerrada** (31 ago): las tablas del alumno van con el cliente de su
-   sesión y RLS por fin protege de verdad (regla 34). Lo único que queda ahí es
-   ejecutar [`1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql) —la política
-   de UPDATE que le falta a `question_attempts`— y mover entonces `saveTestResult` y
-   `setResultErrorType`.
+   sesión y RLS por fin protege de verdad (regla 34). `1.2-attempts-update.sql`
+   **ya está ejecutado** (5 sep): `question_attempts` tiene las tres políticas. Lo
+   único que queda es mover `saveTestResult` / `setResultErrorType` /
+   `saveExamResults` a la sesión, y **verlo guardar con una sesión de alumno de
+   verdad antes de darlo por hecho** — es el camino más crítico del repo.
 
 5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
 

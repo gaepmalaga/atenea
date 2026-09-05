@@ -40,7 +40,40 @@ type Chunk = {
    * `citaDe` y nunca directamente.
    */
   reference?: string | null;
+  /**
+   * El título del TEMA del que sale. Se resuelve en `resuelveTemas` a partir
+   * del `filename`, porque desde el temario completo el fichero es «tema-02» y
+   * el modelo lo copiaba tal cual en la respuesta. Ver `citaDe`.
+   */
+  subject?: string | null;
 };
+
+/**
+ * Pone el TÍTULO del tema en cada fragmento, a partir de su `filename`.
+ *
+ * Sin esto, `citaDe` y el modelo usan «tema-02» —el nombre del fichero desde
+ * que el temario está completo—, que no le dice nada a un opositor. Una sola
+ * consulta: son ~51 documentos.
+ */
+async function resuelveTemas(chunks: Chunk[]): Promise<void> {
+  const conFichero = chunks.filter((c) => c.filename && c.filename !== FUENTE_INDICE);
+  if (!conFichero.length) return;
+
+  const { data, error } = await supabase.from('documents').select('filename, subject:subjects(title)');
+  if (error || !data) return;
+
+  type Fila = { filename: string | null; subject: { title: string | null } | { title: string | null }[] | null };
+  const porFichero = new Map<string, string>();
+  for (const d of data as unknown as Fila[]) {
+    const subject = Array.isArray(d.subject) ? d.subject[0] : d.subject;
+    if (d.filename && subject?.title) porFichero.set(d.filename, subject.title);
+  }
+
+  for (const c of conFichero) {
+    const titulo = porFichero.get(c.filename);
+    if (titulo) c.subject = titulo;
+  }
+}
 
 type AskAteneaResult =
   | { success: true; answer: string; sources: Chunk[] }
@@ -369,6 +402,10 @@ export async function askAtenea(
     //    El orden es ESTABLE, así que las fuentes seguras (similarity 1) se
     //    quedan delante y el resto conserva el orden que dio la búsqueda.
     const cleanChunks = dedupeChunks(rawChunks).sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+
+    // El título del tema en cada fuente: «tema-02» no le dice nada al alumno, y
+    // el modelo lo copiaba tal cual («según el tema-02…»).
+    await resuelveTemas(cleanChunks);
 
     // 5. Construcción del contexto numerado para que la IA pueda CITAR
     // Ya no se recortan a seis "por no saturar la ventana": lo que entra ahora

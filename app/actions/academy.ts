@@ -16,6 +16,7 @@ import {
   type TemaDelAlumno,
   type CoberturaTema,
   type PreguntaSospechosa,
+  type GrupoDeAlumno,
 } from '../lib/academy';
 import type { ErrorType } from '../lib/stats';
 
@@ -49,6 +50,8 @@ const MAX_INTENTOS = 20_000;
 export type AcademyOverview = {
   alumnos: FilaAlumno[];
   porEstado: Record<EstadoAlumno, number>;
+  /** Los grupos que existen, para el filtro (P7). */
+  grupos: { id: string; name: string; kind: string }[];
   cobertura: CoberturaTema[];
   sospechosas: (PreguntaSospechosa & { texto: string | null; tema: string | null })[];
 };
@@ -67,7 +70,7 @@ export async function getAcademyOverview(): Promise<
   // alumno que entra a diario a leer el temario o a usar el chat encabezaba la
   // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
   // no era un numero feo, era una llamada de telefono equivocada.
-  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes] = await Promise.all([
+  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role, created_at'),
     supabaseAdmin
       .from('question_attempts')
@@ -77,6 +80,8 @@ export async function getAcademyOverview(): Promise<
     supabaseAdmin.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
     // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
+    supabaseAdmin.from('class_groups').select('id, name, kind').order('name'),
+    supabaseAdmin.from('class_members').select('class_id, user_id'),
   ]);
 
   if (perfilesRes.error || intentosRes.error) {
@@ -100,6 +105,23 @@ export async function getAcademyOverview(): Promise<
   }));
 
   const alumnos = resumeAlumnos(perfilesConConexion, intentos);
+
+  // Los grupos de cada alumno (P7). El grupo es de administración: se resuelve
+  // aquí y se pega a la fila, no lo hace `resumeAlumnos` (que es puro).
+  type FilaGrupo = { id: string; name: string; kind: string };
+  const grupos = ((gruposRes.data as FilaGrupo[]) ?? []);
+  const grupoPorId = new Map(grupos.map((g) => [g.id, g]));
+  const gruposDeAlumno = new Map<string, GrupoDeAlumno[]>();
+  for (const m of miembrosRes.data ?? []) {
+    const g = grupoPorId.get(m.class_id as string);
+    if (!g) continue;
+    const lista = gruposDeAlumno.get(m.user_id as string) ?? [];
+    lista.push({ id: g.id, name: g.name, kind: g.kind });
+    gruposDeAlumno.set(m.user_id as string, lista);
+  }
+  for (const a of alumnos) {
+    a.grupos = (gruposDeAlumno.get(a.id) ?? []).sort((x, y) => x.name.localeCompare(y.name, 'es'));
+  }
 
   // Cuantas preguntas activas tiene cada tema.
   const preguntasPorTema = new Map<number, number>();
@@ -139,7 +161,13 @@ export async function getAcademyOverview(): Promise<
 
   return {
     success: true as const,
-    data: { alumnos, porEstado: contarPorEstado(alumnos), cobertura, sospechosas: conTexto },
+    data: {
+      alumnos,
+      porEstado: contarPorEstado(alumnos),
+      grupos: grupos.map((g) => ({ id: g.id, name: g.name, kind: g.kind })),
+      cobertura,
+      sospechosas: conTexto,
+    },
   };
 }
 

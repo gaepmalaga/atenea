@@ -4,6 +4,7 @@ import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { isModuleId, type ModuleSettings } from '../lib/modules';
 import { leeModuleSettings, olvidaModuleSettings } from '../lib/module-guard';
+import { registraAccion } from '../lib/admin-audit';
 
 /**
  * Encender y apagar modulos (P4).
@@ -49,6 +50,15 @@ export async function setModuleEnabled(input: unknown): Promise<{ success: boole
   // La cache se tira SIEMPRE, tambien si la escritura fallo: es lo barato, y
   // asi la siguiente lectura trae lo que hay de verdad en la tabla.
   olvidaModuleSettings();
+
+  if (!error) {
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'set_module_enabled',
+      target: d.moduleId,
+      detail: { enabled: d.enabled },
+    });
+  }
 
   return { success: !error, error: error?.message };
 }

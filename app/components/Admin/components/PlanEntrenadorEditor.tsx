@@ -38,15 +38,30 @@ function ejerciciosATexto(exercises: Exercise[] | undefined): string {
     .join('\n');
 }
 
+type GuardarParams = {
+  weekFocus: string;
+  days: Array<{ day: string; type: string; title: string; exercises: Exercise[] }>;
+};
+
 export default function PlanEntrenadorEditor({
   studentId,
   planActual,
   onGuardado,
+  onSave,
+  etiquetaGuardado = 'Guardado. Ya es el plan activo del alumno.',
 }: {
-  studentId: string;
+  /** Obligatorio salvo que se pase `onSave` (plan de grupo, P7). */
+  studentId?: string;
   /** `undefined` mientras se carga, `null` si de verdad no hay plan activo. */
   planActual: PlanActivo | undefined;
   onGuardado: () => void;
+  /**
+   * Quién guarda. Por defecto `saveManualTrainingPlan` (plan individual). El
+   * plan de grupo (P7) pasa aquí `saveGroupTrainingPlan`: mismo editor, misma
+   * validación, distinto destino.
+   */
+  onSave?: (params: GuardarParams) => Promise<{ success: boolean; error?: string }>;
+  etiquetaGuardado?: string;
 }) {
   const [weekFocus, setWeekFocus] = useState('');
   const [textoDias, setTextoDias] = useState<Record<string, string>>({});
@@ -77,14 +92,13 @@ export default function PlanEntrenadorEditor({
         .filter((e): e is Exercise => e !== null),
     }));
 
-    const res = await saveManualTrainingPlan({
-      studentId,
-      weekFocus: weekFocus.trim() || 'Semana del preparador',
-      days,
-    });
+    const params = { weekFocus: weekFocus.trim() || 'Semana del preparador', days };
+    const res = onSave
+      ? await onSave(params)
+      : await saveManualTrainingPlan({ studentId: studentId ?? '', ...params });
 
     setGuardando(false);
-    setMensaje(res.success ? 'Guardado. Ya es el plan activo del alumno.' : (res.error ?? 'No se pudo guardar.'));
+    setMensaje(res.success ? etiquetaGuardado : (res.error ?? 'No se pudo guardar.'));
     if (res.success) onGuardado();
   }
 

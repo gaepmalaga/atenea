@@ -1,23 +1,35 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Layers, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
-import { getGlobalActivity } from '@/actions';
-import type { ActivityRow } from '@/app/lib/stats';
+import { ShieldCheck, RefreshCw, AlertTriangle, History } from 'lucide-react';
+import { getAdminAuditLog } from '@/actions';
+import type { AuditRow } from '@/app/actions/audit';
+import { ACCION_LABEL, type AccionAuditada } from '@/app/lib/audit-labels';
+import { Card, EmptyState, TEXT, cx } from '../../ui';
 
+/**
+ * "Logs & Auditoría": quién hizo qué. Sustituye a lo que antes enseñaba esta
+ * pestaña —las últimas 20 respuestas de cualquier alumno—, que no decía quién
+ * había hecho qué y no servía para auditar nada (feedback del dueño de la
+ * academia: "el modulo Logs no le veo mucho sentido, al menos como está
+ * ahora").
+ */
 export default function AdminActivity() {
-  const [activityLog, setActivityLog] = useState<ActivityRow[]>([]);
+  const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tablaFalta, setTablaFalta] = useState(false);
 
-  // Sin `setLoading(true)` aqui dentro: `loading` ya arranca en true, y un
-  // setState sincrono dentro de un efecto dispara un render en cascada. Los
-  // dos que quedan van DESPUES del await, que es lo correcto.
-  //
-  // `useCallback` y no una funcion suelta porque el efecto depende de ella:
-  // declarada suelta cambia de identidad en cada render.
   const cargar = useCallback(async () => {
-    const res = await getGlobalActivity();
-    if (res.success) setActivityLog(res.activity ?? []);
+    const res = await getAdminAuditLog();
+    if (res.success) {
+      setRows(res.rows);
+      setError(null);
+      setTablaFalta(false);
+    } else {
+      setError(res.error);
+      setTablaFalta(res.tablaFalta ?? false);
+    }
     setLoading(false);
   }, []);
 
@@ -25,88 +37,76 @@ export default function AdminActivity() {
     cargar();
   }, [cargar]);
 
-  /** El boton de recargar si vuelve a poner el indicador. */
   function recargar() {
     setLoading(true);
     cargar();
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in">
-      {/* Cabecera y Leyenda */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-100 dark:bg-slate-800 p-4 rounded-xl border border-slate-300 dark:border-slate-700">
-        <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Activity className="text-indigo-700 dark:text-indigo-400" /> Registro de Actividad
-        </h3>
-        
-        <div className="flex items-center gap-4">
-            <div className="flex gap-3 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Acierto</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Fallo</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Flashcard</span>
-            </div>
-            <button onClick={recargar} className="w-11 h-11 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            </button>
+    <div className="space-y-4 animate-in fade-in pb-24">
+      <Card tone="sunken" pad="md" className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-slate-700/10 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
+            <History size={20} />
+          </div>
+          <div>
+            <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Auditoría</h3>
+            <p className={cx(TEXT.muted, 'mt-0.5')}>
+              Quién ha borrado, publicado o apagado algo — no las respuestas de los alumnos, eso está en Academia.
+            </p>
+          </div>
         </div>
-      </div>
+        <button
+          onClick={recargar}
+          className="w-11 h-11 shrink-0 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </Card>
 
-      {/* Lista de Logs */}
+      {tablaFalta && (
+        <Card tone="base" pad="md" className="border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-start gap-3">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <p className="text-xs leading-relaxed">
+            Todavía no existe la tabla del registro. Hay que ejecutar{' '}
+            <code className="font-mono bg-black/10 dark:bg-white/10 px-1 rounded">docs/sql/admin-audit-log.sql</code>{' '}
+            en el editor SQL de Supabase — mientras tanto no hay nada que enseñar aquí, pero nada se ha roto.
+          </p>
+        </Card>
+      )}
+
+      {error && !tablaFalta && (
+        <Card tone="base" pad="md" className="border-red-500/30 text-red-700 dark:text-red-300">
+          <p className="text-xs font-medium">{error}</p>
+        </Card>
+      )}
+
+      {!loading && !error && rows.length === 0 && (
+        <EmptyState
+          icon={<ShieldCheck size={40} />}
+          title="Sin acciones registradas todavía"
+          hint="En cuanto se borre un tema, se publiquen preguntas o se apague un módulo, aparecerá aquí."
+          bordered
+        />
+      )}
+
       <div className="space-y-2">
-        {activityLog.map((log) => {
-            const isFlashcard = log.error_type === 'flashcard'; 
-            const isCorrect = log.is_correct;
-            const typeLabel = isFlashcard ? 'MEMORIA' : 'TEST';
-            
-            return (
-              <div key={log.id} className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-between gap-2 group hover:border-slate-300 dark:hover:border-slate-600 transition-all">
-                {/* `min-w-0`: sin el, este grupo no puede encoger por debajo de
-                    su contenido y el `truncate` de dentro no trunca NADA — el
-                    contenedor crece. Medido en el banco de pruebas: filas de
-                    634px en una pantalla de 390, con el registro entero
-                    arrastrandose de lado. Es el mismo fallo que tenian las
-                    tarjetas del panel de academia. */}
-                <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-                  <div className={`p-2.5 rounded-xl border flex-shrink-0 ${
-                    isFlashcard
-                      ? 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20'
-                      : (isCorrect ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20')
-                    }`}>
-                    {isFlashcard ? <Layers size={18} /> : (isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />)}
-                  </div>
-
-                  <div className="min-w-0">
-                    {/* Dos lineas en vez de recortar. Medido: al enunciado le
-                        faltaban 281px y al tema 341, o sea que de una fila del
-                        registro se leia un tercio. Y el registro existe para
-                        leer QUE ha contestado el alumno. */}
-                    <p className="text-slate-900 dark:text-white font-medium text-sm line-clamp-2 leading-snug">
-                      {log.question_text?.replace('[FLASHCARD] ', '') || "Pregunta sin texto"}
-                    </p>
-
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-                      <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${
-                          isFlashcard ? 'bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-500/30' : 'bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-500/30'
-                      }`}>
-                        {typeLabel}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase leading-snug">{log.topic}</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-slate-500 dark:text-slate-400 text-xs font-mono whitespace-nowrap bg-white dark:bg-slate-900 px-2 py-1 rounded border border-white/5 shrink-0 self-start">
-                  {log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                </span>
-              </div>
-            );
-        })}
-
-        {!loading && activityLog.length === 0 && (
-            <div className="text-center py-12 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-              <Activity size={40} className="mx-auto mb-3 opacity-20" />
-              <p>No hay actividad registrada aún.</p>
+        {rows.map((r) => (
+          <Card key={r.id} tone="sunken" pad="sm" className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                {ACCION_LABEL[r.action as AccionAuditada] ?? r.action}
+              </p>
+              <p className={cx(TEXT.muted, 'mt-1')}>
+                {r.actorEmail ?? 'admin'}
+                {r.target ? ` · ${r.target}` : ''}
+              </p>
             </div>
-        )}
+            <span className="text-slate-500 dark:text-slate-400 text-[11px] font-mono whitespace-nowrap shrink-0">
+              {new Date(r.createdAt).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </Card>
+        ))}
       </div>
     </div>
   );
