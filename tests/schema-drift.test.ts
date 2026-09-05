@@ -48,15 +48,11 @@ const columnasDe = (tabla: string) => new Set(snapshot.tablas[tabla]?.columnas ?
  * tenerla.
  */
 const PENDIENTE_SQL: Record<string, string> = {
-  admin_audit_log: 'docs/sql/admin-audit-log.sql',
-  academy_settings: 'docs/sql/academia-ajustes.sql',
-  academy_staff: 'docs/sql/academia-ajustes.sql',
-  // P6: control de acceso y pagos en efectivo. El código degrada con gracia
-  // (`tablaFalta` en membership.ts, la puerta se abre en auth.ts) mientras no
-  // se ejecute.
-  membership_settings: 'docs/sql/P6-acceso-y-pagos.sql',
-  memberships: 'docs/sql/P6-acceso-y-pagos.sql',
-  academy_payments: 'docs/sql/P6-acceso-y-pagos.sql',
+  // Vacío: todos los guiones de `docs/sql/` están ejecutados y en el volcado
+  // (comprobado el 5 sep 2026). Cuando aparezca uno nuevo cuya tabla el código
+  // ya usa pero que el dueño no ha ejecutado, se añade aquí —
+  //   nombre_tabla: 'docs/sql/su-guion.sql'
+  // — y se quita en cuanto `schema-snapshot.mjs` la traiga de vuelta.
 };
 
 const ficheros = readdirSync(ACTIONS)

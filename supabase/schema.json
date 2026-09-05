@@ -1,6 +1,32 @@
 {
   "generado": "2026-09-05",
   "tablas": {
+    "academy_payments": {
+      "columnas": [
+        "amount_eur",
+        "created_at",
+        "id",
+        "note",
+        "paid_on",
+        "recorded_by",
+        "user_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "paid_on",
+        "user_id"
+      ],
+      "tipos": {
+        "amount_eur": "numeric",
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "note": "text",
+        "paid_on": "date",
+        "recorded_by": "uuid",
+        "user_id": "uuid"
+      }
+    },
     "academy_settings": {
       "columnas": [
         "address",
@@ -423,6 +449,45 @@
         "user_id": "uuid"
       }
     },
+    "membership_settings": {
+      "columnas": [
+        "id",
+        "required",
+        "updated_at"
+      ],
+      "obligatorias": [
+        "id",
+        "required",
+        "updated_at"
+      ],
+      "tipos": {
+        "id": "integer",
+        "required": "boolean",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "memberships": {
+      "columnas": [
+        "access_status",
+        "note",
+        "payment_status",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "access_status",
+        "payment_status",
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "access_status": "text",
+        "note": "text",
+        "payment_status": "text",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
     "module_settings": {
       "columnas": [
         "enabled",
@@ -445,6 +510,7 @@
     },
     "profiles": {
       "columnas": [
+        "class_group",
         "created_at",
         "email",
         "id",
@@ -455,6 +521,7 @@
         "id"
       ],
       "tipos": {
+        "class_group": "text",
         "created_at": "timestamp with time zone",
         "email": "text",
         "id": "uuid",
