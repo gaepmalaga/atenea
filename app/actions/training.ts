@@ -16,10 +16,14 @@ import {
     normalizePlan,
     summarizeWeek,
     progressionBrief,
+    buildManualPlan,
     PLAN_SHAPE,
     type WeeklyPlan,
     type TrainingDayLog,
+    type Exercise,
 } from '../lib/training-plan';
+import { requireAdmin } from '../lib/auth';
+import { supabaseAdmin } from './core';
 
 // `TrainingDayLog` NO se reexporta desde aqui. Este modulo es 'use server' y
 // Next exige que solo exporte funciones async: el bundler convertia el
@@ -274,5 +278,80 @@ export async function savePhysicalProfile(data: PhysicalProfile) {
     }
 
     const { error } = await db.from('profiles_physical').upsert(payload);
+    return { success: !error, error: error?.message };
+}
+// ============================================================
+// EL ENTRENADOR REAL (SOLO ADMIN)
+// ============================================================
+//
+// Una academia puede tener preparador físico de verdad en vez de un plan
+// generado por IA. El entrenador es OTRO PRODUCTOR del mismo `WeeklyPlan`: la
+// pantalla del alumno (`TrainingDashboard`, `ActiveSession`) no cambia una
+// línea, porque lo que lee es la misma forma, venga de donde venga.
+//
+// Va con `requireAdmin` y no con un rol "entrenador" propio: con una sola
+// academia el admin es quien la dirige, y un rol que no separa a nadie es
+// ceremonia (regla 31, la misma decisión que ya se tomó con "superadmin").
+// Si algún día hay varias personas dando planes, se resuelve dando de alta
+// más admins — no hace falta un rol nuevo para eso.
+
+/** El plan activo de UN alumno, para no escribir a ciegas encima de otro. */
+export async function getStudentActivePlan(studentId: string) {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
+
+    const { data } = await supabaseAdmin
+        .from('training_plans')
+        .select('id, week_start, plan_data')
+        .eq('user_id', studentId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (!data) return { success: true as const, plan: null };
+    return {
+        success: true as const,
+        plan: { id: data.id as string, weekStart: data.week_start as string | null, plan: normalizePlan(data.plan_data) },
+    };
+}
+
+/**
+ * Guarda el plan que ha escrito el entrenador para un alumno.
+ *
+ * Se valida con `normalizePlan`, LA MISMA función que valida lo que escribe
+ * la IA (regla 27): un preparador se equivoca con un campo vacío igual que
+ * Gemini, y el alumno se lleva el mismo problema si nadie lo comprueba.
+ */
+export async function saveManualTrainingPlan(params: {
+    studentId: string;
+    weekFocus: string;
+    days: Array<{ day: string; type: string; title: string; exercises: Exercise[] }>;
+}) {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    if (!params.studentId) return { success: false as const, error: 'Falta el alumno.' };
+
+    const plan = normalizePlan(buildManualPlan({ weekFocus: params.weekFocus, days: params.days }));
+    if (!plan) return { success: false as const, error: 'El plan no tiene ningún día con ejercicios.' };
+
+    // Se cierra el plan anterior ANTES de insertar el nuevo: si el insert
+    // fallara después, el alumno se queda sin plan activo, que se ve. Al
+    // revés quedarían dos activos y `getActiveTrainingPlan` elegiría uno en
+    // silencio (mismo orden que ya usa `generateNextWeek`).
+    await supabaseAdmin
+        .from('training_plans')
+        .update({ status: 'completed' })
+        .eq('user_id', params.studentId)
+        .eq('status', 'active');
+
+    const { error } = await supabaseAdmin.from('training_plans').insert({
+        user_id: params.studentId,
+        week_start: new Date().toISOString(),
+        plan_data: plan,
+        status: 'active',
+    });
+
     return { success: !error, error: error?.message };
 }

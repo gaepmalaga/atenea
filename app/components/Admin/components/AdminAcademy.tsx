@@ -5,7 +5,9 @@ import {
   Users, PhoneCall, Loader2, AlertTriangle, ChevronDown,
   BookOpen, Target, Layers,
 } from 'lucide-react';
-import { getAcademyOverview, getStudentDetail } from '@/actions';
+import { getAcademyOverview, getStudentDetail, getStudentActivePlan, saveManualTrainingPlan } from '@/actions';
+import { Dumbbell } from 'lucide-react';
+import PlanEntrenadorEditor from './PlanEntrenadorEditor';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno } from '@/app/lib/academy';
 import { ERROR_LABELS } from '@/app/lib/stats';
@@ -50,6 +52,7 @@ export default function AdminAcademy() {
 
   const [abierto, setAbierto] = useState<string | null>(null);
   const [ficha, setFicha] = useState<StudentDetail | null>(null);
+  const [plan, setPlan] = useState<Awaited<ReturnType<typeof getStudentActivePlan>>['plan'] | undefined>(undefined);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
   useEffect(() => {
@@ -70,11 +73,15 @@ export default function AdminAcademy() {
     }
     setAbierto(id);
     setFicha(null);
+    setPlan(undefined);
     setCargandoFicha(true);
-    const res = await getStudentDetail(id);
+    const [detalle, planRes] = await Promise.all([getStudentDetail(id), getStudentActivePlan(id)]);
     setCargandoFicha(false);
-    if (res.success) setFicha(res.data);
-    else setError(res.error);
+    if (detalle.success) setFicha(detalle.data);
+    else setError(detalle.error);
+    // `undefined` mientras se carga, `null` si de verdad no hay plan: no es lo
+    // mismo «todavía no lo sé» que «no tiene» (regla 8).
+    setPlan(planRes.success ? planRes.plan : null);
   }
 
   if (cargando) {
@@ -271,6 +278,27 @@ export default function AdminAcademy() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* EL PLAN DE ENTRENAMIENTO.
+                      Va aquí y no en el módulo de entrenamiento del alumno
+                      porque esto lo escribe/revisa el PROFESOR sobre UN
+                      alumno concreto — es la misma lógica que las notas de
+                      una pregunta: de quién es, se ve donde está esa persona. */}
+                  {ficha?.alumno && (
+                    <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                        <Dumbbell size={11} /> Plan de entrenamiento
+                      </p>
+                      <PlanEntrenadorEditor
+                        studentId={a.id}
+                        planActual={plan}
+                        onGuardado={async () => {
+                          const res = await getStudentActivePlan(a.id);
+                          setPlan(res.success ? res.plan : null);
+                        }}
+                      />
                     </div>
                   )}
                 </div>

@@ -1319,6 +1319,56 @@ Medido: de 0 a **64** textos por debajo de 3:1 tras la conversión automática, 
 de vuelta a **0** tras arreglar esas tres clases. Sin `contraste.cjs` esto no se
 podía hacer: son 80 textos por pantalla y siete secciones.
 
+### 46 · «Viene» y «estudia» son cosas distintas
+
+El estado del alumno salía de `question_attempts`, o sea de haber CONTESTADO
+PREGUNTAS, y se le llamaba «ha entrado». Un alumno que entra a diario a
+repasar fichas, usar el chat o entrenar —pero que aún no ha hecho un test—
+aparecía como «nunca ha entrado» y **encabezaba la lista de a quién llamar**.
+
+El profesor actúa sobre esa lista: el dato falso no era un número feo, era una
+llamada de teléfono a quien está estudiando todos los días.
+
+Ahora `estado` sale de `auth.users.last_sign_in_at` (¿viene?) y `estudiando`
+de las respuestas (¿hace algo cuando viene?), y el panel enseña las dos. No es
+un matiz: piden dos conversaciones distintas. Al que no viene se le pregunta
+si sigue interesado; al que viene a diario y no contesta ni una pregunta se le
+pregunta si se ha atascado — y ese es de los que **más se pueden salvar y
+antes se pierden**.
+
+### 47 · Generar es una sola pregunta con tres respuestas
+
+Generar diez preguntas del tema 7 costaba cinco pasos y dos saltos de scroll:
+bajar al árbol del temario, desplegar el bloque, encontrar el tema, pulsar una
+estrella —que además devolvía arriba de golpe— y solo entonces elegir cuántas.
+Y el orden estaba al revés: obligaba a elegir el **tema** antes de saber **qué**
+se iba a generar.
+
+`GeneradorPanel` es una caja con las tres respuestas seguidas: qué (preguntas
+o fichas), de qué tema, cuántas. El desplegable trae los temas con lo que ya
+tiene cada uno — sembrar a ciegas son llamadas de pago tiradas — y avisa de
+los que no tienen PDF. La estrella del árbol se queda como atajo; deja de ser
+la única puerta.
+
+### 48 · El entrenador real es otro productor del mismo plan
+
+Una academia puede tener preparador físico de verdad en vez de un plan
+generado. La solución no es una tabla nueva ni una pantalla aparte para el
+alumno: **el entrenador es otro productor del mismo `WeeklyPlan`**, con un
+campo `source: 'ia' | 'entrenador'` para que la pantalla del alumno pueda decir
+quién lo escribió. `TrainingDashboard` y `ActiveSession` no cambian una línea.
+
+Va con `requireAdmin`, no con un rol «entrenador» propio: con una academia, el
+admin es quien la dirige, y un rol que no separa a nadie es ceremonia (misma
+decisión que «superadmin», regla 31). Y va con la clave de servicio a
+propósito —es la excepción legítima de la regla 34: un admin escribiendo sobre
+la fila de OTRO usuario no puede ir con la sesión de ese usuario, porque su
+política es `auth.uid() = user_id` y quien actúa es el admin, no él.
+
+Lo que entra a mano se valida IGUAL que lo que escribe la IA (regla 27):
+`buildManualPlan` construye la entrada y pasa por el mismo `normalizePlan` —
+un preparador se equivoca con un campo vacío igual que Gemini.
+
 ---
 
 ## Los tests

@@ -250,11 +250,16 @@ export async function getAcademyOverview() {
   return ok({
     data: {
       alumnos: [
-        { id: 'u2', email: 'alumno.que.acaba.de.registrarse@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, diasSinEntrar: null, estado: 'nunca_entro' as const },
-        { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, estado: 'abandonado' as const },
-        { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', contestadas: 36, blancos: 6, aciertos: 24, winRate: 67, ultimaActividad: new Date().toISOString(), diasSinEntrar: 0, estado: 'activo' as const },
+        { id: 'u2', email: 'alumno.que.acaba.de.registrarse@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: null, diasSinEntrar: null, diasSinEstudiar: null, estado: 'nunca_entro' as const, estudiando: 'nunca' as const },
+        { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const },
+        // ESTE ES EL CASO QUE ARREGLÓ LA REGLA: entra HOY (activo de verdad),
+        // pero no ha contestado ni una pregunta. Antes salía como «nunca ha
+        // entrado» y encabezaba la lista de a quién llamar — al revés de lo
+        // que tocaba. Sin este caso en el stub, el fallo no se veía nunca.
+        { id: 'u4', email: 'entra.pero.no.hace.tests@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: null, estado: 'activo' as const, estudiando: 'nunca' as const },
+        { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', contestadas: 36, blancos: 6, aciertos: 24, winRate: 67, ultimaActividad: new Date().toISOString(), ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: 0, estado: 'activo' as const, estudiando: 'al_dia' as const },
       ],
-      porEstado: { nunca_entro: 1, activo: 1, en_riesgo: 0, abandonado: 1 },
+      porEstado: { nunca_entro: 1, activo: 2, en_riesgo: 0, abandonado: 1 },
       cobertura: [
         { subjectId: 1, title: TEMAS[0], preguntas: 24, alumnos: 2 },
         { subjectId: 2, title: TEMAS[1], preguntas: 0, alumnos: 0 },
@@ -265,7 +270,39 @@ export async function getAcademyOverview() {
   });
 }
 
-export async function getStudentDetail() { return ok({ data: null }); }
+export async function getStudentDetail() {
+  return ok({
+    data: {
+      alumno: { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const },
+      temas: [{ topic: TEMAS[0], contestadas: 12, winRate: 25 }, { topic: TEMAS[1], contestadas: 6, winRate: 50 }],
+      errores: { porTipo: [{ tipo: 'olvido' as const, veces: 5 }, { tipo: 'desconocimiento' as const, veces: 2 }], sinClasificar: 4 },
+    },
+  });
+}
+
+// EL PLAN DE ENTRENAMIENTO QUE ESCRIBE UN ENTRENADOR REAL, no la IA: la
+// insignia y el precargado del formulario dependen de `source`, y con un plan
+// generado por IA no se ve si el editor distingue las dos cosas.
+export async function getStudentActivePlan() {
+  return ok({
+    plan: {
+      id: 'plan-1',
+      weekStart: new Date().toISOString(),
+      plan: {
+        week_focus: 'Fuerza tren superior y resistencia aeróbica',
+        source: 'entrenador' as const,
+        days: [
+          { day: 'Lunes', type: 'Entrenamiento', title: 'Lunes', exercises: [
+            { name: 'Sentadilla trasera', sets: '5', reps: '5', rest: '3min', target: null, metric_type: null },
+            { name: 'Remo con barra', sets: '4', reps: '8', rest: '90s', target: null, metric_type: null },
+          ] },
+          { day: 'Martes', type: 'Entrenamiento', title: 'Martes', exercises: [] },
+        ],
+      },
+    },
+  });
+}
+export async function saveManualTrainingPlan() { return ok({}); }
 export async function getGlobalActivity() {
   // `activity`, no `data`, y con `question_text` YA APLANADO: la accion de
   // verdad deshace el join antes de devolverlo.

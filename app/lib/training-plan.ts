@@ -31,6 +31,19 @@ export type TrainingDay = {
 export type WeeklyPlan = {
   week_focus: string;
   days: TrainingDay[];
+  /**
+   * QUIEN LO ESCRIBIO. `'ia'` por defecto —incluidas las filas de antes de que
+   * este campo existiera, que se normalizan igual (regla 17: se normaliza
+   * también al LEER)— y `'entrenador'` cuando lo escribe una persona desde el
+   * panel.
+   *
+   * Existe porque una academia puede tener preparador físico de verdad en vez
+   * de un plan generado, y entonces el modulo de IA sobra pero la PANTALLA DEL
+   * ALUMNO no tiene por que cambiar nada: sigue siendo un `WeeklyPlan` con sus
+   * dias y ejercicios. El entrenador es otro productor del mismo formato, no
+   * un camino aparte.
+   */
+  source: 'ia' | 'entrenador';
 };
 
 /** Estructura que se le pide al modelo. Vive aqui para que no se separe del tipo. */
@@ -91,7 +104,26 @@ export function normalizePlan(raw: unknown): WeeklyPlan | null {
   }
 
   if (!days.length) return null;
-  return { week_focus: asString(p.week_focus, 'Adaptación y base'), days };
+  const source = p.source === 'entrenador' ? 'entrenador' : 'ia';
+  return { week_focus: asString(p.week_focus, 'Adaptación y base'), days, source };
+}
+
+/**
+ * Construye el plan que escribe un ENTRENADOR REAL, con la misma validación
+ * que uno generado (regla 27: lo que entra a mano se valida igual que lo que
+ * escribe la IA — un preparador se equivoca con un campo vacío igual que
+ * Gemini). Pasa por `normalizePlan` antes de guardarse; esta función solo le
+ * da la forma de entrada.
+ */
+export function buildManualPlan(params: {
+  weekFocus: string;
+  days: Array<{ day: string; type: string; title: string; exercises: Exercise[] }>;
+}): unknown {
+  return {
+    week_focus: params.weekFocus,
+    source: 'entrenador',
+    days: params.days.filter((d) => d.exercises.length > 0),
+  };
 }
 
 /**

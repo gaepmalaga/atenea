@@ -75,12 +75,69 @@ function receptoresDe(src: string, tabla: string): string[] {
   return [...src.matchAll(re)].map((m) => m[1]);
 }
 
+/**
+ * Quita el CUERPO de una funcion nombrada, contando llaves desde su primera
+ * `{`. Se usa para las pocas excepciones legitimas de esta regla: una accion
+ * de ADMINISTRACION que escribe sobre la fila de OTRO usuario no puede ir con
+ * la sesion de ese usuario —su RLS es `auth.uid() = user_id`, y quien actua es
+ * el admin, no el— asi que ahi la clave de servicio SI es lo correcto,
+ * protegida por `requireAdmin` (misma logica que el panel de academia,
+ * regla 35).
+ */
+function sinFuncion(src: string, nombre: string): string {
+  const i = src.indexOf(`function ${nombre}(`);
+  if (i < 0) return src;
+
+  // El cuerpo NO empieza en la primera `{` tras el nombre: si un parametro
+  // lleva un tipo objeto —`params: { studentId: string; ... }`, como aqui
+  // mismo— esa es la primera `{` y contarla como el cuerpo cierra la cuenta
+  // en cuanto termina el TIPO, muchisimo antes de la funcion real. Primero se
+  // cierra la lista de parametros contando parentesis, y solo despues se
+  // busca la `{` del cuerpo.
+  const parenIni = src.indexOf('(', i);
+  let profParen = 0;
+  let cierreParams = -1;
+  for (let pos = parenIni; pos < src.length; pos++) {
+    if (src[pos] === '(') profParen++;
+    else if (src[pos] === ')') {
+      profParen--;
+      if (profParen === 0) { cierreParams = pos; break; }
+    }
+  }
+  if (cierreParams < 0) return src;
+
+  const llave = src.indexOf('{', cierreParams);
+  let profundidad = 0;
+  for (let pos = llave; pos < src.length; pos++) {
+    if (src[pos] === '{') profundidad++;
+    else if (src[pos] === '}') {
+      profundidad--;
+      if (profundidad === 0) return src.slice(0, i) + src.slice(pos + 1);
+    }
+  }
+  return src;
+}
+
+/**
+ * Las excepciones admitidas a "lo del alumno va con su sesion": funciones de
+ * `actions/training.ts` que un ADMIN usa para escribir el plan de OTRO
+ * alumno. `getStudentActivePlan` y `saveManualTrainingPlan` viven detras de
+ * `requireAdmin`, no de `requireUser`, y por eso no cuentan aqui.
+ */
+const EXCEPCIONES_ADMIN: Record<string, string[]> = {
+  training_plans: ['getStudentActivePlan', 'saveManualTrainingPlan'],
+};
+
 describe('lo del alumno va con su sesion, no con la clave de servicio', () => {
   for (const tabla of DEL_ALUMNO) {
     it(`${tabla} no se toca con la clave de servicio`, () => {
       const culpables: string[] = [];
       for (const { nombre, src } of fuentes) {
-        for (const receptor of receptoresDe(src, tabla)) {
+        let analizado = src;
+        for (const funcion of EXCEPCIONES_ADMIN[tabla] ?? []) {
+          analizado = sinFuncion(analizado, funcion);
+        }
+        for (const receptor of receptoresDe(analizado, tabla)) {
           if (receptor === 'supabaseAdmin' || receptor === 'supabase') {
             culpables.push(`${nombre}: ${receptor}.from('${tabla}')`);
           }
@@ -89,6 +146,19 @@ describe('lo del alumno va con su sesion, no con la clave de servicio', () => {
       expect(culpables).toEqual([]);
     });
   }
+
+  it('las excepciones de admin SI exigen requireAdmin, no requireUser', () => {
+    // La excepcion no puede quedarse sin guarda: si alguna de estas funciones
+    // perdiera su `requireAdmin`, cualquier alumno podria escribir el plan de
+    // otro con solo conocer su id.
+    const training = fuentes.find((f) => f.nombre === 'training.ts')!;
+    for (const funcion of EXCEPCIONES_ADMIN.training_plans) {
+      const i = training.src.indexOf(`function ${funcion}(`);
+      expect(i).toBeGreaterThan(-1);
+      const cabecera = training.src.slice(i, i + 300);
+      expect(cabecera).toMatch(/requireAdmin\(\)/);
+    }
+  });
 
   it('quien usa el cliente de sesion lo importa', () => {
     const sinImport = fuentes
