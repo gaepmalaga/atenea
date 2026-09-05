@@ -25,7 +25,9 @@ export type GroupRow = {
   schedule: string | null;
   staffId: string | null;
   staffName: string | null;
-  /** Cuántos alumnos tiene. */
+  /** Los `user_id` de sus miembros — para precargar el selector de alumnos. */
+  memberIds: string[];
+  /** `memberIds.length`, para no recalcularlo en cada sitio. */
   miembros: number;
   /** true si es un grupo que lleva plan de entrenamiento (kind = 'fisicas'). */
   llevaPlan: boolean;
@@ -41,7 +43,7 @@ export async function getGroups(): Promise<
 
   const [gruposRes, miembrosRes, staffRes, planesRes] = await Promise.all([
     supabaseAdmin.from('class_groups').select('id, name, kind, schedule, staff_id').order('name'),
-    supabaseAdmin.from('class_members').select('class_id'),
+    supabaseAdmin.from('class_members').select('class_id, user_id'),
     supabaseAdmin.from('academy_staff').select('id, name'),
     supabaseAdmin.from('group_training_plans').select('class_id'),
   ]);
@@ -51,10 +53,12 @@ export async function getGroups(): Promise<
     return { success: false as const, error: gruposRes.error.message };
   }
 
-  const cuenta = new Map<string, number>();
+  const porGrupo = new Map<string, string[]>();
   for (const m of miembrosRes.data ?? []) {
     const id = m.class_id as string;
-    cuenta.set(id, (cuenta.get(id) ?? 0) + 1);
+    const lista = porGrupo.get(id) ?? [];
+    lista.push(m.user_id as string);
+    porGrupo.set(id, lista);
   }
   const nombreStaff = new Map<string, string>();
   for (const s of staffRes.data ?? []) nombreStaff.set(s.id as string, (s.name as string) ?? '');
@@ -67,7 +71,8 @@ export async function getGroups(): Promise<
     schedule: (g.schedule as string) ?? null,
     staffId: (g.staff_id as string) ?? null,
     staffName: g.staff_id ? nombreStaff.get(g.staff_id as string) ?? null : null,
-    miembros: cuenta.get(g.id as string) ?? 0,
+    memberIds: porGrupo.get(g.id as string) ?? [],
+    miembros: (porGrupo.get(g.id as string) ?? []).length,
     llevaPlan: admitePlan(g.kind as string),
     tienePlan: conPlan.has(g.id as string),
   }));
