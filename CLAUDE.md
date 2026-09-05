@@ -47,7 +47,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
-| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) — falta P5e (invitar) y P5f (clase: guion escrito, sin ejecutar) |
+| **P6** | **Cobros** (plan de producto) | ✅ **parte 1** (5 sep): panel de consumo de IA. Cobrar de verdad sigue aplazado tras el piloto |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -1425,6 +1426,28 @@ Un profesor sin nombre no se guarda (`normalizeStaffInput` devuelve `null`), y
 `role` cae a `'profesor'` si llega vacío — un puesto sin nombre es un
 formulario a medio rellenar, no un dato ausente legítimo.
 
+### 51 · El panel de consumo suma, no cobra
+
+P6 salió de *«pagos etc…»* y el plan lo aplazó entero hasta después del piloto,
+menos una pieza: **saber cuánto cuesta servir a un alumno antes de ponerle
+precio**. `ai_usage` (regla 41) ya guarda cada llamada a Gemini; la pestaña
+**Consumo IA** la agrega.
+
+`app/lib/ai-cost.ts` es lógica pura (regla 21) y repite los dos errores de
+siempre a propósito para que los tests los vigilen:
+
+- **`cost_usd` llega como CADENA.** Es `numeric` en Postgres y PostgREST lo
+  serializa como `"0.001234"`. Sumarlo sin `parseFloat` da 0, y el panel diría
+  que servir a los alumnos es gratis (regla 4).
+- **El coste medio por alumno es `null` sin alumnos, no `0`** (regla 8): dividir
+  entre cero da `NaN`, y «0,00 $» es la misma mentira tranquilizadora.
+- **Por debajo de un céntimo se dice «< $0.01», no «$0.00»** (`formateaUSD`).
+
+Va con la clave de servicio y `requireAdmin` (regla 34/35: `ai_usage` tiene RLS
+y cero políticas). **Lo que NO se hizo, a propósito:** nada de cobrar — ni
+pasarela, ni suscripciones. El modelo (cobrar a la academia vs. al alumno) no
+está decidido y construir el que no toca es trabajo tirado.
+
 ---
 
 ## Los tests
@@ -1433,7 +1456,7 @@ formulario a medio rellenar, no un dato ausente legítimo.
 tests/text.test.ts              limpieza de respuestas IA, texto legal, troceado de PDF
 tests/srs.test.ts               repetición espaciada (Leitner)
 tests/questions.test.ts         mapeo BD/IA → UI, barajado y dificultad
-tests/actions-auth.test.ts      guardas estáticas sobre las 43 Server Actions
+tests/actions-auth.test.ts      guardas estáticas sobre las Server Actions
 tests/question-lifecycle.test.ts ciclo de vida de las preguntas
 tests/stats.test.ts             agregación de resultados, rangos, perfil físico
 tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
@@ -1454,6 +1477,7 @@ tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
+tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga

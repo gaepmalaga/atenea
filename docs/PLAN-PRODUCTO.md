@@ -659,16 +659,26 @@ Los dos caminos que planteas llevan a productos distintos:
 Construir cobros antes de saber cuál de los dos es sería trabajo tirado. Y el
 piloto es exactamente lo que resuelve esa duda.
 
-### Lo único que conviene hacer ya
+### Lo único que conviene hacer ya — ✅ hecho (5 sep 2026)
 
 **Medir el uso desde el principio.** Cuando llegue el momento de poner precio,
 vas a necesitar saber cuánto cuesta servir a un alumno: cuántas llamadas a Gemini
 consume al mes, cuánto ocupa su temario. Ese dato solo existe si se ha ido
 guardando.
 
-La tabla `ai_quota` ya cuenta las llamadas por usuario y ruta. Basta con **no
-borrar el histórico** y añadir un panel simple de consumo. Cuesta poco ahora y no
-se puede reconstruir después.
+- **El registro:** `ai_usage` guarda una fila por llamada a Gemini —tokens de
+  entrada y salida, cacheados, coste en dólares, ruta y tema— desde la regla 41
+  (4 sep). `ai_quota` cuenta llamadas; `ai_usage` cuenta lo que cuestan.
+- **El panel:** pestaña **Consumo IA** en el Centro de Mando (5 sep). Solo
+  lectura: total gastado, coste medio por alumno, y el desglose por ruta, por
+  mes y por alumno. Aritmética en [`app/lib/ai-cost.ts`](../app/lib/ai-cost.ts),
+  testeada (reglas 4 y 8: un campo ilegible cuenta 0 y nunca `NaN`; sin alumnos
+  el coste medio es `null`, no `0`).
+
+**Lo que NO se hizo, a propósito:** nada de cobrar. Ni pasarela, ni suscripciones,
+ni facturas. Eso sigue esperando a que el piloto diga si el modelo es cobrar a la
+academia o al alumno — son productos distintos y construir el que no toca es
+trabajo tirado.
 
 ### Y una conversación que no es técnica
 
