@@ -59,7 +59,15 @@ export async function getAcademyOverview(): Promise<
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const [perfilesRes, intentosRes, temasRes, bancoRes] = await Promise.all([
+  // LA ULTIMA CONEXION SALE DE `auth.users`, no de las respuestas.
+  //
+  // `profiles` no la guarda —solo tiene id, email, role y created_at— y quien
+  // si la tiene es Supabase, en `last_sign_in_at`. Sin cruzarla, «nunca ha
+  // entrado» significaba en realidad «nunca ha contestado una pregunta», y un
+  // alumno que entra a diario a leer el temario o a usar el chat encabezaba la
+  // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
+  // no era un numero feo, era una llamada de telefono equivocada.
+  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role, created_at'),
     supabaseAdmin
       .from('question_attempts')
@@ -67,6 +75,8 @@ export async function getAcademyOverview(): Promise<
       .limit(MAX_INTENTOS),
     supabaseAdmin.from('subjects').select('id, title').order('topic_number', { ascending: true }),
     supabaseAdmin.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
+    // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
+    supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
   ]);
 
   if (perfilesRes.error || intentosRes.error) {
@@ -78,7 +88,18 @@ export async function getAcademyOverview(): Promise<
   }
 
   const intentos = (intentosRes.data ?? []) as IntentoAlumno[];
-  const alumnos = resumeAlumnos(perfilesRes.data ?? [], intentos);
+
+  const conexiones = new Map<string, string | null>();
+  for (const u of sesionesRes?.data?.users ?? []) {
+    conexiones.set(u.id, u.last_sign_in_at ?? null);
+  }
+
+  const perfilesConConexion = (perfilesRes.data ?? []).map((p) => ({
+    ...p,
+    last_sign_in_at: conexiones.get(p.id) ?? null,
+  }));
+
+  const alumnos = resumeAlumnos(perfilesConConexion, intentos);
 
   // Cuantas preguntas activas tiene cada tema.
   const preguntasPorTema = new Map<number, number>();

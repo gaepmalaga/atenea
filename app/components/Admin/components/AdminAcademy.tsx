@@ -152,11 +152,41 @@ export default function AdminAcademy() {
                         <PhoneCall size={10} /> llamar
                       </span>
                     )}
+                    {/* Viene, pero no hace nada. No es lo mismo que no venir, y
+                        es el que más se puede salvar. */}
+                    {a.estado === 'activo' && a.estudiando === 'nunca' && (
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                        entra y no hace tests
+                      </span>
+                    )}
                   </div>
                   {/* `break-all` + dos lineas: un correo recortado no
                       identifica a nadie, y esta lista existe justo para saber
                       A QUIEN llamar. Medido: le faltaban 149px. */}
                   <p className="font-bold text-slate-900 dark:text-white break-all line-clamp-2 leading-snug">{a.email ?? a.id}</p>
+
+                  {/* LAS DOS FECHAS, SEPARADAS. «Viene» y «estudia» son cosas
+                      distintas y piden llamadas distintas: al que no viene se
+                      le pregunta si sigue interesado; al que viene todos los
+                      días y no contesta ni una pregunta se le pregunta si se
+                      ha atascado — y ese es de los que más se pueden salvar y
+                      antes se pierden.
+
+                      Antes solo se enseñaba una, y encima era la equivocada:
+                      «nunca ha entrado» salía de no haber contestado. */}
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    {a.diasSinEntrar === null
+                      ? 'Sin entrar ni una vez'
+                      : a.diasSinEntrar === 0
+                        ? 'Entró hoy'
+                        : `Entró hace ${a.diasSinEntrar} ${a.diasSinEntrar === 1 ? 'día' : 'días'}`}
+                    {' · '}
+                    {a.contestadas === 0 && a.blancos === 0
+                      ? 'ningún test'
+                      : a.diasSinEstudiar === null
+                        ? 'ningún test'
+                        : `último test hace ${a.diasSinEstudiar} ${a.diasSinEstudiar === 1 ? 'día' : 'días'}`}
+                  </p>
                 </div>
 
                 <div className="hidden sm:flex items-center gap-6 text-right shrink-0">

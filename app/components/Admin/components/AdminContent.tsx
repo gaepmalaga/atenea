@@ -11,6 +11,7 @@ import {
 import DocumentChunksViewer from './DocumentChunksViewer';
 import type { DocumentChunkRow } from '@/app/lib/documents';
 import { enteroEnRango } from '@/app/lib/input-number';
+import { cx } from '../../ui';
 
 // Importamos las Server Actions
 import {
@@ -317,17 +318,14 @@ export default function AdminContent() {
             </div>
         </div>
 
-        {/* --- 3. GENERADOR IA (PANEL INTERACTIVO) --- */}
-        <SeedBankPanel
+        {/* --- 3. GENERAR --- */}
+        <GeneradorPanel
+            syllabus={syllabus}
             subject={genSubject}
-            count={genCount}
-            setCount={setGenCount}
+            setSubject={setGenSubject}
             autoApprove={genAutoApprove}
             setAutoApprove={setGenAutoApprove}
         />
-
-        {/* --- 3b. GENERADOR DE FICHAS --- */}
-        <SeedCardsPanel subject={genSubject} />
 
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
@@ -603,255 +601,190 @@ export default function AdminContent() {
 }
 
 /**
- * EL GENERADOR DE FICHAS.
+ * GENERAR: QUÉ, DE QUÉ TEMA Y CUÁNTAS. En una sola caja.
  *
- * Existe desde que las fichas salen de un banco compartido en vez de generarse
- * una por alumno y por tarjeta. Alguien tiene que llenar ese banco, y hasta
- * ahora lo unico que lo hacia era `npm run sembrar -- --solo-fichas`: pedirle
- * una consola a quien lleva la academia es pedirle que no lo use.
+ * POR QUÉ SE REHIZO
+ * Para generar diez preguntas del tema 7 había que: bajar al árbol del
+ * temario, desplegar el bloque, encontrar el tema, pulsar un icono de estrella
+ * —que además te devolvía arriba de un salto—, y sólo entonces elegir cuántas
+ * y darle. Cinco pasos y dos saltos de scroll para una tarea que se hace
+ * cuarenta y cinco veces seguidas al montar un temario.
  *
- * Ensena CUANTAS FICHAS HAY YA del tema antes de sembrar. Sin ese numero se
- * siembra a ciegas: el guion se salta los temas que ya llegan al objetivo,
- * pero desde el panel no habia forma de saber si un tema estaba a cero o a
- * quince, y cada intento a ciegas son llamadas de pago.
+ * Y el orden estaba del revés: obligaba a elegir el TEMA antes de saber qué
+ * ibas a generar, cuando lo primero que uno decide es «quiero preguntas» o
+ * «quiero fichas».
+ *
+ * Ahora es una caja con las tres respuestas seguidas: qué, de qué tema,
+ * cuántas. El desplegable trae los temas con lo que ya tiene cada uno, así que
+ * no hay que ir a mirarlo a otra parte — sembrar a ciegas son llamadas de pago
+ * tiradas.
+ *
+ * La estrella del árbol SE QUEDA como atajo: si estás mirando un tema y
+ * quieres generar de ése, lo preselecciona. Lo que ya no es, es la única
+ * puerta.
  */
-function SeedCardsPanel({ subject }: { subject: Subject | null }) {
-  const [count, setCount] = useState(15);
-  const [running, setRunning] = useState(false);
-  const [yaHay, setYaHay] = useState<Record<string, number> | null>(null);
+function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApprove }: {
+  syllabus: Block[];
+  subject: Subject | null;
+  setSubject: (s: Subject | null) => void;
+  autoApprove: boolean;
+  setAutoApprove: (v: boolean) => void;
+}) {
+  const [que, setQue] = useState<'preguntas' | 'fichas'>('preguntas');
+  const [cuantas, setCuantas] = useState(20);
+  const [corriendo, setCorriendo] = useState(false);
+  const [fichasPorTema, setFichasPorTema] = useState<Record<string, number> | null>(null);
+
   type Resultado =
     | { success: true; inserted: number; duplicated: number; failed: number; requested: number }
     | { success: false; error?: string };
-  const [result, setResult] = useState<Resultado | null>(null);
+  const [resultado, setResultado] = useState<Resultado | null>(null);
 
-  const recargarRecuento = useCallback(async () => {
+  const temas = syllabus.flatMap((b) => b.subjects);
+
+  const recargarFichas = useCallback(async () => {
     const res = await getFlashcardBankCounts();
-    if (res.success) setYaHay(res.porTema);
+    if (res.success) setFichasPorTema(res.porTema);
   }, []);
+  useEffect(() => { recargarFichas(); }, [recargarFichas]);
 
-  useEffect(() => { recargarRecuento(); }, [recargarRecuento]);
+  // `null` mientras no se sabe: NO es lo mismo que cero (regla 8). Cero
+  // significa «hay que sembrar este tema»; sin dato, «todavía no lo sé».
+  const yaTiene = subject && fichasPorTema ? (fichasPorTema[subject.title] ?? 0) : null;
+  const sinDocumentos = subject !== null && subject.docCount === 0;
 
-  // `null` mientras no se ha leido el recuento: NO es lo mismo que cero, y en
-  // esta tarjeta menos que en ningun sitio (regla 8). Cero significa "hay que
-  // sembrar este tema"; sin dato significa "todavia no lo se".
-  const tiene = subject && yaHay ? (yaHay[subject.title] ?? 0) : null;
-
-  async function run() {
+  async function generar() {
     if (!subject) return;
-    setRunning(true);
-    setResult(null);
-    const res = await seedFlashcardBank({ subjectId: subject.id, topic: subject.title, count });
-    setResult(res);
-    setRunning(false);
-    await recargarRecuento();
+    setCorriendo(true);
+    setResultado(null);
+    const res = que === 'fichas'
+      ? await seedFlashcardBank({ subjectId: subject.id, topic: subject.title, count: cuantas })
+      : await seedQuestionBank({ subjectId: subject.id, topic: subject.title, count: cuantas, autoApprove });
+    setResultado(res);
+    setCorriendo(false);
+    if (que === 'fichas') recargarFichas();
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 border-[3px] border-slate-300 dark:border-slate-700 p-5 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 justify-between">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className={`w-12 h-12 flex items-center justify-center shrink-0 ${subject ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-            <Layers className="w-6 h-6" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm mb-1.5">
-              Fichas de repaso
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {subject ? (
-                <>
-                  Tema {subject.number} ·{' '}
-                  {tiene === null
-                    ? <span className="opacity-60">contando…</span>
-                    : <span className={tiene === 0 ? 'text-amber-700 dark:text-amber-400 font-bold' : 'text-emerald-700 dark:text-emerald-400 font-bold'}>
-                        {tiene} en el banco
-                      </span>}
-                </>
-              ) : (
-                <span className="italic opacity-50">Selecciona un tema arriba</span>
-              )}
-            </p>
-          </div>
-        </div>
+    <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+      <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm flex items-center gap-2">
+        <Sparkles size={16} className="text-indigo-500" /> Generar
+      </h3>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <label className="sr-only" htmlFor="cuantas-fichas">Cuántas fichas</label>
-          <input
-            id="cuantas-fichas"
-            type="number"
-            min={1}
-            max={100}
-            value={count}
-            onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-            disabled={!subject || running}
-            className="w-20 min-h-[44px] bg-slate-50 dark:bg-slate-950 border-2 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-base sm:text-sm text-center font-bold outline-none focus:border-purple-500 disabled:opacity-40"
-          />
+      {/* 1 · QUÉ. Lo primero que se decide, y antes era lo último. */}
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+        {(['preguntas', 'fichas'] as const).map((k) => (
           <button
-            onClick={run}
-            disabled={!subject || running}
-            className="min-h-[44px] px-5 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase tracking-wider text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+            key={k}
+            type="button"
+            onClick={() => { setQue(k); setCuantas(k === 'fichas' ? 15 : 20); setResultado(null); }}
+            aria-pressed={que === k}
+            className={cx(
+              'min-h-[44px] rounded-lg font-black uppercase tracking-wider text-xs transition-colors',
+              que === k ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400',
+            )}
           >
-            {running ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {running ? 'Escribiendo…' : 'Escribir fichas'}
+            {k === 'preguntas' ? 'Preguntas' : 'Fichas'}
           </button>
-        </div>
+        ))}
       </div>
 
-      {result && (
-        <div className={`mt-4 p-3 border-2 text-xs font-bold ${result.success ? 'border-emerald-700 bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : 'border-red-800 bg-red-900/20 text-red-700 dark:text-red-300'}`}>
-          {result.success
-            ? `${result.inserted} nuevas · ${result.duplicated} repetidas · ${result.failed} fallidas (de ${result.requested} pedidas)`
-            : `No se pudo: ${result.error ?? 'error desconocido'}`}
+      {/* 2 · DE QUÉ TEMA. */}
+      <div>
+        <label htmlFor="gen-tema" className="block text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
+          De qué tema
+        </label>
+        <select
+          id="gen-tema"
+          value={subject?.id ?? ''}
+          onChange={(e) => setSubject(temas.find((t) => t.id === Number(e.target.value)) ?? null)}
+          disabled={corriendo}
+          className="w-full min-h-[44px] px-3 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl text-base sm:text-sm font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+        >
+          <option value="">Elige un tema…</option>
+          {temas.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.number}. {t.title.slice(0, 44)}{t.docCount === 0 ? ' — sin PDF' : ''}
+            </option>
+          ))}
+        </select>
+        {que === 'fichas' && subject && (
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+            {yaTiene === null ? 'contando…' : `Ya tiene ${yaTiene} ficha${yaTiene === 1 ? '' : 's'} en el banco.`}
+          </p>
+        )}
+        {sinDocumentos && (
+          /* Sin PDF indexado no se puede generar nada, y decirlo AQUÍ evita una
+             llamada de pago que iba a fallar. */
+          <p className="mt-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+            Ese tema no tiene ningún PDF indexado: sube uno antes.
+          </p>
+        )}
+      </div>
+
+      {/* 3 · CUÁNTAS. */}
+      <div className="flex items-end gap-3">
+        <div className="shrink-0">
+          <label htmlFor="gen-cuantas" className="block text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
+            Cuántas
+          </label>
+          <input
+            id="gen-cuantas"
+            type="number"
+            min={1}
+            max={que === 'fichas' ? 100 : 200}
+            value={cuantas}
+            /* `enteroEnRango` devuelve `null` con el campo vacío, y ahí se
+               conserva lo que había: `Number('')` sería 0, y «generar 0» no
+               significa nada (regla 16). */
+            onChange={(e) => setCuantas(
+              enteroEnRango(e.target.value, { min: 1, max: que === 'fichas' ? 100 : 200 }) ?? cuantas,
+            )}
+            disabled={corriendo}
+            className="w-24 min-h-[44px] px-3 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl text-base sm:text-sm text-center font-black text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={generar}
+          disabled={!subject || corriendo || sinDocumentos}
+          className="flex-1 min-h-[52px] bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-wider text-sm rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {corriendo ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+          {corriendo ? 'Generando…' : `Generar ${cuantas}`}
+        </button>
+      </div>
+
+      {/* Sólo para preguntas: al banco o a revisar. Las fichas no pasan por
+          moderación, así que enseñar aquí el interruptor sería mentir. */}
+      {que === 'preguntas' && (
+        <button
+          type="button"
+          onClick={() => setAutoApprove(!autoApprove)}
+          className="flex items-center gap-2 min-h-[44px] text-xs font-bold"
+        >
+          <span className={cx('w-10 h-6 rounded-full transition-colors relative shrink-0', autoApprove ? 'bg-emerald-600' : 'bg-amber-600')}>
+            <span className={cx('absolute top-1 w-4 h-4 bg-white rounded-full transition-all', autoApprove ? 'left-5' : 'left-1')} />
+          </span>
+          <span className={autoApprove ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
+            {autoApprove ? 'Directas al banco' : 'A moderación primero'}
+          </span>
+        </button>
+      )}
+
+      {resultado && (
+        <div className={cx(
+          'p-3 border-2 text-xs font-bold rounded-xl',
+          resultado.success
+            ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300'
+            : 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300',
+        )}>
+          {resultado.success
+            ? `${resultado.inserted} nuevas · ${resultado.duplicated} repetidas · ${resultado.failed} fallidas (de ${resultado.requested} pedidas)`
+            : `No se pudo: ${resultado.error ?? 'error desconocido'}`}
         </div>
       )}
-    </div>
-  );
-}
-
-// --- SUBCOMPONENTE: PANEL GENERADOR ---
-function SeedBankPanel({ subject, count, setCount, autoApprove, setAutoApprove }: {
-  subject: Subject | null,
-  count: number,
-  setCount: (n: number) => void,
-  autoApprove: boolean,
-  setAutoApprove: (v: boolean) => void
-}) {
-  const [running, setRunning] = useState(false);
-  // Lo que devuelve `seedQuestionBank`: el desglose completo, no solo cuantas
-  // se insertaron. Antes era `any` y la pantalla podia leer campos que no
-  // vienen sin que nada avisara.
-  type ResultadoSiembra =
-    | {
-        success: true;
-        inserted: number;
-        duplicated: number;
-        failed: number;
-        requested: number;
-        /** Donde han ido a parar: al banco ('active') o a moderación. */
-        status: QuestionStatus;
-      }
-    | { success: false; error?: string };
-
-  const [result, setResult] = useState<ResultadoSiembra | null>(null);
-
-  async function run() {
-    if (!subject) return;
-    setRunning(true);
-    setResult(null);
-    
-    // Llamada a la Action
-    const res = await seedQuestionBank({
-        subjectId: subject.id,
-        topic: subject.title,
-        count,
-        autoApprove
-    });
-    
-    setResult(res);
-    setRunning(false);
-  }
-
-  return (
-    <div className={`p-[3px] rounded-2xl sm:rounded-3xl transition-all duration-700 ${subject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-        <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl h-full relative overflow-hidden">
-            {/* Decoración de fondo */}
-            {subject && <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none"></div>}
-
-            <div className="flex flex-col md:flex-row gap-5 md:gap-8 items-stretch md:items-center justify-between relative z-10">
-                
-                <div className="flex items-center gap-4 sm:gap-6 w-full md:w-auto min-w-0">
-                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-inner transition-all duration-500 ${subject ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                        <Sparkles className={`w-6 h-6 sm:w-8 sm:h-8 ${running ? 'animate-spin-slow' : ''}`} />
-                    </div>
-                    <div className="min-w-0">
-                        <h4 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm mb-1.5">Motor de Generación IA</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {subject 
-                                ? <span className="flex items-center gap-2">Objetivo: <span className="text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">Tema {subject.number}</span></span> 
-                                : <span className="italic opacity-50 flex items-center gap-2"><AlertCircle size={12}/> Selecciona un tema arriba para empezar</span>}
-                        </p>
-                    </div>
-                </div>
-
-                {/* EN MÓVIL SE APILA.
-
-                    Los tres controles en una fila suman mas de 390px con el
-                    relleno de la tarjeta, y la tarjeta es `overflow-hidden`: el
-                    boton "EJECUTAR" quedaba CORTADO por su propio borde, 62px
-                    fuera, sin forma de alcanzarlo. Y no lo veia ningun
-                    detector, porque la pagina no crece: `hidden` recorta y ya.
-                    Ahora los dos ajustes van en una fila y "Ejecutar" a lo
-                    ancho debajo, que ademas es lo que se pulsa. */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full md:w-auto bg-slate-50/80 dark:bg-slate-950/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="flex flex-col px-2 sm:px-3 border-r border-slate-200 dark:border-slate-800">
-                        <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 text-center">Preguntas</label>
-                        <input 
-                            type="number" 
-                            min="1" max="50"
-                            value={count} 
-                            onChange={(e) => {
-                                // `Number('')` es 0 y `Number('-')` es NaN. Ese NaN
-                                // llegaba al servidor y el tope lo convertia en 1:
-                                // pedias veinte preguntas y salia una (regla 16).
-                                const n = enteroEnRango(e.target.value, { min: 1, max: 50 });
-                                if (n !== null) setCount(n);
-                            }} 
-                            aria-label="Cuántas preguntas generar"
-                            /* 28px de alto y sin nombre accesible: el control que
-                               decide cuantas llamadas de pago se hacen a Gemini
-                               era el mas pequeño de la pantalla. 44px, como todo
-                               lo que se toca. */
-                            className="bg-transparent text-slate-900 dark:text-white w-16 min-h-[44px] text-center font-black text-xl outline-none focus:text-indigo-700 dark:focus:text-indigo-400 transition-colors"
-                        />
-                    </div>
-                    
-                    <button
-                        type="button"
-                        onClick={() => setAutoApprove(!autoApprove)}
-                        className="min-h-[44px] justify-center flex flex-col px-2 sm:px-3 sm:border-r border-slate-200 dark:border-slate-800 text-left group/toggle"
-                        title="Decide si las preguntas entran directas al banco o pasan por moderación"
-                    >
-                        <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Destino</span>
-                        <span className={`text-[11px] font-black uppercase tracking-wide transition-colors ${autoApprove ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                            {autoApprove ? 'Banco' : 'Moderación'}
-                        </span>
-                    </button>
-                  </div>
-
-                    <button
-                        onClick={run}
-                        disabled={running || !subject}
-                        className="min-h-[44px] h-12 sm:h-14 w-full sm:w-auto px-6 sm:px-8 bg-white hover:bg-indigo-50 text-slate-900 rounded-xl font-black uppercase text-xs tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-95 shadow-xl hover:shadow-indigo-500/20"
-                    >
-                        {running ? <Loader2 className="animate-spin" size={20}/> : <>Ejecutar <Sparkles size={16} className="text-purple-600 fill-purple-600"/></>}
-                    </button>
-                </div>
-            </div>
-
-            {/* Consola de Resultados con animación */}
-            {result && (
-                <div className={`mt-8 p-5 rounded-2xl text-xs font-mono border flex justify-between items-center animate-in slide-in-from-top-4 duration-500 ${result.success ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400'}`}>
-                    <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-lg ${result.success ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-                            {result.success ? <CheckCircle2 size={18}/> : <XCircle size={18}/>}
-                        </div>
-                        <div>
-                            <p className="font-bold text-sm mb-0.5">{result.success ? 'GENERACIÓN COMPLETADA' : 'ERROR EN PROCESO'}</p>
-                            <p className="opacity-80">
-                                {result.success
-                                  ? [
-                                      `${result.inserted} nuevas en ${result.status === 'active' ? 'el banco' : 'moderación'}`,
-                                      result.duplicated ? `${result.duplicated} ya existían` : null,
-                                      result.failed ? `${result.failed} fallaron` : null,
-                                    ].filter(Boolean).join(' · ')
-                                  : result.error}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
     </div>
   );
 }

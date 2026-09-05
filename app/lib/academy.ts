@@ -41,6 +41,25 @@ export const ESTADO_ALUMNO_LABEL: Record<EstadoAlumno, string> = {
   abandonado: 'Abandonado',
 };
 
+/**
+ * ENTRAR Y ESTUDIAR SON DOS COSAS DISTINTAS, y confundirlas era el fallo.
+ *
+ * `estado` responde a «¿viene?» y sale de la ULTIMA CONEXION.
+ * `estudiando` responde a «¿hace algo cuando viene?» y sale de las respuestas.
+ *
+ * Separarlas no es un matiz: son dos problemas distintos y piden dos llamadas
+ * distintas. Al que no viene se le pregunta si sigue interesado; al que viene
+ * todos los dias y no contesta ni una pregunta se le pregunta si se ha
+ * atascado, que es de los que MAS se pueden salvar y antes se pierden.
+ */
+export type Estudiando = 'nunca' | 'hace_tiempo' | 'al_dia';
+
+export const ESTUDIANDO_LABEL: Record<Estudiando, string> = {
+  nunca: 'Entra pero no hace tests',
+  hace_tiempo: 'Sin tests hace tiempo',
+  al_dia: 'Haciendo tests',
+};
+
 // ============================================================
 // LO QUE ENTRA
 // ============================================================
@@ -62,6 +81,19 @@ export type PerfilAlumno = {
   email?: string | null;
   role?: string | null;
   created_at?: string | null;
+  /**
+   * La ULTIMA VEZ QUE ENTRO DE VERDAD, de `auth.users.last_sign_in_at`.
+   *
+   * Sin esto, «nunca ha entrado» era MENTIRA y de la peor clase: se deducia de
+   * `question_attempts`, o sea de haber CONTESTADO PREGUNTAS. Un alumno que
+   * entra cada dia a leer el temario, a repasar fichas o a preguntarle al chat
+   * —pero que aun no ha hecho ningun test— salia en la lista como «nunca ha
+   * entrado», el primero de la cola de a quien llamar.
+   *
+   * Y el profesor actua sobre esa lista. Un dato falso aqui no es un numero
+   * feo: es una llamada de telefono a quien esta estudiando todos los dias.
+   */
+  last_sign_in_at?: string | null;
 };
 
 // ============================================================
@@ -78,11 +110,16 @@ export type FilaAlumno = {
   aciertos: number;
   /** Sobre las contestadas. `null` si no ha contestado ninguna (regla 8). */
   winRate: number | null;
-  /** ISO de la ultima respuesta, o `null` si no hay ninguna. */
+  /** ISO de la ultima RESPUESTA, o `null` si no ha contestado ninguna. */
   ultimaActividad: string | null;
-  /** Dias enteros desde la ultima respuesta. `null` si nunca ha respondido. */
+  /** ISO de la ultima CONEXION. `null` si no ha entrado nunca de verdad. */
+  ultimaConexion: string | null;
+  /** Dias desde la ultima CONEXION. `null` si nunca entro. */
   diasSinEntrar: number | null;
+  /** Dias desde la ultima RESPUESTA. `null` si nunca contesto. */
+  diasSinEstudiar: number | null;
   estado: EstadoAlumno;
+  estudiando: Estudiando;
 };
 
 function estadoDe(dias: number | null): EstadoAlumno {
@@ -143,8 +180,18 @@ export function resumeAlumnos(
 
   const filas: FilaAlumno[] = (perfiles ?? []).map((p) => {
     const acc = acumulado.get(p.id);
-    const ultima = acc?.ultima ?? null;
-    const dias = ultima === null ? null : Math.floor((ahora - ultima) / UN_DIA);
+    const ultimaRespuesta = acc?.ultima ?? null;
+    const conexion = fecha(p.last_sign_in_at);
+
+    const diasSinEntrar = conexion === null ? null : Math.floor((ahora - conexion) / UN_DIA);
+    const diasSinEstudiar =
+      ultimaRespuesta === null ? null : Math.floor((ahora - ultimaRespuesta) / UN_DIA);
+
+    // «¿Viene?» sale de la CONEXION. «¿Estudia?» sale de las respuestas.
+    const estudiando: Estudiando =
+      diasSinEstudiar === null ? 'nunca'
+      : diasSinEstudiar >= DIAS_ABANDONO ? 'hace_tiempo'
+      : 'al_dia';
 
     return {
       id: p.id,
@@ -154,9 +201,12 @@ export function resumeAlumnos(
       blancos: acc?.blancos ?? 0,
       aciertos: acc?.aciertos ?? 0,
       winRate: acc && acc.contestadas > 0 ? Math.round((acc.aciertos / acc.contestadas) * 100) : null,
-      ultimaActividad: ultima === null ? null : new Date(ultima).toISOString(),
-      diasSinEntrar: dias,
-      estado: estadoDe(dias),
+      ultimaActividad: ultimaRespuesta === null ? null : new Date(ultimaRespuesta).toISOString(),
+      ultimaConexion: conexion === null ? null : new Date(conexion).toISOString(),
+      diasSinEntrar,
+      diasSinEstudiar,
+      estado: estadoDe(diasSinEntrar),
+      estudiando,
     };
   });
 

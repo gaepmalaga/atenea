@@ -27,11 +27,29 @@ import {
 const AHORA = Date.parse('2026-08-31T12:00:00.000Z');
 const haceDias = (d: number) => new Date(AHORA - d * 24 * 60 * 60 * 1000).toISOString();
 
+/**
+ * LOS PERFILES LLEVAN `last_sign_in_at`, Y ESE ES EL ARREGLO.
+ *
+ * Estos tests daban por buena la version equivocada: el estado salia de
+ * `question_attempts`, o sea de haber CONTESTADO PREGUNTAS, y se le llamaba
+ * «ha entrado». Un alumno que entra a diario a leer el temario, repasar fichas
+ * o preguntarle al chat —pero que aun no ha hecho un test— aparecia como
+ * «nunca ha entrado» y ENCABEZABA la lista de a quien llamar.
+ *
+ * El profesor actua sobre esa lista, asi que el dato falso no era un numero
+ * feo: era una llamada de telefono a quien esta estudiando todos los dias.
+ *
+ * Ahora «viene» sale de la conexion real y «estudia» de las respuestas. Son
+ * dos cosas distintas y piden dos llamadas distintas.
+ */
 const PERFILES = [
-  { id: 'ana', email: 'ana@x.com', role: 'student' },
-  { id: 'bea', email: 'bea@x.com', role: 'student' },
-  { id: 'caro', email: 'caro@x.com', role: 'student' },
-  { id: 'dani', email: 'dani@x.com', role: 'student' },
+  { id: 'ana', email: 'ana@x.com', role: 'student', last_sign_in_at: haceDias(1) },
+  { id: 'bea', email: 'bea@x.com', role: 'student', last_sign_in_at: haceDias(10) },
+  { id: 'caro', email: 'caro@x.com', role: 'student', last_sign_in_at: haceDias(30) },
+  { id: 'dani', email: 'dani@x.com', role: 'student', last_sign_in_at: null },
+  // ELENA ENTRA TODOS LOS DIAS Y NO HA HECHO NI UN TEST. Es el caso que el
+  // panel clasificaba como «nunca ha entrado», y es justo el contrario.
+  { id: 'elena', email: 'elena@x.com', role: 'student', last_sign_in_at: haceDias(0) },
 ];
 
 describe('quién necesita que le llamen', () => {
@@ -47,7 +65,7 @@ describe('quién necesita que le llamen', () => {
 
   const filas = resumeAlumnos(PERFILES, intentos, AHORA);
 
-  it('clasifica por días sin entrar', () => {
+  it('clasifica por días sin ENTRAR, no por días sin contestar', () => {
     const porId = Object.fromEntries(filas.map((f) => [f.id, f]));
     expect(porId.ana.estado).toBe('activo');
     expect(porId.bea.estado).toBe('en_riesgo');
@@ -55,10 +73,39 @@ describe('quién necesita que le llamen', () => {
     expect(porId.dani.estado).toBe('nunca_entro');
   });
 
+  it('quien ENTRA todos los días y no hace tests NO es «nunca ha entrado»', () => {
+    // ESTE ERA EL FALLO, y el mas caro de los dos: se le llamaba para
+    // preguntarle si seguia interesado a alguien que abria la aplicacion cada
+    // dia. Ahora sale como activo, y aparte se dice que no esta haciendo
+    // tests, que es OTRA conversacion.
+    const elena = filas.find((f) => f.id === 'elena')!;
+    expect(elena.estado).toBe('activo');
+    expect(elena.estudiando).toBe('nunca');
+    expect(elena.diasSinEntrar).toBe(0);
+    expect(elena.diasSinEstudiar).toBeNull();
+  });
+
+  it('quien NO entra hace un mes sigue siendo abandonado aunque contestara ayer', () => {
+    // El caso simetrico: no se puede dar por activo a alguien por una fila
+    // suelta si lleva un mes sin abrir la aplicacion.
+    const soloUno = resumeAlumnos(
+      [{ id: 'z', email: 'z@x.com', role: 'student', last_sign_in_at: haceDias(30) }],
+      [{ user_id: 'z', created_at: haceDias(1), is_correct: true, selected_index: 0 }],
+      AHORA,
+    );
+    expect(soloUno[0].estado).toBe('abandonado');
+    expect(soloUno[0].estudiando).toBe('al_dia');
+  });
+
   it('ordena poniendo delante a quien hay que atender', () => {
     // Una lista ordenada por nombre obliga al profesor a leerla entera para
     // encontrar lo único que iba a hacer con ella.
-    expect(filas.map((f) => f.id)).toEqual(['dani', 'caro', 'bea', 'ana']);
+    // Elena entra hoy, asi que va con los activos aunque no haga tests: no
+    // se le llama para preguntarle si sigue interesado, se le llama para otra
+    // cosa. Entre ana y elena el orden da igual (mismo estado, 0 dias).
+    const ids = filas.map((f) => f.id);
+    expect(ids.slice(0, 3)).toEqual(['dani', 'caro', 'bea']);
+    expect(ids.slice(3).sort()).toEqual(['ana', 'elena']);
   });
 
   it('los umbrales son los que se dijeron: una semana y dos', () => {
@@ -68,7 +115,7 @@ describe('quién necesita que le llamen', () => {
 
   it('justo en el umbral ya cuenta', () => {
     const enElBorde = resumeAlumnos(
-      [{ id: 'x' }],
+      [{ id: 'x', last_sign_in_at: haceDias(DIAS_ABANDONO) }],
       [{ user_id: 'x', created_at: haceDias(DIAS_ABANDONO), is_correct: true, selected_index: 0 }],
       AHORA
     );
@@ -89,7 +136,8 @@ describe('quién necesita que le llamen', () => {
       nunca_entro: 1,
       abandonado: 1,
       en_riesgo: 1,
-      activo: 1,
+      // ana y elena: las dos entraron hoy o ayer.
+      activo: 2,
     });
   });
 
@@ -120,11 +168,13 @@ describe('el acierto se calcula sobre las contestadas', () => {
     // Lo que se mide con la última actividad es si sigue viniendo, y dejar una
     // pregunta en blanco es haber venido.
     const [x] = resumeAlumnos(
-      [{ id: 'x' }],
+      [{ id: 'x', last_sign_in_at: haceDias(2) }],
       [{ user_id: 'x', created_at: haceDias(2), is_correct: false, selected_index: -1 }],
       AHORA
     );
     expect(x.estado).toBe('activo');
+    // Dejar una en blanco es haber hecho un test: cuenta como estudiar.
+    expect(x.estudiando).toBe('al_dia');
     expect(x.winRate).toBeNull();
   });
 });
