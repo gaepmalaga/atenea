@@ -371,3 +371,46 @@ export async function getConversation() {
 export async function appendTurn() { return ok({ conversationId: 'c1' }); }
 export async function closeConversation() { return ok({}); }
 export async function deleteConversation() { return ok({}); }
+
+// ── DATOS DE LA ACADEMIA Y PROFESORES ───────────────────────────────────────
+export async function getAcademySettings() {
+  return ok({
+    settings: {
+      name: 'Academia Atenea',
+      address: 'Calle Larios 12, Málaga',
+      schedule: 'L-V 10:00-14:00 y 17:00-21:00',
+      contactEmail: 'info@academia-atenea.es',
+      contactPhone: '600 111 222',
+      updatedAt: new Date(Date.now() - 3 * 864e5).toISOString(),
+    },
+  });
+}
+export async function saveAcademySettings() { return { success: true as const }; }
+
+// Un activo y uno inactivo: la pantalla tiene que atenuar el segundo y decir
+// "inactivo", y con los dos iguales no se ve si lo hace.
+export async function listStaff() {
+  return ok({
+    staff: [
+      { id: 's1', name: 'Marta Ortega', role: 'profesora', email: 'marta@academia-atenea.es', phone: '600 222 333', active: true },
+      { id: 's2', name: 'Javier Ruiz', role: 'entrenador', email: null, phone: '600 333 444', active: true },
+      { id: 's3', name: 'Sonia Vidal', role: 'coordinadora', email: 'sonia@academia-atenea.es', phone: null, active: false },
+    ],
+  });
+}
+export async function saveStaff() { return { success: true as const }; }
+export async function deleteStaff() { return { success: true as const }; }
+
+// ── AUDITORÍA DE ADMINISTRACIÓN ──────────────────────────────────────────────
+// Varias acciones distintas, con y sin detalle: la pantalla tiene que leerse
+// como un registro de QUIÉN hizo QUÉ, no como una lista de códigos en inglés.
+export async function getAdminAuditLog() {
+  return ok({
+    rows: [
+      { id: 'a1', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'set_module_enabled', target: 'chat', detail: { enabled: false }, createdAt: new Date().toISOString() },
+      { id: 'a2', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'approve_questions', target: null, detail: { count: 8 }, createdAt: new Date(Date.now() - 3600e3).toISOString() },
+      { id: 'a3', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'delete_topic', target: 'Tema de prueba', detail: null, createdAt: new Date(Date.now() - 2 * 864e5).toISOString() },
+      { id: 'a4', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'save_staff', target: 'Marta Ortega', detail: null, createdAt: new Date(Date.now() - 5 * 864e5).toISOString() },
+    ],
+  });
+}

@@ -50,7 +50,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-700 dark:text-purple-400' },
     { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-700 dark:text-emerald-400' }, // <--- NUEVA PESTAÑA
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400' },
-    { id: 'modules', label: 'Módulos', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
+    { id: 'modules', label: 'Ajustes', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-500 dark:text-slate-400' },
   ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
 

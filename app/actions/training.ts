@@ -24,6 +24,7 @@ import {
 } from '../lib/training-plan';
 import { requireAdmin } from '../lib/auth';
 import { supabaseAdmin } from './core';
+import { registraAccion } from '../lib/admin-audit';
 
 // `TrainingDayLog` NO se reexporta desde aqui. Este modulo es 'use server' y
 // Next exige que solo exporte funciones async: el bundler convertia el
@@ -352,6 +353,10 @@ export async function saveManualTrainingPlan(params: {
         plan_data: plan,
         status: 'active',
     });
+
+    if (!error) {
+        registraAccion({ actorId: auth.user.id, action: 'save_manual_training_plan', target: params.studentId });
+    }
 
     return { success: !error, error: error?.message };
 }

@@ -12,6 +12,7 @@ import {
   type ModuleId,
   type ModuleSettings,
 } from '@/app/lib/modules';
+import AcademyIdentity from './AcademyIdentity';
 
 /**
  * Los interruptores de los módulos del alumno (P4).
@@ -61,6 +62,8 @@ export default function AdminModules() {
 
   return (
     <div className="space-y-6 animate-in fade-in pb-24">
+      <AcademyIdentity />
+
       <div className="bg-slate-100/80 dark:bg-slate-900/80 border border-white/10 p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">

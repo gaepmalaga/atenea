@@ -55,6 +55,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Reset y siembra** | ✅ **hecho** (4 sep): tres guiones para dejar la plataforma limpia, indexar los 51 documentos y llenar el banco. Ver [`docs/RESET-Y-SIEMBRA.md`](docs/RESET-Y-SIEMBRA.md) |
 | — | **Generación solo del admin · topes de gasto · login nuevo** | ✅ **hecho** (4 sep): alumno y admin dejan de compartir quién paga la IA. Ver **reglas 39, 40 y 41** |
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
+| — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **escritos y sin ejecutar** — ver el aviso de arriba |
 
 ## Producción
 
@@ -72,22 +73,27 @@ funcionando).
 
 ### Lo que solo puedes hacer tú
 
-Los tres guiones de Supabase que estaban pendientes **ya están ejecutados** (RLS, cuota
-de IA y `question_attempts`). Lo que queda necesita algo que no se puede hacer desde
-aquí:
+Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota de IA,
+`question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
+**ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-0. **HAY DOS GUIONES SQL NUEVOS SIN EJECUTAR** (4 sep), los dos escritos
+0. **HAY DOS GUIONES SQL NUEVOS SIN EJECUTAR** (5 sep), los dos escritos
    contra `supabase/schema.json` y idempotentes:
-   - [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql) — la tabla `ai_usage`,
-     para persistir lo que hoy solo va al registro del servidor (regla 41) y
-     poder poner topes en tokens en vez de en llamadas.
-   - [`docs/sql/historial-chat.sql`](docs/sql/historial-chat.sql) — las
-     conversaciones del chat, que hoy mueren al cerrar la pestaña.
+   - [`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql) — la tabla
+     `admin_audit_log`, para persistir quién ha borrado, publicado o apagado
+     algo (regla 49). Mientras no se ejecute, la pestaña "Logs & Auditoría" lo
+     dice con un aviso en vez de fallar en silencio.
+   - [`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql) — las
+     tablas `academy_settings` y `academy_staff`: nombre, dirección, horario,
+     contacto y profesores de la academia (regla 50). Mientras no se ejecute,
+     la pestaña "Ajustes" lo dice igual.
 
    **No se escribe el código antes:** PostgREST rechaza la escritura *entera*
-   si falta una sola columna.
+   si falta una sola columna. Aquí el código ya está escrito —degrada con
+   gracia mientras la tabla no exista— porque las dos funcionalidades se
+   aprobaron completas; lo único que falta es que tú ejecutes los guiones.
 
-1. **Ejecutar SQL. Ya no hay nada pendiente:** los guiones de P3.7 (`legal_reference`
+1. **Ejecutar SQL. Ya no hay nada pendiente de fases anteriores:** los guiones de P3.7 (`legal_reference`
    en `question_bank`) y P3.8 (tabla `question_notes` con RLS) se ejecutaron el
    **31 ago 2026** y están comprobados contra la base de datos real con `npm run smoke`.
    Los ficheros siguen en `docs/sql/` y son idempotentes. Cuando aparezca uno nuevo,
@@ -1368,6 +1374,60 @@ política es `auth.uid() = user_id` y quien actúa es el admin, no él.
 Lo que entra a mano se valida IGUAL que lo que escribe la IA (regla 27):
 `buildManualPlan` construye la entrada y pasa por el mismo `normalizePlan` —
 un preparador se equivoca con un campo vacío igual que Gemini.
+
+### 49 · «Logs» no es un registro si no dice quién
+
+La pestaña enseñaba las últimas 20 respuestas de cualquier alumno a cualquier
+pregunta. Eso no dice QUIÉN hizo QUÉ, y con un solo admin no importaba — pero
+en cuanto hay más de una persona con acceso, borrar un tema o apagar un
+módulo sin dejar rastro de quién lo hizo es el fallo que solo se nota cuando
+ya ha pasado.
+
+`admin_audit_log` (`app/lib/admin-audit.ts`, mismo patrón que `ai-usage.ts`:
+se registra en el log del servidor SIEMPRE, con prefijo filtrable
+`[admin-audit]`, y se intenta persistir; nunca lanza) guarda quién borró un
+documento, quién publicó preguntas, quién apagó un módulo. Generar contenido
+con IA no se duplica aquí: ya lo cuenta `ai-usage.ts` con su propio detalle.
+
+**El mapa de etiquetas vive separado del registro**, en
+`app/lib/audit-labels.ts`. No es capricho de organización: `admin-audit.ts`
+importa `actions/core` (de forma dinámica, pero lo importa) para persistir, y
+ese módulo es `server-only`. La pantalla (`AdminActivity.tsx`) es un
+componente de CLIENTE que solo necesita leer la etiqueta de cada acción —
+importarla del fichero que arrastra el cliente de Supabase de servicio se lo
+llevaría entero al navegador, y el bundle del banco de pruebas dejó de
+compilar la primera vez que se probó, con `server-only` sin resolver. Separar
+el dato puro (`ACCION_LABEL`) del efecto (`registraAccion`) es la misma idea
+que ya obliga la regla 21 con `core.ts`.
+
+**La tabla puede no existir todavía y la pantalla lo dice**, no un error
+genérico: `getAdminAuditLog` reconoce el mensaje de PostgREST
+("could not find the table") y `AdminActivity` enseña un aviso ámbar en vez
+de un "algo ha ido mal". El guion está escrito y sin ejecutar:
+[`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql).
+
+### 50 · Los datos de la academia no viven solo en la cabeza del dueño
+
+Pregunta directa: *"algún lugar para poner el nombre de la academia,
+dirección, horarios, emails, profesores...?"*. No había ninguno: ese texto
+vivía fuera de la aplicación, en la cabeza de quien la lleva.
+
+`academy_settings` es una fila única (`id = 1`, forzado por un `CHECK`) con
+nombre, dirección, horario y contacto; `academy_staff` es la lista de quién da
+clase, con su propio alta/edición/borrado. Los dos con `requireAdmin` y la
+clave de servicio (regla 34/35: es administración pura, no del alumno) y
+ambos guiones son idempotentes y están sin ejecutar:
+[`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql).
+
+Vive en la pestaña que antes se llamaba «Módulos» — renombrada a «Ajustes» —
+porque los dos son la misma clase de pantalla: cosas que se configuran una
+vez y rara vez se tocan, no algo que el alumno vea. Mientras el guion SQL no
+se ejecute, la sección lo dice con un aviso en vez de fallar en silencio,
+mismo patrón que la regla 49.
+
+Un profesor sin nombre no se guarda (`normalizeStaffInput` devuelve `null`), y
+`role` cae a `'profesor'` si llega vacío — un puesto sin nombre es un
+formulario a medio rellenar, no un dato ausente legítimo.
 
 ---
 

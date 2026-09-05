@@ -5,6 +5,7 @@ import { cleanLegalText, chunkDocument, type LegalChunk } from '../lib/text';
 import type { DocumentChunkRow } from '../lib/documents';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
+import { registraAccion } from '../lib/admin-audit';
 import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
 import type { ActivityRow } from '../lib/stats';
 
@@ -107,6 +108,7 @@ export async function deleteDocument(documentId: string) {
     try {
         const { error } = await supabase.from('documents').delete().eq('id', documentId);
         if (error) throw error;
+        registraAccion({ actorId: auth.user.id, action: 'delete_document', target: documentId });
         return { success: true };
     } catch (e) {
         return { success: false, error: errorMessage(e) };
@@ -425,9 +427,10 @@ export async function getDocumentChunks(documentId: string) {
 export async function deleteTopic(topicNameOrId: string) {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
-    const { data } = await supabase.from('subjects').select('id').ilike('title', `%${topicNameOrId}%`).single();
+    const { data } = await supabase.from('subjects').select('id, title').ilike('title', `%${topicNameOrId}%`).single();
     if (data) {
         await supabase.from('documents').delete().eq('subject_id', data.id);
+        registraAccion({ actorId: auth.user.id, action: 'delete_topic', target: data.title });
     }
     return { success: true };
 }
