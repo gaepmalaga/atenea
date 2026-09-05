@@ -99,6 +99,8 @@ describe('superficie de las Server Actions', () => {
       'recordPayment',
       'deletePayment',
       'activateAllCurrentStudents',
+      // P5f: el profesor organiza a sus alumnos.
+      'setStudentClass',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

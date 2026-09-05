@@ -28,7 +28,8 @@ export type AccionAuditada =
   | 'set_member_payment'
   | 'record_payment'
   | 'delete_payment'
-  | 'activate_all_students';
+  | 'activate_all_students'
+  | 'set_student_class';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -49,4 +50,5 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   record_payment: 'Apuntó un pago',
   delete_payment: 'Borró un pago',
   activate_all_students: 'Dio acceso a todos los alumnos actuales',
+  set_student_class: 'Cambió la clase de un alumno',
 };

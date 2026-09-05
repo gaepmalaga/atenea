@@ -8,6 +8,8 @@ import {
   erroresDelAlumno,
   preguntasSospechosas,
   coberturaTemario,
+  clasesDe,
+  normalizeClase,
   DIAS_EN_RIESGO,
   DIAS_ABANDONO,
   ESTADO_ALUMNO_LABEL,
@@ -290,6 +292,54 @@ describe('cobertura del temario', () => {
 // ============================================================
 // GUARDAS
 // ============================================================
+
+describe('clase o promoción (P5f)', () => {
+  it('normalizeClase: vacío o solo espacios es null, no cadena vacía (reglas 8 y 16)', () => {
+    expect(normalizeClase('')).toBeNull();
+    expect(normalizeClase('   ')).toBeNull();
+    expect(normalizeClase(null)).toBeNull();
+    expect(normalizeClase(undefined)).toBeNull();
+    expect(normalizeClase(42)).toBeNull();
+  });
+
+  it('normalizeClase: recorta y limita a 80 caracteres', () => {
+    expect(normalizeClase('  Promoción 2026  ')).toBe('Promoción 2026');
+    expect(normalizeClase('x'.repeat(200))).toHaveLength(80);
+  });
+
+  it('resumeAlumnos lleva la clase, ya normalizada', () => {
+    const [a, b, c] = resumeAlumnos(
+      [
+        { id: 'a', class_group: '  Tarde  ' },
+        { id: 'b', class_group: '' },
+        { id: 'c' },
+      ],
+      [],
+      AHORA,
+    );
+    expect(a.clase).toBe('Tarde');
+    expect(b.clase).toBeNull();
+    expect(c.clase).toBeNull();
+  });
+
+  it('clasesDe: solo las clases con alguien, ordenadas, sin repetir, sin null', () => {
+    const filas = resumeAlumnos(
+      [
+        { id: '1', class_group: 'Mañana' },
+        { id: '2', class_group: 'Tarde' },
+        { id: '3', class_group: 'Mañana' },
+        { id: '4', class_group: null },
+      ],
+      [],
+      AHORA,
+    );
+    expect(clasesDe(filas)).toEqual(['Mañana', 'Tarde']);
+  });
+
+  it('clasesDe: sin ninguna clase asignada, lista vacía', () => {
+    expect(clasesDe(resumeAlumnos([{ id: '1' }, { id: '2' }], [], AHORA))).toEqual([]);
+  });
+});
 
 describe('guardas del panel de academia', () => {
   const ACTIONS = join(__dirname, '..', 'app', 'actions');

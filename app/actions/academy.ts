@@ -10,6 +10,8 @@ import {
   erroresDelAlumno,
   preguntasSospechosas,
   coberturaTemario,
+  clasesDe,
+  normalizeClase,
   type IntentoAlumno,
   type FilaAlumno,
   type EstadoAlumno,
@@ -17,6 +19,7 @@ import {
   type CoberturaTema,
   type PreguntaSospechosa,
 } from '../lib/academy';
+import { registraAccion } from '../lib/admin-audit';
 import type { ErrorType } from '../lib/stats';
 
 /**
@@ -49,6 +52,8 @@ const MAX_INTENTOS = 20_000;
 export type AcademyOverview = {
   alumnos: FilaAlumno[];
   porEstado: Record<EstadoAlumno, number>;
+  /** Las clases/promociones que existen, para el filtro (P5f). */
+  clases: string[];
   cobertura: CoberturaTema[];
   sospechosas: (PreguntaSospechosa & { texto: string | null; tema: string | null })[];
 };
@@ -68,7 +73,7 @@ export async function getAcademyOverview(): Promise<
   // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
   // no era un numero feo, era una llamada de telefono equivocada.
   const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role, created_at'),
+    supabaseAdmin.from('profiles').select('id, email, role, created_at, class_group'),
     supabaseAdmin
       .from('question_attempts')
       .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
@@ -139,8 +144,39 @@ export async function getAcademyOverview(): Promise<
 
   return {
     success: true as const,
-    data: { alumnos, porEstado: contarPorEstado(alumnos), cobertura, sospechosas: conTexto },
+    data: {
+      alumnos,
+      porEstado: contarPorEstado(alumnos),
+      clases: clasesDe(alumnos),
+      cobertura,
+      sospechosas: conTexto,
+    },
   };
+}
+
+/**
+ * Pone (o quita) la clase/promoción de un alumno (P5f). Texto libre.
+ *
+ * Acepta un `studentId` por lo mismo que `getStudentDetail`: no es «los datos
+ * del que dice ser», es un administrador —`requireAdmin`— organizando a SUS
+ * alumnos. Va con la clave de servicio porque `profiles` no tiene política de
+ * escritura para la sesión (regla 34).
+ */
+export async function setStudentClass(studentId: string, clase: string) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
+
+  const valor = normalizeClase(clase);
+  const { error } = await supabaseAdmin
+    .from('profiles')
+    .update({ class_group: valor })
+    .eq('id', studentId);
+
+  if (!error) {
+    registraAccion({ actorId: auth.user.id, action: 'set_student_class', target: studentId, detail: { clase: valor } });
+  }
+  return { success: !error, error: error?.message };
 }
 
 export type StudentDetail = {
@@ -165,7 +201,7 @@ export async function getStudentDetail(
   if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
 
   const [perfilRes, intentosRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role, created_at').eq('id', studentId).maybeSingle(),
+    supabaseAdmin.from('profiles').select('id, email, role, created_at, class_group').eq('id', studentId).maybeSingle(),
     supabaseAdmin
       .from('question_attempts')
       .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
