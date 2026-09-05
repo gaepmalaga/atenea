@@ -88,6 +88,8 @@ describe('superficie de las Server Actions', () => {
       // P2: escriben directamente en el banco de los alumnos.
       'createManualQuestion',
       'importManualQuestions',
+      // P6: el gasto de IA es dato de administración (ai_usage sin políticas).
+      'getAiCostOverview',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {
