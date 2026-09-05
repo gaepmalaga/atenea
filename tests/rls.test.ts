@@ -200,21 +200,25 @@ describe('lo compartido sigue con la clave de servicio', () => {
   }
 });
 
-describe('question_attempts: la política de UPDATE ya existe, el código aún no se ha movido', () => {
-  it('sigue con la clave de servicio hasta verificar el movimiento con una sesión real', () => {
-    // `1.2-attempts-update.sql` SE EJECUTÓ el 5 sep 2026: `question_attempts`
-    // ya tiene las tres políticas (insert, select, update). Así que el guion ya
-    // NO es el bloqueo — el bloqueo ahora es que mover `saveTestResult` /
-    // `setResultErrorType` / `saveExamResults` a `createSupabaseServerClient()`
-    // es el camino más crítico del repo («el fallo más caro») y no se puede
-    // comprobar sin una sesión de alumno de verdad. Cuando se mueva y se
-    // verifique, este test se invierte: pasará a exigir `db.from(...)`.
-    const culpables: string[] = [];
-    for (const { nombre, src } of fuentes) {
-      for (const receptor of receptoresDe(src, 'question_attempts')) {
-        if (receptor === 'db') culpables.push(`${nombre}`);
-      }
+describe('question_attempts va con la sesión del alumno (fase 1.2 completada)', () => {
+  // `1.2-attempts-update.sql` se ejecutó el 5 sep 2026 y `exams.ts` se movió a
+  // la sesión el 6 sep. Ahora Postgres impone `auth.uid() = user_id` en las tres
+  // operaciones (insert/select/update), no solo el `.eq('user_id', …)`.
+  const exams = fuentes.find((f) => f.nombre === 'exams.ts')!.src;
+  const user = fuentes.find((f) => f.nombre === 'user.ts')!.src;
+
+  it('exams.ts escribe `question_attempts` con la sesión, NO con la clave de servicio', () => {
+    for (const receptor of receptoresDe(exams, 'question_attempts')) {
+      expect(receptor, 'exams.ts debe usar `db` para question_attempts').toBe('db');
     }
-    expect(culpables).toEqual([]);
+    expect(exams).toMatch(/createSupabaseServerClient/);
+  });
+
+  it('getUserStats / getFailedQuestions SIGUEN con la clave de servicio: hacen join con question_bank', () => {
+    // `question_bank` no tiene ninguna política de lectura —es contenido
+    // compartido—, así que un join con la sesión del alumno devolvería vacío.
+    for (const receptor of receptoresDe(user, 'question_attempts')) {
+      expect(receptor, 'user.ts debe seguir con supabaseAdmin').not.toBe('db');
+    }
   });
 });

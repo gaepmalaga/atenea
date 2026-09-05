@@ -1,5 +1,6 @@
 'use server'
 import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjectNameById } from './core';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
 import { requireAdmin, requireUser } from '../lib/auth';
@@ -533,7 +534,13 @@ export async function saveTestResult(
     // por eso los nombres pudieron divergir entre los dos caminos.
     const row = toResultRow({ questionId, topic, isCorrect, ...metrics });
 
-    const { data, error } = await supabase
+    // CON LA SESION, no con la clave de servicio (fase 1.2). `question_attempts`
+    // ya tiene politica de INSERT/SELECT/UPDATE desde `1.2-attempts-update.sql`,
+    // asi que Postgres impone `auth.uid() = user_id` — el `.eq('user_id', ...)`
+    // deja de ser la unica barrera. El `user_id` sigue puesto a mano porque el
+    // WITH CHECK de la politica lo exige.
+    const db = await createSupabaseServerClient();
+    const { data, error } = await db
       .from('question_attempts')
       .insert({ ...row, user_id: auth.user.id, created_at: new Date().toISOString() })
       .select('id')
@@ -565,9 +572,14 @@ export async function setResultErrorType(
   if (!auth.ok) return { success: false, error: auth.error };
   if (!resultId) return { success: false, error: 'Falta el id del resultado.' };
 
-  // El filtro por user_id impide etiquetar el resultado de otro usuario aunque
-  // se conozca su id.
-  const { error } = await supabase
+  // CON LA SESION (fase 1.2). Este era EL motivo de que `question_attempts` se
+  // quedara con la clave de servicio: sin politica de UPDATE, este update con la
+  // sesion no fallaba, simplemente no tocaba ninguna fila y el diagnostico del
+  // alumno se perdia en silencio. `1.2-attempts-update.sql` (ejecutado el 5 sep
+  // 2026) anadio la politica. El `.eq('user_id', ...)` se queda: es lo que
+  // exige el `USING` de la politica y ademas acota antes de llegar a RLS.
+  const db = await createSupabaseServerClient();
+  const { error } = await db
     .from('question_attempts')
     .update({ error_type: errorType })
     .eq('id', resultId)
@@ -591,7 +603,10 @@ export async function saveExamResults(results: ExamResultPayload[]) {
         created_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase.from('question_attempts').insert(rows);
+    // Con la sesion (fase 1.2). Un `user_id` que no sea el del alumno lo rechaza
+    // ahora Postgres por el WITH CHECK de la politica, no solo el `toResultRow`.
+    const db = await createSupabaseServerClient();
+    const { error } = await db.from('question_attempts').insert(rows);
 
     if (error) console.error('saveExamResults:', error.message);
     return { success: !error };

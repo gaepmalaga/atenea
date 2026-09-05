@@ -92,11 +92,9 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
    - `P7-grupos-y-fisica.sql` (`class_groups`, `class_members`,
      `group_training_plans`; retira `profiles.class_group`) — 6 sep.
 
-   **Ya no queda ningún guion SQL pendiente.** Lo que sí queda es MOVER el
-   código de `question_attempts` a la sesión (`saveTestResult`,
-   `setResultErrorType`, `saveExamResults` en `exams.ts`), y eso no se hace a
-   ciegas: es el camino más crítico del repo y hay que verlo guardar con una
-   sesión de alumno de verdad (regla 34).
+   **Ya no queda ningún guion SQL pendiente**, y `question_attempts` ya se movió
+   a la sesión (6 sep, regla 34), verificado con el token de un usuario real.
+   Lo único sin ver en pantalla es el ciclo completo del modo entrenamiento.
 
    La regla no cambia para el próximo: **no se escribe el código antes** de que
    exista la columna — PostgREST rechaza la escritura *entera* si falta una
@@ -953,17 +951,24 @@ lee con la sesión una tabla sin políticas, Postgres no protesta: devuelve cero
 filas. La pantalla se queda en blanco y nadie sabe por qué. Por eso el test
 vigila **las dos direcciones**, no solo una.
 
-**`question_attempts` se quedó fuera a propósito**, y sigue con la clave de
-servicio aunque el bloqueo ya no exista. Le faltaba la política de UPDATE
-—`setResultErrorType` actualiza, y con la sesión ese update no fallaría, solo
-no tocaría ninguna fila, y el diagnóstico del error se perdería en silencio: el
-fallo más caro de este repo, otra vez, por otra puerta—. El guion
-[`1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql) **se ejecutó el
-5 sep 2026** y ahora tiene las tres políticas. Lo que frena el movimiento del
-código (`saveTestResult` / `setResultErrorType` / `saveExamResults`) es que es
-el camino más crítico del repo y no se puede comprobar sin una sesión de alumno
-real. Cuando se mueva, el test `rls.test.ts` se invierte: pasará a exigir
-`db.from('question_attempts')`.
+**`question_attempts` ya va con la sesión** (6 sep 2026). Fue la última tabla
+del alumno en salir de la clave de servicio, porque le faltaba la política de
+UPDATE: `setResultErrorType` actualiza, y sin política ese update con la sesión
+no fallaba —solo no tocaba ninguna fila, y el diagnóstico del error se perdía
+en silencio, el fallo más caro de este repo—. `1.2-attempts-update.sql` (5 sep)
+añadió la política, y `saveTestResult` / `setResultErrorType` /
+`saveExamResults` (`exams.ts`) pasaron a `createSupabaseServerClient()`. Ahora
+Postgres impone `auth.uid() = user_id` en las tres operaciones.
+
+**Lo que SIGUE con la clave de servicio, y a propósito:** `getUserStats` y
+`getFailedQuestions` (`user.ts`). Hacen join con `question_bank`, que no tiene
+ninguna política de lectura —es contenido compartido—, así que con la sesión el
+join devolvería vacío. El test `rls.test.ts` vigila las dos direcciones.
+
+**Verificado el 6 sep:** con el token de un usuario real (no la clave de
+servicio), `question_attempts` acepta el `insert`, el `update` de `error_type`
+toca la fila, y un `user_id` que no sea el suyo lo rechaza Postgres. Lo que no
+se ha comprobado en pantalla es el ciclo completo del modo entrenamiento.
 
 Y una cosa que se aprendió al hacerlo: **hay accesos partidos en dos líneas**
 (`await supabase` y `.from(...)` debajo). Un reemplazo literal no los ve y los
@@ -1731,12 +1736,10 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    sesión**, y decidir si interesa que un mismo CSV traiga preguntas de varios temas
    (hoy el tema se elige una vez y vale para todo el fichero).
 
-4. **Fase 1.2 está cerrada** (31 ago): las tablas del alumno van con el cliente de su
-   sesión y RLS por fin protege de verdad (regla 34). `1.2-attempts-update.sql`
-   **ya está ejecutado** (5 sep): `question_attempts` tiene las tres políticas. Lo
-   único que queda es mover `saveTestResult` / `setResultErrorType` /
-   `saveExamResults` a la sesión, y **verlo guardar con una sesión de alumno de
-   verdad antes de darlo por hecho** — es el camino más crítico del repo.
+4. **Fase 1.2 cerrada del todo** (6 sep): TODAS las tablas del alumno van con el
+   cliente de su sesión, incluida `question_attempts` (`exams.ts`). RLS por fin
+   protege de verdad (regla 34). Verificado con el token de un usuario real; sin
+   ver en pantalla el ciclo completo del modo entrenamiento.
 
 5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
 
