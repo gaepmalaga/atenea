@@ -25,14 +25,14 @@ export type AccionAuditada =
   | 'delete_staff'
   | 'set_membership_required'
   | 'set_member_access'
-  | 'set_member_payment'
-  | 'record_payment'
-  | 'delete_payment'
   | 'activate_all_students'
+  | 'set_payment'
   | 'create_group'
   | 'update_group'
   | 'delete_group'
-  | 'set_group_members'
+  | 'set_student_groups'
+  | 'save_group_kind'
+  | 'delete_group_kind'
   | 'save_group_training_plan'
   | 'delete_group_training_plan';
 
@@ -51,14 +51,14 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   delete_staff: 'Borró un profesor',
   set_membership_required: 'Cambió el control de acceso',
   set_member_access: 'Cambió el acceso de un alumno',
-  set_member_payment: 'Cambió el estado de pago de un alumno',
-  record_payment: 'Apuntó un pago',
-  delete_payment: 'Borró un pago',
   activate_all_students: 'Dio acceso a todos los alumnos actuales',
+  set_payment: 'Marcó un pago mensual',
   create_group: 'Creó un grupo',
   update_group: 'Editó un grupo',
   delete_group: 'Borró un grupo',
-  set_group_members: 'Cambió los miembros de un grupo',
+  set_student_groups: 'Cambió los grupos de un alumno',
+  save_group_kind: 'Guardó un tipo de grupo',
+  delete_group_kind: 'Borró un tipo de grupo',
   save_group_training_plan: 'Guardó el plan de entrenamiento de un grupo',
   delete_group_training_plan: 'Borró el plan de entrenamiento de un grupo',
 };

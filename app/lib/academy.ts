@@ -109,6 +109,14 @@ export type FilaAlumno = {
   role: string | null;
   /** Grupos a los que pertenece (P7). Los pone la acción, no `resumeAlumnos`. */
   grupos: GrupoDeAlumno[];
+  /**
+   * Estado de acceso (P6/P8): `active` | `suspended` | `pending` (sin fila en
+   * `memberships`). Lo pone la acción. Con el interruptor global apagado da
+   * igual, pero se muestra igualmente para poder activar antes de encenderlo.
+   */
+  acceso: 'active' | 'suspended' | 'pending';
+  /** ¿Ha pagado el mes en curso? (P8). Lo pone la acción. */
+  pagadoMesActual: boolean;
   /** Respuestas CONTESTADAS. Los blancos van aparte (regla 24). */
   contestadas: number;
   blancos: number;
@@ -203,6 +211,8 @@ export function resumeAlumnos(
       email: p.email ?? null,
       role: p.role ?? null,
       grupos: [],
+      acceso: 'pending' as const,
+      pagadoMesActual: false,
       contestadas: acc?.contestadas ?? 0,
       blancos: acc?.blancos ?? 0,
       aciertos: acc?.aciertos ?? 0,

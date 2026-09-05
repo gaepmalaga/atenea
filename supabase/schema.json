@@ -1,32 +1,6 @@
 {
   "generado": "2026-09-05",
   "tablas": {
-    "academy_payments": {
-      "columnas": [
-        "amount_eur",
-        "created_at",
-        "id",
-        "note",
-        "paid_on",
-        "recorded_by",
-        "user_id"
-      ],
-      "obligatorias": [
-        "created_at",
-        "id",
-        "paid_on",
-        "user_id"
-      ],
-      "tipos": {
-        "amount_eur": "numeric",
-        "created_at": "timestamp with time zone",
-        "id": "uuid",
-        "note": "text",
-        "paid_on": "date",
-        "recorded_by": "uuid",
-        "user_id": "uuid"
-      }
-    },
     "academy_settings": {
       "columnas": [
         "address",
@@ -225,14 +199,27 @@
         "user_id": "uuid"
       }
     },
+    "class_group_staff": {
+      "columnas": [
+        "class_id",
+        "staff_id"
+      ],
+      "obligatorias": [
+        "class_id",
+        "staff_id"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "staff_id": "uuid"
+      }
+    },
     "class_groups": {
       "columnas": [
         "created_at",
         "id",
         "kind",
         "name",
-        "schedule",
-        "staff_id"
+        "schedule"
       ],
       "obligatorias": [
         "created_at",
@@ -245,8 +232,7 @@
         "id": "uuid",
         "kind": "text",
         "name": "text",
-        "schedule": "text",
-        "staff_id": "uuid"
+        "schedule": "text"
       }
     },
     "class_members": {
@@ -490,6 +476,29 @@
         "user_id": "uuid"
       }
     },
+    "group_kinds": {
+      "columnas": [
+        "created_at",
+        "id",
+        "label",
+        "lleva_plan",
+        "sort_order"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "label",
+        "lleva_plan",
+        "sort_order"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "text",
+        "label": "text",
+        "lleva_plan": "boolean",
+        "sort_order": "integer"
+      }
+    },
     "group_training_plans": {
       "columnas": [
         "class_id",
@@ -566,6 +575,34 @@
         "organization_id": "uuid",
         "updated_at": "timestamp with time zone",
         "updated_by": "uuid"
+      }
+    },
+    "monthly_payments": {
+      "columnas": [
+        "amount_eur",
+        "note",
+        "paid",
+        "paid_on",
+        "period",
+        "recorded_by",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "paid",
+        "period",
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "amount_eur": "numeric",
+        "note": "text",
+        "paid": "boolean",
+        "paid_on": "date",
+        "period": "text",
+        "recorded_by": "uuid",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid"
       }
     },
     "profiles": {

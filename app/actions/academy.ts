@@ -19,6 +19,7 @@ import {
   type GrupoDeAlumno,
 } from '../lib/academy';
 import type { ErrorType } from '../lib/stats';
+import { periodoActual } from '../lib/payments';
 
 /**
  * El panel de la academia (P5).
@@ -50,8 +51,12 @@ const MAX_INTENTOS = 20_000;
 export type AcademyOverview = {
   alumnos: FilaAlumno[];
   porEstado: Record<EstadoAlumno, number>;
-  /** Los grupos que existen, para el filtro (P7). */
+  /** Los grupos que existen, para el filtro y las casillas del alumno (P7/P8). */
   grupos: { id: string; name: string; kind: string }[];
+  /** El interruptor global de acceso (P6). */
+  membershipRequired: boolean;
+  /** El mes en curso, `YYYY-MM`, para la columna de pago. */
+  periodoActual: string;
   cobertura: CoberturaTema[];
   sospechosas: (PreguntaSospechosa & { texto: string | null; tema: string | null })[];
 };
@@ -70,7 +75,8 @@ export async function getAcademyOverview(): Promise<
   // alumno que entra a diario a leer el temario o a usar el chat encabezaba la
   // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
   // no era un numero feo, era una llamada de telefono equivocada.
-  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosRes] = await Promise.all([
+  const periodo = periodoActual();
+  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosRes, membresiasRes, pagosRes, ajustesRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role, created_at'),
     supabaseAdmin
       .from('question_attempts')
@@ -82,6 +88,9 @@ export async function getAcademyOverview(): Promise<
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
     supabaseAdmin.from('class_groups').select('id, name, kind').order('name'),
     supabaseAdmin.from('class_members').select('class_id, user_id'),
+    supabaseAdmin.from('memberships').select('user_id, access_status'),
+    supabaseAdmin.from('monthly_payments').select('user_id, paid').eq('period', periodo).eq('paid', true),
+    supabaseAdmin.from('membership_settings').select('required').eq('id', 1).maybeSingle(),
   ]);
 
   if (perfilesRes.error || intentosRes.error) {
@@ -119,8 +128,17 @@ export async function getAcademyOverview(): Promise<
     lista.push({ id: g.id, name: g.name, kind: g.kind });
     gruposDeAlumno.set(m.user_id as string, lista);
   }
+  // Acceso (P6) y pago del mes en curso (P8), pegados a cada fila.
+  const accesoPorAlumno = new Map<string, 'active' | 'suspended'>();
+  for (const m of membresiasRes.data ?? []) {
+    accesoPorAlumno.set(m.user_id as string, m.access_status === 'suspended' ? 'suspended' : 'active');
+  }
+  const pagadoEsteMes = new Set((pagosRes.data ?? []).map((p) => p.user_id as string));
+
   for (const a of alumnos) {
     a.grupos = (gruposDeAlumno.get(a.id) ?? []).sort((x, y) => x.name.localeCompare(y.name, 'es'));
+    a.acceso = accesoPorAlumno.get(a.id) ?? 'pending';
+    a.pagadoMesActual = pagadoEsteMes.has(a.id);
   }
 
   // Cuantas preguntas activas tiene cada tema.
@@ -165,6 +183,8 @@ export async function getAcademyOverview(): Promise<
       alumnos,
       porEstado: contarPorEstado(alumnos),
       grupos: grupos.map((g) => ({ id: g.id, name: g.name, kind: g.kind })),
+      membershipRequired: ajustesRes.data?.required === true,
+      periodoActual: periodo,
       cobertura,
       sospechosas: conTexto,
     },
