@@ -711,6 +711,68 @@ perfecto.
 
 ---
 
+## P7 · Grupos y preparación física
+
+> **Abierta el 6 sep 2026.** Salió de probar el panel: *«no puedo generar varias
+> clases (promoción 41 tarde, promoción 42 mañanas, inglés, físicas…); cada
+> alumno puede estar en una o varias»*, y *«las físicas están dentro de cada
+> alumno pero merecen un apartado, y poder preparar entrenamientos de grupo en
+> vez de uno a uno»*.
+
+### Lo que P5f dejó corto
+
+P5f montó `profiles.class_group`: **un** texto libre por alumno. No sirve: los
+grupos son **muchos-a-muchos** (un alumno en «Inglés» Y «Promoción 41 tarde»,
+pero no en «Físicas»). Se retira esa columna —nunca llegó a producción— y se
+sustituye por tablas de verdad.
+
+### El modelo
+
+- **`class_groups`** — un grupo: nombre, **tipo** (`teoria` | `ingles` |
+  `fisicas` | `otro`), horario en texto libre (regla 50) y un profesor de
+  `academy_staff`. El tipo decide qué se le puede colgar: a uno de `fisicas`, un
+  plan de entrenamiento; a uno de `teoria`, no. Sin tipo, un plan de
+  entrenamiento acabaría colgado de «Inglés B2» por error.
+- **`class_members`** — el par `(class_id, user_id)`. Un alumno en varios
+  grupos, un grupo con varios alumnos.
+- **`group_training_plans`** — el plan de entrenamiento de un grupo de físicas.
+  **El individual manda sobre el de grupo:** el alumno ve el plan de su grupo
+  por defecto; si tiene uno individual (`training_plans` con `status='active'`),
+  ese gana. Así no hay que ponerle un plan a cada uno, pero se puede afinar.
+
+Las tres son de administración: RLS y cero políticas, clave de servicio detrás
+de `requireAdmin` (regla 34/35). `group_training_plans` es la excepción —
+`SELECT` para cualquier autenticado, porque el plan tiene que llegar al alumno;
+escribir, solo servicio.
+
+### Las pantallas
+
+- **Grupos** (pestaña nueva): crear grupos, asignar profesor, meter y sacar
+  alumnos, y el filtro por grupo en la lista de Academia.
+- **Preparación física** (pestaña nueva): saca el entrenamiento de la ficha de
+  cada alumno a su sitio. Enseña los grupos de físicas, el editor del plan de
+  grupo, y las marcas de cada miembro (Cooper, dominadas…) juntas.
+- **Academia**: la lista se puede filtrar por grupo; cada alumno enseña sus
+  grupos como etiquetas. El editor de plan individual se queda (es el que
+  «manda»).
+- **Usuarios**: deja de mostrar la lista de progreso (nombre + preguntas +
+  acierto), que duplicaba Academia. Se queda con lo de cuentas: rol, acceso
+  (P6), alta y baja.
+
+### Estado de P7
+
+| | Qué es | Estado |
+|---|---|---|
+| P7a | `class_groups` + `class_members` + `group_training_plans` | ⬜ |
+| P7b | Retirar `profiles.class_group` de P5f | ⬜ |
+| P7c | Pestaña **Grupos** | ⬜ |
+| P7d | Pestaña **Preparación física** con plan de grupo | ⬜ |
+| P7e | Filtro por grupo en Academia | ⬜ |
+| P7f | Herencia plan grupo → individual en el módulo del alumno | ⬜ |
+| P7g | Usuarios deja de duplicar la lista de Academia | ⬜ |
+
+---
+
 ## Orden propuesto
 
 ```

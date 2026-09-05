@@ -10,16 +10,14 @@ import {
   erroresDelAlumno,
   preguntasSospechosas,
   coberturaTemario,
-  clasesDe,
-  normalizeClase,
   type IntentoAlumno,
   type FilaAlumno,
   type EstadoAlumno,
   type TemaDelAlumno,
   type CoberturaTema,
   type PreguntaSospechosa,
+  type GrupoDeAlumno,
 } from '../lib/academy';
-import { registraAccion } from '../lib/admin-audit';
 import type { ErrorType } from '../lib/stats';
 
 /**
@@ -52,8 +50,8 @@ const MAX_INTENTOS = 20_000;
 export type AcademyOverview = {
   alumnos: FilaAlumno[];
   porEstado: Record<EstadoAlumno, number>;
-  /** Las clases/promociones que existen, para el filtro (P5f). */
-  clases: string[];
+  /** Los grupos que existen, para el filtro (P7). */
+  grupos: { id: string; name: string; kind: string }[];
   cobertura: CoberturaTema[];
   sospechosas: (PreguntaSospechosa & { texto: string | null; tema: string | null })[];
 };
@@ -72,8 +70,8 @@ export async function getAcademyOverview(): Promise<
   // alumno que entra a diario a leer el temario o a usar el chat encabezaba la
   // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
   // no era un numero feo, era una llamada de telefono equivocada.
-  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role, created_at, class_group'),
+  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosRes] = await Promise.all([
+    supabaseAdmin.from('profiles').select('id, email, role, created_at'),
     supabaseAdmin
       .from('question_attempts')
       .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
@@ -82,6 +80,8 @@ export async function getAcademyOverview(): Promise<
     supabaseAdmin.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
     // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
+    supabaseAdmin.from('class_groups').select('id, name, kind').order('name'),
+    supabaseAdmin.from('class_members').select('class_id, user_id'),
   ]);
 
   if (perfilesRes.error || intentosRes.error) {
@@ -105,6 +105,23 @@ export async function getAcademyOverview(): Promise<
   }));
 
   const alumnos = resumeAlumnos(perfilesConConexion, intentos);
+
+  // Los grupos de cada alumno (P7). El grupo es de administración: se resuelve
+  // aquí y se pega a la fila, no lo hace `resumeAlumnos` (que es puro).
+  type FilaGrupo = { id: string; name: string; kind: string };
+  const grupos = ((gruposRes.data as FilaGrupo[]) ?? []);
+  const grupoPorId = new Map(grupos.map((g) => [g.id, g]));
+  const gruposDeAlumno = new Map<string, GrupoDeAlumno[]>();
+  for (const m of miembrosRes.data ?? []) {
+    const g = grupoPorId.get(m.class_id as string);
+    if (!g) continue;
+    const lista = gruposDeAlumno.get(m.user_id as string) ?? [];
+    lista.push({ id: g.id, name: g.name, kind: g.kind });
+    gruposDeAlumno.set(m.user_id as string, lista);
+  }
+  for (const a of alumnos) {
+    a.grupos = (gruposDeAlumno.get(a.id) ?? []).sort((x, y) => x.name.localeCompare(y.name, 'es'));
+  }
 
   // Cuantas preguntas activas tiene cada tema.
   const preguntasPorTema = new Map<number, number>();
@@ -147,36 +164,11 @@ export async function getAcademyOverview(): Promise<
     data: {
       alumnos,
       porEstado: contarPorEstado(alumnos),
-      clases: clasesDe(alumnos),
+      grupos: grupos.map((g) => ({ id: g.id, name: g.name, kind: g.kind })),
       cobertura,
       sospechosas: conTexto,
     },
   };
-}
-
-/**
- * Pone (o quita) la clase/promoción de un alumno (P5f). Texto libre.
- *
- * Acepta un `studentId` por lo mismo que `getStudentDetail`: no es «los datos
- * del que dice ser», es un administrador —`requireAdmin`— organizando a SUS
- * alumnos. Va con la clave de servicio porque `profiles` no tiene política de
- * escritura para la sesión (regla 34).
- */
-export async function setStudentClass(studentId: string, clase: string) {
-  const auth = await requireAdmin();
-  if (!auth.ok) return { success: false as const, error: auth.error };
-  if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
-
-  const valor = normalizeClase(clase);
-  const { error } = await supabaseAdmin
-    .from('profiles')
-    .update({ class_group: valor })
-    .eq('id', studentId);
-
-  if (!error) {
-    registraAccion({ actorId: auth.user.id, action: 'set_student_class', target: studentId, detail: { clase: valor } });
-  }
-  return { success: !error, error: error?.message };
 }
 
 export type StudentDetail = {
@@ -201,7 +193,7 @@ export async function getStudentDetail(
   if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
 
   const [perfilRes, intentosRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role, created_at, class_group').eq('id', studentId).maybeSingle(),
+    supabaseAdmin.from('profiles').select('id, email, role, created_at').eq('id', studentId).maybeSingle(),
     supabaseAdmin
       .from('question_attempts')
       .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')

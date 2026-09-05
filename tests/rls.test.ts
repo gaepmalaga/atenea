@@ -74,6 +74,13 @@ const SOLO_SERVICIO = [
   'membership_settings',
   'memberships',
   'academy_payments',
+  // P7: grupos. `class_groups` y `class_members` son administracion pura.
+  // `group_training_plans` tiene politica de SELECT abierta (el plan tiene que
+  // llegar al alumno), pero `training.ts` lo lee con la clave de servicio de una
+  // vez, filtrando por el propio usuario — no con `db`.
+  'class_groups',
+  'class_members',
+  'group_training_plans',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */

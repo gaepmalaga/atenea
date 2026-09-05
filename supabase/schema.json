@@ -225,6 +225,47 @@
         "user_id": "uuid"
       }
     },
+    "class_groups": {
+      "columnas": [
+        "created_at",
+        "id",
+        "kind",
+        "name",
+        "schedule",
+        "staff_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "kind",
+        "name"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "kind": "text",
+        "name": "text",
+        "schedule": "text",
+        "staff_id": "uuid"
+      }
+    },
+    "class_members": {
+      "columnas": [
+        "class_id",
+        "created_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "class_id",
+        "created_at",
+        "user_id"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
     "content_documents": {
       "columnas": [
         "created_at",
@@ -449,6 +490,25 @@
         "user_id": "uuid"
       }
     },
+    "group_training_plans": {
+      "columnas": [
+        "class_id",
+        "plan_data",
+        "updated_at",
+        "week_start"
+      ],
+      "obligatorias": [
+        "class_id",
+        "plan_data",
+        "updated_at"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "plan_data": "jsonb",
+        "updated_at": "timestamp with time zone",
+        "week_start": "date"
+      }
+    },
     "membership_settings": {
       "columnas": [
         "id",
@@ -510,7 +570,6 @@
     },
     "profiles": {
       "columnas": [
-        "class_group",
         "created_at",
         "email",
         "id",
@@ -521,7 +580,6 @@
         "id"
       ],
       "tipos": {
-        "class_group": "text",
         "created_at": "timestamp with time zone",
         "email": "text",
         "id": "uuid",

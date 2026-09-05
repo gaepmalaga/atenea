@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Users, PhoneCall, Loader2, AlertTriangle, ChevronDown,
-  BookOpen, Target, Layers, GraduationCap, Check,
+  BookOpen, Target, Layers, GraduationCap,
 } from 'lucide-react';
-import { getAcademyOverview, getStudentDetail, getStudentActivePlan, saveManualTrainingPlan, setStudentClass } from '@/actions';
+import { getAcademyOverview, getStudentDetail, getStudentActivePlan, saveManualTrainingPlan } from '@/actions';
 import { Dumbbell } from 'lucide-react';
 import PlanEntrenadorEditor from './PlanEntrenadorEditor';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno } from '@/app/lib/academy';
+import { etiquetaTipo } from '@/app/lib/groups';
 import { ERROR_LABELS } from '@/app/lib/stats';
 import { Card } from '../../ui';
 
@@ -45,54 +46,6 @@ function Cifra({ n, etiqueta, alerta }: { n: number; etiqueta: string; alerta?: 
   );
 }
 
-/**
- * Poner o cambiar la clase/promoción de un alumno (P5f). Texto libre: «vaciar
- * y guardar» le quita la clase (`normalizeClase` lo convierte en `null`).
- */
-function ClaseEditor({
-  claseActual,
-  onGuardar,
-}: {
-  claseActual: string | null;
-  onGuardar: (valor: string) => Promise<{ success: boolean; error?: string }>;
-}) {
-  const [valor, setValor] = useState(claseActual ?? '');
-  const [guardando, setGuardando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
-  const sucio = valor.trim() !== (claseActual ?? '');
-
-  async function guardar() {
-    setGuardando(true);
-    setGuardado(false);
-    const res = await onGuardar(valor);
-    setGuardando(false);
-    if (res.success) {
-      setGuardado(true);
-      setTimeout(() => setGuardado(false), 1500);
-    }
-  }
-
-  return (
-    <div className="mb-5 flex items-center gap-2 flex-wrap">
-      <GraduationCap size={13} className="text-slate-500 dark:text-slate-400 shrink-0" />
-      <input
-        type="text"
-        value={valor}
-        onChange={(e) => setValor(e.target.value)}
-        placeholder="Clase o promoción (p. ej. Promoción 2026)"
-        className="flex-1 min-w-[10rem] text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5"
-      />
-      <button
-        onClick={guardar}
-        disabled={!sucio || guardando}
-        className="shrink-0 text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 disabled:opacity-40 flex items-center gap-1.5"
-      >
-        {guardado ? <><Check size={12} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
-      </button>
-    </div>
-  );
-}
-
 export default function AdminAcademy() {
   const [datos, setDatos] = useState<AcademyOverview | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -103,9 +56,9 @@ export default function AdminAcademy() {
   const [plan, setPlan] = useState<Awaited<ReturnType<typeof getStudentActivePlan>>['plan'] | undefined>(undefined);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
-  /** '' = todas. '__sin__' = las que no tienen clase asignada (P5f). */
-  const SIN_CLASE = '__sin__';
-  const [filtroClase, setFiltroClase] = useState('');
+  /** '' = todos. '__sin__' = alumnos sin ningún grupo (P7). */
+  const SIN_GRUPO = '__sin__';
+  const [filtroGrupo, setFiltroGrupo] = useState('');
 
   const recargar = useCallback(async () => {
     const res = await getAcademyOverview();
@@ -155,15 +108,15 @@ export default function AdminAcademy() {
 
   if (!datos) return null;
 
-  const { alumnos, porEstado, clases, cobertura, sospechosas } = datos;
+  const { alumnos, porEstado, grupos, cobertura, sospechosas } = datos;
   const sinBanco = cobertura.filter((c) => c.preguntas === 0);
   const sinAlumnos = cobertura.filter((c) => c.preguntas > 0 && c.alumnos === 0);
 
-  const hayAlgunSinClase = alumnos.some((a) => a.role !== 'admin' && !a.clase);
+  const hayAlgunSinGrupo = alumnos.some((a) => a.role !== 'admin' && a.grupos.length === 0);
   const alumnosVistos =
-    filtroClase === '' ? alumnos
-    : filtroClase === SIN_CLASE ? alumnos.filter((a) => !a.clase)
-    : alumnos.filter((a) => a.clase === filtroClase);
+    filtroGrupo === '' ? alumnos
+    : filtroGrupo === SIN_GRUPO ? alumnos.filter((a) => a.grupos.length === 0)
+    : alumnos.filter((a) => a.grupos.some((g) => g.id === filtroGrupo));
 
   return (
     <div className="space-y-8 animate-in fade-in pb-24">
@@ -195,31 +148,32 @@ export default function AdminAcademy() {
         </div>
       </div>
 
-      {/* --- FILTRO POR CLASE (P5f) --- */}
-      {(clases.length > 0 || hayAlgunSinClase) && (
+      {/* --- FILTRO POR GRUPO (P7) --- */}
+      {grupos.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <GraduationCap size={14} className="text-slate-500 dark:text-slate-400" />
           <select
-            value={filtroClase}
-            onChange={(e) => setFiltroClase(e.target.value)}
+            value={filtroGrupo}
+            onChange={(e) => setFiltroGrupo(e.target.value)}
             className="text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 font-semibold"
           >
-            <option value="">Todas las clases ({alumnos.length})</option>
-            {clases.map((c) => (
-              <option key={c} value={c}>{c}</option>
+            <option value="">Todos los grupos ({alumnos.length})</option>
+            {grupos.map((g) => (
+              <option key={g.id} value={g.id}>{g.name} · {etiquetaTipo(g.kind)}</option>
             ))}
-            {hayAlgunSinClase && <option value={SIN_CLASE}>Sin clase asignada</option>}
+            {hayAlgunSinGrupo && <option value={SIN_GRUPO}>Sin grupo asignado</option>}
           </select>
-          {filtroClase !== '' && (
+          {filtroGrupo !== '' && (
             <span className="text-xs text-slate-500 dark:text-slate-400">{alumnosVistos.length} de {alumnos.length}</span>
           )}
+          <span className="text-[11px] text-slate-400">Los grupos se gestionan en la pestaña «Grupos».</span>
         </div>
       )}
 
       {/* --- LISTA, ORDENADA POR URGENCIA --- */}
       <div className="space-y-3">
         {alumnosVistos.length === 0 && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">Nadie en esta clase.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">Nadie en este grupo.</p>
         )}
         {alumnosVistos.map((a) => {
           const estaAbierto = abierto === a.id;
@@ -236,11 +190,11 @@ export default function AdminAcademy() {
                         admin
                       </span>
                     )}
-                    {a.clase && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center gap-1">
-                        <GraduationCap size={10} /> {a.clase}
+                    {a.grupos.map((g) => (
+                      <span key={g.id} className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center gap-1">
+                        <GraduationCap size={10} /> {g.name}
                       </span>
-                    )}
+                    ))}
                     {(a.estado === 'abandonado' || a.estado === 'nunca_entro') && (
                       <span className="text-[10px] font-bold text-red-700 dark:text-red-400/80 flex items-center gap-1">
                         <PhoneCall size={10} /> llamar
@@ -308,15 +262,10 @@ export default function AdminAcademy() {
 
               {estaAbierto && (
                 <div className="px-5 pb-5 border-t border-slate-800/60 pt-5 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {a.role !== 'admin' && (
-                    <ClaseEditor
-                      claseActual={a.clase}
-                      onGuardar={async (valor) => {
-                        const res = await setStudentClass(a.id, valor);
-                        if (res.success) await recargar();
-                        return res;
-                      }}
-                    />
+                  {a.role !== 'admin' && a.grupos.length > 0 && (
+                    <p className="mb-4 text-[11px] text-slate-500 dark:text-slate-400">
+                      Grupos: {a.grupos.map((g) => `${g.name} (${etiquetaTipo(g.kind)})`).join(', ')}
+                    </p>
                   )}
 
                   {cargandoFicha && (

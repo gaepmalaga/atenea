@@ -75,16 +75,8 @@ export type IntentoAlumno = {
   selected_index?: number | null;
 };
 
-/**
- * Clase o promoción del alumno (P5f), texto libre. Vacío o solo espacios se
- * trata como «sin asignar» (`null`) — la cadena vacía sería un segundo «sin
- * asignar» que la UI tendría que distinguir en todos los sitios (reglas 8 y 16).
- */
-export function normalizeClase(valor: unknown): string | null {
-  if (typeof valor !== 'string') return null;
-  const limpio = valor.trim();
-  return limpio ? limpio.slice(0, 80) : null;
-}
+/** Un grupo al que pertenece un alumno (P7), tal y como lo enseña el panel. */
+export type GrupoDeAlumno = { id: string; name: string; kind: string };
 
 /** Una fila de `profiles`. */
 export type PerfilAlumno = {
@@ -92,8 +84,6 @@ export type PerfilAlumno = {
   email?: string | null;
   role?: string | null;
   created_at?: string | null;
-  /** Clase o promoción (P5f). `null` = sin asignar. */
-  class_group?: string | null;
   /**
    * La ULTIMA VEZ QUE ENTRO DE VERDAD, de `auth.users.last_sign_in_at`.
    *
@@ -117,8 +107,8 @@ export type FilaAlumno = {
   id: string;
   email: string | null;
   role: string | null;
-  /** Clase o promoción (P5f). `null` = sin asignar. */
-  clase: string | null;
+  /** Grupos a los que pertenece (P7). Los pone la acción, no `resumeAlumnos`. */
+  grupos: GrupoDeAlumno[];
   /** Respuestas CONTESTADAS. Los blancos van aparte (regla 24). */
   contestadas: number;
   blancos: number;
@@ -212,7 +202,7 @@ export function resumeAlumnos(
       id: p.id,
       email: p.email ?? null,
       role: p.role ?? null,
-      clase: normalizeClase(p.class_group),
+      grupos: [],
       contestadas: acc?.contestadas ?? 0,
       blancos: acc?.blancos ?? 0,
       aciertos: acc?.aciertos ?? 0,
@@ -238,16 +228,6 @@ export function resumeAlumnos(
     // Dentro del mismo estado, el que lleva mas tiempo fuera primero.
     return (b.diasSinEntrar ?? 0) - (a.diasSinEntrar ?? 0);
   });
-}
-
-/**
- * Las clases que existen, ordenadas alfabéticamente, para el filtro del panel.
- * Solo las que tienen a alguien: una clase vacía no es una opción real.
- */
-export function clasesDe(filas: FilaAlumno[]): string[] {
-  const vistas = new Set<string>();
-  for (const f of filas ?? []) if (f.clase) vistas.add(f.clase);
-  return [...vistas].sort((a, b) => a.localeCompare(b, 'es'));
 }
 
 /** Cuantos alumnos hay en cada estado. Para los cuatro numeros de la cabecera. */

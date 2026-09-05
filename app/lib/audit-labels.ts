@@ -29,7 +29,12 @@ export type AccionAuditada =
   | 'record_payment'
   | 'delete_payment'
   | 'activate_all_students'
-  | 'set_student_class';
+  | 'create_group'
+  | 'update_group'
+  | 'delete_group'
+  | 'set_group_members'
+  | 'save_group_training_plan'
+  | 'delete_group_training_plan';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -50,5 +55,10 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   record_payment: 'Apuntó un pago',
   delete_payment: 'Borró un pago',
   activate_all_students: 'Dio acceso a todos los alumnos actuales',
-  set_student_class: 'Cambió la clase de un alumno',
+  create_group: 'Creó un grupo',
+  update_group: 'Editó un grupo',
+  delete_group: 'Borró un grupo',
+  set_group_members: 'Cambió los miembros de un grupo',
+  save_group_training_plan: 'Guardó el plan de entrenamiento de un grupo',
+  delete_group_training_plan: 'Borró el plan de entrenamiento de un grupo',
 };

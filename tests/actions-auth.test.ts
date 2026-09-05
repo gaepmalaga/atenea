@@ -99,8 +99,15 @@ describe('superficie de las Server Actions', () => {
       'recordPayment',
       'deletePayment',
       'activateAllCurrentStudents',
-      // P5f: el profesor organiza a sus alumnos.
-      'setStudentClass',
+      // P7: grupos y planes de entrenamiento de grupo.
+      'getGroups',
+      'createGroup',
+      'updateGroup',
+      'deleteGroup',
+      'setGroupMembers',
+      'getGroupTrainingPlan',
+      'saveGroupTrainingPlan',
+      'deleteGroupTrainingPlan',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {
