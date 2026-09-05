@@ -47,8 +47,9 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
-| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada** (P5f — agrupar por clase — hecha el 5 sep). Solo falta P5e (invitar por correo), que es decisión, no código |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada**. P5f (agrupar por clase) se **rehízo como P7** — era muchos-a-muchos. Solo falta P5e (invitar por correo), que es decisión, no código |
 | **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso por invitación + registro de pagos. Sin pasarela, a propósito |
+| **P7** | **Grupos y preparación física** (plan de producto) | ✅ **cerrada** (6 sep): grupos muchos-a-muchos con tipo, pestañas Grupos y Prep. física, plan de entrenamiento de grupo. Ver **regla 53** |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -85,10 +86,11 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
      41/44/49/50.
    - `P6-acceso-y-pagos.sql` (`membership_settings` con su fila id=1,
-     `memberships`, `academy_payments`) y `profiles.class_group` de P5f —
-     5 sep, comprobados contra la BD real.
+     `memberships`, `academy_payments`) — 5 sep, comprobados contra la BD real.
    - `1.2-attempts-update.sql` — la política de UPDATE de `question_attempts`
      (regla 34). 5 sep. Ya tiene las tres políticas (insert/select/update).
+   - `P7-grupos-y-fisica.sql` (`class_groups`, `class_members`,
+     `group_training_plans`; retira `profiles.class_group`) — 6 sep.
 
    **Ya no queda ningún guion SQL pendiente.** Lo que sí queda es MOVER el
    código de `question_attempts` a la sesión (`saveTestResult`,
@@ -1004,14 +1006,11 @@ Medido contra la base de datos real el 31 ago: 43 de 45 temas **sin una sola
 pregunta**, y el alumno con más actividad al 44 % — 30 % en Constitución y 67 %
 en Inteligencia.
 
-**P5f · agrupar por clase o promoción** (5 sep). `profiles.class_group` es
-**texto libre**, no una tabla `academy_classes`: con una academia, «Promoción
-2026» es una etiqueta, no una entidad con horario y profesor propios (misma
-decisión que `academy_settings.schedule`, regla 50). `normalizeClase`
-(`app/lib/academy.ts`) convierte vacío o solo espacios en `null` —la cadena
-vacía sería un segundo «sin asignar» (reglas 8 y 16)— y vaciar el campo en el
-panel le quita la clase al alumno. El filtro solo ofrece las clases que tienen
-a alguien (`clasesDe`): una clase vacía no es una opción real.
+**P5f se rehízo como P7** (6 sep). El primer intento fue `profiles.class_group`,
+un texto libre por alumno. El dueño lo probó y era muchos-a-muchos: un alumno en
+«Inglés» Y «Teoría». Se retiró la columna y el filtro de esta pantalla pasó a
+ser **por grupo** (`class_groups`), con badges de los grupos de cada alumno. Los
+grupos se gestionan en su propia pestaña. Ver **regla 53**.
 
 ### 36 · Todo lo que se pinta sale de `app/components/ui/`
 
@@ -1516,6 +1515,37 @@ resucita a un suspendido).
 hoy la puerta está abierta para todos. Encenderla es un clic en la pestaña
 **Acceso & Pagos**, después de activar a los alumnos actuales.
 
+### 53 · Los grupos son muchos-a-muchos, y el tipo del grupo manda
+
+P5f montó `profiles.class_group` —UN texto libre por alumno— y no servía:
+*«promoción 41 tarde, promoción 42 mañanas, inglés, físicas… cada alumno puede
+estar en varias (inglés y teoría, físicas no)»*. Eso es una relación
+muchos-a-muchos. Se retiró la columna (nunca llegó a producción) y P7 la
+sustituyó por `class_groups` + `class_members` + `group_training_plans`.
+
+- **El `kind` del grupo no es una etiqueta:** `admitePlan` (`app/lib/groups.ts`)
+  dice que solo un grupo de `fisicas` lleva plan de entrenamiento.
+  `saveGroupTrainingPlan` comprueba el tipo **antes de escribir** — un plan
+  colgado de «Inglés B2» no le sirve a nadie. Es un `CHECK` en la BD y una
+  constante en el código: añadir un tipo no puede pedir una migración (regla 50).
+- **El plan individual manda sobre el de grupo** (`planEfectivo`, y lo aplica
+  `getActiveTrainingPlan`): el alumno ve el de su grupo de físicas por defecto;
+  si tiene uno individual activo, ese gana. El resultado lleva `origen`
+  (`individual` | `grupo` | `ninguno`) — el alumno tiene derecho a saber cuál ve.
+- **No se marcan días sobre un plan de grupo.** Es compartido: `completeTrainingDay`
+  rechaza los ids `grupo:…`. Para llevar el registro, la academia le pone al
+  alumno un plan individual.
+- **`setGroupMembers` recibe la lista entera** que la pantalla quiere y calcula
+  la diferencia (meter/sacar). Un solo camino, sin dos acciones que puedan
+  divergir.
+- **`class_groups` y `class_members`: RLS y cero políticas** (administración,
+  regla 34). `group_training_plans` es la excepción —`SELECT` para cualquier
+  autenticado, porque el plan tiene que llegar al alumno—, pero `training.ts` lo
+  lee con la clave de servicio filtrando por el propio usuario.
+
+Y de paso (P7g): **la pestaña «Usuarios» dejó de mostrar tests y acierto**, que
+duplicaban «Academia». Se queda con lo de cuenta (correo, rol).
+
 ---
 
 ## Los tests
@@ -1547,6 +1577,7 @@ tests/rls.test.ts               quién entra con la clave de servicio y quién c
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
 tests/membership.test.ts        control de acceso (decideAccess) y registro de pagos en efectivo
+tests/groups.test.ts            grupos (muchos-a-muchos), tipo del grupo y herencia del plan de físicas
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga

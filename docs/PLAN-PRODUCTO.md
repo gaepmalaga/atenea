@@ -713,11 +713,12 @@ perfecto.
 
 ## P7 · Grupos y preparación física
 
-> **Abierta el 6 sep 2026.** Salió de probar el panel: *«no puedo generar varias
+> **Cerrada el 6 sep 2026.** Salió de probar el panel: *«no puedo generar varias
 > clases (promoción 41 tarde, promoción 42 mañanas, inglés, físicas…); cada
 > alumno puede estar en una o varias»*, y *«las físicas están dentro de cada
 > alumno pero merecen un apartado, y poder preparar entrenamientos de grupo en
-> vez de uno a uno»*.
+> vez de uno a uno»*. Ver *Estado de P7*, al final, y la **regla 53** de
+> [`CLAUDE.md`](../CLAUDE.md).
 
 ### Lo que P5f dejó corto
 
@@ -759,17 +760,23 @@ escribir, solo servicio.
   acierto), que duplicaba Academia. Se queda con lo de cuentas: rol, acceso
   (P6), alta y baja.
 
-### Estado de P7
+### Estado de P7 · 6 de septiembre de 2026
 
 | | Qué es | Estado |
 |---|---|---|
-| P7a | `class_groups` + `class_members` + `group_training_plans` | ⬜ |
-| P7b | Retirar `profiles.class_group` de P5f | ⬜ |
-| P7c | Pestaña **Grupos** | ⬜ |
-| P7d | Pestaña **Preparación física** con plan de grupo | ⬜ |
-| P7e | Filtro por grupo en Academia | ⬜ |
-| P7f | Herencia plan grupo → individual en el módulo del alumno | ⬜ |
-| P7g | Usuarios deja de duplicar la lista de Academia | ⬜ |
+| P7a | `class_groups` + `class_members` + `group_training_plans` | ✅ ejecutado y comprobado |
+| P7b | Retirar `profiles.class_group` de P5f | ✅ |
+| P7c | Pestaña **Grupos** | ✅ crear/editar/borrar + casillas de miembros |
+| P7d | Pestaña **Preparación física** con plan de grupo | ✅ reutiliza el editor del entrenador |
+| P7e | Filtro por grupo en Academia | ✅ + badges de grupo por alumno |
+| P7f | Herencia plan grupo → individual en el módulo del alumno | ✅ `getActiveTrainingPlan`, con `origen` |
+| P7g | Usuarios deja de duplicar la lista de Academia | ✅ se queda con correo + rol |
+
+**Lo que NO se hizo:** marcar días sobre un plan de grupo (es compartido —
+reescribiría el de todos). Para eso la academia le pone al alumno un plan
+individual, que manda. Y las marcas físicas de cada alumno (Cooper, dominadas)
+siguen en su ficha de Academia, no en «Preparación física» — mover eso también
+es otra tanda.
 
 ---
 
