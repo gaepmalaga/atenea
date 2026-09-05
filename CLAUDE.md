@@ -47,9 +47,10 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
-| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada**. P5f (agrupar por clase) se **rehízo como P7** — era muchos-a-muchos. Solo falta P5e (invitar por correo), que es decisión, no código |
-| **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso por invitación + registro de pagos. Sin pasarela, a propósito |
-| **P7** | **Grupos y preparación física** (plan de producto) | ✅ **cerrada** (6 sep): grupos muchos-a-muchos con tipo, pestañas Grupos y Prep. física, plan de entrenamiento de grupo. Ver **regla 53** |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada**. P5f (agrupar por clase) se **rehízo como P7 y P8** — era muchos-a-muchos. P5e (invitar por correo) queda **aparcado** por decisión del dueño |
+| **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso + registro de pagos. Sin pasarela, a propósito. El registro de pagos se **rehízo en P8** (rejilla mensual) |
+| **P7** | **Grupos y preparación física** (plan de producto) | ✅ **cerrada** (6 sep): grupos muchos-a-muchos con tipo, pestañas Grupos y Prep. física, plan de entrenamiento de grupo |
+| **P8** | **Un solo panel de alumno** (feedback al probar P5/P6/P7) | ✅ **cerrada** (6 sep): Usuarios + Academia + Acceso & Pagos → **una pestaña «Alumnos»**. Tipos de grupo editables (`group_kinds`), varios profesores por grupo (`class_group_staff`), grupos asignados **desde el alumno**, y **pagos mes a mes** (`monthly_payments`). Ver **regla 53** |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -86,11 +87,14 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
      41/44/49/50.
    - `P6-acceso-y-pagos.sql` (`membership_settings` con su fila id=1,
-     `memberships`, `academy_payments`) — 5 sep, comprobados contra la BD real.
+     `memberships`) — 5 sep, comprobados contra la BD real.
    - `1.2-attempts-update.sql` — la política de UPDATE de `question_attempts`
      (regla 34). 5 sep. Ya tiene las tres políticas (insert/select/update).
    - `P7-grupos-y-fisica.sql` (`class_groups`, `class_members`,
      `group_training_plans`; retira `profiles.class_group`) — 6 sep.
+   - `P8-panel-alumno.sql` (`group_kinds`, `class_group_staff` —retira
+     `class_groups.staff_id`—, `monthly_payments`; retira `academy_payments`,
+     que tenía 0 filas) — 6 sep, con `node scripts/schema-snapshot.mjs` detrás.
 
    **Ya no queda ningún guion SQL pendiente**, y `question_attempts` ya se movió
    a la sesión (6 sep, regla 34), verificado en pantalla end-to-end: una
@@ -153,8 +157,8 @@ Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
 `useEffect(() => cargar(), [])` donde `cargar` hace `setState` **después** de un
 `await`. La regla lo ve como un `setState` síncrono dentro del efecto y no lo
 es. Está en casi todos los paneles de administración (`AdminActivity`,
-`AdminCost`, `AdminMembers`, `AdminModeration`, `AdminUsers`, `AdminContent`,
-`PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
+`AdminCost`, `AdminStudents`, `AdminPayments`, `AdminGroups`, `AdminModeration`,
+`AdminContent`, `PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
 `QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
 aviso, y el número solo crece al añadir paneles. El de `IntelChat` es además a
 propósito: recupera del `sessionStorage` la conversación al montar (regla 37).
@@ -1012,11 +1016,12 @@ Medido contra la base de datos real el 31 ago: 43 de 45 temas **sin una sola
 pregunta**, y el alumno con más actividad al 44 % — 30 % en Constitución y 67 %
 en Inteligencia.
 
-**P5f se rehízo como P7** (6 sep). El primer intento fue `profiles.class_group`,
-un texto libre por alumno. El dueño lo probó y era muchos-a-muchos: un alumno en
-«Inglés» Y «Teoría». Se retiró la columna y el filtro de esta pantalla pasó a
-ser **por grupo** (`class_groups`), con badges de los grupos de cada alumno. Los
-grupos se gestionan en su propia pestaña. Ver **regla 53**.
+**P5f se rehízo como P7 y luego P8** (6 sep). El primer intento fue
+`profiles.class_group`, un texto libre por alumno; era muchos-a-muchos. P7 lo
+pasó a `class_groups` + `class_members`. P8 fusionó este panel de academia con
+«Usuarios» y «Acceso & Pagos» en una sola pestaña **«Alumnos»**
+(`AdminStudents.tsx`) y movió la asignación de grupos a **desde el alumno**
+(`setStudentGroups`). Ver **regla 53**.
 
 ### 36 · Todo lo que se pinta sale de `app/components/ui/`
 
@@ -1493,7 +1498,9 @@ todas de administración (RLS y cero políticas):
   PENDIENTE**, al revés que `module_settings` (P4): allí un módulo nuevo debe
   aparecer, aquí un alumno nuevo NO debe entrar solo. `access_status` es
   `active` | `suspended`; no hay `pending`, que es la ausencia de fila.
-- **`academy_payments`** — un registro por pago en efectivo.
+- **`academy_payments`** — un registro por pago en efectivo. **Retirada en P8**
+  (0 filas, modelo equivocado): el registro de pagos es ahora `monthly_payments`,
+  una rejilla mes a mes. Ver **regla 53**.
 
 La puerta la decide `decideAccess` (`app/lib/membership.ts`, pura) y la aplica
 `getSessionUser` (`auth.ts`), no la pantalla: una Server Action es un endpoint
@@ -1509,8 +1516,8 @@ sí han pagado.
 visual; cortar el acceso lo hace el administrador a mano. Un despiste apuntando
 un pago no puede dejar fuera a quien sí pagó.
 
-**El importe de un pago vacío es `null`, nunca `0`** (regla 16): `recordPayment`
-convierte `''` en `null` antes de escribir, y `formateaEUR(null)` es «—».
+**El importe de un pago vacío es `null`, nunca `0`** (regla 16): `setPayment`
+(P8) convierte `''` en `null` antes de escribir, y `formateaEUR(null)` es «—».
 
 Antes de encender el interruptor, `activateAllCurrentStudents` da acceso de
 golpe a todos los alumnos que ya existen (`ignoreDuplicates: true`: no
@@ -1519,38 +1526,73 @@ resucita a un suspendido).
 **El guion está ejecutado** (5 sep 2026): las tres tablas existen y
 `membership_settings` tiene su fila `id = 1` con `required = false`, así que
 hoy la puerta está abierta para todos. Encenderla es un clic en la pestaña
-**Acceso & Pagos**, después de activar a los alumnos actuales.
+**Alumnos** (P8 fusionó «Acceso & Pagos» ahí), después de activar a los alumnos
+actuales.
 
-### 53 · Los grupos son muchos-a-muchos, y el tipo del grupo manda
+### 53 · Un solo panel de alumno: los grupos se asignan DESDE el alumno, y los pagos son una rejilla mensual
 
 P5f montó `profiles.class_group` —UN texto libre por alumno— y no servía:
-*«promoción 41 tarde, promoción 42 mañanas, inglés, físicas… cada alumno puede
-estar en varias (inglés y teoría, físicas no)»*. Eso es una relación
-muchos-a-muchos. Se retiró la columna (nunca llegó a producción) y P7 la
-sustituyó por `class_groups` + `class_members` + `group_training_plans`.
+*«cada alumno puede estar en varias (inglés y teoría, físicas no)»*. P7 lo hizo
+muchos-a-muchos (`class_groups` + `class_members` + `group_training_plans`). Al
+probar P5/P6/P7 el dueño pidió tres cosas más, y esas son P8:
 
-- **El `kind` del grupo no es una etiqueta:** `admitePlan` (`app/lib/groups.ts`)
-  dice que solo un grupo de `fisicas` lleva plan de entrenamiento.
-  `saveGroupTrainingPlan` comprueba el tipo **antes de escribir** — un plan
-  colgado de «Inglés B2» no le sirve a nadie. Es un `CHECK` en la BD y una
-  constante en el código: añadir un tipo no puede pedir una migración (regla 50).
-- **El plan individual manda sobre el de grupo** (`planEfectivo`, y lo aplica
-  `getActiveTrainingPlan`): el alumno ve el de su grupo de físicas por defecto;
-  si tiene uno individual activo, ese gana. El resultado lleva `origen`
-  (`individual` | `grupo` | `ninguno`) — el alumno tiene derecho a saber cuál ve.
-- **No se marcan días sobre un plan de grupo.** Es compartido: `completeTrainingDay`
-  rechaza los ids `grupo:…`. Para llevar el registro, la academia le pone al
-  alumno un plan individual.
-- **`setGroupMembers` recibe la lista entera** que la pantalla quiere y calcula
-  la diferencia (meter/sacar). Un solo camino, sin dos acciones que puedan
-  divergir.
-- **`class_groups` y `class_members`: RLS y cero políticas** (administración,
-  regla 34). `group_training_plans` es la excepción —`SELECT` para cualquier
-  autenticado, porque el plan tiene que llegar al alumno—, pero `training.ts` lo
-  lee con la clave de servicio filtrando por el propio usuario.
+**1 · Una pantalla, no tres.** «Usuarios», «Academia» y «Acceso & Pagos» eran la
+misma lista de personas mirada de tres formas. Ahora hay **una pestaña,
+«Alumnos»** (`AdminStudents.tsx`): interruptor global de acceso, activar a todos,
+los cuadros de estado (con acceso / sin activar / nunca ha entrado / pagó el mes),
+y la lista ordenada por urgencia (regla 35). Cada alumno se despliega y ahí está
+**todo lo suyo**: dar/quitar acceso, sus grupos, su pago del mes, su ficha
+(temas y errores) y su plan de entrenador. `AdminUsers.tsx`, `AdminMembers.tsx` y
+`AdminAcademy.tsx` **se borraron**.
 
-Y de paso (P7g): **la pestaña «Usuarios» dejó de mostrar tests y acierto**, que
-duplicaban «Academia». Se queda con lo de cuenta (correo, rol).
+**2 · Los grupos se marcan desde el alumno, no grupo a grupo.** *«Doy de alta un
+alumno y le marco sus grupos; si el mes que viene se da de baja de físicas, entro
+en ESE alumno y le quito el clic.»* La acción es **`setStudentGroups(studentId,
+classIds)`**: recibe la lista entera que la pantalla quiere para ese alumno y
+calcula la diferencia sobre `class_members`. La pantalla de grupos (`AdminGroups`)
+ya no tiene checklist de miembros — solo crea grupos, les pone tipo, horario y
+**varios profesores** (`class_group_staff`, un join; se retiró
+`class_groups.staff_id`).
+
+**3 · El tipo de grupo lo edita el admin.** `group_kinds` (tabla): `id` (slug),
+`label`, `lleva_plan`. Antes `kind` era un `CHECK` cerrado con `'fisicas'` a
+pelo; ahora `llevaPlan(kindId, kinds)` (`app/lib/groups.ts`) mira la fila. El
+admin puede tener varios tipos con `lleva_plan = true`. `deleteGroupKind` no
+borra un tipo que algún grupo esté usando.
+
+**4 · Los pagos son mes a mes.** *«Elijo septiembre, me salen los activos, voy
+marcando quién paga, y veo recuento y estadísticas.»* `monthly_payments`, una
+fila por `(user_id, period)` con `period` = `'YYYY-MM'`; guardar es un upsert
+sobre esa clave (`setPayment`). El **roster de un mes son los alumnos con acceso
+`active`**, no todos. `academy_payments` (el registro libre de P6, 0 filas) se
+retiró: modelo equivocado. La aritmética del resumen vive en `app/lib/payments.ts`
+(pura, regla 21) y `tests/payments.test.ts` la vigila — **«sin importe» no es
+«0 €»** (regla 8): `amount_eur` vacío es `null`, y un alumno que pagó sin que se
+anotara importe cuenta como pagado y suma 0. También hay una pestaña **«Pagos»**
+suelta (`AdminPayments.tsx`) para la vista de un mes de un vistazo.
+
+Lo que **no cambió** de P7 y sigue en pie:
+
+- **El plan individual manda sobre el de grupo** (`planEfectivo`, lo aplica
+  `getActiveTrainingPlan`). El resultado lleva `origen` (`individual` | `grupo` |
+  `ninguno`). `getActiveTrainingPlan` busca el plan de grupo por los tipos con
+  `lleva_plan = true`, no por `'fisicas'`.
+- **No se marcan días sobre un plan de grupo:** `completeTrainingDay` rechaza los
+  ids `grupo:…`. Para llevar registro, se le pone al alumno un plan individual.
+- **Todo el panel va con la clave de servicio y `requireAdmin`** (reglas 34/35):
+  un profesor mirando a sus alumnos no está cubierto por ninguna política de
+  propietario. `group_kinds`, `class_group_staff` y `monthly_payments` tienen RLS
+  y cero políticas. `group_training_plans` sigue siendo la excepción (`SELECT`
+  abierto, el plan tiene que llegar al alumno).
+
+**Trampa de `'use server'` (pasó dos veces):** `app/actions/groups.ts` es un
+módulo `'use server'`, así que **solo puede exportar `async function`**. Un
+`export type { GroupKind }` al final lo compila Next a una referencia de verdad y
+el servidor revienta al evaluar el barril `actions/index.ts` —
+`ReferenceError: GroupKind is not defined` — y con él se cae `getCurrentUser` en
+producción. `next build` **no lo detecta** (es error en tiempo de evaluación).
+Los tipos se importan de `app/lib/`, nunca se reexportan desde la acción. Hay dos
+guardas estáticas nuevas en `actions-auth.test.ts` que lo vigilan.
 
 ---
 
@@ -1582,8 +1624,9 @@ tests/modules.test.ts           módulos encendidos/apagados y la guarda del ser
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
-tests/membership.test.ts        control de acceso (decideAccess) y registro de pagos en efectivo
-tests/groups.test.ts            grupos (muchos-a-muchos), tipo del grupo y herencia del plan de físicas
+tests/membership.test.ts        la puerta de acceso (decideAccess) y sus guardas
+tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes y «sin importe» ≠ 0 €
+tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
@@ -1742,6 +1785,15 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    protege de verdad (regla 34). Verificado en pantalla end-to-end el 6 sep.
 
 5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
+
+6. **P8 está hecha y desplegada** (6 sep): una sola pestaña «Alumnos», tipos de
+   grupo editables, varios profesores por grupo, grupos desde el alumno y pagos
+   mes a mes. `npm run check` en verde, `npm run build` en verde, y verificado
+   en el preview con sesión de admin (Alumnos / Grupos / Pagos pintan sin
+   errores de consola). Todos los caminos de escritura pasaron `smoke` contra la
+   BD real. **Lo que queda es que el dueño lo use en producción**: dar de alta
+   un alumno, marcarle grupos, activar el interruptor de acceso, y marcar un
+   pago de septiembre. Ver **regla 53**.
 
 **Antes de tocar cualquier tabla, mira `supabase/schema.json`.** Es el esquema real,
 volcado del proyecto. Casi todos los fallos graves de este repo han sido el código

@@ -564,8 +564,9 @@ es un proyecto y no toca todavía.
 
 > **Ahora se puede hacer antes**, porque con una sola academia no depende de P4.
 >
-> **Casi cerrada.** P5a–P5d el 31 ago, P5f el 5 sep. Solo queda P5e (invitar por
-> correo), que es una decisión, no código. Ver *Estado de P5*, al final.
+> **Cerrada.** P5a–P5d el 31 ago, P5f el 5 sep (rehecho en P7 y P8). P5e
+> (invitar por correo) queda **aparcado** por decisión del dueño. El panel en sí
+> se fusionó con Usuarios y Acceso & Pagos en **P8** (pestaña «Alumnos»).
 
 ### Qué debería tener
 
@@ -614,8 +615,8 @@ más ruidoso.
 | P5b | Ficha individual: temas fuertes y débiles, en qué falla | ✅ al desplegar cada alumno |
 | P5c | Qué temas tienen banco y cuáles no | ✅ 43 de 45 sin ninguna pregunta |
 | P5d | Qué preguntas falla todo el mundo | ✅ con un mínimo de intentos, para no señalar ruido |
-| P5e | Invitar por correo | ⬜ manda correos: decisión tuya, no técnica |
-| P5f | Agrupar por clase o promoción | ✅ **hecha** (5 sep): `profiles.class_group` (texto libre), filtro y edición en el panel de Academia. Ver regla 35 |
+| P5e | Invitar por correo | ⬜ **aparcado** por decisión del dueño (manda correos: no es solo técnica) |
+| P5f | Agrupar por clase o promoción | ✅ rehecho en **P7** (`class_groups`, muchos-a-muchos) y **P8** (asignación desde el alumno). Ver regla 53 |
 
 La aritmética vive en [`app/lib/academy.ts`](../app/lib/academy.ts) y está
 testeada: es donde este repositorio se ha equivocado siempre, y aquí duele más
@@ -669,8 +670,8 @@ Todo eso son tres tablas y unas cuantas guardas. Ver la **regla 52** de
 | P6c | Interruptor global de acceso, apagado por defecto | ✅ `membership_settings` |
 | P6d | Acceso por invitación: el alumno se registra, el admin lo activa | ✅ «sin fila = pendiente» |
 | P6e | Quitar el acceso a mano (baja / deja de pagar) | ✅ `access_status = 'suspended'` |
-| P6f | Registro de pagos en efectivo por alumno | ✅ `academy_payments` |
-| P6g | Pantalla **Acceso & Pagos** en el Centro de Mando | ✅ `AdminMembers` |
+| P6f | Registro de pagos en efectivo por alumno | ✅ `academy_payments` → **rehecho en P8** como `monthly_payments` (rejilla mes a mes) |
+| P6g | Pantalla **Acceso & Pagos** en el Centro de Mando | ✅ → **fusionada en P8** en la pestaña «Alumnos» |
 | P6h | Guion SQL | ✅ **ejecutado** el 5 sep 2026, comprobado contra la BD real |
 
 **Lo que NO se hizo, a propósito:** Stripe, suscripciones, facturas automáticas,
@@ -766,17 +767,55 @@ escribir, solo servicio.
 |---|---|---|
 | P7a | `class_groups` + `class_members` + `group_training_plans` | ✅ ejecutado y comprobado |
 | P7b | Retirar `profiles.class_group` de P5f | ✅ |
-| P7c | Pestaña **Grupos** | ✅ crear/editar/borrar + casillas de miembros |
+| P7c | Pestaña **Grupos** | ✅ crear/editar/borrar (los miembros pasaron a asignarse desde el alumno en P8) |
 | P7d | Pestaña **Preparación física** con plan de grupo | ✅ reutiliza el editor del entrenador |
-| P7e | Filtro por grupo en Academia | ✅ + badges de grupo por alumno |
-| P7f | Herencia plan grupo → individual en el módulo del alumno | ✅ `getActiveTrainingPlan`, con `origen` |
-| P7g | Usuarios deja de duplicar la lista de Academia | ✅ se queda con correo + rol |
+| P7e | Filtro por grupo en Academia | ✅ + badges de grupo por alumno (heredado por la pestaña «Alumnos» de P8) |
+| P7f | Herencia plan grupo → individual en el módulo del alumno | ✅ `getActiveTrainingPlan`, con `origen`; el tipo con plan lo marca `lleva_plan` (P8), no `'fisicas'` |
+| P7g | Usuarios deja de duplicar la lista de Academia | ✅ → P8 fusionó las dos pestañas |
 
 **Lo que NO se hizo:** marcar días sobre un plan de grupo (es compartido —
 reescribiría el de todos). Para eso la academia le pone al alumno un plan
 individual, que manda. Y las marcas físicas de cada alumno (Cooper, dominadas)
 siguen en su ficha de Academia, no en «Preparación física» — mover eso también
 es otra tanda.
+
+---
+
+## P8 · Un solo panel de alumno
+
+> **Cerrada** el 6 de septiembre de 2026. Salió del feedback del dueño al probar
+> P5/P6/P7. Guion: [`docs/sql/P8-panel-alumno.sql`](sql/P8-panel-alumno.sql)
+> (ejecutado). Detalle en la **regla 53** de [`CLAUDE.md`](../CLAUDE.md).
+
+Tres quejas concretas después de probar lo anterior:
+
+1. *«¿Qué sentido tienen las pestañas Usuarios y Academia? Me salen las mismas
+   personas.»* — y Acceso & Pagos, una tercera vista de la misma lista.
+2. *«El tema de crear grupos no me gusta: doy de alta un usuario y tengo que ir
+   grupo a grupo añadiéndolo. Mi idea es la contraria: le asigno los grupos que
+   le corresponden, y si se da de baja de físicas entro en ESE alumno y le quito
+   el clic.»*
+3. *«El desplegable (físicas, teoría…) me gustaría que fuese personalizable, y
+   poder poner más de un profesor por grupo.»*
+4. Pagos: *«Elijo septiembre, me aparecen los usuarios activos ese mes, voy
+   marcando quién paga, y llevo el recuento de pagados / por pagar /
+   estadísticas.»*
+
+### Estado de P8 · 6 de septiembre de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P8a | Fusionar Usuarios + Academia + Acceso & Pagos en **una pestaña «Alumnos»** | ✅ `AdminStudents.tsx`; se borran `AdminUsers`, `AdminMembers`, `AdminAcademy` |
+| P8b | Asignar grupos **desde el alumno** (casillas), no grupo a grupo | ✅ `setStudentGroups(studentId, classIds)`, diff sobre `class_members` |
+| P8c | Tipos de grupo editables por el admin | ✅ `group_kinds` (`id`, `label`, `lleva_plan`); `AdminGroups` los gestiona |
+| P8d | Varios profesores por grupo | ✅ `class_group_staff` (join); fuera `class_groups.staff_id` |
+| P8e | Pagos mes a mes: elegir mes → activos → marcar → recuento | ✅ `monthly_payments` `(user_id, period)`; `AdminPayments.tsx` + bloque en la ficha del alumno |
+| P8f | Retirar `academy_payments` (registro libre de P6, 0 filas) | ✅ `DROP TABLE` en el guion |
+| P8g | Guion SQL + snapshot | ✅ ejecutado el 6 sep, `schema-snapshot.mjs` detrás, `smoke` en verde |
+
+**Lo que NO se hizo:** un CSV de pagos / recibos (se marca a mano); histórico de
+importes por alumno más allá del mes; y **P5e** (invitar por correo) sigue
+aparcado por decisión del dueño.
 
 ---
 
