@@ -2,6 +2,11 @@
 -- P6 — Control de acceso y registro de pagos en efectivo
 -- =============================================================================
 --
+-- ✅ EJECUTADO el 5 sep 2026 contra el Supabase real. Las tres tablas existen,
+--    `membership_settings` tiene su fila id=1 (required=false), y se comprobó
+--    con `node scripts/schema-snapshot.mjs`. Se deja el fichero por ser
+--    idempotente y por el porqué de cada decisión.
+--
 -- QUÉ RESUELVE
 -- La academia cobra EN EFECTIVO, en persona. No hay pasarela, ni suscripciones,
 -- ni IVA de la UE. Lo que hace falta es:

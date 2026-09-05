@@ -2,6 +2,10 @@
 -- P5f — Agrupar alumnos por clase o promoción
 -- =============================================================================
 --
+-- ✅ EJECUTADO el 5 sep 2026: `profiles.class_group` y su índice existen en el
+--    Supabase real. Falta conectar el código (acción + agrupación en
+--    `app/lib/academy.ts` + UI en `AdminAcademy`).
+--
 -- POR QUE
 -- El panel de academia (P5) ya dice a quién llamar, en qué falla cada alumno y
 -- qué temas no toca nadie. Lo que le falta para dar clase de verdad es agrupar:

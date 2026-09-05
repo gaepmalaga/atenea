@@ -47,7 +47,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P4** | **Módulos que se encienden y se apagan** (plan de producto) | ✅ **cerrada** (31 ago) |
 | — | **Repaso de lo fallado** | ✅ **hecho** (30 ago) |
 | — | **El chat: prompt, documento entero y selector de tema** | ✅ **hecho** (31 ago) |
-| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) — falta P5e (invitar) y P5f (clase: guion escrito, sin ejecutar) |
+| **P5** | **Panel de academia** (plan de producto) | ✅ **cerrada en parte** (31 ago) — falta P5e (invitar). P5f (clase/promoción): columna `profiles.class_group` **ejecutada** el 5 sep; falta el código |
 | **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso por invitación + registro de pagos. Sin pasarela, a propósito |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
@@ -56,7 +56,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Reset y siembra** | ✅ **hecho** (4 sep): tres guiones para dejar la plataforma limpia, indexar los 51 documentos y llenar el banco. Ver [`docs/RESET-Y-SIEMBRA.md`](docs/RESET-Y-SIEMBRA.md) |
 | — | **Generación solo del admin · topes de gasto · login nuevo** | ✅ **hecho** (4 sep): alumno y admin dejan de compartir quién paga la IA. Ver **reglas 39, 40 y 41** |
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
-| — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **escritos y sin ejecutar** — ver el aviso de arriba |
+| — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **ejecutados** (5 sep) |
 
 ## Producción
 
@@ -78,23 +78,26 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-0. **Los dos guiones SQL nuevos YA ESTÁN EJECUTADOS** (confirmado el 5 sep 2026
-   contra el proyecto real con `node scripts/schema-snapshot.mjs`):
-   - [`docs/sql/admin-audit-log.sql`](docs/sql/admin-audit-log.sql) — la tabla
-     `admin_audit_log` (regla 49) existe con sus 6 columnas.
-   - [`docs/sql/academia-ajustes.sql`](docs/sql/academia-ajustes.sql) — las
-     tablas `academy_settings` y `academy_staff` (regla 50) existen con sus
-     columnas exactas.
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (confirmado el 5 sep 2026
+   con `node scripts/schema-snapshot.mjs` — 33 tablas):
+   - P3.7 / P3.8 (`legal_reference`, `question_notes`) — 31 ago.
+   - `admin-audit-log.sql`, `academia-ajustes.sql`, `gasto-ia.sql`,
+     `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
+     41/44/49/50.
+   - `P6-acceso-y-pagos.sql` (`membership_settings` con su fila id=1,
+     `memberships`, `academy_payments`) y `profiles.class_group` de P5f —
+     5 sep, comprobados contra la BD real.
 
-   La pestaña "Logs & Auditoría" y la de "Ajustes" ya no enseñan el aviso
-   ámbar de "falta ejecutar". No queda ningún guion SQL pendiente.
+   El único que sigue **sin ejecutar** es
+   [`1.2-attempts-update.sql`](docs/sql/1.2-attempts-update.sql) —la política de
+   UPDATE que le falta a `question_attempts` (regla 34)— y no corre prisa: el
+   código no lo necesita hasta mover `setResultErrorType` a la sesión.
 
-1. **Ejecutar SQL. Ya no hay nada pendiente de fases anteriores:** los guiones de P3.7 (`legal_reference`
-   en `question_bank`) y P3.8 (tabla `question_notes` con RLS) se ejecutaron el
-   **31 ago 2026** y están comprobados contra la base de datos real con `npm run smoke`.
-   Los ficheros siguen en `docs/sql/` y son idempotentes. Cuando aparezca uno nuevo,
-   la regla no cambia: **no se escribe el código antes** de que exista la columna —
-   PostgREST rechaza la escritura *entera* si falta una sola.
+   La regla no cambia para el próximo: **no se escribe el código antes** de que
+   exista la columna — PostgREST rechaza la escritura *entera* si falta una
+   sola. La única excepción, documentada, es construir una funcionalidad nueva
+   a la espera de su propio guion (audit-log, academia, P6), con el código
+   degradando con gracia hasta que se ejecute.
 2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
@@ -1191,8 +1194,8 @@ Hay una guarda que exige que **ningún `generateContent` se quede sin su
 `registraGasto`**: es fácil añadir una llamada nueva y olvidar el contador, y
 entonces el gasto se va por un sitio que nadie mira.
 
-Persistirlo necesita SQL: [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql),
-**escrito y sin ejecutar**.
+Persistirlo lo hace [`docs/sql/gasto-ia.sql`](docs/sql/gasto-ia.sql)
+(`ai_usage`), **ejecutado**. El panel que lo lee es la regla 51.
 
 ### 42 · El documento entero se paga solo si el alumno elige tema
 
@@ -1487,6 +1490,11 @@ convierte `''` en `null` antes de escribir, y `formateaEUR(null)` es «—».
 Antes de encender el interruptor, `activateAllCurrentStudents` da acceso de
 golpe a todos los alumnos que ya existen (`ignoreDuplicates: true`: no
 resucita a un suspendido).
+
+**El guion está ejecutado** (5 sep 2026): las tres tablas existen y
+`membership_settings` tiene su fila `id = 1` con `required = false`, así que
+hoy la puerta está abierta para todos. Encenderla es un clic en la pestaña
+**Acceso & Pagos**, después de activar a los alumnos actuales.
 
 ---
 

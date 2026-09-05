@@ -614,7 +614,7 @@ más ruidoso.
 | P5c | Qué temas tienen banco y cuáles no | ✅ 43 de 45 sin ninguna pregunta |
 | P5d | Qué preguntas falla todo el mundo | ✅ con un mínimo de intentos, para no señalar ruido |
 | P5e | Invitar por correo | ⬜ manda correos: decisión tuya, no técnica |
-| P5f | Agrupar por clase o promoción | ⬜ necesita una columna nueva |
+| P5f | Agrupar por clase o promoción | 🟡 columna `profiles.class_group` **ejecutada** (5 sep); falta el código (acción + agrupación en `academy.ts` + UI) |
 
 La aritmética vive en [`app/lib/academy.ts`](../app/lib/academy.ts) y está
 testeada: es donde este repositorio se ha equivocado siempre, y aquí duele más
@@ -670,7 +670,7 @@ Todo eso son tres tablas y unas cuantas guardas. Ver la **regla 52** de
 | P6e | Quitar el acceso a mano (baja / deja de pagar) | ✅ `access_status = 'suspended'` |
 | P6f | Registro de pagos en efectivo por alumno | ✅ `academy_payments` |
 | P6g | Pantalla **Acceso & Pagos** en el Centro de Mando | ✅ `AdminMembers` |
-| P6h | Guion SQL | ⬜ **escrito, sin ejecutar**: `docs/sql/P6-acceso-y-pagos.sql` |
+| P6h | Guion SQL | ✅ **ejecutado** el 5 sep 2026, comprobado contra la BD real |
 
 **Lo que NO se hizo, a propósito:** Stripe, suscripciones, facturas automáticas,
 cálculo de IVA. El día que el modelo cambie a captar alumnos por internet, eso
