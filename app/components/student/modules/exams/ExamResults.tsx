@@ -1,8 +1,9 @@
 'use client';
 
 import { Question } from './ExamManager';
+import type { AdaptiveSession } from '@/app/actions/exams';
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
-import { XCircle, RotateCcw, Award, AlertTriangle, Target } from 'lucide-react';
+import { XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles } from 'lucide-react';
 import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
 
 interface ExamResultsProps {
@@ -13,12 +14,14 @@ interface ExamResultsProps {
    * apagado (P4), y entonces no se ofrece un camino que no existe.
    */
   onRepasarFallos?: () => void;
+  /** Resumen de la sesión adaptativa (P10). `null` en simulacro o modo aleatorio. */
+  sesion?: AdaptiveSession | null;
 }
 
 /** Dos decimales y coma, como lo publica un tribunal. */
 const nota = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function ExamResults({ questions, onRetry, onRepasarFallos }: ExamResultsProps) {
+export default function ExamResults({ questions, onRetry, onRepasarFallos, sesion }: ExamResultsProps) {
   // La nota de la convocatoria, no `aciertos / total`. Ver app/lib/scoring.ts:
   // la de antes mentia hacia arriba y ademas enseñaba a contestar a todo.
   const { correct, wrong, blank, net, score, rawPercentage, passed } = scoreExam(questions);
@@ -89,6 +92,36 @@ export default function ExamResults({ questions, onRetry, onRepasarFallos }: Exa
             </p>
           )}
         </Card>
+
+        {/* QUÉ HIZO LA SESIÓN ADAPTATIVA (P10).
+            Que el alumno vea que no son preguntas al azar: hay repaso de lo
+            fallado, consolidación de lo aprendido y algo nuevo con medida. */}
+        {sesion?.adaptativo && sesion.resumen && (
+          <Card tone="sunken" pad="sm" className="mb-5 text-left space-y-1.5">
+            <p className="text-[11px] font-black text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 uppercase tracking-wide">
+              <Sparkles size={12} /> Sesión a tu medida
+            </p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              {[
+                sesion.resumen.recaida > 0 && `${sesion.resumen.recaida} que fallaste`,
+                sesion.resumen.repaso > 0 && `${sesion.resumen.repaso} de repaso`,
+                sesion.resumen.consolidar > 0 && `${sesion.resumen.consolidar} para consolidar`,
+                sesion.resumen.nueva > 0 && `${sesion.resumen.nueva} nuevas`,
+                sesion.resumen.refuerzo > 0 && `${sesion.resumen.refuerzo} de refuerzo`,
+              ].filter(Boolean).join(' · ')}.
+            </p>
+            {sesion.atascadasTotales > 0 && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                Tienes {sesion.atascadasTotales} pregunta{sesion.atascadasTotales !== 1 ? 's' : ''} que se te
+                resiste{sesion.atascadasTotales !== 1 ? 'n' : ''} desde hace tiempo: te vendría bien releer el
+                artículo o hacerte una ficha.
+              </p>
+            )}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              Vuelve mañana y te traeré lo que toque repasar.
+            </p>
+          </Card>
+        )}
 
         {/* DESPUES DE UN EXAMEN, LO QUE TOCA ES MIRAR LOS FALLOS.
             La pantalla terminaba en "Nueva operación" y nada mas: un alumno

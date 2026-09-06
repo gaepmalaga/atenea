@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { saveExamResults, getQuestionsFromBank } from '@/actions';
+import { saveExamResults, getQuestionsFromBank, getAdaptiveSession } from '@/actions';
+import type { AdaptiveSession } from '@/app/actions/exams';
 import { buildExamResults } from '@/app/lib/exam-results';
 import {
   type Question as ExamQuestion,
@@ -65,6 +66,8 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
   // `null` es "no falta ninguna", que NO es lo mismo que 0 (regla 8).
   const [preguntasQueFaltan, setPreguntasQueFaltan] = useState<number | null>(null);
   const [recuperable, setRecuperable] = useState<ExamSnapshot | null>(null);
+  /** Resumen de la sesión adaptativa (P10). `null` en simulacro o modo aleatorio. */
+  const [sesionAdaptativa, setSesionAdaptativa] = useState<AdaptiveSession | null>(null);
 
   // --- EL SEGURO ---
   // Busca un examen a medias al entrar. Va en un efecto porque `localStorage`
@@ -111,30 +114,40 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
       const targetCount = newSettings.questionCount;
       const difficultyNum = difficultyToNumber(newSettings.difficulty);
 
-      // 1. FASE BANCO
-      const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
-      // Se conserva de que tema salio cada pregunta. `question_bank` guarda
-      // `subject_id` y `question_attempts` guarda `topic`: si no se arrastra
-      // aqui, al terminar el examen ya no hay forma de saberlo.
-      const bankFetches = await Promise.all(
-        newSettings.selectedTopics.map(async (topic) => ({
-          topic,
-          resultado: await getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic }),
-        }))
-      );
+      let loadedQuestions: ExamQuestion[] = [];
+      setSesionAdaptativa(null);
 
-      let loadedQuestions: ExamQuestion[] = bankFetches.flatMap(({ topic, resultado }) =>
-        resultado.success ? resultado.data.map((fila) => ({ ...mapBankRowToQuestion(fila), topic })) : []
-      );
-
-      const seenIds = new Set();
-      loadedQuestions = loadedQuestions.filter(q => {
-        if (seenIds.has(q.id)) return false;
-        seenIds.add(q.id);
-        return true;
-      });
-
-      loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
+      if (newSettings.mode === 'practice') {
+        // ENTRENAMIENTO: una sola llamada. El servidor decide si reparte por
+        // repetición espaciada (P10) o al azar, según el interruptor.
+        const res = await getAdaptiveSession({
+          topics: newSettings.selectedTopics,
+          limit: targetCount,
+          difficulty: difficultyNum,
+        });
+        if (!res.success) throw new Error(res.error);
+        loadedQuestions = res.data.questions;
+        setSesionAdaptativa(res.data.adaptativo ? res.data : null);
+      } else {
+        // SIMULACRO: se queda como estaba — banco por tema, barajado, sin adaptar.
+        const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
+        const bankFetches = await Promise.all(
+          newSettings.selectedTopics.map(async (topic) => ({
+            topic,
+            resultado: await getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic }),
+          }))
+        );
+        loadedQuestions = bankFetches.flatMap(({ topic, resultado }) =>
+          resultado.success ? resultado.data.map((fila) => ({ ...mapBankRowToQuestion(fila), topic })) : []
+        );
+        const seenIds = new Set();
+        loadedQuestions = loadedQuestions.filter((q) => {
+          if (seenIds.has(q.id)) return false;
+          seenIds.add(q.id);
+          return true;
+        });
+        loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
+      }
 
       // 2. SI EL BANCO NO LLEGA, SE DICE. NO SE GENERA.
       //
@@ -300,7 +313,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
         />
       )}
 
-      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} onRepasarFallos={onRepasarFallos} />}
+      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} onRepasarFallos={onRepasarFallos} sesion={settings.mode === 'practice' ? sesionAdaptativa : null} />}
     </div>
   );
 }

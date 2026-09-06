@@ -71,3 +71,9 @@ export async function requireTrainingSwitch(
   if (switches[id]) return { ok: true };
   return { ok: false, error: mensajeSwitchApagado(id) };
 }
+
+/** Solo la lectura del interruptor, sin cortar. Para el modo adaptativo, que si
+ * está apagado NO es un error: se cae a la selección aleatoria. */
+export async function adaptativoEncendido(): Promise<boolean> {
+  return (await leeTrainingSwitches()).adaptive;
+}

@@ -14,12 +14,17 @@ import {
   shuffle,
   toDifficultyLevel,
   DIFFICULTY_DEFAULT,
+  mapBankRowToQuestion,
   type QuestionStatus,
   type DifficultyLevel,
   type BankRow,
+  type Question,
 } from '../lib/questions';
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 import { buildQuestionPrompt } from '../lib/question-prompt';
+import { adaptativoEncendido } from '../lib/training-switch-guard';
+import { computeQuestionStates, type IntentoPregunta } from '../lib/question-scheduler';
+import { buildSmartSession, type ResumenSesion } from '../lib/smart-session';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -437,6 +442,128 @@ export async function seedQuestionBank(params: {
 // ==========================================
 // 4. CONSULTA Y RESULTADOS
 // ==========================================
+
+/**
+ * LA SESIÓN DE ENTRENAMIENTO ADAPTATIVO (P10).
+ *
+ * El modo «Entrenamiento» del alumno llama a esto. Si el interruptor
+ * `training_adaptive` está encendido (por defecto), reparte las preguntas por
+ * repetición espaciada y cajones (`docs/METODO-APRENDIZAJE.md`); si está
+ * apagado, cae a la selección aleatoria de siempre.
+ *
+ * Va con la clave de servicio y `.eq('user_id')` — como `getUserStats`: hace
+ * falta leer `question_bank`, que no tiene política de lectura (regla 34). El
+ * `topic` viaja como TÍTULO, que es lo que guarda `question_attempts` (regla 7).
+ */
+const MAX_INTENTOS_SCHEDULER = 30_000;
+
+export type AdaptiveSession = {
+  questions: Question[];
+  adaptativo: boolean;
+  resumen: ResumenSesion | null;
+  aciertoEstimado: number | null;
+  bancoCorto: boolean;
+  atascadasTotales: number;
+};
+
+export async function getAdaptiveSession(params: {
+  topics: string[];
+  limit: number;
+  difficulty?: number;
+}): Promise<{ success: true; data: AdaptiveSession } | { success: false; error: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const modulo = await requireModule('test');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const topics = (params.topics ?? []).map((t) => String(t).trim()).filter(Boolean);
+  if (topics.length === 0) return { success: false as const, error: 'Selecciona al menos un tema.' };
+  const limit = Math.max(1, Math.min(100, Math.floor(params.limit)));
+
+  // Tema (título) -> subject_id, y de vuelta.
+  const ids = (await Promise.all(topics.map((t) => getSubjectIdByName(t)))).filter((n): n is number => Number.isFinite(n));
+  if (ids.length === 0) return { success: false as const, error: 'Esos temas no existen.' };
+  const tituloPorId = new Map<number, string>();
+  await Promise.all(ids.map(async (id) => tituloPorId.set(id, await getSubjectNameById(id))));
+
+  const { data: banco, error: bancoError } = await supabase
+    .from('question_bank')
+    .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, global_success_rate')
+    .in('subject_id', ids)
+    .eq('status', QUESTION_STATUS.ACTIVE);
+
+  if (bancoError) return { success: false as const, error: bancoError.message };
+  const filas = (banco ?? []) as (BankRow & { global_success_rate?: number | null })[];
+
+  if (filas.length === 0) {
+    return {
+      success: true as const,
+      data: { questions: [], adaptativo: false, resumen: null, aciertoEstimado: null, bancoCorto: true, atascadasTotales: 0 },
+    };
+  }
+
+  const filaPorId = new Map(filas.map((f) => [f.id, f]));
+  const temaDeFila = (f: BankRow) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
+
+  const adaptativo = await adaptativoEncendido();
+
+  // ---- Camino ALEATORIO (interruptor apagado) ----
+  if (!adaptativo) {
+    const elegidas = shuffle(filas).slice(0, limit);
+    return {
+      success: true as const,
+      data: {
+        questions: elegidas.map((f) => ({ ...mapBankRowToQuestion(f), topic: temaDeFila(f) })),
+        adaptativo: false,
+        resumen: null,
+        aciertoEstimado: null,
+        bancoCorto: elegidas.length < limit,
+        atascadasTotales: 0,
+      },
+    };
+  }
+
+  // ---- Camino ADAPTATIVO ----
+  // Las respuestas del propio alumno: con SU sesión (regla 34). `question_attempts`
+  // tiene política de propietario, y aquí no hay join con `question_bank`.
+  const db = await createSupabaseServerClient();
+  const { data: intentos } = await db
+    .from('question_attempts')
+    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, created_at')
+    .eq('user_id', auth.user.id)
+    .order('created_at', { ascending: true })
+    .limit(MAX_INTENTOS_SCHEDULER);
+
+  const states = computeQuestionStates((intentos ?? []) as IntentoPregunta[]);
+
+  const sesion = buildSmartSession({
+    states,
+    disponibles: filas.map((f) => ({
+      questionId: f.id,
+      topic: temaDeFila(f),
+      globalSuccessRate: typeof f.global_success_rate === 'number' ? f.global_success_rate : null,
+    })),
+    limit,
+  });
+
+  const questions = sesion.questionIds
+    .map((id) => filaPorId.get(id))
+    .filter((f): f is BankRow => !!f)
+    .map((f) => ({ ...mapBankRowToQuestion(f), topic: temaDeFila(f) }));
+
+  return {
+    success: true as const,
+    data: {
+      questions,
+      adaptativo: true,
+      resumen: sesion.resumen,
+      aciertoEstimado: sesion.aciertoEstimado,
+      bancoCorto: sesion.bancoCorto,
+      atascadasTotales: sesion.atascadasTotales,
+    },
+  };
+}
 
 export async function getQuestionsFromBank(params: {
   subjectIds?: number[];
