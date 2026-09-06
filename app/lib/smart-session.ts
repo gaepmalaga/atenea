@@ -13,7 +13,7 @@ import {
   estaVencida,
   diasDeRetraso,
   type QuestionState,
-} from './question-scheduler';
+} from './question-scheduler.ts';
 
 // ============================================================
 // LO QUE ENTRA
@@ -26,6 +26,15 @@ export type CandidataSesion = {
   /** `question_bank.global_success_rate` (0-1) si está; si no, `null`. */
   globalSuccessRate?: number | null;
 };
+
+/**
+ * Tasa global de acierto USABLE: un `0` (o `null`, o algo fuera de rango) no es
+ * «todo el mundo la falla», es «no hay dato» — misma trampa de la regla 8. Solo
+ * cuenta si es un valor plausible.
+ */
+function tasaUsable(v: number | null | undefined): number | null {
+  return typeof v === 'number' && v > 0.05 && v <= 1 ? v : null;
+}
 
 export type Cubo = 'recaida' | 'repaso' | 'consolidar' | 'nueva' | 'refuerzo' | 'atascada';
 
@@ -114,7 +123,7 @@ function ordenaCubo(cubo: Cubo, items: ConEstado[], now: Date): ConEstado[] {
   } else if (cubo === 'nueva') {
     // Las que el alumno EVITA (solo blancos) primero. Luego las globalmente más
     // fáciles, para no hundir el acierto de la sesión por debajo del punto dulce.
-    const facil = (x: ConEstado) => (typeof x.globalSuccessRate === 'number' ? x.globalSuccessRate : 0.5);
+    const facil = (x: ConEstado) => tasaUsable(x.globalSuccessRate) ?? 0.5;
     arr.sort(
       (a, b) =>
         Number(b.state?.soloBlancos ?? false) - Number(a.state?.soloBlancos ?? false) ||
@@ -198,12 +207,17 @@ export function buildSmartSession(params: {
 
   const atascadasTotales = (porCubo.get('atascada') ?? []).length;
 
-  // 2. Cupos base (regla del 85 %: el repaso pesa más que el material nuevo) y
-  //    TOPES DUROS: `nueva` no pasa del 30 % ni `atascada` de 2, aunque haya
-  //    hueco — inundar de material nuevo hunde el acierto por debajo del punto
-  //    dulce. El único caso en que se relaja el tope de `nueva` es que no quede
-  //    absolutamente nada más (arranque en frío).
-  const capNueva = Math.max(1, Math.ceil(limit * 0.3));
+  // Cuánto del banco disponible ha tocado ya el alumno. El tope de material
+  // nuevo ESCALA con esto: un principiante que ha visto el 3 % del banco
+  // necesita mucho material nuevo; uno que ha visto el 80 % casi nada (si no,
+  // se le acaban las preguntas y la sesión se llena de repaso prematuro).
+  const vistas = params.disponibles.filter((c) => params.states.has(c.questionId)).length;
+  const fraccionVista = params.disponibles.length ? vistas / params.disponibles.length : 0;
+  const factorNueva =
+    fraccionVista < 0.1 ? 0.6 : fraccionVista < 0.3 ? 0.45 : fraccionVista < 0.6 ? 0.32 : 0.22;
+
+  // 2. Cupos base (regla del 85 %: el repaso pesa más que el material nuevo).
+  const capNueva = Math.max(1, Math.ceil(limit * factorNueva));
   const capAtascada = Math.min(MAX_ATASCADAS_POR_SESION, atascadasTotales);
   const topes: Record<Cubo, number> = {
     recaida: limit, repaso: limit, consolidar: limit, refuerzo: limit,
@@ -213,8 +227,11 @@ export function buildSmartSession(params: {
     recaida: Math.round(limit * 0.25),
     repaso: Math.round(limit * 0.2),
     consolidar: Math.round(limit * 0.18),
-    nueva: Math.min(Math.round(limit * 0.25), capNueva),
-    refuerzo: Math.round(limit * 0.12),
+    nueva: Math.min(Math.round(limit * factorNueva), capNueva),
+    // El refuerzo (material visto hace poco pero aún no vencido) NO tiene cupo
+    // base: rompe el espaciado. Solo se usa como último relleno para un alumno
+    // avanzado que no tiene nada vencido ni nada nuevo.
+    refuerzo: 0,
     atascada: capAtascada,
   };
 
@@ -275,10 +292,7 @@ export function buildSmartSession(params: {
     for (const cubo of Object.keys(r) as Cubo[]) {
       const items = elegidas.get(cubo) ?? [];
       for (const it of items) {
-        const p =
-          cubo === 'nueva' && typeof it.globalSuccessRate === 'number'
-            ? it.globalSuccessRate
-            : P_ACIERTO[cubo];
+        const p = cubo === 'nueva' ? (tasaUsable(it.globalSuccessRate) ?? P_ACIERTO.nueva) : P_ACIERTO[cubo];
         suma += p;
         n++;
       }

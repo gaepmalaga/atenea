@@ -11,7 +11,7 @@
  * aquí, sin BD y sin React.
  */
 
-import { isBlankAnswer } from './exam-results';
+import { isBlankAnswer } from './exam-results.ts';
 
 // ============================================================
 // LO QUE ENTRA

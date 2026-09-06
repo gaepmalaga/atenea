@@ -82,15 +82,40 @@ describe('prioridad y cuotas', () => {
     for (let i = 0; i < 3; i++) expect(r.questionIds).toContain(`r${i}`);
   });
 
-  it('el material nuevo se topa al ~30 % cuando hay repasos de sobra', () => {
+  it('el material nuevo se topa: cuanto más del banco ha visto el alumno, menos nuevas', () => {
+    // Alumno avanzado: 90 de 100 preguntas del banco ya vistas → tope bajo.
     const states = new Map<string, QuestionState>();
-    for (let i = 0; i < 100; i++) {
-      states.set(`p${i}`, estado({ questionId: `p${i}`, box: 3, cajon: 'aprendiendo' }));
-    }
-    const disponibles = [...banco(100, 'T1', 'p'), ...banco(100, 'T1', 'n')];
+    for (let i = 0; i < 90; i++) states.set(`p${i}`, estado({ questionId: `p${i}`, box: 3, cajon: 'aprendiendo' }));
+    const disponibles = [...banco(90, 'T1', 'p'), ...banco(10, 'T1', 'n')];
     const r = buildSmartSession({ states, disponibles, limit: 20 });
-    expect(r.resumen.nueva).toBeLessThanOrEqual(6); // 30 % de 20
+    expect(r.resumen.nueva).toBeLessThanOrEqual(6); // ~22 % con >60 % del banco visto
     expect(r.questionIds).toHaveLength(20);
+  });
+
+  it('un principiante (apenas ha tocado el banco) recibe MUCHO material nuevo', () => {
+    const states = new Map<string, QuestionState>();
+    for (let i = 0; i < 5; i++) states.set(`p${i}`, estado({ questionId: `p${i}`, box: 1, cajon: 'recaida' }));
+    const disponibles = [...banco(5, 'T1', 'p'), ...banco(95, 'T1', 'n')];
+    const r = buildSmartSession({ states, disponibles, limit: 20 });
+    expect(r.resumen.nueva).toBeGreaterThanOrEqual(10); // ~60 % con <10 % del banco visto
+  });
+
+  it('el refuerzo (visto hace poco, aún no vencido) NO tiene cupo base', () => {
+    const states = new Map<string, QuestionState>();
+    // 10 preguntas box 2, vistas ayer, NO vencidas → solo entrarían como refuerzo
+    const noVencida = new Date(Date.now() + 5 * 86_400_000).toISOString();
+    for (let i = 0; i < 10; i++) {
+      states.set(`f${i}`, estado({ questionId: `f${i}`, box: 2, cajon: 'aprendiendo', dueAt: noVencida, lastAnsweredAt: AYER }));
+    }
+    // + material nuevo de sobra
+    const r = buildSmartSession({
+      states,
+      disponibles: [...banco(10, 'T1', 'f'), ...banco(30, 'T1', 'n')],
+      limit: 10,
+    });
+    // Se llena de nuevas, no de refuerzo prematuro.
+    expect(r.resumen.refuerzo).toBe(0);
+    expect(r.resumen.nueva).toBeGreaterThan(0);
   });
 
   it('redistribuye el hueco cuando un cubo se queda corto', () => {
