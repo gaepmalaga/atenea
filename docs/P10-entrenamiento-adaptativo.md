@@ -101,6 +101,11 @@ frío), donde se intercala con normalidad.
 
 ## Integración
 
+- **La dificultad que elige el alumno** en la pantalla de config es una
+  **preferencia suave**, no un filtro (como en `getQuestionsFromBank`): a
+  igualdad de todo lo demás, primero las preguntas del nivel pedido, en el cubo
+  de nuevas y en el de repasos (no en las recaídas — esas van por urgencia). Si
+  no hay suficientes del nivel, se completa con el resto.
 - **Acción nueva** `getAdaptiveSession({ topics, limit, difficulty })` en
   `exams.ts`: lee el banco de esos temas + las respuestas del alumno
   (`supabaseAdmin` + `.eq('user_id')`, como `getUserStats` — regla 34), corre el

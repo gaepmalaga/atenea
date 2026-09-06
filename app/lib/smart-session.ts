@@ -25,6 +25,8 @@ export type CandidataSesion = {
   topic: string;
   /** `question_bank.global_success_rate` (0-1) si está; si no, `null`. */
   globalSuccessRate?: number | null;
+  /** `question_bank.difficulty_level` (1 fácil · 2 media · 3 alta). */
+  difficultyLevel?: number | null;
 };
 
 /**
@@ -104,8 +106,14 @@ function clasifica(c: CandidataSesion, states: Map<string, QuestionState>, now: 
   return null;
 }
 
-function ordenaCubo(cubo: Cubo, items: ConEstado[], now: Date): ConEstado[] {
+function ordenaCubo(cubo: Cubo, items: ConEstado[], now: Date, dificultad: number | null): ConEstado[] {
   const arr = [...items];
+  // La dificultad que eligió el alumno es una PREFERENCIA suave, no un filtro
+  // (como en `getQuestionsFromBank`): a igualdad de todo lo demás, primero las
+  // del nivel pedido. Solo se aplica a lo NUEVO y a los repasos, no a las
+  // recaídas (esas van por urgencia, no por nivel).
+  const preferido = (x: ConEstado) => (dificultad && x.difficultyLevel === dificultad ? 0 : 1);
+
   if (cubo === 'recaida') {
     arr.sort(
       (a, b) =>
@@ -117,16 +125,22 @@ function ordenaCubo(cubo: Cubo, items: ConEstado[], now: Date): ConEstado[] {
       const st = x.state;
       return st && st.respuestas > 0 ? st.aciertos / st.respuestas : 1;
     };
-    arr.sort((a, b) => diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now) || acc(a) - acc(b));
+    arr.sort(
+      (a, b) =>
+        diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now) ||
+        acc(a) - acc(b) ||
+        preferido(a) - preferido(b),
+    );
   } else if (cubo === 'consolidar') {
     arr.sort((a, b) => diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now));
   } else if (cubo === 'nueva') {
-    // Las que el alumno EVITA (solo blancos) primero. Luego las globalmente más
-    // fáciles, para no hundir el acierto de la sesión por debajo del punto dulce.
+    // Las que el alumno EVITA (solo blancos) primero. Luego el nivel pedido, y
+    // luego las globalmente más fáciles (no hundir el acierto de la sesión).
     const facil = (x: ConEstado) => tasaUsable(x.globalSuccessRate) ?? 0.5;
     arr.sort(
       (a, b) =>
         Number(b.state?.soloBlancos ?? false) - Number(a.state?.soloBlancos ?? false) ||
+        preferido(a) - preferido(b) ||
         facil(b) - facil(a),
     );
   } else if (cubo === 'refuerzo') {
@@ -175,9 +189,12 @@ export function buildSmartSession(params: {
   states: Map<string, QuestionState>;
   disponibles: CandidataSesion[];
   limit: number;
+  /** Nivel que eligió el alumno (1-3). Preferencia suave, no filtro. */
+  dificultad?: number | null;
   now?: Date;
 }): SesionAdaptativa {
   const now = params.now ?? new Date();
+  const dificultad = params.dificultad && [1, 2, 3].includes(params.dificultad) ? params.dificultad : null;
   const limit = Math.max(0, Math.floor(params.limit));
 
   const vacio: SesionAdaptativa = {
@@ -203,7 +220,7 @@ export function buildSmartSession(params: {
     l.push(c);
     porCubo.set(c.cubo, l);
   }
-  for (const [cubo, items] of porCubo) porCubo.set(cubo, ordenaCubo(cubo, items, now));
+  for (const [cubo, items] of porCubo) porCubo.set(cubo, ordenaCubo(cubo, items, now, dificultad));
 
   const atascadasTotales = (porCubo.get('atascada') ?? []).length;
 

@@ -198,6 +198,30 @@ describe('un tema nuevo se sirve en bloque si hay temas conocidos en la sesión'
   });
 });
 
+describe('la dificultad elegida es una preferencia suave, no un filtro', () => {
+  it('a igualdad de todo lo demás, las nuevas del nivel pedido salen antes', () => {
+    const disponibles: CandidataSesion[] = [
+      ...Array.from({ length: 8 }, (_, i) => ({ questionId: `f${i}`, topic: 'T1', difficultyLevel: 1 })),
+      ...Array.from({ length: 8 }, (_, i) => ({ questionId: `d${i}`, topic: 'T1', difficultyLevel: 3 })),
+    ];
+    const r = buildSmartSession({ states: new Map(), disponibles, limit: 6, dificultad: 3 });
+    // Todas las elegidas son de dificultad 3 (había de sobra del nivel pedido)
+    expect(r.questionIds.every((id) => id.startsWith('d'))).toBe(true);
+  });
+
+  it('pero si no hay suficientes del nivel pedido, se completan con otras', () => {
+    const disponibles: CandidataSesion[] = [
+      { questionId: 'd0', topic: 'T1', difficultyLevel: 3 },
+      { questionId: 'd1', topic: 'T1', difficultyLevel: 3 },
+      ...Array.from({ length: 8 }, (_, i) => ({ questionId: `f${i}`, topic: 'T1', difficultyLevel: 1 })),
+    ];
+    const r = buildSmartSession({ states: new Map(), disponibles, limit: 6, dificultad: 3 });
+    expect(r.questionIds).toHaveLength(6);
+    expect(r.questionIds).toContain('d0');
+    expect(r.questionIds).toContain('d1');
+  });
+});
+
 describe('calibración al 85 %', () => {
   it('sesión de puras recaídas → intenta acercarse metiendo repasos/consolidación', () => {
     const states = new Map<string, QuestionState>();

@@ -497,12 +497,12 @@ export async function getAdaptiveSession(params: {
 
   const { data: banco, error: bancoError } = await supabase
     .from('question_bank')
-    .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, global_success_rate')
+    .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, global_success_rate, difficulty_level')
     .in('subject_id', ids)
     .eq('status', QUESTION_STATUS.ACTIVE);
 
   if (bancoError) return { success: false as const, error: bancoError.message };
-  const filas = (banco ?? []) as (BankRow & { global_success_rate?: number | null })[];
+  const filas = (banco ?? []) as (BankRow & { global_success_rate?: number | null; difficulty_level?: number | null })[];
 
   if (filas.length === 0) {
     return {
@@ -551,8 +551,10 @@ export async function getAdaptiveSession(params: {
       questionId: f.id,
       topic: temaDeFila(f),
       globalSuccessRate: typeof f.global_success_rate === 'number' ? f.global_success_rate : null,
+      difficultyLevel: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
     })),
     limit,
+    dificultad: typeof params.difficulty === 'number' ? params.difficulty : null,
   });
 
   const questions = sesion.questionIds
