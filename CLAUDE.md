@@ -1705,9 +1705,14 @@ y [`docs/P10-entrenamiento-adaptativo.md`](docs/P10-entrenamiento-adaptativo.md)
 - **RLS**: las respuestas del propio alumno se leen con **su sesión** (`db`,
   regla 34 — `question_attempts` tiene política de propietario y aquí no hay join
   con `question_bank`); el banco, con la clave de servicio.
-- **Lo que queda para v2** (medido, no antes): FSRS, marca de confianza / entrenar
-  el blanco, intervención de verdad para las atascadas, y el bloque inicial para
-  un tema nuevo antes de intercalar.
+- **Lo que queda para v2**: FSRS, y la **marca de confianza / entrenar el blanco**
+  (técnica 8) — medio hecha: la aritmética de calibración ya está
+  (`app/lib/confidence.ts`, `resumeCalibracion`, con tests) y el guion
+  [`docs/sql/P10b-marca-de-confianza.sql`](docs/sql/P10b-marca-de-confianza.sql)
+  añade `question_attempts.confidence`; falta ejecutarlo, capturar la marca en
+  `ActiveTest`, escribirla y pintar el cuadro. **El código que la escribe NO se
+  toca hasta que el guion esté ejecutado** (`question_attempts` se escribe en
+  cada respuesta y ya se rompió en silencio una vez, fase 1.2).
 
 ---
 
@@ -1744,6 +1749,7 @@ tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asign
 tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
 tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva
 tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
+tests/confidence.test.ts        calibración de la confianza (P10b): niveles, neto de adivinar, «sin datos» ≠ 0
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga

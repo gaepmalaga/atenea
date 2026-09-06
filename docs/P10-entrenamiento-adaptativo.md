@@ -124,7 +124,14 @@ frío), donde se intercala con normalidad.
 ## Lo que NO entra en v1
 
 - FSRS (se deja el hueco en los datos).
-- Marca de confianza / entrenar el blanco (técnica 8) → v2.
+- **Marca de confianza / entrenar el blanco (técnica 8) → v2, medio hecho:** la
+  aritmética de calibración está lista y con tests (`app/lib/confidence.ts`,
+  `resumeCalibracion`), y el guion SQL escrito
+  ([`docs/sql/P10b-marca-de-confianza.sql`](sql/P10b-marca-de-confianza.sql),
+  añade `question_attempts.confidence`). Falta: ejecutar el guion, capturar la
+  marca en `ActiveTest` al responder, escribirla en `saveTestResult`, y pintar
+  el cuadro en resultados. **El código que escribe `confidence` NO se toca hasta
+  que el guion esté ejecutado** (PostgREST rechaza la escritura entera).
 - Tabla `question_state` (solo si hay problema de rendimiento real).
 - Intervención especial para «atascadas» más allá de marcarlas y avisar
   (técnica 10) → v2: generar una ficha desde la pregunta, o llevar al artículo.
