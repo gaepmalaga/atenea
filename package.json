@@ -16,6 +16,7 @@
     "schema:migration": "node scripts/dump-migration.mjs",
     "smoke": "node scripts/smoke-contratos.mjs",
     "chat:probar": "node --experimental-strip-types scripts/probar-chat.mjs",
+    "sesion:adaptativa": "node --experimental-strip-types scripts/sesion-adaptativa.mjs",
     "temario:anexo": "NODE_USE_ENV_PROXY=1 node --experimental-strip-types scripts/temario/extraer-anexo.mjs",
     "temario:descargar": "NODE_USE_ENV_PROXY=1 node --experimental-strip-types scripts/temario/descargar-boe.mjs",
     "temario:esquema": "node --experimental-strip-types scripts/temario/esquema.mjs",

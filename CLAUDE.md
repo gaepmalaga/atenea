@@ -53,6 +53,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P8** | **Un solo panel de alumno** (feedback al probar P5/P6/P7) | ✅ **cerrada** (6 sep): Usuarios + Academia + Acceso & Pagos → **una pestaña «Alumnos»**. Tipos de grupo editables (`group_kinds`), varios profesores por grupo (`class_group_staff`), grupos asignados **desde el alumno**, y **pagos mes a mes** (`monthly_payments`). Ver **regla 53** |
 | — | **P8, segunda vuelta** (feedback al probarlo) | ✅ **hecho** (6 sep): «Alumnos» sin admins, «marcar pagado» y plan individual fuera de la ficha, **pestañas reordenables** (localStorage), **dos interruptores de físicas** (`training_ai` / `training_group`, sin SQL), **«Pagos» con vista histórico** (rejilla × 12 meses), y el **plan de grupo semana a semana con histórico** (P9, `group_training_plans` con PK `(class_id, week_start)`). Todo verificado en el preview. Ver **regla 54** |
 | — | **Icono de la app** | ✅ **hecho** (6 sep): fuera el `favicon.ico` por defecto de Vercel (triángulo borroso en el móvil). `app/icon.tsx` (PNG 512 con `next/og`), `app/apple-icon.tsx` (180), `app/manifest.ts` (PWA `standalone`, «Atenea»). **No volver a añadir `app/favicon.ico`** |
+| **P10** | **Entrenamiento adaptativo** (el diferenciador) | 🔶 **v1 hecha, en rama `claude/p10-entrenamiento-adaptativo`, SIN fusionar** (6 sep). Cajones por alumno + sesión con cuota de cada uno + curva de aprendizaje. Derivado al vuelo de `question_attempts`, **sin SQL**. Verificado end-to-end en el preview. Ver **regla 55** y [`docs/P10-entrenamiento-adaptativo.md`](docs/P10-entrenamiento-adaptativo.md) |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -155,17 +156,19 @@ cd .banco-pruebas && node todas-las-pantallas.cjs   # LAS 19 PANTALLAS en un nav
 npm run chat:probar                # QUE RESPONDE el chat, preguntándole de verdad (de pago)
 npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
+
+npm run sesion:adaptativa -- correo@x.com 20   # QUÉ SESIÓN le montaría P10 a ese alumno (gratis, solo lee)
 ```
 
-Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
+Los errores de `lint` (hoy 18) son **todos** el mismo falso positivo de
 `react-hooks/set-state-in-effect`: en cada panel que carga datos, un
 `useEffect(() => cargar(), [])` donde `cargar` hace `setState` **después** de un
 `await`. La regla lo ve como un `setState` síncrono dentro del efecto y no lo
 es. Está en casi todos los paneles de administración (`AdminActivity`,
 `AdminCost`, `AdminStudents`, `AdminPayments`, `AdminGroups`, `AdminPhysical`,
-`AdminView`, `AdminModeration`, `AdminContent`, `PlanEntrenadorEditor`) y del
-alumno (`DashboardHome`, `FailedQuestions`,
-`QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
+`AdminView`, `AdminModules`, `AdminModeration`, `AdminContent`,
+`PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
+`StatsPanel`, `QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
 aviso, y el número solo crece al añadir paneles. El de `IntelChat` es además a
 propósito: recupera del `sessionStorage` la conversación al montar (regla 37).
 
@@ -1649,6 +1652,68 @@ enseña todavía. `getGroupTrainingPlan` devuelve **todas** las semanas del grup
 (`SemanaDeGrupo[]`, con `vigente` / `pasada`), y `saveGroupTrainingPlan` /
 `deleteGroupTrainingPlan` reciben el `weekStart`.
 
+### 55 · El «Entrenamiento» del test es adaptativo (P10)
+
+El diferenciador. El banco de preguntas es común, pero **cada alumno tiene sus
+propios cajones** por pregunta —nueva / recaída / en aprendizaje / consolidando /
+dominada / atascada— y la sesión se arma con una **cuota de cada uno**, calibrada
+para que acierte ~85 % (la regla del 85 %), e **intercalando** los temas. La base
+está en [`docs/METODO-APRENDIZAJE.md`](docs/METODO-APRENDIZAJE.md) (investigación)
+y [`docs/P10-entrenamiento-adaptativo.md`](docs/P10-entrenamiento-adaptativo.md)
+(diseño).
+
+- **El estado se deriva al vuelo de `question_attempts`, sin tabla nueva.** Es lo
+  que ya hace `getUserStats` (leer hasta 20-30 mil respuestas y agregar en
+  memoria). `computeQuestionStates` (`app/lib/question-scheduler.ts`, puro)
+  recorre las respuestas en orden y calcula `box` (0-5), `dueAt`, `lapses`,
+  fluidez. **P10 v1 no necesitó ni un guion SQL.** Si algún día se nota lento, se
+  añade `question_state` como caché con la misma función.
+- **Un blanco no penaliza** (regla 24): la caja no se mueve. Un fallo de
+  **lectura** (`fallo_procesamiento`) baja a la caja 2, no a la 1 —leíste mal, no
+  es que no lo sepas—. El **primer acierto** va a la caja 2: la 1 es solo para
+  recaídas.
+- **`buildSmartSession`** (`app/lib/smart-session.ts`, puro): recaídas primero y
+  siempre; **tope del 30 % de material nuevo** (inundar de nuevo hunde el acierto
+  por debajo del punto dulce); **atascadas máximo 2 por sesión** (más
+  repeticiones no ayudan — se avisa de que hay que releer el artículo o hacer una
+  ficha); redistribución si un cubo se queda corto; una pasada de calibración que
+  NO quita recaídas salvo que dominen la sesión (> 40 %).
+- **El simulacro NO se toca.** Tiene que reflejar el examen real: aleatorio, con
+  reloj, sin adaptar.
+- **Interruptor `training_adaptive`** en `module_settings` (texto libre, patrón de
+  la regla 54), **encendido por defecto**. Apagado = vuelve a la selección
+  aleatoria. `getAdaptiveSession` (`exams.ts`) lo comprueba: si está apagado hace
+  `shuffle(bank).slice(limit)`. El módulo del alumno llama a esta acción en modo
+  `practice`; en `exam` sigue con `getQuestionsFromBank`.
+- **El tope de material nuevo ESCALA** con lo que el alumno ha visto del banco:
+  ~60 % si ha tocado < 10 %, ~22 % si ha tocado > 60 % — si no, a un principiante
+  le falta material nuevo y se le rellena con repaso prematuro. El «refuerzo»
+  (visto hace poco, aún no vencido) no tiene cupo base: rompe el espaciado, solo
+  se usa de último relleno.
+- **`global_success_rate = 0` no es «todo el mundo la falla»** (regla 8): hoy esa
+  columna está toda a 0 (no la puebla nadie). `tasaUsable()` la ignora salvo que
+  sea un valor plausible.
+- **La curva de aprendizaje**: `resumeCajonesPorTema` alimenta la sección
+  «Dominio del temario» de Estadísticas — por tema, cuántas dominadas /
+  consolidando / en aprendizaje / sin empezar, con una barra apilada.
+- **En «Repasar fallos»**, una pregunta fallada 4+ veces sale marcada como
+  atascada con un aviso de que releer el artículo, no repetir el test
+  (`esAtascada` en `lib/review.ts`).
+- **Para verlo sin levantar la app**: `npm run sesion:adaptativa -- correo 20`
+  imprime los cajones del alumno, la curva por tema y una sesión de ejemplo con
+  su mezcla y el acierto estimado. Gratis, solo lee (como `chat:probar`).
+- **RLS**: las respuestas del propio alumno se leen con **su sesión** (`db`,
+  regla 34 — `question_attempts` tiene política de propietario y aquí no hay join
+  con `question_bank`); el banco, con la clave de servicio.
+- **Lo que queda para v2**: FSRS, y la **marca de confianza / entrenar el blanco**
+  (técnica 8) — medio hecha: la aritmética de calibración ya está
+  (`app/lib/confidence.ts`, `resumeCalibracion`, con tests) y el guion
+  [`docs/sql/P10b-marca-de-confianza.sql`](docs/sql/P10b-marca-de-confianza.sql)
+  añade `question_attempts.confidence`; falta ejecutarlo, capturar la marca en
+  `ActiveTest`, escribirla y pintar el cuadro. **El código que la escribe NO se
+  toca hasta que el guion esté ejecutado** (`question_attempts` se escribe en
+  cada respuesta y ya se rompió en silencio una vez, fase 1.2).
+
 ---
 
 ## Los tests
@@ -1672,7 +1737,6 @@ tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
-tests/review.test.ts            repaso de lo fallado: agrupación y guardas
 tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
@@ -1682,6 +1746,10 @@ tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y 
 tests/membership.test.ts        la puerta de acceso (decideAccess) y sus guardas
 tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes y «sin importe» ≠ 0 €
 tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan
+tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
+tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva
+tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
+tests/confidence.test.ts        calibración de la confianza (P10b): niveles, neto de adivinar, «sin datos» ≠ 0
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga

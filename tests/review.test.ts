@@ -5,6 +5,8 @@ import {
   groupFailedAttempts,
   failuresByTopic,
   mostUrgent,
+  esAtascada,
+  VECES_ATASCADA,
   type FailedAttemptRow,
 } from '../app/lib/review';
 
@@ -203,6 +205,22 @@ describe('guardas del repaso', () => {
   const accion = stripComments(read('app/actions/user.ts'));
   const ui = stripComments(read('app/components/student/modules/review/FailedQuestions.tsx'));
   const dashboard = stripComments(read('app/components/student/StudentDashboard.tsx'));
+
+  it('una pregunta fallada 4+ veces es «atascada» (técnica 10)', () => {
+    const filas = Array.from({ length: VECES_ATASCADA }, (_, i) =>
+      fallo({ question_id: 'q-x', selected_index: i % 3, error_type: 'trampa', created_at: `2026-09-0${i + 1}T10:00:00Z` }),
+    );
+    const [q] = groupFailedAttempts(filas);
+    expect(q.times).toBe(VECES_ATASCADA);
+    expect(esAtascada(q)).toBe(true);
+  });
+
+  it('fallada 3 veces todavía NO es atascada', () => {
+    const filas = Array.from({ length: 3 }, (_, i) =>
+      fallo({ question_id: 'q-y', selected_index: i % 3, created_at: `2026-09-0${i + 1}T10:00:00Z` }),
+    );
+    expect(esAtascada(groupFailedAttempts(filas)[0])).toBe(false);
+  });
 
   it('la accion no acepta un userId del cliente (regla 1)', () => {
     expect(accion).toMatch(/getFailedQuestions\(\)/);

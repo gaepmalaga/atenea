@@ -5,7 +5,8 @@ import {
   Shield, Crown, Medal, Activity, RefreshCw, HeartPulse, Brain, Zap, MousePointer2, Gauge
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getUserStats, getPhysicalProfile } from '@/actions';
+import { getUserStats, getPhysicalProfile, getMisCajones } from '@/actions';
+import type { ResumenTema } from '@/app/lib/question-scheduler';
 import { EmptyState } from '../../../ui';
 import {
   rankFor,
@@ -48,17 +49,20 @@ const ERROR_LABEL: Record<string, string> = {
 export default function StatsPanel({ user }: StatsPanelProps) {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [physProfile, setPhysProfile] = useState<PhysicalProfile | null>(null);
+  const [cajones, setCajones] = useState<ResumenTema[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, physRes] = await Promise.all([
+      const [statsRes, physRes, cajonesRes] = await Promise.all([
         getUserStats(),
-        getPhysicalProfile()
+        getPhysicalProfile(),
+        getMisCajones(),
       ]);
       if (statsRes.success) setStats(statsRes.stats);
       if (physRes.success) setPhysProfile(physRes.data);
+      if (cajonesRes.success) setCajones(cajonesRes.temas);
     } catch (e) {
       console.error(e);
     } finally {
@@ -258,6 +262,45 @@ export default function StatsPanel({ user }: StatsPanelProps) {
               </div>
           </div>
       </div>
+
+      {/* DOMINIO DEL TEMARIO (P10): cuántas preguntas de cada tema tiene el
+          alumno en cada cajón. Es la «curva de aprendizaje»: la barra crece a
+          medida que las preguntas pasan de nuevas a dominadas. */}
+      {cajones && cajones.some((t) => t.total > 0) && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
+          <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+            <h3 className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <Gauge size={15} className="shrink-0" /> Dominio del temario
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              El entrenamiento reparte las preguntas según esto: repasa lo tierno, consolida lo que va cuajando.
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
+            {cajones.filter((t) => t.total > 0).map((t) => (
+              <div key={t.topic} className="p-3 sm:p-4">
+                <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{t.topic}</p>
+                  <span className="text-[11px] font-mono text-slate-400 shrink-0">{t.progreso}%</span>
+                </div>
+                {/* Barra apilada: dominadas + consolidando + en aprendizaje sobre el total. */}
+                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-emerald-500" style={{ width: `${(t.dominadas / t.total) * 100}%` }} />
+                  <div className="h-full bg-sky-500" style={{ width: `${(t.consolidando / t.total) * 100}%` }} />
+                  <div className="h-full bg-amber-400" style={{ width: `${(t.aprendiendo / t.total) * 100}%` }} />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {t.dominadas > 0 && `${t.dominadas} dominadas · `}
+                  {t.consolidando > 0 && `${t.consolidando} consolidando · `}
+                  {t.aprendiendo > 0 && `${t.aprendiendo} en aprendizaje · `}
+                  {t.nuevas > 0 && `${t.nuevas} sin empezar`}
+                  {t.atascadas > 0 && ` · ${t.atascadas} atascadas`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* SECCIÓN 3: HISTORIAL */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">

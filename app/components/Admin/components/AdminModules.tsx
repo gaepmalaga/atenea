@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Power, AlertTriangle, ShieldOff } from 'lucide-react';
-import { getModuleSettings, setModuleEnabled } from '@/actions';
+import { Loader2, Power, AlertTriangle, ShieldOff, Sparkles } from 'lucide-react';
+import { getModuleSettings, setModuleEnabled, getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import {
   MODULE_IDS,
   MODULE_LABEL,
@@ -12,6 +12,7 @@ import {
   type ModuleId,
   type ModuleSettings,
 } from '@/app/lib/modules';
+import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC } from '@/app/lib/training-switches';
 import AcademyIdentity from './AcademyIdentity';
 
 /**
@@ -29,17 +30,30 @@ export default function AdminModules() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState<ModuleId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [adaptativo, setAdaptativo] = useState<boolean | null>(null);
+  const [guardandoAdaptativo, setGuardandoAdaptativo] = useState(false);
 
   useEffect(() => {
     let vivo = true;
-    getModuleSettings().then((res) => {
+    Promise.all([getModuleSettings(), getTrainingSwitches()]).then(([mods, sw]) => {
       if (!vivo) return;
-      if (res.success) setSettings(res.settings);
-      else setError(res.error);
+      if (mods.success) setSettings(mods.settings);
+      else setError(mods.error);
+      if (sw.success) setAdaptativo(sw.switches.adaptive);
       setCargando(false);
     });
     return () => { vivo = false; };
   }, []);
+
+  async function alternaAdaptativo() {
+    if (adaptativo === null) return;
+    setGuardandoAdaptativo(true);
+    setError(null);
+    const res = await setTrainingSwitch({ switchId: 'adaptive', enabled: !adaptativo });
+    if (res.success) setAdaptativo(!adaptativo);
+    else setError(res.error ?? 'No se pudo guardar.');
+    setGuardandoAdaptativo(false);
+  }
 
   async function alterna(id: ModuleId) {
     const nuevo = !settings[id];
@@ -132,6 +146,31 @@ export default function AdminModules() {
             </div>
           );
         })}
+      </div>
+
+      {/* Ajustes de método de estudio. El entrenamiento adaptativo (P10). */}
+      <div className="border rounded-3xl p-5 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <Sparkles size={15} className="text-indigo-500" /> {TRAINING_SWITCH_LABEL.adaptive}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{TRAINING_SWITCH_DESC.adaptive}</p>
+          </div>
+          <button
+            onClick={alternaAdaptativo}
+            disabled={guardandoAdaptativo || cargando || adaptativo === null}
+            aria-pressed={adaptativo === true}
+            title={adaptativo ? 'Desactivar' : 'Activar'}
+            className={`shrink-0 w-14 h-8 my-1.5 box-content py-1.5 rounded-full flex items-center px-1 transition-all disabled:opacity-40 ${
+              adaptativo ? 'bg-emerald-500 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+            }`}
+          >
+            <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-slate-900">
+              {guardandoAdaptativo && <Loader2 size={12} className="animate-spin" />}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -140,6 +140,7 @@ describe('apagar un modulo lo apaga tambien en el servidor', () => {
     ['chat.ts', 'askAtenea', 'chat'],
     ['exams.ts', 'generateAndSaveCandidate', 'test'],
     ['exams.ts', 'getQuestionsFromBank', 'test'],
+    ['exams.ts', 'getAdaptiveSession', 'test'],
     ['user.ts', 'getFailedQuestions', 'review'],
     ['flashcards.ts', 'generateFlashcard', 'cards'],
     ['training.ts', 'generateWeeklyPlan', 'training'],
@@ -184,9 +185,9 @@ describe('apagar un modulo lo apaga tambien en el servidor', () => {
 // INTERRUPTORES DE PREPARACION FISICA (feedback tras P8)
 // ============================================================
 
-describe('los interruptores de fisicas', () => {
-  it('son dos: la generacion con IA y el plan manual por grupo', () => {
-    expect(TRAINING_SWITCH_IDS).toEqual(['ai', 'group']);
+describe('los interruptores de entrenamiento', () => {
+  it('son tres: IA de físicas, plan de grupo, y entrenamiento adaptativo (P10)', () => {
+    expect(TRAINING_SWITCH_IDS).toEqual(['ai', 'group', 'adaptive']);
     for (const id of TRAINING_SWITCH_IDS) {
       expect(TRAINING_SWITCH_LABEL[id], id).toBeTruthy();
       expect(TRAINING_SWITCH_DESC[id], id).toBeTruthy();
@@ -194,26 +195,27 @@ describe('los interruptores de fisicas', () => {
   });
 
   it('se guardan en module_settings con module_id de texto libre (sin SQL)', () => {
-    expect(TRAINING_SWITCH_ROW).toEqual({ ai: 'training_ai', group: 'training_group' });
+    expect(TRAINING_SWITCH_ROW).toEqual({ ai: 'training_ai', group: 'training_group', adaptive: 'training_adaptive' });
   });
 
   it('SIN FILA = ENCENDIDO, igual que P4', () => {
     expect(toTrainingSwitches([])).toEqual(todosLosSwitches());
-    expect(todosLosSwitches()).toEqual({ ai: true, group: true });
+    expect(todosLosSwitches()).toEqual({ ai: true, group: true, adaptive: true });
   });
 
   it('solo apaga lo que viene explicitamente a false, y por su module_id largo', () => {
     const s = toTrainingSwitches([
       { module_id: 'training_ai', enabled: false },
       { module_id: 'training_group', enabled: true },
+      { module_id: 'training_adaptive', enabled: false },
       { module_id: 'chat', enabled: false }, // de otro sistema: se ignora
     ]);
-    expect(s).toEqual({ ai: false, group: true });
+    expect(s).toEqual({ ai: false, group: true, adaptive: false });
   });
 
   it('la basura no apaga nada', () => {
     expect(toTrainingSwitches([{ module_id: null }, { module_id: 'ai', enabled: false }, {}]))
-      .toEqual({ ai: true, group: true });
+      .toEqual({ ai: true, group: true, adaptive: true });
   });
 });
 

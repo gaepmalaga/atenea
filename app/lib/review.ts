@@ -71,6 +71,17 @@ function esTipoDeError(v: unknown): v is ErrorType {
   return typeof v === 'string' && (ERROR_TYPES as readonly string[]).includes(v);
 }
 
+/**
+ * Fallada tantas veces que más repeticiones no ayudan (técnica 10 de
+ * `METODO-APRENDIZAJE.md`): toca otra cosa —releer el artículo, una ficha—. El
+ * mismo umbral que `LAPSES_ATASCADA` del scheduler.
+ */
+export const VECES_ATASCADA = 4;
+
+export function esAtascada(q: FailedQuestion): boolean {
+  return q.times >= VECES_ATASCADA;
+}
+
 /** Las opciones tal y como las guarda `question_bank`: un array de textos. */
 function leerOpciones(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

@@ -8,7 +8,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { getFailedQuestions } from '@/actions';
 import { indexToOptionId } from '@/app/lib/questions';
-import type { FailedQuestion } from '@/app/lib/review';
+import { esAtascada, type FailedQuestion } from '@/app/lib/review';
 import { ERROR_LABELS } from '@/app/lib/stats';
 import QuestionNote from '../../QuestionNote';
 import { Button } from '../../../ui';
@@ -327,6 +327,22 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
                       Has caído {q.times} veces en la misma opción. No es que no te la
                       sepas: es que esa respuesta te convence.
                     </p>
+                  )}
+
+                  {/* Atascada (técnica 10): fallada 4+ veces. Más tests no la
+                      arreglan — hay que ir a la fuente. */}
+                  {esAtascada(q) && (
+                    <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                      <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed flex items-start gap-2">
+                        <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+                        <span>
+                          Llevas <strong>{q.times}</strong> fallos en esta. Repetirla en los tests no
+                          está funcionando: {q.legalReference
+                            ? <>vuelve al <strong>{q.legalReference}</strong> y léelo despacio</>
+                            : <>relee esa parte del temario con calma</>}, y si quieres hazte una ficha del dato exacto.
+                        </span>
+                      </p>
+                    </div>
                   )}
 
                   {/* La nota se carga al DESPLEGAR la tarjeta, no al pintar la
