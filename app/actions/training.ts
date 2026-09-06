@@ -3,6 +3,7 @@ import { planModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
+import { requireTrainingSwitch, leeTrainingSwitches } from '../lib/training-switch-guard';
 import { checkQuota } from '../lib/rate-limit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import {
@@ -69,12 +70,18 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     const modulo = await requireModule('training');
     if (!modulo.ok) return { success: false, error: modulo.error };
 
+    // El interruptor de «plan con IA», aparte del módulo. Va ANTES de la cuota y
+    // de Gemini, igual que `requireModule`: apagarlo tiene que evitar la llamada
+    // de pago, no solo esconder el botón.
+    const permiteIA = await requireTrainingSwitch('ai');
+    if (!permiteIA.ok) return { success: false, error: permiteIA.error };
+
     const quota = await checkQuota(userId, 'plan');
     if (!quota.ok) return { success: false, error: quota.error };
 
     try {
         if (!profile || !profile.baseline_metrics) throw new Error("Faltan datos físicos.");
-        
+
         const prompt = `
             ACTÚA COMO: Preparador Físico CNP.
             ${athleteBrief(profile)}
@@ -126,6 +133,10 @@ export async function getActiveTrainingPlan(): Promise<
     if (data) {
         return { success: true, plan: { id: data.id, plan_data: normalizePlan(data.plan_data), origen: 'individual' } };
     }
+
+    // Si la academia ha apagado el plan de grupo, el alumno no lo hereda.
+    const switches = await leeTrainingSwitches();
+    if (!switches.group) return { success: true, plan: null };
 
     // El grupo y su membresía son de administración (RLS sin políticas de
     // miembro), así que se leen con la clave de servicio filtrando por el
@@ -225,6 +236,12 @@ export async function generateNextWeek() {
     if (!auth.ok) return { success: false as const, error: auth.error, plan: null };
     const db = await createSupabaseServerClient();
     const userId = auth.user.id;
+
+    const modulo = await requireModule('training');
+    if (!modulo.ok) return { success: false as const, error: modulo.error, plan: null };
+
+    const permiteIA = await requireTrainingSwitch('ai');
+    if (!permiteIA.ok) return { success: false as const, error: permiteIA.error, plan: null };
 
     const quota = await checkQuota(userId, 'plan');
     if (!quota.ok) return { success: false as const, error: quota.error, plan: null };

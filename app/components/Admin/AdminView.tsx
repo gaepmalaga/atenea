@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
   Shield, LogOut, RefreshCw, Users, Book,
-  Activity, AlertTriangle, Database, Power, Coins, KeyRound, Users2, Dumbbell
+  Activity, AlertTriangle, Database, Power, Coins, KeyRound, Users2, Dumbbell,
+  ArrowLeftRight, ChevronLeft, ChevronRight, Check
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -22,6 +23,51 @@ import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
 type AdminTab = 'students' | 'groups' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost';
+
+/**
+ * El orden de las pestañas lo puede cambiar cada admin y se recuerda en SU
+ * navegador (`localStorage`) — es una comodidad por dispositivo, no un ajuste de
+ * academia (regla 36 sobre `localStorage`: se envuelve en try/catch y se pinta
+ * bien sin valor guardado).
+ */
+const ORDEN_KEY = 'atenea-admin-orden-pestanas';
+
+function leeOrdenGuardado(): string[] {
+  try {
+    const raw = localStorage.getItem(ORDEN_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardaOrden(ids: string[]): void {
+  try {
+    localStorage.setItem(ORDEN_KEY, JSON.stringify(ids));
+  } catch {
+    /* modo privado, o almacenamiento bloqueado: el orden vuelve al de por defecto */
+  }
+}
+
+/**
+ * Reordena `tabs` según los ids guardados: primero los conocidos en el orden
+ * guardado, después los que sean nuevos (una pestaña añadida al código aparece
+ * al final en vez de desaparecer).
+ */
+function aplicaOrden<T extends { id: string }>(tabs: T[], orden: string[]): T[] {
+  if (orden.length === 0) return tabs;
+  const porId = new Map(tabs.map((t) => [t.id, t]));
+  const vistos = new Set<string>();
+  const salida: T[] = [];
+  for (const id of orden) {
+    const t = porId.get(id);
+    if (t && !vistos.has(id)) { salida.push(t); vistos.add(id); }
+  }
+  for (const t of tabs) if (!vistos.has(t.id)) salida.push(t);
+  return salida;
+}
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   // Estado para la navegación
@@ -42,6 +88,11 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     setRefreshKey(prev => prev + 1);
   };
 
+  // Orden de las pestañas, editable y recordado en este navegador.
+  const [orden, setOrden] = useState<string[]>([]);
+  const [reordenando, setReordenando] = useState(false);
+  useEffect(() => { setOrden(leeOrdenGuardado()); }, []);
+
   // Configuración del Menú
   // `satisfies` y no `as`: obliga a que cada `id` sea un AdminTab de verdad,
   // sin borrar el tipo literal de cada uno. Antes se colaba con `as any` en el
@@ -58,6 +109,18 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     { id: 'cost', label: 'Consumo IA', icon: Coins, color: 'text-lime-700 dark:text-lime-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-500 dark:text-slate-400' },
   ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
+
+  const tabsOrdenadas = aplicaOrden(tabs, orden);
+
+  const mueve = (id: AdminTab, dir: -1 | 1) => {
+    const ids = tabsOrdenadas.map((t) => t.id);
+    const i = ids.indexOf(id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    setOrden(ids);
+    guardaOrden(ids);
+  };
 
   return (
     <div className="min-h-dvh bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 pb-[max(2rem,env(safe-area-inset-bottom))] font-sans">
@@ -99,6 +162,18 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
         <div className="flex items-center gap-2 shrink-0">
           <button
+            onClick={() => setReordenando((x) => !x)}
+            className={`flex items-center justify-center w-11 h-11 border rounded-xl transition-all ${
+              reordenando
+                ? 'bg-indigo-600 border-indigo-500 text-white'
+                : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 text-slate-500 dark:text-slate-400'
+            }`}
+            title={reordenando ? 'Listo' : 'Reordenar pestañas'}
+            aria-label={reordenando ? 'Terminar de reordenar' : 'Reordenar pestañas'}
+          >
+            {reordenando ? <Check size={18} /> : <ArrowLeftRight size={18} />}
+          </button>
+          <button
             onClick={forceRefresh}
             className="flex items-center justify-center w-11 h-11 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all group"
             title="Recargar datos"
@@ -127,11 +202,41 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
           pantalla, y las tres ultimas (incluida Modulos) eran invisibles para
           quien no arrastrara por probar. */}
       <div className="relative">
+        {reordenando && (
+          <p className="text-[11px] text-slate-400 pb-2">
+            Usa las flechas para mover cada pestaña. Se guarda solo en este navegador.
+          </p>
+        )}
         <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
           <div className="flex gap-2 min-w-max pb-1">
-            {tabs.map((tab) => {
+            {tabsOrdenadas.map((tab, i) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
+
+              if (reordenando) {
+                return (
+                  <div key={tab.id} className="min-h-[44px] px-2 rounded-xl font-bold text-sm flex items-center gap-1.5 bg-slate-800 text-slate-200 ring-1 ring-slate-700">
+                    <button
+                      onClick={() => mueve(tab.id, -1)}
+                      disabled={i === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700 disabled:opacity-30"
+                      aria-label={`Mover ${tab.label} a la izquierda`}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <Icon size={16} className={tab.color} />
+                    <span className="px-1">{tab.label}</span>
+                    <button
+                      onClick={() => mueve(tab.id, 1)}
+                      disabled={i === tabsOrdenadas.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700 disabled:opacity-30"
+                      aria-label={`Mover ${tab.label} a la derecha`}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                );
+              }
 
               return (
                 <button

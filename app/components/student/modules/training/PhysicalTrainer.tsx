@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { 
-    getPhysicalProfile, 
-    savePhysicalProfile, 
-    generateWeeklyPlan, 
+import {
+    getPhysicalProfile,
+    savePhysicalProfile,
+    generateWeeklyPlan,
     getActiveTrainingPlan,
     generateNextWeek,
-    completeTrainingDay
+    completeTrainingDay,
+    getTrainingSwitches
 } from '@/actions';
 
 // IMPORTACIÓN DE COMPONENTES
@@ -38,6 +39,10 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // ESTADOS DEL PLAN
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null); // ID real de la base de datos para guardar progresos
+  // Interruptores de la academia: si la IA está apagada, no se ofrece «generar».
+  const [aiOn, setAiOn] = useState(true);
+  // El plan viene de un grupo (id `grupo:…`): compartido, ni se marca ni se genera.
+  const esPlanDeGrupo = (activePlanId ?? '').startsWith('grupo:');
 
   // ESTADOS DE SESIÓN ACTIVA
   const [activeDay, setActiveDay] = useState<TrainingDay | null>(null);
@@ -47,25 +52,28 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   useEffect(() => {
     async function init() {
         try {
-            const [profileRes, planRes] = await Promise.all([
+            const [profileRes, planRes, switchesRes] = await Promise.all([
                  getPhysicalProfile(),
-                 getActiveTrainingPlan()
+                 getActiveTrainingPlan(),
+                 getTrainingSwitches()
             ]);
-            
+
+            if (switchesRes.success) setAiOn(switchesRes.switches.ai);
+
             const profileData = profileRes.data;
             const activePlanRow = planRes.plan; // El objeto completo de la BD (con id, plan_data, etc.)
 
             setProfile(profileData || {});
 
-            // Lógica de Redirección Inteligente
-            if (!hasBiometrics(profileData)) {
-                // Si no hay datos biométricos, vamos al Setup
-                setView('setup');
-            } else if (activePlanRow) {
-                // Si ya tiene un plan activo, vamos al Dashboard
+            // Lógica de Redirección Inteligente. Un plan activo GANA sobre el
+            // wizard: si la academia le ha puesto un plan de grupo, el alumno
+            // tiene que verlo aunque no haya hecho aún las pruebas físicas.
+            if (activePlanRow) {
                 setWeeklyPlan(activePlanRow.plan_data);
                 setActivePlanId(activePlanRow.id); // ¡CRÍTICO! Guardamos el ID para poder actualizarlo luego
                 setView('dashboard');
+            } else if (!hasBiometrics(profileData)) {
+                setView('setup');
             } else {
                 // Si tiene perfil pero no plan, vamos al Hub de Tests
                 setView('hub');
@@ -208,13 +216,14 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
 
   if (currentView === 'hub') {
       return (
-          <AssessmentHub 
-            profile={profile} 
-            onSelectTest={(id) => { setSaveError(null); setActiveTestId(id); setView('runner'); }} 
-            onGenerate={handleGenerate} 
+          <AssessmentHub
+            profile={profile}
+            onSelectTest={(id) => { setSaveError(null); setActiveTestId(id); setView('runner'); }}
+            onGenerate={handleGenerate}
             generating={generating}
             error={saveError}
-            onEditBio={() => { setSaveError(null); setView('setup'); }} 
+            aiOn={aiOn}
+            onEditBio={() => { setSaveError(null); setView('setup'); }}
           />
       );
   }
@@ -234,14 +243,16 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   
   if (currentView === 'dashboard') {
       return (
-          <TrainingDashboard 
-            plan={weeklyPlan} 
-            onStartSession={handleStartSession} 
-            onReportIssue={handleReportIssue} 
-            onReconfigure={() => { setSaveError(null); setView('hub'); }} 
+          <TrainingDashboard
+            plan={weeklyPlan}
+            onStartSession={handleStartSession}
+            onReportIssue={handleReportIssue}
+            onReconfigure={() => { setSaveError(null); setView('hub'); }}
             onGenerateNextWeek={handleGenerateNextWeek}
             generating={generating}
             error={saveError}
+            aiOn={aiOn}
+            esDeGrupo={esPlanDeGrupo}
           />
       );
   }

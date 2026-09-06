@@ -11,6 +11,14 @@ import {
   modulosActivos,
   moduloDeEntrada,
 } from '../app/lib/modules';
+import {
+  TRAINING_SWITCH_IDS,
+  TRAINING_SWITCH_ROW,
+  TRAINING_SWITCH_LABEL,
+  TRAINING_SWITCH_DESC,
+  todosLosSwitches,
+  toTrainingSwitches,
+} from '../app/lib/training-switches';
 
 /**
  * P4 · encender y apagar modulos.
@@ -169,5 +177,72 @@ describe('apagar un modulo lo apaga tambien en el servidor', () => {
   it('las dos acciones de modulos comprueban la sesion, y escribir es de admin', () => {
     expect(cuerpoDe('modules.ts', 'getModuleSettings')).toMatch(/requireUser\(\)/);
     expect(cuerpoDe('modules.ts', 'setModuleEnabled')).toMatch(/requireAdmin\(\)/);
+  });
+});
+
+// ============================================================
+// INTERRUPTORES DE PREPARACION FISICA (feedback tras P8)
+// ============================================================
+
+describe('los interruptores de fisicas', () => {
+  it('son dos: la generacion con IA y el plan manual por grupo', () => {
+    expect(TRAINING_SWITCH_IDS).toEqual(['ai', 'group']);
+    for (const id of TRAINING_SWITCH_IDS) {
+      expect(TRAINING_SWITCH_LABEL[id], id).toBeTruthy();
+      expect(TRAINING_SWITCH_DESC[id], id).toBeTruthy();
+    }
+  });
+
+  it('se guardan en module_settings con module_id de texto libre (sin SQL)', () => {
+    expect(TRAINING_SWITCH_ROW).toEqual({ ai: 'training_ai', group: 'training_group' });
+  });
+
+  it('SIN FILA = ENCENDIDO, igual que P4', () => {
+    expect(toTrainingSwitches([])).toEqual(todosLosSwitches());
+    expect(todosLosSwitches()).toEqual({ ai: true, group: true });
+  });
+
+  it('solo apaga lo que viene explicitamente a false, y por su module_id largo', () => {
+    const s = toTrainingSwitches([
+      { module_id: 'training_ai', enabled: false },
+      { module_id: 'training_group', enabled: true },
+      { module_id: 'chat', enabled: false }, // de otro sistema: se ignora
+    ]);
+    expect(s).toEqual({ ai: false, group: true });
+  });
+
+  it('la basura no apaga nada', () => {
+    expect(toTrainingSwitches([{ module_id: null }, { module_id: 'ai', enabled: false }, {}]))
+      .toEqual({ ai: true, group: true });
+  });
+});
+
+describe('apagar un interruptor de fisicas lo apaga en el servidor', () => {
+  it('generateWeeklyPlan y generateNextWeek cortan si la IA esta apagada, ANTES de la cuota', () => {
+    for (const accion of ['generateWeeklyPlan', 'generateNextWeek']) {
+      const cuerpo = cuerpoDe('training.ts', accion);
+      expect(cuerpo, accion).toContain("requireTrainingSwitch('ai')");
+      const sw = cuerpo.indexOf('requireTrainingSwitch(');
+      const cuota = cuerpo.indexOf('checkQuota(');
+      expect(sw, `${accion}: el interruptor va despues de checkQuota`).toBeGreaterThan(-1);
+      expect(sw).toBeLessThan(cuota);
+    }
+  });
+
+  it('saveGroupTrainingPlan corta si el plan de grupo esta apagado', () => {
+    expect(cuerpoDe('groups.ts', 'saveGroupTrainingPlan')).toContain("requireTrainingSwitch('group')");
+  });
+
+  it('getActiveTrainingPlan no hereda el plan de grupo si esta apagado', () => {
+    const cuerpo = fuentes['training.ts'].slice(
+      fuentes['training.ts'].indexOf('export async function getActiveTrainingPlan'),
+      fuentes['training.ts'].indexOf('export async function completeTrainingDay'),
+    );
+    expect(cuerpo).toMatch(/switches\.group/);
+  });
+
+  it('el lector NO es una Server Action (mismo motivo que requireModule)', () => {
+    expect(fuentes['modules.ts']).not.toMatch(/export async function leeTrainingSwitches/);
+    expect(fuentes['modules.ts']).not.toMatch(/export async function requireTrainingSwitch/);
   });
 });

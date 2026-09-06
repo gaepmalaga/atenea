@@ -10,6 +10,7 @@ import {
   type GroupKindRow,
 } from '../lib/groups';
 import { normalizePlan, buildManualPlan, type Exercise, type WeeklyPlan } from '../lib/training-plan';
+import { requireTrainingSwitch } from '../lib/training-switch-guard';
 
 /**
  * GRUPOS Y TIPOS DE GRUPO (P7 · rehecho en P8).
@@ -295,6 +296,9 @@ export async function saveGroupTrainingPlan(params: {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!params.groupId) return { success: false as const, error: 'Falta el grupo.' };
+
+  const permiteGrupo = await requireTrainingSwitch('group');
+  if (!permiteGrupo.ok) return { success: false as const, error: permiteGrupo.error };
 
   const [grupoRes, kindsRes] = await Promise.all([
     supabaseAdmin.from('class_groups').select('kind, name').eq('id', params.groupId).maybeSingle(),

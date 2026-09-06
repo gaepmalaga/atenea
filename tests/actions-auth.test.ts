@@ -90,6 +90,8 @@ describe('superficie de las Server Actions', () => {
       'importManualQuestions',
       // P6: el gasto de IA es dato de administración (ai_usage sin políticas).
       'getAiCostOverview',
+      // Interruptores de preparación física (feedback tras P8).
+      'setTrainingSwitch',
       // P6/P8: control de acceso.
       'getMembershipRequired',
       'setMembershipRequired',

@@ -1,32 +1,48 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Dumbbell, RefreshCw, ChevronDown, Trash2, Info } from 'lucide-react';
-import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrainingPlan } from '@/actions';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { Dumbbell, RefreshCw, ChevronDown, Trash2, Sparkles, Users2 } from 'lucide-react';
+import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrainingPlan, getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import type { GroupRow } from '@/app/actions/groups';
 import type { WeeklyPlan } from '@/app/lib/training-plan';
+import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
 import PlanEntrenadorEditor from './PlanEntrenadorEditor';
-import { Card, EmptyState, TEXT, cx } from '../../ui';
+import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
 
 /**
- * "Preparación física" (P7): saca el entrenamiento de la ficha de cada alumno
- * a su sitio. Un plan por GRUPO de físicas — todos sus miembros lo heredan; si
- * un alumno necesita algo distinto, un plan individual (en Academia) lo
- * sobrescribe.
+ * «Preparación física» (P7, afinado tras P8): el entrenamiento vive aquí, por
+ * GRUPO, no en la ficha de cada alumno.
+ *
+ * Dos interruptores, que el dueño pidió por separado del módulo entero:
+ *  - IA: que el alumno se genere su propio plan (de pago).
+ *  - Grupo: el plan manual por grupo, que sus miembros heredan.
  */
 export default function AdminPhysical() {
   const [grupos, setGrupos] = useState<GroupRow[]>([]);
+  const [switches, setSwitches] = useState<TrainingSwitches | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const cargar = useCallback(async () => {
-    const res = await getGroups();
-    if (res.success) setGrupos(res.groups.filter((g) => g.llevaPlan));
-    else setError(res.error);
+    const [gruposRes, switchesRes] = await Promise.all([getGroups(), getTrainingSwitches()]);
+    if (gruposRes.success) setGrupos(gruposRes.groups.filter((g) => g.llevaPlan));
+    else setError(gruposRes.error);
+    if (switchesRes.success) setSwitches(switchesRes.switches);
     setLoading(false);
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  async function cambiaSwitch(switchId: 'ai' | 'group', enabled: boolean) {
+    setBusy(true);
+    const res = await setTrainingSwitch({ switchId, enabled });
+    if (!res.success) setError(res.error ?? 'No se pudo guardar.');
+    await cargar();
+    setBusy(false);
+  }
+
+  const grupoOn = switches?.group !== false;
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">
@@ -51,28 +67,80 @@ export default function AdminPhysical() {
         </Card>
       )}
 
-      <Card tone="base" pad="md" className="border-slate-300/40 flex items-start gap-3">
-        <Info size={15} className="shrink-0 mt-0.5 text-slate-500 dark:text-slate-400" />
-        <p className={cx(TEXT.muted, 'leading-relaxed')}>
-          El plan individual de un alumno (que se escribe en <strong>Academia</strong>, dentro de su ficha)
-          manda sobre el del grupo. Un alumno no puede marcar días sobre el plan de grupo —
-          es compartido—: para eso se le pone uno individual.
-        </p>
-      </Card>
-
-      {!loading && grupos.length === 0 && (
-        <EmptyState
-          icon={<Dumbbell size={40} />}
-          title="No hay ningún grupo de físicas"
-          hint="Crea un grupo de tipo «Físicas» en la pestaña Grupos y aquí podrás ponerle el plan."
-          bordered
-        />
+      {/* --- LOS DOS INTERRUPTORES --- */}
+      {switches && (
+        <div className="grid sm:grid-cols-2 gap-2 sm:gap-3">
+          <SwitchCard
+            icon={<Sparkles size={16} />}
+            label={TRAINING_SWITCH_LABEL.ai}
+            desc={TRAINING_SWITCH_DESC.ai}
+            on={switches.ai}
+            busy={busy}
+            onToggle={(v) => cambiaSwitch('ai', v)}
+          />
+          <SwitchCard
+            icon={<Users2 size={16} />}
+            label={TRAINING_SWITCH_LABEL.group}
+            desc={TRAINING_SWITCH_DESC.group}
+            on={switches.group}
+            busy={busy}
+            onToggle={(v) => cambiaSwitch('group', v)}
+          />
+        </div>
       )}
 
-      <div className="space-y-2">
-        {grupos.map((g) => <GrupoFisicas key={g.id} g={g} onCambio={cargar} />)}
-      </div>
+      {!grupoOn ? (
+        <EmptyState
+          icon={<Users2 size={40} />}
+          title="El plan por grupo está apagado"
+          hint="Enciéndelo arriba para escribir un plan que hereden los miembros de cada grupo de físicas."
+          bordered
+        />
+      ) : (
+        <>
+          {!loading && grupos.length === 0 && (
+            <EmptyState
+              icon={<Dumbbell size={40} />}
+              title="No hay ningún grupo de físicas"
+              hint="Crea un grupo de un tipo que «lleve plan» en la pestaña Grupos y aquí podrás ponerle el entrenamiento."
+              bordered
+            />
+          )}
+          <div className="space-y-2">
+            {grupos.map((g) => <GrupoFisicas key={g.id} g={g} onCambio={cargar} />)}
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+function SwitchCard({
+  icon, label, desc, on, busy, onToggle,
+}: {
+  icon: ReactNode;
+  label: string;
+  desc: string;
+  on: boolean;
+  busy: boolean;
+  onToggle: (v: boolean) => void;
+}) {
+  return (
+    <Card tone="base" pad="md" className={cx('flex flex-col gap-2', !on && 'opacity-70')}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+          <span className="text-slate-500 dark:text-slate-400 shrink-0">{icon}</span>
+          <span className="text-xs font-black leading-tight">{label}</span>
+        </div>
+        <Button size="sm" variant={on ? 'secondary' : 'primary'} disabled={busy} onClick={() => onToggle(!on)}>
+          {on ? 'Apagar' : 'Encender'}
+        </Button>
+      </div>
+      <p className={cx(TEXT.muted, 'leading-relaxed')}>{desc}</p>
+      <span className={cx('text-[10px] font-black uppercase tracking-wider', on ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400')}>
+        {on ? 'Encendido' : 'Apagado'}
+      </span>
+    </Card>
   );
 }
 

@@ -12,6 +12,8 @@ interface AssessmentHubProps {
     generating?: boolean;
     onEditBio?: () => void;
     error?: string | null;
+    /** Si la academia ha apagado la generación con IA, no se ofrece el botón. */
+    aiOn?: boolean;
 }
 
 /**
@@ -74,7 +76,7 @@ function FilaPrueba({
     );
 }
 
-export default function AssessmentHub({ profile, onSelectTest, onGenerate, generating, onEditBio, error }: AssessmentHubProps) {
+export default function AssessmentHub({ profile, onSelectTest, onGenerate, generating, onEditBio, error, aiOn = true }: AssessmentHubProps) {
     const metrics = profile?.baseline_metrics ?? {};
     // "Hecho" es "tiene una marca numerica". Antes bastaba con que la clave
     // existiera, asi que una cadena vacia guardada por el asistente daba la
@@ -149,19 +151,26 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
                 </p>
             )}
 
-            <Button
-                block
-                size="lg"
-                onClick={onGenerate}
-                disabled={!isComplete || generating}
-                icon={generating ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-            >
-                {generating
-                    ? 'Analizando tus marcas…'
-                    : isComplete
-                      ? 'Generar mi plan'
-                      : 'Faltan pruebas por hacer'}
-            </Button>
+            {aiOn ? (
+                <Button
+                    block
+                    size="lg"
+                    onClick={onGenerate}
+                    disabled={!isComplete || generating}
+                    icon={generating ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                >
+                    {generating
+                        ? 'Analizando tus marcas…'
+                        : isComplete
+                          ? 'Generar mi plan'
+                          : 'Faltan pruebas por hacer'}
+                </Button>
+            ) : (
+                <p className={cx(TEXT.muted, 'text-center leading-relaxed bg-slate-100 dark:bg-slate-800/60 rounded-xl p-4')}>
+                    Tu academia lleva la preparación física con un plan de grupo. Aquí puedes
+                    ir registrando tus marcas; el plan lo verás en cuanto tu preparador lo publique.
+                </p>
+            )}
         </div>
     );
 }

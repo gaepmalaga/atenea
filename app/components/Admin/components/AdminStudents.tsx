@@ -2,27 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Users, PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
-  BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound, Dumbbell,
+  PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
+  BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
 } from 'lucide-react';
 import {
-  getAcademyOverview, getStudentDetail, getStudentActivePlan, saveManualTrainingPlan,
-  setMemberAccess, setMembershipRequired, activateAllCurrentStudents, setStudentGroups, setPayment,
+  getAcademyOverview, getStudentDetail,
+  setMemberAccess, setMembershipRequired, activateAllCurrentStudents, setStudentGroups,
 } from '@/actions';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno } from '@/app/lib/academy';
 import { ERROR_LABELS } from '@/app/lib/stats';
 import { formateaPeriodo } from '@/app/lib/payments';
-import PlanEntrenadorEditor from './PlanEntrenadorEditor';
-import { Card, EmptyState, SectionLabel, StatTile, Button, TEXT, cx } from '../../ui';
+import { Card, SectionLabel, StatTile, Button, TEXT, cx } from '../../ui';
 
 /**
  * «Alumnos» (P8) — un solo panel que junta lo que antes eran tres pestañas:
  * Usuarios (la cuenta), Academia (el progreso, a quién llamar) y Acceso & Pagos.
  *
  * Todo lo que se hace con un alumno se hace desde aquí, en su ficha: darle o
- * quitarle acceso, marcarle los grupos, apuntar el pago del mes, ver en qué
- * falla, escribirle un plan.
+ * quitarle acceso, marcarle los grupos, ver en qué falla. El pago del mes se
+ * marca en la pestaña «Pagos» (aquí solo se ve el aviso). El entrenamiento
+ * físico vive en «Prep. física», por grupo.
  */
 
 const ESTILO_ESTADO: Record<EstadoAlumno, string> = {
@@ -46,7 +46,6 @@ export default function AdminStudents() {
 
   const [abierto, setAbierto] = useState<string | null>(null);
   const [ficha, setFicha] = useState<StudentDetail | null>(null);
-  const [plan, setPlan] = useState<Awaited<ReturnType<typeof getStudentActivePlan>>['plan'] | undefined>(undefined);
   const [cargandoFicha, setCargandoFicha] = useState(false);
 
   const [filtroGrupo, setFiltroGrupo] = useState('');
@@ -73,12 +72,10 @@ export default function AdminStudents() {
     if (abierto === id) { setAbierto(null); return; }
     setAbierto(id);
     setFicha(null);
-    setPlan(undefined);
     setCargandoFicha(true);
-    const [detalle, planRes] = await Promise.all([getStudentDetail(id), getStudentActivePlan(id)]);
+    const detalle = await getStudentDetail(id);
     setCargandoFicha(false);
     if (detalle.success) setFicha(detalle.data);
-    setPlan(planRes.success ? planRes.plan : null);
   }
 
   if (cargando) {
@@ -100,11 +97,11 @@ export default function AdminStudents() {
 
   const { alumnos, porEstado, grupos, cobertura, sospechosas, membershipRequired, periodoActual } = datos;
   const sinBanco = cobertura.filter((c) => c.preguntas === 0);
-  const pendientes = alumnos.filter((a) => a.role !== 'admin' && a.acceso === 'pending').length;
-  const pagadosMes = alumnos.filter((a) => a.role !== 'admin' && a.pagadoMesActual).length;
-  const conAcceso = alumnos.filter((a) => a.role !== 'admin' && a.acceso === 'active').length;
+  const pendientes = alumnos.filter((a) => a.acceso === 'pending').length;
+  const pagadosMes = alumnos.filter((a) => a.pagadoMesActual).length;
+  const conAcceso = alumnos.filter((a) => a.acceso === 'active').length;
 
-  const hayAlgunSinGrupo = alumnos.some((a) => a.role !== 'admin' && a.grupos.length === 0);
+  const hayAlgunSinGrupo = alumnos.some((a) => a.grupos.length === 0);
   const alumnosVistos =
     filtroGrupo === '' ? alumnos
     : filtroGrupo === SIN_GRUPO ? alumnos.filter((a) => a.grupos.length === 0)
@@ -177,11 +174,9 @@ export default function AdminStudents() {
             estaAbierto={abierto === a.id}
             ficha={abierto === a.id ? ficha : null}
             cargandoFicha={abierto === a.id && cargandoFicha}
-            plan={abierto === a.id ? plan : undefined}
             busy={busy}
             onAbrir={() => abre(a.id)}
             onAccion={accion}
-            onPlanGuardado={async () => { const r = await getStudentActivePlan(a.id); setPlan(r.success ? r.plan : null); }}
           />
         ))}
       </div>
@@ -225,7 +220,7 @@ export default function AdminStudents() {
 }
 
 function FilaAlumnoUI({
-  a, grupos, periodo, estaAbierto, ficha, cargandoFicha, plan, busy, onAbrir, onAccion, onPlanGuardado,
+  a, grupos, periodo, estaAbierto, ficha, cargandoFicha, busy, onAbrir, onAccion,
 }: {
   a: FilaAlumno;
   grupos: { id: string; name: string; kind: string }[];
@@ -233,17 +228,13 @@ function FilaAlumnoUI({
   estaAbierto: boolean;
   ficha: StudentDetail | null;
   cargandoFicha: boolean;
-  plan: Awaited<ReturnType<typeof getStudentActivePlan>>['plan'] | undefined;
   busy: boolean;
   onAbrir: () => void;
   onAccion: (fn: () => Promise<{ success: boolean; error?: string }>) => Promise<void>;
-  onPlanGuardado: () => void;
 }) {
-  const esAdmin = a.role === 'admin';
   const badge = ACCESO_BADGE[a.acceso];
   const Icon = badge.icon;
   const [gruposSel, setGruposSel] = useState<Set<string>>(new Set(a.grupos.map((g) => g.id)));
-  const [importe, setImporte] = useState('');
   useEffect(() => { setGruposSel(new Set(a.grupos.map((g) => g.id))); }, [a.grupos]);
   const gruposSucios = gruposSel.size !== a.grupos.length || a.grupos.some((g) => !gruposSel.has(g.id));
 
@@ -255,20 +246,18 @@ function FilaAlumnoUI({
             <span className={cx('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider', ESTILO_ESTADO[a.estado])}>
               {ESTADO_ALUMNO_LABEL[a.estado]}
             </span>
-            {esAdmin
-              ? <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 uppercase">admin</span>
-              : <span className={cx('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', badge.cls)}><Icon size={10} /> {badge.label}</span>}
-            {!esAdmin && a.grupos.map((g) => (
+            <span className={cx('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', badge.cls)}><Icon size={10} /> {badge.label}</span>
+            {a.grupos.map((g) => (
               <span key={g.id} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center gap-1">
                 <GraduationCap size={10} /> {g.name}
               </span>
             ))}
-            {!esAdmin && a.acceso === 'active' && (
+            {a.acceso === 'active' && (
               a.pagadoMesActual
                 ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><BadgeEuro size={10} /> pagó</span>
                 : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-700 dark:text-red-400 flex items-center gap-1"><BadgeEuro size={10} /> debe {formateaPeriodo(periodo).split(' de ')[0]}</span>
             )}
-            {(a.estado === 'abandonado' || a.estado === 'nunca_entro') && !esAdmin && (
+            {(a.estado === 'abandonado' || a.estado === 'nunca_entro') && (
               <span className="text-[10px] font-bold text-red-700 dark:text-red-400/80 flex items-center gap-1"><PhoneCall size={10} /> llamar</span>
             )}
           </div>
@@ -282,7 +271,7 @@ function FilaAlumnoUI({
         <ChevronDown size={18} className={cx('text-slate-400 shrink-0 transition-transform', estaAbierto && 'rotate-180')} />
       </button>
 
-      {estaAbierto && !esAdmin && (
+      {estaAbierto && (
         <div className="px-4 pb-4 border-t border-slate-200 dark:border-slate-800 pt-4 space-y-5">
 
           {/* ACCESO */}
@@ -321,21 +310,15 @@ function FilaAlumnoUI({
             )}
           </div>
 
-          {/* PAGO DEL MES */}
-          <div>
-            <SectionLabel icon={<BadgeEuro size={13} />}>Pago de {formateaPeriodo(periodo)}</SectionLabel>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant={a.pagadoMesActual ? 'secondary' : 'primary'} disabled={busy}
-                onClick={() => onAccion(async () => setPayment({ studentId: a.id, period: periodo, paid: !a.pagadoMesActual, amount: importe }))}>
-                {a.pagadoMesActual ? 'Marcar como NO pagado' : 'Marcar pagado'}
-              </Button>
-              {!a.pagadoMesActual && (
-                <input type="number" inputMode="decimal" value={importe} onChange={(e) => setImporte(e.target.value)} placeholder="€ (opcional)"
-                  className="w-24 text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5" />
-              )}
-              <span className={TEXT.muted}>El histórico y las estadísticas, en «Pagos».</span>
-            </div>
-          </div>
+          {/* PAGO DEL MES — solo aviso. Se marca en «Pagos». */}
+          {a.acceso === 'active' && (
+            <p className={cx(TEXT.muted, 'flex items-center gap-2')}>
+              <BadgeEuro size={13} className="shrink-0" />
+              {a.pagadoMesActual
+                ? <>Pagó {formateaPeriodo(periodo)}.</>
+                : <>Sin pagar {formateaPeriodo(periodo)}. Se marca en la pestaña «Pagos».</>}
+            </p>
+          )}
 
           {/* FICHA: en qué falla */}
           {cargandoFicha && <p className="text-xs text-slate-500 flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Abriendo la ficha…</p>}
@@ -379,14 +362,6 @@ function FilaAlumnoUI({
             </div>
           )}
 
-          {/* PLAN INDIVIDUAL */}
-          {ficha?.alumno && (
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-              <SectionLabel icon={<Dumbbell size={11} />}>Plan de entrenamiento individual</SectionLabel>
-              <p className={cx(TEXT.muted, '-mt-2 mb-3')}>Manda sobre el plan de su grupo de físicas, si tiene.</p>
-              <PlanEntrenadorEditor studentId={a.id} planActual={plan} onGuardado={onPlanGuardado} />
-            </div>
-          )}
         </div>
       )}
     </div>

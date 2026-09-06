@@ -108,10 +108,14 @@ export async function getAcademyOverview(): Promise<
     conexiones.set(u.id, u.last_sign_in_at ?? null);
   }
 
-  const perfilesConConexion = (perfilesRes.data ?? []).map((p) => ({
-    ...p,
-    last_sign_in_at: conexiones.get(p.id) ?? null,
-  }));
+  // Los admin NO son alumnos: fuera de la lista, de los cuadros y del filtro.
+  // Un profesor mirando «a quién llamar» no se llama a sí mismo.
+  const perfilesConConexion = (perfilesRes.data ?? [])
+    .filter((p) => p.role !== 'admin')
+    .map((p) => ({
+      ...p,
+      last_sign_in_at: conexiones.get(p.id) ?? null,
+    }));
 
   const alumnos = resumeAlumnos(perfilesConConexion, intentos);
 

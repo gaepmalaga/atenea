@@ -11,9 +11,13 @@ interface TrainingDashboardProps {
     onGenerateNextWeek: () => void;
     generating?: boolean;
     error?: string | null;
+    /** La academia puede apagar la generación con IA; entonces no hay «semana siguiente». */
+    aiOn?: boolean;
+    /** El plan es de un grupo (compartido): ni se marca ni se genera desde aquí. */
+    esDeGrupo?: boolean;
 }
 
-export default function TrainingDashboard({ plan, onStartSession, onReportIssue, onReconfigure, onGenerateNextWeek, generating, error }: TrainingDashboardProps) {
+export default function TrainingDashboard({ plan, onStartSession, onReportIssue, onReconfigure, onGenerateNextWeek, generating, error, aiOn = true, esDeGrupo = false }: TrainingDashboardProps) {
     if (!plan) return <div className="text-center p-10 opacity-50">Cargando plan...</div>;
 
     // 1. CÁLCULO DE PROGRESO EN TIEMPO REAL
@@ -142,9 +146,11 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                             <div className="min-w-0">
                                 <h4 className="font-black text-slate-900 dark:text-white uppercase text-sm">Progreso de la semana</h4>
                                 <p className="text-xs text-slate-500 leading-snug">
-                                    {isWeekComplete
-                                        ? "Semana completa. Ya se puede generar la siguiente."
-                                        : "Completa todas las sesiones para desbloquear la siguiente."}
+                                    {esDeGrupo
+                                        ? "Plan de tu grupo. Lo actualiza tu preparador."
+                                        : isWeekComplete
+                                          ? "Semana completa. Ya se puede generar la siguiente."
+                                          : "Completa todas las sesiones para desbloquear la siguiente."}
                                 </p>
                             </div>
                             <span className="font-mono font-bold text-slate-900 dark:text-white text-xl shrink-0">{completedDays}/{totalDays}</span>
@@ -157,6 +163,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                         </div>
                     </div>
 
+                    {aiOn && !esDeGrupo && (
                     <button
                         onClick={onGenerateNextWeek}
                         disabled={!isWeekComplete || generating}
@@ -172,6 +179,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                             del alumno: aquí estaba fijo en "SEMANA 2" para siempre. */}
                         {generating ? "Generando…" : isWeekComplete ? "Generar la siguiente" : "Aún bloqueada"}
                     </button>
+                    )}
                 </div>
 
                 {error && (
