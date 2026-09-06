@@ -160,15 +160,15 @@ node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero e
 npm run sesion:adaptativa -- correo@x.com 20   # QUÉ SESIÓN le montaría P10 a ese alumno (gratis, solo lee)
 ```
 
-Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
+Los errores de `lint` (hoy 18) son **todos** el mismo falso positivo de
 `react-hooks/set-state-in-effect`: en cada panel que carga datos, un
 `useEffect(() => cargar(), [])` donde `cargar` hace `setState` **después** de un
 `await`. La regla lo ve como un `setState` síncrono dentro del efecto y no lo
 es. Está en casi todos los paneles de administración (`AdminActivity`,
 `AdminCost`, `AdminStudents`, `AdminPayments`, `AdminGroups`, `AdminPhysical`,
-`AdminView`, `AdminModeration`, `AdminContent`, `PlanEntrenadorEditor`) y del
-alumno (`DashboardHome`, `FailedQuestions`,
-`QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
+`AdminView`, `AdminModules`, `AdminModeration`, `AdminContent`,
+`PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
+`StatsPanel`, `QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
 aviso, y el número solo crece al añadir paneles. El de `IntelChat` es además a
 propósito: recupera del `sessionStorage` la conversación al montar (regla 37).
 

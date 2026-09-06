@@ -52,6 +52,8 @@ export const LAPSES_ATASCADA = 4;
 
 /** Un acierto por debajo de esto (ms) cuenta como fluido para «dominada». */
 export const UMBRAL_FLUIDEZ_MS = 25_000;
+/** Cuántos aciertos recientes se miran para la fluidez (tiempo y dudas). */
+export const VENTANA_FLUIDEZ = 5;
 
 export type Cajon =
   | 'nueva'
@@ -164,8 +166,16 @@ export function computeQuestionStates(
       // Primer acierto → caja 2 (la 1 es solo para recaídas). Luego, de una en una.
       s.box = s.box === 0 ? 2 : Math.min(MAX_BOX, s.box + 1);
       s.lastErrorType = null;
-      if (typeof it.response_time_ms === 'number' && it.response_time_ms > 0) s._tiempos.push(it.response_time_ms);
-      if (typeof it.option_changes === 'number' && it.option_changes >= 0) s._cambios.push(it.option_changes);
+      // Solo los últimos aciertos cuentan para la fluidez: un alumno que era
+      // lento hace meses y ahora va rápido NO debe seguir marcado como frágil.
+      if (typeof it.response_time_ms === 'number' && it.response_time_ms > 0) {
+        s._tiempos.push(it.response_time_ms);
+        if (s._tiempos.length > VENTANA_FLUIDEZ) s._tiempos.shift();
+      }
+      if (typeof it.option_changes === 'number' && it.option_changes >= 0) {
+        s._cambios.push(it.option_changes);
+        if (s._cambios.length > VENTANA_FLUIDEZ) s._cambios.shift();
+      }
     } else {
       s.streak = 0;
       s.lastErrorType = typeof it.error_type === 'string' ? it.error_type : null;
