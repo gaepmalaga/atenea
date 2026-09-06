@@ -9,7 +9,7 @@ import {
   llevaPlan,
   type GroupKindRow,
 } from '../lib/groups';
-import { normalizePlan, buildManualPlan, type Exercise, type WeeklyPlan } from '../lib/training-plan';
+import { normalizePlan, buildManualPlan, lunesDeSemana, semanaVigente, type Exercise, type WeeklyPlan } from '../lib/training-plan';
 import { requireTrainingSwitch } from '../lib/training-switch-guard';
 
 /**
@@ -271,25 +271,49 @@ export async function setStudentGroups(studentId: string, classIds: string[]) {
 // EL PLAN DE ENTRENAMIENTO DE UN GRUPO
 // ============================================================
 
+/** Una semana guardada de un grupo. */
+export type SemanaDeGrupo = {
+  weekStart: string;
+  plan: WeeklyPlan | null;
+  /** La que ve el alumno hoy. */
+  vigente: boolean;
+  /** Ya pasó: solo lectura. */
+  pasada: boolean;
+};
+
 export async function getGroupTrainingPlan(
   groupId: string,
-): Promise<{ success: true; plan: WeeklyPlan | null } | { success: false; error: string }> {
+): Promise<{ success: true; semanas: SemanaDeGrupo[] } | { success: false; error: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!groupId) return { success: false as const, error: 'Falta el grupo.' };
 
   const { data, error } = await supabaseAdmin
     .from('group_training_plans')
-    .select('plan_data')
+    .select('week_start, plan_data')
     .eq('class_id', groupId)
-    .maybeSingle();
+    .order('week_start', { ascending: false });
 
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const, plan: data ? normalizePlan(data.plan_data) : null };
+
+  const filas = (data ?? []).map((r) => ({ weekStart: String(r.week_start).slice(0, 10), plan_data: r.plan_data }));
+  const vigente = semanaVigente(filas.map((f) => f.weekStart));
+  const lunesHoy = lunesDeSemana();
+
+  return {
+    success: true as const,
+    semanas: filas.map((f) => ({
+      weekStart: f.weekStart,
+      plan: normalizePlan(f.plan_data),
+      vigente: f.weekStart === vigente,
+      pasada: f.weekStart < lunesHoy && f.weekStart !== vigente,
+    })),
+  };
 }
 
 export async function saveGroupTrainingPlan(params: {
   groupId: string;
+  weekStart?: string;
   weekFocus: string;
   days: Array<{ day: string; type: string; title: string; exercises: Exercise[] }>;
 }) {
@@ -299,6 +323,16 @@ export async function saveGroupTrainingPlan(params: {
 
   const permiteGrupo = await requireTrainingSwitch('group');
   if (!permiteGrupo.ok) return { success: false as const, error: permiteGrupo.error };
+
+  // La semana es el lunes que manda la pantalla, o el de esta semana. Nunca una
+  // semana ya pasada: eso reescribiría un plan que el alumno ya siguió.
+  const weekStart =
+    typeof params.weekStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.weekStart)
+      ? params.weekStart
+      : lunesDeSemana();
+  if (weekStart < lunesDeSemana()) {
+    return { success: false as const, error: 'No se puede editar una semana que ya pasó.' };
+  }
 
   const [grupoRes, kindsRes] = await Promise.all([
     supabaseAdmin.from('class_groups').select('kind, name').eq('id', params.groupId).maybeSingle(),
@@ -316,20 +350,26 @@ export async function saveGroupTrainingPlan(params: {
   const { error } = await supabaseAdmin
     .from('group_training_plans')
     .upsert(
-      { class_id: params.groupId, plan_data: plan, week_start: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString() },
-      { onConflict: 'class_id' },
+      { class_id: params.groupId, week_start: weekStart, plan_data: plan, updated_at: new Date().toISOString() },
+      { onConflict: 'class_id,week_start' },
     );
 
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'save_group_training_plan', target: grupoRes.data.name as string });
+  if (!error) {
+    registraAccion({ actorId: auth.user.id, action: 'save_group_training_plan', target: grupoRes.data.name as string, detail: { weekStart } });
+  }
   return { success: !error, error: error?.message };
 }
 
-export async function deleteGroupTrainingPlan(groupId: string) {
+export async function deleteGroupTrainingPlan(groupId: string, weekStart?: string) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!groupId) return { success: false as const, error: 'Falta el grupo.' };
 
-  const { error } = await supabaseAdmin.from('group_training_plans').delete().eq('class_id', groupId);
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group_training_plan', target: groupId });
+  let q = supabaseAdmin.from('group_training_plans').delete().eq('class_id', groupId);
+  if (typeof weekStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+    q = q.eq('week_start', weekStart);
+  }
+  const { error } = await q;
+  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group_training_plan', target: groupId, detail: { weekStart: weekStart ?? 'todas' } });
   return { success: !error, error: error?.message };
 }

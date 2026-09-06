@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { Dumbbell, RefreshCw, ChevronDown, Trash2, Sparkles, Users2 } from 'lucide-react';
+import { Dumbbell, RefreshCw, ChevronDown, Trash2, Sparkles, Users2, CalendarDays } from 'lucide-react';
 import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrainingPlan, getTrainingSwitches, setTrainingSwitch } from '@/actions';
-import type { GroupRow } from '@/app/actions/groups';
-import type { WeeklyPlan } from '@/app/lib/training-plan';
+import type { GroupRow, SemanaDeGrupo } from '@/app/actions/groups';
+import { lunesDeSemana, semanasEditables, etiquetaSemana, type WeeklyPlan } from '@/app/lib/training-plan';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
 import PlanEntrenadorEditor from './PlanEntrenadorEditor';
 import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
@@ -144,16 +144,44 @@ function SwitchCard({
   );
 }
 
+function SemanaSoloLectura({ plan }: { plan: WeeklyPlan | null }) {
+  if (!plan) return <p className={TEXT.muted}>Esa semana no tuvo plan.</p>;
+  return (
+    <div className="space-y-2">
+      <p className={cx(TEXT.muted, 'italic')}>Semana pasada — solo lectura.</p>
+      {plan.week_focus && <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{plan.week_focus}</p>}
+      {plan.days.map((d, i) => (
+        <div key={i} className="text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2">
+          <p className="font-bold text-slate-700 dark:text-slate-200">{d.day}</p>
+          <ul className="text-slate-500 dark:text-slate-400 mt-0.5">
+            {d.exercises.map((e, j) => (
+              <li key={j}>· {e.name}{e.sets ? ` — ${e.sets}×${e.reps ?? ''}` : ''}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
   const [abierto, setAbierto] = useState(false);
-  const [plan, setPlan] = useState<WeeklyPlan | null | undefined>(undefined);
+  const [semanas, setSemanas] = useState<SemanaDeGrupo[] | undefined>(undefined);
+  const [semanaSel, setSemanaSel] = useState<string>(lunesDeSemana());
 
   const cargarPlan = useCallback(async () => {
     const res = await getGroupTrainingPlan(g.id);
-    setPlan(res.success ? res.plan : null);
+    setSemanas(res.success ? res.semanas : []);
   }, [g.id]);
 
   useEffect(() => { if (abierto) cargarPlan(); }, [abierto, cargarPlan]);
+
+  const opciones = semanasEditables(); // esta semana + 4 por venir
+  const semanaActual = semanas?.find((s) => s.weekStart === semanaSel);
+  const planSel: WeeklyPlan | null | undefined =
+    semanas === undefined ? undefined : (semanaActual?.plan ?? null);
+  const pasadas = (semanas ?? []).filter((s) => s.pasada);
+  const lunesHoy = lunesDeSemana();
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800">
@@ -173,21 +201,74 @@ function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
       </button>
 
       {abierto && (
-        <div className="px-3 pb-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-          <PlanEntrenadorEditor
-            planActual={plan === undefined ? undefined : plan ? { id: `grupo:${g.id}`, weekStart: null, plan } : null}
-            etiquetaGuardado="Guardado. Es el plan de todo el grupo."
-            onSave={(params) => saveGroupTrainingPlan({ groupId: g.id, weekFocus: params.weekFocus, days: params.days })}
-            onGuardado={() => { cargarPlan(); onCambio(); }}
-          />
+        <div className="px-3 pb-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
 
-          {g.tienePlan && (
-            <button
-              onClick={async () => { await deleteGroupTrainingPlan(g.id); cargarPlan(); onCambio(); }}
-              className="mt-3 text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 hover:underline"
-            >
-              <Trash2 size={13} /> Borrar el plan del grupo
-            </button>
+          {/* SELECTOR DE SEMANA */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <CalendarDays size={13} className="text-slate-500 dark:text-slate-400 shrink-0" />
+            {opciones.map((o) => {
+              const tiene = (semanas ?? []).some((s) => s.weekStart === o.weekStart && s.plan);
+              const activo = o.weekStart === semanaSel;
+              return (
+                <button
+                  key={o.weekStart}
+                  onClick={() => setSemanaSel(o.weekStart)}
+                  className={cx('min-h-[32px] px-2.5 rounded-lg text-xs font-bold border',
+                    activo
+                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}
+                >
+                  {o.offset === 0 ? 'Esta semana' : etiquetaSemana(o.weekStart)}
+                  {tiene && <span className={cx('ml-1', activo ? '' : 'text-emerald-600 dark:text-emerald-400')}>●</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {semanaSel < lunesHoy ? (
+            <SemanaSoloLectura plan={semanaActual?.plan ?? null} />
+          ) : (
+            <>
+              <PlanEntrenadorEditor
+                key={semanaSel}
+                planActual={planSel === undefined ? undefined : planSel ? { id: `grupo:${g.id}`, weekStart: semanaSel, plan: planSel } : null}
+                etiquetaGuardado={semanaSel === lunesHoy ? 'Guardado. Es el plan de esta semana para el grupo.' : 'Guardado. Preparado para esa semana.'}
+                onSave={(params) => saveGroupTrainingPlan({ groupId: g.id, weekStart: semanaSel, weekFocus: params.weekFocus, days: params.days })}
+                onGuardado={() => { cargarPlan(); onCambio(); }}
+              />
+
+              {semanaActual?.plan && (
+                <button
+                  onClick={async () => { await deleteGroupTrainingPlan(g.id, semanaSel); cargarPlan(); onCambio(); }}
+                  className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 hover:underline"
+                >
+                  <Trash2 size={13} /> Borrar el plan de esta semana
+                </button>
+              )}
+            </>
+          )}
+
+          {/* HISTÓRICO */}
+          {pasadas.length > 0 && (
+            <details className="pt-2 border-t border-slate-200 dark:border-slate-800">
+              <summary className={cx(TEXT.muted, 'cursor-pointer')}>Semanas anteriores ({pasadas.length})</summary>
+              <div className="mt-2 space-y-1">
+                {pasadas.map((s) => (
+                  <div key={s.weekStart} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-slate-600 dark:text-slate-300">
+                      Semana del {etiquetaSemana(s.weekStart)} · {s.plan?.days.length ?? 0} días
+                    </span>
+                    <button
+                      onClick={() => { setSemanaSel(s.weekStart); }}
+                      className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                      title="Ver (solo lectura al ser una semana pasada)"
+                    >
+                      ver
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </details>
           )}
         </div>
       )}

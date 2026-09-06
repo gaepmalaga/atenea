@@ -7,6 +7,11 @@ import {
   summarizeWeek,
   decideProgression,
   progressionBrief,
+  lunesDeSemana,
+  sumaSemanas,
+  semanasEditables,
+  etiquetaSemana,
+  semanaVigente,
   PLAN_SHAPE,
   RPE_EASY,
   RPE_HARD,
@@ -271,6 +276,41 @@ describe('el plan se valida antes de guardarlo y al releerlo', () => {
   it('getActiveTrainingPlan normaliza lo que lee de la BD', () => {
     const cuerpo = training.slice(training.indexOf('export async function getActiveTrainingPlan'));
     expect(cuerpo.slice(0, cuerpo.indexOf('export async function completeTrainingDay'))).toContain('normalizePlan');
+  });
+});
+
+describe('semanas del plan de grupo (P9)', () => {
+  it('lunesDeSemana devuelve el lunes en horario local, YYYY-MM-DD', () => {
+    // 2026-09-09 es miércoles → lunes = 2026-09-07
+    expect(lunesDeSemana(new Date(2026, 8, 9))).toBe('2026-09-07');
+    // un domingo cuenta con la semana que acaba, no la que empieza
+    expect(lunesDeSemana(new Date(2026, 8, 13))).toBe('2026-09-07');
+    // el propio lunes
+    expect(lunesDeSemana(new Date(2026, 8, 7))).toBe('2026-09-07');
+  });
+
+  it('sumaSemanas cruza meses', () => {
+    expect(sumaSemanas('2026-09-28', 1)).toBe('2026-10-05');
+    expect(sumaSemanas('2026-09-07', -1)).toBe('2026-08-31');
+  });
+
+  it('semanasEditables da la actual y N por venir, ninguna pasada', () => {
+    const ss = semanasEditables(new Date(2026, 8, 9), 3);
+    expect(ss.map((s) => s.weekStart)).toEqual(['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28']);
+    expect(ss[0].offset).toBe(0);
+  });
+
+  it('etiquetaSemana es corta', () => {
+    expect(etiquetaSemana('2026-09-07')).toBe('7 sep');
+  });
+
+  it('semanaVigente: la más reciente que no pasa del lunes de hoy', () => {
+    const hoy = new Date(2026, 8, 16); // lunes de hoy: 2026-09-14
+    expect(semanaVigente(['2026-09-07', '2026-09-14', '2026-09-21'], hoy)).toBe('2026-09-14');
+    // si todas son futuras, todavía no hay plan vigente
+    expect(semanaVigente(['2026-09-21', '2026-09-28'], hoy)).toBeNull();
+    // solo pasadas: vale la última
+    expect(semanaVigente(['2026-08-31', '2026-09-07'], hoy)).toBe('2026-09-07');
   });
 });
 

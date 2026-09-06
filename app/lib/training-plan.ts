@@ -46,6 +46,61 @@ export type WeeklyPlan = {
   source: 'ia' | 'entrenador';
 };
 
+// ============================================================
+// SEMANAS (P9): el plan de grupo va semana a semana
+// ============================================================
+
+/**
+ * El LUNES de la semana de `d`, como `YYYY-MM-DD`. Es la clave de cada semana en
+ * `group_training_plans` (P9). Se calcula en horario local a propósito: «esta
+ * semana» es la del profesor, no la de UTC.
+ */
+export function lunesDeSemana(d: Date = new Date()): string {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dow = x.getDay(); // 0 = domingo
+  const diff = dow === 0 ? -6 : 1 - dow;
+  x.setDate(x.getDate() + diff);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+}
+
+/** Suma `semanas` (puede ser negativo) al lunes de referencia. `YYYY-MM-DD`. */
+export function sumaSemanas(lunesISO: string, semanas: number): string {
+  const [y, m, d] = lunesISO.split('-').map(Number);
+  const x = new Date(y, m - 1, d);
+  x.setDate(x.getDate() + semanas * 7);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Las semanas que se ofrecen en el editor: la actual y unas cuantas por venir.
+ * Preparar hacia atrás no tiene sentido (la semana ya pasó).
+ */
+export function semanasEditables(hoy: Date = new Date(), futuras = 4): { weekStart: string; offset: number }[] {
+  const base = lunesDeSemana(hoy);
+  const out: { weekStart: string; offset: number }[] = [];
+  for (let i = 0; i <= futuras; i++) out.push({ weekStart: sumaSemanas(base, i), offset: i });
+  return out;
+}
+
+/** `2026-09-08` -> «8 sep». Corto, para las pestañas de semana. */
+export function etiquetaSemana(weekStartISO: string): string {
+  const [y, m, d] = weekStartISO.split('-').map(Number);
+  if (!y || !m || !d) return weekStartISO;
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  return `${d} ${MESES[m - 1] ?? m}`;
+}
+
+/**
+ * De una lista de semanas guardadas, cuál es la que le toca al alumno HOY: la de
+ * `week_start` más reciente que no pase del lunes de esta semana. Si todas son
+ * futuras, ninguna (todavía no empieza). Devuelve el `weekStart` o `null`.
+ */
+export function semanaVigente(weekStarts: string[], hoy: Date = new Date()): string | null {
+  const lunesHoy = lunesDeSemana(hoy);
+  const pasadasOhoy = (weekStarts ?? []).filter((w) => w <= lunesHoy).sort();
+  return pasadasOhoy.length ? pasadasOhoy[pasadasOhoy.length - 1] : null;
+}
+
 /** Estructura que se le pide al modelo. Vive aqui para que no se separe del tipo. */
 export const PLAN_SHAPE =
   '{ "week_focus": "...", "days": [{ "day": "Lunes", "type": "Fuerza", "title": "...", "exercises": [{ "name": "...", "sets": "4", "reps": "8-10", "target": "...", "rest": "90s", "metric_type": "weight" }] }] }';

@@ -51,7 +51,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso + registro de pagos. Sin pasarela, a propósito. El registro de pagos se **rehízo en P8** (rejilla mensual) |
 | **P7** | **Grupos y preparación física** (plan de producto) | ✅ **cerrada** (6 sep): grupos muchos-a-muchos con tipo, pestañas Grupos y Prep. física, plan de entrenamiento de grupo |
 | **P8** | **Un solo panel de alumno** (feedback al probar P5/P6/P7) | ✅ **cerrada** (6 sep): Usuarios + Academia + Acceso & Pagos → **una pestaña «Alumnos»**. Tipos de grupo editables (`group_kinds`), varios profesores por grupo (`class_group_staff`), grupos asignados **desde el alumno**, y **pagos mes a mes** (`monthly_payments`). Ver **regla 53** |
-| — | **P8, segunda vuelta** (feedback al probarlo) | ✅ **hecho** (6 sep): «Alumnos» sin admins, «marcar pagado» y plan individual fuera de la ficha, **pestañas reordenables** (localStorage), **dos interruptores de físicas** (`training_ai` / `training_group`, sin SQL), y **«Pagos» con vista histórico** (rejilla × 12 meses). Verificado en el preview. Ver **regla 54**. Queda **P9** (plan de grupo semanal, necesita SQL) |
+| — | **P8, segunda vuelta** (feedback al probarlo) | ✅ **hecho** (6 sep): «Alumnos» sin admins, «marcar pagado» y plan individual fuera de la ficha, **pestañas reordenables** (localStorage), **dos interruptores de físicas** (`training_ai` / `training_group`, sin SQL), **«Pagos» con vista histórico** (rejilla × 12 meses), y el **plan de grupo semana a semana con histórico** (P9, `group_training_plans` con PK `(class_id, week_start)`). Todo verificado en el preview. Ver **regla 54** |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -81,8 +81,8 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Queda uno: `P9-plan-grupo-semanal.sql`** (el resto,
-   confirmado el 5 sep 2026 con `node scripts/schema-snapshot.mjs` — 33 tablas):
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (`node
+   scripts/schema-snapshot.mjs` — 38 tablas el 6 sep 2026):
    - P3.7 / P3.8 (`legal_reference`, `question_notes`) — 31 ago.
    - `admin-audit-log.sql`, `academia-ajustes.sql`, `gasto-ia.sql`,
      `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
@@ -96,15 +96,13 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
    - `P8-panel-alumno.sql` (`group_kinds`, `class_group_staff` —retira
      `class_groups.staff_id`—, `monthly_payments`; retira `academy_payments`,
      que tenía 0 filas) — 6 sep, con `node scripts/schema-snapshot.mjs` detrás.
+   - `P9-plan-grupo-semanal.sql` — la PK de `group_training_plans` pasa a
+     `(class_id, week_start)` para el plan de grupo semana a semana con histórico
+     (regla 54). No añade columnas. 6 sep, verificado end-to-end en el preview.
 
-   **Queda uno pendiente:** `P9-plan-grupo-semanal.sql` — mueve la PK de
-   `group_training_plans` a `(class_id, week_start)` para el plan de grupo semana
-   a semana con histórico (regla 54). No añade columnas. El código que hace
-   `onConflict: 'class_id'` NO se toca hasta ejecutarlo.
-
-   Al margen de P9, `question_attempts` ya se movió a la sesión (6 sep, regla
-   34), verificado en pantalla end-to-end: una pregunta de entrenamiento fallada
-   y diagnosticada guarda su `error_type`.
+   `question_attempts` ya se movió a la sesión (6 sep, regla 34), verificado en
+   pantalla end-to-end: una pregunta de entrenamiento fallada y diagnosticada
+   guarda su `error_type`.
 
    La regla no cambia para el próximo: **no se escribe el código antes** de que
    exista la columna — PostgREST rechaza la escritura *entera* si falta una
@@ -1635,13 +1633,20 @@ guardas estáticas nuevas en `actions-auth.test.ts` que lo vigilan.
   marca/desmarca sin importe, con lo cobrado por columna — `resumeHistorico` en
   `lib/payments.ts`) y UN MES (la de antes, con importe por alumno).
 
-Lo que queda pendiente de aquí necesita SQL, en **P9**
-([`docs/sql/P9-plan-grupo-semanal.sql`](docs/sql/P9-plan-grupo-semanal.sql), sin
-ejecutar): el plan de físicas de un grupo **semana a semana con histórico**
-—preparar la que viene, y que las pasadas queden en solo lectura—. Mueve la PK de
-`group_training_plans` a `(class_id, week_start)`. No añade columnas, pero el
-`onConflict: 'class_id'` de `saveGroupTrainingPlan` **no se toca hasta que esté
-ejecutado**.
+**El plan de grupo va semana a semana, con histórico** (P9, ejecutado 6 sep —
+[`docs/sql/P9-plan-grupo-semanal.sql`](docs/sql/P9-plan-grupo-semanal.sql)). La
+PK de `group_training_plans` pasó a `(class_id, week_start)`: caben varias
+semanas por grupo. `week_start` es el **lunes** de la semana (`lunesDeSemana` en
+`training-plan.ts`, en horario local: «esta semana» es la del profesor, no la de
+UTC). El editor de «Prep. física» ofrece la semana actual y cuatro por venir
+(`semanasEditables`); una semana ya pasada es **solo lectura** —editarla
+reescribiría un plan que el alumno ya siguió, y la acción lo rechaza—. El alumno
+ve la semana **vigente**: el `week_start` más reciente que no pasa del lunes de
+hoy (`semanaVigente`, y `getActiveTrainingPlan` lo aplica con
+`.lte('week_start', hoy)`), así que una semana preparada por adelantado no se le
+enseña todavía. `getGroupTrainingPlan` devuelve **todas** las semanas del grupo
+(`SemanaDeGrupo[]`, con `vigente` / `pasada`), y `saveGroupTrainingPlan` /
+`deleteGroupTrainingPlan` reciben el `weekStart`.
 
 ---
 

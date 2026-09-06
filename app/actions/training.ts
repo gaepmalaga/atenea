@@ -18,6 +18,7 @@ import {
     summarizeWeek,
     progressionBrief,
     buildManualPlan,
+    lunesDeSemana,
     PLAN_SHAPE,
     type WeeklyPlan,
     type TrainingDayLog,
@@ -159,11 +160,16 @@ export async function getActiveTrainingPlan(): Promise<
 
     const idsFisicas = (susGrupos ?? []).map((m) => m.class_id as string);
     if (idsFisicas.length) {
+        // P9: varias semanas por grupo. El alumno ve la de esta semana — el
+        // `week_start` más reciente que no pase del lunes de hoy. Una semana
+        // futura preparada por adelantado no se le enseña todavía.
+        const lunesHoy = lunesDeSemana();
         const { data: gtp } = await supabaseAdmin
             .from('group_training_plans')
-            .select('class_id, plan_data, updated_at')
+            .select('class_id, plan_data, week_start')
             .in('class_id', idsFisicas)
-            .order('updated_at', { ascending: false })
+            .lte('week_start', lunesHoy)
+            .order('week_start', { ascending: false })
             .limit(1)
             .maybeSingle();
 

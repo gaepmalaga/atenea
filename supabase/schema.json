@@ -1,5 +1,5 @@
 {
-  "generado": "2026-09-05",
+  "generado": "2026-09-06",
   "tablas": {
     "academy_settings": {
       "columnas": [
@@ -509,7 +509,8 @@
       "obligatorias": [
         "class_id",
         "plan_data",
-        "updated_at"
+        "updated_at",
+        "week_start"
       ],
       "tipos": {
         "class_id": "uuid",

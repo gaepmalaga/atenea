@@ -116,16 +116,24 @@ describe('las guardas de la acción', () => {
   });
 
   it('un plan de grupo solo se cuelga de un tipo con lleva_plan', () => {
-    const fn = src.slice(src.indexOf('export async function saveGroupTrainingPlan'));
+    const fn = src.slice(src.indexOf('export async function saveGroupTrainingPlan'), src.indexOf('export async function deleteGroupTrainingPlan'));
     expect(fn).toMatch(/llevaPlan\(/);
   });
 
-  it('el alumno hereda el plan de grupo por los tipos con lleva_plan, no por "fisicas"', () => {
+  it('el plan de grupo va semana a semana (P9): upsert por (class_id, week_start) y no se editan semanas pasadas', () => {
+    const fn = src.slice(src.indexOf('export async function saveGroupTrainingPlan'), src.indexOf('export async function deleteGroupTrainingPlan'));
+    expect(fn).toMatch(/onConflict:\s*'class_id,week_start'/);
+    expect(fn).toMatch(/lunesDeSemana\(\)/);
+    expect(fn).toMatch(/ya pasó/);
+  });
+
+  it('el alumno hereda el plan de grupo por los tipos con lleva_plan, no por "fisicas", y solo la semana vigente', () => {
     const fn = training.slice(
       training.indexOf('export async function getActiveTrainingPlan'),
       training.indexOf('export async function completeTrainingDay'),
     );
     expect(fn).toMatch(/lleva_plan/);
+    expect(fn).toMatch(/\.lte\('week_start'/);
     expect(fn.indexOf("origen: 'individual'")).toBeLessThan(fn.indexOf("origen: 'grupo'"));
   });
 });

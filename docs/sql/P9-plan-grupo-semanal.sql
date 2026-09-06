@@ -2,7 +2,11 @@
 -- P9 — El plan de físicas de un grupo, semana a semana y con histórico
 -- =============================================================================
 --
--- ⬜ PENDIENTE DE EJECUTAR (feedback del dueño tras P8):
+-- ✅ EJECUTADO el 6 sep 2026 contra el Supabase real (PK confirmada como
+--    PRIMARY KEY (class_id, week_start); verificado end-to-end en el preview:
+--    dos semanas distintas guardadas para el mismo grupo).
+--
+-- Feedback del dueño tras P8:
 --   «Preparación física solo me deja preparar la semana actual. ¿Cómo preparo la
 --    que viene? ¿Se queda histórico guardado?»  → sí a las dos: semana a semana,
 --    y las pasadas quedan en solo lectura.
