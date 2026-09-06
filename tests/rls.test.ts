@@ -41,8 +41,8 @@ const DEL_ALUMNO = [
   // escribe y `getTrainingHistory` lo lee, los dos con `db`.
   'workout_logs',
   // El informe de la entrevista (§2.11): material sensible del alumno, política
-  // de propietario. `interview.ts` lo escribe y lo lee con `db`. La tabla aún
-  // no está en el volcado (guion `persistir-entrevista.sql` sin ejecutar).
+  // de propietario. `interview.ts` lo escribe y lo lee con `db`.
+  // (`persistir-entrevista.sql` ejecutado el 7 sep 2026.)
   'interview_reports',
   'profiles_biodata',
   'profiles_psych',

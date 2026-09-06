@@ -11,7 +11,7 @@
 -- escritura entera en silencio.
 --
 -- Fecha del volcado: 2026-09-06
--- Tablas: 38   ·   Politicas: 31
+-- Tablas: 35   ·   Politicas: 23
 -- =============================================================================
 
 create extension if not exists "uuid-ossp";
@@ -125,19 +125,6 @@ create table if not exists public.class_members (
 );
 
 -- --------------------------------------------------------------------------
-create table if not exists public.content_documents (
-  id bigint not null,
-  title text not null,
-  slug text not null,
-  source text default 'upload'::text,
-  doc_type text default 'law'::text,
-  version text,
-  published_at date,
-  status text not null default 'active'::text,
-  created_at timestamp with time zone not null default timezone('utc'::text, now())
-);
-
--- --------------------------------------------------------------------------
 create table if not exists public.document_chunks (
   id bigint not null default nextval('document_chunks_id_seq'::regclass),
   document_id uuid,
@@ -156,25 +143,6 @@ create table if not exists public.documents (
   index_status text not null default 'pendiente'::text,
   chunk_count integer not null default 0,
   indexed_at timestamp with time zone
-);
-
--- --------------------------------------------------------------------------
-create table if not exists public.exam_questions (
-  exam_id uuid not null,
-  position integer not null,
-  question_id uuid not null
-);
-
--- --------------------------------------------------------------------------
-create table if not exists public.exams (
-  id uuid not null default gen_random_uuid(),
-  user_id uuid not null,
-  topic text not null,
-  mode text not null default 'practice'::text,
-  total_questions integer not null,
-  started_at timestamp with time zone not null default timezone('utc'::text, now()),
-  finished_at timestamp with time zone,
-  meta jsonb default '{}'::jsonb
 );
 
 -- --------------------------------------------------------------------------
@@ -232,6 +200,17 @@ create table if not exists public.group_training_plans (
   plan_data jsonb not null,
   week_start date not null,
   updated_at timestamp with time zone not null default now()
+);
+
+-- --------------------------------------------------------------------------
+create table if not exists public.interview_reports (
+  id uuid not null default extensions.uuid_generate_v4(),
+  user_id uuid not null,
+  created_at timestamp with time zone not null default timezone('utc'::text, now()),
+  score smallint,
+  turns smallint,
+  report jsonb not null,
+  transcript text not null default ''::text
 );
 
 -- --------------------------------------------------------------------------
@@ -337,7 +316,8 @@ create table if not exists public.question_attempts (
   error_type text,
   response_time_ms integer,
   created_at timestamp with time zone not null default timezone('utc'::text, now()),
-  option_changes integer not null default 0
+  option_changes integer not null default 0,
+  confidence smallint
 );
 
 -- --------------------------------------------------------------------------
@@ -396,17 +376,6 @@ create table if not exists public.subjects (
 );
 
 -- --------------------------------------------------------------------------
-create table if not exists public.test_results (
-  id uuid not null default gen_random_uuid(),
-  user_id uuid,
-  question_id uuid,
-  is_correct boolean,
-  response_time_ms integer,
-  option_changes integer default 0,
-  created_at timestamp with time zone default now()
-);
-
--- --------------------------------------------------------------------------
 create table if not exists public.training_plans (
   id uuid not null default extensions.uuid_generate_v4(),
   user_id uuid,
@@ -455,16 +424,10 @@ alter table public.class_groups drop constraint if exists class_groups_pkey;
 alter table public.class_groups add constraint class_groups_pkey PRIMARY KEY (id);
 alter table public.class_members drop constraint if exists class_members_pkey;
 alter table public.class_members add constraint class_members_pkey PRIMARY KEY (class_id, user_id);
-alter table public.content_documents drop constraint if exists content_documents_pkey;
-alter table public.content_documents add constraint content_documents_pkey PRIMARY KEY (id);
 alter table public.document_chunks drop constraint if exists document_chunks_pkey;
 alter table public.document_chunks add constraint document_chunks_pkey PRIMARY KEY (id);
 alter table public.documents drop constraint if exists documents_pkey;
 alter table public.documents add constraint documents_pkey PRIMARY KEY (id);
-alter table public.exam_questions drop constraint if exists exam_questions_pkey;
-alter table public.exam_questions add constraint exam_questions_pkey PRIMARY KEY (exam_id, "position");
-alter table public.exams drop constraint if exists exams_pkey;
-alter table public.exams add constraint exams_pkey PRIMARY KEY (id);
 alter table public.flashcard_bank drop constraint if exists flashcard_bank_pkey;
 alter table public.flashcard_bank add constraint flashcard_bank_pkey PRIMARY KEY (id);
 alter table public.flashcard_progress drop constraint if exists flashcard_progress_pkey;
@@ -475,6 +438,8 @@ alter table public.group_kinds drop constraint if exists group_kinds_pkey;
 alter table public.group_kinds add constraint group_kinds_pkey PRIMARY KEY (id);
 alter table public.group_training_plans drop constraint if exists group_training_plans_pkey;
 alter table public.group_training_plans add constraint group_training_plans_pkey PRIMARY KEY (class_id, week_start);
+alter table public.interview_reports drop constraint if exists interview_reports_pkey;
+alter table public.interview_reports add constraint interview_reports_pkey PRIMARY KEY (id);
 alter table public.membership_settings drop constraint if exists membership_settings_pkey;
 alter table public.membership_settings add constraint membership_settings_pkey PRIMARY KEY (id);
 alter table public.memberships drop constraint if exists memberships_pkey;
@@ -503,8 +468,6 @@ alter table public.question_votes drop constraint if exists question_votes_pkey;
 alter table public.question_votes add constraint question_votes_pkey PRIMARY KEY (question_id, user_id);
 alter table public.subjects drop constraint if exists subjects_pkey;
 alter table public.subjects add constraint subjects_pkey PRIMARY KEY (id);
-alter table public.test_results drop constraint if exists test_results_pkey;
-alter table public.test_results add constraint test_results_pkey PRIMARY KEY (id);
 alter table public.training_plans drop constraint if exists training_plans_pkey;
 alter table public.training_plans add constraint training_plans_pkey PRIMARY KEY (id);
 alter table public.workout_logs drop constraint if exists workout_logs_pkey;
@@ -529,6 +492,8 @@ alter table public.memberships drop constraint if exists memberships_access_stat
 alter table public.memberships add constraint memberships_access_status_check CHECK ((access_status = ANY (ARRAY['active'::text, 'suspended'::text])));
 alter table public.memberships drop constraint if exists memberships_payment_status_check;
 alter table public.memberships add constraint memberships_payment_status_check CHECK ((payment_status = ANY (ARRAY['al_dia'::text, 'debe'::text])));
+alter table public.question_attempts drop constraint if exists question_attempts_confidence_check;
+alter table public.question_attempts add constraint question_attempts_confidence_check CHECK (((confidence IS NULL) OR ((confidence >= 0) AND (confidence <= 2))));
 alter table public.admin_audit_log drop constraint if exists admin_audit_log_actor_id_fkey;
 alter table public.admin_audit_log add constraint admin_audit_log_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 alter table public.ai_quota drop constraint if exists ai_quota_user_id_fkey;
@@ -553,14 +518,14 @@ alter table public.document_chunks drop constraint if exists document_chunks_doc
 alter table public.document_chunks add constraint document_chunks_document_id_fkey FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
 alter table public.documents drop constraint if exists documents_subject_id_fkey;
 alter table public.documents add constraint documents_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE;
-alter table public.exam_questions drop constraint if exists exam_questions_exam_id_fkey;
-alter table public.exam_questions add constraint exam_questions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE;
 alter table public.flashcard_progress drop constraint if exists flashcard_progress_card_id_fkey;
 alter table public.flashcard_progress add constraint flashcard_progress_card_id_fkey FOREIGN KEY (card_id) REFERENCES flashcard_bank(id);
 alter table public.flashcard_progress drop constraint if exists flashcard_progress_user_id_fkey;
 alter table public.flashcard_progress add constraint flashcard_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
 alter table public.group_training_plans drop constraint if exists group_training_plans_class_id_fkey;
 alter table public.group_training_plans add constraint group_training_plans_class_id_fkey FOREIGN KEY (class_id) REFERENCES class_groups(id) ON DELETE CASCADE;
+alter table public.interview_reports drop constraint if exists interview_reports_user_id_fkey;
+alter table public.interview_reports add constraint interview_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.memberships drop constraint if exists memberships_user_id_fkey;
 alter table public.memberships add constraint memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.module_settings drop constraint if exists module_settings_updated_by_fkey;
@@ -577,8 +542,6 @@ alter table public.profiles_physical drop constraint if exists profiles_physical
 alter table public.profiles_physical add constraint profiles_physical_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
 alter table public.profiles_psych drop constraint if exists profiles_psych_user_id_fkey;
 alter table public.profiles_psych add constraint profiles_psych_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
-alter table public.question_attempts drop constraint if exists question_attempts_exam_id_fkey;
-alter table public.question_attempts add constraint question_attempts_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE;
 alter table public.question_attempts drop constraint if exists question_attempts_question_id_fkey;
 alter table public.question_attempts add constraint question_attempts_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE SET NULL;
 alter table public.question_bank drop constraint if exists question_bank_document_id_fkey;
@@ -599,10 +562,6 @@ alter table public.question_votes drop constraint if exists question_votes_user_
 alter table public.question_votes add constraint question_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.subjects drop constraint if exists subjects_block_id_fkey;
 alter table public.subjects add constraint subjects_block_id_fkey FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE;
-alter table public.test_results drop constraint if exists test_results_question_id_fkey;
-alter table public.test_results add constraint test_results_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE CASCADE;
-alter table public.test_results drop constraint if exists test_results_user_id_fkey;
-alter table public.test_results add constraint test_results_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.training_plans drop constraint if exists training_plans_user_id_fkey;
 alter table public.training_plans add constraint training_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
 alter table public.workout_logs drop constraint if exists workout_logs_plan_id_fkey;
@@ -623,11 +582,6 @@ create index if not exists chat_conv_user ON public.chat_conversations USING btr
 create index if not exists chat_msg_conv ON public.chat_messages USING btree (conversation_id, created_at);
 create index if not exists class_group_staff_staff_idx ON public.class_group_staff USING btree (staff_id);
 create index if not exists class_members_user_idx ON public.class_members USING btree (user_id);
-create unique index if not exists content_documents_slug_uq ON public.content_documents USING btree (slug);
-create index if not exists exam_questions_question_idx ON public.exam_questions USING btree (question_id);
-create index if not exists exams_topic_idx ON public.exams USING btree (topic);
-create index if not exists exams_user_id_idx ON public.exams USING btree (user_id);
-create index if not exists exams_user_idx ON public.exams USING btree (user_id);
 create unique index if not exists flashcard_bank_hash_uq ON public.flashcard_bank USING btree (card_hash);
 create index if not exists flashcard_bank_topic_idx ON public.flashcard_bank USING btree (topic);
 create index if not exists flashcard_progress_next_review_idx ON public.flashcard_progress USING btree (next_review);
@@ -636,6 +590,7 @@ create index if not exists idx_flashcard_review ON public.flashcard_progress USI
 create index if not exists flashcard_results_subject_idx ON public.flashcard_results USING btree (subject_id);
 create index if not exists flashcard_results_user_idx ON public.flashcard_results USING btree (user_id);
 create index if not exists group_training_plans_class_idx ON public.group_training_plans USING btree (class_id, week_start DESC);
+create index if not exists interview_reports_user_idx ON public.interview_reports USING btree (user_id, created_at DESC);
 create index if not exists monthly_payments_period_idx ON public.monthly_payments USING btree (period);
 create index if not exists qa_exam_idx ON public.question_attempts USING btree (exam_id);
 create index if not exists qa_question_idx ON public.question_attempts USING btree (question_id);
@@ -645,7 +600,6 @@ create index if not exists question_attempts_user_created_idx ON public.question
 create index if not exists question_attempts_user_idx ON public.question_attempts USING btree (user_id);
 create index if not exists idx_qbank_subject ON public.question_bank USING btree (subject_id);
 create index if not exists idx_subjects_block ON public.subjects USING btree (block_id);
-create index if not exists idx_results_user_algo ON public.test_results USING btree (user_id, question_id);
 
 -- ==========================================================================
 -- Row Level Security
@@ -666,16 +620,14 @@ alter table public.chat_messages enable row level security;
 alter table public.class_group_staff enable row level security;
 alter table public.class_groups enable row level security;
 alter table public.class_members enable row level security;
-alter table public.content_documents enable row level security;
 alter table public.document_chunks enable row level security;
 alter table public.documents enable row level security;
-alter table public.exam_questions enable row level security;
-alter table public.exams enable row level security;
 alter table public.flashcard_bank enable row level security;
 alter table public.flashcard_progress enable row level security;
 alter table public.flashcard_results enable row level security;
 alter table public.group_kinds enable row level security;
 alter table public.group_training_plans enable row level security;
+alter table public.interview_reports enable row level security;
 alter table public.membership_settings enable row level security;
 alter table public.memberships enable row level security;
 alter table public.module_settings enable row level security;
@@ -690,7 +642,6 @@ alter table public.question_notes enable row level security;
 alter table public.question_reports enable row level security;
 alter table public.question_votes enable row level security;
 alter table public.subjects enable row level security;
-alter table public.test_results enable row level security;
 alter table public.training_plans enable row level security;
 alter table public.workout_logs enable row level security;
 
@@ -707,58 +658,6 @@ create policy "msg_propietario" on public.chat_messages
   to public
   using ((auth.uid() = user_id))
   with check ((auth.uid() = user_id));
-
-drop policy if exists "Users can insert exam_questions of own exams" on public.exam_questions;
-create policy "Users can insert exam_questions of own exams" on public.exam_questions
-  for insert
-  to public
-  with check ((EXISTS ( SELECT 1
-   FROM exams e
-  WHERE ((e.id = exam_questions.exam_id) AND (e.user_id = auth.uid())))));
-
-drop policy if exists "Users can read exam_questions of own exams" on public.exam_questions;
-create policy "Users can read exam_questions of own exams" on public.exam_questions
-  for select
-  to public
-  using ((EXISTS ( SELECT 1
-   FROM exams e
-  WHERE ((e.id = exam_questions.exam_id) AND (e.user_id = auth.uid())))));
-
-drop policy if exists "Users can create their exams" on public.exams;
-create policy "Users can create their exams" on public.exams
-  for insert
-  to public
-  with check ((auth.uid() = user_id));
-
-drop policy if exists "Users can insert own exams" on public.exams;
-create policy "Users can insert own exams" on public.exams
-  for insert
-  to public
-  with check ((auth.uid() = user_id));
-
-drop policy if exists "Users can select own exams" on public.exams;
-create policy "Users can select own exams" on public.exams
-  for select
-  to public
-  using ((auth.uid() = user_id));
-
-drop policy if exists "Users can update own exams" on public.exams;
-create policy "Users can update own exams" on public.exams
-  for update
-  to public
-  using ((auth.uid() = user_id));
-
-drop policy if exists "Users can update their exams" on public.exams;
-create policy "Users can update their exams" on public.exams
-  for update
-  to public
-  using ((auth.uid() = user_id));
-
-drop policy if exists "Users can view their exams" on public.exams;
-create policy "Users can view their exams" on public.exams
-  for select
-  to public
-  using ((auth.uid() = user_id));
 
 drop policy if exists "Users can CRUD own flashcard_progress" on public.flashcard_progress;
 create policy "Users can CRUD own flashcard_progress" on public.flashcard_progress
@@ -784,6 +683,13 @@ create policy "group_plan_lectura" on public.group_training_plans
   for select
   to authenticated
   using (true);
+
+drop policy if exists "interview_reports_propietario" on public.interview_reports;
+create policy "interview_reports_propietario" on public.interview_reports
+  for all
+  to authenticated
+  using ((user_id = auth.uid()))
+  with check ((user_id = auth.uid()));
 
 drop policy if exists "module_settings_lectura" on public.module_settings;
 create policy "module_settings_lectura" on public.module_settings
@@ -869,13 +775,6 @@ create policy "question_reports_propietario" on public.question_reports
 
 drop policy if exists "question_votes_propietario" on public.question_votes;
 create policy "question_votes_propietario" on public.question_votes
-  for all
-  to authenticated
-  using ((user_id = auth.uid()))
-  with check ((user_id = auth.uid()));
-
-drop policy if exists "test_results_propietario" on public.test_results;
-create policy "test_results_propietario" on public.test_results
   for all
   to authenticated
   using ((user_id = auth.uid()))

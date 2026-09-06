@@ -2,11 +2,8 @@
 -- Persistir la transcripción y el informe de la entrevista (§2.11 / fase 4)
 -- =============================================================================
 --
--- ⬜ PENDIENTE DE EJECUTAR. El código ya está escrito y DEGRADA CON GRACIA
---    mientras tanto (patrón documentado: audit-log, academia, P6): la sala de
---    entrevistas sigue funcionando y enseñando el informe al terminar; lo único
---    que no ocurre hasta ejecutar esto es que el informe se guarde y se pueda
---    releer después.
+-- ✅ EJECUTADO el 7 sep 2026. `interview_reports` con sus 7 columnas, RLS de
+--    propietario e índice. `schema-snapshot.mjs` detrás (35 tablas).
 --
 -- QUÉ RESUELVE
 --   `evaluateInterview` genera un informe (puntuación, veredicto, fortalezas,

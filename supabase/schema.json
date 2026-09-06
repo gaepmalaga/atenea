@@ -252,37 +252,6 @@
         "user_id": "uuid"
       }
     },
-    "content_documents": {
-      "columnas": [
-        "created_at",
-        "doc_type",
-        "id",
-        "published_at",
-        "slug",
-        "source",
-        "status",
-        "title",
-        "version"
-      ],
-      "obligatorias": [
-        "created_at",
-        "id",
-        "slug",
-        "status",
-        "title"
-      ],
-      "tipos": {
-        "created_at": "timestamp with time zone",
-        "doc_type": "text",
-        "id": "bigint",
-        "published_at": "date",
-        "slug": "text",
-        "source": "text",
-        "status": "text",
-        "title": "text",
-        "version": "text"
-      }
-    },
     "document_chunks": {
       "columnas": [
         "content_chunk",
@@ -328,53 +297,6 @@
         "indexed_at": "timestamp with time zone",
         "subject_id": "integer",
         "uploaded_at": "timestamp with time zone"
-      }
-    },
-    "exam_questions": {
-      "columnas": [
-        "exam_id",
-        "position",
-        "question_id"
-      ],
-      "obligatorias": [
-        "exam_id",
-        "position",
-        "question_id"
-      ],
-      "tipos": {
-        "exam_id": "uuid",
-        "position": "integer",
-        "question_id": "uuid"
-      }
-    },
-    "exams": {
-      "columnas": [
-        "finished_at",
-        "id",
-        "meta",
-        "mode",
-        "started_at",
-        "topic",
-        "total_questions",
-        "user_id"
-      ],
-      "obligatorias": [
-        "id",
-        "mode",
-        "started_at",
-        "topic",
-        "total_questions",
-        "user_id"
-      ],
-      "tipos": {
-        "finished_at": "timestamp with time zone",
-        "id": "uuid",
-        "meta": "jsonb",
-        "mode": "text",
-        "started_at": "timestamp with time zone",
-        "topic": "text",
-        "total_questions": "integer",
-        "user_id": "uuid"
       }
     },
     "flashcard_bank": {
@@ -517,6 +439,33 @@
         "plan_data": "jsonb",
         "updated_at": "timestamp with time zone",
         "week_start": "date"
+      }
+    },
+    "interview_reports": {
+      "columnas": [
+        "created_at",
+        "id",
+        "report",
+        "score",
+        "transcript",
+        "turns",
+        "user_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "report",
+        "transcript",
+        "user_id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "report": "jsonb",
+        "score": "smallint",
+        "transcript": "text",
+        "turns": "smallint",
+        "user_id": "uuid"
       }
     },
     "membership_settings": {
@@ -880,29 +829,6 @@
         "id": "integer",
         "title": "text",
         "topic_number": "integer"
-      }
-    },
-    "test_results": {
-      "columnas": [
-        "created_at",
-        "id",
-        "is_correct",
-        "option_changes",
-        "question_id",
-        "response_time_ms",
-        "user_id"
-      ],
-      "obligatorias": [
-        "id"
-      ],
-      "tipos": {
-        "created_at": "timestamp with time zone",
-        "id": "uuid",
-        "is_correct": "boolean",
-        "option_changes": "integer",
-        "question_id": "uuid",
-        "response_time_ms": "integer",
-        "user_id": "uuid"
       }
     },
     "training_plans": {

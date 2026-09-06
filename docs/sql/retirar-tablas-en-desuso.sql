@@ -2,9 +2,12 @@
 -- Retirar tablas en desuso
 -- =============================================================================
 --
--- ⬜ PENDIENTE DE EJECUTAR. Destructivo pero seguro: las cuatro tablas están
---    VACÍAS y NINGÚN código las lee ni las escribe (comprobado el 6 sep 2026:
---    0 referencias en `app/`, 0 filas en el proyecto real).
+-- ✅ EJECUTADO el 7 sep 2026. Se comprobó `count(*) = 0` en las cuatro
+--    inmediatamente antes del DROP. `schema-snapshot.mjs` y `dump-migration.mjs`
+--    detrás (35 tablas). Se conserva por si hay que recrearlas en otro proyecto.
+--
+--    Eran: destructivo pero seguro — las cuatro VACÍAS y sin NINGÚN código que
+--    las lea ni las escriba (0 referencias en `app/`).
 --
 -- POR QUÉ
 --   El esquema arrastra tablas de intentos anteriores que nunca llegaron a

@@ -48,11 +48,11 @@ const columnasDe = (tabla: string) => new Set(snapshot.tablas[tabla]?.columnas ?
  * tenerla.
  */
 const PENDIENTE_SQL: Record<string, string> = {
-  // `interview.ts` guarda y lee el informe de la entrevista aquí; el código
-  // degrada con gracia (`getInterviewReports` devuelve lista vacía si la tabla
-  // falta) hasta que el dueño ejecute el guion. Quitar en cuanto
-  // `schema-snapshot.mjs` la traiga de vuelta.
-  interview_reports: 'docs/sql/persistir-entrevista.sql',
+  // Vacío: todos los guiones de `docs/sql/` están ejecutados y en el volcado
+  // (`interview_reports` incluida — 7 sep 2026). Cuando aparezca uno nuevo cuya
+  // tabla el código ya usa pero que el dueño no ha ejecutado, se añade aquí —
+  //   nombre_tabla: 'docs/sql/su-guion.sql'
+  // — y se quita en cuanto `schema-snapshot.mjs` la traiga de vuelta.
 };
 
 const ficheros = readdirSync(ACTIONS)

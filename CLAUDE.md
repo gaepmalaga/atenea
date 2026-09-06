@@ -83,23 +83,19 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Quedan TRES guiones pendientes** (7 sep 2026), los tres con
-   el código ya escrito y degradando con gracia hasta que se ejecuten:
-   - **`retirar-tablas-en-desuso.sql`** — `DROP` de `test_results`, `exams`,
-     `exam_questions`, `content_documents` (vacías, sin usar). El código ya no
-     las nombra; un test estático lo mantiene así.
-   - **`persistir-entrevista.sql`** — `interview_reports` (informe + transcripción
-     de cada simulacro de entrevista). `evaluateInterview` la escribe best-effort
-     y `getInterviewReports` devuelve lista vacía si falta. En `PENDIENTE_SQL` de
-     `schema-drift.test.ts`.
-   - *(P10b `confidence` ya está ejecutado — 6 sep.)*
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (7 sep 2026, `node
+   scripts/schema-snapshot.mjs` — **35 tablas**):
+   - **`retirar-tablas-en-desuso.sql`** (7 sep) — `DROP` de `test_results`,
+     `exams`, `exam_questions`, `content_documents` (vacías, sin usar; `count(*)`
+     comprobado a 0 antes del DROP). Un test estático (`schema-drift`,
+     `RETIRADAS`) impide que el código vuelva a nombrarlas.
+   - **`persistir-entrevista.sql`** (7 sep) — `interview_reports` (informe +
+     transcripción de cada simulacro). RLS de propietario. `evaluateInterview`
+     la escribe best-effort, `getInterviewReports` la lista.
+   - **`P10b-marca-de-confianza.sql`** (6 sep) — `question_attempts.confidence`.
 
-   Tras ejecutar cualquiera: `node scripts/schema-snapshot.mjs` **y**
-   `node scripts/dump-migration.mjs`. Quitar `interview_reports` de
-   `PENDIENTE_SQL` cuando el volcado la traiga.
-
-   Guiones de fases anteriores **ya ejecutados** (`node
-   scripts/schema-snapshot.mjs` — 38 tablas el 6 sep 2026):
+   Guiones de fases anteriores ejecutados (eran 38 tablas el 6 sep; 35 ahora tras
+   retirar las 4 y añadir `interview_reports`):
    - P3.7 / P3.8 (`legal_reference`, `question_notes`) — 31 ago.
    - `admin-audit-log.sql`, `academia-ajustes.sql`, `gasto-ia.sql`,
      `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
@@ -1935,10 +1931,10 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    protege de verdad (regla 34). Verificado en pantalla end-to-end el 6 sep.
 
 5. **`test_results` retirada** (7 sep): junto con `exams`, `exam_questions` y
-   `content_documents` — vacías y sin una sola referencia en `app/`. El guion
-   `docs/sql/retirar-tablas-en-desuso.sql` está **pendiente de ejecutar** por el
-   dueño; el código ya no las nombra y un test estático lo vigila. Tras
-   ejecutarlo: `node scripts/schema-snapshot.mjs` y `node scripts/dump-migration.mjs`.
+   `content_documents` — vacías y sin una sola referencia en `app/`.
+   `docs/sql/retirar-tablas-en-desuso.sql` **ejecutado**; snapshot y migración
+   regenerados (35 tablas). Un test estático (`schema-drift`, `RETIRADAS`) impide
+   que el código vuelva a nombrarlas.
 
 6. **P8 está hecha y desplegada** (6 sep): una sola pestaña «Alumnos», tipos de
    grupo editables, varios profesores por grupo, grupos desde el alumno y pagos
