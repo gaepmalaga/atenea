@@ -156,6 +156,8 @@ cd .banco-pruebas && node todas-las-pantallas.cjs   # LAS 19 PANTALLAS en un nav
 npm run chat:probar                # QUE RESPONDE el chat, preguntándole de verdad (de pago)
 npm run chat:probar -- --tema=39   # lo mismo con el desplegable de tema puesto
 node scripts/medir-contexto.mjs    # cuánto ocupa el temario y si cabe entero en el modelo (de pago)
+
+npm run sesion:adaptativa -- correo@x.com 20   # QUÉ SESIÓN le montaría P10 a ese alumno (gratis, solo lee)
 ```
 
 Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
@@ -1683,9 +1685,23 @@ y [`docs/P10-entrenamiento-adaptativo.md`](docs/P10-entrenamiento-adaptativo.md)
   aleatoria. `getAdaptiveSession` (`exams.ts`) lo comprueba: si está apagado hace
   `shuffle(bank).slice(limit)`. El módulo del alumno llama a esta acción en modo
   `practice`; en `exam` sigue con `getQuestionsFromBank`.
+- **El tope de material nuevo ESCALA** con lo que el alumno ha visto del banco:
+  ~60 % si ha tocado < 10 %, ~22 % si ha tocado > 60 % — si no, a un principiante
+  le falta material nuevo y se le rellena con repaso prematuro. El «refuerzo»
+  (visto hace poco, aún no vencido) no tiene cupo base: rompe el espaciado, solo
+  se usa de último relleno.
+- **`global_success_rate = 0` no es «todo el mundo la falla»** (regla 8): hoy esa
+  columna está toda a 0 (no la puebla nadie). `tasaUsable()` la ignora salvo que
+  sea un valor plausible.
 - **La curva de aprendizaje**: `resumeCajonesPorTema` alimenta la sección
   «Dominio del temario» de Estadísticas — por tema, cuántas dominadas /
   consolidando / en aprendizaje / sin empezar, con una barra apilada.
+- **En «Repasar fallos»**, una pregunta fallada 4+ veces sale marcada como
+  atascada con un aviso de que releer el artículo, no repetir el test
+  (`esAtascada` en `lib/review.ts`).
+- **Para verlo sin levantar la app**: `npm run sesion:adaptativa -- correo 20`
+  imprime los cajones del alumno, la curva por tema y una sesión de ejemplo con
+  su mezcla y el acierto estimado. Gratis, solo lee (como `chat:probar`).
 - **RLS**: las respuestas del propio alumno se leen con **su sesión** (`db`,
   regla 34 — `question_attempts` tiene política de propietario y aquí no hay join
   con `question_bank`); el banco, con la clave de servicio.
@@ -1716,7 +1732,6 @@ tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
-tests/review.test.ts            repaso de lo fallado: agrupación y guardas
 tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
@@ -1726,8 +1741,9 @@ tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y 
 tests/membership.test.ts        la puerta de acceso (decideAccess) y sus guardas
 tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes y «sin importe» ≠ 0 €
 tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan
+tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
 tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva
-tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas, redistribución, intercalado
+tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
