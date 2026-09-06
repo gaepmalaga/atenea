@@ -6,6 +6,7 @@ import {
   periodosRecientes,
   formateaPeriodo,
   resumeMes,
+  resumeHistorico,
   formateaEUR,
   type MonthlyPaymentRow,
 } from '../app/lib/payments';
@@ -78,6 +79,46 @@ describe('resumeMes', () => {
   it('lee el importe como cadena con coma (numeric de PostgREST)', () => {
     const r = resumeMes('2026-09', roster, [{ user_id: 'a', period: '2026-09', paid: true, amount_eur: '29,90' }]);
     expect(r.cobrado).toBeCloseTo(29.9, 2);
+  });
+});
+
+describe('resumeHistorico · la rejilla de todos los meses', () => {
+  const roster = [
+    { id: 'a', email: 'a@x.com' },
+    { id: 'b', email: 'b@x.com' },
+  ];
+  const periodos = ['2026-07', '2026-08', '2026-09'];
+
+  it('un mes sin fila no aparece en el mapa de celdas', () => {
+    const h = resumeHistorico(periodos, roster, [
+      { user_id: 'a', period: '2026-08', paid: true, amount_eur: '40' },
+    ]);
+    const filaA = h.filas.find((f) => f.userId === 'a')!;
+    expect(filaA.celdas['2026-08']).toEqual({ paid: true, amount: 40 });
+    expect(filaA.celdas['2026-07']).toBeUndefined();
+    expect(filaA.pagadosEnRango).toBe(1);
+  });
+
+  it('el recuento por columna suma los pagados y lo cobrado de ese mes', () => {
+    const h = resumeHistorico(periodos, roster, [
+      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
+      { user_id: 'b', period: '2026-09', paid: true, amount_eur: null },
+      { user_id: 'a', period: '2026-07', paid: false, amount_eur: null },
+    ]);
+    const sep = h.columnas.find((c) => c.period === '2026-09')!;
+    expect(sep.pagados).toBe(2);
+    expect(sep.total).toBe(2);
+    expect(sep.cobrado).toBeCloseTo(45, 2); // b pagó sin importe: suma 0 (regla 8)
+    const jul = h.columnas.find((c) => c.period === '2026-07')!;
+    expect(jul.pagados).toBe(0);
+  });
+
+  it('las filas de meses fuera del rango se ignoran', () => {
+    const h = resumeHistorico(periodos, roster, [
+      { user_id: 'a', period: '2026-01', paid: true, amount_eur: '99' },
+    ]);
+    expect(h.filas.find((f) => f.userId === 'a')!.pagadosEnRango).toBe(0);
+    expect(h.columnas.every((c) => c.cobrado === 0)).toBe(true);
   });
 });
 

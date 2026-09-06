@@ -99,6 +99,7 @@ describe('superficie de las Server Actions', () => {
       'activateAllCurrentStudents',
       // P8: pagos mensuales.
       'getMonthlyPayments',
+      'getPaymentsHistory',
       'setPayment',
       // P7/P8: grupos, tipos de grupo y asignación desde el alumno.
       'getGroups',

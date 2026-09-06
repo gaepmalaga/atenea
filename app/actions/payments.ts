@@ -5,10 +5,12 @@ import { requireAdmin } from '../lib/auth';
 import { registraAccion } from '../lib/admin-audit';
 import {
   resumeMes,
+  resumeHistorico,
   periodoActual,
   periodosRecientes,
   type MonthlyPaymentRow,
   type ResumenMes,
+  type HistoricoPagos,
 } from '../lib/payments';
 
 /**
@@ -74,6 +76,48 @@ export async function getMonthlyPayments(
         .sort((a, b) => Number(a.paid) - Number(b.paid) || (a.email ?? '').localeCompare(b.email ?? '')),
       periodos: periodosRecientes(12),
     },
+  };
+}
+
+const MESES_HISTORICO = 12;
+
+/**
+ * El histórico: todos los meses recientes a la vez, alumnos activos × meses,
+ * con el recuento por columna. Se marca una celda desde la misma rejilla
+ * (`setPayment`). Columnas en orden cronológico (el mes más antiguo a la
+ * izquierda, el actual a la derecha).
+ */
+export async function getPaymentsHistory(): Promise<
+  { success: true; data: HistoricoPagos } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const periodos = periodosRecientes(MESES_HISTORICO).slice().reverse();
+
+  const [perfilesRes, membresiasRes, pagosRes] = await Promise.all([
+    supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').limit(MAX_PERFILES),
+    supabaseAdmin.from('memberships').select('user_id, access_status'),
+    supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').in('period', periodos),
+  ]);
+
+  if (perfilesRes.error) {
+    console.error('getPaymentsHistory:', perfilesRes.error.message);
+    return { success: false as const, error: perfilesRes.error.message };
+  }
+
+  const activos = new Set<string>();
+  for (const m of membresiasRes.data ?? []) {
+    if (m.access_status === 'active') activos.add(m.user_id as string);
+  }
+  const roster = (perfilesRes.data ?? [])
+    .filter((u) => activos.has(u.id as string))
+    .map((u) => ({ id: u.id as string, email: (u.email as string) ?? null }))
+    .sort((a, b) => (a.email ?? '').localeCompare(b.email ?? ''));
+
+  return {
+    success: true as const,
+    data: resumeHistorico(periodos, roster, (pagosRes.data ?? []) as MonthlyPaymentRow[]),
   };
 }
 
