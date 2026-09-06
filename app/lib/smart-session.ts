@@ -302,9 +302,14 @@ export function buildSmartSession(params: {
   };
 
   if (acierto > 0 && acierto < 0.8) {
-    // Demasiado difícil: cambia nuevas/recaídas por consolidación.
+    // Demasiado difícil: primero baja el material nuevo a favor de consolidación.
     swap('nueva', 'consolidar', margen);
-    if (estimar(contar()) < 0.8) swap('recaida', 'repaso', margen);
+    // Solo si SIGUE muy difícil Y las recaídas dominan la sesión (> 40 %), se
+    // cambian algunas por repaso. Un alumno con muchas recaídas necesita verlas;
+    // no se le quitan salvo que la sesión sea inasumible.
+    if (estimar(contar()) < 0.75 && tomados('recaida') > limit * 0.4) {
+      swap('recaida', 'repaso', margen);
+    }
   } else if (acierto > 0.92) {
     // Demasiado fácil: mete más material nuevo / recaídas.
     swap('consolidar', 'nueva', margen);
