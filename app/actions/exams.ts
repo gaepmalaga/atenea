@@ -462,7 +462,16 @@ export type AdaptiveSession = {
   adaptativo: boolean;
   resumen: ResumenSesion | null;
   aciertoEstimado: number | null;
+  /** La sesión salió más corta de lo pedido. */
   bancoCorto: boolean;
+  /**
+   * Cuando `bancoCorto`, distingue dos motivos:
+   *  - `'banco'`  → los temas no tienen tantas preguntas activas.
+   *  - `'repaso'` → hay preguntas, pero el método no encontró tantas que
+   *                 toque practicar ahora (todo espaciado, poco nuevo). No es
+   *                 un fallo: has repasado lo que tocaba.
+   */
+  motivoCorto: 'banco' | 'repaso' | null;
   atascadasTotales: number;
 };
 
@@ -507,7 +516,7 @@ export async function getAdaptiveSession(params: {
   if (filas.length === 0) {
     return {
       success: true as const,
-      data: { questions: [], adaptativo: false, resumen: null, aciertoEstimado: null, bancoCorto: true, atascadasTotales: 0 },
+      data: { questions: [], adaptativo: false, resumen: null, aciertoEstimado: null, bancoCorto: true, motivoCorto: 'banco', atascadasTotales: 0 },
     };
   }
 
@@ -527,6 +536,7 @@ export async function getAdaptiveSession(params: {
         resumen: null,
         aciertoEstimado: null,
         bancoCorto: elegidas.length < limit,
+        motivoCorto: elegidas.length < limit ? 'banco' : null,
         atascadasTotales: 0,
       },
     };
@@ -570,6 +580,10 @@ export async function getAdaptiveSession(params: {
       resumen: sesion.resumen,
       aciertoEstimado: sesion.aciertoEstimado,
       bancoCorto: sesion.bancoCorto,
+      // Si el banco de esos temas tenía de sobra pero la sesión salió corta, el
+      // motivo es el método (todo espaciado): no es un fallo, es que ha
+      // repasado lo que tocaba.
+      motivoCorto: sesion.bancoCorto ? (filas.length >= limit ? 'repaso' : 'banco') : null,
       atascadasTotales: sesion.atascadasTotales,
     },
   };

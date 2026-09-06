@@ -128,6 +128,15 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
         if (!res.success) throw new Error(res.error);
         loadedQuestions = res.data.questions;
         setSesionAdaptativa(res.data.adaptativo ? res.data : null);
+
+        // Sesión vacía: dos motivos distintos, dos mensajes distintos.
+        if (loadedQuestions.length === 0) {
+          throw new Error(
+            res.data.motivoCorto === 'repaso'
+              ? 'Por ahora no tienes nada que repasar en estos temas: todo lo que has visto está en su intervalo de descanso. Vuelve más tarde o elige otro tema.'
+              : 'No hay preguntas en el banco para los temas elegidos. Avisa a tu academia para que las añada.',
+          );
+        }
       } else {
         // SIMULACRO: se queda como estaba — banco por tema, barajado, sin adaptar.
         const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
@@ -273,17 +282,15 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
       )}
 
       {step === 'active' && preguntasQueFaltan !== null && (
-        /* El banco no cubria todo lo pedido. Se dice ANTES de empezar y con
+        /* El test salió mas corto de lo pedido. Se dice ANTES de empezar y con
            el numero exacto: antes esto se rellenaba con la IA y el alumno no
-           se enteraba de que la mitad del examen eran preguntas sin revisar.
-           Un examen mas corto, dicho, es mejor que uno completo a medias. */
+           se enteraba de que la mitad eran preguntas sin revisar. */
         <div className="mb-4 flex items-start gap-3 p-3 rounded-xl sm:rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200">
           <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden />
           <p className="text-sm leading-relaxed">
-            El banco solo tenía {questions.length} preguntas de los temas que has
-            elegido, así que este test es de {questions.length} y no de{' '}
-            {questions.length + preguntasQueFaltan}. La nota se calcula sobre las
-            que hay.
+            {sesionAdaptativa?.motivoCorto === 'repaso'
+              ? <>Solo te tocan <strong>{questions.length}</strong> preguntas ahora mismo: el resto de lo que has estudiado está en su intervalo de descanso. Este entrenamiento es de {questions.length}.</>
+              : <>El banco solo tenía {questions.length} preguntas de los temas que has elegido, así que este test es de {questions.length} y no de {questions.length + preguntasQueFaltan}. La nota se calcula sobre las que hay.</>}
           </p>
         </div>
       )}
