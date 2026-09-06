@@ -104,6 +104,7 @@ export default function ExamResults({ questions, onRetry, onRepasarFallos, sesio
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               {[
                 sesion.resumen.recaida > 0 && `${sesion.resumen.recaida} que fallaste`,
+                sesion.resumen.atascada > 0 && `${sesion.resumen.atascada} que se te atragantan`,
                 sesion.resumen.repaso > 0 && `${sesion.resumen.repaso} de repaso`,
                 sesion.resumen.consolidar > 0 && `${sesion.resumen.consolidar} para consolidar`,
                 sesion.resumen.nueva > 0 && `${sesion.resumen.nueva} nuevas`,

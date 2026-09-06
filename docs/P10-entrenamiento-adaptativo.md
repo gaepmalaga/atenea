@@ -2,6 +2,14 @@
 
 > Base: [`METODO-APRENDIZAJE.md`](METODO-APRENDIZAJE.md).
 > **El modo «Entrenamiento» pasa a ser adaptativo.** El simulacro NO se toca.
+>
+> **Estado (6 sep 2026): v1 hecha, en la rama `claude/p10-entrenamiento-adaptativo`,
+> SIN fusionar.** `npm run check` (805 tests) y `npm run build` en verde.
+> Verificado end-to-end en el preview con sesión de alumno (historial sintético):
+> una sesión de 15 salió «5 que fallaste · 4 de repaso · 4 nuevas» + 2 atascadas,
+> y la curva de «Dominio del temario» en Estadísticas pintó el reparto por tema.
+> Con el interruptor apagado, vuelve al aleatorio. **No necesitó ningún guion SQL.**
+> Falta que el dueño lo pruebe y lo fusione.
 
 ## La idea en una frase
 
