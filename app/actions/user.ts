@@ -4,6 +4,7 @@ import { supabaseAdmin } from './core';
 import { getSessionUser, requireUser, type AuthUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { summarizeResults, type TestResultRow } from '../lib/stats';
+import { resumeCalibracion } from '../lib/confidence';
 import {
   groupFailedAttempts,
   failuresByTopic,
@@ -94,6 +95,9 @@ export async function getUserStats() {
         // Las metricas se agregan en el servidor sobre la muestra completa. La
         // UI las calculaba sobre las 5 ultimas y las dividia entre el total.
         ...summary,
+        // Calibracion (P10b): sobre la misma muestra. `sinDatos` si el alumno
+        // nunca marco su confianza — entonces la UI no pinta la seccion.
+        calibracion: resumeCalibracion(rows),
         lastItems: rows.slice(0, RECENT_ITEMS),
       },
     };

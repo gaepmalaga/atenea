@@ -28,6 +28,11 @@ export type ExamSettings = {
   questionCount: number;
   difficulty: 'easy' | 'medium' | 'hard';
   selectedTopics: string[];
+  /**
+   * Marcar la confianza en cada respuesta (P10b). Solo en entrenamiento.
+   * Por defecto `false`: es práctica deliberada, no una fricción impuesta.
+   */
+  marcarConfianza?: boolean;
 };
 
 /**

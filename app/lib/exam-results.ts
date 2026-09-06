@@ -21,6 +21,13 @@ export type AnswerMetrics = {
   optionChanges: number;
   /** Taxonomia del fallo, si el alumno la etiqueto. */
   errorType?: string | null;
+  /**
+   * Confianza CON la que contesto (P10b): 0 = a ciegas · 1 = a medias · 2 = seguro.
+   * `null` = no se pregunto (el alumno no activo la marca, o es un simulacro).
+   * Es una habilidad medible: en un examen con penalizacion, saber cuando no lo
+   * sabes vale nota.
+   */
+  confidence?: number | null;
 };
 
 /**
@@ -41,6 +48,8 @@ export type ResultRow = {
   error_type: string | null;
   /** Opcion marcada. Ver `BLANK_INDEX`. */
   selected_index: number | null;
+  /** 0-2, o `null`. Ver `AnswerMetrics.confidence`. */
+  confidence: number | null;
 };
 
 /**
@@ -86,7 +95,13 @@ export const EMPTY_METRICS: AnswerMetrics = {
   responseTimeMs: 0,
   optionChanges: 0,
   errorType: null,
+  confidence: null,
 };
+
+/** 0, 1 o 2. Cualquier otra cosa (incluida NaN o fuera de rango) cae a `null`. */
+export function normalizeConfidence(value: unknown): number | null {
+  return value === 0 || value === 1 || value === 2 ? value : null;
+}
 
 /** Numero finito y no negativo, o 0. Protege de NaN e Infinity. */
 function safeCount(value: unknown): number {
@@ -123,6 +138,8 @@ export function toResultRow(
     // Un blanco no se diagnostica: no hubo error que clasificar.
     error_type: enBlanco ? null : input.errorType ?? null,
     selected_index: normalizeSelectedIndex(input.selectedIndex),
+    // Un blanco no lleva confianza: no hubo respuesta en la que confiar.
+    confidence: enBlanco ? null : normalizeConfidence(input.confidence),
   };
 }
 

@@ -162,6 +162,46 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
                 onClick={() => setSettings({ ...settings, mode: 'exam' })}
               />
             </OptionGroup>
+
+            {/* MARCAR LA CONFIANZA (P10b · entrenar el blanco).
+                Solo en entrenamiento. Es práctica deliberada: se activa a
+                propósito, no se impone. En el examen real, cada dos fallos se
+                pierde un acierto — saber cuándo NO lo sabes y dejarlo en blanco
+                es una técnica, y esta es la forma de entrenarla. */}
+            {settings.mode === 'practice' && (
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, marcarConfianza: !settings.marcarConfianza })}
+                aria-pressed={!!settings.marcarConfianza}
+                className={cx(
+                  'mt-3 w-full text-left rounded-xl border p-3 flex items-start gap-3 transition-colors',
+                  TAP,
+                  settings.marcarConfianza
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
+                )}
+              >
+                <span
+                  className={cx(
+                    'mt-0.5 w-4 h-4 shrink-0 rounded border flex items-center justify-center',
+                    settings.marcarConfianza
+                      ? 'border-indigo-600 bg-indigo-600'
+                      : 'border-slate-300 dark:border-slate-600',
+                  )}
+                >
+                  {settings.marcarConfianza && <CheckCircle2 size={10} className="text-white" />}
+                </span>
+                <span>
+                  <span className="block text-xs font-black text-slate-900 dark:text-white">
+                    Marcar mi confianza en cada respuesta
+                  </span>
+                  <span className={cx(TEXT.muted, 'block mt-0.5')}>
+                    Al responder, dices si lo tenías, ibas a medias o a ciegas. Al final
+                    ves tu calibración: aciertos «a ciegas» que en un examen habrías fallado.
+                  </span>
+                </span>
+              </button>
+            )}
           </Card>
 
           <Card>

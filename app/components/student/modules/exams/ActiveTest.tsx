@@ -42,7 +42,20 @@ interface ActiveTestProps {
    * se corrige al momento y hay que diagnosticar el fallo.
    */
   durationSeconds?: number;
+  /**
+   * Pedir la confianza en cada respuesta (P10b). Solo tiene efecto en
+   * entrenamiento: al marcar una opción se muestran tres botones
+   * («seguro / a medias / a ciegas») y es ese segundo toque el que confirma.
+   */
+  marcarConfianza?: boolean;
 }
+
+/** Los tres niveles de confianza, en el orden en que se pintan. */
+const CONFIANZA_OPCIONES = [
+  { nivel: 2, label: 'Lo tenía', clase: 'border-emerald-500 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10' },
+  { nivel: 1, label: 'A medias', clase: 'border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10' },
+  { nivel: 0, label: 'A ciegas', clase: 'border-red-500 text-red-700 dark:text-red-300 hover:bg-red-500/10' },
+] as const;
 
 // Tipos de Reporte disponibles
 const REPORT_TYPES = [
@@ -56,10 +69,14 @@ const REPORT_TYPES = [
 
 export default function ActiveTest({
   questions, mode, topicName, onFinish, onExit, onProgress, startedAt, durationSeconds = 0,
+  marcarConfianza = false,
 }: ActiveTestProps) {
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [errorTagged, setErrorTagged] = useState(false); 
+  const [errorTagged, setErrorTagged] = useState(false);
+  // La opción elegida que espera a que el alumno marque su confianza (P10b).
+  const [confianzaPendiente, setConfianzaPendiente] = useState<string | null>(null);
+  const pideConfianza = marcarConfianza && mode === 'practice';
 
   // Métricas VIP (Tiempos y Dudas)
   //
@@ -175,9 +192,7 @@ export default function ActiveTest({
   // cuando se ejecuta el índice YA ha cambiado y la cuenta anterior se pierde.
 
   // --- MANEJO DE RESPUESTA ---
-  const handleAnswer = useCallback(async (optionId: string) => {
-    if (mode === 'practice' && isAnswered) return;
-
+  const commitRespuesta = useCallback(async (optionId: string, confidence: number | null) => {
     // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
     // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
     // no cambios, y la primera respuesta ya valía 1.
@@ -189,9 +204,10 @@ export default function ActiveTest({
     // Copia del objeto, no solo del array: la copia superficial mutaba la misma
     // pregunta que tiene el componente padre en su estado.
     const updated = localQuestions.map((q, i) =>
-        i === currentIndex ? { ...q, userAnswer: optionId } : q
+        i === currentIndex ? { ...q, userAnswer: optionId, confidence } : q
     );
     aplicarRespuestas(updated);
+    setConfianzaPendiente(null);
 
     if (mode === 'practice') {
         const correct = optionId === currentQ.correctOptionId;
@@ -205,12 +221,24 @@ export default function ActiveTest({
                 responseTimeMs: tiempoActual(),
                 optionChanges: metricasDe(currentIndex).cambios,
                 selectedIndex: currentQ.options.findIndex((o) => o.id === optionId),
+                confidence,
             }
         );
         const saved = await savePromiseRef.current;
         resultIdRef.current = saved.id;
     }
-  }, [aplicarRespuestas, currentIndex, currentQ, isAnswered, localQuestions, metricasDe, mode, tiempoActual, topicName]);
+  }, [aplicarRespuestas, currentIndex, currentQ, localQuestions, metricasDe, mode, tiempoActual, topicName]);
+
+  const handleAnswer = useCallback(async (optionId: string) => {
+    if (mode === 'practice' && isAnswered) return;
+    // Con la marca de confianza: el primer toque solo ELIGE; el segundo toque
+    // (en uno de los tres botones de confianza) es el que confirma.
+    if (pideConfianza && !isAnswered) {
+      setConfianzaPendiente(optionId);
+      return;
+    }
+    await commitRespuesta(optionId, null);
+  }, [commitRespuesta, isAnswered, mode, pideConfianza]);
 
   // --- MANEJO DE TAXONOMÍA DE ERROR ---
   const handleErrorTag = async (type: string) => {
@@ -852,11 +880,11 @@ export default function ActiveTest({
 
           <div className="space-y-3 sm:space-y-4 relative z-10">
               {currentQ.options.map((opt) => {
-                  const isSelected = currentQ.userAnswer === opt.id;
+                  const isSelected = currentQ.userAnswer === opt.id || confianzaPendiente === opt.id;
                   const isCorrectOpt = opt.id === currentQ.correctOptionId;
-                  
+
                   let style = "border-slate-200 dark:border-slate-800 hover:border-indigo-400 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300";
-                  
+
                   if (mode === 'practice' && isAnswered) {
                       if (isCorrectOpt) style = "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500";
                       else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 opacity-60";
@@ -890,6 +918,41 @@ export default function ActiveTest({
                   );
               })}
           </div>
+
+          {/* MARCA DE CONFIANZA (P10b · entrenar el blanco)
+
+              El primer toque en una opción no la confirma: pregunta «¿qué tal
+              lo veías?» y es este segundo toque el que guarda la respuesta CON
+              su nivel de confianza. En un examen con penalización, saber cuándo
+              NO lo sabes vale nota: quien contesta «a ciegas» y falla habría
+              hecho mejor dejándola en blanco, y eso es lo que esto entrena.
+
+              Solo en entrenamiento y solo si el alumno lo activó: es práctica
+              deliberada, no una fricción impuesta a todo el mundo. */}
+          {pideConfianza && confianzaPendiente !== null && !isAnswered && (
+              <div className="mt-6 relative z-10 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <p className="text-center text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
+                      ¿Qué tal lo veías?
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      {CONFIANZA_OPCIONES.map((c) => (
+                          <button
+                            key={c.nivel}
+                            onClick={() => commitRespuesta(confianzaPendiente, c.nivel)}
+                            className={`min-h-[44px] px-2 py-3 rounded-2xl border-2 font-black text-[11px] sm:text-xs uppercase tracking-wider bg-white dark:bg-slate-950 transition-colors ${c.clase}`}
+                          >
+                              {c.label}
+                          </button>
+                      ))}
+                  </div>
+                  <button
+                    onClick={() => setConfianzaPendiente(null)}
+                    className="mx-auto mt-3 block text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 uppercase tracking-wider transition-colors"
+                  >
+                      Cambiar de opción
+                  </button>
+              </div>
+          )}
 
           {/* DEJAR EN BLANCO
 

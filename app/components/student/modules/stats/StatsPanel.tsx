@@ -7,6 +7,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { getUserStats, getPhysicalProfile, getMisCajones } from '@/actions';
 import type { ResumenTema } from '@/app/lib/question-scheduler';
+import {
+  consejoCalibracion,
+  CONFIDENCE_LABEL,
+  type ConfidenceLevel,
+  type ResumenCalibracion,
+} from '@/app/lib/confidence';
 import { EmptyState } from '../../../ui';
 import {
   rankFor,
@@ -24,7 +30,7 @@ import {
 /** Fila del historial: lo que devuelve getUserStats tras aplanar el join. */
 type RecentItem = TestResultRow & { created_at?: string | null };
 
-type UserStats = StatsSummary & { lastItems: RecentItem[] };
+type UserStats = StatsSummary & { lastItems: RecentItem[]; calibracion: ResumenCalibracion };
 
 interface StatsPanelProps {
   user: { id: string };
@@ -262,6 +268,49 @@ export default function StatsPanel({ user }: StatsPanelProps) {
               </div>
           </div>
       </div>
+
+      {/* CALIBRACIÓN (P10b): qué tan bien sabe el alumno lo que sabe. Solo si
+          ha marcado su confianza en algún entrenamiento. En un examen con
+          penalización, un acierto «a ciegas» es suerte que no se repetirá y un
+          «seguro» fallado es el error que más cuesta. */}
+      {!stats.calibracion.sinDatos && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
+          <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+            <h3 className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <Gauge size={15} className="shrink-0" /> Sabes lo que sabes
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              De lo que marcas en entrenamiento: cuánto aciertas según lo seguro que ibas.
+            </p>
+          </div>
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              {stats.calibracion.porNivel.map((n) => (
+                <div key={n.nivel} className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3 border border-slate-100 dark:border-slate-800 text-center">
+                  <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {CONFIDENCE_LABEL[n.nivel as ConfidenceLevel]}
+                  </p>
+                  <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-tight mt-1">
+                    {n.acierto === null ? '—' : `${n.acierto}%`}
+                  </p>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 tabular-nums">
+                    {n.total > 0 ? `${n.aciertos} de ${n.total}` : 'sin datos'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {(() => {
+              const consejo = consejoCalibracion(stats.calibracion);
+              return consejo ? (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-2 leading-relaxed">
+                  <Brain size={13} className="mt-0.5 shrink-0" />
+                  <span>{consejo}</span>
+                </p>
+              ) : null;
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* DOMINIO DEL TEMARIO (P10): cuántas preguntas de cada tema tiene el
           alumno en cada cajón. Es la «curva de aprendizaje»: la barra crece a

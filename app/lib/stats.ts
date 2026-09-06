@@ -15,6 +15,8 @@ export type TestResultRow = {
   topic?: string | null;
   /** Opcion marcada. `BLANK_INDEX` si la dejo en blanco a proposito. */
   selected_index?: number | null;
+  /** Confianza marcada al responder (P10b): 0 a ciegas · 1 a medias · 2 seguro. */
+  confidence?: number | null;
 };
 
 /**

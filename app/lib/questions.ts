@@ -39,6 +39,8 @@ export type Question = {
   legalReference?: string | null;
   timeMs?: number;
   changes?: number;
+  /** Confianza con la que se contestó (P10b): 0 a ciegas · 1 a medias · 2 seguro. */
+  confidence?: number | null;
 };
 
 /**

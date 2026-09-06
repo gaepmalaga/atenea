@@ -53,7 +53,18 @@ describe('toResultRow', () => {
       option_changes: 2,
       error_type: 'trampa',
       selected_index: null,
+      confidence: null,
     });
+  });
+
+  it('guarda la confianza cuando se marca, y la ignora fuera de rango', () => {
+    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, confidence: 2 }).confidence).toBe(2);
+    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, confidence: 0 }).confidence).toBe(0);
+    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, confidence: 5 }).confidence).toBeNull();
+    // Un blanco no lleva confianza: no hubo respuesta en la que confiar.
+    expect(
+      toResultRow({ questionId: 'q', topic: 't', isCorrect: false, selectedIndex: -1, confidence: 2 }).confidence,
+    ).toBeNull();
   });
 
   it('rellena las metricas ausentes con 0, no con undefined', () => {

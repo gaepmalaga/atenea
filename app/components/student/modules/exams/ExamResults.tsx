@@ -3,7 +3,14 @@
 import { Question } from './ExamManager';
 import type { AdaptiveSession } from '@/app/actions/exams';
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
-import { XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles } from 'lucide-react';
+import { BLANK_INDEX } from '@/app/lib/exam-results';
+import {
+  resumeCalibracion,
+  consejoCalibracion,
+  CONFIDENCE_LABEL,
+  type ConfidenceLevel,
+} from '@/app/lib/confidence';
+import { XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles, Gauge } from 'lucide-react';
 import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
 
 interface ExamResultsProps {
@@ -29,6 +36,19 @@ export default function ExamResults({ questions, onRetry, onRepasarFallos, sesio
   // Cuanto se ha dejado por el camino por fallar. Es el numero que explica la
   // diferencia entre lo que el alumno creia y lo que sacaria de verdad.
   const perdidoPorFallos = rawPercentage - Math.round(score * 10);
+
+  // CALIBRACIÓN (P10b). Solo tiene contenido si el alumno marcó su confianza
+  // (entrenamiento con la opción activada): sin marcas, `sinDatos` y no se
+  // pinta la tarjeta. El `selected_index` aquí solo distingue blanco de
+  // contestada, que es lo único que mira `resumeCalibracion`.
+  const calibracion = resumeCalibracion(
+    questions.map((q) => ({
+      is_correct: !!q.userAnswer && q.userAnswer === q.correctOptionId,
+      selected_index: q.userAnswer ? 0 : BLANK_INDEX,
+      confidence: q.confidence ?? null,
+    })),
+  );
+  const consejo = consejoCalibracion(calibracion);
 
   return (
     <div className="flex justify-center animate-in zoom-in duration-500">
@@ -121,6 +141,47 @@ export default function ExamResults({ questions, onRetry, onRepasarFallos, sesio
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
               Vuelve mañana y te traeré lo que toque repasar.
             </p>
+          </Card>
+        )}
+
+        {/* CALIBRACIÓN DE LA CONFIANZA (P10b · entrenar el blanco).
+            Solo si el alumno marcó su confianza. Le enseña lo que un examen con
+            penalización castiga: aciertos «a ciegas» que en el examen real
+            habría fallado, y «seguros» que se le cayeron. */}
+        {!calibracion.sinDatos && (
+          <Card tone="sunken" pad="sm" className="mb-5 text-left space-y-2">
+            <p className="text-[11px] font-black text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 uppercase tracking-wide">
+              <Gauge size={12} /> Tu calibración
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {calibracion.porNivel.map((n) => (
+                <div key={n.nivel} className="rounded-lg bg-white dark:bg-slate-900 p-2 border border-slate-100 dark:border-slate-800">
+                  <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {CONFIDENCE_LABEL[n.nivel as ConfidenceLevel]}
+                  </p>
+                  <p className="text-base font-black text-slate-900 dark:text-white tabular-nums leading-tight mt-0.5">
+                    {n.acierto === null ? '—' : `${n.acierto}%`}
+                  </p>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 tabular-nums">
+                    {n.total > 0 ? `${n.aciertos}/${n.total}` : 'sin datos'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {calibracion.ciegasAciertos + calibracion.ciegasFallos > 0 && (
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                «A ciegas»: {calibracion.ciegasAciertos} acierto{calibracion.ciegasAciertos !== 1 ? 's' : ''} y{' '}
+                {calibracion.ciegasFallos} fallo{calibracion.ciegasFallos !== 1 ? 's' : ''} → en un examen real
+                eso {calibracion.netoDeAdivinar < 0 ? 'te resta' : calibracion.netoDeAdivinar > 0 ? 'te suma' : 'queda en'}{' '}
+                <strong>{nota(Math.abs(calibracion.netoDeAdivinar))}</strong> aciertos netos.
+              </p>
+            )}
+            {consejo && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-2 leading-relaxed">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <span>{consejo}</span>
+              </p>
+            )}
           </Card>
         )}
 

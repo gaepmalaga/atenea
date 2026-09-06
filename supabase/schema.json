@@ -722,6 +722,7 @@
     },
     "question_attempts": {
       "columnas": [
+        "confidence",
         "created_at",
         "error_type",
         "exam_id",
@@ -743,6 +744,7 @@
         "user_id"
       ],
       "tipos": {
+        "confidence": "smallint",
         "created_at": "timestamp with time zone",
         "error_type": "text",
         "exam_id": "uuid",

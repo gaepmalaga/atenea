@@ -1705,14 +1705,24 @@ y [`docs/P10-entrenamiento-adaptativo.md`](docs/P10-entrenamiento-adaptativo.md)
 - **RLS**: las respuestas del propio alumno se leen con **su sesión** (`db`,
   regla 34 — `question_attempts` tiene política de propietario y aquí no hay join
   con `question_bank`); el banco, con la clave de servicio.
-- **Lo que queda para v2**: FSRS, y la **marca de confianza / entrenar el blanco**
-  (técnica 8) — medio hecha: la aritmética de calibración ya está
-  (`app/lib/confidence.ts`, `resumeCalibracion`, con tests) y el guion
-  [`docs/sql/P10b-marca-de-confianza.sql`](docs/sql/P10b-marca-de-confianza.sql)
-  añade `question_attempts.confidence`; falta ejecutarlo, capturar la marca en
-  `ActiveTest`, escribirla y pintar el cuadro. **El código que la escribe NO se
-  toca hasta que el guion esté ejecutado** (`question_attempts` se escribe en
-  cada respuesta y ya se rompió en silencio una vez, fase 1.2).
+- **P10b · marca de confianza / entrenar el blanco (técnica 8) — HECHA** (6 sep
+  2026). Solo en entrenamiento y solo si el alumno la activa en la config: es
+  práctica deliberada, no una fricción impuesta. Al marcar una opción se pregunta
+  «¿qué tal lo veías?» (lo tenía / a medias / a ciegas) y **ese segundo toque es
+  el que confirma** (`ActiveTest`, `commitRespuesta(optionId, confidence)`). Se
+  guarda en `question_attempts.confidence` (`smallint`, 0-2, `CHECK`;
+  [`docs/sql/P10b-marca-de-confianza.sql`](docs/sql/P10b-marca-de-confianza.sql),
+  **ejecutado**). `normalizeConfidence` en `exam-results.ts` la deja en 0/1/2 o
+  `null` (histórico, simulacro, o fuera de rango), y **un blanco nunca lleva
+  confianza**. `resumeCalibracion` (`app/lib/confidence.ts`, pura) la agrega:
+  acierto por nivel, `netoDeAdivinar` (aciertos a ciegas − fallos/2: si es
+  negativo, dejar esas en blanco habría puntuado más), `seguroFallado`. Se pinta
+  en resultados y en Estadísticas («Sabes lo que sabes»); `sinDatos` = no se
+  pinta. La marca solo tiene efecto en `mode === 'practice'`: el simulacro no la
+  pregunta.
+- **Lo que queda para v2**: FSRS (hueco dejado en los datos), y una intervención
+  real para las «atascadas» más allá de avisar (generar una ficha desde la
+  pregunta, o llevar al artículo).
 
 ---
 

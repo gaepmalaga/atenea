@@ -3,13 +3,11 @@
 > Base: [`METODO-APRENDIZAJE.md`](METODO-APRENDIZAJE.md).
 > **El modo «Entrenamiento» pasa a ser adaptativo.** El simulacro NO se toca.
 >
-> **Estado (6 sep 2026): v1 hecha, en la rama `claude/p10-entrenamiento-adaptativo`,
-> SIN fusionar.** `npm run check` (805 tests) y `npm run build` en verde.
-> Verificado end-to-end en el preview con sesión de alumno (historial sintético):
-> una sesión de 15 salió «5 que fallaste · 4 de repaso · 4 nuevas» + 2 atascadas,
-> y la curva de «Dominio del temario» en Estadísticas pintó el reparto por tema.
-> Con el interruptor apagado, vuelve al aleatorio. **No necesitó ningún guion SQL.**
-> Falta que el dueño lo pruebe y lo fusione.
+> **Estado (6 sep 2026): v1 + P10b (marca de confianza) fusionadas en `main` y
+> desplegadas.** `npm run check` (823 tests) y `npm run build` en verde. v1
+> verificada end-to-end en el preview con sesión de alumno. P10b: el guion
+> `question_attempts.confidence` está ejecutado; la captura en `ActiveTest`, el
+> guardado y los cuadros de calibración (resultados + Estadísticas) están hechos.
 
 ## La idea en una frase
 
@@ -124,14 +122,25 @@ frío), donde se intercala con normalidad.
 ## Lo que NO entra en v1
 
 - FSRS (se deja el hueco en los datos).
-- **Marca de confianza / entrenar el blanco (técnica 8) → v2, medio hecho:** la
-  aritmética de calibración está lista y con tests (`app/lib/confidence.ts`,
-  `resumeCalibracion`), y el guion SQL escrito
-  ([`docs/sql/P10b-marca-de-confianza.sql`](sql/P10b-marca-de-confianza.sql),
-  añade `question_attempts.confidence`). Falta: ejecutar el guion, capturar la
-  marca en `ActiveTest` al responder, escribirla en `saveTestResult`, y pintar
-  el cuadro en resultados. **El código que escribe `confidence` NO se toca hasta
-  que el guion esté ejecutado** (PostgREST rechaza la escritura entera).
+- **Marca de confianza / entrenar el blanco (técnica 8) → HECHO en P10b** (6 sep
+  2026). El guion [`docs/sql/P10b-marca-de-confianza.sql`](sql/P10b-marca-de-confianza.sql)
+  (`question_attempts.confidence smallint`, `CHECK` 0-2) está **ejecutado**.
+  - **Config:** casilla «Marcar mi confianza en cada respuesta», solo en
+    entrenamiento. Por defecto apagada (`ExamSettings.marcarConfianza`).
+  - **`ActiveTest`:** con la casilla puesta, el primer toque en una opción no
+    confirma — aparece «¿qué tal lo veías?» con tres botones (lo tenía / a
+    medias / a ciegas) y el segundo toque es el que guarda.
+    `commitRespuesta(optionId, confidence)` es el único camino de escritura;
+    `handleAnswer` solo pone `confianzaPendiente` cuando `pideConfianza`.
+  - **Persistencia:** `saveTestResult(..., { confidence })` →
+    `toResultRow` → `normalizeConfidence` (0/1/2 o `null`). Un blanco nunca
+    lleva confianza.
+  - **Lectura:** `resumeCalibracion` (`app/lib/confidence.ts`, pura, con tests).
+    Se pinta en `ExamResults` («Tu calibración») y en `StatsPanel` («Sabes lo
+    que sabes»), con `getUserStats` devolviendo `calibracion`. `sinDatos` = no
+    se pinta nada.
+  - El simulacro NO pregunta la confianza — la marca solo tiene efecto en
+    `mode === 'practice'`.
 - Tabla `question_state` (solo si hay problema de rendimiento real).
 - Intervención especial para «atascadas» más allá de marcarlas y avisar
   (técnica 10) → v2: generar una ficha desde la pregunta, o llevar al artículo.
