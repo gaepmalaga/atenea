@@ -281,6 +281,16 @@ async function temaExiste(subjectId: number): Promise<boolean> {
   return !!data;
 }
 
+/**
+ * Todos los ids de tema, para validar un CSV multi-tema sin una consulta por
+ * fila. Un `subject_id` que no exista tumbaría el upsert ENTERO (clave ajena),
+ * así que la fila que lo traiga se rechaza y las demás siguen.
+ */
+async function temasValidos(): Promise<Set<number>> {
+  const { data } = await supabaseAdmin.from('subjects').select('id');
+  return new Set((data ?? []).map((r) => r.id as number));
+}
+
 export async function createManualQuestion(
   input: unknown
 ): Promise<ModerationResult & { id?: string; duplicada?: boolean }> {
@@ -370,7 +380,11 @@ export async function importManualQuestions(
   if (d.questions.length > MAX_IMPORT) {
     return { success: false, error: `Se importan como maximo ${MAX_IMPORT} preguntas de una vez.` };
   }
-  if (!(await temaExiste(subjectId))) {
+
+  // Los temas válidos, una vez. El de por defecto tiene que estar; los que
+  // traigan filas sueltas (CSV multi-tema) se comprueban contra este conjunto.
+  const validos = await temasValidos();
+  if (!validos.has(subjectId)) {
     return { success: false, error: 'Ese tema no existe.' };
   }
 
@@ -380,7 +394,18 @@ export async function importManualQuestions(
   let repetidasEnElFichero = 0;
 
   d.questions.forEach((q, i) => {
-    const preparada = aFilaNueva(q, subjectId);
+    // Cada fila puede llevar su propio tema (columna `tema` del CSV, ya
+    // resuelto a id en el cliente). El servidor lo vuelve a validar — un
+    // endpoint público no se fía del navegador (regla 27). Sin `subjectId`
+    // propio: al tema del desplegable.
+    const suyo = Number((q as { subjectId?: unknown })?.subjectId);
+    const temaFila = Number.isInteger(suyo) && suyo > 0 ? suyo : subjectId;
+    if (!validos.has(temaFila)) {
+      rechazadas.push({ indice: i, motivo: `El tema ${temaFila} no existe.` });
+      return;
+    }
+
+    const preparada = aFilaNueva(q, temaFila);
     if (!preparada.ok) {
       rechazadas.push({ indice: i, motivo: preparada.motivo });
       return;

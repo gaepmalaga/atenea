@@ -86,6 +86,19 @@ export default function QuestionComposer({
     [subjects, subjectId]
   );
 
+  /** Lo que necesita `parseQuestionsCsv` para resolver la columna `tema`. */
+  const temasResoluble = useMemo(
+    () => subjects.map((s) => ({ id: s.id, number: s.number, title: s.title })),
+    [subjects]
+  );
+
+  /** Título del tema de una fila (columna `tema` del CSV), si va a otro distinto. */
+  function otroTema(p: ManualQuestion): string | null {
+    if (p.subjectId == null || p.subjectId === subjectId) return null;
+    const s = subjects.find((x) => x.id === p.subjectId);
+    return s ? `Tema ${s.number}` : (p.temaRaw ?? null);
+  }
+
   function limpiaFormulario() {
     // El tema y la dificultad se conservan a proposito: quien escribe diez
     // preguntas de un tema no quiere volver a elegirlo diez veces.
@@ -133,7 +146,7 @@ export default function QuestionComposer({
     setNombreFichero(file.name);
 
     const texto = await file.text();
-    const { preguntas, rechazadas: malas } = parseQuestionsCsv(texto);
+    const { preguntas, rechazadas: malas } = parseQuestionsCsv(texto, temasResoluble);
     const { unicas, repetidas: rep } = quitaRepetidas(preguntas);
 
     setLeidas(unicas);
@@ -359,7 +372,8 @@ export default function QuestionComposer({
                   Columnas: <span className="font-mono text-slate-500 dark:text-slate-300">enunciado · A · B · C · correcta</span>
                   {' '}(obligatorias) y <span className="font-mono text-slate-500 dark:text-slate-300">explicacion · dificultad</span> (opcionales).
                 </p>
-                <p>La columna <span className="font-mono text-slate-500 dark:text-slate-300">correcta</span> admite A, B, C o 1, 2, 3. Hasta {MAX_IMPORT} preguntas por fichero, todas del tema elegido arriba.</p>
+                <p>La columna <span className="font-mono text-slate-500 dark:text-slate-300">correcta</span> admite A, B, C o 1, 2, 3. Hasta {MAX_IMPORT} preguntas por fichero.</p>
+                <p>Columna opcional <span className="font-mono text-slate-500 dark:text-slate-300">tema</span> (número o título): las filas que la traigan van a ESE tema; las demás, al elegido arriba.</p>
               </div>
 
               {(leidas.length > 0 || rechazadas.length > 0) && (
@@ -415,14 +429,24 @@ export default function QuestionComposer({
                         </button>
                       </div>
                       <div className="max-h-56 overflow-y-auto divide-y divide-slate-800/60">
-                        {leidas.slice(0, 20).map((p, i) => (
+                        {leidas.slice(0, 20).map((p, i) => {
+                          const tema = otroTema(p);
+                          return (
                           <div key={i} className="px-4 py-3">
-                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug">{p.question}</p>
+                            <div className="flex items-start gap-2">
+                              <p className="text-xs text-slate-700 dark:text-slate-300 leading-snug flex-1 min-w-0">{p.question}</p>
+                              {tema && (
+                                <span className="shrink-0 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300">
+                                  {tema}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-emerald-400/80 mt-1 font-mono">
                               {LETRAS[p.correctIndex]} · {p.options[p.correctIndex]}
                             </p>
                           </div>
-                        ))}
+                          );
+                        })}
                         {leidas.length > 20 && (
                           <p className="px-4 py-2 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                             …y {leidas.length - 20} más

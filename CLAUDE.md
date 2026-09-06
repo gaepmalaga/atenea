@@ -291,7 +291,9 @@ preservar.
 ### 7 · Una fila de `question_attempts` por respuesta
 
 > La tabla de resultados es **`question_attempts`**, no `test_results` (fase 2.8).
-> `test_results` sigue en pie y vacía; no la uses.
+> `test_results` se **retiró** (`docs/sql/retirar-tablas-en-desuso.sql`, junto con
+> `exams`, `exam_questions` y `content_documents` — vacías y sin usar). Un test
+> estático (`schema-drift`) impide que ningún `.from()` vuelva a nombrarlas.
 
 En entrenamiento se insertaba dos veces por cada fallo etiquetado (una al
 responder y otra al diagnosticar), así que cada error contaba doble y el
@@ -1917,7 +1919,11 @@ sigue siendo la tarea pendiente con más riesgo de pérdida y coste cero.
    cliente de su sesión, incluida `question_attempts` (`exams.ts`). RLS por fin
    protege de verdad (regla 34). Verificado en pantalla end-to-end el 6 sep.
 
-5. **Retirar `test_results`** cuando lleve un tiempo confirmado que nadie la lee.
+5. **`test_results` retirada** (7 sep): junto con `exams`, `exam_questions` y
+   `content_documents` — vacías y sin una sola referencia en `app/`. El guion
+   `docs/sql/retirar-tablas-en-desuso.sql` está **pendiente de ejecutar** por el
+   dueño; el código ya no las nombra y un test estático lo vigila. Tras
+   ejecutarlo: `node scripts/schema-snapshot.mjs` y `node scripts/dump-migration.mjs`.
 
 6. **P8 está hecha y desplegada** (6 sep): una sola pestaña «Alumnos», tipos de
    grupo editables, varios profesores por grupo, grupos desde el alumno y pagos

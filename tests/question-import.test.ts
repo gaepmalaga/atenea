@@ -8,6 +8,7 @@ import {
   parseDificultad,
   parseQuestionsCsv,
   quitaRepetidas,
+  resuelveTema,
   CSV_PLANTILLA,
   MAX_IMPORT,
 } from '../app/lib/question-import';
@@ -198,6 +199,82 @@ describe('importar un fichero entero', () => {
     expect(res.preguntas).toHaveLength(MAX_IMPORT);
     expect(res.rechazadas).toHaveLength(1);
     expect(res.rechazadas[0].motivo).toContain(String(MAX_IMPORT));
+  });
+});
+
+describe('la columna "tema" (CSV multi-tema)', () => {
+  const TEMAS = [
+    { id: 10, number: 1, title: 'El Derecho: concepto y acepciones' },
+    { id: 20, number: 5, title: 'La Constitución Española (I): estructura' },
+    { id: 30, number: 6, title: 'La Constitución Española (II): Corona' },
+  ];
+  const CAB = 'enunciado;A;B;C;correcta;tema';
+
+  it('resuelve por número, con o sin la palabra "Tema" delante', () => {
+    expect(resuelveTema('5', TEMAS)).toBe(20);
+    expect(resuelveTema('Tema 5', TEMAS)).toBe(20);
+    expect(resuelveTema(' T5 ', TEMAS)).toBe(20);
+    expect(resuelveTema('99', TEMAS)).toBeNull();
+  });
+
+  it('resuelve por título exacto y por trozo si es inequívoco', () => {
+    expect(resuelveTema('El Derecho: concepto y acepciones', TEMAS)).toBe(10);
+    expect(resuelveTema('el derecho', TEMAS)).toBe(10);
+    // "constitución" aparece en dos temas: no se adivina.
+    expect(resuelveTema('constitución', TEMAS)).toBeNull();
+  });
+
+  it('sin la lista de temas, la columna solo se guarda como texto', () => {
+    const texto = [CAB, '¿Cuantos titulos tiene?;Diez;Once;Doce;B;5'].join('\n');
+    const res = parseQuestionsCsv(texto);
+    expect(res.rechazadas).toEqual([]);
+    expect(res.preguntas[0].temaRaw).toBe('5');
+    expect(res.preguntas[0].subjectId).toBeUndefined();
+  });
+
+  it('con la lista, cada fila va a su tema y una celda vacía no molesta', () => {
+    const texto = [
+      CAB,
+      '¿Que es una norma juridica positiva?;Una costumbre;Una ley escrita;Un principio;B;1',
+      '¿Cuantos titulos tiene la Constitucion?;Diez;Once;Doce;B;Tema 5',
+      '¿Que regula el Titulo II?;El Gobierno;La Corona;El Poder Judicial;B;',
+    ].join('\n');
+    const res = parseQuestionsCsv(texto, TEMAS);
+    expect(res.rechazadas).toEqual([]);
+    expect(res.preguntas.map((p) => p.subjectId)).toEqual([10, 20, undefined]);
+  });
+
+  it('un tema que no existe RECHAZA la fila, no la cuela en el de por defecto', () => {
+    const texto = [
+      CAB,
+      '¿Pregunta buena de un tema real?;uno;dos;tres;A;5',
+      '¿Pregunta de un tema inventado?;uno;dos;tres;A;Historia del arte flamenco',
+    ].join('\n');
+    const res = parseQuestionsCsv(texto, TEMAS);
+    expect(res.preguntas).toHaveLength(1);
+    expect(res.preguntas[0].subjectId).toBe(20);
+    expect(res.rechazadas).toHaveLength(1);
+    expect(res.rechazadas[0].fila).toBe(3);
+    expect(res.rechazadas[0].motivo).toMatch(/no coincide/i);
+  });
+
+  it('la misma pregunta en dos temas distintos NO se deduplica', () => {
+    const texto = [
+      CAB,
+      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;5',
+      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;6',
+    ].join('\n');
+    const { preguntas } = parseQuestionsCsv(texto, TEMAS);
+    const { unicas, repetidas } = quitaRepetidas(preguntas);
+    expect(unicas).toHaveLength(2);
+    expect(repetidas).toBe(0);
+  });
+
+  it('la plantilla lleva la columna tema vacía y se importa sin rechazos', () => {
+    const res = parseQuestionsCsv(CSV_PLANTILLA, TEMAS);
+    expect(res.rechazadas).toEqual([]);
+    expect(res.preguntas).toHaveLength(1);
+    expect(res.preguntas[0].subjectId).toBeUndefined();
   });
 });
 

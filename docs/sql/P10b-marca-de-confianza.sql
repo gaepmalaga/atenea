@@ -2,8 +2,9 @@
 -- P10b — Marca de confianza en las respuestas (entrenar el blanco)
 -- =============================================================================
 --
--- ⬜ PENDIENTE DE EJECUTAR. Es la técnica 8 de `docs/METODO-APRENDIZAJE.md`, y
---    la deja preparada para construirla encima.
+-- ✅ EJECUTADO el 6 sep 2026. Verificado: `confidence smallint`, y end-to-end
+--    en el preview (5 respuestas con confianzas variadas → cuadro de
+--    calibración correcto). Es la técnica 8 de `docs/METODO-APRENDIZAJE.md`.
 --
 -- QUÉ RESUELVE
 --   En la oposición CNP los fallos restan (cada 2, un acierto menos), así que

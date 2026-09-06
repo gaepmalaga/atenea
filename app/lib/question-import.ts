@@ -29,7 +29,21 @@ export type ManualQuestion = {
   correctIndex: number;
   explanation: string;
   difficulty: DifficultyLevel;
+  /**
+   * Tema de ESTA fila, si el CSV traía una columna `tema` y se pudo resolver a
+   * un id de `subjects`. `undefined` = usa el tema elegido en el desplegable
+   * (el comportamiento de siempre: un fichero, un tema).
+   *
+   * Lo resuelve el cliente contra su lista de temas y el servidor lo vuelve a
+   * comprobar — una Server Action es un endpoint público.
+   */
+  subjectId?: number;
+  /** El texto de la celda `tema` tal cual, para pintarlo en la vista previa. */
+  temaRaw?: string;
 };
+
+/** Tema del temario, lo mínimo para resolver la columna `tema` de un CSV. */
+export type TemaResoluble = { id: number; number: number; title: string };
 
 /** Una fila que no se pudo aprovechar, con su numero de linea y el porque. */
 export type ImportIssue = { fila: number; motivo: string };
@@ -143,6 +157,9 @@ const ALIAS = {
   correct: ['correcta', 'respuesta', 'respuesta correcta', 'correct', 'solucion'],
   explanation: ['explicacion', 'justificacion', 'explanation', 'feedback'],
   difficulty: ['dificultad', 'nivel', 'difficulty'],
+  // OPCIONAL. Si la trae, cada fila puede ir a un tema distinto; si no, todas
+  // van al tema elegido en el desplegable.
+  tema: ['tema', 'topic', 'asignatura', 'materia', 'numero de tema', 'n tema'],
 };
 
 /** Nombres admitidos para la opcion numero `i`: A, B, C… */
@@ -194,14 +211,49 @@ export function parseDificultad(valor: string | undefined): DifficultyLevel {
   return DIFFICULTY_DEFAULT;
 }
 
+/**
+ * "5", "Tema 5", "La Constitución Española (I)"… -> id del tema, o `null`.
+ *
+ * Por número (lo más fiable) o por título. Un título que coincida con VARIOS
+ * temas se rechaza en vez de elegir uno: meter la pregunta en el tema
+ * equivocado es el mismo fallo que una respuesta correcta mal leída (regla 10).
+ */
+export function resuelveTema(valor: string, temas: TemaResoluble[]): number | null {
+  const bruto = (valor ?? '').trim();
+  if (!bruto) return null;
+
+  // "Tema 5", "T5", "5" -> 5
+  const soloNumero = bruto.replace(/^\s*(tema|t)\s*/i, '').trim();
+  if (/^\d+$/.test(soloNumero)) {
+    const n = Number(soloNumero);
+    return temas.find((t) => t.number === n)?.id ?? null;
+  }
+
+  const clave = normalizaClave(bruto);
+  if (!clave) return null;
+
+  const exacto = temas.filter((t) => normalizaClave(t.title) === clave);
+  if (exacto.length === 1) return exacto[0].id;
+  if (exacto.length > 1) return null;
+
+  const contiene = temas.filter((t) => normalizaClave(t.title).includes(clave));
+  return contiene.length === 1 ? contiene[0].id : null;
+}
+
 // ============================================================
 // LA IMPORTACION ENTERA
 // ============================================================
 
-/** La plantilla que descarga la interfaz. Cabecera y una fila de ejemplo. */
+/**
+ * La plantilla que descarga la interfaz. Cabecera y una fila de ejemplo.
+ *
+ * La columna `tema` es OPCIONAL y va la última: si se rellena, esa fila entra en
+ * ese tema en vez de en el del desplegable. Admite el número ("5", "Tema 5") o
+ * el título. Se deja vacía en el ejemplo — sin ella, todas van al tema elegido.
+ */
 export const CSV_PLANTILLA = [
-  'enunciado;A;B;C;correcta;explicacion;dificultad',
-  '"¿Cuantos Diputados tiene el Congreso como minimo?";300;350;400;A;"Articulo 68.1 CE: entre 300 y 400.";2',
+  'enunciado;A;B;C;correcta;explicacion;dificultad;tema',
+  '"¿Cuantos Diputados tiene el Congreso como minimo?";300;350;400;A;"Articulo 68.1 CE: entre 300 y 400.";2;',
 ].join('\n');
 
 /**
@@ -211,8 +263,14 @@ export const CSV_PLANTILLA = [
  * su numero de linea y el motivo. Un importador que se come tres filas sin
  * decirlo es peor que uno que no importa ninguna, porque el administrador se
  * queda creyendo que su banco esta completo.
+ *
+ * `temas` es OPCIONAL: si se pasa y el fichero trae una columna `tema`, cada
+ * fila se resuelve a su `subjectId` y una que nombre un tema inexistente se
+ * RECHAZA (no se cuela en el tema por defecto). Sin `temas` —los tests, o antes
+ * de que carguen— la columna solo se guarda como texto (`temaRaw`) para la
+ * vista previa.
  */
-export function parseQuestionsCsv(texto: string): ImportParse {
+export function parseQuestionsCsv(texto: string, temas?: TemaResoluble[]): ImportParse {
   const rechazadas: ImportIssue[] = [];
   const preguntas: ManualQuestion[] = [];
 
@@ -230,6 +288,7 @@ export function parseQuestionsCsv(texto: string): ImportParse {
   const iOpciones = OPTION_IDS.map((_, i) => buscaColumna(cabecera, aliasOpcion(i)));
   const iExplicacion = buscaColumna(cabecera, ALIAS.explanation);
   const iDificultad = buscaColumna(cabecera, ALIAS.difficulty);
+  const iTema = buscaColumna(cabecera, ALIAS.tema);
 
   const faltan: string[] = [];
   if (iEnunciado < 0) faltan.push('enunciado');
@@ -291,9 +350,29 @@ export function parseQuestionsCsv(texto: string): ImportParse {
       continue;
     }
 
+    // Columna `tema` (opcional). Con celda vacía: al tema del desplegable, como
+    // siempre. Con celda y `temas` disponibles: se resuelve, y si no cuadra con
+    // ninguno se RECHAZA la fila — colarla en el tema por defecto la metería
+    // donde nadie la va a encontrar.
+    const temaRaw = (iTema >= 0 ? fila[iTema] : '')?.trim() || undefined;
+    let subjectId: number | undefined;
+    if (temaRaw && temas) {
+      const sid = resuelveTema(temaRaw, temas);
+      if (sid === null) {
+        rechazadas.push({
+          fila: numero,
+          motivo: `El tema "${temaRaw}" no coincide con ninguno del temario (usa el número o el título exacto).`,
+        });
+        continue;
+      }
+      subjectId = sid;
+    }
+
     preguntas.push({
       ...check.value,
       difficulty: parseDificultad(iDificultad >= 0 ? fila[iDificultad] : undefined),
+      ...(temaRaw ? { temaRaw } : {}),
+      ...(subjectId !== undefined ? { subjectId } : {}),
     });
   }
 
@@ -317,7 +396,9 @@ export function quitaRepetidas(preguntas: ManualQuestion[]): { unicas: ManualQue
   let repetidas = 0;
 
   for (const p of preguntas) {
-    const clave = normalizaClave(p.question);
+    // El tema forma parte de la identidad: la misma pregunta en dos temas
+    // distintos son dos filas legítimas (el hash real incluye el `subject_id`).
+    const clave = `${p.subjectId ?? p.temaRaw ?? ''}|${normalizaClave(p.question)}`;
     if (vistas.has(clave)) {
       repetidas++;
       continue;

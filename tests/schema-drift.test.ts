@@ -125,6 +125,49 @@ describe('el codigo no escribe columnas que no existen', () => {
   });
 });
 
+describe('las tablas retiradas no vuelven al codigo', () => {
+  /**
+   * Tablas vacias y sin usar que se retiran en
+   * `docs/sql/retirar-tablas-en-desuso.sql`. Mientras el dueño no lo ejecute
+   * siguen en el volcado, asi que el test de arriba no las cazaria; y despues
+   * de ejecutarlo, `schema-snapshot.mjs` las quita y volver a nombrarlas seria
+   * un `.from` a una tabla inexistente. Esta guarda cubre el hueco: no se
+   * escriben NUNCA MAS, pase lo que pase con el volcado.
+   *
+   * `test_results` es el caso que ya costo meses: el codigo escribia ahi
+   * resultados que PostgREST rechazaba enteros, en silencio. La buena es
+   * `question_attempts` (regla 7).
+   */
+  const RETIRADAS = ['test_results', 'exams', 'exam_questions', 'content_documents'];
+
+  const raices = ['actions', 'lib', 'components'].map((d) => join(__dirname, '..', 'app', d));
+
+  function fuentes(dir: string): string[] {
+    const out: string[] = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) out.push(...fuentes(p));
+      else if (e.name.endsWith('.ts') || e.name.endsWith('.tsx')) out.push(p);
+    }
+    return out;
+  }
+
+  it('ningun .from() apunta a una tabla retirada', () => {
+    const usos: string[] = [];
+    for (const dir of raices) {
+      for (const f of fuentes(dir)) {
+        const src = readFileSync(f, 'utf-8');
+        for (const t of RETIRADAS) {
+          if (src.includes(`.from('${t}')`) || src.includes(`.from("${t}")`)) {
+            usos.push(`${f} -> '${t}'`);
+          }
+        }
+      }
+    }
+    expect(usos).toEqual([]);
+  });
+});
+
 describe('las listas blancas de campos cuadran con el esquema', () => {
   // `saveBiodata` y `savePhysicalProfile` filtran lo que llega del cliente
   // contra una lista fija. Si la lista nombra una columna que no existe, la

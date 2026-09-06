@@ -51,25 +51,27 @@ const db = createClient(URL, KEY, { auth: { persistSession: false } });
  */
 /*
  * `filtro` es la columna con la que se hace el DELETE, y NO siempre es `id`:
- * seis de estas tablas no tienen esa columna —`question_votes` va por
- * `(question_id, user_id)`, los tres perfiles por `user_id`, `ai_quota` por
- * `(user_id, bucket)` y `exam_questions` por `(exam_id, position)`—. Escribirlo
- * a ojo es el fallo más caro de este repo: PostgREST rechaza la operación
- * entera cuando una columna no existe. Comprobado contra `supabase/schema.json`.
+ * varias de estas tablas no tienen esa columna —`question_votes` va por
+ * `(question_id, user_id)`, los tres perfiles por `user_id` y `ai_quota` por
+ * `(user_id, bucket)`—. Escribirlo a ojo es el fallo más caro de este repo:
+ * PostgREST rechaza la operación entera cuando una columna no existe.
+ * Comprobado contra `supabase/schema.json`.
+ *
+ * `test_results`, `exams`, `exam_questions` y `content_documents` NO están aquí:
+ * se retiraron (`docs/sql/retirar-tablas-en-desuso.sql`). Estaban vacías y sin
+ * usar. Si el guion aún no se ha ejecutado en un proyecto, no pasa nada: la
+ * lista no las nombra y su contenido (cero filas) es inofensivo.
  */
 const TABLAS = [
   // Actividad del alumno
   { nombre: 'question_attempts', filtro: 'id', que: 'respuestas a preguntas' },
-  { nombre: 'test_results', filtro: 'id', que: 'resultados antiguos (tabla en desuso)' },
   { nombre: 'question_notes', filtro: 'id', que: 'notas privadas del alumno' },
   { nombre: 'question_votes', filtro: 'question_id', que: 'votos a preguntas' },
   { nombre: 'question_reports', filtro: 'id', que: 'reportes de preguntas' },
-  { nombre: 'exam_questions', filtro: 'exam_id', que: 'preguntas de exámenes guardados' },
-  { nombre: 'exams', filtro: 'id', que: 'exámenes guardados' },
   { nombre: 'flashcard_results', filtro: 'id', que: 'repasos de fichas' },
   { nombre: 'flashcard_progress', filtro: 'id', que: 'progreso de repetición espaciada' },
   { nombre: 'flashcard_bank', filtro: 'id', que: 'fichas generadas' },
-  { nombre: 'workout_logs', filtro: 'id', que: 'sesiones de entrenamiento' },
+  { nombre: 'workout_logs', filtro: 'id', que: 'sesiones de entrenamiento registradas' },
   { nombre: 'training_plans', filtro: 'id', que: 'planes de entrenamiento' },
   { nombre: 'profiles_physical', filtro: 'user_id', que: 'perfiles físicos y marcas' },
   { nombre: 'profiles_biodata', filtro: 'user_id', que: 'biodata del perfilado' },
@@ -79,7 +81,6 @@ const TABLAS = [
   { nombre: 'question_bank', filtro: 'id', que: 'PREGUNTAS DEL BANCO' },
   { nombre: 'document_chunks', filtro: 'id', que: 'fragmentos indexados' },
   { nombre: 'documents', filtro: 'id', que: 'DOCUMENTOS DEL TEMARIO' },
-  { nombre: 'content_documents', filtro: 'id', que: 'documentos de contenido (tabla en desuso)' },
 ];
 
 /** Lo que NO se toca, y se dice en voz alta para que nadie lo dé por supuesto. */
