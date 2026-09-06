@@ -23,7 +23,7 @@ import {
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 import { buildQuestionPrompt } from '../lib/question-prompt';
 import { adaptativoEncendido } from '../lib/training-switch-guard';
-import { computeQuestionStates, type IntentoPregunta } from '../lib/question-scheduler';
+import { computeQuestionStates, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
 import { buildSmartSession, type ResumenSesion } from '../lib/smart-session';
 
 // ==========================================
@@ -563,6 +563,45 @@ export async function getAdaptiveSession(params: {
       atascadasTotales: sesion.atascadasTotales,
     },
   };
+}
+
+/**
+ * LA CURVA DE APRENDIZAJE (P10): cuántas preguntas de cada tema tiene el alumno
+ * en cada cajón (nueva / en aprendizaje / consolidando / dominada). Se pinta en
+ * Estadísticas. Derivado al vuelo, sin tabla nueva.
+ */
+export async function getMisCajones(): Promise<
+  { success: true; temas: ResumenTema[] } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const modulo = await requireModule('stats');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const [bancoRes, temasRes] = await Promise.all([
+    supabase.from('question_bank').select('id, subject_id').eq('status', QUESTION_STATUS.ACTIVE),
+    supabase.from('subjects').select('id, title'),
+  ]);
+  if (bancoRes.error) return { success: false as const, error: bancoRes.error.message };
+
+  const tituloPorSubject = new Map<number, string>();
+  for (const s of (temasRes.data ?? []) as { id: number; title: string }[]) tituloPorSubject.set(s.id, s.title);
+
+  const preguntasPorTema = new Map<string, string>();
+  for (const q of (bancoRes.data ?? []) as { id: string; subject_id: number | null }[]) {
+    preguntasPorTema.set(q.id, q.subject_id != null ? tituloPorSubject.get(q.subject_id) ?? 'Sin tema' : 'Sin tema');
+  }
+
+  const db = await createSupabaseServerClient();
+  const { data: intentos } = await db
+    .from('question_attempts')
+    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, created_at')
+    .eq('user_id', auth.user.id)
+    .order('created_at', { ascending: true })
+    .limit(MAX_INTENTOS_SCHEDULER);
+
+  const states = computeQuestionStates((intentos ?? []) as IntentoPregunta[]);
+  return { success: true as const, temas: resumeCajonesPorTema(states, preguntasPorTema) };
 }
 
 export async function getQuestionsFromBank(params: {
