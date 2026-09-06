@@ -1,13 +1,14 @@
 /**
- * Interruptores de la preparación física (feedback del dueño tras P8).
+ * Interruptores de entrenamiento (feedback del dueño tras P8, ampliado en P10).
  *
- * Además del módulo `training` entero (P4), la academia enciende o apaga por
- * separado dos cosas:
+ * Además de los módulos enteros (P4), la academia enciende o apaga por separado:
  *
- *  - `ai`    — que el ALUMNO se genere su plan con IA (`generateWeeklyPlan` y
- *              `generateNextWeek`). Cada generación se paga.
- *  - `group` — el plan MANUAL por grupo (`saveGroupTrainingPlan`) y que sus
- *              miembros lo hereden en el módulo del alumno.
+ *  - `ai`       — que el ALUMNO se genere su plan de FÍSICAS con IA
+ *                 (`generateWeeklyPlan` / `generateNextWeek`). De pago.
+ *  - `group`    — el plan de físicas MANUAL por grupo (`saveGroupTrainingPlan`).
+ *  - `adaptive` — que el modo «Entrenamiento» del TEST sea adaptativo (P10):
+ *                 repetición espaciada + cajones por alumno. Apagado = vuelve a
+ *                 la selección aleatoria de siempre.
  *
  * Se guardan en `module_settings` con `module_id` de TEXTO LIBRE
  * (`training_ai`, `training_group`). La tabla ya lo admite y `toModuleSettings`
@@ -25,30 +26,33 @@
  * (regla 49).
  */
 
-export const TRAINING_SWITCH_IDS = ['ai', 'group'] as const;
+export const TRAINING_SWITCH_IDS = ['ai', 'group', 'adaptive'] as const;
 export type TrainingSwitchId = (typeof TRAINING_SWITCH_IDS)[number];
 
 /** El `module_id` con el que se guarda cada uno en `module_settings`. */
 export const TRAINING_SWITCH_ROW: Record<TrainingSwitchId, string> = {
   ai: 'training_ai',
   group: 'training_group',
+  adaptive: 'training_adaptive',
 };
 
 export type TrainingSwitches = Record<TrainingSwitchId, boolean>;
 
 export const TRAINING_SWITCH_LABEL: Record<TrainingSwitchId, string> = {
-  ai: 'Plan generado con IA (lo pide el alumno)',
-  group: 'Plan manual por grupo',
+  ai: 'Plan de físicas generado con IA (lo pide el alumno)',
+  group: 'Plan de físicas manual por grupo',
+  adaptive: 'Entrenamiento del test adaptativo',
 };
 
 export const TRAINING_SWITCH_DESC: Record<TrainingSwitchId, string> = {
   ai: 'El alumno se genera su propio plan y la semana siguiente desde su móvil. Cada generación es una llamada de pago a Gemini.',
   group: 'Escribes un plan por grupo de físicas y sus miembros lo ven. Si lo apagas, el plan de grupo deja de llegarles.',
+  adaptive: 'El modo «Entrenamiento» reparte las preguntas por repetición espaciada: repasa lo fallado, consolida lo aprendido, introduce lo nuevo con medida. Apagado = selección aleatoria de siempre.',
 };
 
 /** Todo encendido. Estado de partida y respaldo ante un fallo. */
 export function todosLosSwitches(): TrainingSwitches {
-  return { ai: true, group: true };
+  return { ai: true, group: true, adaptive: true };
 }
 
 /** Invierte `TRAINING_SWITCH_ROW`: del `module_id` guardado al id corto. */
@@ -72,7 +76,7 @@ export function toTrainingSwitches(filas: { module_id?: unknown; enabled?: unkno
 
 /** El mensaje que ve quien intenta usar un interruptor apagado. */
 export function mensajeSwitchApagado(id: TrainingSwitchId): string {
-  return id === 'ai'
-    ? 'La academia ha desactivado la generación de planes con IA. Habla con tu preparador.'
-    : 'El plan de grupo está desactivado por la academia.';
+  if (id === 'ai') return 'La academia ha desactivado la generación de planes con IA. Habla con tu preparador.';
+  if (id === 'group') return 'El plan de grupo está desactivado por la academia.';
+  return 'El entrenamiento adaptativo está desactivado por la academia.';
 }

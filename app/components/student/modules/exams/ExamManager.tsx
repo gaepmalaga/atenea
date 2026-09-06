@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { saveExamResults, getQuestionsFromBank } from '@/actions';
+import { saveExamResults, getQuestionsFromBank, getAdaptiveSession } from '@/actions';
+import type { AdaptiveSession } from '@/app/actions/exams';
 import { buildExamResults } from '@/app/lib/exam-results';
 import {
   type Question as ExamQuestion,
@@ -65,6 +66,8 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
   // `null` es "no falta ninguna", que NO es lo mismo que 0 (regla 8).
   const [preguntasQueFaltan, setPreguntasQueFaltan] = useState<number | null>(null);
   const [recuperable, setRecuperable] = useState<ExamSnapshot | null>(null);
+  /** Resumen de la sesión adaptativa (P10). `null` en simulacro o modo aleatorio. */
+  const [sesionAdaptativa, setSesionAdaptativa] = useState<AdaptiveSession | null>(null);
 
   // --- EL SEGURO ---
   // Busca un examen a medias al entrar. Va en un efecto porque `localStorage`
@@ -111,30 +114,49 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
       const targetCount = newSettings.questionCount;
       const difficultyNum = difficultyToNumber(newSettings.difficulty);
 
-      // 1. FASE BANCO
-      const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
-      // Se conserva de que tema salio cada pregunta. `question_bank` guarda
-      // `subject_id` y `question_attempts` guarda `topic`: si no se arrastra
-      // aqui, al terminar el examen ya no hay forma de saberlo.
-      const bankFetches = await Promise.all(
-        newSettings.selectedTopics.map(async (topic) => ({
-          topic,
-          resultado: await getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic }),
-        }))
-      );
+      let loadedQuestions: ExamQuestion[] = [];
+      setSesionAdaptativa(null);
 
-      let loadedQuestions: ExamQuestion[] = bankFetches.flatMap(({ topic, resultado }) =>
-        resultado.success ? resultado.data.map((fila) => ({ ...mapBankRowToQuestion(fila), topic })) : []
-      );
+      if (newSettings.mode === 'practice') {
+        // ENTRENAMIENTO: una sola llamada. El servidor decide si reparte por
+        // repetición espaciada (P10) o al azar, según el interruptor.
+        const res = await getAdaptiveSession({
+          topics: newSettings.selectedTopics,
+          limit: targetCount,
+          difficulty: difficultyNum,
+        });
+        if (!res.success) throw new Error(res.error);
+        loadedQuestions = res.data.questions;
+        setSesionAdaptativa(res.data.adaptativo ? res.data : null);
 
-      const seenIds = new Set();
-      loadedQuestions = loadedQuestions.filter(q => {
-        if (seenIds.has(q.id)) return false;
-        seenIds.add(q.id);
-        return true;
-      });
-
-      loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
+        // Sesión vacía: dos motivos distintos, dos mensajes distintos.
+        if (loadedQuestions.length === 0) {
+          throw new Error(
+            res.data.motivoCorto === 'repaso'
+              ? 'Por ahora no tienes nada que repasar en estos temas: todo lo que has visto está en su intervalo de descanso. Vuelve más tarde o elige otro tema.'
+              : 'No hay preguntas en el banco para los temas elegidos. Avisa a tu academia para que las añada.',
+          );
+        }
+      } else {
+        // SIMULACRO: se queda como estaba — banco por tema, barajado, sin adaptar.
+        const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
+        const bankFetches = await Promise.all(
+          newSettings.selectedTopics.map(async (topic) => ({
+            topic,
+            resultado: await getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic }),
+          }))
+        );
+        loadedQuestions = bankFetches.flatMap(({ topic, resultado }) =>
+          resultado.success ? resultado.data.map((fila) => ({ ...mapBankRowToQuestion(fila), topic })) : []
+        );
+        const seenIds = new Set();
+        loadedQuestions = loadedQuestions.filter((q) => {
+          if (seenIds.has(q.id)) return false;
+          seenIds.add(q.id);
+          return true;
+        });
+        loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
+      }
 
       // 2. SI EL BANCO NO LLEGA, SE DICE. NO SE GENERA.
       //
@@ -260,17 +282,15 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
       )}
 
       {step === 'active' && preguntasQueFaltan !== null && (
-        /* El banco no cubria todo lo pedido. Se dice ANTES de empezar y con
+        /* El test salió mas corto de lo pedido. Se dice ANTES de empezar y con
            el numero exacto: antes esto se rellenaba con la IA y el alumno no
-           se enteraba de que la mitad del examen eran preguntas sin revisar.
-           Un examen mas corto, dicho, es mejor que uno completo a medias. */
+           se enteraba de que la mitad eran preguntas sin revisar. */
         <div className="mb-4 flex items-start gap-3 p-3 rounded-xl sm:rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200">
           <AlertTriangle size={18} className="shrink-0 mt-0.5" aria-hidden />
           <p className="text-sm leading-relaxed">
-            El banco solo tenía {questions.length} preguntas de los temas que has
-            elegido, así que este test es de {questions.length} y no de{' '}
-            {questions.length + preguntasQueFaltan}. La nota se calcula sobre las
-            que hay.
+            {sesionAdaptativa?.motivoCorto === 'repaso'
+              ? <>Solo te tocan <strong>{questions.length}</strong> preguntas ahora mismo: el resto de lo que has estudiado está en su intervalo de descanso. Este entrenamiento es de {questions.length}.</>
+              : <>El banco solo tenía {questions.length} preguntas de los temas que has elegido, así que este test es de {questions.length} y no de {questions.length + preguntasQueFaltan}. La nota se calcula sobre las que hay.</>}
           </p>
         </div>
       )}
@@ -300,7 +320,7 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
         />
       )}
 
-      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} onRepasarFallos={onRepasarFallos} />}
+      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} onRepasarFallos={onRepasarFallos} sesion={settings.mode === 'practice' ? sesionAdaptativa : null} />}
     </div>
   );
 }

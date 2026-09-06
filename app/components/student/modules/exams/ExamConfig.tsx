@@ -151,7 +151,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
             <OptionGroup cols={2}>
               <OptionCard
                 title="Entrenamiento"
-                description="Corrección inmediata y análisis de error. Sin límite de tiempo."
+                description="Repasa lo que fallas, consolida lo aprendido e introduce lo nuevo con medida. Corrección inmediata, sin reloj."
                 selected={settings.mode === 'practice'}
                 onClick={() => setSettings({ ...settings, mode: 'practice' })}
               />
