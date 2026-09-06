@@ -51,6 +51,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P6** | **Cobros → control de acceso y pagos** (plan de producto) | ✅ **cerrada** (5 sep): el modelo es cobro EN EFECTIVO en la academia. Panel de consumo de IA + acceso + registro de pagos. Sin pasarela, a propósito. El registro de pagos se **rehízo en P8** (rejilla mensual) |
 | **P7** | **Grupos y preparación física** (plan de producto) | ✅ **cerrada** (6 sep): grupos muchos-a-muchos con tipo, pestañas Grupos y Prep. física, plan de entrenamiento de grupo |
 | **P8** | **Un solo panel de alumno** (feedback al probar P5/P6/P7) | ✅ **cerrada** (6 sep): Usuarios + Academia + Acceso & Pagos → **una pestaña «Alumnos»**. Tipos de grupo editables (`group_kinds`), varios profesores por grupo (`class_group_staff`), grupos asignados **desde el alumno**, y **pagos mes a mes** (`monthly_payments`). Ver **regla 53** |
+| — | **P8, segunda vuelta** (feedback al probarlo) | ✅ **hecho** (6 sep): «Alumnos» sin admins, «marcar pagado» y plan individual fuera de la ficha, **pestañas reordenables** (localStorage), **dos interruptores de físicas** (`training_ai` / `training_group`, sin SQL), y **«Pagos» con vista histórico** (rejilla × 12 meses). Verificado en el preview. Ver **regla 54**. Queda **P9** (plan de grupo semanal, necesita SQL) |
 | — | **El temario completo** | ✅ **generado** (3 sep): 45 temas, 51 PDF en `temario/`, ver [`docs/TEMARIO.md`](docs/TEMARIO.md) |
 | — | **Sistema de diseño y móvil** | ✅ **hecho** (3 sep): `app/components/ui/` y la interfaz migrada encima, alumno y admin. Ver **regla 36** |
 | — | **Despliegue** | ✅ **en producción**: https://atenea-eight.vercel.app |
@@ -80,8 +81,8 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (confirmado el 5 sep 2026
-   con `node scripts/schema-snapshot.mjs` — 33 tablas):
+1. **Ejecutar SQL. Queda uno: `P9-plan-grupo-semanal.sql`** (el resto,
+   confirmado el 5 sep 2026 con `node scripts/schema-snapshot.mjs` — 33 tablas):
    - P3.7 / P3.8 (`legal_reference`, `question_notes`) — 31 ago.
    - `admin-audit-log.sql`, `academia-ajustes.sql`, `gasto-ia.sql`,
      `historial-chat.sql` — la tanda de la revisión de `/admin` y las reglas
@@ -96,9 +97,14 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      `class_groups.staff_id`—, `monthly_payments`; retira `academy_payments`,
      que tenía 0 filas) — 6 sep, con `node scripts/schema-snapshot.mjs` detrás.
 
-   **Ya no queda ningún guion SQL pendiente**, y `question_attempts` ya se movió
-   a la sesión (6 sep, regla 34), verificado en pantalla end-to-end: una
-   pregunta de entrenamiento fallada y diagnosticada guarda su `error_type`.
+   **Queda uno pendiente:** `P9-plan-grupo-semanal.sql` — mueve la PK de
+   `group_training_plans` a `(class_id, week_start)` para el plan de grupo semana
+   a semana con histórico (regla 54). No añade columnas. El código que hace
+   `onConflict: 'class_id'` NO se toca hasta ejecutarlo.
+
+   Al margen de P9, `question_attempts` ya se movió a la sesión (6 sep, regla
+   34), verificado en pantalla end-to-end: una pregunta de entrenamiento fallada
+   y diagnosticada guarda su `error_type`.
 
    La regla no cambia para el próximo: **no se escribe el código antes** de que
    exista la columna — PostgREST rechaza la escritura *entera* si falta una
@@ -157,8 +163,9 @@ Los errores de `lint` (hoy 13) son **todos** el mismo falso positivo de
 `useEffect(() => cargar(), [])` donde `cargar` hace `setState` **después** de un
 `await`. La regla lo ve como un `setState` síncrono dentro del efecto y no lo
 es. Está en casi todos los paneles de administración (`AdminActivity`,
-`AdminCost`, `AdminStudents`, `AdminPayments`, `AdminGroups`, `AdminModeration`,
-`AdminContent`, `PlanEntrenadorEditor`) y del alumno (`DashboardHome`, `FailedQuestions`,
+`AdminCost`, `AdminStudents`, `AdminPayments`, `AdminGroups`, `AdminPhysical`,
+`AdminView`, `AdminModeration`, `AdminContent`, `PlanEntrenadorEditor`) y del
+alumno (`DashboardHome`, `FailedQuestions`,
 `QuestionNote`, `IntelChat`). Retorcer el código para callarla sería peor que el
 aviso, y el número solo crece al añadir paneles. El de `IntelChat` es además a
 propósito: recupera del `sessionStorage` la conversación al montar (regla 37).
@@ -1593,6 +1600,48 @@ el servidor revienta al evaluar el barril `actions/index.ts` —
 producción. `next build` **no lo detecta** (es error en tiempo de evaluación).
 Los tipos se importan de `app/lib/`, nunca se reexportan desde la acción. Hay dos
 guardas estáticas nuevas en `actions-auth.test.ts` que lo vigilan.
+
+### 54 · Segunda vuelta de P8: cuatro ajustes que pidió el dueño al probarlo
+
+- **«Alumnos» ya no lista a los admin.** `getAcademyOverview` filtra
+  `role === 'admin'` antes de construir la lista, los cuadros y el filtro. Un
+  profesor mirando «a quién llamar» no se llama a sí mismo. Los otros paneles de
+  administración siguen sin necesitarlo.
+- **El «marcar pagado» sale de la ficha del alumno.** Se hace en «Pagos». La
+  ficha se queda con un aviso de solo lectura («Pagó septiembre» / «Sin pagar»).
+  El editor de **plan individual manual** también se retiró de la ficha
+  (`saveManualTrainingPlan` / `getStudentActivePlan` se quedan en `training.ts`,
+  sin UI: `rls.test.ts` aún los nombra).
+- **Las pestañas del panel se reordenan.** Botón ⇄ en la cabecera → modo con
+  flechas por pestaña. El orden vive en `localStorage`
+  (`atenea-admin-orden-pestanas`), envuelto en try/catch, y una pestaña añadida
+  al código aparece al final en vez de desaparecer (`aplicaOrden` en
+  `AdminView.tsx`). Es comodidad **por navegador**, no ajuste de academia.
+- **Dos interruptores de preparación física**, aparte del módulo `training`
+  entero (P4): `training_ai` (el alumno se genera el plan, de pago) y
+  `training_group` (el plan manual por grupo). Se guardan en `module_settings`
+  con `module_id` de **texto libre** —`toModuleSettings` ignora lo que no conoce,
+  así que **sin SQL**— con la misma semántica que P4 (sin fila = encendido, fallo
+  de lectura = encendido). Lo puro vive en `app/lib/training-switches.ts`
+  (etiquetas, `toTrainingSwitches`); el lector con caché y el corte de servidor
+  en `training-switch-guard.ts`, que arrastra `actions/core` y **no puede ser una
+  Server Action** (regla 21, mismo motivo que `module-guard.ts`). El corte va
+  **antes de la cuota y de Gemini** en `generateWeeklyPlan` / `generateNextWeek`,
+  y en `saveGroupTrainingPlan`; `getActiveTrainingPlan` no hereda el plan de
+  grupo si `training_group` está apagado. El módulo del alumno esconde «generar»
+  cuando la IA está off, y **un plan activo gana sobre el wizard de biometría**
+  (para que el plan de grupo se vea sin haber hecho el test de Cooper).
+- **«Pagos» tiene dos vistas:** HISTÓRICO (rejilla alumnos × 12 meses, un toque
+  marca/desmarca sin importe, con lo cobrado por columna — `resumeHistorico` en
+  `lib/payments.ts`) y UN MES (la de antes, con importe por alumno).
+
+Lo que queda pendiente de aquí necesita SQL, en **P9**
+([`docs/sql/P9-plan-grupo-semanal.sql`](docs/sql/P9-plan-grupo-semanal.sql), sin
+ejecutar): el plan de físicas de un grupo **semana a semana con histórico**
+—preparar la que viene, y que las pasadas queden en solo lectura—. Mueve la PK de
+`group_training_plans` a `(class_id, week_start)`. No añade columnas, pero el
+`onConflict: 'class_id'` de `saveGroupTrainingPlan` **no se toca hasta que esté
+ejecutado**.
 
 ---
 
