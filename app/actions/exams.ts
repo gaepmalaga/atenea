@@ -481,11 +481,19 @@ export async function getAdaptiveSession(params: {
   if (topics.length === 0) return { success: false as const, error: 'Selecciona al menos un tema.' };
   const limit = Math.max(1, Math.min(100, Math.floor(params.limit)));
 
-  // Tema (título) -> subject_id, y de vuelta.
-  const ids = (await Promise.all(topics.map((t) => getSubjectIdByName(t)))).filter((n): n is number => Number.isFinite(n));
-  if (ids.length === 0) return { success: false as const, error: 'Esos temas no existen.' };
+  // Tema (título) <-> subject_id. Se traen TODOS los temas de una vez y se
+  // cruzan en memoria: antes eran ~90 consultas `ilike` para «Todos» los temas.
+  const { data: temasDb } = await supabase.from('subjects').select('id, title');
   const tituloPorId = new Map<number, string>();
-  await Promise.all(ids.map(async (id) => tituloPorId.set(id, await getSubjectNameById(id))));
+  const idPorTitulo = new Map<string, number>();
+  for (const s of (temasDb ?? []) as { id: number; title: string }[]) {
+    tituloPorId.set(s.id, s.title);
+    idPorTitulo.set(s.title.trim().toLowerCase(), s.id);
+  }
+  const ids = topics
+    .map((t) => idPorTitulo.get(t.toLowerCase()))
+    .filter((n): n is number => Number.isFinite(n));
+  if (ids.length === 0) return { success: false as const, error: 'Esos temas no existen.' };
 
   const { data: banco, error: bancoError } = await supabase
     .from('question_bank')

@@ -93,9 +93,11 @@ hacia nuevas/recaídas. Una sola pasada de ajuste.
 bandera que ya pinta el mensaje «avisa a tu academia».
 
 **Intercalado:** la lista final se ordena en round-robin por tema (dos preguntas
-seguidas del mismo tema solo si no queda otra). *v1.1:* un tema con < 5 intentos
-del alumno se sirve en bloque al principio (bloque de aprendizaje) antes de
-entrar a la mezcla.
+seguidas del mismo tema solo si no queda otra). **Un tema que el alumno apenas ha
+tocado** (< 3 preguntas con estado, `MIN_VISTAS_TEMA`) se sirve **en bloque al
+principio** —para aprender algo nuevo, primero práctica en bloque y después a la
+mezcla (Hwang 2025)— *salvo* que TODA la sesión sea de temas nuevos (arranque en
+frío), donde se intercala con normalidad.
 
 ## Integración
 
@@ -119,8 +121,12 @@ entrar a la mezcla.
 - FSRS (se deja el hueco en los datos).
 - Marca de confianza / entrenar el blanco (técnica 8) → v2.
 - Tabla `question_state` (solo si hay problema de rendimiento real).
-- Intervención especial para «atascadas» más allá de marcarlas (técnica 10) → v2.
+- Intervención especial para «atascadas» más allá de marcarlas y avisar
+  (técnica 10) → v2: generar una ficha desde la pregunta, o llevar al artículo.
 - Que el simulacro sea adaptativo — **nunca**, tiene que reflejar el examen real.
+
+**Ya hecho en v1** (estaba marcado como v1.1): el bloque inicial para un tema
+nuevo antes de intercalar.
 
 ## Tests
 

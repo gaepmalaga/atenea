@@ -56,6 +56,9 @@ const P_ACIERTO: Record<Cubo, number> = {
 /** Como mucho, tantas «atascadas» por sesión: más repeticiones no ayudan. */
 const MAX_ATASCADAS_POR_SESION = 2;
 
+/** Por debajo de tantas preguntas vistas, un tema se sirve en bloque, no mezclado. */
+const MIN_VISTAS_TEMA = 3;
+
 /** Ventana (días) para considerar que una pregunta se ha visto «hace poco». */
 const RECIENTE_DIAS = 2;
 
@@ -317,12 +320,34 @@ export function buildSmartSession(params: {
   resumen = contar();
   acierto = estimar(resumen);
 
-  // 5. Intercalar por tema.
+  // 5. Ordenar.
   const seleccion: { questionId: string; topic: string }[] = [];
   for (const items of elegidas.values()) {
     for (const it of items) seleccion.push({ questionId: it.questionId, topic: it.topic });
   }
-  const questionIds = intercala(seleccion);
+
+  // Un tema que el alumno APENAS ha tocado se sirve en BLOQUE al principio, no
+  // intercalado: para aprender algo nuevo, primero práctica en bloque y después
+  // a la mezcla (técnica 5, matiz de Hwang 2025). «Apenas tocado» = menos de
+  // `MIN_VISTAS_TEMA` preguntas de ese tema con estado.
+  const vistasPorTema = new Map<string, number>();
+  for (const c of conEstado) {
+    if (c.state) vistasPorTema.set(c.topic, (vistasPorTema.get(c.topic) ?? 0) + 1);
+  }
+  const esTemaNuevo = (t: string) => (vistasPorTema.get(t) ?? 0) < MIN_VISTAS_TEMA;
+
+  const bloqueNuevo = seleccion.filter((s) => esTemaNuevo(s.topic));
+  const resto = seleccion.filter((s) => !esTemaNuevo(s.topic));
+  // El bloque solo tiene sentido si hay ADEMÁS temas conocidos en la sesión: es
+  // «meter un tema nuevo en la mezcla». Si TODA la sesión es nueva (alumno que
+  // empieza), se intercala con normalidad.
+  const questionIds =
+    resto.length === 0
+      ? intercala(seleccion)
+      : [
+          ...[...bloqueNuevo].sort((a, b) => a.topic.localeCompare(b.topic, 'es')).map((s) => s.questionId),
+          ...intercala(resto),
+        ];
 
   return { questionIds, resumen, aciertoEstimado: Math.round(acierto * 100) / 100, bancoCorto, atascadasTotales };
 }

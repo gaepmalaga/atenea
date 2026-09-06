@@ -143,6 +143,36 @@ describe('intercalado de temas (regla 15 + técnica 5)', () => {
   });
 });
 
+describe('un tema nuevo se sirve en bloque si hay temas conocidos en la sesión', () => {
+  it('las preguntas del tema apenas tocado van al principio, agrupadas', () => {
+    const states = new Map<string, QuestionState>();
+    // «Conocido»: 5 preguntas con estado, todas de repaso vencido.
+    for (let i = 0; i < 5; i++) states.set(`k${i}`, estado({ questionId: `k${i}`, box: 3, cajon: 'aprendiendo' }));
+    const disponibles: CandidataSesion[] = [
+      ...banco(5, 'Conocido', 'k'),
+      ...banco(10, 'NuevoTema', 'n'), // 0 con estado -> tema nuevo
+    ];
+    const r = buildSmartSession({ states, disponibles, limit: 10 });
+    const idx = r.questionIds.map((id) => (id.startsWith('n') ? 'N' : 'K'));
+    // Todas las N (tema nuevo) antes que cualquier K
+    const ultimaN = idx.lastIndexOf('N');
+    const primeraK = idx.indexOf('K');
+    expect(primeraK).toBeGreaterThan(ultimaN);
+  });
+
+  it('si TODA la sesión es de temas nuevos (arranque en frío), se intercala igual', () => {
+    const disponibles = [...banco(10, 'A', 'a'), ...banco(10, 'B', 'b')];
+    const r = buildSmartSession({ states: new Map(), disponibles, limit: 12 });
+    const temaDe = (id: string) => id[0];
+    let maxSeguidas = 1, seg = 1;
+    for (let i = 1; i < r.questionIds.length; i++) {
+      seg = temaDe(r.questionIds[i]) === temaDe(r.questionIds[i - 1]) ? seg + 1 : 1;
+      maxSeguidas = Math.max(maxSeguidas, seg);
+    }
+    expect(maxSeguidas).toBeLessThanOrEqual(2);
+  });
+});
+
 describe('calibración al 85 %', () => {
   it('sesión de puras recaídas → intenta acercarse metiendo repasos/consolidación', () => {
     const states = new Map<string, QuestionState>();
