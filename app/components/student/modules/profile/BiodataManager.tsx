@@ -9,6 +9,7 @@ import {
   Target, ArrowLeft 
 } from 'lucide-react';
 import { getBiodata, saveBiodata } from '@/actions';
+import InformesEntrevista from '../interview/InformesEntrevista';
 
 interface BiodataManagerProps {
   user: AuthUser;
@@ -223,6 +224,10 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
           {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
+
+      {/* Los informes de los simulacros de entrevista anteriores (§2.11). Solo
+          aparece si hay alguno guardado. */}
+      <InformesEntrevista />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8">
         

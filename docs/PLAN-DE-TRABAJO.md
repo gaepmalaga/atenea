@@ -446,9 +446,12 @@ Ahora que los datos son fiables, que sirvan para algo.
 - [x] El guardado del repaso deja de darse por bueno a ciegas, y una tarjeta de repaso se
       normaliza a camelCase en el servidor (venía con `subject_id` y el guardado esperaba
       `subjectId`, así que cada repaso hacía una consulta de más).
-- **Tabla propia para el log de entrenamiento §2.11.** `completeTrainingDay` ya guarda el
-  log dentro del JSON del plan (antes lo recibía y lo tiraba), pero para comparar la
-  progresión entre semanas hace falta una tabla consultable.
+- [x] **Tabla propia para el log de entrenamiento §2.11.** `completeTrainingDay` guarda
+  además una fila en `workout_logs` (que ya existía en el esquema, sin usar) —
+  best-effort, después del guardado bueno, con la sesión del alumno (regla 34).
+  `getTrainingHistory` + `agrupaHistorialPorSemana` (puro) lo agrupan semana a
+  semana, y el panel de entrenamiento pinta «Tu progresión»: RPE medio y sesiones
+  hechas por semana. **No necesitó SQL.**
 - [x] **Semana siguiente del plan físico.** Era un `alert("Procesando tus métricas…")` que
       no hacía nada, y el botón decía "GENERAR SEMANA 2" para siempre. **No hacía falta la
       tabla nueva:** el registro de cada día ya vive dentro del JSON del plan, que es donde
@@ -480,8 +483,13 @@ Ahora que los datos son fiables, que sirvan para algo.
         envío se decide ahora leyendo un ref, y un `onend` tardío no puede reenviar.
       - El historial se leía del cierre y podían perderse turnos.
 
-- [ ] **Persistir la transcripción y los informes.** Hoy el informe se ve y se pierde al
-      cerrar: guardarlo necesita una tabla.
+- [x] **Persistir la transcripción y los informes.** `evaluateInterview` guarda cada
+      informe (puntuación, veredicto, fortalezas, contradicciones, transcripción) en
+      `interview_reports` —best-effort, con la sesión del alumno; es material sensible—.
+      `getInterviewReports` los lista en la pestaña de perfilado (`InformesEntrevista`),
+      expandibles. **Necesita el guion `docs/sql/persistir-entrevista.sql`**: hasta que
+      se ejecute, la sala sigue funcionando y la lista sale vacía (degradación con
+      gracia, patrón audit-log).
 - **Arreglar la estadística que miente.** Índice de incertidumbre (muestras distintas en
   numerador y denominador), "progreso al ascenso" (nunca llega al 100%), barra del 65%
   cableada, columnas de `AdminUsers` siempre a cero.

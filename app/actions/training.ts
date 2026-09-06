@@ -18,10 +18,13 @@ import {
     summarizeWeek,
     progressionBrief,
     buildManualPlan,
+    buildWorkoutLogRow,
+    agrupaHistorialPorSemana,
     lunesDeSemana,
     PLAN_SHAPE,
     type WeeklyPlan,
     type TrainingDayLog,
+    type SemanaHistorial,
     type Exercise,
 } from '../lib/training-plan';
 import { requireAdmin } from '../lib/auth';
@@ -216,9 +219,7 @@ export async function completeTrainingDay(
     if (!updated?.days?.[dayIndex]) return { success: false, error: 'Día inexistente en el plan.' };
 
     // El log (series, repeticiones, sensaciones) se guarda dentro del JSON del
-    // plan. Antes se recibía y se descartaba: el alumno lo anotaba y desaparecía
-    // al recargar. Una tabla propia para poder consultar la progresión entre
-    // semanas sigue siendo la fase 4.
+    // plan: es lo que alimenta la semana siguiente (`summarizeWeek`).
     updated.days[dayIndex] = {
         ...updated.days[dayIndex],
         isCompleted: true,
@@ -227,7 +228,45 @@ export async function completeTrainingDay(
     };
 
     const { error } = await db.from('training_plans').update({ plan_data: updated }).eq('id', planId);
-    return { success: !error, error: error?.message };
+    if (error) return { success: false, error: error.message };
+
+    // Y ADEMÁS una fila en `workout_logs` (§2.11): con fecha propia, para poder
+    // mirar la progresión de un mes sin abrir siete JSON de plan. Best-effort y
+    // DESPUÉS del guardado bueno: si esto falla, el progreso ya está — se pierde
+    // el registro, no el trabajo (igual que `flashcard_results`).
+    try {
+        await db.from('workout_logs').insert(
+            buildWorkoutLogRow({ userId, planId, dayIndex, day: updated.days[dayIndex], log: logData }),
+        );
+    } catch (e) {
+        console.error('workout_logs:', e instanceof Error ? e.message : e);
+    }
+
+    return { success: true };
+}
+
+/**
+ * El historial de sesiones del alumno, agrupado por semana (§2.11).
+ *
+ * Con SU sesión (regla 34): `workout_logs` tiene política de propietario
+ * (`auth.uid() = user_id`) y aquí no hay join con nada compartido.
+ */
+export async function getTrainingHistory(): Promise<
+    { success: true; semanas: SemanaHistorial[] } | { success: false; error: string }
+> {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    const db = await createSupabaseServerClient();
+
+    const { data, error } = await db
+        .from('workout_logs')
+        .select('date, session_type, rpe, metrics, notes')
+        .eq('user_id', auth.user.id)
+        .order('date', { ascending: false })
+        .limit(120);
+
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const, semanas: agrupaHistorialPorSemana(data ?? []) };
 }
 
 /**

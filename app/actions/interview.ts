@@ -3,6 +3,7 @@ import { chatModel, smartModel, reportModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import {
   canEvaluate,
+  candidateTurns,
   formatTranscript,
   normalizeReport,
   trimContext,
@@ -11,6 +12,7 @@ import {
   MIN_TURNS_FOR_REPORT,
   type InterviewTurn,
   type InterviewProfile,
+  type InterviewReport,
 } from '../lib/interview';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
@@ -208,9 +210,80 @@ export async function evaluateInterview(history: InterviewTurn[]) {
         const report = normalizeReport(parseAIJson(result.response.text()));
         if (!report) return { success: false as const, error: 'El informe no se pudo generar. Inténtalo otra vez.' };
 
+        // Se GUARDA, para poder releerlo y comparar simulacros (§2.11). Con la
+        // sesión (regla 34): es material sensible del propio alumno. Best-effort
+        // y DESPUÉS de tener el informe: si `interview_reports` aún no existe
+        // —su guion está escrito pero puede no haberse ejecutado— o el insert
+        // falla, el alumno se lleva su informe igual.
+        try {
+            const db = await createSupabaseServerClient();
+            await db.from('interview_reports').insert({
+                user_id: auth.user.id,
+                score: report.score,
+                turns: candidateTurns(history).length,
+                report,
+                transcript: transcripcion,
+            });
+        } catch (e) {
+            console.error('interview_reports:', e instanceof Error ? e.message : e);
+        }
+
         return { success: true as const, report, transcript: transcripcion };
     } catch (e) {
         console.error('evaluateInterview:', e);
         return { success: false as const, error: 'Fallo al generar el informe.' };
     }
+}
+
+/** Un informe guardado, tal y como lo lista la pantalla de perfilado. */
+export type InformeGuardado = {
+    id: string;
+    createdAt: string;
+    score: number;
+    turns: number | null;
+    report: InterviewReport;
+    transcript: string;
+};
+
+/**
+ * Los informes de entrevista anteriores del alumno, del más reciente al más
+ * antiguo. Con SU sesión (regla 34).
+ *
+ * Si `interview_reports` todavía no existe, NO es un error para el alumno: es
+ * que aún no se ha ejecutado el guion. Se devuelve lista vacía y se registra en
+ * el log del servidor — el alumno ve «no tienes informes», que será verdad
+ * hasta que la tabla exista y haga un simulacro.
+ */
+export async function getInterviewReports(): Promise<
+    { success: true; informes: InformeGuardado[] } | { success: false; error: string }
+> {
+    const auth = await requireUser();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    const db = await createSupabaseServerClient();
+
+    const { data, error } = await db
+        .from('interview_reports')
+        .select('id, created_at, score, turns, report, transcript')
+        .eq('user_id', auth.user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+    if (error) {
+        if (/could not find the table/i.test(error.message)) {
+            console.error('getInterviewReports: falta ejecutar docs/sql/persistir-entrevista.sql');
+            return { success: true as const, informes: [] };
+        }
+        return { success: false as const, error: error.message };
+    }
+
+    const informes: InformeGuardado[] = (data ?? []).map((r) => ({
+        id: r.id as string,
+        createdAt: r.created_at as string,
+        score: (r.score as number) ?? 0,
+        turns: (r.turns as number) ?? null,
+        report: r.report as InterviewReport,
+        transcript: (r.transcript as string) ?? '',
+    }));
+
+    return { success: true as const, informes };
 }

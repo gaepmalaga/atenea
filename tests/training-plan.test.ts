@@ -12,6 +12,10 @@ import {
   semanasEditables,
   etiquetaSemana,
   semanaVigente,
+  normalizeRpe,
+  fechaLocalISO,
+  buildWorkoutLogRow,
+  agrupaHistorialPorSemana,
   PLAN_SHAPE,
   RPE_EASY,
   RPE_HARD,
@@ -311,6 +315,83 @@ describe('semanas del plan de grupo (P9)', () => {
     expect(semanaVigente(['2026-09-21', '2026-09-28'], hoy)).toBeNull();
     // solo pasadas: vale la última
     expect(semanaVigente(['2026-08-31', '2026-09-07'], hoy)).toBe('2026-09-07');
+  });
+});
+
+describe('registro consultable (workout_logs · §2.11)', () => {
+  it('normalizeRpe: 1-10 entero, y un campo vacío es null, nunca 0 (regla 16)', () => {
+    expect(normalizeRpe(7)).toBe(7);
+    expect(normalizeRpe('8')).toBe(8);
+    expect(normalizeRpe(7.6)).toBe(8);
+    expect(normalizeRpe('')).toBeNull();
+    expect(normalizeRpe(null)).toBeNull();
+    expect(normalizeRpe(0)).toBeNull();
+    expect(normalizeRpe(11)).toBeNull();
+    expect(normalizeRpe('x')).toBeNull();
+  });
+
+  it('fechaLocalISO es YYYY-MM-DD en horario local', () => {
+    expect(fechaLocalISO(new Date(2026, 8, 7))).toBe('2026-09-07');
+    expect(fechaLocalISO(new Date(2026, 0, 3))).toBe('2026-01-03');
+  });
+
+  it('buildWorkoutLogRow compone la fila desde el día y el log', () => {
+    const fila = buildWorkoutLogRow({
+      userId: 'u1',
+      planId: 'p1',
+      dayIndex: 2,
+      day: { type: 'Fuerza', title: 'Tren superior' },
+      log: {
+        status: 'completed',
+        rpe: 8,
+        feedback: { Dominadas: '10, 9, 8', '  ': '  ', Sentadilla: '' },
+        issue: null,
+        pain_location: null,
+      },
+      now: new Date(2026, 8, 7),
+    });
+    expect(fila).toMatchObject({
+      user_id: 'u1',
+      plan_id: 'p1',
+      date: '2026-09-07',
+      session_type: 'Fuerza',
+      rpe: 8,
+    });
+    // El feedback vacío no ensucia: solo entradas con texto (mismo cuidado que summarizeWeek).
+    expect(fila.metrics.feedback).toEqual({ Dominadas: '10, 9, 8' });
+    expect(fila.metrics.dayIndex).toBe(2);
+    expect(fila.notes).toBe('Dominadas: 10, 9, 8');
+  });
+
+  it('buildWorkoutLogRow: una baja guarda la molestia como nota', () => {
+    const fila = buildWorkoutLogRow({
+      userId: 'u1', planId: 'p1', dayIndex: 0,
+      day: { type: '', title: 'Carrera' },
+      log: { status: 'skipped', issue: 'injury', pain_location: 'hombro derecho', rpe: null },
+    });
+    expect(fila.session_type).toBe('Carrera'); // cae al título si no hay type
+    expect(fila.rpe).toBeNull();
+    expect(fila.notes).toBe('injury: hombro derecho');
+    expect(fila.metrics.status).toBe('skipped');
+  });
+
+  it('agrupaHistorialPorSemana agrupa por lunes, más reciente primero, y hace la media de RPE de los que traen dato', () => {
+    const semanas = agrupaHistorialPorSemana([
+      { date: '2026-09-09', session_type: 'Fuerza', rpe: 8, metrics: { status: 'completed' } },
+      { date: '2026-09-07', session_type: 'Carrera', rpe: 6, metrics: { status: 'completed' } },
+      { date: '2026-09-11', session_type: 'Fuerza', rpe: null, metrics: { status: 'skipped', issue: 'tired' } },
+      { date: '2026-09-01', session_type: 'Fuerza', rpe: 5, metrics: { status: 'completed' } },
+      { date: 'basura', session_type: null, rpe: 3, metrics: {} }, // se ignora
+    ]);
+    expect(semanas.map((s) => s.weekStart)).toEqual(['2026-09-07', '2026-08-31']);
+    const actual = semanas[0];
+    expect(actual.completadas).toBe(2);
+    expect(actual.saltadas).toBe(1);
+    // media SOLO de los que traen RPE: (8 + 6) / 2 = 7, el null no cuenta como 0 (regla 8)
+    expect(actual.avgRpe).toBe(7);
+    expect(actual.molestias).toEqual(['tired']);
+    // sin ningún RPE en la semana → null, no 0
+    expect(agrupaHistorialPorSemana([{ date: '2026-09-07', rpe: null, metrics: {} }])[0].avgRpe).toBeNull();
   });
 });
 

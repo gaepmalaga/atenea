@@ -189,6 +189,14 @@ export async function getActiveTrainingPlan() { return ok({ plan: PLAN }); }
 export async function generateWeeklyPlan() { return ok({ data: null }); }
 export async function generateNextWeek() { return ok({ plan: PLAN }); }
 export async function completeTrainingDay() { return { success: true as const }; }
+export async function getTrainingHistory() {
+  return ok({
+    semanas: [
+      { weekStart: '2026-08-25', etiqueta: '25 ago', sesiones: [], completadas: 4, saltadas: 1, avgRpe: 7.2, molestias: [] },
+      { weekStart: '2026-08-18', etiqueta: '18 ago', sesiones: [], completadas: 3, saltadas: 0, avgRpe: 5.5, molestias: ['injury: hombro derecho'] },
+    ],
+  });
+}
 
 export async function getBiodata() { return ok({ data: null }); }
 export async function saveBiodata() { return { success: true as const }; }
@@ -204,6 +212,26 @@ export async function evaluateInterview() {
       recommendations: ['Prepara dos ejemplos concretos de trabajo en equipo', 'Ensaya la respuesta sobre tus límites'],
     },
     transcript: 'INSPECTOR: ¿Por qué quiere ser policía?\nASPIRANTE: Por vocación de servicio.',
+  });
+}
+export async function getInterviewReports() {
+  return ok({
+    informes: [
+      {
+        id: 'ir1',
+        createdAt: '2026-09-01T18:00:00Z',
+        score: 62,
+        turns: 6,
+        report: {
+          score: 62,
+          veredicto: 'Motivación creíble pero poco concreta. Se pone nervioso al hablar de sus límites.',
+          fortalezas: ['Explica bien por qué quiere el Cuerpo'],
+          contradicciones: ['Dijo no tener antecedentes y luego mencionó una denuncia'],
+          recomendaciones: ['Prepara dos ejemplos concretos de trabajo en equipo'],
+        },
+        transcript: 'INSPECTOR: ¿Por qué quiere ser policía?\nASPIRANTE: Por vocación de servicio.',
+      },
+    ],
   });
 }
 

@@ -9,6 +9,7 @@ import {
     getActiveTrainingPlan,
     generateNextWeek,
     completeTrainingDay,
+    getTrainingHistory,
     getTrainingSwitches
 } from '@/actions';
 
@@ -19,7 +20,7 @@ import TestRunner from './components/TestRunner';
 import TrainingDashboard from './components/TrainingDashboard';
 import ActiveSession from './components/ActiveSession';
 import { hasBiometrics, type BaselineMetrics, type PhysicalProfile, type TestId } from '@/app/lib/physical';
-import type { TrainingDay, WeeklyPlan } from '@/app/lib/training-plan';
+import type { TrainingDay, WeeklyPlan, SemanaHistorial } from '@/app/lib/training-plan';
 import type { TrainingDayLog } from '@/app/lib/training-plan';
 
 interface PhysicalTrainerProps { user: { id: string } }
@@ -41,6 +42,8 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   const [activePlanId, setActivePlanId] = useState<string | null>(null); // ID real de la base de datos para guardar progresos
   // Interruptores de la academia: si la IA está apagada, no se ofrece «generar».
   const [aiOn, setAiOn] = useState(true);
+  // Historial de sesiones (§2.11), semana a semana. Sin datos = no se pinta.
+  const [historial, setHistorial] = useState<SemanaHistorial[]>([]);
   // El plan viene de un grupo (id `grupo:…`): compartido, ni se marca ni se genera.
   const esPlanDeGrupo = (activePlanId ?? '').startsWith('grupo:');
 
@@ -52,13 +55,15 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   useEffect(() => {
     async function init() {
         try {
-            const [profileRes, planRes, switchesRes] = await Promise.all([
+            const [profileRes, planRes, switchesRes, histRes] = await Promise.all([
                  getPhysicalProfile(),
                  getActiveTrainingPlan(),
-                 getTrainingSwitches()
+                 getTrainingSwitches(),
+                 getTrainingHistory()
             ]);
 
             if (switchesRes.success) setAiOn(switchesRes.switches.ai);
+            if (histRes.success) setHistorial(histRes.semanas);
 
             const profileData = profileRes.data;
             const activePlanRow = planRes.plan; // El objeto completo de la BD (con id, plan_data, etc.)
@@ -183,7 +188,9 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
               // Llamada asíncrona al backend (no bloquea la UI)
               completeTrainingDay(activePlanId, dayIndex, logData)
                   .then(res => {
-                      if (!res.success) console.error("Error guardando progreso en BD:", res.error);
+                      if (!res.success) { console.error("Error guardando progreso en BD:", res.error); return; }
+                      // Refrescamos el historial: acaba de entrar una sesión.
+                      getTrainingHistory().then(h => { if (h.success) setHistorial(h.semanas); });
                   });
           }
       }
@@ -253,6 +260,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             error={saveError}
             aiOn={aiOn}
             esDeGrupo={esPlanDeGrupo}
+            historial={historial}
           />
       );
   }

@@ -1,7 +1,7 @@
 'use client';
 
-import { Calendar, Activity, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2 } from 'lucide-react';
-import { planProgress, type TrainingDay, type WeeklyPlan } from '@/app/lib/training-plan';
+import { Calendar, Activity, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2, History } from 'lucide-react';
+import { planProgress, type TrainingDay, type WeeklyPlan, type SemanaHistorial } from '@/app/lib/training-plan';
 
 interface TrainingDashboardProps {
     plan: WeeklyPlan | null;
@@ -15,9 +15,11 @@ interface TrainingDashboardProps {
     aiOn?: boolean;
     /** El plan es de un grupo (compartido): ni se marca ni se genera desde aquí. */
     esDeGrupo?: boolean;
+    /** Historial de sesiones semana a semana (§2.11). Vacío = no se pinta. */
+    historial?: SemanaHistorial[];
 }
 
-export default function TrainingDashboard({ plan, onStartSession, onReportIssue, onReconfigure, onGenerateNextWeek, generating, error, aiOn = true, esDeGrupo = false }: TrainingDashboardProps) {
+export default function TrainingDashboard({ plan, onStartSession, onReportIssue, onReconfigure, onGenerateNextWeek, generating, error, aiOn = true, esDeGrupo = false, historial = [] }: TrainingDashboardProps) {
     if (!plan) return <div className="text-center p-10 opacity-50">Cargando plan...</div>;
 
     // 1. CÁLCULO DE PROGRESO EN TIEMPO REAL
@@ -188,6 +190,51 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                     </p>
                 )}
             </div>
+
+            {/* HISTORIAL (§2.11): semana a semana, RPE medio y sesiones hechas.
+                Es lo que hace consultable la progresión —antes cada sesión vivía
+                dentro del JSON de su plan y no había forma de mirarlas juntas—.
+                Solo si hay algo: «sin datos» no es una semana a cero (regla 8). */}
+            {historial.length > 0 && (
+                <div className="mt-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden">
+                    <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+                        <History size={15} className="text-slate-500 dark:text-slate-400 shrink-0" />
+                        <h4 className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest">Tu progresión</h4>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-80 overflow-y-auto">
+                        {historial.map((s) => (
+                            <div key={s.weekStart} className="p-3 sm:p-4 flex items-center gap-3">
+                                <div className="w-14 shrink-0">
+                                    <p className="text-xs font-black text-slate-900 dark:text-white">{s.etiqueta}</p>
+                                    <p className="text-[10px] text-slate-400">sem.</p>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                        {s.completadas} {s.completadas === 1 ? 'sesión' : 'sesiones'}
+                                        {s.saltadas > 0 && <span className="text-slate-400 font-medium"> · {s.saltadas} sin hacer</span>}
+                                    </p>
+                                    {s.molestias.length > 0 && (
+                                        <p className="text-[11px] text-red-500 dark:text-red-400 truncate">⚠ {s.molestias.join(' · ')}</p>
+                                    )}
+                                </div>
+                                {/* RPE medio: la señal de si la semana se le quedó
+                                    corta o le pasó por encima. `—` si no lo anotó. */}
+                                <div className="shrink-0 text-right">
+                                    <p className={`text-base font-black tabular-nums ${
+                                        s.avgRpe === null ? 'text-slate-300 dark:text-slate-600'
+                                        : s.avgRpe >= 8.5 ? 'text-red-500'
+                                        : s.avgRpe < 6 ? 'text-emerald-500'
+                                        : 'text-slate-900 dark:text-white'
+                                    }`}>
+                                        {s.avgRpe === null ? '—' : s.avgRpe}
+                                    </p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">RPE</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
         </div>
     );

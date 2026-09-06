@@ -333,3 +333,163 @@ export function progressionBrief(summary: WeekSummary): string {
   }
   return lineas.join('\n');
 }
+
+// ============================================================
+// REGISTRO CONSULTABLE (workout_logs) — §2.11
+// ============================================================
+//
+// El log de cada sesión vive dentro del JSON del plan (`completeTrainingDay`),
+// que sirve para alimentar la semana siguiente pero NO para mirar la progresión
+// de un mes: cada plan es una semana y no hay forma de consultarlos juntos.
+// `workout_logs` es una fila por sesión terminada, con fecha propia — la tabla
+// ya existía en el esquema, sin usar. Escribir en ella NO puede tumbar la
+// sesión: se hace best-effort, después de guardar el plan (como
+// `flashcard_results`).
+
+/** Fecha local `YYYY-MM-DD`. La del alumno, no la de UTC (igual que `lunesDeSemana`). */
+export function fechaLocalISO(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, '0');
+  const dia = `${d.getDate()}`.padStart(2, '0');
+  return `${y}-${m}-${dia}`;
+}
+
+/** RPE 1-10 entero, o `null`. Un campo vacío es `null`, nunca `0` (regla 16). */
+export function normalizeRpe(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  const r = Math.round(n);
+  return r >= 1 && r <= 10 ? r : null;
+}
+
+/** Una fila lista para `workout_logs`. */
+export type WorkoutLogRow = {
+  user_id: string;
+  plan_id: string;
+  date: string;
+  session_type: string;
+  rpe: number | null;
+  metrics: {
+    dayIndex: number;
+    status: 'completed' | 'skipped';
+    issue: string | null;
+    painLocation: string | null;
+    feedback: Record<string, string>;
+  };
+  notes: string | null;
+};
+
+/** `TrainingDay` + lo que anotó el alumno -> fila de `workout_logs`. */
+export function buildWorkoutLogRow(params: {
+  userId: string;
+  planId: string;
+  dayIndex: number;
+  day: Pick<TrainingDay, 'type' | 'title'>;
+  log: TrainingDayLog | null | undefined;
+  now?: Date;
+}): WorkoutLogRow {
+  const { userId, planId, dayIndex, day, log } = params;
+  const status = log?.status === 'skipped' ? 'skipped' : 'completed';
+
+  // `Object.entries` sobre algo que no es un objeto enumera caracteres — el
+  // mismo fallo que ya cazó su test en `summarizeWeek`.
+  const fb = log?.feedback;
+  const feedback: Record<string, string> =
+    fb && typeof fb === 'object' && !Array.isArray(fb)
+      ? Object.fromEntries(
+          Object.entries(fb).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, (v as string).trim()]),
+        )
+      : {};
+
+  const molestia = [log?.issue, log?.pain_location].filter(Boolean).join(': ') || null;
+  const anotaciones = Object.entries(feedback).map(([k, v]) => `${k}: ${v}`).join(' · ') || null;
+
+  return {
+    user_id: userId,
+    plan_id: planId,
+    date: fechaLocalISO(params.now),
+    session_type: day.type || day.title || 'sesión',
+    rpe: normalizeRpe(log?.rpe),
+    metrics: {
+      dayIndex,
+      status,
+      issue: log?.issue ?? null,
+      painLocation: log?.pain_location ?? null,
+      feedback,
+    },
+    notes: status === 'skipped' ? molestia : anotaciones,
+  };
+}
+
+/** Una sesión del historial, tal y como la lee la pantalla. */
+export type SesionHistorial = {
+  date: string;
+  session_type: string | null;
+  rpe: number | null;
+  status: 'completed' | 'skipped';
+  issue: string | null;
+};
+
+export type SemanaHistorial = {
+  /** Lunes de la semana, `YYYY-MM-DD`. */
+  weekStart: string;
+  etiqueta: string;
+  sesiones: SesionHistorial[];
+  completadas: number;
+  saltadas: number;
+  /** Media de RPE de las sesiones con dato. `null` = ninguna lo trae (regla 8). */
+  avgRpe: number | null;
+  molestias: string[];
+};
+
+/** Fila de `workout_logs` tal y como llega de Supabase. */
+type WorkoutLogLeido = {
+  date?: string | null;
+  session_type?: string | null;
+  rpe?: number | null;
+  metrics?: unknown;
+  notes?: string | null;
+};
+
+/**
+ * Agrupa el historial de sesiones por semana (lunes), de la más reciente a la
+ * más antigua. Es lo que hace consultable la progresión: RPE medio y sesiones
+ * completadas semana a semana, en vez de mirar siete JSON de plan sueltos.
+ */
+export function agrupaHistorialPorSemana(logs: WorkoutLogLeido[]): SemanaHistorial[] {
+  const porSemana = new Map<string, SesionHistorial[]>();
+
+  for (const l of logs ?? []) {
+    const fecha = typeof l.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : null;
+    if (!fecha) continue;
+    const lunes = lunesDeSemana(new Date(`${fecha}T12:00:00`));
+
+    const m = (l.metrics && typeof l.metrics === 'object' ? l.metrics : {}) as Record<string, unknown>;
+    const status = m.status === 'skipped' ? 'skipped' : 'completed';
+    const issue = typeof m.issue === 'string' ? m.issue : null;
+
+    if (!porSemana.has(lunes)) porSemana.set(lunes, []);
+    porSemana.get(lunes)!.push({
+      date: fecha,
+      session_type: l.session_type ?? null,
+      rpe: normalizeRpe(l.rpe),
+      status,
+      issue,
+    });
+  }
+
+  return [...porSemana.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([weekStart, sesiones]) => {
+      const rpes = sesiones.map((s) => s.rpe).filter((r): r is number => r !== null);
+      return {
+        weekStart,
+        etiqueta: etiquetaSemana(weekStart),
+        sesiones: sesiones.sort((a, b) => a.date.localeCompare(b.date)),
+        completadas: sesiones.filter((s) => s.status === 'completed').length,
+        saltadas: sesiones.filter((s) => s.status === 'skipped').length,
+        avgRpe: rpes.length ? Math.round((rpes.reduce((a, b) => a + b, 0) / rpes.length) * 10) / 10 : null,
+        molestias: [...new Set(sesiones.map((s) => s.issue).filter((i): i is string => !!i))],
+      };
+    });
+}

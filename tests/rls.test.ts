@@ -36,6 +36,14 @@ const DEL_ALUMNO = [
   'question_notes',
   'profiles_physical',
   'training_plans',
+  // El registro de entrenamiento (§2.11): política de propietario `for all`,
+  // así que Postgres impone `auth.uid() = user_id`. `completeTrainingDay` lo
+  // escribe y `getTrainingHistory` lo lee, los dos con `db`.
+  'workout_logs',
+  // El informe de la entrevista (§2.11): material sensible del alumno, política
+  // de propietario. `interview.ts` lo escribe y lo lee con `db`. La tabla aún
+  // no está en el volcado (guion `persistir-entrevista.sql` sin ejecutar).
+  'interview_reports',
   'profiles_biodata',
   'profiles_psych',
   'flashcard_progress',

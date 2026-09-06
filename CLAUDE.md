@@ -83,7 +83,22 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (`node
+1. **Ejecutar SQL. Quedan TRES guiones pendientes** (7 sep 2026), los tres con
+   el código ya escrito y degradando con gracia hasta que se ejecuten:
+   - **`retirar-tablas-en-desuso.sql`** — `DROP` de `test_results`, `exams`,
+     `exam_questions`, `content_documents` (vacías, sin usar). El código ya no
+     las nombra; un test estático lo mantiene así.
+   - **`persistir-entrevista.sql`** — `interview_reports` (informe + transcripción
+     de cada simulacro de entrevista). `evaluateInterview` la escribe best-effort
+     y `getInterviewReports` devuelve lista vacía si falta. En `PENDIENTE_SQL` de
+     `schema-drift.test.ts`.
+   - *(P10b `confidence` ya está ejecutado — 6 sep.)*
+
+   Tras ejecutar cualquiera: `node scripts/schema-snapshot.mjs` **y**
+   `node scripts/dump-migration.mjs`. Quitar `interview_reports` de
+   `PENDIENTE_SQL` cuando el volcado la traiga.
+
+   Guiones de fases anteriores **ya ejecutados** (`node
    scripts/schema-snapshot.mjs` — 38 tablas el 6 sep 2026):
    - P3.7 / P3.8 (`legal_reference`, `question_notes`) — 31 ago.
    - `admin-audit-log.sql`, `academia-ajustes.sql`, `gasto-ia.sql`,
@@ -1745,11 +1760,11 @@ tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qu�
 tests/interview.test.ts         transcripción, informe final y máquina de estados
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
-tests/training-plan.test.ts     forma del plan semanal, progreso y progresión a la siguiente
+tests/training-plan.test.ts     forma del plan semanal, progreso, progresión, y el registro consultable (workout_logs, §2.11)
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
-tests/question-import.test.ts   alta manual e importación CSV, y sus guardas
+tests/question-import.test.ts   alta manual e importación CSV (columna `tema` multi-tema incluida), y sus guardas
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
