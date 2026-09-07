@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, Loader2, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Building2, Loader2, Plus, Pencil, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
 import {
   getAcademySettings,
   saveAcademySettings,
+  getConvocatoria,
+  saveConvocatoria,
   listStaff,
   saveStaff,
   deleteStaff,
 } from '@/actions';
 import type { AcademySettings, StaffMember } from '@/app/lib/academy-settings';
+import { diasHasta, textoCuentaAtras, type Convocatoria } from '@/app/lib/convocatoria';
 import { Card, Button, Modal, TextField, TextAreaField, SectionLabel, TEXT, cx } from '../../ui';
 
 /**
@@ -64,9 +67,93 @@ export default function AcademyIdentity() {
 
   return (
     <div className="space-y-6">
+      <CardConvocatoria />
       <FichaAcademia inicial={settings} error={error} />
       <ListaProfesores staff={staff} onCambio={setStaff} />
     </div>
+  );
+}
+
+/**
+ * LA CONVOCATORIA — la fecha del examen. Se pone aquí una vez y el alumno la ve
+ * como cuenta atrás en «Mi perfil». Degrada con gracia si falta el guion
+ * `docs/sql/convocatoria.sql`.
+ */
+function CardConvocatoria() {
+  const [conv, setConv] = useState<Convocatoria>({ escala: '', fechaExamen: '', nota: '' });
+  const [cargando, setCargando] = useState(true);
+  const [tablaFalta, setTablaFalta] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    getConvocatoria().then((res) => {
+      if (!vivo) return;
+      if (res.success) {
+        setConv({
+          escala: res.convocatoria.escala ?? '',
+          fechaExamen: res.convocatoria.fechaExamen ?? '',
+          nota: res.convocatoria.nota ?? '',
+        });
+        setTablaFalta(!!res.tablaFalta);
+      } else setErr(res.error);
+      setCargando(false);
+    });
+    return () => { vivo = false; };
+  }, []);
+
+  async function guardar() {
+    setGuardando(true); setOk(false); setErr(null);
+    const res = await saveConvocatoria(conv);
+    if (res.success) setOk(true);
+    else {
+      setErr(res.error ?? 'No se pudo guardar.');
+      if ('tablaFalta' in res && res.tablaFalta) setTablaFalta(true);
+    }
+    setGuardando(false);
+  }
+
+  const dias = diasHasta(conv.fechaExamen || null);
+
+  return (
+    <Card pad="md" className="space-y-4">
+      <SectionLabel icon={<CalendarClock size={16} />}>La convocatoria</SectionLabel>
+
+      {tablaFalta && (
+        <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200 flex items-start gap-2">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          Falta ejecutar <code className="font-mono bg-black/10 dark:bg-white/10 px-1 rounded">docs/sql/convocatoria.sql</code>.
+          Puedes rellenar los campos; se guardarán en cuanto se ejecute.
+        </p>
+      )}
+
+      {cargando ? (
+        <p className={cx(TEXT.muted)}>Cargando…</p>
+      ) : (
+        <>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <TextField label="Escala" value={conv.escala ?? ''} onChange={(e) => setConv({ ...conv, escala: e.target.value })} placeholder="Escala Básica" />
+            <TextField label="Fecha del examen" type="date" value={conv.fechaExamen ?? ''} onChange={(e) => setConv({ ...conv, fechaExamen: e.target.value })} />
+          </div>
+          <TextField label="Nota (opcional)" value={conv.nota ?? ''} onChange={(e) => setConv({ ...conv, nota: e.target.value })} placeholder="BOE-A-2027-…" />
+
+          {conv.fechaExamen && dias !== null && (
+            <p className={cx(TEXT.muted)}>El alumno verá: <strong className="text-slate-700 dark:text-slate-200">{textoCuentaAtras(dias)}</strong>.</p>
+          )}
+
+          {err && <p className="text-xs text-red-600 dark:text-red-400 font-medium">{err}</p>}
+          {ok && <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Guardado.</p>}
+
+          <div className="flex justify-end">
+            <Button onClick={guardar} disabled={guardando} icon={guardando ? <Loader2 size={14} className="animate-spin" /> : null}>
+              Guardar
+            </Button>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 

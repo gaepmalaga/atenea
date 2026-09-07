@@ -1,6 +1,6 @@
 'use server'
 import { supabaseAdmin } from './core';
-import { requireAdmin } from '../lib/auth';
+import { requireAdmin, requireUser } from '../lib/auth';
 import { registraAccion } from '../lib/admin-audit';
 import {
   normalizeAcademySettingsInput,
@@ -10,6 +10,7 @@ import {
   type AcademySettings,
   type StaffMember,
 } from '../lib/academy-settings';
+import { CONVOCATORIA_VACIA, type Convocatoria } from '../lib/convocatoria';
 
 /**
  * LOS DATOS DE LA ACADEMIA: nombre, dirección, horario, contacto, quién da
@@ -45,6 +46,73 @@ export async function saveAcademySettings(input: unknown) {
 
   if (!error) registraAccion({ actorId: auth.user.id, action: 'save_academy_settings' });
   return { success: !error, error: error?.message };
+}
+
+/**
+ * LA CONVOCATORIA — la fecha del examen. La pone el admin, la lee el alumno
+ * (cuenta atrás en «Mi perfil»). Contenido compartido de solo lectura para el
+ * alumno: clave de servicio + `requireUser` (regla 34).
+ *
+ * Si `academy_convocatoria` todavía no existe (guion sin ejecutar) NO es un
+ * error para nadie: se devuelve la convocatoria vacía y la pantalla lo dice.
+ */
+export async function getConvocatoria(): Promise<
+  { success: true; convocatoria: Convocatoria; tablaFalta?: boolean } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const { data, error } = await supabaseAdmin
+    .from('academy_convocatoria')
+    .select('escala, fecha_examen, nota')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    if (/could not find the table/i.test(error.message)) {
+      return { success: true as const, convocatoria: CONVOCATORIA_VACIA, tablaFalta: true };
+    }
+    return { success: false as const, error: error.message };
+  }
+
+  return {
+    success: true as const,
+    convocatoria: {
+      escala: (data?.escala as string) ?? null,
+      fechaExamen: (data?.fecha_examen as string) ?? null,
+      nota: (data?.nota as string) ?? null,
+    },
+  };
+}
+
+export async function saveConvocatoria(input: unknown) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const texto = (v: unknown) => {
+    const s = typeof v === 'string' ? v.trim() : '';
+    return s || null;
+  };
+  // Una fecha vacía es `null`, no `''` (regla 16): «todavía sin convocar».
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.fechaExamen ?? '')) ? String(raw.fechaExamen) : null;
+
+  const { error } = await supabaseAdmin
+    .from('academy_convocatoria')
+    .upsert({
+      id: 1,
+      escala: texto(raw.escala),
+      fecha_examen: fecha,
+      nota: texto(raw.nota),
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    const tablaFalta = /could not find the table/i.test(error.message);
+    return { success: false as const, error: error.message, tablaFalta };
+  }
+  registraAccion({ actorId: auth.user.id, action: 'save_convocatoria' });
+  return { success: true as const };
 }
 
 export async function listStaff(): Promise<

@@ -20,6 +20,7 @@ export type AccionAuditada =
   | 'set_module_enabled'
   | 'save_manual_training_plan'
   | 'resolve_report'
+  | 'save_convocatoria'
   | 'save_academy_settings'
   | 'save_staff'
   | 'delete_staff'
@@ -47,6 +48,7 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   set_module_enabled: 'Cambió un módulo',
   save_manual_training_plan: 'Guardó un plan de entrenamiento',
   resolve_report: 'Resolvió un reporte',
+  save_convocatoria: 'Fijó la fecha de la convocatoria',
   save_academy_settings: 'Editó los datos de la academia',
   save_staff: 'Guardó un profesor',
   delete_staff: 'Borró un profesor',

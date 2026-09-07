@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  LayoutGrid, MessageSquareText, Crosshair, Zap, 
-  Fingerprint, BarChart2, Dumbbell, Target 
+import {
+  LayoutGrid, MessageSquareText, Crosshair, Zap,
+  Fingerprint, BarChart2, Dumbbell, Target, UserRound
 } from 'lucide-react';
 
 // --- LAYOUT COMPONENTS ---
@@ -21,13 +21,14 @@ import BiodataManager from './modules/profile/BiodataManager';
 import InterviewRoom from './modules/interview/InterviewRoom';
 import StatsPanel from './modules/stats/StatsPanel';
 import FailedQuestions from './modules/review/FailedQuestions';
+import MiPerfil from './modules/perfil/MiPerfil';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { getModuleSettings } from '@/actions';
 import { todosActivos, moduloDeEntrada, enElMvp, type ModuleId, type ModuleSettings } from '@/app/lib/modules';
 
 // --- TIPOS ---
-export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'training' | 'interview' | 'stats';
+export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'training' | 'interview' | 'stats' | 'profile';
 
 interface StudentDashboardProps {
   user: AuthUser;
@@ -58,7 +59,8 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     { id: 'cards', label: 'Drills (Memoria)', icon: Zap },
     { id: 'training', label: 'Prep. Física', icon: Dumbbell }, // NUEVO
     { id: 'interview', label: 'Perfilado & Voz', icon: Fingerprint },
-    { id: 'stats', label: 'Estadísticas', icon: BarChart2 }
+    { id: 'stats', label: 'Estadísticas', icon: BarChart2 },
+    { id: 'profile', label: 'Mi perfil', icon: UserRound },
   ];
 
   // El menu se deriva del estado, no se guarda: es la regla 14 aplicada a otra
@@ -84,11 +86,14 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     return () => { vivo = false; };
   }, []);
 
-  // Detectar preferencia de tema oscuro del sistema al inicio
+  // Tema: la preferencia guardada en «Mi perfil» manda; si no hay ninguna, se
+  // sigue la del sistema.
   useEffect(() => {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.classList.add('dark');
-    }
+    let elegido: string | null = null;
+    try { elegido = window.localStorage.getItem('atenea-tema'); } catch { /* bloqueado */ }
+    const sistemaOscuro = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    const oscuro = elegido === 'oscuro' || ((elegido === 'sistema' || !elegido) && sistemaOscuro);
+    document.documentElement.classList.toggle('dark', !!oscuro);
   }, []);
 
   /**
@@ -312,6 +317,12 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             {activeTab === 'stats' && (
                 <ModuleErrorBoundary moduleName="Rango y estadisticas">
                     <StatsPanel user={user} />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'profile' && (
+                <ModuleErrorBoundary moduleName="Mi perfil">
+                    <MiPerfil user={user} />
                 </ModuleErrorBoundary>
             )}
 

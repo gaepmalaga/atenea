@@ -27,6 +27,7 @@ export const MODULE_IDS = [
   'training',
   'interview',
   'stats',
+  'profile',
 ] as const;
 
 export type ModuleId = (typeof MODULE_IDS)[number];
@@ -41,6 +42,7 @@ export const MODULE_LABEL: Record<ModuleId, string> = {
   training: 'Prep. Física',
   interview: 'Perfilado & Voz',
   stats: 'Estadísticas',
+  profile: 'Mi perfil',
 };
 
 /** Que se pierde el alumno si se apaga. Para que el interruptor no sea a ciegas. */
@@ -53,6 +55,7 @@ export const MODULE_DESCRIPCION: Record<ModuleId, string> = {
   training: 'Perfil físico, marcas y plan de entrenamiento.',
   interview: 'Biodata, psicotécnico y simulador de entrevista.',
   stats: 'Simulacros, dominio del temario y cómo respondes.',
+  profile: 'La convocatoria, el acceso del alumno y sus grupos.',
 };
 
 export type ModuleSettings = Record<ModuleId, boolean>;

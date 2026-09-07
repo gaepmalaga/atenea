@@ -85,6 +85,7 @@ describe('aislamiento de fallos', () => {
       'FlashcardDeck',
       'PhysicalTrainer',
       'StatsPanel',
+      'MiPerfil',
       'BiodataManager',
     ];
     const boundaries = dashboard.src.match(/<ModuleErrorBoundary/g) ?? [];

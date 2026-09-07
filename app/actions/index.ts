@@ -11,6 +11,7 @@ export * from './interview';
 export * from './flashcards';
 export * from './chat';export * from './chat-history';
 export * from './settings';
+export * from './perfil';
 export * from './audit';
 export * from './ai-cost';
 export * from './membership';

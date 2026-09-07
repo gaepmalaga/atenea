@@ -118,6 +118,21 @@ export async function getSimulacros() {
   });
 }
 
+export async function getConvocatoria() {
+  return ok({ convocatoria: { escala: 'Escala Básica', fechaExamen: '2027-05-16', nota: 'BOE-A-2027-0000' } });
+}
+export async function saveConvocatoria() { return { success: true as const }; }
+export async function getMiPerfil() {
+  return ok({
+    perfil: {
+      email: 'alumno@academia.test',
+      convocatoria: { escala: 'Escala Básica', fechaExamen: '2027-05-16', nota: null },
+      acceso: { estado: 'active', pago: 'al_dia' },
+      grupos: [{ nombre: 'Teoría mañana', tipo: 'Teoría' }, { nombre: 'Físicas L-X', tipo: 'Físicas' }],
+    },
+  });
+}
+
 export async function getStudentTopics() { return ok({ topics: TEMAS }); }
 export async function getStudentSubjects() {
   return ok({ subjects: TEMAS.map((t, i) => ({ id: i + 1, title: t })) });
