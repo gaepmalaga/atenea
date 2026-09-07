@@ -63,6 +63,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
 | — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **ejecutados** (5 sep) |
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
+| — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 
 ## Producción
 
@@ -1800,10 +1801,14 @@ plan generado**: ni test inicial de Cooper, ni wizard de biometría, ni «inicia
 sesión», ni barra de progreso semanal, ni «generar la siguiente». Todo eso existe
 para alimentar al modelo, y ahí el modelo no pinta nada.
 
-Ve **un calendario de la semana y punto** (`CalendarioEntrenamiento.tsx`): cada
-día con sus ejercicios y el de hoy destacado. No son dos vistas de lo mismo con
-partes escondidas: son dos módulos distintos, y `PhysicalTrainer` elige entre
-ellos ANTES que cualquier otra vista —
+Ve **un calendario de la semana** (`CalendarioEntrenamiento.tsx`): cada día con
+su **fecha real** («Lun 8 sep», derivada del `week_start` del plan) y sus
+ejercicios, con el de hoy destacado. Si es un plan de grupo, puede **mirar
+semanas anteriores** con las flechas (`getStudentGroupWeeks`, helper
+`idsGruposConPlan` compartido con `getActiveTrainingPlan`); las futuras
+preparadas por adelantado siguen sin enseñarse (regla 54). No son dos vistas de
+lo mismo con partes escondidas: son dos módulos distintos, y `PhysicalTrainer`
+elige entre ellos ANTES que cualquier otra vista —
 
 ```ts
 const modoManual = !aiOn || esPlanDeGrupo || weeklyPlan?.source === 'entrenador';
@@ -1862,9 +1867,20 @@ puede reabrir sin un motivo escrito:
   marcaste, la correcta (borde verde + check), la explicación, el artículo **y
   cuánto tardaste** — una verde de 8 s y una de 90 s no son lo mismo.
 - **El alcance es el mismo en los dos modos:** un tema · por bloques del temario ·
-  todo. `getStudentSyllabus` (`admin.ts`) alimenta el desplegable **solo con los
+  todo. `getStudentSyllabus` (`admin.ts`) alimenta el selector **solo con los
   temas que tienen banco activo** — ofrecer un tema vacío es mandar al alumno a un
   test de 0 preguntas. «Por bloques» agrupa por `blocks`, no 45 casillas sueltas.
+  El selector de «un tema» es una **hoja modal** con los bloques y el **número de
+  temario** de cada tema (`getStudentSyllabus` devuelve `{ numero, titulo }`), no
+  un `<select>` nativo: 45 opciones sin número ni bloque en el picker de Android
+  son una lista infinita.
+- **La pantalla del test no tiene reloj en entrenamiento** (regla 59), ni votos
+  de «buena/mala pregunta» (nadie sabía qué hacían y tapaban la etiqueta de
+  origen en el móvil). Queda **«Avisar»** (la bandera → `reportQuestion`), que sí
+  sirve: si la opción marcada como correcta está mal, el alumno estudia un dato
+  falso (regla 10). `option_changes` **solo se cuenta en el simulacro** — en
+  entrenamiento el primer toque cierra la pregunta, así que esa columna es
+  siempre 0 en las filas de entrenamiento y no es un fallo.
 - **`ExamConfig` NO ofrece dificultad en entrenamiento.** La tarjeta va detrás de
   `{settings.mode === 'exam' && …}`. Hay una guarda estática en
   `answer-signals.test.ts` que lo fija (`/settings\.mode === 'exam'[\s\S]{0,120}Dificultad/`).
@@ -1926,7 +1942,7 @@ tests/academy.test.ts           panel de academia: abandono, fichas y cobertura 
 tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
 tests/membership.test.ts        la puerta de acceso (decideAccess) y sus guardas
 tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes y «sin importe» ≠ 0 €
-tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan
+tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan y el histórico de semanas que ve el alumno
 tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
 tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva
 tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
