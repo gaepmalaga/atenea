@@ -64,7 +64,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **ejecutados** (5 sep) |
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
-| — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **pendiente** |
+| — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
 
 ## Producción
 
@@ -86,17 +86,15 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. UN guion pendiente** (8 sep 2026):
-   - **`convocatoria.sql`** — `academy_convocatoria` (fila única id=1: escala,
-     `fecha_examen`, nota). Política de SELECT abierta para autenticados (el
-     alumno lee la cuenta atrás en «Mi perfil»); escritura solo clave de
-     servicio detrás de `requireAdmin`. El código **degrada con gracia**
-     mientras tanto: `getConvocatoria` devuelve la convocatoria vacía y la
-     pantalla dice «tu academia aún no ha fijado la fecha». En `PENDIENTE_SQL`
-     de `schema-drift`. Quitarlo de ahí cuando `schema-snapshot.mjs` la traiga.
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (8 sep 2026, `node
+   scripts/schema-snapshot.mjs` — **36 tablas**):
+   - **`convocatoria.sql`** (8 sep) — `academy_convocatoria` (fila única id=1:
+     escala, `fecha_examen`, nota). Política de SELECT abierta para autenticados
+     (el alumno lee la cuenta atrás en «Mi perfil»); escritura solo con la clave
+     de servicio detrás de `requireAdmin`. `getConvocatoria` degrada con gracia
+     si la tabla falta (era la excepción documentada, ya cerrada).
 
-   Guiones de fases anteriores ejecutados (7 sep 2026, `node
-   scripts/schema-snapshot.mjs` — **35 tablas**):
+   Guiones de fases anteriores ejecutados (7 sep 2026, eran **35 tablas**):
    - **`retirar-tablas-en-desuso.sql`** (7 sep) — `DROP` de `test_results`,
      `exams`, `exam_questions`, `content_documents` (vacías, sin usar; `count(*)`
      comprobado a 0 antes del DROP). Un test estático (`schema-drift`,
@@ -1993,7 +1991,7 @@ Es **nacional** (Escala Básica CNP): la pone el admin una vez en «Ajustes», n
 es un dato por alumno.
 
 - `academy_convocatoria` — fila única (id=1): escala, `fecha_examen`, nota.
-  `docs/sql/convocatoria.sql`, **pendiente**. Política de SELECT abierta (el
+  `docs/sql/convocatoria.sql`, **ejecutado** (8 sep). Política de SELECT abierta (el
   alumno la lee); escritura solo clave de servicio + `requireAdmin`.
 - `app/lib/convocatoria.ts` (puro): `diasHasta` cuenta por **días de calendario**
   (si el examen es mañana, «falta 1 día» diga lo que diga el reloj), no por 24 h.

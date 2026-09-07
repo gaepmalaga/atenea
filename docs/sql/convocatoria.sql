@@ -1,6 +1,10 @@
 -- ============================================================================
 -- LA CONVOCATORIA — la fecha del examen y una cuenta atrás
 --
+-- ✅ EJECUTADO el 8 sep 2026. Verificado: la tabla existe con sus 5 columnas,
+--    la fila id=1, RLS activado y la política «convocatoria lectura».
+--    `schema-snapshot.mjs` refrescado (36 tablas).
+--
 -- QUÉ RESUELVE
 -- Un opositor organiza meses de estudio alrededor de UNA fecha, y la plataforma
 -- no la sabía. «Faltan 147 días» ordena el estudio y motiva más que cualquier

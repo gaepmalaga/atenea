@@ -11,7 +11,7 @@
 -- escritura entera en silencio.
 --
 -- Fecha del volcado: 2026-09-07
--- Tablas: 35   ·   Politicas: 23
+-- Tablas: 36   ·   Politicas: 24
 -- =============================================================================
 
 create extension if not exists "uuid-ossp";
@@ -20,6 +20,15 @@ create extension if not exists vector;
 -- ==========================================================================
 -- Tablas
 -- ==========================================================================
+
+-- --------------------------------------------------------------------------
+create table if not exists public.academy_convocatoria (
+  id integer not null default 1,
+  escala text,
+  fecha_examen date,
+  nota text,
+  updated_at timestamp with time zone not null default now()
+);
 
 -- --------------------------------------------------------------------------
 create table if not exists public.academy_settings (
@@ -403,6 +412,8 @@ create table if not exists public.workout_logs (
 -- Claves primarias, ajenas, unicidad y checks
 -- ==========================================================================
 
+alter table public.academy_convocatoria drop constraint if exists academy_convocatoria_pkey;
+alter table public.academy_convocatoria add constraint academy_convocatoria_pkey PRIMARY KEY (id);
 alter table public.academy_settings drop constraint if exists academy_settings_pkey;
 alter table public.academy_settings add constraint academy_settings_pkey PRIMARY KEY (id);
 alter table public.academy_staff drop constraint if exists academy_staff_pkey;
@@ -481,6 +492,8 @@ alter table public.question_notes drop constraint if exists question_notes_user_
 alter table public.question_notes add constraint question_notes_user_question_key UNIQUE (user_id, question_id);
 alter table public.subjects drop constraint if exists subjects_topic_number_key;
 alter table public.subjects add constraint subjects_topic_number_key UNIQUE (topic_number);
+alter table public.academy_convocatoria drop constraint if exists academy_convocatoria_singleton;
+alter table public.academy_convocatoria add constraint academy_convocatoria_singleton CHECK ((id = 1));
 alter table public.academy_settings drop constraint if exists academy_settings_singleton;
 alter table public.academy_settings add constraint academy_settings_singleton CHECK ((id = 1));
 alter table public.chat_messages drop constraint if exists chat_messages_role_check;
@@ -612,6 +625,7 @@ create index if not exists idx_subjects_block ON public.subjects USING btree (bl
 -- Significa acceso directo DENEGADO con la clave publica; la aplicacion las lee
 -- con la clave de servicio, que salta RLS. Ver docs/sql/1.3-activar-rls.sql.
 
+alter table public.academy_convocatoria enable row level security;
 alter table public.academy_settings enable row level security;
 alter table public.academy_staff enable row level security;
 alter table public.admin_audit_log enable row level security;
@@ -647,6 +661,12 @@ alter table public.question_votes enable row level security;
 alter table public.subjects enable row level security;
 alter table public.training_plans enable row level security;
 alter table public.workout_logs enable row level security;
+
+drop policy if exists "convocatoria lectura" on public.academy_convocatoria;
+create policy "convocatoria lectura" on public.academy_convocatoria
+  for select
+  to authenticated
+  using (true);
 
 drop policy if exists "conv_propietario" on public.chat_conversations;
 create policy "conv_propietario" on public.chat_conversations

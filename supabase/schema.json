@@ -1,6 +1,26 @@
 {
   "generado": "2026-09-07",
   "tablas": {
+    "academy_convocatoria": {
+      "columnas": [
+        "escala",
+        "fecha_examen",
+        "id",
+        "nota",
+        "updated_at"
+      ],
+      "obligatorias": [
+        "id",
+        "updated_at"
+      ],
+      "tipos": {
+        "escala": "text",
+        "fecha_examen": "date",
+        "id": "integer",
+        "nota": "text",
+        "updated_at": "timestamp with time zone"
+      }
+    },
     "academy_settings": {
       "columnas": [
         "address",
