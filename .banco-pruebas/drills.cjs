@@ -10,8 +10,14 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   await p.waitForTimeout(500);
   await p.locator('div.fixed.inset-0 button', { hasText:'Drills' }).first().click();
   await p.waitForTimeout(900);
-  const sel = p.locator('select').first();
-  if (await sel.count()) { const v = await sel.locator('option').nth(1).getAttribute('value'); if (v) await sel.selectOption(v); }
+  // El selector de tema es una hoja modal (SelectorTema), no un <select>.
+  const abrir = p.locator('button', { hasText:'Elige un tema' }).first();
+  if (await abrir.count()) {
+    await abrir.click();
+    await p.waitForTimeout(300);
+    await p.locator('div.fixed.inset-0 button').filter({ hasText:/\w{4,}/ }).nth(1).click().catch(()=>{});
+    await p.waitForTimeout(300);
+  }
   await p.waitForTimeout(400);
   const emp = p.locator('button', { hasText:'Empezar a repasar' }).first();
   if (await emp.count()) { await emp.click(); await p.waitForTimeout(900); }

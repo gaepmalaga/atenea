@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { getStudentSyllabus, getRecuentoEntrenamiento } from '@/actions';
 import type { TemaAlcance } from '@/app/actions/admin';
 import { ExamSettings } from './ExamManager';
-import { Crosshair, BookOpen, Clock, AlertTriangle, Layers, ChevronDown, Check } from 'lucide-react';
-import { Card, Button, SectionLabel, OptionCard, OptionGroup, EmptyState, Modal, cx, TEXT, TAP } from '../../../ui';
+import { Crosshair, BookOpen, Clock, AlertTriangle, Layers, Check } from 'lucide-react';
+import { Card, Button, SectionLabel, OptionCard, OptionGroup, EmptyState, cx, TEXT, TAP } from '../../../ui';
+import SelectorTema from '../../SelectorTema';
 
 interface ExamConfigProps {
   initialSettings: ExamSettings;
@@ -34,10 +35,6 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
   const [temaUnico, setTemaUnico] = useState<string>('');
   const [bloquesElegidos, setBloquesElegidos] = useState<Set<number>>(new Set());
 
-  /** El selector de tema es una hoja modal, no un `<select>` nativo: 45 temas en
-   *  el picker de Android son una lista infinita sin número ni bloque. */
-  const [pickerAbierto, setPickerAbierto] = useState(false);
-
   /** «Hoy te tocan N» — lo que el sistema propone para el entrenamiento. */
   const [propuesta, setPropuesta] = useState<number | null>(null);
 
@@ -57,10 +54,13 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
     });
   }, []);
 
-  // El tema elegido, con su número, para pintarlo en el botón que abre el picker.
-  const temaElegido = useMemo(
-    () => bloques.flatMap((b) => b.temas).find((t) => t.titulo === temaUnico) ?? null,
-    [bloques, temaUnico],
+  // Los bloques y sus temas, en la forma que espera `SelectorTema`.
+  const gruposSelector = useMemo(
+    () => bloques.map((b) => ({
+      nombre: b.nombre,
+      temas: b.temas.map((t) => ({ valor: t.titulo, etiqueta: t.titulo, numero: t.numero })),
+    })),
+    [bloques],
   );
 
   // Los temas seleccionados salen del alcance: un tema suelto, la unión de los
@@ -187,25 +187,12 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
         </div>
 
         {alcance === 'uno' && (
-          <button
-            onClick={() => setPickerAbierto(true)}
-            className={cx(
-              'w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors',
-              TAP,
-              'border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 bg-white dark:bg-slate-950',
-            )}
-          >
-            <span className="w-8 h-8 shrink-0 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center tabular-nums">
-              {temaElegido?.numero ?? '·'}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Tema</span>
-              <span className="block text-sm font-bold text-slate-900 dark:text-white truncate">
-                {temaElegido?.titulo ?? 'Elige un tema'}
-              </span>
-            </span>
-            <ChevronDown size={16} className="shrink-0 text-slate-400" />
-          </button>
+          <SelectorTema
+            value={temaUnico}
+            onChange={setTemaUnico}
+            grupos={gruposSelector}
+            ayuda="El número es el del temario oficial"
+          />
         )}
 
         {alcance === 'bloques' && (
@@ -362,54 +349,6 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
           ? (alcance === 'bloques' ? 'Elige un bloque' : 'Elige un tema')
           : esEntreno ? 'Empezar entrenamiento' : 'Empezar simulacro'}
       </Button>
-
-      {/* EL PICKER DE TEMA — hoja modal con los bloques y el número de cada tema. */}
-      {pickerAbierto && (
-        <Modal
-          title="Elige un tema"
-          subtitle="El número es el del temario oficial"
-          width="sm"
-          onClose={() => setPickerAbierto(false)}
-        >
-          <div className="space-y-5">
-            {bloques.map((b) => (
-              <div key={b.id}>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">
-                  {b.nombre}
-                </p>
-                <div className="space-y-1">
-                  {b.temas.map((t) => {
-                    const activo = t.titulo === temaUnico;
-                    return (
-                      <button
-                        key={t.numero}
-                        onClick={() => { setTemaUnico(t.titulo); setPickerAbierto(false); }}
-                        className={cx(
-                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors',
-                          activo
-                            ? 'bg-indigo-600 text-white'
-                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200',
-                        )}
-                      >
-                        <span
-                          className={cx(
-                            'w-7 h-7 shrink-0 rounded-lg text-xs font-black flex items-center justify-center tabular-nums',
-                            activo ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
-                          )}
-                        >
-                          {t.numero}
-                        </span>
-                        <span className="min-w-0 flex-1 text-sm font-bold leading-snug">{t.titulo}</span>
-                        {activo && <Check size={16} className="shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

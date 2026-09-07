@@ -11,7 +11,8 @@ import { indexToOptionId } from '@/app/lib/questions';
 import { esAtascada, type FailedQuestion } from '@/app/lib/review';
 import { ERROR_LABELS, ERROR_TYPES, type ErrorType } from '@/app/lib/stats';
 import QuestionNote from '../../QuestionNote';
-import { Card, Button, SelectField, SectionLabel, cx, TEXT } from '../../../ui';
+import SelectorTema from '../../SelectorTema';
+import { Card, Button, SectionLabel, cx, TEXT } from '../../../ui';
 
 /**
  * REPASO DE LO FALLADO.
@@ -244,12 +245,16 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
       {(resto.length > 0 || temaFiltrado) && (
         <div className="space-y-3">
           {byTopic.length > 1 && (
-            <SelectField label="Tema" value={temaFiltrado} onChange={(e) => setTemaFiltrado(e.target.value)}>
-              <option value="">Todos los temas ({noAtascadas.length})</option>
-              {byTopic.map(({ topic, count }) => (
-                <option key={topic} value={topic}>{topic} ({count})</option>
-              ))}
-            </SelectField>
+            <SelectorTema
+              label="Tema"
+              value={temaFiltrado}
+              onChange={setTemaFiltrado}
+              placeholder={`Todos los temas (${noAtascadas.length})`}
+              temas={[
+                { valor: '', etiqueta: 'Todos los temas', cuenta: noAtascadas.length },
+                ...byTopic.map(({ topic, count }) => ({ valor: topic, etiqueta: topic, cuenta: count })),
+              ]}
+            />
           )}
 
           {resto.length === 0 ? (

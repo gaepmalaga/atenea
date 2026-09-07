@@ -6,6 +6,7 @@ import {
   HelpCircle, AlertTriangle, MousePointerClick, Loader2,
 } from 'lucide-react';
 import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '@/actions';
+import SelectorTema from '../../SelectorTema';
 
 type CardData = {
   db_id?: string | null;
@@ -172,19 +173,14 @@ export default function FlashcardDeck() {
     <div className="flex flex-col w-full max-w-2xl mx-auto">
 
       {/* SOLO EL SELECTOR DE TEMA. Es lo único que decide algo aquí. */}
-      <div className="w-full flex items-center gap-3 mb-5">
-        <label htmlFor="tema-drills" className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest shrink-0">
-          Tema
-        </label>
-        <select
-          id="tema-drills"
+      <div className="w-full mb-5">
+        <SelectorTema
+          label="Tema"
           value={selectedTopic}
-          onChange={(e) => { setSelectedTopic(e.target.value); setCurrentCard(null); setAviso(null); nextRef.current = null; }}
-          disabled={cargandoPrimera}
-          className="flex-1 min-w-0 max-w-full truncate min-h-[44px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold uppercase rounded-lg px-4 outline-none focus:border-purple-500 cursor-pointer"
-        >
-          {loadingTopics ? <option>Cargando...</option> : topics.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+          placeholder={loadingTopics ? 'Cargando…' : 'Elige un tema'}
+          onChange={(t) => { setSelectedTopic(t); setCurrentCard(null); setAviso(null); nextRef.current = null; }}
+          temas={topics.map((t) => ({ valor: t, etiqueta: t }))}
+        />
       </div>
 
       {guardadoFallido && (
