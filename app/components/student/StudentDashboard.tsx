@@ -58,7 +58,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     { id: 'cards', label: 'Drills (Memoria)', icon: Zap },
     { id: 'training', label: 'Prep. Física', icon: Dumbbell }, // NUEVO
     { id: 'interview', label: 'Perfilado & Voz', icon: Fingerprint },
-    { id: 'stats', label: 'Rango & Estadísticas', icon: BarChart2 }
+    { id: 'stats', label: 'Estadísticas', icon: BarChart2 }
   ];
 
   // El menu se deriva del estado, no se guarda: es la regla 14 aplicada a otra

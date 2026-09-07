@@ -40,7 +40,7 @@ export const MODULE_LABEL: Record<ModuleId, string> = {
   cards: 'Drills (Memoria)',
   training: 'Prep. Física',
   interview: 'Perfilado & Voz',
-  stats: 'Rango & Estadísticas',
+  stats: 'Estadísticas',
 };
 
 /** Que se pierde el alumno si se apaga. Para que el interruptor no sea a ciegas. */
@@ -52,7 +52,7 @@ export const MODULE_DESCRIPCION: Record<ModuleId, string> = {
   cards: 'Repaso espaciado con tarjetas.',
   training: 'Perfil físico, marcas y plan de entrenamiento.',
   interview: 'Biodata, psicotécnico y simulador de entrevista.',
-  stats: 'Progreso, rango y análisis de errores.',
+  stats: 'Simulacros, dominio del temario y cómo respondes.',
 };
 
 export type ModuleSettings = Record<ModuleId, boolean>;

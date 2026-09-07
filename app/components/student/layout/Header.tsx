@@ -13,7 +13,7 @@ const SUBTITULO: Record<string, string> = {
   interview: 'Sala de interrogatorios',
   test: 'Operaciones tácticas',
   chat: 'IA central · Atenea',
-  stats: 'Expediente personal',
+  stats: 'Tu progreso',
   cards: 'Memorización activa',
   review: 'Análisis de fallos',
   training: 'Preparación física',

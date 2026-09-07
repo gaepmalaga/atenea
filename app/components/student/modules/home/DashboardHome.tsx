@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Play, Target, Zap, ArrowRight, Activity, Crosshair } from 'lucide-react';
+import { Play, Target, Zap, ArrowRight, Activity, Crosshair, Flame } from 'lucide-react';
 import { getUserStats } from '@/actions';
 import { TabId } from '../../StudentDashboard';
 import { ERROR_LABELS, type StatsSummary, type TestResultRow, type ErrorType } from '@/app/lib/stats';
@@ -16,11 +16,8 @@ interface DashboardHomeProps {
 }
 
 /**
- * El fallo que más se repite, de los que el alumno ha etiquetado.
- *
- * Es lo ÚNICO que la plataforma sabe de verdad sobre "en qué tienes que
- * mejorar". Devuelve `null` si no hay ninguno etiquetado — que no es lo mismo
- * que no tener fallos (regla 8).
+ * El fallo que más se repite, de los que el alumno ha etiquetado. `null` si no
+ * hay ninguno etiquetado — que no es no tener fallos (regla 8).
  */
 function falloDominante(breakdown: Record<ErrorType, number>, taggedErrors: number): ErrorType | null {
   if (taggedErrors === 0) return null;
@@ -59,39 +56,38 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
 
   const sinActividad = !stats || stats.answered === 0;
   const fallo = stats ? falloDominante(stats.errorBreakdown, stats.taggedErrors) : null;
+  const racha = stats?.racha ?? 0;
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-4">
 
-      {/* INFORME DIARIO
-          Antes esta tarjeta decía: "El sistema detecta una oportunidad de
-          mejora en Derecho Penal. Su rendimiento táctico ha aumentado un 12%
-          esta semana", con el 12% y el tema escritos a mano en el HTML. Nada
-          lo calculaba: era un dato inventado presentado como análisis, y el
-          alumno podía decidir qué estudiar a partir de él. Ahora, o sale de
-          `getUserStats`, o se dice que no hay dato. */}
+      {/* CTA DEL DÍA */}
       <Card tone="brand" pad="lg" elevation="raised" className="relative overflow-hidden">
         <div className="absolute -top-24 -right-16 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10">
-          <p className={cx(TEXT.label, 'text-indigo-200 mb-2')}>Informe diario</p>
+          <div className="flex items-center gap-3 mb-2">
+            <p className={cx(TEXT.label, 'text-indigo-200')}>Hoy</p>
+            {racha > 0 && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider bg-white/15 px-2 py-0.5 rounded-full">
+                <Flame size={12} /> {racha} {racha === 1 ? 'día' : 'días'} seguidos
+              </span>
+            )}
+          </div>
+
           <h2 className="text-2xl sm:text-4xl font-black mb-3 leading-tight tracking-tight">
-            {saludo}, agente.
+            {sinActividad ? `${saludo}.` : 'A entrenar.'}
           </h2>
 
           <p className="text-indigo-100 text-sm sm:text-base font-medium max-w-xl mb-6 leading-relaxed">
             {sinActividad ? (
-              <>Aún no has contestado ninguna pregunta. En cuanto hagas el primer test, aquí verás tu acierto real y en qué tipo de fallo se te va la nota.</>
+              <>Aún no has contestado ninguna pregunta. Empieza un entrenamiento y el sistema aprende de ti desde la primera.</>
             ) : (
               <>
-                Llevas <strong className="text-white">{stats.answered}</strong>{' '}
-                {stats.answered === 1 ? 'pregunta contestada' : 'preguntas contestadas'} con un{' '}
-                <strong className="text-white">{stats.winRate} %</strong> de acierto.
-                {fallo ? (
-                  <> Tu fallo más frecuente es <strong className="text-white">{ERROR_LABELS[fallo].toLowerCase()}</strong>.</>
-                ) : (
-                  <> Etiqueta tus fallos al corregir y te diré de qué tipo son.</>
-                )}
+                Vas con un <strong className="text-white">{stats.winRate} %</strong> de acierto en{' '}
+                <strong className="text-white">{stats.answered}</strong>{' '}
+                {stats.answered === 1 ? 'pregunta' : 'preguntas'}.
+                {fallo && <> Tu fallo más frecuente es <strong className="text-white">{ERROR_LABELS[fallo].toLowerCase()}</strong>.</>}
               </>
             )}
           </p>
@@ -105,69 +101,58 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
             )}
           >
             <Play size={18} fill="currentColor" />
-            Empezar un test
+            Entrenar
           </button>
         </div>
       </Card>
 
-      {/* LOS DATOS, TODOS REALES.
-          `null` cuando no hay muestra: StatTile lo pinta como "—" y no como 0,
-          que es un alumno que va mal (regla 8). */}
+      {/* LOS DATOS, TODOS REALES. `null` = sin muestra (regla 8). */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <StatTile
-          label="Acierto"
-          value={sinActividad ? null : stats.winRate}
-          suffix="%"
-          tone="brand"
-          icon={<Target size={12} />}
-        />
-        <StatTile
-          label="Contestadas"
-          value={sinActividad ? null : stats.answered}
-          tone="neutral"
-        />
-        <StatTile
-          label="En blanco"
-          value={stats ? stats.blank : null}
-          tone="warning"
-        />
+        <StatTile label="Acierto" value={sinActividad ? null : stats.winRate} suffix="%" tone="brand" icon={<Target size={12} />} />
+        <StatTile label="Racha" value={racha === 0 ? null : racha} suffix={racha === 1 ? ' día' : ' días'} tone="neutral" icon={<Flame size={12} />} />
+        <StatTile label="En blanco" value={stats ? stats.blank : null} tone="warning" />
       </div>
 
-      <button
-        onClick={() => onNavigate('cards')}
-        className="w-full text-left group"
-      >
-        <Card className="flex items-center justify-between gap-4 hover:border-purple-400 dark:hover:border-purple-500/50 transition-colors">
-          <span className="flex items-center gap-3 min-w-0">
-            <span className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-2xl shrink-0">
-              <Zap size={20} />
+      {/* ACCESOS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button onClick={() => onNavigate('review')} className="text-left group">
+          <Card className="flex items-center justify-between gap-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-colors">
+            <span className="flex items-center gap-3 min-w-0">
+              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl shrink-0"><Target size={18} /></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-slate-900 dark:text-white">Repasar fallos</span>
+                <span className={cx(TEXT.muted, 'block')}>Lo que has fallado, con el porqué</span>
+              </span>
             </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-black text-slate-900 dark:text-white">Repaso rápido</span>
-              {/* Antes ponía "5 Flashcards pendientes", con el 5 escrito a mano. */}
-              <span className={cx(TEXT.muted, 'block')}>Tarjetas de memoria por temas</span>
-            </span>
-          </span>
-          <ArrowRight size={18} className="text-slate-500 dark:text-slate-400 group-hover:text-purple-600 transition-colors shrink-0" />
-        </Card>
-      </button>
+            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+          </Card>
+        </button>
 
-      {/* ACTIVIDAD RECIENTE */}
+        <button onClick={() => onNavigate('cards')} className="text-left group">
+          <Card className="flex items-center justify-between gap-3 hover:border-purple-400 dark:hover:border-purple-500/50 transition-colors">
+            <span className="flex items-center gap-3 min-w-0">
+              <span className="p-2.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-xl shrink-0"><Zap size={18} /></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-slate-900 dark:text-white">Repaso rápido</span>
+                <span className={cx(TEXT.muted, 'block')}>Tarjetas de memoria por temas</span>
+              </span>
+            </span>
+            <ArrowRight size={16} className="text-slate-400 group-hover:text-purple-600 transition-colors shrink-0" />
+          </Card>
+        </button>
+      </div>
+
+      {/* ACTIVIDAD RECIENTE — solo un vistazo; el historial completo está en Estadísticas. */}
       <Card pad="none">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-          <SectionLabel icon={<Activity size={14} />} className="mb-0">Actividad reciente</SectionLabel>
+          <SectionLabel icon={<Activity size={14} />} className="mb-0">Lo último</SectionLabel>
         </div>
 
         {stats && stats.lastItems.length > 0 ? (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {stats.lastItems.map((item: RecentItem, i: number) => (
+            {stats.lastItems.slice(0, 4).map((item, i) => (
               <div key={i} className="flex items-center gap-3 p-3 sm:p-4">
-                <span
-                  className={cx(
-                    'w-2 h-2 rounded-full shrink-0',
-                    item.is_correct ? 'bg-emerald-500' : 'bg-red-500',
-                  )}
-                />
+                <span className={cx('w-2 h-2 rounded-full shrink-0', item.is_correct ? 'bg-emerald-500' : 'bg-red-500')} />
                 <p className="flex-1 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 line-clamp-1">
                   {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
                 </p>
@@ -182,7 +167,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
             title="Sin actividad todavía"
             hint="Lo que contestes aparecerá aquí, con el tema y si acertaste."
             icon={<Crosshair size={32} />}
-            action={<Button size="sm" onClick={() => onNavigate('test')}>Hacer el primero</Button>}
+            action={<Button size="sm" onClick={() => onNavigate('test')}>Empezar</Button>}
           />
         )}
       </Card>

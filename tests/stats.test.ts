@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   summarizeResults,
+  calculaRacha,
   rankFor,
   nextRankAfter,
   progressToNextRank,
@@ -15,6 +16,35 @@ const row = (over: Record<string, unknown> = {}) => ({
   option_changes: 1,
   error_type: null,
   ...over,
+});
+
+describe('calculaRacha', () => {
+  const HOY = new Date('2026-09-08T12:00:00Z');
+  const dia = (n: number) => new Date(Date.UTC(2026, 8, 8 - n)).toISOString();
+
+  it('sin fechas es 0', () => {
+    expect(calculaRacha([], HOY)).toBe(0);
+  });
+
+  it('cuenta los días seguidos hasta hoy', () => {
+    expect(calculaRacha([dia(0), dia(1), dia(2)], HOY)).toBe(3);
+  });
+
+  it('varias respuestas el mismo día cuentan una vez', () => {
+    expect(calculaRacha([dia(0), dia(0), dia(0), dia(1)], HOY)).toBe(2);
+  });
+
+  it('día de gracia: si aún no has estudiado hoy pero sí ayer, la racha vive', () => {
+    expect(calculaRacha([dia(1), dia(2), dia(3)], HOY)).toBe(3);
+  });
+
+  it('se corta con un hueco', () => {
+    expect(calculaRacha([dia(0), dia(1), dia(3), dia(4)], HOY)).toBe(2);
+  });
+
+  it('actividad hace tres días y nada después: racha 0', () => {
+    expect(calculaRacha([dia(3), dia(4)], HOY)).toBe(0);
+  });
 });
 
 describe('summarizeResults', () => {

@@ -4,11 +4,14 @@
  */
 
 import { isBlankAnswer } from './exam-results';
+import { perfilTiempos, inferFirmeza, FIRMEZA } from './answer-signals';
 
 export type TestResultRow = {
   is_correct?: boolean | null;
   response_time_ms?: number | null;
   option_changes?: number | null;
+  /** ms hasta el primer toque en una opción. `null`/`0` = no medido. */
+  first_touch_ms?: number | null;
   error_type?: string | null;
   created_at?: string | null;
   question_text?: string | null;
@@ -86,6 +89,25 @@ export type StatsSummary = {
   /** Fallos por taxonomia, sobre el total de fallos etiquetados. */
   errorBreakdown: Record<ErrorType, number>;
   taggedErrors: number;
+  /**
+   * Días SEGUIDOS con actividad, contando hacia atrás desde hoy (con un día de
+   * gracia: si aún no has estudiado hoy pero sí ayer, la racha sigue viva). 0 si
+   * la última actividad fue hace más de un día.
+   */
+  racha: number;
+  /**
+   * Cómo de resuelto contesta el alumno — DEDUCIDO del tiempo y los cambios de
+   * opción, EN RELATIVO a su propio ritmo (regla 60). Sustituye al viejo
+   * «índice de incertidumbre», que era una media de `option_changes` normalizada
+   * contra un tope fijo.
+   */
+  firmeza: {
+    firmes: number;
+    titubeantes: number;
+    normales: number;
+    /** Su tiempo mediano por respuesta. `null` si no hay ninguna medida. */
+    medianaMs: number | null;
+  };
 };
 
 /**
@@ -107,7 +129,37 @@ export const HESITATION_THRESHOLD = 1;
  */
 const MAX_AVG_CHANGES = 2;
 
-export function summarizeResults(rows: TestResultRow[]): StatsSummary {
+/** `Date` -> `YYYY-MM-DD` en UTC. Para una racha el desfase horario no importa. */
+function diaUTC(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Días seguidos con actividad hasta hoy (o ayer, día de gracia). */
+export function calculaRacha(fechas: (string | null | undefined)[], ahora: Date = new Date()): number {
+  const dias = new Set(
+    fechas.filter((f): f is string => !!f).map((f) => diaUTC(new Date(f))),
+  );
+  if (dias.size === 0) return 0;
+
+  const hoy = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate()));
+  const ayer = new Date(hoy);
+  ayer.setUTCDate(ayer.getUTCDate() - 1);
+
+  // El ancla es hoy si hay actividad hoy; si no, ayer (día de gracia).
+  let cursor: Date;
+  if (dias.has(diaUTC(hoy))) cursor = hoy;
+  else if (dias.has(diaUTC(ayer))) cursor = ayer;
+  else return 0;
+
+  let racha = 0;
+  while (dias.has(diaUTC(cursor))) {
+    racha += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return racha;
+}
+
+export function summarizeResults(rows: TestResultRow[], ahora: Date = new Date()): StatsSummary {
   const total = rows.length;
 
   // Un blanco no es un fallo. La marca es `selected_index === BLANK_INDEX`; una
@@ -136,6 +188,18 @@ export function summarizeResults(rows: TestResultRow[]): StatsSummary {
     }
   }
 
+  // FIRMEZA — deducida, en relativo (regla 60). Solo sobre las contestadas: un
+  // blanco no se «contesta con firmeza».
+  const contestadas = rows.filter((r) => !isBlankAnswer(r.selected_index));
+  const base = perfilTiempos(contestadas);
+  let firmes = 0, titubeantes = 0, normales = 0;
+  for (const r of contestadas) {
+    const f = inferFirmeza(r, base);
+    if (f === FIRMEZA.FIRME) firmes += 1;
+    else if (f === FIRMEZA.TITUBEANTE) titubeantes += 1;
+    else normales += 1;
+  }
+
   return {
     total,
     correct,
@@ -153,6 +217,8 @@ export function summarizeResults(rows: TestResultRow[]): StatsSummary {
     changesCount: withChanges.length,
     errorBreakdown,
     taggedErrors,
+    racha: calculaRacha(rows.map((r) => r.created_at), ahora),
+    firmeza: { firmes, titubeantes, normales, medianaMs: base.medianaMs },
   };
 }
 

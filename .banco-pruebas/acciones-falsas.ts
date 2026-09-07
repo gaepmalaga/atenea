@@ -90,6 +90,8 @@ export async function getUserStats() {
       avgTimeMs: 18400, timedCount: 30, uncertaintyIndex: 35, changesCount: 14,
       errorBreakdown: { olvido: 5, trampa: 4, desconocimiento: 2, fallo_procesamiento: 1 },
       taggedErrors: 12,
+      racha: 4,
+      firmeza: { firmes: 19, titubeantes: 7, normales: 10, medianaMs: 16200 },
       lastItems: Array.from({ length: 8 }, (_, i) => ({
         question_text: `Pregunta reciente número ${i + 1} sobre el articulado del tema, con enunciado largo para ver cómo se corta.`,
         is_correct: i % 3 !== 0,
