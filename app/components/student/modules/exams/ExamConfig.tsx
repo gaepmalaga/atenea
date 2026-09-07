@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getStudentTopics } from '@/actions';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { getStudentSyllabus, getRecuentoEntrenamiento } from '@/actions';
 import { ExamSettings } from './ExamManager';
-import { Crosshair, BookOpen, Clock, AlertTriangle, CheckCircle2, Layers } from 'lucide-react';
-import { Card, Button, SectionLabel, OptionCard, OptionGroup, EmptyState, cx, TEXT, TAP } from '../../../ui';
+import { Crosshair, BookOpen, Clock, AlertTriangle, Layers } from 'lucide-react';
+import { Card, Button, SectionLabel, OptionCard, OptionGroup, EmptyState, SelectField, cx, TEXT, TAP } from '../../../ui';
 
 interface ExamConfigProps {
   initialSettings: ExamSettings;
@@ -17,237 +17,329 @@ const DIFICULTADES = [
   { id: 'hard', label: 'Extrema' },
 ] as const;
 
+/** Presets del simulacro. Cerrados a propósito: dos simulacros solo son
+ *  comparables si tienen el mismo tamaño. El de 100 es el de la convocatoria. */
+const PRESETS_SIMULACRO = [25, 50, 100] as const;
+
+type Alcance = 'uno' | 'bloques' | 'todo';
+type Bloque = { id: number; nombre: string; temas: string[] };
+
 export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps) {
-  const [topics, setTopics] = useState<string[]>([]);
+  const [bloques, setBloques] = useState<Bloque[]>([]);
+  const [cargando, setCargando] = useState(true);
   const [settings, setSettings] = useState<ExamSettings>(initialSettings);
-  const [loadingTopics, setLoadingTopics] = useState(true);
+
+  const [alcance, setAlcance] = useState<Alcance>('uno');
+  const [temaUnico, setTemaUnico] = useState<string>('');
+  const [bloquesElegidos, setBloquesElegidos] = useState<Set<number>>(new Set());
+
+  /** «Hoy te tocan N» — lo que el sistema propone para el entrenamiento. */
+  const [propuesta, setPropuesta] = useState<number | null>(null);
+
+  const todosLosTemas = useMemo(() => bloques.flatMap((b) => b.temas), [bloques]);
 
   useEffect(() => {
-    getStudentTopics().then(res => {
-      if (res.success && res.topics) {
-        setTopics(res.topics);
-        // Si no había temas seleccionados, seleccionar el primero por defecto.
-        //
-        // La comprobación va DENTRO del actualizador, no fuera: el efecto corre
-        // una sola vez y `settings` es el del cierre, no el de ahora. Si el
-        // alumno elige un tema mientras la petición viaja, leerlo fuera vería
-        // la lista vacía y le pisaría la elección (regla 13).
-        if (res.topics.length > 0) {
-            setSettings(prev =>
-                prev.selectedTopics.length === 0
-                    ? { ...prev, selectedTopics: [res.topics[0]] }
-                    : prev
-            );
-        }
+    getStudentSyllabus().then((res) => {
+      if (res.success) {
+        setBloques(res.bloques);
+        const primer = res.bloques[0]?.temas[0];
+        if (primer) setTemaUnico((t) => t || primer);
       }
-      setLoadingTopics(false);
+      setCargando(false);
     });
   }, []);
 
-  const toggleTopic = (t: string) => {
-    setSettings(prev => ({
-        ...prev,
-        selectedTopics: prev.selectedTopics.includes(t)
-            ? prev.selectedTopics.filter(x => x !== t)
-            : [...prev.selectedTopics, t]
+  // Los temas seleccionados salen del alcance: un tema suelto, la unión de los
+  // bloques marcados, o todo el temario.
+  const temasSeleccionados = useMemo(() => {
+    if (alcance === 'uno') return temaUnico ? [temaUnico] : [];
+    if (alcance === 'todo') return todosLosTemas;
+    const set = new Set<string>();
+    for (const b of bloques) if (bloquesElegidos.has(b.id)) b.temas.forEach((t) => set.add(t));
+    return [...set];
+  }, [alcance, temaUnico, todosLosTemas, bloques, bloquesElegidos]);
+
+  // Reflejar la selección en `settings` (es lo que viaja al servidor).
+  useEffect(() => {
+    setSettings((s) => ({ ...s, selectedTopics: temasSeleccionados }));
+  }, [temasSeleccionados]);
+
+  // «Hoy te tocan N»: solo en entrenamiento, y con un respiro tras cambiar la
+  // selección para no consultar en cada clic.
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (settings.mode !== 'practice' || temasSeleccionados.length === 0) {
+      setPropuesta(null);
+      return;
+    }
+    if (debounce.current) clearTimeout(debounce.current);
+    const temas = temasSeleccionados;
+    debounce.current = setTimeout(() => {
+      getRecuentoEntrenamiento(temas).then((res) => {
+        if (res.success) {
+          setPropuesta(res.propuestas);
+          setSettings((s) => (s.mode === 'practice' ? { ...s, questionCount: res.propuestas } : s));
+        }
+      });
+    }, 450);
+    return () => { if (debounce.current) clearTimeout(debounce.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.mode, temasSeleccionados.join('|')]);
+
+  const setModo = (mode: ExamSettings['mode']) => {
+    setSettings((s) => ({
+      ...s,
+      mode,
+      // Al pasar a simulacro, el número salta al preset más cercano.
+      questionCount:
+        mode === 'exam'
+          ? PRESETS_SIMULACRO.reduce((a, b) => (Math.abs(b - s.questionCount) < Math.abs(a - s.questionCount) ? b : a))
+          : s.questionCount,
     }));
   };
 
-  const handleSelectAll = () => {
-    if (settings.selectedTopics.length === topics.length) {
-        setSettings(prev => ({ ...prev, selectedTopics: [] }));
-    } else {
-        setSettings(prev => ({ ...prev, selectedTopics: [...topics] }));
-    }
+  const toggleBloque = (id: number) => {
+    setBloquesElegidos((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const sinTema = settings.selectedTopics.length === 0;
+  const sinTema = temasSeleccionados.length === 0;
+  const esEntreno = settings.mode === 'practice';
+
+  if (cargando) {
+    return <p className={cx(TEXT.muted, 'p-8 text-center max-w-5xl mx-auto')}>Cargando temario…</p>;
+  }
+  if (bloques.length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <EmptyState
+          title="Sin temas disponibles"
+          hint="Todavía no hay preguntas en el banco. Habla con tu academia."
+        />
+      </div>
+    );
+  }
 
   return (
-    /*
-      Esta pantalla NO lleva cabecera propia.
-      Antes abría con un icono de 64px, "CONFIGURACIÓN DE MISIÓN" a 30px y un
-      subtítulo, justo debajo del "OPERACIONES (TEST)" que ya pinta la cabecera
-      de la aplicación: dos títulos seguidos que se comían el primer tercio de
-      la pantalla del móvil antes del primer control. El título lo pone el
-      armazón; aquí se va directo a lo que hay que decidir.
-    */
-    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-500">
 
-      <div className="grid md:grid-cols-12 gap-4 sm:gap-6">
+      {/* MODO */}
+      <Card>
+        <SectionLabel icon={<Layers size={14} />}>Modo</SectionLabel>
+        <OptionGroup cols={2}>
+          <OptionCard
+            title="Entrenamiento"
+            description="El sistema te da lo que toca repasar y lo nuevo con medida. Corrección al momento, sin reloj ni nota."
+            selected={esEntreno}
+            onClick={() => setModo('practice')}
+          />
+          <OptionCard
+            title="Simulacro"
+            description="Fiel al examen: reloj, sin correcciones, y la nota con penalización de la convocatoria."
+            selected={settings.mode === 'exam'}
+            onClick={() => setModo('exam')}
+          />
+        </OptionGroup>
+      </Card>
 
-        {/* TEMARIO */}
-        <Card pad="none" className="md:col-span-5 flex flex-col max-h-[45dvh] md:max-h-[520px] overflow-hidden">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0">
-            <SectionLabel
-              icon={<BookOpen size={14} />}
-              className="mb-0"
-              aside={
+      {/* ALCANCE */}
+      <Card>
+        <SectionLabel icon={<BookOpen size={14} />}>Alcance</SectionLabel>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {([
+            ['uno', 'Un tema'],
+            ['bloques', 'Por bloques'],
+            ['todo', 'Todo'],
+          ] as [Alcance, string][]).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setAlcance(id)}
+              aria-pressed={alcance === id}
+              className={cx(
+                'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
+                TAP,
+                alcance === id
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {alcance === 'uno' && (
+          <SelectField
+            label="Tema"
+            value={temaUnico}
+            onChange={(e) => setTemaUnico(e.target.value)}
+          >
+            {bloques.map((b) => (
+              <optgroup key={b.id} label={b.nombre}>
+                {b.temas.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </optgroup>
+            ))}
+          </SelectField>
+        )}
+
+        {alcance === 'bloques' && (
+          <div className="space-y-1.5">
+            {bloques.map((b) => {
+              const on = bloquesElegidos.has(b.id);
+              return (
                 <button
-                  onClick={handleSelectAll}
+                  key={b.id}
+                  onClick={() => toggleBloque(b.id)}
+                  aria-pressed={on}
                   className={cx(
-                    'text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider',
-                    'bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg',
+                    'w-full text-left px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-colors',
                     TAP,
+                    on
+                      ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
                   )}
                 >
-                  {settings.selectedTopics.length === topics.length ? 'Desmarcar' : 'Todos'}
-                </button>
-              }
-            >
-              Temario ({settings.selectedTopics.length})
-            </SectionLabel>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
-            {loadingTopics ? (
-              <p className={cx(TEXT.muted, 'p-4 text-center')}>Cargando temario…</p>
-            ) : topics.length === 0 ? (
-              <EmptyState
-                title="Sin temas disponibles"
-                hint="Todavía no hay preguntas en el banco. Habla con tu academia."
-              />
-            ) : (
-              topics.map(topic => {
-                const isSelected = settings.selectedTopics.includes(topic);
-                return (
-                  <button
-                    key={topic}
-                    onClick={() => toggleTopic(topic)}
+                  <span
                     className={cx(
-                      'w-full text-left p-3 rounded-xl text-xs font-bold transition-all border flex items-center gap-3',
-                      TAP,
-                      isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                        : 'bg-transparent text-slate-500 dark:text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800',
+                      'w-4 h-4 shrink-0 rounded border',
+                      on ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600',
                     )}
-                  >
-                    <span
-                      className={cx(
-                        'w-4 h-4 shrink-0 rounded border flex items-center justify-center',
-                        isSelected ? 'border-white bg-white/20' : 'border-slate-300 dark:border-slate-600',
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 size={10} className="text-white" />}
-                    </span>
-                    {/* Dos líneas y sin truncar: el enunciado del tema es lo
-                        único que le dice al alumno qué está eligiendo. */}
-                    <span className="line-clamp-2 leading-snug">{topic}</span>
-                  </button>
-                );
-              })
-            )}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-black text-slate-900 dark:text-white">{b.nombre}</span>
+                    <span className={cx(TEXT.muted, 'block')}>{b.temas.length} {b.temas.length === 1 ? 'tema' : 'temas'}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {alcance === 'todo' && (
+          <p className={cx(TEXT.muted)}>
+            {todosLosTemas.length} temas del temario. {esEntreno
+              ? 'El sistema reparte por lo que más te conviene.'
+              : 'El simulacro reparte las preguntas como la convocatoria.'}
+          </p>
+        )}
+      </Card>
+
+      {/* DIFICULTAD — solo simulacro (en entrenamiento la decide el método). */}
+      {settings.mode === 'exam' && (
+        <Card>
+          <SectionLabel icon={<AlertTriangle size={14} />}>Dificultad</SectionLabel>
+          <div className="grid grid-cols-3 gap-2">
+            {DIFICULTADES.map((d) => {
+              const activa = settings.difficulty === d.id;
+              const color =
+                d.id === 'hard'
+                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                  : d.id === 'medium'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => setSettings({ ...settings, difficulty: d.id })}
+                  aria-pressed={activa}
+                  className={cx(
+                    'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
+                    TAP,
+                    activa ? color : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                  )}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
           </div>
         </Card>
+      )}
 
-        {/* PARÁMETROS */}
-        <div className="md:col-span-7 space-y-4 sm:space-y-6">
+      {/* PREGUNTAS */}
+      <Card>
+        <SectionLabel
+          icon={<Clock size={14} />}
+          aside={
+            <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">
+              {settings.questionCount}
+            </span>
+          }
+        >
+          Preguntas
+        </SectionLabel>
 
-          <Card>
-            <SectionLabel icon={<Layers size={14} />}>Modo de operación</SectionLabel>
-            {/* `OptionGroup` apila en móvil por definición. Es donde estaba el
-                fallo: con dos columnas fijas, "ENTRENAMIENTO" en mayúsculas y
-                negrita se quedaba con ~110px y tocaba el borde de su caja. */}
-            <OptionGroup cols={2}>
-              <OptionCard
-                title="Entrenamiento"
-                description="Repasa lo que fallas, consolida lo aprendido e introduce lo nuevo con medida. Corrección inmediata, sin reloj."
-                selected={settings.mode === 'practice'}
-                onClick={() => setSettings({ ...settings, mode: 'practice' })}
-              />
-              <OptionCard
-                title="Simulacro real"
-                description="Sin feedback. Cronómetro activo. Penalización de la convocatoria."
-                selected={settings.mode === 'exam'}
-                onClick={() => setSettings({ ...settings, mode: 'exam' })}
-              />
-            </OptionGroup>
-          </Card>
-
-          {/* LA DIFICULTAD SOLO SE ELIGE EN EL SIMULACRO.
-              En entrenamiento la decide el sistema: la sesión se arma con lo
-              que te toca repasar y con material nuevo en la medida justa, y
-              dejar que el alumno fuerce «extrema» rompe justo eso. En el
-              simulacro sí es una decisión suya: es él quien decide cómo de duro
-              quiere el ensayo. */}
-          {settings.mode === 'exam' && (
-          <Card>
-            <SectionLabel icon={<AlertTriangle size={14} />}>Dificultad</SectionLabel>
-            {/* Antes eran tres botones apilados dentro de media tarjeta: 150px
-                de alto para elegir entre tres palabras. En fila ocupan 44. */}
+        {settings.mode === 'exam' ? (
+          <>
             <div className="grid grid-cols-3 gap-2">
-              {DIFICULTADES.map(d => {
-                const activa = settings.difficulty === d.id;
-                const color =
-                  d.id === 'hard'
-                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                    : d.id === 'medium'
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-                return (
-                  <button
-                    key={d.id}
-                    onClick={() => setSettings({ ...settings, difficulty: d.id })}
-                    aria-pressed={activa}
-                    className={cx(
-                      'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
-                      TAP,
-                      activa ? color : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
-                    )}
-                  >
-                    {d.label}
-                  </button>
-                );
-              })}
+              {PRESETS_SIMULACRO.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setSettings({ ...settings, questionCount: n })}
+                  aria-pressed={settings.questionCount === n}
+                  className={cx(
+                    'rounded-xl text-sm font-black tabular-nums transition-colors',
+                    TAP,
+                    settings.questionCount === n
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
             </div>
-          </Card>
-          )}
-
-          <Card>
-            <SectionLabel
-              icon={<Clock size={14} />}
-              aside={
-                <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">
-                  {settings.questionCount}
-                </span>
-              }
-            >
-              Preguntas
-            </SectionLabel>
+            <p className={cx(TEXT.muted, 'mt-3')}>
+              {Math.round((settings.questionCount * 30) / 60)} min de reloj: 30 s por pregunta, el ritmo del BOE.
+              El de 100 es el examen real.
+            </p>
+          </>
+        ) : (
+          <>
             <input
               type="range"
-              min="1"
-              max="50"
+              min={3}
+              max={40}
               value={settings.questionCount}
               onChange={(e) => setSettings({ ...settings, questionCount: parseInt(e.target.value) })}
               aria-label="Número de preguntas"
-              /* La barra se ve de 8px, pero lo que hay que ACERTAR con el dedo
-                 es el control entero: `py-4` le da 44px de alto real sin
-                 engordar la linea, y `touch-action: none` evita que arrastrar
-                 el mando desplace la pagina en vez de mover el numero — en un
-                 movil, con la barra a 8px, eso pasaba casi siempre. */
               style={{ touchAction: 'none' }}
               className="w-full h-2 box-content py-4 bg-slate-200 dark:bg-slate-800 bg-clip-content rounded-lg appearance-none cursor-pointer accent-indigo-600"
             />
-            {settings.mode === 'exam' && (
-              <p className={cx(TEXT.muted, 'mt-3')}>
-                Son {Math.round((settings.questionCount * 30) / 60)} min de reloj: 30 segundos por
-                pregunta, el ritmo de la convocatoria.
+            {propuesta !== null && (
+              <p className={cx(TEXT.muted, 'mt-1')}>
+                Hoy te tocan <strong className="text-slate-900 dark:text-white">{propuesta}</strong>.
+                {propuesta !== settings.questionCount && (
+                  <button
+                    onClick={() => setSettings({ ...settings, questionCount: propuesta })}
+                    className="ml-2 text-indigo-600 dark:text-indigo-400 font-bold underline"
+                  >
+                    usar {propuesta}
+                  </button>
+                )}
               </p>
             )}
-          </Card>
+          </>
+        )}
+      </Card>
 
-          <Button
-            block
-            size="lg"
-            disabled={sinTema}
-            onClick={() => onStart(settings)}
-            iconRight={<Crosshair size={20} />}
-          >
-            {sinTema ? 'Selecciona un tema' : 'Iniciar operación'}
-          </Button>
-        </div>
-      </div>
+      <Button
+        block
+        size="lg"
+        disabled={sinTema}
+        onClick={() => onStart({ ...settings, selectedTopics: temasSeleccionados })}
+        iconRight={<Crosshair size={20} />}
+      >
+        {sinTema
+          ? (alcance === 'bloques' ? 'Elige un bloque' : 'Elige un tema')
+          : esEntreno ? 'Empezar entrenamiento' : 'Empezar simulacro'}
+      </Button>
     </div>
   );
 }

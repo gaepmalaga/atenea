@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { saveExamResults, getQuestionsFromBank, getAdaptiveSession } from '@/actions';
+import { saveExamResults, getAdaptiveSession, getSimulacro } from '@/actions';
 import type { AdaptiveSession } from '@/app/actions/exams';
 import { buildExamResults } from '@/app/lib/exam-results';
 import {
   type Question as ExamQuestion,
   difficultyToNumber,
-  shuffle,
-  mapBankRowToQuestion,
 } from '@/app/lib/questions';
 import {
   leerExamenGuardado,
@@ -112,24 +110,22 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
       }
 
       const targetCount = newSettings.questionCount;
-      const difficultyNum = difficultyToNumber(newSettings.difficulty);
 
       let loadedQuestions: ExamQuestion[] = [];
       setSesionAdaptativa(null);
 
       if (newSettings.mode === 'practice') {
-        // ENTRENAMIENTO: una sola llamada. El servidor decide si reparte por
-        // repetición espaciada (P10) o al azar, según el interruptor.
+        // ENTRENAMIENTO: una sola llamada. Sin dificultad — la decide el método.
+        // El servidor reparte por repetición espaciada (P10) o al azar, según el
+        // interruptor.
         const res = await getAdaptiveSession({
           topics: newSettings.selectedTopics,
           limit: targetCount,
-          difficulty: difficultyNum,
         });
         if (!res.success) throw new Error(res.error);
         loadedQuestions = res.data.questions;
         setSesionAdaptativa(res.data.adaptativo ? res.data : null);
 
-        // Sesión vacía: dos motivos distintos, dos mensajes distintos.
         if (loadedQuestions.length === 0) {
           throw new Error(
             res.data.motivoCorto === 'repaso'
@@ -138,24 +134,18 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
           );
         }
       } else {
-        // SIMULACRO: se queda como estaba — banco por tema, barajado, sin adaptar.
-        const perTopic = Math.max(1, Math.ceil(targetCount / newSettings.selectedTopics.length));
-        const bankFetches = await Promise.all(
-          newSettings.selectedTopics.map(async (topic) => ({
-            topic,
-            resultado: await getQuestionsFromBank({ topic, difficulty: difficultyNum, limit: perTopic }),
-          }))
-        );
-        loadedQuestions = bankFetches.flatMap(({ topic, resultado }) =>
-          resultado.success ? resultado.data.map((fila) => ({ ...mapBankRowToQuestion(fila), topic })) : []
-        );
-        const seenIds = new Set();
-        loadedQuestions = loadedQuestions.filter((q) => {
-          if (seenIds.has(q.id)) return false;
-          seenIds.add(q.id);
-          return true;
+        // SIMULACRO: una sola llamada. Representativo, no aleatorio: reparto por
+        // temas, sin repetir lo reciente, mezcla de dificultad fija.
+        const res = await getSimulacro({
+          topics: newSettings.selectedTopics,
+          limit: targetCount,
+          difficulty: difficultyToNumber(newSettings.difficulty),
         });
-        loadedQuestions = shuffle(loadedQuestions).slice(0, targetCount);
+        if (!res.success) throw new Error(res.error);
+        loadedQuestions = res.data.questions;
+        if (loadedQuestions.length === 0) {
+          throw new Error('No hay preguntas en el banco para los temas elegidos. Avisa a tu academia para que las añada.');
+        }
       }
 
       // 2. SI EL BANCO NO LLEGA, SE DICE. NO SE GENERA.
@@ -320,7 +310,15 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
         />
       )}
 
-      {step === 'results' && <ExamResults questions={questions} onRetry={() => setStep('config')} onRepasarFallos={onRepasarFallos} sesion={settings.mode === 'practice' ? sesionAdaptativa : null} />}
+      {step === 'results' && (
+        <ExamResults
+          questions={questions}
+          mode={settings.mode}
+          onRetry={() => setStep('config')}
+          onRepasarFallos={onRepasarFallos}
+          sesion={settings.mode === 'practice' ? sesionAdaptativa : null}
+        />
+      )}
     </div>
   );
 }

@@ -226,11 +226,18 @@ describe('la pantalla del test no le pide nada mas al alumno', () => {
 
   it('la configuracion solo ofrece los dos modos, sin ajustes de fricción', () => {
     expect(config).not.toContain('marcarConfianza');
-    expect(config).toContain("mode: 'practice'");
-    expect(config).toContain("mode: 'exam'");
+    expect(config).not.toContain('confidence');
+    expect(config).toContain("setModo('practice')");
+    expect(config).toContain("setModo('exam')");
   });
 
   it('la dificultad solo se elige en el simulacro: en entrenamiento decide el sistema', () => {
-    expect(config).toContain("{settings.mode === 'exam' && (");
+    // El bloque de dificultad va tras `settings.mode === 'exam'`.
+    expect(config).toMatch(/settings\.mode === 'exam'[\s\S]{0,120}Dificultad/);
+  });
+
+  it('el simulacro tiene presets cerrados, no un número libre', () => {
+    // Dos simulacros solo son comparables si tienen el mismo tamaño.
+    expect(config).toContain('PRESETS_SIMULACRO');
   });
 });

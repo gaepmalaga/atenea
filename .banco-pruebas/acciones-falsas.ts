@@ -106,9 +106,28 @@ export async function getStudentTopics() { return ok({ topics: TEMAS }); }
 export async function getStudentSubjects() {
   return ok({ subjects: TEMAS.map((t, i) => ({ id: i + 1, title: t })) });
 }
+export async function getStudentSyllabus() {
+  return ok({
+    bloques: [
+      { id: 1, nombre: 'Bloque I · Ciencias Jurídicas', temas: TEMAS.slice(0, 3) },
+      { id: 2, nombre: 'Bloque II · Materias Sociales', temas: TEMAS.slice(3) },
+    ],
+  });
+}
+export async function getRecuentoEntrenamiento() {
+  return ok({ propuestas: 14, disponibles: 60 });
+}
 
 export async function getQuestionsFromBank({ limit = 5 }: { topic: string; difficulty: number; limit: number }) {
   return ok({ data: Array.from({ length: limit }, (_, i) => pregunta(i)) });
+}
+export async function getSimulacro({ limit = 25 }: { topics: string[]; limit: number; difficulty: number }) {
+  return ok({
+    data: {
+      questions: Array.from({ length: limit }, (_, i) => ({ ...pregunta(i), topic: TEMAS[i % TEMAS.length] })),
+      corto: false,
+    },
+  });
 }
 
 export async function generateAndSaveCandidate() {

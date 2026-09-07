@@ -23,8 +23,9 @@ import {
 import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 import { buildQuestionPrompt } from '../lib/question-prompt';
 import { adaptativoEncendido } from '../lib/training-switch-guard';
-import { computeQuestionStates, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
+import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
 import { buildSmartSession, type ResumenSesion } from '../lib/smart-session';
+import { planExamen } from '../lib/exam-blueprint';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -595,6 +596,135 @@ export async function getAdaptiveSession(params: {
       atascadasTotales: sesion.atascadasTotales,
     },
   };
+}
+
+const DIAS_SIN_REPETIR_SIMULACRO = 7;
+
+/**
+ * EL SIMULACRO REPRESENTATIVO (no adaptativo).
+ *
+ * Reparte por temas, evita lo contestado en los últimos días y usa una mezcla
+ * de dificultad FIJA por nivel — para que dos simulacros del mismo nivel sean
+ * comparables (`app/lib/exam-blueprint.ts`). Una sola llamada, como
+ * `getAdaptiveSession`.
+ */
+export async function getSimulacro(params: {
+  topics: string[];
+  limit: number;
+  difficulty: number;
+}): Promise<{ success: true; data: { questions: Question[]; corto: boolean } } | { success: false; error: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const modulo = await requireModule('test');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const topics = (params.topics ?? []).map((t) => String(t).trim()).filter(Boolean);
+  if (!topics.length) return { success: false as const, error: 'Selecciona al menos un tema.' };
+  const limit = Math.max(1, Math.min(100, Math.floor(params.limit)));
+  const nivel: 'easy' | 'medium' | 'hard' = params.difficulty === 1 ? 'easy' : params.difficulty === 3 ? 'hard' : 'medium';
+
+  const { data: temasDb } = await supabase.from('subjects').select('id, title');
+  const tituloPorId = new Map<number, string>();
+  const idPorTitulo = new Map<string, number>();
+  for (const s of ((temasDb ?? []) as { id: number; title: string }[])) {
+    tituloPorId.set(s.id, s.title);
+    idPorTitulo.set(s.title.trim().toLowerCase(), s.id);
+  }
+  const ids = topics.map((t) => idPorTitulo.get(t.toLowerCase())).filter((n): n is number => Number.isFinite(n));
+  if (!ids.length) return { success: false as const, error: 'Esos temas no existen.' };
+
+  const { data: banco, error: bancoError } = await supabase
+    .from('question_bank')
+    .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, difficulty_level')
+    .in('subject_id', ids)
+    .eq('status', QUESTION_STATUS.ACTIVE);
+  if (bancoError) return { success: false as const, error: bancoError.message };
+
+  const filas = (banco ?? []) as (BankRow & { difficulty_level?: number | null })[];
+  if (!filas.length) {
+    return { success: true as const, data: { questions: [], corto: true } };
+  }
+  const filaPorId = new Map(filas.map((f) => [f.id, f]));
+  const temaDeFila = (f: BankRow) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
+
+  // Lo contestado en los últimos días, para no repetirlo (con la sesión: son sus
+  // respuestas y no hay join).
+  const desde = new Date(Date.now() - DIAS_SIN_REPETIR_SIMULACRO * 86_400_000).toISOString();
+  const db = await createSupabaseServerClient();
+  const { data: recientesData } = await db
+    .from('question_attempts')
+    .select('question_id')
+    .eq('user_id', auth.user.id)
+    .gte('created_at', desde);
+  const recientes = new Set(((recientesData ?? []) as { question_id: string | null }[]).map((r) => r.question_id).filter((x): x is string => !!x));
+
+  const plan = planExamen({
+    disponibles: filas.map((f) => ({
+      questionId: f.id,
+      topic: temaDeFila(f),
+      difficultyLevel: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
+      legalReference: f.legal_reference ?? null,
+    })),
+    limit,
+    dificultad: nivel,
+    recientes,
+  });
+
+  const questions = plan.questionIds
+    .map((id) => filaPorId.get(id))
+    .filter((f): f is BankRow => !!f)
+    .map((f) => ({ ...mapBankRowToQuestion(f), topic: temaDeFila(f) }));
+
+  return { success: true as const, data: { questions, corto: plan.corto || questions.length < limit } };
+}
+
+/**
+ * Cuántas preguntas le TOCAN hoy al alumno en estos temas: las nuevas más las
+ * que tienen el repaso vencido. Es el número que la pantalla de configuración
+ * propone ya puesto en el entrenamiento («Hoy te tocan N»). Barato: solo cuenta.
+ */
+export async function getRecuentoEntrenamiento(topics: string[]): Promise<
+  { success: true; propuestas: number; disponibles: number } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const clean = (topics ?? []).map((t) => String(t).trim()).filter(Boolean);
+  if (!clean.length) return { success: true as const, propuestas: 0, disponibles: 0 };
+
+  const { data: temasDb } = await supabase.from('subjects').select('id, title');
+  const idPorTitulo = new Map(
+    ((temasDb ?? []) as { id: number; title: string }[]).map((s) => [s.title.trim().toLowerCase(), s.id]),
+  );
+  const ids = clean.map((t) => idPorTitulo.get(t.toLowerCase())).filter((n): n is number => Number.isFinite(n));
+  if (!ids.length) return { success: true as const, propuestas: 0, disponibles: 0 };
+
+  const { data: banco } = await supabase
+    .from('question_bank').select('id').in('subject_id', ids).eq('status', QUESTION_STATUS.ACTIVE);
+  const bankIds = new Set(((banco ?? []) as { id: string }[]).map((r) => r.id));
+  const disponibles = bankIds.size;
+  if (!disponibles) return { success: true as const, propuestas: 0, disponibles: 0 };
+
+  const db = await createSupabaseServerClient();
+  const { data: intentos } = await db
+    .from('question_attempts')
+    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
+    .eq('user_id', auth.user.id)
+    .order('created_at', { ascending: true })
+    .limit(MAX_INTENTOS_SCHEDULER);
+
+  const states = computeQuestionStates((intentos ?? []) as IntentoPregunta[]);
+  const now = new Date();
+  let tocan = 0;
+  for (const id of bankIds) {
+    const s = states.get(id);
+    if (!s || s.box === 0 || estaVencida(s, now)) tocan++;
+  }
+  // Propuesta razonable: lo que toca, entre 1 y 25, sin pasar de lo disponible.
+  // Si no toca nada (todo en su intervalo de descanso), se propone un repaso corto.
+  const propuestas = Math.max(1, Math.min(25, Math.min(tocan || 8, disponibles)));
+  return { success: true as const, propuestas, disponibles };
 }
 
 /**

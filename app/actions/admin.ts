@@ -6,7 +6,7 @@ import type { DocumentChunkRow } from '../lib/documents';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraAccion } from '../lib/admin-audit';
-import { isQuestionStatus, type QuestionStatus } from '../lib/questions';
+import { isQuestionStatus, QUESTION_STATUS, type QuestionStatus } from '../lib/questions';
 import type { ActivityRow } from '../lib/stats';
 
 // --- TIPOS DEL TEMARIO ---
@@ -461,6 +461,46 @@ export async function getStudentTopics() {
     } catch (e) {
         return { success: false, topics: [] as string[], error: errorMessage(e) };
     }
+}
+
+/**
+ * El temario agrupado por BLOQUES, para el selector de alcance del test
+ * (1 tema / varios bloques / todo). Solo bloques y temas que tienen preguntas
+ * ACTIVAS en el banco: elegir un tema sin preguntas es una promesa que no se
+ * puede cumplir (distinto de `getStudentTopics`, que filtra por documento
+ * indexado — para el chat, no para el test).
+ */
+export async function getStudentSyllabus(): Promise<
+  | { success: true; bloques: { id: number; nombre: string; temas: string[] }[] }
+  | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const [bloquesRes, bancoRes] = await Promise.all([
+    supabase.from('blocks').select('id, name, subjects(id, title, topic_number)').order('id', { ascending: true }),
+    supabase.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
+  ]);
+  if (bloquesRes.error) {
+    console.error('getStudentSyllabus:', bloquesRes.error.message);
+    return { success: false as const, error: bloquesRes.error.message };
+  }
+
+  const conBanco = new Set((bancoRes.data ?? []).map((r) => r.subject_id as number));
+  type FilaBloque = { id: number; name: string; subjects: { id: number; title: string; topic_number: number }[] | null };
+
+  const bloques = ((bloquesRes.data as unknown as FilaBloque[]) ?? [])
+    .map((b) => ({
+      id: b.id,
+      nombre: b.name,
+      temas: (b.subjects ?? [])
+        .filter((s) => conBanco.has(s.id))
+        .sort((a, z) => a.topic_number - z.topic_number)
+        .map((s) => s.title),
+    }))
+    .filter((b) => b.temas.length > 0);
+
+  return { success: true as const, bloques };
 }
 
 /**
