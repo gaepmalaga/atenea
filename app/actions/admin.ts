@@ -470,8 +470,11 @@ export async function getStudentTopics() {
  * puede cumplir (distinto de `getStudentTopics`, que filtra por documento
  * indexado — para el chat, no para el test).
  */
+/** Un tema en el selector de alcance: su número de temario y su título. */
+export type TemaAlcance = { numero: number; titulo: string };
+
 export async function getStudentSyllabus(): Promise<
-  | { success: true; bloques: { id: number; nombre: string; temas: string[] }[] }
+  | { success: true; bloques: { id: number; nombre: string; temas: TemaAlcance[] }[] }
   | { success: false; error: string }
 > {
   const auth = await requireUser();
@@ -496,7 +499,7 @@ export async function getStudentSyllabus(): Promise<
       temas: (b.subjects ?? [])
         .filter((s) => conBanco.has(s.id))
         .sort((a, z) => a.topic_number - z.topic_number)
-        .map((s) => s.title),
+        .map((s) => ({ numero: s.topic_number, titulo: s.title })),
     }))
     .filter((b) => b.temas.length > 0);
 

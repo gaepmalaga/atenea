@@ -107,10 +107,11 @@ export async function getStudentSubjects() {
   return ok({ subjects: TEMAS.map((t, i) => ({ id: i + 1, title: t })) });
 }
 export async function getStudentSyllabus() {
+  const tema = (t: string, i: number) => ({ numero: i + 1, titulo: t });
   return ok({
     bloques: [
-      { id: 1, nombre: 'Bloque I · Ciencias Jurídicas', temas: TEMAS.slice(0, 3) },
-      { id: 2, nombre: 'Bloque II · Materias Sociales', temas: TEMAS.slice(3) },
+      { id: 1, nombre: 'Bloque I · Ciencias Jurídicas', temas: TEMAS.slice(0, 3).map(tema) },
+      { id: 2, nombre: 'Bloque II · Materias Sociales', temas: TEMAS.slice(3).map((t, i) => tema(t, i + 3)) },
     ],
   });
 }
@@ -205,6 +206,14 @@ export async function getPhysicalProfile() {
 }
 export async function savePhysicalProfile() { return { success: true as const }; }
 export async function getActiveTrainingPlan() { return ok({ plan: PLAN }); }
+export async function getStudentGroupWeeks() {
+  return ok({
+    semanas: [
+      { weekStart: '2026-08-31', plan: PLAN.plan_data },
+      { weekStart: '2026-09-07', plan: PLAN.plan_data },
+    ],
+  });
+}
 export async function generateWeeklyPlan() { return ok({ data: null }); }
 export async function generateNextWeek() { return ok({ plan: PLAN }); }
 export async function completeTrainingDay() { return { success: true as const }; }

@@ -7,6 +7,7 @@ import {
     savePhysicalProfile,
     generateWeeklyPlan,
     getActiveTrainingPlan,
+    getStudentGroupWeeks,
     generateNextWeek,
     completeTrainingDay,
     getTrainingHistory,
@@ -18,7 +19,7 @@ import SetupWizard from './components/SetupWizard';
 import AssessmentHub from './components/AssessmentHub';
 import TestRunner from './components/TestRunner';
 import TrainingDashboard from './components/TrainingDashboard';
-import CalendarioEntrenamiento from './components/CalendarioEntrenamiento';
+import CalendarioEntrenamiento, { type SemanaCalendario } from './components/CalendarioEntrenamiento';
 import ActiveSession from './components/ActiveSession';
 import { hasBiometrics, type BaselineMetrics, type PhysicalProfile, type TestId } from '@/app/lib/physical';
 import type { TrainingDay, WeeklyPlan, SemanaHistorial } from '@/app/lib/training-plan';
@@ -41,6 +42,12 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // ESTADOS DEL PLAN
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null); // ID real de la base de datos para guardar progresos
+  // El lunes de la semana del plan activo, para pintar las fechas en el
+  // calendario de quien tiene preparador. `null` en filas antiguas.
+  const [planWeekStart, setPlanWeekStart] = useState<string | null>(null);
+  // Todas las semanas del plan de GRUPO (past + vigente), para poder mirar atrás
+  // en el calendario. Vacío si no está en un grupo de físicas.
+  const [semanasGrupo, setSemanasGrupo] = useState<SemanaCalendario[]>([]);
   // Interruptores de la academia: si la IA está apagada, no se ofrece «generar».
   const [aiOn, setAiOn] = useState(true);
   // Historial de sesiones (§2.11), semana a semana. Sin datos = no se pinta.
@@ -70,15 +77,17 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   useEffect(() => {
     async function init() {
         try {
-            const [profileRes, planRes, switchesRes, histRes] = await Promise.all([
+            const [profileRes, planRes, switchesRes, histRes, semanasRes] = await Promise.all([
                  getPhysicalProfile(),
                  getActiveTrainingPlan(),
                  getTrainingSwitches(),
-                 getTrainingHistory()
+                 getTrainingHistory(),
+                 getStudentGroupWeeks()
             ]);
 
             if (switchesRes.success) setAiOn(switchesRes.switches.ai);
             if (histRes.success) setHistorial(histRes.semanas);
+            if (semanasRes.success) setSemanasGrupo(semanasRes.semanas);
 
             const profileData = profileRes.data;
             const activePlanRow = planRes.plan; // El objeto completo de la BD (con id, plan_data, etc.)
@@ -91,6 +100,12 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             if (activePlanRow) {
                 setWeeklyPlan(activePlanRow.plan_data);
                 setActivePlanId(activePlanRow.id); // ¡CRÍTICO! Guardamos el ID para poder actualizarlo luego
+                setPlanWeekStart(activePlanRow.weekStart);
+                setView('dashboard');
+            } else if (semanasRes.success && semanasRes.semanas.length > 0) {
+                // Está en un grupo de físicas pero getActiveTrainingPlan no
+                // devolvió nada (p. ej. group_training un plan de grupo con el
+                // interruptor recién encendido): el calendario tira de semanasGrupo.
                 setView('dashboard');
             } else if (!hasBiometrics(profileData)) {
                 setView('setup');
@@ -237,9 +252,17 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // alumno de plan manual al que su preparador todavía no le ha subido la
   // semana caía en el test de Cooper, que no le sirve de nada.
   if (modoManual) {
+      // El plan de GRUPO trae todas sus semanas (para mirar atrás). El
+      // individual es una sola: la que haya activa.
+      const semanas: SemanaCalendario[] =
+          esPlanDeGrupo && semanasGrupo.length > 0
+              ? semanasGrupo
+              : weeklyPlan
+                  ? [{ weekStart: planWeekStart ?? new Date().toISOString(), plan: weeklyPlan }]
+                  : [];
       return (
           <CalendarioEntrenamiento
-            plan={weeklyPlan}
+            semanas={semanas}
             origen={esPlanDeGrupo ? 'grupo' : 'individual'}
           />
       );

@@ -4,14 +4,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ChevronRight, CheckCircle2, XCircle,
   ArrowLeft, Clock, Layers,
-  ThumbsUp, ThumbsDown, Flag, Send, Bookmark, Eraser,
+  Flag, Send, Bookmark, Eraser,
   Scale, LayoutGrid
 } from 'lucide-react';
 import { Modal, Button, TextAreaField } from '../../../ui';
 import { formatTime } from '@/app/lib/timer';
 import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
-import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
+import { saveTestResult, setResultErrorType, reportQuestion } from '@/actions';
 import { countChange } from '@/app/lib/exam-results';
 import { mereceLaPenaPreguntar } from '@/app/lib/answer-signals';
 import QuestionNote from '../../QuestionNote';
@@ -190,8 +190,7 @@ export default function ActiveTest({
   const reloj = examClock(durationSeconds, segundosTest);
   const conLimite = durationSeconds > 0;
 
-  // Estados para Votos y Reportes
-  const [votes, setVotes] = useState<Record<string, 'up' | 'down' | null>>({});
+  // Estado del modal de aviso ("algo está mal en esta pregunta").
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportData, setReportData] = useState({ type: '', message: '' });
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
@@ -239,14 +238,15 @@ export default function ActiveTest({
     // una vez, antes de nada.
     marcarPrimerToque(currentIndex);
 
-    // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
-    // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
-    // no cambios, y la primera respuesta ya valía 1.
+    // Cambiar de opción SOLO existe en el simulacro: ahí la respuesta no se
+    // cierra hasta entregar, así que el alumno puede volver y cambiarla, y cada
+    // cambio real (a una opción DISTINTA, no la primera marca) es materia prima
+    // de la «firmeza» que usa el planificador.
     //
-    // ESTE CONTADOR ES AHORA MATERIA PRIMA DEL MÉTODO, no una curiosidad: de él
-    // sale la «firmeza» con la que el planificador decide si un acierto cuenta
-    // como dominio o solo como haber salido del paso.
-    if (countChange(currentQ.userAnswer, optionId)) {
+    // En ENTRENAMIENTO no hay nada que contar: el primer toque cierra la
+    // pregunta y la corrige. Por eso `option_changes` siempre es 0 en las filas
+    // de entrenamiento — no es un fallo, es que ahí ese gesto no se puede hacer.
+    if (mode === 'exam' && countChange(currentQ.userAnswer, optionId)) {
         const m = metricasDe(currentIndex);
         metricasRef.current.set(currentIndex, { ...m, cambios: m.cambios + 1 });
     }
@@ -305,24 +305,6 @@ export default function ActiveTest({
     const res = await setResultErrorType(resultId, tipo);
     if (!res.success) console.error('No se pudo corregir el diagnóstico:', res.error);
   }, [aplicarRespuestas, currentIndex, localQuestions]);
-
-  // --- MANEJO DE VOTOS ---
-  const handleVote = async (vote: 'up' | 'down') => {
-    // Sin id no hay fila que votar: es una pregunta generada en vivo que no
-    // llegó a guardarse. La variable local además deja claro al compilador que
-    // ya está comprobado.
-    const questionId = currentQ.id;
-    if (!questionId) return;
-
-    const currentVote = votes[questionId];
-    const newVote = currentVote === vote ? null : vote;
-    setVotes(prev => ({ ...prev, [questionId]: newVote }));
-
-    await voteQuestion({
-      questionId,
-      vote: vote === 'up' ? 1 : -1
-    });
-  };
 
   // --- MANEJO DE REPORTES ---
   const submitReport = async () => {
@@ -715,27 +697,29 @@ export default function ActiveTest({
                       </button>
                   )}
 
-                  {/* CUENTA ATRAS, no cuenta adelante.
+                  {/* CUENTA ATRAS, no cuenta adelante, y SOLO en el simulacro.
                       El simulacro decia tener cronómetro pero contaba hacia
                       arriba y no terminaba nunca. La mitad de la dificultad
                       del examen real es que el tiempo se acaba: quien solo ha
                       practicado sin límite no sabe a qué ritmo va.
                       El color es el aviso — no hay pitidos, porque un examen
-                      se hace en silencio. */}
-                  <span
-                    title={conLimite
-                      ? `Quedan ${formatTime(reloj.remaining)} de ${formatTime(durationSeconds)}`
-                      : 'Sin límite de tiempo'}
-                    className={`text-[11px] font-black font-mono flex items-center gap-1.5 tabular-nums transition-colors ${
-                      !conLimite ? 'text-slate-500 dark:text-slate-500 dark:text-slate-400'
-                        : reloj.urgency === 'critical' ? 'text-red-500 animate-pulse'
-                        : reloj.urgency === 'warning' ? 'text-amber-500'
-                        : 'text-slate-500 dark:text-slate-500 dark:text-slate-400'
-                    }`}
-                  >
-                      <Clock size={13} className={conLimite && reloj.urgency !== 'calm' ? '' : 'text-slate-500 dark:text-slate-400'}/>
-                      {conLimite ? formatTime(reloj.remaining) : formatTime(segundosTest)}
-                  </span>
+                      se hace en silencio.
+                      En ENTRENAMIENTO no se pinta nada: no hay reloj (regla 59),
+                      y un contador subiendo mientras el alumno lee con calma solo
+                      mete prisa donde no toca. */}
+                  {conLimite && (
+                    <span
+                      title={`Quedan ${formatTime(reloj.remaining)} de ${formatTime(durationSeconds)}`}
+                      className={`text-[11px] font-black font-mono flex items-center gap-1.5 tabular-nums transition-colors ${
+                        reloj.urgency === 'critical' ? 'text-red-500 animate-pulse'
+                          : reloj.urgency === 'warning' ? 'text-amber-500'
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                        <Clock size={13} className={reloj.urgency !== 'calm' ? '' : 'text-slate-500 dark:text-slate-400'}/>
+                        {formatTime(reloj.remaining)}
+                    </span>
+                  )}
                   <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono tabular-nums">
                       {currentIndex + 1}<span className="text-slate-500 dark:text-slate-400">/{localQuestions.length}</span>
                   </span>
@@ -870,30 +854,19 @@ export default function ActiveTest({
           {/* Marca de agua decorativa */}
           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
 
-          {/* TOOLBAR DE CALIDAD */}
-          {/* Solo si la pregunta tiene fila en la base de datos: sin id, votar o
-              reportar no puede llegar a ninguna parte, y unos botones que no
-              hacen nada son peores que no tenerlos. */}
-          {currentQ.id && (
-            <div className="absolute top-6 right-6 flex items-center gap-2 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
-              {/* 44px: eran de 34 y son los tres botones mas pequeños que
-                  tiene el alumno delante mientras hace el examen. */}
-              <button aria-label="Buena pregunta" onClick={() => handleVote('up')} className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${votes[currentQ.id] === 'up' ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-300 hover:text-emerald-500'}`}><ThumbsUp size={18} /></button>
-              <button aria-label="Mala pregunta" onClick={() => handleVote('down')} className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${votes[currentQ.id] === 'down' ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100 text-slate-300 hover:text-red-500'}`}><ThumbsDown size={18} /></button>
-              <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
-              <button aria-label="Reportar la pregunta" onClick={() => setIsReportModalOpen(true)} className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Flag size={18} /></button>
-            </div>
-          )}
+          {/* CABECERA DE LA TARJETA: de dónde sale la pregunta y, a la derecha,
+              avisar de que algo está mal.
 
-          {/* Etiqueta de Origen
+              Antes los pulgares «buena/mala pregunta» y la bandera flotaban en
+              `absolute top-6 right-6` ENCIMA de la etiqueta de origen: en el
+              móvil se tapaban y había que hacer scroll para leer «Generada por
+              IA». Y nadie —alumno incluido— sabía qué hacían los pulgares. Se
+              quitan: la calidad del banco la revisa el admin, no se vota.
 
-              Hay TRES origenes y aqui solo se distinguian dos: `origin === 'live_ai'`
-              o "todo lo demas". Como las recien generadas llegan con
-              `origin: 'candidate'`, caian en el `else` y se le presentaban al
-              alumno como "BANCO OFICIAL" — una pregunta que la IA acababa de
-              inventar y que nadie habia revisado. En una oposicion eso no es un
-              detalle: le estas diciendo que esta validada. */}
-          <div className="mb-5">
+              Queda solo «Avisar», que sí sirve: si la respuesta marcada como
+              correcta está mal, el alumno estudia un dato falso (regla 10). En
+              fila normal, sin tapar nada. */}
+          <div className="mb-5 flex items-start justify-between gap-3 relative z-10">
              {currentQ.origin === 'bank' ? (
                <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
                  📚 Banco oficial
@@ -905,6 +878,15 @@ export default function ActiveTest({
                >
                  ⚠ Generada por IA · sin revisar
                </span>
+             )}
+
+             {currentQ.id && (
+               <button
+                 onClick={() => setIsReportModalOpen(true)}
+                 className="shrink-0 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-red-500 transition-colors"
+               >
+                 <Flag size={12} /> Avisar
+               </button>
              )}
           </div>
 
@@ -1116,8 +1098,10 @@ export default function ActiveTest({
                   </button>
               )}
 
-              {/* En entrenamiento el boton solo aparece con la respuesta dada;
-                  si es un fallo, hay que etiquetarlo antes (es obligatorio). */}
+              {/* En entrenamiento el boton solo aparece con la respuesta dada.
+                  Ya no hay diagnóstico obligatorio antes de avanzar: el tipo de
+                  fallo se deduce, y la corrección —cuando se ofrece— es un toque
+                  saltable (regla 56). */}
               {(mode === 'exam' || isAnswered) ? (
                   <button
                     onClick={handleNext}
