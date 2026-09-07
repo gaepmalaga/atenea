@@ -191,7 +191,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
 
   // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
   return (
-    <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto pb-4 animate-in fade-in duration-150">
       
       {/* HEADER CON BOTÓN DE SALIDA */}
       {/* La cabecera propia SOLO cuando esta pantalla va suelta (`onExit`).

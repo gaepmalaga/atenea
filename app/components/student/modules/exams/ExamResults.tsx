@@ -40,7 +40,7 @@ function ResultadoEntrenamiento({
   const nuevas = questions.filter((q) => !q.cajon || q.cajon === 'nueva').length;
 
   return (
-    <div className="flex justify-center animate-in fade-in duration-500">
+    <div className="flex justify-center animate-in fade-in duration-150">
       <Card pad="lg" elevation="floating" className="max-w-md w-full text-center">
         <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-5">
           <Sparkles className="w-8 h-8" />
@@ -117,7 +117,7 @@ function ResultadoSimulacro({
   const correcta = q?.options.find((o) => o.id === q.correctOptionId);
 
   return (
-    <div className="max-w-2xl mx-auto animate-in fade-in duration-500 pb-4">
+    <div className="max-w-2xl mx-auto animate-in fade-in duration-150 pb-4">
       <Card pad="lg" elevation="floating" className="text-center relative overflow-hidden mb-4">
         {passed && (
           <div

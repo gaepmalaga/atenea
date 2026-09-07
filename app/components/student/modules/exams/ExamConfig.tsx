@@ -139,7 +139,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-150">
 
       {/* MODO */}
       <Card>

@@ -36,11 +36,24 @@ function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
     return e instanceof Error ? e.message : fallback;
 }
 
-export async function generateFlashcard(topicNameOrId: string | number) {
+/**
+ * Sirve la siguiente ficha del tema.
+ *
+ * `exclude` deja fuera una ficha concreta —la que el alumno tiene delante—
+ * para poder PRECARGAR la siguiente mientras lee la actual sin que el servidor
+ * devuelva la misma (una ficha vencida sigue vencida hasta que se puntúa). Sin
+ * esto, la precarga se traía la misma tarjeta y el «siguiente» no avanzaba.
+ */
+export async function generateFlashcard(
+  topicNameOrId: string | number,
+  exclude?: { dbId?: string | null; cardId?: string | null },
+) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const db = await createSupabaseServerClient();
   const userId = auth.user.id;
+  const excluirDbId = exclude?.dbId?.trim() || null;
+  const excluirCardId = exclude?.cardId?.trim() || null;
 
   const modulo = await requireModule('cards');
   if (!modulo.ok) return { success: false as const, error: modulo.error };
@@ -64,12 +77,14 @@ export async function generateFlashcard(topicNameOrId: string | number) {
 
     // `flashcard_progress` identifica el tema por `topic`, no por `subject_id`:
     // esa columna no existe en la tabla. Quien si la tiene es `flashcard_results`.
-    const { data: due } = await db.from('flashcard_progress')
+    let dueQuery = db.from('flashcard_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('topic', topicName)
-        .lte('next_review', new Date().toISOString())
-        .limit(1);
+        .lte('next_review', new Date().toISOString());
+    if (excluirDbId) dueQuery = dueQuery.neq('id', excluirDbId);
+    if (excluirCardId) dueQuery = dueQuery.neq('card_id', excluirCardId);
+    const { data: due } = await dueQuery.limit(1);
 
     if (due && due.length > 0) {
         const card = due[0];
@@ -116,13 +131,16 @@ export async function generateFlashcard(topicNameOrId: string | number) {
         .not('card_id', 'is', null);
 
     const yaVistas = (vistas ?? []).map(v => v.card_id).filter(Boolean);
+    // La ficha que el alumno tiene delante también se excluye: así la precarga
+    // trae la SIGUIENTE, no la misma.
+    const fuera = [...new Set([...yaVistas, ...(excluirCardId ? [excluirCardId] : [])])];
 
     let consulta = supabase.from('flashcard_bank')
         .select('id, front, back, topic')
         .eq('topic', topicName)
         .eq('status', 'active')
         .limit(1);
-    if (yaVistas.length > 0) consulta = consulta.not('id', 'in', `(${yaVistas.join(',')})`);
+    if (fuera.length > 0) consulta = consulta.not('id', 'in', `(${fuera.join(',')})`);
 
     const { data: nuevas, error: errorBanco } = await consulta;
     if (errorBanco) return { success: false as const, error: errorBanco.message };

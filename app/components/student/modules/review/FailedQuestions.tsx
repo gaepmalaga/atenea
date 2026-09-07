@@ -110,7 +110,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
   // ningún test.
   if (lista.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-16 sm:py-24 animate-in fade-in duration-500">
+      <div className="max-w-2xl mx-auto text-center py-16 sm:py-24 animate-in fade-in duration-150">
         <CheckCircle2 className="mx-auto text-emerald-500 mb-6" size={56} />
         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3">
           No hay nada que repasar
@@ -137,7 +137,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
 
   // El hueco para MobileNav ya lo reserva `<main>` en StudentDashboard.
   return (
-    <div className="max-w-4xl mx-auto pb-4 animate-in fade-in duration-500">
+    <div className="max-w-4xl mx-auto pb-4 animate-in fade-in duration-150">
 
       {/* Sin titulo propio: `Header` ya pone "REPASAR FALLOS · ANÁLISIS DE
           FALLOS" justo encima, y debajo iba "Tus fallos" en `text-3xl`. Lo que

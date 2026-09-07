@@ -251,8 +251,11 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             />
         )}
 
-        {/* CONTENEDOR DE MÓDULOS */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[80dvh] relative">
+        {/* CONTENEDOR DE MÓDULOS.
+            Animación CORTA: cada cambio de pestaña la reproduce entera, y medio
+            segundo de deslizamiento en cada salto se siente como que la
+            plataforma va lenta. Un fundido rápido y ya. */}
+        <div className="animate-in fade-in duration-150 min-h-[80dvh] relative">
 
             {/* Se pueden apagar los ocho, así que este estado existe de verdad
                 y hay que decirlo en vez de dejar la pantalla en blanco. */}

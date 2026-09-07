@@ -93,7 +93,7 @@ export default function CalendarioEntrenamiento({ semanas, origen }: CalendarioE
   // todavía no ha subido el de esta semana (regla 8).
   if (!actual || actual.plan.days.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-16 sm:py-24 animate-in fade-in duration-500">
+      <div className="max-w-2xl mx-auto text-center py-16 sm:py-24 animate-in fade-in duration-150">
         <Calendar className="mx-auto text-slate-400 mb-6" size={48} />
         <h2 className="text-xl font-black text-slate-900 dark:text-white mb-3">
           Aún no hay plan para esta semana
@@ -110,7 +110,7 @@ export default function CalendarioEntrenamiento({ semanas, origen }: CalendarioE
   const hayVarias = semanas.length > 1;
 
   return (
-    <div className="max-w-4xl mx-auto pb-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-4xl mx-auto pb-4 animate-in fade-in duration-150">
 
       {/* Qué se busca esta semana, y quién lo escribe. */}
       <div className="mb-4 flex items-start gap-3">
