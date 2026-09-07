@@ -64,6 +64,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **ejecutados** (5 sep) |
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
+| — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **pendiente** |
 
 ## Producción
 
@@ -85,7 +86,16 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (7 sep 2026, `node
+1. **Ejecutar SQL. UN guion pendiente** (8 sep 2026):
+   - **`convocatoria.sql`** — `academy_convocatoria` (fila única id=1: escala,
+     `fecha_examen`, nota). Política de SELECT abierta para autenticados (el
+     alumno lee la cuenta atrás en «Mi perfil»); escritura solo clave de
+     servicio detrás de `requireAdmin`. El código **degrada con gracia**
+     mientras tanto: `getConvocatoria` devuelve la convocatoria vacía y la
+     pantalla dice «tu academia aún no ha fijado la fecha». En `PENDIENTE_SQL`
+     de `schema-drift`. Quitarlo de ahí cuando `schema-snapshot.mjs` la traiga.
+
+   Guiones de fases anteriores ejecutados (7 sep 2026, `node
    scripts/schema-snapshot.mjs` — **35 tablas**):
    - **`retirar-tablas-en-desuso.sql`** (7 sep) — `DROP` de `test_results`,
      `exams`, `exam_questions`, `content_documents` (vacías, sin usar; `count(*)`
@@ -1870,10 +1880,8 @@ puede reabrir sin un motivo escrito:
   todo. `getStudentSyllabus` (`admin.ts`) alimenta el selector **solo con los
   temas que tienen banco activo** — ofrecer un tema vacío es mandar al alumno a un
   test de 0 preguntas. «Por bloques» agrupa por `blocks`, no 45 casillas sueltas.
-  El selector de «un tema» es una **hoja modal** con los bloques y el **número de
-  temario** de cada tema (`getStudentSyllabus` devuelve `{ numero, titulo }`), no
-  un `<select>` nativo: 45 opciones sin número ni bloque en el picker de Android
-  son una lista infinita.
+  El selector de «un tema» es `SelectorTema` —hoja modal con bloques y número de
+  temario— y no un `<select>` nativo (regla 62).
 - **La pantalla del test no tiene reloj en entrenamiento** (regla 59), ni votos
   de «buena/mala pregunta» (nadie sabía qué hacían y tapaban la etiqueta de
   origen en el móvil). Queda **«Avisar»** (la bandera → `reportQuestion`), que sí
@@ -1909,6 +1917,101 @@ saltable: «SIGUIENTE» está desde el primer momento.
   `smart-session` la trata como **atascada**: parar de repetir, ir al artículo.
 - **Una respuesta titubeante correcta no llega a la caja 5** (`MAX_BOX_TITUBEANTE
   = 3`): acertar dudando no es dominar.
+
+### 61 · Lo que se hace mientras el alumno lee, ya está hecho cuando pulsa
+
+Puntuar una ficha y pasar a la siguiente eran **dos viajes al servidor en fila**
+—guardar, luego pedir— con un spinner a pantalla completa entre cada tarjeta:
+~1 s por ficha en el móvil. Ahora `FlashcardDeck` **precarga la siguiente**
+mientras el alumno lee la actual (`nextRef`), así que pulsar es instantáneo
+(~150 ms). El guardado va en segundo plano y no bloquea el avance.
+
+**Guardar y precargar van EN CADENA, no a la vez.** Next serializa las Server
+Actions; lanzar `saveFlashcardProgress` y `generateFlashcard` juntas hacía que
+una **abortara** a la otra (`ERR_ABORTED` en el log), la precarga se perdía y
+cada ficha volvía a costar un viaje entero. Se encadenan en un `(async () => {…})()`.
+
+`generateFlashcard` acepta `exclude` (`{ dbId, cardId }`): sin él la precarga se
+traía **la misma ficha** —una vencida sigue vencida hasta que se puntúa—.
+
+Y de paso: la animación de cambio de módulo pasó de `duration-500` +
+deslizamiento a `duration-150` fundido. Medio segundo por salto **se siente**
+como lentitud aunque los datos ya estén.
+
+### 62 · «Repasar fallos» va por prioridad, no por lista plana
+
+Era una lista de tarjetas blancas idénticas, con la fila de badges recargada
+(tema + «N veces» + tipo, cada uno con icono y color) y un filtro de pastillas
+en mayúsculas con scroll lateral. Rediseñado:
+
+1. **Cómo fallas** — la mezcla de tipos de error en una barra fina + una frase
+   de qué hacer si hay un tipo dominante (muchas lagunas → al temario; muchas de
+   lectura → leer con calma). Se oculta entera si no hay diagnósticos —muchos
+   fallos vienen del simulacro, que no los pide.
+2. **Se te resisten** — las falladas 4+ veces (`esAtascada`), en su propio
+   bloque ámbar y arriba. Repetirlas en tests no funciona.
+3. **El resto** — filtro por tema con `SelectorTema` (la hoja modal, regla 59),
+   filas compactas (tema como antetítulo, enunciado a 2 líneas, chip del tipo).
+
+**`SelectorTema`** (`app/components/student/SelectorTema.tsx`) es el único
+selector de tema de la plataforma: test, fallos y fichas. El `<select>` nativo
+sobre 40+ temas es una lista infinita sin número ni bloque en Android.
+
+### 63 · Inicio dice «qué hago hoy»; Estadísticas dice «cómo voy». No se repiten.
+
+Los dos pintaban acierto, contestadas y las últimas 20 respuestas. Repartidos:
+
+- **Inicio** — CTA «Entrenar» arriba, con la **racha** de días seguidos
+  (`calculaRacha` en `stats.ts`, con día de gracia: si aún no has estudiado hoy
+  pero sí ayer, la racha vive). Tiles (acierto · racha · en blanco), accesos a
+  fallos y fichas, y «lo último» son **4**, no 20.
+- **Estadísticas** — el historial entero, y tres cosas que Inicio no tiene sitio
+  para dar:
+  - **¿Aprobaría?** — media de simulacros con la **nota del BOE**, mejor marca,
+    tendencia (últimos 3 vs 3 anteriores) y una mini-racha de barras.
+    `app/lib/simulacros.ts` (puro) agrupa `question_attempts` por **`exam_id`**
+    —lo pone `saveExamResults`, un uuid por simulacro; la columna existía y no la
+    escribía nadie; el entrenamiento no la usa— y saca la nota con `scoreExam`
+    (la misma función que la pantalla de resultados, así no divergen).
+  - **Dominio del temario** — los cajones P10, de protagonista, con un «%
+    dominado» global.
+  - **Cómo respondes** — firmes / normales / titubeantes, **deducido y relativo**
+    (`stats.firmeza`, vía `answer-signals`). Sustituye al «índice de
+    incertidumbre», que era el `option_changes` viejo normalizado contra un tope
+    fijo.
+  - El KPI **físico solo si `training_ai` está encendido**: con plan de un
+    preparador de verdad el alumno no mete marcas para el modelo.
+  - **Fuera**: el rango Cadete→Inspector (el % de acierto no es estar preparado),
+    «Perfil de respuesta» (Francotirador/Analista), el «ID:» y el «PROGRESO A
+    INSPECTOR». `rankFor` y compañía se quedan en `stats.ts` (tests) pero no se
+    pintan.
+
+### 64 · La convocatoria la fija el admin; el alumno ve la cuenta atrás
+
+Un opositor organiza meses alrededor de UNA fecha y la plataforma no la sabía.
+Es **nacional** (Escala Básica CNP): la pone el admin una vez en «Ajustes», no
+es un dato por alumno.
+
+- `academy_convocatoria` — fila única (id=1): escala, `fecha_examen`, nota.
+  `docs/sql/convocatoria.sql`, **pendiente**. Política de SELECT abierta (el
+  alumno la lee); escritura solo clave de servicio + `requireAdmin`.
+- `app/lib/convocatoria.ts` (puro): `diasHasta` cuenta por **días de calendario**
+  (si el examen es mañana, «falta 1 día» diga lo que diga el reloj), no por 24 h.
+- **`getConvocatoria` degrada con gracia**: si el guion no está ejecutado
+  (`could not find the table`) devuelve la convocatoria vacía + `tablaFalta`, y
+  «Mi perfil» dice «tu academia aún no ha fijado la fecha». Mismo patrón que
+  `admin_audit_log` (regla 49) e `interview_reports`.
+
+**«Mi perfil»** (módulo `profile`, nuevo en `MODULE_IDS`) reúne lo personal que
+estaba desperdigado: la convocatoria, el acceso/pago (`memberships`), los grupos,
+el correo, y el **tema** (claro/oscuro/sistema, en `localStorage`
+`atenea-tema` — `StudentDashboard` lo respeta antes que `prefers-color-scheme`).
+Todo se lee con la clave de servicio filtrando por el propio usuario (regla 34):
+`memberships` y `class_members` son de administración.
+
+La **biodata / psicotécnico / entrevista** (`interview`) sale del MVP como el
+chat (regla 58): código entero, `requireModule` sigue protegiéndolo, solo no se
+ofrece. Los datos personales que importan viven ahora en «Mi perfil».
 
 ---
 
@@ -1948,6 +2051,8 @@ tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de c
 tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
 tests/confidence.test.ts        calibración de la confianza (P10b): niveles, neto de adivinar, «sin datos» ≠ 0
 tests/exam-blueprint.test.ts    el simulacro representativo (regla 59): reparto por temas, cobertura por artículo, mezcla de dificultad fija, no repite lo reciente
+tests/simulacros.test.ts        ¿Aprobaría? (regla 63): agrupa por exam_id, nota del BOE, media/mejor/tendencia, «sin simulacros» ≠ 0
+tests/convocatoria.test.ts      la cuenta atrás (regla 64): días por calendario, formato, textos
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
