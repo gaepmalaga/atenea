@@ -70,9 +70,14 @@ export type ModuleSettings = Record<ModuleId, boolean>;
  * el tema, y para el piloto no es lo que diferencia a la plataforma — eso es el
  * entrenamiento adaptativo. Se retoma cuando el piloto lo pida.
  *
- * Para devolverlo: quitarlo de esta lista. Nada más.
+ * `interview` (8 sep 2026), también por decisión del dueño: la biodata y el
+ * psicotécnico (`BiodataManager`) y el simulacro de entrevista por voz
+ * (`InterviewRoom`) se aparcan para el piloto. Los datos personales que sí
+ * importan viven ahora en «Mi perfil». El código entero se queda.
+ *
+ * Para devolver cualquiera: quitarlo de esta lista. Nada más.
  */
-export const MODULOS_FUERA_DEL_MVP: readonly ModuleId[] = ['chat'];
+export const MODULOS_FUERA_DEL_MVP: readonly ModuleId[] = ['chat', 'interview'];
 
 /** ¿Se le ofrece hoy al alumno? Ver `MODULOS_FUERA_DEL_MVP`. */
 export function enElMvp(id: ModuleId): boolean {
