@@ -5,7 +5,7 @@ import {
   Shield, Crown, Medal, Activity, RefreshCw, HeartPulse, Brain, Zap, MousePointer2, Gauge
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getUserStats, getPhysicalProfile, getMisCajones } from '@/actions';
+import { getUserStats, getPhysicalProfile, getMisCajones, getTrainingSwitches } from '@/actions';
 import type { ResumenTema } from '@/app/lib/question-scheduler';
 import { EmptyState } from '../../../ui';
 import {
@@ -42,19 +42,25 @@ export default function StatsPanel({ user }: StatsPanelProps) {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [physProfile, setPhysProfile] = useState<PhysicalProfile | null>(null);
   const [cajones, setCajones] = useState<ResumenTema[] | null>(null);
+  // Si la academia lleva las físicas A MANO (interruptor de IA apagado), el KPI
+  // físico de aquí no pinta nada: no hay marcas que el alumno haya metido para
+  // el modelo. Por defecto `true` mientras la consulta viaja.
+  const [fisicoIA, setFisicoIA] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, physRes, cajonesRes] = await Promise.all([
+      const [statsRes, physRes, cajonesRes, switchesRes] = await Promise.all([
         getUserStats(),
         getPhysicalProfile(),
         getMisCajones(),
+        getTrainingSwitches(),
       ]);
       if (statsRes.success) setStats(statsRes.stats);
       if (physRes.success) setPhysProfile(physRes.data);
       if (cajonesRes.success) setCajones(cajonesRes.temas);
+      if (switchesRes.success) setFisicoIA(switchesRes.switches.ai);
     } catch (e) {
       console.error(e);
     } finally {
@@ -153,7 +159,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
       </div>
 
       {/* SECCIÓN 2: EL "CEREBRO" (ATENEA MIND ANALYTICS) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      <div className={`grid grid-cols-1 gap-4 sm:gap-6 ${fisicoIA ? 'md:grid-cols-2' : ''}`}>
 
           {/* INDICE DE INCERTIDUMBRE (DUDAS) */}
           <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
@@ -202,26 +208,30 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           </div>
 
 
-          {/* KPI FÍSICO RÁPIDO */}
-          <div className="bg-indigo-600 text-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                  <HeartPulse size={24}/>
-                  <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded">ESTADO FÍSICO</span>
-              </div>
-              <div>
-                  {maxPullups === null ? (
-                    <>
-                      <p className="text-2xl font-black mb-1 opacity-70">Sin datos</p>
-                      <p className="text-xs font-bold opacity-80 uppercase">Haz el test en Prep. Física</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-3xl sm:text-4xl font-black mb-1">{maxPullups}</p>
-                      <p className="text-xs font-bold opacity-80 uppercase">Dominadas Máximas</p>
-                    </>
-                  )}
-              </div>
-          </div>
+          {/* KPI FÍSICO RÁPIDO — solo si la academia genera el plan con IA. Con
+              físicas a mano (plan de un preparador) el alumno no mete marcas
+              aquí, así que este recuadro no diría nada. */}
+          {fisicoIA && (
+            <div className="bg-indigo-600 text-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                    <HeartPulse size={24}/>
+                    <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded">ESTADO FÍSICO</span>
+                </div>
+                <div>
+                    {maxPullups === null ? (
+                      <>
+                        <p className="text-2xl font-black mb-1 opacity-70">Sin datos</p>
+                        <p className="text-xs font-bold opacity-80 uppercase">Haz el test en Prep. Física</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-3xl sm:text-4xl font-black mb-1">{maxPullups}</p>
+                        <p className="text-xs font-bold opacity-80 uppercase">Dominadas Máximas</p>
+                      </>
+                    )}
+                </div>
+            </div>
+          )}
       </div>
 
 
