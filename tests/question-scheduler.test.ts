@@ -8,6 +8,7 @@ import {
   resumeCajonesPorTema,
   BOX_INTERVALS_DAYS,
   MAX_BOX,
+  MAX_BOX_TITUBEANTE,
   LAPSES_ATASCADA,
   type IntentoPregunta,
 } from '../app/lib/question-scheduler';
@@ -183,6 +184,63 @@ describe('resumeCajonesPorTema · la curva de aprendizaje', () => {
     expect(tema.nuevas).toBe(1); // c
     expect(tema.progreso).toBeGreaterThan(0);
     expect(tema.progreso).toBeLessThan(100);
+  });
+});
+
+describe('el distractor fijo: cuando falla siempre la misma opción errónea', () => {
+  const base = '2026-09-01T10:00:00Z';
+
+  it('3 fallos en la misma opción → distractorFijo', () => {
+    const s = computeQuestionStates([
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 0) },
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 3) },
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 6) },
+    ]);
+    expect(s.get('q')!.distractorFijo).toBe(1);
+  });
+
+  it('fallos repartidos por opciones distintas → null (es una laguna, no una creencia)', () => {
+    const s = computeQuestionStates([
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 0) },
+      { question_id: 'q', is_correct: false, selected_index: 2, created_at: enDias(base, 3) },
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 6) },
+    ]);
+    // 2 de 3 en la 1 → 66%, supera el 60% y el mínimo de 2: sí cuenta.
+    expect(s.get('q')!.distractorFijo).toBe(1);
+
+    const s2 = computeQuestionStates([
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 0) },
+      { question_id: 'q', is_correct: false, selected_index: 2, created_at: enDias(base, 3) },
+    ]);
+    expect(s2.get('q')!.distractorFijo).toBeNull(); // 1 y 1: ninguna domina
+  });
+
+  it('un solo fallo no es una creencia fija', () => {
+    const s = computeQuestionStates([
+      { question_id: 'q', is_correct: false, selected_index: 1, created_at: enDias(base, 0) },
+    ]);
+    expect(s.get('q')!.distractorFijo).toBeNull();
+  });
+});
+
+describe('la firmeza deducida usa el primer toque y el ritmo del alumno', () => {
+  const base = '2026-09-01T10:00:00Z';
+  it('un acierto lento para EL ALUMNO no llega a dominada', () => {
+    // El alumno responde normalmente en ~4 s (primer toque). Esta la contesta
+    // siempre en ~15 s: para él es titubeante, aunque en absoluto no sea lento.
+    const rapidas = Array.from({ length: 8 }, (_, i) => ({
+      question_id: `otra${i}`, is_correct: true, selected_index: 0,
+      response_time_ms: 5000, first_touch_ms: 4000, option_changes: 0,
+      created_at: enDias(base, i),
+    }));
+    const lentas = [10, 13, 16, 19].map((d) => ({
+      question_id: 'q', is_correct: true, selected_index: 0,
+      response_time_ms: 16000, first_touch_ms: 15000, option_changes: 0,
+      created_at: enDias(base, d),
+    }));
+    const s = computeQuestionStates([...rapidas, ...lentas]);
+    expect(s.get('q')!.box).toBe(MAX_BOX_TITUBEANTE);
+    expect(s.get('q')!.cajon).toBe('aprendiendo');
   });
 });
 

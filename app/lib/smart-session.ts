@@ -83,7 +83,11 @@ function clasifica(c: CandidataSesion, states: Map<string, QuestionState>, now: 
   const s = states.get(c.questionId);
 
   if (!s || s.box === 0 || s.soloBlancos) return 'nueva';
+  // Atascada de verdad (4+ fallos) o creencia fija (falla siempre la misma
+  // opción errónea): las dos responden a lo mismo — parar de repetir y llevar a
+  // la fuente. Van al mismo cubo, con el mismo tope.
   if (s.cajon === 'atascada') return 'atascada';
+  if (s.distractorFijo !== null && s.respuestas - s.aciertos >= 2) return 'atascada';
 
   const vencida = estaVencida(s, now);
   if (vencida) {

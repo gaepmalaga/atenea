@@ -6,6 +6,7 @@ import {
   inferErrorType,
   errorTypeDe,
   mereceLaPenaPreguntar,
+  perfilTiempos,
   FIRMEZA,
   MS_FIRME,
   MS_TITUBEA,
@@ -50,6 +51,43 @@ describe('firmeza: como de resuelto contesto', () => {
     expect(inferFirmeza({})).toBe(FIRMEZA.NORMAL);
     expect(inferFirmeza({ response_time_ms: 0, option_changes: 0 })).toBe(FIRMEZA.NORMAL);
     expect(inferFirmeza({ response_time_ms: null, option_changes: null })).toBe(FIRMEZA.NORMAL);
+  });
+});
+
+describe('firmeza: el primer toque y el tiempo relativo', () => {
+  it('el primer toque manda sobre el total', () => {
+    // Tocó rápido (2 s) aunque el total fuera largo: lo tenía, lo demás es leer
+    // la explicación mental. Sin cambios → firme.
+    expect(inferFirmeza({ first_touch_ms: 2_000, response_time_ms: 40_000, option_changes: 0 })).toBe(FIRMEZA.FIRME);
+    // Tardó una eternidad en el PRIMER toque: no lo tenía.
+    expect(inferFirmeza({ first_touch_ms: 50_000, response_time_ms: 52_000, option_changes: 0 })).toBe(FIRMEZA.TITUBEANTE);
+  });
+
+  it('con perfil, se lee en RELATIVO a la mediana del alumno', () => {
+    const base = perfilTiempos([
+      { response_time_ms: 10_000, first_touch_ms: 6_000 },
+      { response_time_ms: 10_000, first_touch_ms: 6_000 },
+      { response_time_ms: 10_000, first_touch_ms: 6_000 },
+    ]);
+    expect(base.medianaFirstMs).toBe(6_000);
+    // 3 s es la mitad de su mediana (6 s) → firme, aunque en absoluto no llegue a MS_FIRME.
+    expect(inferFirmeza({ first_touch_ms: 3_000, option_changes: 0 }, base)).toBe(FIRMEZA.FIRME);
+    // 15 s es 2,5× su mediana → titubeante, aunque en absoluto no pase de MS_TITUBEA.
+    expect(inferFirmeza({ first_touch_ms: 15_000, option_changes: 0 }, base)).toBe(FIRMEZA.TITUBEANTE);
+    // A su ritmo → normal.
+    expect(inferFirmeza({ first_touch_ms: 6_000, option_changes: 0 }, base)).toBe(FIRMEZA.NORMAL);
+  });
+
+  it('perfilTiempos ignora los ceros y los que no traen dato', () => {
+    const p = perfilTiempos([
+      { response_time_ms: 8_000, first_touch_ms: 0 },
+      { response_time_ms: 0, first_touch_ms: 4_000 },
+      { response_time_ms: 12_000 },
+      {},
+    ]);
+    expect(p.medianaMs).toBe(10_000);
+    expect(p.medianaFirstMs).toBe(4_000);
+    expect(perfilTiempos([]).medianaMs).toBeNull();
   });
 });
 

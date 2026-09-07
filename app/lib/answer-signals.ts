@@ -70,7 +70,46 @@ export const MS_SIN_LEER = 8_000;
 export type SeñalesRespuesta = {
   response_time_ms?: number | null;
   option_changes?: number | null;
+  /**
+   * Milisegundos hasta el PRIMER toque en una opción (aunque luego se cambie).
+   * Separa *recordar* de *deliberar*: es mejor señal de «¿lo tenía?» que el
+   * tiempo total. `null`/`0` = no medido (histórico, simulacro).
+   */
+  first_touch_ms?: number | null;
 };
+
+/**
+ * El tiempo de referencia del alumno, para leer un intento EN RELATIVO en vez
+ * de contra umbrales fijos: una pregunta de tres líneas y otra de «¿cuál es la
+ * MÁS correcta según el texto?» no se contestan en el mismo tiempo, y comparar
+ * contra 20/45 s fijos mete el ruido del largo del enunciado.
+ */
+export type PerfilTiempos = {
+  /** Mediana de `response_time_ms` de los intentos con dato. `null` si no hay. */
+  medianaMs: number | null;
+  /** Mediana de `first_touch_ms` de los intentos con dato. `null` si no hay. */
+  medianaFirstMs: number | null;
+};
+
+function mediana(xs: number[]): number | null {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+}
+
+/** El perfil de tiempos del alumno a partir de todos sus intentos. */
+export function perfilTiempos(intentos: SeñalesRespuesta[]): PerfilTiempos {
+  const tot: number[] = [];
+  const first: number[] = [];
+  for (const it of intentos ?? []) {
+    const t = ms(it?.response_time_ms);
+    if (t !== null) tot.push(t);
+    const f = ms(it?.first_touch_ms);
+    if (f !== null) first.push(f);
+  }
+  return { medianaMs: mediana(tot), medianaFirstMs: mediana(first) };
+}
 
 /** Milisegundos utilizables, o `null` si no hay dato (0 no es un tiempo). */
 function ms(v: unknown): number | null {
@@ -85,23 +124,37 @@ function cambios(v: unknown): number | null {
 }
 
 /**
- * Cómo de resuelto contestó, a partir del tiempo y de los cambios de opción.
+ * Cómo de resuelto contestó, a partir de:
+ *   - los CAMBIOS de opción (2+ = titubeante, siempre),
+ *   - el tiempo hasta el PRIMER toque si se midió, si no el tiempo total,
+ *   - y ese tiempo leído EN RELATIVO al perfil del alumno si se pasa `base`.
  *
  * Mide CÓMO respondió, no lo que creía saber — y a propósito no mira si acertó:
- * la firmeza tiene que poder cruzarse con el acierto después (un «firme» que
- * falla es el error caro; un «titubeante» que acierta es suerte que no se
- * repetirá).
+ * la firmeza se cruza con el acierto después (un «firme» que falla es el error
+ * caro; un «titubeante» que acierta es suerte).
+ *
+ * Sin dato de tiempo NO es titubeante: es normal (reglas 8 y 16).
  */
-export function inferFirmeza(s: SeñalesRespuesta): Firmeza {
-  const t = ms(s?.response_time_ms);
+export function inferFirmeza(s: SeñalesRespuesta, base?: PerfilTiempos): Firmeza {
   const c = cambios(s?.option_changes);
+  if (c !== null && c >= CAMBIOS_TITUBEA) return FIRMEZA.TITUBEANTE;
 
-  if ((c !== null && c >= CAMBIOS_TITUBEA) || (t !== null && t > MS_TITUBEA)) {
-    return FIRMEZA.TITUBEANTE;
+  // El primer toque es mejor señal que el total; el total es el respaldo.
+  const tf = ms(s?.first_touch_ms) ?? ms(s?.response_time_ms);
+  if (tf === null) return FIRMEZA.NORMAL;
+
+  const ref = ms(s?.first_touch_ms) !== null ? base?.medianaFirstMs : base?.medianaMs;
+  if (ref && ref > 0) {
+    // En relativo: mucho más lento que su media = titubeante; mucho más rápido
+    // y sin cambios = firme.
+    if (tf > ref * 2.2) return FIRMEZA.TITUBEANTE;
+    if (c === 0 && tf < ref * 0.6) return FIRMEZA.FIRME;
+    return FIRMEZA.NORMAL;
   }
-  // Firme exige las DOS cosas: sin cambios y con tiempo medido y holgado. Sin
-  // tiempo no se puede afirmar que fue firme, así que se queda en normal.
-  if (c === 0 && t !== null && t <= MS_FIRME) return FIRMEZA.FIRME;
+
+  // En absoluto (sin perfil): los umbrales de la convocatoria.
+  if (tf > MS_TITUBEA) return FIRMEZA.TITUBEANTE;
+  if (c === 0 && tf <= MS_FIRME) return FIRMEZA.FIRME;
   return FIRMEZA.NORMAL;
 }
 
@@ -127,13 +180,15 @@ export function inferFirmeza(s: SeñalesRespuesta): Firmeza {
  * olvido.
  */
 export function inferErrorType(s: SeñalesRespuesta & { boxPrevio?: number }): string {
-  const t = ms(s?.response_time_ms);
   const c = cambios(s?.option_changes);
   const box = Number(s?.boxPrevio);
+  // El primer toque, si se midió, dice mejor que el total si le dio tiempo a
+  // leer el enunciado.
+  const tLectura = ms(s?.first_touch_ms) ?? ms(s?.response_time_ms);
 
   if (Number.isFinite(box) && box >= 3) return 'olvido';
   if (c !== null && c >= 1) return 'trampa';
-  if (t !== null && t < MS_SIN_LEER) return 'fallo_procesamiento';
+  if (tLectura !== null && tLectura < MS_SIN_LEER) return 'fallo_procesamiento';
   return 'desconocimiento';
 }
 

@@ -17,15 +17,20 @@ export type AnswerMetrics = {
   /**
    * Veces que el alumno cambio a una opcion DISTINTA habiendo marcado ya una.
    * La primera respuesta no es un cambio, y volver a pulsar la misma tampoco.
+   * En entrenamiento es siempre 0: el primer toque confirma.
    */
   optionChanges: number;
-  /** Taxonomia del fallo, si el alumno la etiqueto. */
+  /**
+   * Milisegundos hasta el PRIMER toque en una opcion. Separa *recordar* de
+   * *deliberar*. `null`/ausente = no se midio.
+   */
+  firstTouchMs?: number | null;
+  /** Taxonomia del fallo, si el alumno la corrigio (regla 56). */
   errorType?: string | null;
   /**
-   * Confianza CON la que contesto (P10b): 0 = a ciegas · 1 = a medias · 2 = seguro.
-   * `null` = no se pregunto (el alumno no activo la marca, o es un simulacro).
-   * Es una habilidad medible: en un examen con penalizacion, saber cuando no lo
-   * sabes vale nota.
+   * Confianza CON la que contesto (P10b). RETIRADA (regla 56): ya no se pregunta.
+   * El tipo queda por el historico y el contrato con el servidor; siempre `null`
+   * en filas nuevas.
    */
   confidence?: number | null;
 };
@@ -45,6 +50,8 @@ export type ResultRow = {
   is_correct: boolean;
   response_time_ms: number;
   option_changes: number;
+  /** ms hasta el primer toque, o `null` si no se midio. */
+  first_touch_ms: number | null;
   error_type: string | null;
   /** Opcion marcada. Ver `BLANK_INDEX`. */
   selected_index: number | null;
@@ -94,9 +101,16 @@ export type ExamResultPayload = {
 export const EMPTY_METRICS: AnswerMetrics = {
   responseTimeMs: 0,
   optionChanges: 0,
+  firstTouchMs: null,
   errorType: null,
   confidence: null,
 };
+
+/** ms >= 1, o `null`. Un `0` no es un primer toque, es «no medido» (regla 16). */
+export function normalizeFirstTouch(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
 
 /** 0, 1 o 2. Cualquier otra cosa (incluida NaN o fuera de rango) cae a `null`. */
 export function normalizeConfidence(value: unknown): number | null {
@@ -135,6 +149,8 @@ export function toResultRow(
     is_correct: enBlanco ? false : Boolean(input.isCorrect),
     response_time_ms: safeCount(input.responseTimeMs),
     option_changes: safeCount(input.optionChanges),
+    // Un blanco no tiene «primer toque»: no se tocó ninguna opción.
+    first_touch_ms: enBlanco ? null : normalizeFirstTouch(input.firstTouchMs),
     // Un blanco no se diagnostica: no hubo error que clasificar.
     error_type: enBlanco ? null : input.errorType ?? null,
     selected_index: normalizeSelectedIndex(input.selectedIndex),
@@ -165,6 +181,7 @@ type FinishedQuestion = {
   errorType?: string | null;
   timeMs?: number;
   changes?: number;
+  firstTouchMs?: number | null;
   /** Las opciones, para saber QUE indice marco. Sin ellas no se puede deducir. */
   options?: { id: string }[];
 };
@@ -203,6 +220,7 @@ export function buildExamResults(
     selectedIndex: indiceElegido(q),
     responseTimeMs: safeCount(q.timeMs),
     optionChanges: safeCount(q.changes),
+    firstTouchMs: normalizeFirstTouch(q.firstTouchMs),
     errorType: q.errorType ?? null,
   }));
 }

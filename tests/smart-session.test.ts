@@ -30,6 +30,7 @@ function estado(o: Partial<QuestionState> & { questionId: string }): QuestionSta
     lastErrorType: null,
     soloBlancos: false,
     dominadaFragil: false,
+    distractorFijo: null,
     ...o,
   };
 }

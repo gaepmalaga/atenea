@@ -548,7 +548,7 @@ export async function getAdaptiveSession(params: {
   const db = await createSupabaseServerClient();
   const { data: intentos } = await db
     .from('question_attempts')
-    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, created_at')
+    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: true })
     .limit(MAX_INTENTOS_SCHEDULER);
@@ -627,7 +627,7 @@ export async function getMisCajones(): Promise<
   const db = await createSupabaseServerClient();
   const { data: intentos } = await db
     .from('question_attempts')
-    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, created_at')
+    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: true })
     .limit(MAX_INTENTOS_SCHEDULER);

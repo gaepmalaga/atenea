@@ -122,14 +122,25 @@ export default function ActiveTest({
   // Un ref y no estado: se escribe y se lee dentro del mismo manejador, y con
   // `useState` el cierre devolvería el valor anterior (regla 13). Ese fallo ya
   // pasó aquí: en entrenamiento se guardaban siempre 0 cambios.
-  const metricasRef = useRef<Map<number, { tiempo: number; cambios: number }>>(new Map());
+  const metricasRef = useRef<Map<number, { tiempo: number; cambios: number; primerToque: number | null }>>(new Map());
   /** Momento en que se entró en la pregunta que se está viendo. */
   const entradaRef = useRef<number>(Date.now());
 
   const metricasDe = useCallback(
-    (indice: number) => metricasRef.current.get(indice) ?? { tiempo: 0, cambios: 0 },
+    (indice: number) => metricasRef.current.get(indice) ?? { tiempo: 0, cambios: 0, primerToque: null },
     []
   );
+
+  /** Anota el tiempo hasta el PRIMER toque en una opción, una sola vez. */
+  const marcarPrimerToque = useCallback((indice: number) => {
+    const m = metricasDe(indice);
+    if (m.primerToque === null) {
+      metricasRef.current.set(indice, {
+        ...m,
+        primerToque: m.tiempo + (Date.now() - entradaRef.current),
+      });
+    }
+  }, [metricasDe]);
 
   /** Lo que lleva acumulado la pregunta actual, contando la visita en curso. */
   const tiempoActual = useCallback(
@@ -224,6 +235,10 @@ export default function ActiveTest({
   const handleAnswer = useCallback(async (optionId: string) => {
     if (mode === 'practice' && isAnswered) return;
 
+    // El tiempo hasta el PRIMER toque: separa recordar de deliberar. Se anota
+    // una vez, antes de nada.
+    marcarPrimerToque(currentIndex);
+
     // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
     // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
     // no cambios, y la primera respuesta ya valía 1.
@@ -252,6 +267,7 @@ export default function ActiveTest({
             {
                 responseTimeMs: tiempoActual(),
                 optionChanges: metricasDe(currentIndex).cambios,
+                firstTouchMs: metricasDe(currentIndex).primerToque,
                 selectedIndex: currentQ.options.findIndex((o) => o.id === optionId),
             }
         );
@@ -260,7 +276,7 @@ export default function ActiveTest({
         const saved = await savePromiseRef.current;
         resultIdRef.current = saved.id;
     }
-  }, [aplicarRespuestas, currentIndex, currentQ, isAnswered, localQuestions, metricasDe, mode, tiempoActual, topicName]);
+  }, [aplicarRespuestas, currentIndex, currentQ, isAnswered, localQuestions, marcarPrimerToque, metricasDe, mode, tiempoActual, topicName]);
 
   /**
    * El alumno dice que el fallo no fue lo que el sistema dedujo.
@@ -407,7 +423,7 @@ export default function ActiveTest({
     // dudas de la primera se habrían perdido.
     const finales = localQuestions.map((q, i) => {
       const m = metricasDe(i);
-      return { ...q, timeMs: m.tiempo, changes: m.cambios };
+      return { ...q, timeMs: m.tiempo, changes: m.cambios, firstTouchMs: m.primerToque };
     });
 
     setLocalQuestions(finales);

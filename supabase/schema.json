@@ -1,5 +1,5 @@
 {
-  "generado": "2026-09-06",
+  "generado": "2026-09-07",
   "tablas": {
     "academy_settings": {
       "columnas": [
@@ -675,6 +675,7 @@
         "created_at",
         "error_type",
         "exam_id",
+        "first_touch_ms",
         "id",
         "is_correct",
         "option_changes",
@@ -697,6 +698,7 @@
         "created_at": "timestamp with time zone",
         "error_type": "text",
         "exam_id": "uuid",
+        "first_touch_ms": "integer",
         "id": "uuid",
         "is_correct": "boolean",
         "option_changes": "integer",

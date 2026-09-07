@@ -39,6 +39,8 @@ export type Question = {
   legalReference?: string | null;
   timeMs?: number;
   changes?: number;
+  /** ms hasta el primer toque en una opcion. La pantalla del test lo mide. */
+  firstTouchMs?: number | null;
   /**
    * En que cajon tiene el ALUMNO esta pregunta al empezar la sesion (P10):
    * nueva / recaida / aprendiendo / consolidando / dominada / atascada.

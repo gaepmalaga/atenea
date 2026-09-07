@@ -51,19 +51,19 @@ describe('toResultRow', () => {
       is_correct: true,
       response_time_ms: 8_400,
       option_changes: 2,
+      first_touch_ms: null,
       error_type: 'trampa',
       selected_index: null,
       confidence: null,
     });
   });
 
-  it('guarda la confianza cuando se marca, y la ignora fuera de rango', () => {
-    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, confidence: 2 }).confidence).toBe(2);
-    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, confidence: 0 }).confidence).toBe(0);
-    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, confidence: 5 }).confidence).toBeNull();
-    // Un blanco no lleva confianza: no hubo respuesta en la que confiar.
+  it('guarda el primer toque cuando se mide; un 0 o un blanco lo dejan a null', () => {
+    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, firstTouchMs: 4200 }).first_touch_ms).toBe(4200);
+    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, firstTouchMs: 0 }).first_touch_ms).toBeNull();
+    expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true }).first_touch_ms).toBeNull();
     expect(
-      toResultRow({ questionId: 'q', topic: 't', isCorrect: false, selectedIndex: -1, confidence: 2 }).confidence,
+      toResultRow({ questionId: 'q', topic: 't', isCorrect: false, selectedIndex: -1, firstTouchMs: 4200 }).first_touch_ms,
     ).toBeNull();
   });
 

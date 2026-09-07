@@ -12,7 +12,7 @@
  */
 
 import { isBlankAnswer } from './exam-results.ts';
-import { errorTypeDe, inferFirmeza, FIRMEZA } from './answer-signals.ts';
+import { errorTypeDe, inferFirmeza, perfilTiempos, FIRMEZA } from './answer-signals.ts';
 
 // ============================================================
 // LO QUE ENTRA
@@ -27,8 +27,21 @@ export type IntentoPregunta = {
   selected_index?: number | null;
   response_time_ms?: number | null;
   option_changes?: number | null;
+  first_touch_ms?: number | null;
   created_at?: string | null;
 };
+
+/**
+ * Cuántas veces hay que fallar SIEMPRE la misma opción para llamarlo «creencia
+ * fija», y qué parte de los fallos tiene que ser esa opción.
+ *
+ * Fallar 3 veces eligiendo siempre la B cuando es la A no es una laguna — es
+ * algo concreto y falso que el alumno da por cierto. Repetir la pregunta solo le
+ * hace elegir otra vez entre las mismas dos; lo que hay que hacer es llevarlo a
+ * la distinción exacta. Se trata como una atascada.
+ */
+export const DISTRACTOR_FIJO_MIN = 2;
+export const DISTRACTOR_FIJO_FRACCION = 0.6;
 
 // ============================================================
 // LAS CAJAS
@@ -104,6 +117,13 @@ export type QuestionState = {
    * vuelve a tocar de vez en cuando en vez de darla por cerrada.
    */
   dominadaFragil: boolean;
+  /**
+   * El índice de la opción errónea que el alumno elige SIEMPRE al fallar esta
+   * pregunta (`DISTRACTOR_FIJO_MIN`+ veces, y la mayoría de sus fallos). `null`
+   * si falla por sitios distintos o casi no ha fallado. No es una laguna: es una
+   * creencia fija — se trata como una atascada.
+   */
+  distractorFijo: number | null;
 };
 
 function fecha(v: unknown): number | null {
@@ -142,9 +162,13 @@ export function computeQuestionStates(
     .filter((i): i is IntentoPregunta & { question_id: string } => typeof i?.question_id === 'string' && !!i.question_id)
     .sort((a, b) => (fecha(a.created_at) ?? 0) - (fecha(b.created_at) ?? 0));
 
+  // El perfil de tiempos del alumno se calcula una vez, sobre TODOS sus
+  // intentos, para poder leer la firmeza de cada uno en relativo.
+  const perfil = perfilTiempos(orden);
+
   const acc = new Map<
     string,
-    QuestionState & { _tiempos: number[]; _cambios: number[] }
+    QuestionState & { _tiempos: number[]; _cambios: number[]; _fallosPorOpcion: Map<number, number>; _fallosTotales: number }
   >();
 
   for (const it of orden) {
@@ -155,7 +179,8 @@ export function computeQuestionStates(
         questionId: id, box: 0, cajon: 'nueva', streak: 0, lapses: 0,
         respuestas: 0, aciertos: 0, lastAnsweredAt: null, dueAt: null,
         avgTimeMs: null, avgChanges: null, lastErrorType: null,
-        soloBlancos: false, dominadaFragil: false, _tiempos: [], _cambios: [],
+        soloBlancos: false, dominadaFragil: false, distractorFijo: null,
+        _tiempos: [], _cambios: [], _fallosPorOpcion: new Map(), _fallosTotales: 0,
       };
       acc.set(id, s);
     }
@@ -172,7 +197,7 @@ export function computeQuestionStates(
     const cuando = fecha(it.created_at);
     if (cuando !== null) s.lastAnsweredAt = new Date(cuando).toISOString();
 
-    const firmeza = inferFirmeza(it);
+    const firmeza = inferFirmeza(it, perfil);
 
     if (it.is_correct) {
       s.aciertos++;
@@ -206,6 +231,13 @@ export function computeQuestionStates(
       // Lectura: baja a la 2, no a la 1. No es que no lo sepas.
       s.box = tipo === 'fallo_procesamiento' ? 2 : 1;
       if (veniaDeAprendido) s.lapses++;
+
+      // Qué opción errónea marcó, para detectar la creencia fija.
+      const opcion = typeof it.selected_index === 'number' && it.selected_index >= 0 ? it.selected_index : null;
+      if (opcion !== null) {
+        s._fallosTotales++;
+        s._fallosPorOpcion.set(opcion, (s._fallosPorOpcion.get(opcion) ?? 0) + 1);
+      }
     }
   }
 
@@ -229,6 +261,15 @@ export function computeQuestionStates(
       s.box >= MAX_BOX &&
       ((avgTimeMs !== null && avgTimeMs > UMBRAL_FLUIDEZ_MS) || (avgChanges !== null && avgChanges > 0));
 
+    // La opción errónea más repetida, si domina los fallos: creencia fija.
+    let distractorFijo: number | null = null;
+    for (const [opcion, veces] of s._fallosPorOpcion) {
+      if (veces >= DISTRACTOR_FIJO_MIN && veces >= s._fallosTotales * DISTRACTOR_FIJO_FRACCION) {
+        distractorFijo = opcion;
+        break;
+      }
+    }
+
     salida.set(id, {
       questionId: id,
       box: s.box,
@@ -244,6 +285,7 @@ export function computeQuestionStates(
       lastErrorType: s.lastErrorType,
       soloBlancos: s.soloBlancos && s.respuestas === 0,
       dominadaFragil,
+      distractorFijo,
     });
   }
 
