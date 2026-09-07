@@ -10,7 +10,7 @@
 -- cantara: se escribian columnas inexistentes y PostgREST rechazaba la
 -- escritura entera en silencio.
 --
--- Fecha del volcado: 2026-09-06
+-- Fecha del volcado: 2026-09-07
 -- Tablas: 35   ·   Politicas: 23
 -- =============================================================================
 
@@ -317,7 +317,8 @@ create table if not exists public.question_attempts (
   response_time_ms integer,
   created_at timestamp with time zone not null default timezone('utc'::text, now()),
   option_changes integer not null default 0,
-  confidence smallint
+  confidence smallint,
+  first_touch_ms integer
 );
 
 -- --------------------------------------------------------------------------
@@ -494,6 +495,8 @@ alter table public.memberships drop constraint if exists memberships_payment_sta
 alter table public.memberships add constraint memberships_payment_status_check CHECK ((payment_status = ANY (ARRAY['al_dia'::text, 'debe'::text])));
 alter table public.question_attempts drop constraint if exists question_attempts_confidence_check;
 alter table public.question_attempts add constraint question_attempts_confidence_check CHECK (((confidence IS NULL) OR ((confidence >= 0) AND (confidence <= 2))));
+alter table public.question_attempts drop constraint if exists question_attempts_first_touch_ms_check;
+alter table public.question_attempts add constraint question_attempts_first_touch_ms_check CHECK (((first_touch_ms IS NULL) OR (first_touch_ms >= 0)));
 alter table public.admin_audit_log drop constraint if exists admin_audit_log_actor_id_fkey;
 alter table public.admin_audit_log add constraint admin_audit_log_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 alter table public.ai_quota drop constraint if exists ai_quota_user_id_fkey;

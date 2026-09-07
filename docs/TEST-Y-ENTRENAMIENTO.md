@@ -191,18 +191,28 @@ Guion: `docs/sql/tiempo-primer-toque.sql`.
 
 ---
 
-## Qué hay que construir
+## Qué hay que construir — HECHO (7 sep 2026)
 
 Lo demás (`buildSmartSession`, `computeQuestionStates`, la penalización del BOE,
-el reloj, la pantalla de revisión) **ya está**.
+el reloj, la pantalla de revisión) ya estaba.
 
-| # | Qué | Tamaño |
+| # | Qué | Estado |
 |---|---|---|
-| 1 | **Cuadrícula de resultados** clicable (verde/rojo/blanco) + tiempo por pregunta | Media |
-| 2 | **Selector de alcance**: 1 tema / bloques / todo (usa la tabla `blocks`) | Pequeña |
-| 3 | **Entrenamiento sin nota**: el resumen de lo consolidado y cuándo vuelve | Pequeña |
-| 4 | **Simulacro representativo** + presets 25/50/100 | Media |
-| 5 | **«Hoy te tocan N»** como número propuesto en la config | Pequeña |
-| 6 | **Señal 1** (distractor) enganchada al planificador | Pequeña |
-| 7 | **Señal 2** (tiempo relativo) en `answer-signals.ts` | Pequeña |
-| 8 | **Señal 3** (`first_touch_ms`): columna + captura en `ActiveTest` + uso | Pequeña + 1 guion SQL |
+| 1 | **Cuadrícula de resultados** clicable (verde/rojo/blanco) + tiempo por pregunta | ✅ `ExamResults.tsx` → `ResultadoSimulacro` |
+| 2 | **Selector de alcance**: 1 tema / bloques / todo (usa la tabla `blocks`) | ✅ `ExamConfig.tsx` + `getStudentSyllabus` (`admin.ts`) |
+| 3 | **Entrenamiento sin nota**: el resumen de lo consolidado y cuándo vuelve | ✅ `ExamResults.tsx` → `ResultadoEntrenamiento` |
+| 4 | **Simulacro representativo** + presets 25/50/100 | ✅ `app/lib/exam-blueprint.ts` (`planExamen`) + `getSimulacro` (`exams.ts`) |
+| 5 | **«Hoy te tocan N»** como número propuesto en la config | ✅ `getRecuentoEntrenamiento` (`exams.ts`) + debounce en `ExamConfig` |
+| 6 | **Señal 1** (distractor) enganchada al planificador | ✅ `computeQuestionStates.distractorFijo` → `smart-session` lo trata como atascada |
+| 7 | **Señal 2** (tiempo relativo) en `answer-signals.ts` | ✅ `perfilTiempos` + `inferFirmeza(s, base)` |
+| 8 | **Señal 3** (`first_touch_ms`): columna + captura en `ActiveTest` + uso | ✅ columna ejecutada, `marcarPrimerToque` en `ActiveTest`, lee el planificador |
+
+**Verificado en el preview** (7 sep, sesión de alumno): entrenamiento termina sin
+nota con el balance de cajones; simulacro de 20 preguntas (banco corto de 25)
+con reloj 10:00, aviso de banco corto, pantalla de revisión y cuadrícula 1..20
+con el detalle por pregunta (enunciado, tu opción, la correcta, explicación,
+artículo, tiempo).
+
+Tests nuevos: `tests/exam-blueprint.test.ts` (el simulacro representativo).
+`ExamConfig` ya no ofrece dificultad en entrenamiento, y sus guardas estáticas
+viven en `tests/answer-signals.test.ts`.

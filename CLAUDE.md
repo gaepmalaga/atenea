@@ -62,6 +62,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Generación solo del admin · topes de gasto · login nuevo** | ✅ **hecho** (4 sep): alumno y admin dejan de compartir quién paga la IA. Ver **reglas 39, 40 y 41** |
 | — | **Banco de pruebas de la interfaz** | ✅ **hecho** (4 sep): las 19 pantallas en un navegador de verdad, a tamaño de móvil, midiendo tamaño táctil, desbordes, elementos a 0x0 y contraste. Ver [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) |
 | — | **Revisión completa de `/admin`** | ✅ **hecho en parte** (5 sep): «viene» y «estudia» ya no se confunden (regla 46), generar preguntas/fichas es un panel de tres pasos (regla 47), un entrenador real puede escribir el plan (regla 48), «Logs» ahora es auditoría de quién hizo qué (regla 49) y hay una pestaña de datos de la academia y profesores (regla 50). Los dos guiones SQL de auditoría y ajustes están **ejecutados** (5 sep) |
+| — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 
 ## Producción
 
@@ -93,6 +94,11 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      transcripción de cada simulacro). RLS de propietario. `evaluateInterview`
      la escribe best-effort, `getInterviewReports` la lista.
    - **`P10b-marca-de-confianza.sql`** (6 sep) — `question_attempts.confidence`.
+     La marca de confianza EXPLÍCITA se retiró después (regla 60); la columna se
+     queda, siempre `null` en filas nuevas.
+   - **`tiempo-primer-toque.sql`** (7 sep) — `question_attempts.first_touch_ms`
+     (`integer`, nullable, CHECK ≥ 0). Separa recordar de deliberar (regla 60).
+     `null` en el histórico y en el simulacro.
 
    Guiones de fases anteriores ejecutados (eran 38 tablas el 6 sep; 35 ahora tras
    retirar las 4 y añadir `interview_reports`):
@@ -1827,6 +1833,67 @@ Se esconde en los DOS sitios con la misma constante —el menú del alumno
 (`StudentDashboard`) y los interruptores (`AdminModules`)— porque un interruptor
 para algo que el alumno no ve de todas formas es una mentira.
 
+### 59 · El test tiene DOS modos y solo dos: entrenamiento mide nada, simulacro no adapta nada
+
+Cerrado con el dueño el 7 sep 2026 tras dos vueltas en las que el módulo se
+había llenado de fricción. El planteamiento entero vive en
+[`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md); lo que no se
+puede reabrir sin un motivo escrito:
+
+- **Entrenamiento** (`mode: 'practice'`): la inteligencia va TODA aquí.
+  `getAdaptiveSession` → `buildSmartSession`. **Sin nota, sin reloj, sin volver
+  atrás, sin blancos.** El nº de preguntas lo **propone el sistema**
+  (`getRecuentoEntrenamiento`: nuevas + vencidas, tope 25) y el alumno lo ajusta.
+  **La dificultad NO se elige** — la calibra el método (regla del 85 %).
+  `ResultadoEntrenamiento` da el balance de cajones, nunca una nota.
+- **Simulacro** (`mode: 'exam'`): fiel al examen. Reloj del BOE, sin correcciones,
+  nota con penalización. Presets **25 / 50 / 100** (no número libre: dos
+  simulacros tienen que ser comparables). **Aquí SÍ se elige dificultad.**
+- **El simulacro NO es `shuffle(banco).slice(n)`.** `planExamen`
+  (`app/lib/exam-blueprint.ts`, puro): reparto por temas, cobertura por artículo
+  (`legal_reference`), no repite lo de los últimos 7 días, y **mezcla de
+  dificultad fija por nivel** (`MEZCLA_DIFICULTAD`). Sin esto, comparar dos notas
+  no significa nada — el banco podía dar 40 preguntas del mismo artículo o salir
+  fácil un día y durísimo al siguiente. `getSimulacro` lo aplica; devuelve
+  `corto: true` si el banco no llegó al preset (y la pantalla lo dice, no gasta
+  IA para rellenar — regla 39).
+- **`ResultadoSimulacro` es una cuadrícula 1..N.** Verde acertada · rojo fallada ·
+  **blanco** (borde punteado) sin contestar. Cada celda abre el detalle: qué
+  marcaste, la correcta (borde verde + check), la explicación, el artículo **y
+  cuánto tardaste** — una verde de 8 s y una de 90 s no son lo mismo.
+- **El alcance es el mismo en los dos modos:** un tema · por bloques del temario ·
+  todo. `getStudentSyllabus` (`admin.ts`) alimenta el desplegable **solo con los
+  temas que tienen banco activo** — ofrecer un tema vacío es mandar al alumno a un
+  test de 0 preguntas. «Por bloques» agrupa por `blocks`, no 45 casillas sueltas.
+- **`ExamConfig` NO ofrece dificultad en entrenamiento.** La tarjeta va detrás de
+  `{settings.mode === 'exam' && …}`. Hay una guarda estática en
+  `answer-signals.test.ts` que lo fija (`/settings\.mode === 'exam'[\s\S]{0,120}Dificultad/`).
+
+### 60 · Se DEDUCE cómo respondió el alumno; no se le pregunta
+
+Ya está en la **regla 56** como principio general. Su aplicación al test:
+`answer-signals.ts` saca la **firmeza** de la respuesta y el **tipo de fallo** de
+tres señales que ya se guardan por respuesta —`response_time_ms`,
+`option_changes`, `first_touch_ms`— **sin un solo diálogo**. El único toque que
+se le pide es el de corrección del diagnóstico, y **solo** cuando falla una
+pregunta cara (`mereceLaPenaPreguntar`: cajones `consolidando`/`dominada`/
+`atascada`), porque solo ahí acertar el motivo cambia cuándo vuelve. Es
+saltable: «SIGUIENTE» está desde el primer momento.
+
+- **Tiempo relativo, no 20/45 s fijos:** `perfilTiempos(intentos)` da la mediana
+  del propio alumno; `inferFirmeza(s, base)` lee cada respuesta contra su ritmo.
+  Una pregunta de tres líneas y una de «la MÁS correcta» no se responden en el
+  mismo tiempo.
+- **`first_touch_ms` separa recordar de deliberar.** `null` en el histórico y en
+  el simulacro (regla 8). `marcarPrimerToque` en `ActiveTest` lo captura una vez,
+  al primer toque en una opción.
+- **Distractor fijo** (`computeQuestionStates.distractorFijo`): la opción
+  equivocada que el alumno marca **siempre** al fallar (≥ 2 veces y ≥ 60 % de sus
+  fallos de esa pregunta) no es una laguna, es una **creencia falsa concreta**.
+  `smart-session` la trata como **atascada**: parar de repetir, ir al artículo.
+- **Una respuesta titubeante correcta no llega a la caja 5** (`MAX_BOX_TITUBEANTE
+  = 3`): acertar dudando no es dominar.
+
 ---
 
 ## Los tests
@@ -1864,6 +1931,7 @@ tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» 
 tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva
 tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
 tests/confidence.test.ts        calibración de la confianza (P10b): niveles, neto de adivinar, «sin datos» ≠ 0
+tests/exam-blueprint.test.ts    el simulacro representativo (regla 59): reparto por temas, cobertura por artículo, mezcla de dificultad fija, no repite lo reciente
 tests/schema-drift.test.ts      el código no escribe NI PIDE columnas que no existen
 tests/design-system.test.ts     la interfaz sale de ui/: escala, área táctil, dvh y datos reales
 tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
