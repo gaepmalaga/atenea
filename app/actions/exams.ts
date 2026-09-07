@@ -26,6 +26,7 @@ import { adaptativoEncendido } from '../lib/training-switch-guard';
 import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
 import { buildSmartSession, type ResumenSesion } from '../lib/smart-session';
 import { planExamen } from '../lib/exam-blueprint';
+import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -766,6 +767,38 @@ export async function getMisCajones(): Promise<
   return { success: true as const, temas: resumeCajonesPorTema(states, preguntasPorTema) };
 }
 
+/**
+ * ¿APROBARÍA? — la nota media de los simulacros del alumno (fórmula del BOE),
+ * su mejor marca y si va subiendo.
+ *
+ * Con SU sesión (regla 34): `question_attempts` tiene política de propietario y
+ * aquí no hay join con nada compartido.
+ */
+export async function getSimulacros(): Promise<
+  { success: true; data: ResumenSimulacros } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const modulo = await requireModule('stats');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const db = await createSupabaseServerClient();
+  const { data, error } = await db
+    .from('question_attempts')
+    .select('exam_id, is_correct, selected_index, created_at')
+    .eq('user_id', auth.user.id)
+    .not('exam_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(MAX_INTENTOS_SCHEDULER);
+
+  if (error) {
+    console.error('getSimulacros:', error.message);
+    return { success: false as const, error: error.message };
+  }
+
+  return { success: true as const, data: resumeSimulacros((data ?? []) as IntentoSimulacro[]) };
+}
+
 export async function getQuestionsFromBank(params: {
   subjectIds?: number[];
   topic?: string;
@@ -922,12 +955,20 @@ export async function saveExamResults(results: ExamResultPayload[]) {
     if (!auth.ok) return { success: false };
     if (!results.length) return { success: false };
 
+    // UN id por simulacro, el mismo en todas sus filas: es lo que permite
+    // agrupar después las respuestas de un examen y sacar su nota (¿aprobaría?
+    // en Estadísticas). La columna `exam_id` existía desde siempre y no la
+    // escribía nadie. En entrenamiento no se usa: cada respuesta se guarda
+    // suelta al contestarla.
+    const examId = crypto.randomUUID();
+
     // El parametro era `any[]`: la UI enviaba `response_time_ms` / `option_changes`
     // y aqui se leia `r.time` / `r.changes`, asi que las dos metricas de
     // comportamiento se guardaban a 0 en TODOS los examenes sin que nada fallara.
     const rows = results.map((r) => ({
         ...toResultRow(r),
         user_id: auth.user.id,
+        exam_id: examId,
         created_at: new Date().toISOString(),
     }));
 

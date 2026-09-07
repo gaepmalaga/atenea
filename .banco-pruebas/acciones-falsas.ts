@@ -102,6 +102,20 @@ export async function getUserStats() {
   });
 }
 
+export async function getSimulacros() {
+  const s = (nota: number, dias: number, total: number) => ({
+    examId: `ex-${dias}`, fecha: new Date(Date.now() - dias * 86400000).toISOString(),
+    total, aciertos: Math.round(total * 0.6), fallos: Math.round(total * 0.3), blancos: Math.round(total * 0.1),
+    nota, aprobado: nota >= 3,
+  });
+  return ok({
+    data: {
+      simulacros: [s(5.8, 1, 50), s(4.9, 5, 50), s(5.2, 9, 25), s(3.1, 16, 25)],
+      media: 4.75, mejor: 5.8, tendencia: 'sube',
+    },
+  });
+}
+
 export async function getStudentTopics() { return ok({ topics: TEMAS }); }
 export async function getStudentSubjects() {
   return ok({ subjects: TEMAS.map((t, i) => ({ id: i + 1, title: t })) });
