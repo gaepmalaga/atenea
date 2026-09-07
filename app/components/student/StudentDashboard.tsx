@@ -24,7 +24,7 @@ import FailedQuestions from './modules/review/FailedQuestions';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { getModuleSettings } from '@/actions';
-import { todosActivos, moduloDeEntrada, type ModuleSettings } from '@/app/lib/modules';
+import { todosActivos, moduloDeEntrada, enElMvp, type ModuleId, type ModuleSettings } from '@/app/lib/modules';
 
 // --- TIPOS ---
 export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'training' | 'interview' | 'stats';
@@ -64,7 +64,12 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
   // El menu se deriva del estado, no se guarda: es la regla 14 aplicada a otra
   // cosa. Y se filtra ADEMAS de cerrar la accion en el servidor — esconder el
   // enlace no es una medida de seguridad, es de cortesia.
-  const navItems = todosLosItems.filter((i) => modules[i.id as TabId]);
+  //
+  // `enElMvp` quita los que están fuera del MVP (hoy, el chat): el codigo sigue
+  // entero, solo no se ofrece. Ver `MODULOS_FUERA_DEL_MVP` en `lib/modules.ts`.
+  const navItems = todosLosItems.filter(
+    (i) => enElMvp(i.id as ModuleId) && modules[i.id as TabId],
+  );
   const sinModulos = navItems.length === 0;
 
   // Los interruptores de los modulos. Si el que estaba abierto se ha apagado

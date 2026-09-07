@@ -7,19 +7,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { getUserStats, getPhysicalProfile, getMisCajones } from '@/actions';
 import type { ResumenTema } from '@/app/lib/question-scheduler';
-import {
-  consejoCalibracion,
-  CONFIDENCE_LABEL,
-  type ConfidenceLevel,
-  type ResumenCalibracion,
-} from '@/app/lib/confidence';
 import { EmptyState } from '../../../ui';
 import {
   rankFor,
   nextRankAfter,
   progressToNextRank,
   readMaxPullups,
-  ERROR_TYPES,
   type StatsSummary,
   type TestResultRow,
   type PhysicalProfile,
@@ -30,7 +23,7 @@ import {
 /** Fila del historial: lo que devuelve getUserStats tras aplanar el join. */
 type RecentItem = TestResultRow & { created_at?: string | null };
 
-type UserStats = StatsSummary & { lastItems: RecentItem[]; calibracion: ResumenCalibracion };
+type UserStats = StatsSummary & { lastItems: RecentItem[] };
 
 interface StatsPanelProps {
   user: { id: string };
@@ -43,13 +36,6 @@ const RANK_STYLE: Record<Rank['id'], { icon: LucideIcon; color: string; bg: stri
   officer:      { icon: Medal,  color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
   subinspector: { icon: Medal,  color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
   inspector:    { icon: Crown,  color: 'text-amber-500',  bg: 'bg-amber-50 dark:bg-amber-900/20' },
-};
-
-const ERROR_LABEL: Record<string, string> = {
-  olvido: 'Olvido',
-  trampa: 'Trampas',
-  desconocimiento: 'Lagunas',
-  fallo_procesamiento: 'Lectura',
 };
 
 export default function StatsPanel({ user }: StatsPanelProps) {
@@ -83,7 +69,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
   // Las metricas llegan ya agregadas del servidor, sobre la muestra completa.
   // Antes se calculaban aqui sobre las 5 ultimas preguntas y se dividian entre
   // el total de hasta 100: numerador y denominador de muestras distintas.
-  const { winRate, answered, blank, avgTimeMs, timedCount, uncertaintyIndex, changesCount, errorBreakdown, taggedErrors } = stats;
+  const { winRate, answered, blank, avgTimeMs, timedCount, uncertaintyIndex, changesCount } = stats;
 
   const currentRank = rankFor(winRate);
   const nextRank = nextRankAfter(currentRank);
@@ -167,7 +153,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
       </div>
 
       {/* SECCIÓN 2: EL "CEREBRO" (ATENEA MIND ANALYTICS) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
 
           {/* INDICE DE INCERTIDUMBRE (DUDAS) */}
           <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
@@ -215,37 +201,6 @@ export default function StatsPanel({ user }: StatsPanelProps) {
               </p>
           </div>
 
-          {/* DIAGNÓSTICO DE ERRORES (TAXONOMÍA) */}
-          <div className="bg-white dark:bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg">
-              <h3 className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-6">
-                  <Brain size={16} className="text-red-500"/> Origen de tus Fallos
-              </h3>
-              <div className="space-y-3">
-                  {ERROR_TYPES.map(type => {
-                      const count = errorBreakdown[type] ?? 0;
-                      // Denominador: fallos ETIQUETADOS, que es lo que suma el
-                      // desglose. Antes se dividia entre todos los fallos de las
-                      // 5 ultimas y las barras no sumaban el 100%.
-                      const percentage = taggedErrors === 0 ? 0 : (count / taggedErrors) * 100;
-                      return (
-                        <div key={type}>
-                            <div className="flex justify-between text-[10px] font-black uppercase mb-1 text-slate-500">
-                                <span>{ERROR_LABEL[type]}</span>
-                                <span>{count}</span>
-                            </div>
-                            <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full">
-                                <div className="h-full bg-slate-900 dark:bg-white rounded-full transition-all duration-700" style={{ width: `${percentage}%` }}></div>
-                            </div>
-                        </div>
-                      );
-                  })}
-                  {taggedErrors === 0 && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-2">
-                        Aún no has etiquetado ningún fallo. Se pide al fallar en modo entrenamiento.
-                    </p>
-                  )}
-              </div>
-          </div>
 
           {/* KPI FÍSICO RÁPIDO */}
           <div className="bg-indigo-600 text-white p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col justify-between">
@@ -269,48 +224,6 @@ export default function StatsPanel({ user }: StatsPanelProps) {
           </div>
       </div>
 
-      {/* CALIBRACIÓN (P10b): qué tan bien sabe el alumno lo que sabe. Solo si
-          ha marcado su confianza en algún entrenamiento. En un examen con
-          penalización, un acierto «a ciegas» es suerte que no se repetirá y un
-          «seguro» fallado es el error que más cuesta. */}
-      {!stats.calibracion.sinDatos && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm">
-          <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
-            <h3 className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <Gauge size={15} className="shrink-0" /> Sabes lo que sabes
-            </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              De lo que marcas en entrenamiento: cuánto aciertas según lo seguro que ibas.
-            </p>
-          </div>
-          <div className="p-4 sm:p-5 space-y-4">
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {stats.calibracion.porNivel.map((n) => (
-                <div key={n.nivel} className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3 border border-slate-100 dark:border-slate-800 text-center">
-                  <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {CONFIDENCE_LABEL[n.nivel as ConfidenceLevel]}
-                  </p>
-                  <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-tight mt-1">
-                    {n.acierto === null ? '—' : `${n.acierto}%`}
-                  </p>
-                  <p className="text-[9px] text-slate-400 dark:text-slate-500 tabular-nums">
-                    {n.total > 0 ? `${n.aciertos} de ${n.total}` : 'sin datos'}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {(() => {
-              const consejo = consejoCalibracion(stats.calibracion);
-              return consejo ? (
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-2 leading-relaxed">
-                  <Brain size={13} className="mt-0.5 shrink-0" />
-                  <span>{consejo}</span>
-                </p>
-              ) : null;
-            })()}
-          </div>
-        </div>
-      )}
 
       {/* DOMINIO DEL TEMARIO (P10): cuántas preguntas de cada tema tiene el
           alumno en cada cajón. Es la «curva de aprendizaje»: la barra crece a

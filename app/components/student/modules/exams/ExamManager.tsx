@@ -317,9 +317,6 @@ const handleFinish = async (finalQuestions: ExamQuestion[]) => {
           // pedidas: si el banco solo devolvió 12 de las 20, dar 10 minutos
           // sería regalar tiempo.
           durationSeconds={settings.mode === 'exam' ? examDurationSeconds(questions.length) : 0}
-          // Marca de confianza (P10b): solo en entrenamiento y solo si el
-          // alumno la activó en la config. `ActiveTest` la ignora en simulacro.
-          marcarConfianza={settings.mode === 'practice' && !!settings.marcarConfianza}
         />
       )}
 

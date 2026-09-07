@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  ChevronRight, CheckCircle2, XCircle, Brain,
-  BookX, AlertTriangle, Eye, ArrowLeft, Clock, Layers,
+  ChevronRight, CheckCircle2, XCircle,
+  ArrowLeft, Clock, Layers,
   ThumbsUp, ThumbsDown, Flag, Send, Bookmark, Eraser,
   Scale, LayoutGrid
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
 import { saveTestResult, setResultErrorType, voteQuestion, reportQuestion } from '@/actions';
 import { countChange } from '@/app/lib/exam-results';
+import { mereceLaPenaPreguntar } from '@/app/lib/answer-signals';
 import QuestionNote from '../../QuestionNote';
 
 interface ActiveTestProps {
@@ -39,22 +40,44 @@ interface ActiveTestProps {
    * Duracion del simulacro. 0 o ausente = sin limite.
    *
    * En entrenamiento nunca hay reloj: correr no aporta nada cuando la pregunta
-   * se corrige al momento y hay que diagnosticar el fallo.
+   * se corrige al momento.
    */
   durationSeconds?: number;
-  /**
-   * Pedir la confianza en cada respuesta (P10b). Solo tiene efecto en
-   * entrenamiento: al marcar una opción se muestran tres botones
-   * («seguro / a medias / a ciegas») y es ese segundo toque el que confirma.
-   */
-  marcarConfianza?: boolean;
 }
 
-/** Los tres niveles de confianza, en el orden en que se pintan. */
-const CONFIANZA_OPCIONES = [
-  { nivel: 2, label: 'Lo tenía', clase: 'border-emerald-500 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10' },
-  { nivel: 1, label: 'A medias', clase: 'border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10' },
-  { nivel: 0, label: 'A ciegas', clase: 'border-red-500 text-red-700 dark:text-red-300 hover:bg-red-500/10' },
+/*
+ * QUÉ SE LE PREGUNTA AL ALUMNO, Y CUÁNDO.
+ *
+ * LA REGLA: se deduce todo lo que se pueda deducir; se pregunta solo lo que NO
+ * se puede deducir **y** además cambia lo que el sistema va a hacer; y nunca
+ * bloquea.
+ *
+ * Aquí llegó a haber DOS pasos extra en CADA pregunta: la marca de confianza
+ * («¿lo tenías / a medias / a ciegas?») y el diagnóstico del fallo, este último
+ * OBLIGATORIO para poder avanzar. En un test de 50 preguntas eso son hasta 100
+ * toques que no son estudiar — y el dato salía además falseado, porque quien
+ * quiere terminar acaba pulsando siempre lo mismo.
+ *
+ *   · FIRMEZA (cómo de resuelto contestó) → NUNCA se pregunta. Sale del tiempo
+ *     y de los cambios de opción, que ya se medían (`answer-signals.ts`). El
+ *     planificador la usa para que un acierto peleado no cuente como dominio.
+ *
+ *   · TIPO DE FALLO → se deduce siempre. Solo se OFRECE corregirlo cuando el
+ *     fallo es caro —una pregunta que el alumno ya tenía aprendida o que se le
+ *     atraganta (`mereceLaPenaPreguntar`)—, porque ahí la deducción no basta y
+ *     la respuesta cambia el próximo repaso. Un toque, saltable, sin bloquear.
+ *     Fallar material nuevo no pregunta nada: es lo normal.
+ */
+
+/**
+ * Lo que se le ofrece decir cuando falla algo que ya tenía. Tres opciones, no
+ * cuatro: «no la sabía» y «un olvido» son la misma consecuencia para el
+ * planificador, y el olvido es justamente lo que ya ha deducido.
+ */
+const CORRECCION_FALLO = [
+  { id: 'fallo_procesamiento', label: 'Fue un despiste' },
+  { id: 'trampa', label: 'Me lió la pregunta' },
+  { id: 'desconocimiento', label: 'No la sabía' },
 ] as const;
 
 // Tipos de Reporte disponibles
@@ -69,14 +92,24 @@ const REPORT_TYPES = [
 
 export default function ActiveTest({
   questions, mode, topicName, onFinish, onExit, onProgress, startedAt, durationSeconds = 0,
-  marcarConfianza = false,
 }: ActiveTestProps) {
   const [localQuestions, setLocalQuestions] = useState<Question[]>(questions);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [errorTagged, setErrorTagged] = useState(false);
-  // La opción elegida que espera a que el alumno marque su confianza (P10b).
-  const [confianzaPendiente, setConfianzaPendiente] = useState<string | null>(null);
-  const pideConfianza = marcarConfianza && mode === 'practice';
+
+  /**
+   * La fila de `question_attempts` que guardó la respuesta actual, para poder
+   * corregirle el diagnóstico DESPUÉS sin insertar una segunda (regla 7).
+   * `null` cuando no hay nada que corregir todavía.
+   */
+  const resultIdRef = useRef<string | null>(null);
+  /**
+   * El guardado en vuelo. La corrección del fallo aparece en cuanto se pinta la
+   * respuesta, mientras el insert todavía viaja: sin esperarlo, un toque rápido
+   * leería `resultIdRef` a null y la corrección se perdería.
+   */
+  const savePromiseRef = useRef<Promise<{ success: boolean; id: string | null }> | null>(null);
+  /** El fallo que el alumno ya ha corregido en esta pregunta. */
+  const [correccion, setCorreccion] = useState<string | null>(null);
 
   // Métricas VIP (Tiempos y Dudas)
   //
@@ -110,15 +143,6 @@ export default function ActiveTest({
     metricasRef.current.set(indice, { ...m, tiempo: m.tiempo + (Date.now() - entradaRef.current) });
     entradaRef.current = Date.now();
   }, [metricasDe]);
-
-  // Id de la fila de `question_attempts` que guardo la respuesta actual.
-  // Etiquetar el fallo actualiza ESA fila; antes se insertaba una segunda y
-  // cada error etiquetado contaba doble en el porcentaje de acierto.
-  const resultIdRef = useRef<string | null>(null);
-  // El guardado en vuelo. Los botones de diagnóstico aparecen en cuanto se
-  // marca la respuesta, mientras el insert sigue viajando: sin esperarlo, un
-  // clic rápido leería `resultIdRef` a null y volvería a insertar.
-  const savePromiseRef = useRef<Promise<{ success: boolean; id: string | null }> | null>(null);
 
   /**
    * Preguntas marcadas para revisar antes de entregar.
@@ -192,10 +216,21 @@ export default function ActiveTest({
   // cuando se ejecuta el índice YA ha cambiado y la cuenta anterior se pierde.
 
   // --- MANEJO DE RESPUESTA ---
-  const commitRespuesta = useCallback(async (optionId: string, confidence: number | null) => {
+  //
+  // UN SOLO TOQUE. Marca la opción, se guarda, y en entrenamiento se corrige al
+  // momento. Nada de un segundo paso para confirmar ni de diagnosticar el fallo
+  // antes de poder avanzar: eso se deduce del tiempo y de los cambios de opción
+  // (ver el comentario de arriba y `app/lib/answer-signals.ts`).
+  const handleAnswer = useCallback(async (optionId: string) => {
+    if (mode === 'practice' && isAnswered) return;
+
     // Solo cuenta como duda pasar a una opción DISTINTA habiendo marcado ya
     // una. Antes se sumaba en cada pulsación, así que se contaban respuestas,
     // no cambios, y la primera respuesta ya valía 1.
+    //
+    // ESTE CONTADOR ES AHORA MATERIA PRIMA DEL MÉTODO, no una curiosidad: de él
+    // sale la «firmeza» con la que el planificador decide si un acierto cuenta
+    // como dominio o solo como haber salido del paso.
     if (countChange(currentQ.userAnswer, optionId)) {
         const m = metricasDe(currentIndex);
         metricasRef.current.set(currentIndex, { ...m, cambios: m.cambios + 1 });
@@ -204,15 +239,12 @@ export default function ActiveTest({
     // Copia del objeto, no solo del array: la copia superficial mutaba la misma
     // pregunta que tiene el componente padre en su estado.
     const updated = localQuestions.map((q, i) =>
-        i === currentIndex ? { ...q, userAnswer: optionId, confidence } : q
+        i === currentIndex ? { ...q, userAnswer: optionId } : q
     );
     aplicarRespuestas(updated);
-    setConfianzaPendiente(null);
 
     if (mode === 'practice') {
         const correct = optionId === currentQ.correctOptionId;
-        setErrorTagged(correct);
-
         savePromiseRef.current = saveTestResult(
             topicName,
             currentQ.id,
@@ -221,55 +253,42 @@ export default function ActiveTest({
                 responseTimeMs: tiempoActual(),
                 optionChanges: metricasDe(currentIndex).cambios,
                 selectedIndex: currentQ.options.findIndex((o) => o.id === optionId),
-                confidence,
             }
         );
+        // Se guarda el id por si el alumno corrige el diagnóstico: se ACTUALIZA
+        // esa fila, no se inserta otra (regla 7).
         const saved = await savePromiseRef.current;
         resultIdRef.current = saved.id;
     }
-  }, [aplicarRespuestas, currentIndex, currentQ, localQuestions, metricasDe, mode, tiempoActual, topicName]);
+  }, [aplicarRespuestas, currentIndex, currentQ, isAnswered, localQuestions, metricasDe, mode, tiempoActual, topicName]);
 
-  const handleAnswer = useCallback(async (optionId: string) => {
-    if (mode === 'practice' && isAnswered) return;
-    // Con la marca de confianza: el primer toque solo ELIGE; el segundo toque
-    // (en uno de los tres botones de confianza) es el que confirma.
-    if (pideConfianza && !isAnswered) {
-      setConfianzaPendiente(optionId);
-      return;
-    }
-    await commitRespuesta(optionId, null);
-  }, [commitRespuesta, isAnswered, mode, pideConfianza]);
+  /**
+   * El alumno dice que el fallo no fue lo que el sistema dedujo.
+   *
+   * Es OPCIONAL y no bloquea nada: si no lo toca, se queda la deducción. Solo
+   * aparece cuando falla algo que ya tenía (`mereceLaPenaPreguntar`), que es
+   * donde acertar el motivo cambia el próximo repaso — un despiste no debe
+   * mandar la pregunta a la caja 1.
+   */
+  const corregirFallo = useCallback(async (tipo: string) => {
+    setCorreccion(tipo);
+    aplicarRespuestas(
+      localQuestions.map((q, i) => (i === currentIndex ? { ...q, errorType: tipo } : q)),
+    );
 
-  // --- MANEJO DE TAXONOMÍA DE ERROR ---
-  const handleErrorTag = async (type: string) => {
-      if (errorTagged) return;
-      aplicarRespuestas(localQuestions.map((q, i) =>
-          i === currentIndex ? { ...q, errorType: type } : q
-      ));
-      setErrorTagged(true);
-      
-      // UNA fila por respuesta: se actualiza la que creó handleAnswer, no se
-      // inserta otra. Solo se toca `error_type`; el tiempo y los cambios son
-      // los de la respuesta, no los de esta pantalla de diagnóstico.
-      // Esperamos al guardado de la respuesta antes de decidir si actualizar
-      // o insertar. Sin esto, un clic rápido crearía la segunda fila.
-      if (savePromiseRef.current) await savePromiseRef.current;
-      const resultId = resultIdRef.current;
+    // Se espera al guardado de la respuesta antes de leer el id: los botones
+    // aparecen mientras el insert viaja (regla 7).
+    if (savePromiseRef.current) await savePromiseRef.current;
+    const resultId = resultIdRef.current;
 
-      if (resultId) {
-          const res = await setResultErrorType(resultId, type);
-          if (!res.success) console.error('No se pudo etiquetar el fallo:', res.error);
-      } else {
-          // El guardado de la respuesta falló, así que aquí no hay nada que
-          // duplicar: se inserta la fila completa con la etiqueta incluida.
-          const saved = await saveTestResult(topicName, currentQ.id, false, {
-              errorType: type,
-              responseTimeMs: tiempoActual(),
-              optionChanges: metricasDe(currentIndex).cambios,
-          });
-          resultIdRef.current = saved.id;
-      }
-  };
+    // UNA fila por respuesta: se ACTUALIZA la que creó `handleAnswer`. Si aquel
+    // guardado falló no hay nada que corregir y NO se inserta una segunda —
+    // perder una corrección opcional es infinitamente preferible a duplicar un
+    // intento y sesgar el porcentaje de acierto para siempre (fase 2.4).
+    if (!resultId) return;
+    const res = await setResultErrorType(resultId, tipo);
+    if (!res.success) console.error('No se pudo corregir el diagnóstico:', res.error);
+  }, [aplicarRespuestas, currentIndex, localQuestions]);
 
   // --- MANEJO DE VOTOS ---
   const handleVote = async (vote: 'up' | 'down') => {
@@ -342,17 +361,13 @@ export default function ActiveTest({
     // cronometro en marcha se percibe como que la aplicacion va lenta.
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
 
-    // El estado de diagnóstico es de la pregunta, no de la pantalla: al llegar
-    // a una ya respondida y etiquetada no hay que volver a etiquetarla.
-    const q = localQuestions[destino];
-    setErrorTagged(
-      !q.userAnswer ? false : q.userAnswer === q.correctOptionId || Boolean(q.errorType)
-    );
-
-    // El guardado en vuelo era de la pregunta que se deja.
+    // La fila guardada y la corrección eran de la pregunta que se deja. Si
+    // sobrevivieran, la corrección de la siguiente sobrescribiría el
+    // diagnóstico de la anterior.
     resultIdRef.current = null;
     savePromiseRef.current = null;
-  }, [cerrarVisita, currentIndex, localQuestions]);
+    setCorreccion(null);
+  }, [cerrarVisita, currentIndex, localQuestions.length]);
 
   /**
    * Dejar la pregunta en blanco, a proposito.
@@ -463,7 +478,10 @@ export default function ActiveTest({
   //
   // No dispara con el modal de reporte abierto ni escribiendo en un campo: si
   // no, teclear "la b esta mal" en el reporte marcaria la opcion B.
-  const puedeAvanzar = mode === 'exam' || (isAnswered && (isCorrect || errorTagged));
+  // En entrenamiento basta con haber contestado. Antes, además, un fallo
+  // OBLIGABA a diagnosticarlo antes de dejarte pasar: ese diagnóstico ya no se
+  // pide (se deduce), así que la única condición es haber respondido.
+  const puedeAvanzar = mode === 'exam' || isAnswered;
 
   const estaMarcada = marcadas.has(currentIndex);
 
@@ -880,7 +898,7 @@ export default function ActiveTest({
 
           <div className="space-y-3 sm:space-y-4 relative z-10">
               {currentQ.options.map((opt) => {
-                  const isSelected = currentQ.userAnswer === opt.id || confianzaPendiente === opt.id;
+                  const isSelected = currentQ.userAnswer === opt.id;
                   const isCorrectOpt = opt.id === currentQ.correctOptionId;
 
                   let style = "border-slate-200 dark:border-slate-800 hover:border-indigo-400 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300";
@@ -918,41 +936,6 @@ export default function ActiveTest({
                   );
               })}
           </div>
-
-          {/* MARCA DE CONFIANZA (P10b · entrenar el blanco)
-
-              El primer toque en una opción no la confirma: pregunta «¿qué tal
-              lo veías?» y es este segundo toque el que guarda la respuesta CON
-              su nivel de confianza. En un examen con penalización, saber cuándo
-              NO lo sabes vale nota: quien contesta «a ciegas» y falla habría
-              hecho mejor dejándola en blanco, y eso es lo que esto entrena.
-
-              Solo en entrenamiento y solo si el alumno lo activó: es práctica
-              deliberada, no una fricción impuesta a todo el mundo. */}
-          {pideConfianza && confianzaPendiente !== null && !isAnswered && (
-              <div className="mt-6 relative z-10 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                  <p className="text-center text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
-                      ¿Qué tal lo veías?
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                      {CONFIANZA_OPCIONES.map((c) => (
-                          <button
-                            key={c.nivel}
-                            onClick={() => commitRespuesta(confianzaPendiente, c.nivel)}
-                            className={`min-h-[44px] px-2 py-3 rounded-2xl border-2 font-black text-[11px] sm:text-xs uppercase tracking-wider bg-white dark:bg-slate-950 transition-colors ${c.clase}`}
-                          >
-                              {c.label}
-                          </button>
-                      ))}
-                  </div>
-                  <button
-                    onClick={() => setConfianzaPendiente(null)}
-                    className="mx-auto mt-3 block text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 uppercase tracking-wider transition-colors"
-                  >
-                      Cambiar de opción
-                  </button>
-              </div>
-          )}
 
           {/* DEJAR EN BLANCO
 
@@ -1016,27 +999,38 @@ export default function ActiveTest({
                           </div>
                       </div>
 
-                      {!errorTagged ? (
-                        <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <p className="text-center text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Diagnóstico del Error (Obligatorio)</p>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {[
-                                    {id:'olvido',label:'OLVIDO',icon:Brain},
-                                    {id:'desconocimiento',label:'LAGUNA',icon:BookX},
-                                    {id:'trampa',label:'TRAMPA',icon:AlertTriangle},
-                                    {id:'fallo_procesamiento',label:'LECTURA',icon:Eye}
-                                ].map((e)=>(
-                                    <button key={e.id} onClick={()=>handleErrorTag(e.id)} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl flex flex-col items-center gap-2 transition-all group">
-                                        <e.icon size={20} className="text-slate-500 dark:text-slate-400 group-hover:text-indigo-500 transition-colors"/>
-                                        <span className="text-[10px] font-bold text-slate-500 group-hover:text-indigo-600 transition-colors">{e.label}</span>
-                                    </button>
-                                ))}
+                      {/* LA ÚNICA PREGUNTA QUE SE LE HACE, Y CASI NUNCA.
+                          Aquí había cuatro botones OBLIGATORIOS en cada fallo.
+                          Ahora el tipo se deduce (`answer-signals.ts`) y esto
+                          solo aparece cuando falla algo que YA tenía o que se
+                          le atraganta: es el único caso en el que la deducción
+                          no basta y la respuesta cambia el próximo repaso.
+                          Un toque, y se puede ignorar — «Siguiente» está
+                          disponible desde el primer momento. */}
+                      {mereceLaPenaPreguntar(currentQ.cajon) && (
+                        correccion ? (
+                          <p className="text-xs font-bold text-slate-500 flex items-center gap-2">
+                            <CheckCircle2 size={14} className="text-indigo-500" /> Apuntado. Lo tendré en cuenta.
+                          </p>
+                        ) : (
+                          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
+                              Esta <strong>ya la tenías</strong>, así que te la traigo pronto otra vez.
+                              Si no fue que se te olvidara, dímelo y lo ajusto:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {CORRECCION_FALLO.map((c) => (
+                                <button
+                                  key={c.id}
+                                  onClick={() => corregirFallo(c.id)}
+                                  className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                >
+                                  {c.label}
+                                </button>
+                              ))}
                             </div>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-center border border-dashed border-slate-300 dark:border-slate-700">
-                            <p className="text-xs font-bold text-slate-500 flex items-center justify-center gap-2"><CheckCircle2 size={14} className="text-indigo-500"/> Error archivado.</p>
-                        </div>
+                          </div>
+                        )
                       )}
                   </div>
               )}

@@ -567,10 +567,18 @@ export async function getAdaptiveSession(params: {
     dificultad: typeof params.difficulty === 'number' ? params.difficulty : null,
   });
 
+  // El cajón viaja con cada pregunta. La pantalla del test lo usa para UNA
+  // cosa: si el alumno falla algo que ya tenía aprendido, ofrecerle corregir el
+  // diagnóstico que el sistema ha deducido. Fallar material nuevo no pregunta
+  // nada (`mereceLaPenaPreguntar` en `lib/answer-signals.ts`).
   const questions = sesion.questionIds
     .map((id) => filaPorId.get(id))
     .filter((f): f is BankRow => !!f)
-    .map((f) => ({ ...mapBankRowToQuestion(f), topic: temaDeFila(f) }));
+    .map((f) => ({
+      ...mapBankRowToQuestion(f),
+      topic: temaDeFila(f),
+      cajon: states.get(f.id)?.cajon ?? 'nueva',
+    }));
 
   return {
     success: true as const,

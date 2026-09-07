@@ -18,6 +18,7 @@ import SetupWizard from './components/SetupWizard';
 import AssessmentHub from './components/AssessmentHub';
 import TestRunner from './components/TestRunner';
 import TrainingDashboard from './components/TrainingDashboard';
+import CalendarioEntrenamiento from './components/CalendarioEntrenamiento';
 import ActiveSession from './components/ActiveSession';
 import { hasBiometrics, type BaselineMetrics, type PhysicalProfile, type TestId } from '@/app/lib/physical';
 import type { TrainingDay, WeeklyPlan, SemanaHistorial } from '@/app/lib/training-plan';
@@ -46,6 +47,20 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   const [historial, setHistorial] = useState<SemanaHistorial[]>([]);
   // El plan viene de un grupo (id `grupo:…`): compartido, ni se marca ni se genera.
   const esPlanDeGrupo = (activePlanId ?? '').startsWith('grupo:');
+
+  /**
+   * DOS MÓDULOS DISTINTOS, NO UNO CON PARTES ESCONDIDAS.
+   *
+   * Si la academia lleva las físicas A MANO —el interruptor `training_ai` está
+   * apagado, o el plan lo escribió una persona, o es el de su grupo— el alumno
+   * no tiene NADA que hacer con el motor de IA: ni test inicial, ni wizard de
+   * biometría, ni «iniciar sesión», ni progreso semanal, ni «generar la
+   * siguiente». Todo eso existe para alimentar al modelo.
+   *
+   * Ve un CALENDARIO con el entrenamiento de cada día, y punto.
+   */
+  const planEsDePersona = esPlanDeGrupo || weeklyPlan?.source === 'entrenador';
+  const modoManual = !aiOn || planEsDePersona;
 
   // ESTADOS DE SESIÓN ACTIVA
   const [activeDay, setActiveDay] = useState<TrainingDay | null>(null);
@@ -214,6 +229,19 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
               <Loader2 className="animate-spin text-emerald-500 w-12 h-12"/>
               <p className="text-slate-500 dark:text-slate-400 text-sm font-mono uppercase tracking-widest">Cargando Sistema Táctico...</p>
           </div>
+      );
+  }
+
+  // MODO MANUAL: solo el calendario. Va ANTES que cualquier otra vista para que
+  // el wizard y el hub de tests no puedan aparecer nunca — sin esta guarda, un
+  // alumno de plan manual al que su preparador todavía no le ha subido la
+  // semana caía en el test de Cooper, que no le sirve de nada.
+  if (modoManual) {
+      return (
+          <CalendarioEntrenamiento
+            plan={weeklyPlan}
+            origen={esPlanDeGrupo ? 'grupo' : 'individual'}
+          />
       );
   }
 

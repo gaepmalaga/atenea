@@ -39,8 +39,16 @@ export type Question = {
   legalReference?: string | null;
   timeMs?: number;
   changes?: number;
-  /** Confianza con la que se contestó (P10b): 0 a ciegas · 1 a medias · 2 seguro. */
-  confidence?: number | null;
+  /**
+   * En que cajon tiene el ALUMNO esta pregunta al empezar la sesion (P10):
+   * nueva / recaida / aprendiendo / consolidando / dominada / atascada.
+   *
+   * Lo pone `getAdaptiveSession`. La pantalla del test lo usa para UNA sola
+   * cosa: decidir si, al fallarla, merece la pena ofrecerle corregir el
+   * diagnostico deducido (`mereceLaPenaPreguntar`). Fallar algo nuevo es lo
+   * normal y no se pregunta; fallar algo que ya tenias, no.
+   */
+  cajon?: string | null;
 };
 
 /**

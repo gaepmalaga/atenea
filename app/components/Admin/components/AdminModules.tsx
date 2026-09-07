@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Power, AlertTriangle, ShieldOff, Sparkles } from 'lucide-react';
 import { getModuleSettings, setModuleEnabled, getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import {
-  MODULE_IDS,
+  MODULE_IDS_MVP,
   MODULE_LABEL,
   MODULE_DESCRIPCION,
   todosActivos,
@@ -86,7 +86,7 @@ export default function AdminModules() {
           <div>
             <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight uppercase">Módulos del alumno</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {cargando ? 'Cargando…' : `${activos} de ${MODULE_IDS.length} activos`}
+              {cargando ? 'Cargando…' : `${activos} de ${MODULE_IDS_MVP.length} activos`}
               {' · '}lo que se apaga aquí deja de servirse también en el servidor
             </p>
           </div>
@@ -108,7 +108,9 @@ export default function AdminModules() {
       )}
 
       <div className="grid md:grid-cols-2 gap-4">
-        {MODULE_IDS.map((id) => {
+        {/* Los que estan fuera del MVP no salen: su interruptor seria una mentira,
+            porque el alumno no los ve de todas formas (MODULOS_FUERA_DEL_MVP). */}
+        {MODULE_IDS_MVP.map((id) => {
           const activo = settings[id];
           return (
             <div

@@ -61,32 +61,44 @@ describe('el servidor permite actualizar en vez de reinsertar', () => {
 });
 
 describe('el cliente no vuelve a insertar dos veces', () => {
-  const handleErrorTag = fn(activeTest, 'const handleErrorTag');
+  // Desde el 7 sep 2026 el diagnostico del fallo YA NO SE PIDE en cada error:
+  // se deduce (`app/lib/answer-signals.ts`) y solo se ofrece CORREGIRLO cuando
+  // el fallo es caro. La funcion se llama ahora `corregirFallo`, pero lo que
+  // vigila esta guarda es lo mismo de siempre: una fila por respuesta.
+  const corregirFallo = fn(activeTest, 'const corregirFallo = useCallback');
 
-  it('etiquetar un fallo actualiza la fila existente', () => {
-    expect(handleErrorTag).toContain('setResultErrorType(resultId, type)');
+  it('corregir el fallo actualiza la fila existente', () => {
+    expect(corregirFallo).toContain('setResultErrorType(resultId, tipo)');
   });
 
-  it('solo inserta si el guardado de la respuesta habia fallado', () => {
-    // El `saveTestResult` que queda en esta funcion vive en la rama en la que
-    // NO hay id, o sea cuando no existe fila que actualizar.
-    const elseBranch = handleErrorTag.slice(handleErrorTag.indexOf('} else {'));
-    expect(elseBranch).toContain('saveTestResult(');
-
-    const ifBranch = handleErrorTag.slice(
-      handleErrorTag.indexOf('if (resultId)'),
-      handleErrorTag.indexOf('} else {')
-    );
-    expect(ifBranch).not.toContain('saveTestResult(');
+  it('NUNCA inserta: si no hay fila que corregir, no se crea una segunda', () => {
+    // Antes esta rama insertaba la fila completa cuando el guardado inicial
+    // habia fallado. Ya no: perder una correccion OPCIONAL es preferible a
+    // duplicar el intento y sesgar el acierto para siempre (fase 2.4).
+    expect(corregirFallo).not.toContain('saveTestResult(');
+    expect(corregirFallo).toMatch(/if \(!resultId\) return;/);
   });
 
   it('espera al guardado en vuelo antes de decidir', () => {
-    // Los botones de diagnostico aparecen mientras el insert viaja: sin esperar,
-    // un clic rapido leeria el id a null y volveria a insertar.
-    expect(handleErrorTag).toContain('await savePromiseRef.current');
-    expect(handleErrorTag.indexOf('await savePromiseRef.current')).toBeLessThan(
-      handleErrorTag.indexOf('if (resultId)')
+    // La correccion aparece mientras el insert viaja: sin esperar, un toque
+    // rapido leeria el id a null y se perderia.
+    expect(corregirFallo).toContain('await savePromiseRef.current');
+    expect(corregirFallo.indexOf('await savePromiseRef.current')).toBeLessThan(
+      corregirFallo.indexOf('resultIdRef.current')
     );
+  });
+
+  it('el diagnostico del fallo ya no bloquea el avance', () => {
+    // Era OBLIGATORIO: `puedeAvanzar` exigia haberlo etiquetado, asi que fallar
+    // costaba un toque extra siempre. Ahora basta con haber contestado.
+    const linea = activeTest.slice(activeTest.indexOf('const puedeAvanzar'));
+    expect(linea.slice(0, linea.indexOf('\n'))).not.toContain('errorTagged');
+  });
+
+  it('solo se pregunta cuando la respuesta cambia el proximo repaso', () => {
+    // La regla: se deduce todo lo deducible, y solo se pregunta lo que ademas
+    // cambia lo que el sistema va a hacer. Fallar material nuevo no pregunta.
+    expect(activeTest).toContain('mereceLaPenaPreguntar(currentQ.cajon)');
   });
 
   it('el id se reinicia al cambiar de pregunta', () => {

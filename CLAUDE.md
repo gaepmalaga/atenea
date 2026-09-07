@@ -1718,24 +1718,114 @@ y [`docs/P10-entrenamiento-adaptativo.md`](docs/P10-entrenamiento-adaptativo.md)
 - **RLS**: las respuestas del propio alumno se leen con **su sesión** (`db`,
   regla 34 — `question_attempts` tiene política de propietario y aquí no hay join
   con `question_bank`); el banco, con la clave de servicio.
-- **P10b · marca de confianza / entrenar el blanco (técnica 8) — HECHA** (6 sep
-  2026). Solo en entrenamiento y solo si el alumno la activa en la config: es
-  práctica deliberada, no una fricción impuesta. Al marcar una opción se pregunta
-  «¿qué tal lo veías?» (lo tenía / a medias / a ciegas) y **ese segundo toque es
-  el que confirma** (`ActiveTest`, `commitRespuesta(optionId, confidence)`). Se
-  guarda en `question_attempts.confidence` (`smallint`, 0-2, `CHECK`;
-  [`docs/sql/P10b-marca-de-confianza.sql`](docs/sql/P10b-marca-de-confianza.sql),
-  **ejecutado**). `normalizeConfidence` en `exam-results.ts` la deja en 0/1/2 o
-  `null` (histórico, simulacro, o fuera de rango), y **un blanco nunca lleva
-  confianza**. `resumeCalibracion` (`app/lib/confidence.ts`, pura) la agrega:
-  acierto por nivel, `netoDeAdivinar` (aciertos a ciegas − fallos/2: si es
-  negativo, dejar esas en blanco habría puntuado más), `seguroFallado`. Se pinta
-  en resultados y en Estadísticas («Sabes lo que sabes»); `sinDatos` = no se
-  pinta. La marca solo tiene efecto en `mode === 'practice'`: el simulacro no la
-  pregunta.
+- **P10b · la marca de confianza EXPLÍCITA se retiró** (7 sep 2026). Se llegó a
+  pedir por cada respuesta («¿lo tenías / a medias / a ciegas?») y, encima, el
+  diagnóstico del fallo era OBLIGATORIO para avanzar: hasta 100 toques extra en
+  un test de 50 preguntas, y el dato salía falseado porque quien quiere terminar
+  pulsa siempre lo mismo. Ver **regla 56**, que es la que manda ahora. El código
+  de la calibración (`app/lib/confidence.ts`, la columna
+  `question_attempts.confidence`) se conserva sin usar, como el chat.
 - **Lo que queda para v2**: FSRS (hueco dejado en los datos), y una intervención
   real para las «atascadas» más allá de avisar (generar una ficha desde la
   pregunta, o llevar al artículo).
+
+### 56 · Se deduce todo lo deducible; se pregunta solo lo que cambia el plan
+
+**La regla, entera:**
+
+> Se DEDUCE todo lo que se pueda deducir. Se PREGUNTA solo lo que no se puede
+> deducir **y** además cambia lo que el sistema va a hacer. Y **nunca bloquea**.
+
+Salió de probarlo: *«no puede ser que a un alumno, por cada pregunta, se le
+hagan 5 preguntas más sobre cómo ha contestado»*. Y era literal — en cada
+respuesta se pedía la marca de confianza (P10b) y, si fallaba, el diagnóstico
+del error **era obligatorio para poder avanzar**. En un test de 50 preguntas,
+hasta 100 toques que no son estudiar. Y el dato salía además falseado: quien
+quiere terminar acaba pulsando siempre lo mismo, así que se pagaba fricción por
+un dato que miente.
+
+**No hacía falta preguntarlo.** Desde la fase 2.3 cada fila de
+`question_attempts` guarda `response_time_ms` y `option_changes` (cambios REALES
+de opción, regla 6) — y no se usaban para decidir nada. De ahí salen las dos
+señales, en `app/lib/answer-signals.ts` (puro, se deriva al **leer**, así que
+funciona sobre todo el histórico y no necesitó ni una columna):
+
+| Señal | Cómo | Qué hace con ella el método |
+|---|---|---|
+| **Firmeza** | sin cambios y ≤ 20 s = *firme*; ≥ 2 cambios o > 45 s = *titubeante* | Un acierto **titubeante no pasa de la caja 3** (`MAX_BOX_TITUBEANTE`): acertar peleando no es dominar. Sin el tope, tres aciertos dudosos mandaban la pregunta a la caja 5 y no volvía en 45 días |
+| **Tipo de fallo** | caja previa ≥ 3 → *olvido*; cambió de opción → *trampa*; < 8 s → *lectura*; resto → *laguna* | El de **lectura** baja a la caja 2, no a la 1 (leíste mal, no es que no lo sepas) |
+
+**El orden de `inferErrorType` no es negociable:** el historial manda sobre la
+señal (si la tenías en la caja 3, fallarla es un olvido aunque además dudaras), y
+dudar manda sobre la velocidad (quien cambió de opción SÍ leyó el enunciado).
+
+**Y sin dato NO es cero** (reglas 8 y 16): sin tiempo medido la firmeza es
+*normal*, no *titubeante*. Tratarlo como titubeante castigaría a todo el
+histórico anterior a la fase 2.3.
+
+**LO ÚNICO QUE SE PREGUNTA**, y casi nunca: cuando el alumno falla una pregunta
+que **ya tenía aprendida o que se le atraganta** (`mereceLaPenaPreguntar`:
+cajones `consolidando` / `dominada` / `atascada`), se le ofrece corregir el
+diagnóstico deducido con **tres botones, un toque, saltable** — «SIGUIENTE» está
+disponible desde el primer momento. Es el único caso en que la deducción no basta
+y la respuesta cambia el próximo repaso: si fue un despiste, la pregunta no debe
+caer a la caja 1 y volver mañana. Fallar material **nuevo o en aprendizaje no
+pregunta nada**: es lo normal y el motivo no cambia nada. Con un banco asentado
+sale a 1 de cada 10 fallos, no 10 de 10.
+
+El cajón viaja con cada pregunta (`Question.cajon`, lo pone `getAdaptiveSession`)
+solo para eso. Y la corrección **ACTUALIZA** la fila que creó `handleAnswer`,
+nunca inserta una segunda — y si aquel guardado falló, **no se inserta nada**:
+perder una corrección opcional es preferible a duplicar un intento y sesgar el
+acierto para siempre (fase 2.4, regla 7).
+
+**Consecuencias en la configuración del test:** solo hay **dos modos** —
+entrenamiento (el sistema decide) y simulacro (fiel al examen real)—. La
+**dificultad solo se elige en el simulacro**: en entrenamiento la decide el
+método, y dejar que el alumno fuerce «extrema» rompe justo la calibración al
+85 %. Se retiraron los cuadros de calibración de resultados y de Estadísticas,
+y el «Origen de tus fallos»: eran la respuesta a una pregunta que ya no se hace.
+
+### 57 · Quien tiene preparador de verdad no ve nada de la IA
+
+Un alumno cuyo plan físico lo escribe una persona —el de su grupo, o uno
+individual que le ha puesto la academia— **no necesita nada de lo que rodea al
+plan generado**: ni test inicial de Cooper, ni wizard de biometría, ni «iniciar
+sesión», ni barra de progreso semanal, ni «generar la siguiente». Todo eso existe
+para alimentar al modelo, y ahí el modelo no pinta nada.
+
+Ve **un calendario de la semana y punto** (`CalendarioEntrenamiento.tsx`): cada
+día con sus ejercicios y el de hoy destacado. No son dos vistas de lo mismo con
+partes escondidas: son dos módulos distintos, y `PhysicalTrainer` elige entre
+ellos ANTES que cualquier otra vista —
+
+```ts
+const modoManual = !aiOn || esPlanDeGrupo || weeklyPlan?.source === 'entrenador';
+```
+
+El `!aiOn` es lo que evita el fallo obvio: si la academia lleva las físicas a
+mano y el preparador todavía no ha subido la semana, sin esa guarda el alumno
+caía en el test de Cooper, que no le sirve para nada. Sin plan se le dice que
+aún no lo hay (regla 8), no se le manda a hacer pruebas.
+
+**No hay nada que marcar**: un plan de grupo es compartido y marcarlo lo
+reescribiría para todos (regla 53).
+
+### 58 · El chat sale del MVP sin borrar una línea
+
+`MODULOS_FUERA_DEL_MVP` en `app/lib/modules.ts`. El módulo `chat` sigue entero
+—`IntelChat`, `actions/chat.ts`, la recuperación del temario, el historial, las
+reglas 30-33 y 42— y `requireModule('chat')` lo sigue protegiendo en el servidor.
+Simplemente **no se le ofrece al alumno ni sale en los interruptores del panel**.
+
+Decisión del dueño (7 sep 2026): el coste por pregunta es alto (documento entero,
+regla 33), la calidad depende de que el alumno elija bien el tema, y para el
+piloto no es lo que diferencia a la plataforma — eso es el entrenamiento
+adaptativo. **Para devolverlo: quitarlo de esa lista. Nada más.**
+
+Se esconde en los DOS sitios con la misma constante —el menú del alumno
+(`StudentDashboard`) y los interruptores (`AdminModules`)— porque un interruptor
+para algo que el alumno no ve de todas formas es una mentira.
 
 ---
 
@@ -1751,6 +1841,7 @@ tests/stats.test.ts             agregación de resultados, rangos, perfil físic
 tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y ausencia de `any`
 tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y revisión
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
+tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qué documento se manda
 tests/interview.test.ts         transcripción, informe final y máquina de estados

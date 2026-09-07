@@ -57,6 +57,31 @@ export const MODULE_DESCRIPCION: Record<ModuleId, string> = {
 
 export type ModuleSettings = Record<ModuleId, boolean>;
 
+/**
+ * MÓDULOS QUE NO ENTRAN EN EL MVP.
+ *
+ * No están borrados: el código sigue entero —`IntelChat`, `actions/chat.ts`, la
+ * recuperación del temario, el historial— y `requireModule` los sigue
+ * protegiendo en el servidor. Simplemente NO se le ofrecen al alumno ni salen
+ * en los interruptores del panel, porque hoy dan más problemas que valor.
+ *
+ * `chat` (7 sep 2026), por decisión del dueño: el coste por pregunta es alto
+ * (documento entero, regla 33), la calidad depende de que el alumno elija bien
+ * el tema, y para el piloto no es lo que diferencia a la plataforma — eso es el
+ * entrenamiento adaptativo. Se retoma cuando el piloto lo pida.
+ *
+ * Para devolverlo: quitarlo de esta lista. Nada más.
+ */
+export const MODULOS_FUERA_DEL_MVP: readonly ModuleId[] = ['chat'];
+
+/** ¿Se le ofrece hoy al alumno? Ver `MODULOS_FUERA_DEL_MVP`. */
+export function enElMvp(id: ModuleId): boolean {
+  return !MODULOS_FUERA_DEL_MVP.includes(id);
+}
+
+/** Los módulos que hoy se ven, en el orden del menú. */
+export const MODULE_IDS_MVP: readonly ModuleId[] = MODULE_IDS.filter(enElMvp);
+
 export function isModuleId(valor: unknown): valor is ModuleId {
   return typeof valor === 'string' && (MODULE_IDS as readonly string[]).includes(valor);
 }

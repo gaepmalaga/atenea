@@ -12,6 +12,7 @@
  */
 
 import { isBlankAnswer } from './exam-results.ts';
+import { errorTypeDe, inferFirmeza, FIRMEZA } from './answer-signals.ts';
 
 // ============================================================
 // LO QUE ENTRA
@@ -49,6 +50,17 @@ export const MAX_BOX = BOX_INTERVALS_DAYS.length - 1; // 5
 
 /** Fallada 4+ veces desde una caja ≥ 2: no se arregla con más repeticiones. */
 export const LAPSES_ATASCADA = 4;
+
+/**
+ * Hasta dónde puede subir un acierto TITUBEANTE (cambió de opción varias veces
+ * o tardó una eternidad — ver `answer-signals.ts`).
+ *
+ * Acertar peleando no es dominar. Sin este tope, tres aciertos dudosos seguidos
+ * mandaban la pregunta a la caja 5 y el alumno no la volvía a ver en 45 días,
+ * que es justo lo contrario de lo que necesita. Se queda «en aprendizaje» hasta
+ * que la conteste con soltura.
+ */
+export const MAX_BOX_TITUBEANTE = 3;
 
 /** Un acierto por debajo de esto (ms) cuenta como fluido para «dominada». */
 export const UMBRAL_FLUIDEZ_MS = 25_000;
@@ -160,11 +172,17 @@ export function computeQuestionStates(
     const cuando = fecha(it.created_at);
     if (cuando !== null) s.lastAnsweredAt = new Date(cuando).toISOString();
 
+    const firmeza = inferFirmeza(it);
+
     if (it.is_correct) {
       s.aciertos++;
       s.streak++;
       // Primer acierto → caja 2 (la 1 es solo para recaídas). Luego, de una en una.
-      s.box = s.box === 0 ? 2 : Math.min(MAX_BOX, s.box + 1);
+      const siguiente = s.box === 0 ? 2 : Math.min(MAX_BOX, s.box + 1);
+      // Acertar peleando no es dominar: un acierto titubeante no pasa de la 3.
+      s.box = firmeza === FIRMEZA.TITUBEANTE
+        ? Math.min(siguiente, Math.max(s.box, MAX_BOX_TITUBEANTE))
+        : siguiente;
       s.lastErrorType = null;
       // Solo los últimos aciertos cuentan para la fluidez: un alumno que era
       // lento hace meses y ahora va rápido NO debe seguir marcado como frágil.
@@ -178,10 +196,15 @@ export function computeQuestionStates(
       }
     } else {
       s.streak = 0;
-      s.lastErrorType = typeof it.error_type === 'string' ? it.error_type : null;
+      // El tipo de fallo ya NO se le pregunta al alumno: se DEDUCE del tiempo y
+      // de los cambios de opción, con la caja previa como contexto
+      // (`answer-signals.ts`). Las filas viejas traen el diagnóstico escrito a
+      // mano y ese manda.
+      const tipo = errorTypeDe({ ...it, boxPrevio: s.box });
+      s.lastErrorType = tipo;
       const veniaDeAprendido = s.box >= 2;
       // Lectura: baja a la 2, no a la 1. No es que no lo sepas.
-      s.box = it.error_type === 'fallo_procesamiento' ? 2 : 1;
+      s.box = tipo === 'fallo_procesamiento' ? 2 : 1;
       if (veniaDeAprendido) s.lapses++;
     }
   }
