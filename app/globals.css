@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* El `dark:` de Tailwind sigue a la CLASE `.dark` del <html>, no a
+   `prefers-color-scheme`. En Tailwind 4 hay que declararlo. Sin esto, los
+   cientos de `dark:bg-slate-900` de los componentes solo respondían al sistema
+   operativo y el interruptor de tema de «Mi perfil» no hacía nada. La clase la
+   pone un script en <head> antes de pintar (ver `app/layout.tsx`). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* =========================================
    FASE 1: EL NÚCLEO (FÍSICA Y MATERIALES)
    ========================================= */
@@ -39,8 +46,10 @@
   --warning: #d97706; /* Amber 600 */
 }
 
+/* Solo como respaldo ANTES de que corra el script del tema: en cuanto el
+   script pone `.dark` o `.light` en el <html>, este bloque queda inerte. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light):not(.dark) {
     /* --- MODO NOCHE: "CARBON & HUD" (Centro de Mando) --- */
 
     /* Fondos Profundos */

@@ -25,6 +25,7 @@ import MiPerfil from './modules/perfil/MiPerfil';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { getModuleSettings } from '@/actions';
+import { observaTema } from '@/app/lib/theme';
 import { todosActivos, moduloDeEntrada, enElMvp, type ModuleId, type ModuleSettings } from '@/app/lib/modules';
 
 // --- TIPOS ---
@@ -86,15 +87,10 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     return () => { vivo = false; };
   }, []);
 
-  // Tema: la preferencia guardada en «Mi perfil» manda; si no hay ninguna, se
-  // sigue la del sistema.
-  useEffect(() => {
-    let elegido: string | null = null;
-    try { elegido = window.localStorage.getItem('atenea-tema'); } catch { /* bloqueado */ }
-    const sistemaOscuro = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    const oscuro = elegido === 'oscuro' || ((elegido === 'sistema' || !elegido) && sistemaOscuro);
-    document.documentElement.classList.toggle('dark', !!oscuro);
-  }, []);
+  // El tema ya lo pone el script de `layout.tsx` antes de pintar. Esto solo
+  // mantiene «sistema» al día si el usuario cambia el modo del SO con la app
+  // abierta.
+  useEffect(() => observaTema(), []);
 
   /**
    * Al cambiar de pantalla, arriba del todo.

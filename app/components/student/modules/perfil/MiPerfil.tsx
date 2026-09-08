@@ -5,28 +5,15 @@ import { CalendarClock, ShieldCheck, ShieldAlert, Users, Mail, Sun, Moon, Monito
 import { getMiPerfil } from '@/actions';
 import type { MiPerfil as MiPerfilData } from '@/app/actions/perfil';
 import { diasHasta, fechaLarga, textoCuentaAtras } from '@/app/lib/convocatoria';
+import { leeTema, guardaTema, type Tema } from '@/app/lib/theme';
 import { Card, SectionLabel, cx, TEXT, TAP } from '../../../ui';
-
-const TEMA_KEY = 'atenea-tema';
-type Tema = 'sistema' | 'claro' | 'oscuro';
-
-/** Aplica el tema al `<html>`. Con 'sistema' sigue la preferencia del SO. */
-function aplicaTema(t: Tema) {
-  const oscuro = t === 'oscuro' || (t === 'sistema' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-  document.documentElement.classList.toggle('dark', !!oscuro);
-}
 
 export default function MiPerfil({ user }: { user: { id: string; email?: string } }) {
   const [data, setData] = useState<MiPerfilData | null>(null);
   const [cargando, setCargando] = useState(true);
   const [tema, setTema] = useState<Tema>('sistema');
 
-  useEffect(() => {
-    try {
-      const guardado = window.localStorage.getItem(TEMA_KEY) as Tema | null;
-      if (guardado === 'claro' || guardado === 'oscuro' || guardado === 'sistema') setTema(guardado);
-    } catch { /* almacenamiento bloqueado */ }
-  }, []);
+  useEffect(() => { setTema(leeTema()); }, []);
 
   useEffect(() => {
     getMiPerfil()
@@ -36,8 +23,7 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
 
   const cambiarTema = (t: Tema) => {
     setTema(t);
-    aplicaTema(t);
-    try { window.localStorage.setItem(TEMA_KEY, t); } catch { /* ídem */ }
+    guardaTema(t);
   };
 
   const conv = data?.convocatoria;
@@ -73,30 +59,36 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
       </Card>
 
       {/* ───────── MI ACCESO ───────── */}
-      {data?.acceso && (
+      {(data?.acceso || data?.pagoDelMes) && (
         <Card>
           <SectionLabel
-            icon={data.acceso.estado === 'active' ? <ShieldCheck size={14} className="text-emerald-500" /> : <ShieldAlert size={14} className="text-red-500" />}
+            icon={data.acceso?.estado === 'suspended' ? <ShieldAlert size={14} className="text-red-500" /> : <ShieldCheck size={14} className="text-emerald-500" />}
           >
             Mi acceso
           </SectionLabel>
           <div className="flex flex-wrap gap-2">
-            <span className={cx(
-              'text-xs font-bold px-2.5 py-1 rounded-lg',
-              data.acceso.estado === 'active'
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
-                : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
-            )}>
-              {data.acceso.estado === 'active' ? 'Acceso activo' : 'Acceso suspendido'}
-            </span>
-            <span className={cx(
-              'text-xs font-bold px-2.5 py-1 rounded-lg',
-              data.acceso.pago === 'al_dia'
-                ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-            )}>
-              {data.acceso.pago === 'al_dia' ? 'Pago al día' : 'Pago pendiente'}
-            </span>
+            {data.acceso && (
+              <span className={cx(
+                'text-xs font-bold px-2.5 py-1 rounded-lg',
+                data.acceso.estado === 'active'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+                  : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
+              )}>
+                {data.acceso.estado === 'active' ? 'Acceso activo' : 'Acceso suspendido'}
+              </span>
+            )}
+            {data.pagoDelMes && (
+              <span className={cx(
+                'text-xs font-bold px-2.5 py-1 rounded-lg first-letter:uppercase',
+                data.pagoDelMes.pagado
+                  ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
+              )}>
+                {data.pagoDelMes.pagado
+                  ? `${data.pagoDelMes.periodo} pagado`
+                  : `${data.pagoDelMes.periodo} sin pagar`}
+              </span>
+            )}
           </div>
           <p className={cx(TEXT.muted, 'mt-3')}>Lo gestiona tu academia. Si algo no cuadra, háblalo con ella.</p>
         </Card>
