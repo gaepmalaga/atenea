@@ -208,7 +208,7 @@ export default function CalendarioEntrenamiento({ semanas, origen }: CalendarioE
                             blanco (regla 5). */}
                         {(e.sets || e.reps || e.rest) && (
                           <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
-                            {[e.sets && `${e.sets} series`, e.reps, e.rest && `descanso ${e.rest}`]
+                            {[e.sets && `${e.sets} ${String(e.sets) === '1' ? 'serie' : 'series'}`, e.reps, e.rest && `descanso ${e.rest}`]
                               .filter(Boolean)
                               .join(' · ')}
                           </p>

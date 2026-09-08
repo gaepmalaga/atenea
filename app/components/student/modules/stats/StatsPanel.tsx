@@ -5,7 +5,7 @@ import {
   Activity, RefreshCw, HeartPulse, Gauge, XCircle,
   TrendingUp, TrendingDown, Clock, MousePointer2,
 } from 'lucide-react';
-import { getUserStats, getPhysicalProfile, getMisCajones, getTrainingSwitches, getSimulacros } from '@/actions';
+import { getUserStats, getPhysicalProfile, getMisCajones, getTrainingSwitches, getSimulacros, getActiveTrainingPlan } from '@/actions';
 import type { ResumenTema } from '@/app/lib/question-scheduler';
 import type { ResumenSimulacros } from '@/app/lib/simulacros';
 import { CNP_SCORING } from '@/app/lib/scoring';
@@ -37,26 +37,32 @@ export default function StatsPanel({ user }: StatsPanelProps) {
   const [physProfile, setPhysProfile] = useState<PhysicalProfile | null>(null);
   const [cajones, setCajones] = useState<ResumenTema[] | null>(null);
   const [simulacros, setSimulacros] = useState<ResumenSimulacros | null>(null);
-  // Con las físicas a mano (interruptor de IA apagado) el KPI físico no dice
-  // nada: el alumno no mete marcas para el modelo. `true` por defecto.
+  // El KPI físico solo tiene sentido si el alumno lleva las físicas CON IA: si
+  // la academia apagó el interruptor, o si tiene un plan de un preparador (de
+  // grupo o individual), no mete marcas para el modelo. `true` por defecto.
   const [fisicoIA, setFisicoIA] = useState(true);
+  const [planEsDePersona, setPlanEsDePersona] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, physRes, cajonesRes, switchesRes, simRes] = await Promise.all([
+      const [statsRes, physRes, cajonesRes, switchesRes, simRes, planRes] = await Promise.all([
         getUserStats(),
         getPhysicalProfile(),
         getMisCajones(),
         getTrainingSwitches(),
         getSimulacros(),
+        getActiveTrainingPlan(),
       ]);
       if (statsRes.success) setStats(statsRes.stats);
       if (physRes.success) setPhysProfile(physRes.data);
       if (cajonesRes.success) setCajones(cajonesRes.temas);
       if (switchesRes.success) setFisicoIA(switchesRes.switches.ai);
       if (simRes.success) setSimulacros(simRes.data);
+      if (planRes.success && planRes.plan) {
+        setPlanEsDePersona(planRes.plan.origen === 'grupo' || planRes.plan.plan_data?.source === 'entrenador');
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -81,6 +87,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
 
   const { winRate, answered, blank, firmeza } = stats;
   const contestadasFirmeza = firmeza.firmes + firmeza.titubeantes + firmeza.normales;
+  const mostrarFisico = fisicoIA && !planEsDePersona;
   const maxPullups = readMaxPullups(physProfile);
 
   return (
@@ -133,7 +140,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
               <StatTile label="Mejor nota" value={simulacros.mejor} tone="success" />
               <StatTile
                 label="Último"
-                value={simulacros.simulacros[0] ? Number(nota(simulacros.simulacros[0].nota)) : null}
+                value={simulacros.simulacros[0] ? Math.round(simulacros.simulacros[0].nota * 100) / 100 : null}
                 tone={simulacros.simulacros[0]?.aprobado ? 'success' : 'danger'}
               />
             </div>
@@ -205,7 +212,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
       )}
 
       {/* ───────── CÓMO RESPONDES + FÍSICO ───────── */}
-      <div className={cx('grid grid-cols-1 gap-4', fisicoIA && 'md:grid-cols-2')}>
+      <div className={cx('grid grid-cols-1 gap-4', mostrarFisico && 'md:grid-cols-2')}>
         <Card>
           <SectionLabel icon={<MousePointer2 size={14} />}>Cómo respondes</SectionLabel>
           {contestadasFirmeza === 0 ? (
@@ -237,7 +244,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
         </Card>
 
         {/* KPI físico — solo con plan de IA. */}
-        {fisicoIA && (
+        {mostrarFisico && (
           <div className="bg-indigo-600 text-white p-5 sm:p-6 rounded-2xl shadow-xl flex flex-col justify-between">
             <div className="flex justify-between items-center">
               <HeartPulse size={22} />
