@@ -170,7 +170,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
       </Card>
 
       {/* ───────── DOMINIO DEL TEMARIO ───────── */}
-      {cajones && cajones.some((t) => t.total > 0) && (
+      {cajones && cajones.some((t) => t.total - t.nuevas > 0) && (
         <Card pad="none">
           <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
             <div>
@@ -187,7 +187,7 @@ export default function StatsPanel({ user }: StatsPanelProps) {
             )}
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-96 overflow-y-auto">
-            {cajones.filter((t) => t.total > 0).map((t) => (
+            {cajones.filter((t) => t.total - t.nuevas > 0).map((t) => (
               <div key={t.topic} className="p-3 sm:p-4">
                 <div className="flex items-baseline justify-between gap-3 mb-1.5">
                   <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{t.topic}</p>
@@ -199,11 +199,13 @@ export default function StatsPanel({ user }: StatsPanelProps) {
                   <div className="h-full bg-amber-400" style={{ width: `${(t.aprendiendo / t.total) * 100}%` }} />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  {t.dominadas > 0 && `${t.dominadas} dominadas · `}
-                  {t.consolidando > 0 && `${t.consolidando} consolidando · `}
-                  {t.aprendiendo > 0 && `${t.aprendiendo} en aprendizaje · `}
-                  {t.nuevas > 0 && `${t.nuevas} sin empezar`}
-                  {t.atascadas > 0 && ` · ${t.atascadas} atascadas`}
+                  {[
+                    t.dominadas > 0 && `${t.dominadas} ${t.dominadas === 1 ? 'dominada' : 'dominadas'}`,
+                    t.consolidando > 0 && `${t.consolidando} consolidando`,
+                    t.aprendiendo > 0 && `${t.aprendiendo} en aprendizaje`,
+                    t.nuevas > 0 && `${t.nuevas} sin empezar`,
+                    t.atascadas > 0 && `${t.atascadas} ${t.atascadas === 1 ? 'atascada' : 'atascadas'}`,
+                  ].filter(Boolean).join(' · ')}
                 </p>
               </div>
             ))}

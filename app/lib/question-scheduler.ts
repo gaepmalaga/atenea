@@ -356,5 +356,12 @@ export function resumeCajonesPorTema(
     r.progreso = r.total > 0 ? Math.round((puntos / r.total) * 100) : 0;
   }
 
-  return [...porTema.values()].sort((a, b) => a.progreso - b.progreso || a.topic.localeCompare(b.topic, 'es'));
+  // Los que MÁS lleva trabajados primero: es una foto de dónde está, no una
+  // lista de deberes. Los temas sin tocar (todo `nueva`) van al final.
+  return [...porTema.values()].sort((a, b) => {
+    const tocadoA = a.total - a.nuevas;
+    const tocadoB = b.total - b.nuevas;
+    if ((tocadoA > 0) !== (tocadoB > 0)) return tocadoB - tocadoA > 0 ? 1 : -1;
+    return b.progreso - a.progreso || a.topic.localeCompare(b.topic, 'es');
+  });
 }
