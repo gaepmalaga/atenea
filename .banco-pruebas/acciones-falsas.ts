@@ -133,6 +133,16 @@ export async function getMiPerfil() {
   });
 }
 
+export async function getArticulo() {
+  return ok({
+    articulo: {
+      reference: 'Artículo 25',
+      texto: 'El español que no lo sea de origen perderá la nacionalidad cuando durante un período de tres años utilice exclusivamente la nacionalidad a la que hubiera declarado renunciar al adquirir la nacionalidad española.\n\nLa sentencia firme que declare que el interesado ha incurrido en falsedad, ocultación o fraude en la adquisición de la nacionalidad española produce la nulidad de tal adquisición. La acción de nulidad deberá ejercitarse por el Ministerio Fiscal dentro del plazo de quince años.',
+      documento: 'tema-01.pdf',
+    },
+  });
+}
+
 export async function getStudentTopics() { return ok({ topics: TEMAS }); }
 export async function getStudentSubjects() {
   return ok({ subjects: TEMAS.map((t, i) => ({ id: i + 1, title: t })) });

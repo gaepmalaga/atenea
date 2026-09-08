@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   RefreshCw, Brain, BookX, AlertTriangle, Eye,
-  CheckCircle2, ChevronDown, Scale, Crosshair, HelpCircle,
+  CheckCircle2, ChevronDown, Scale, Crosshair, HelpCircle, BookOpen, Loader2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getFailedQuestions } from '@/actions';
+import { getFailedQuestions, getArticulo } from '@/actions';
+import type { ArticuloTemario } from '@/app/actions/temario';
 import { indexToOptionId } from '@/app/lib/questions';
 import { esAtascada, type FailedQuestion } from '@/app/lib/review';
 import { ERROR_LABELS, ERROR_TYPES, type ErrorType } from '@/app/lib/stats';
@@ -294,6 +295,18 @@ function Fila({ q, abierta, onToggle, resiste = false }: {
   const opciones = q.options ?? [];
   const insisteMismaOpcion = q.times > 1 && marcadas.length === 1;
 
+  // LEER EL ARTÍCULO — la intervención de verdad. Para una atascada, repetir el
+  // test no funciona: hay que ir a la fuente. Se pide al desplegar, no antes.
+  const [articulo, setArticulo] = useState<ArticuloTemario | null | 'nada'>(null);
+  const [cargandoArt, setCargandoArt] = useState(false);
+  const verArticulo = async () => {
+    if (articulo || cargandoArt) return;
+    setCargandoArt(true);
+    const res = await getArticulo({ topic: q.topic, legalReference: q.legalReference });
+    setArticulo(res.success ? (res.articulo ?? 'nada') : 'nada');
+    setCargandoArt(false);
+  };
+
   return (
     <div className={cx(
       'bg-white dark:bg-slate-900 rounded-xl border overflow-hidden transition-colors',
@@ -394,10 +407,40 @@ function Fila({ q, abierta, onToggle, resiste = false }: {
               <span>
                 Llevas <strong>{q.times}</strong> fallos. Repetirla en los tests no está funcionando:{' '}
                 {q.legalReference
-                  ? <>vuelve al <strong>{q.legalReference}</strong> y léelo despacio</>
-                  : <>relee esa parte del temario con calma</>}, y si quieres hazte una ficha del dato exacto.
+                  ? <>léete el <strong>{q.legalReference}</strong> despacio</>
+                  : <>relee esa parte del temario con calma</>}.
               </span>
             </p>
+          )}
+
+          {/* LEER EL ARTÍCULO. Solo si la pregunta sale de uno (los apuntes no
+              tienen articulado). En una atascada es la acción principal. */}
+          {q.legalReference && articulo !== 'nada' && (
+            articulo ? (
+              <div className="mt-3 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/10 p-3.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-1.5 flex items-center gap-1.5">
+                  <BookOpen size={12} /> {articulo.reference}
+                  {articulo.documento && <span className="font-medium text-slate-400 normal-case tracking-normal">· {articulo.documento}</span>}
+                </p>
+                <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
+                  {articulo.texto}
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={verArticulo}
+                disabled={cargandoArt}
+                className={cx(
+                  'mt-3 inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg transition-colors',
+                  resiste
+                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                    : 'border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600',
+                )}
+              >
+                {cargandoArt ? <Loader2 size={13} className="animate-spin" /> : <BookOpen size={13} />}
+                Leer el {q.legalReference}
+              </button>
+            )
           )}
 
           <QuestionNote questionId={q.questionId} />
