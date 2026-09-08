@@ -1475,6 +1475,16 @@ de un "algo ha ido mal". El guion [`docs/sql/admin-audit-log.sql`](docs/sql/admi
 **ya está ejecutado** (5 sep 2026), así que ese aviso ya no salta; la degradación
 con gracia se queda por si la tabla se cae.
 
+**La pestaña también lista el ÚLTIMO ACCESO de cada usuario** (8 sep 2026),
+alumnos y admin — `getInicioSesiones` cruza `auth.users.last_sign_in_at` (vía
+`auth.admin.listUsers`, mismo patrón que `academy.ts`) con `profiles` para el
+rol, y ordena por quién ha entrado más reciente. **Aquí SÍ salen los admin**, a
+diferencia de «Alumnos» (regla 54): el objeto es auditar quién entra, no a quién
+llamar. Supabase solo guarda la última fecha por usuario, no el historial de
+sesiones — para eso haría falta exponer `auth.audit_log_entries`, que no pasa por
+PostgREST. Si `listUsers` falla, la lista sale igual sin la fecha (`sinFechas`),
+no se cae.
+
 ### 50 · Los datos de la academia no viven solo en la cabeza del dueño
 
 Pregunta directa: *"algún lugar para poner el nombre de la academia,

@@ -63,3 +63,68 @@ export async function getAdminAuditLog(limit = 50): Promise<
 
   return { success: true, rows };
 }
+
+export type SesionUsuario = {
+  id: string;
+  email: string | null;
+  /** `'admin'` | `'student'` — lo que diga `profiles.role`. */
+  rol: string;
+  /** ISO del ÚLTIMO inicio de sesión, o `null` si no ha entrado nunca. */
+  ultimoAcceso: string | null;
+  /** ISO del alta de la cuenta. */
+  alta: string | null;
+};
+
+/**
+ * ÚLTIMO ACCESO DE CADA USUARIO — alumnos y admin.
+ *
+ * `admin_audit_log` solo registra acciones de administración; los inicios de
+ * sesión los guarda Supabase en `auth.users.last_sign_in_at`. Esto los cruza
+ * con `profiles` para poner el rol y ordena por quién ha entrado más
+ * recientemente. Aquí SÍ salen los admin (a diferencia de la pestaña
+ * «Alumnos», regla 54): el objeto es auditar quién entra, no a quién llamar.
+ *
+ * Supabase solo conserva la ÚLTIMA fecha por usuario, no el historial completo
+ * de sesiones — para eso haría falta exponer `auth.audit_log_entries`, que no
+ * pasa por PostgREST. Con `last_sign_in_at` basta para saber quién ha entrado
+ * y cuándo fue la última vez.
+ */
+export async function getInicioSesiones(): Promise<
+  { success: true; usuarios: SesionUsuario[]; sinFechas: boolean } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const [perfilesRes, sesionesRes] = await Promise.all([
+    supabaseAdmin.from('profiles').select('id, email, role, created_at'),
+    // Si esto falla, se sigue: se pierden las fechas de conexión, no el panel.
+    supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
+  ]);
+
+  if (perfilesRes.error) return { success: false, error: perfilesRes.error.message };
+
+  const acceso = new Map<string, string | null>();
+  const altaAuth = new Map<string, string | null>();
+  for (const u of sesionesRes?.data?.users ?? []) {
+    acceso.set(u.id, u.last_sign_in_at ?? null);
+    altaAuth.set(u.id, u.created_at ?? null);
+  }
+
+  const usuarios: SesionUsuario[] = (perfilesRes.data ?? []).map((p) => ({
+    id: p.id as string,
+    email: (p.email as string) ?? null,
+    rol: (p.role as string) ?? 'student',
+    ultimoAcceso: acceso.get(p.id as string) ?? null,
+    alta: (p.created_at as string) ?? altaAuth.get(p.id as string) ?? null,
+  }));
+
+  // Quién ha entrado más recientemente primero; los que nunca, al final.
+  usuarios.sort((a, b) => {
+    if (!a.ultimoAcceso && !b.ultimoAcceso) return (a.email ?? '').localeCompare(b.email ?? '', 'es');
+    if (!a.ultimoAcceso) return 1;
+    if (!b.ultimoAcceso) return -1;
+    return b.ultimoAcceso.localeCompare(a.ultimoAcceso);
+  });
+
+  return { success: true, usuarios, sinFechas: !sesionesRes };
+}

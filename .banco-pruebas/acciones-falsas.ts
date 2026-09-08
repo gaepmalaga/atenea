@@ -512,3 +512,15 @@ export async function getAdminAuditLog() {
     ],
   });
 }
+
+// Último acceso de cada usuario: alumnos y admin, con y sin conexión previa.
+export async function getInicioSesiones() {
+  return ok({
+    sinFechas: false,
+    usuarios: [
+      { id: 'u1', email: 'gaepmalaga@gmail.com', rol: 'admin', ultimoAcceso: new Date(Date.now() - 2 * 3600e3).toISOString(), alta: new Date(Date.now() - 90 * 864e5).toISOString() },
+      { id: 'u2', email: 'alumno@atenea.com', rol: 'student', ultimoAcceso: new Date(Date.now() - 26 * 3600e3).toISOString(), alta: new Date(Date.now() - 30 * 864e5).toISOString() },
+      { id: 'u3', email: 'morato@atenea.com', rol: 'admin', ultimoAcceso: null, alta: new Date(Date.now() - 3 * 864e5).toISOString() },
+    ],
+  });
+}
