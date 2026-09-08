@@ -138,30 +138,30 @@ export default function FlashcardDeck() {
         setCargandoPrimera(true);
       }
 
-      // Guardar y precargar la SIGUIENTE van EN CADENA, no a la vez: Next
-      // serializa las Server Actions y lanzar las dos juntas hacía que una
-      // abortara a la otra —la precarga se perdía y cada ficha volvía a costar
-      // un viaje entero—.
+      // Traer contenido va PRIMERO, guardar DESPUÉS: Next serializa las Server
+      // Actions, así que si el guardado va delante la siguiente ficha espera a
+      // que termine. La ficha en pantalla no puede esperar; el guardado sí.
+      // (En cadena, no a la vez: lanzarlas juntas hacía que una abortara a la
+      // otra.)
       (async () => {
-        const res = await saveFlashcardProgress(saved, rating).catch(() => ({ success: false as const }));
-        if (marca !== peticionRef.current) return;
-        if (!res.success) setGuardadoFallido(true);
-
         if (siguiente) {
-          // Ya está en pantalla la siguiente: solo hay que dejar lista la de después.
+          // Ya está en pantalla la siguiente: dejar lista la de después.
           await precargarSiguiente(topic, siguiente, marca);
-          return;
-        }
-        // No teníamos precarga: traer la actual ahora y dejar lista la siguiente.
-        const r = await pedirFicha(topic, saved);
-        if (marca !== peticionRef.current) return;
-        setCargandoPrimera(false);
-        if (r.ok) {
-          setCurrentCard(r.card);
-          void precargarSiguiente(topic, r.card, marca);
         } else {
-          setAviso(r.aviso);
+          // No había precarga: traer la actual ahora y dejar lista la siguiente.
+          const r = await pedirFicha(topic, saved);
+          if (marca !== peticionRef.current) return;
+          setCargandoPrimera(false);
+          if (r.ok) {
+            setCurrentCard(r.card);
+            void precargarSiguiente(topic, r.card, marca);
+          } else {
+            setAviso(r.aviso);
+          }
         }
+
+        const res = await saveFlashcardProgress(saved, rating).catch(() => ({ success: false as const }));
+        if (marca === peticionRef.current && !res.success) setGuardadoFallido(true);
       })();
     },
     [currentCard, selectedTopic, pedirFicha, precargarSiguiente],
