@@ -3,7 +3,7 @@
 import { supabaseAdmin } from './core';
 import { getSessionUser, requireUser, type AuthUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
-import { summarizeResults, type TestResultRow } from '../lib/stats';
+import { summarizeResults, calculaRacha, type TestResultRow } from '../lib/stats';
 import {
   groupFailedAttempts,
   failuresByTopic,
@@ -88,12 +88,24 @@ export async function getUserStats() {
 
     const summary = summarizeResults(rows);
 
+    // LA RACHA se calcula sobre una ventana MÁS ANCHA que `STATS_SAMPLE`: un
+    // alumno que estudia mucho hace 100 respuestas en 3-4 días, y la racha
+    // saldría siempre corta. Solo se traen las fechas (payload mínimo).
+    const { data: fechas } = await supabaseAdmin
+      .from('question_attempts')
+      .select('created_at')
+      .eq('user_id', auth.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1500);
+    const racha = calculaRacha((fechas ?? []).map((f) => f.created_at as string | null));
+
     return {
       success: true as const,
       stats: {
         // Las metricas se agregan en el servidor sobre la muestra completa. La
         // UI las calculaba sobre las 5 ultimas y las dividia entre el total.
         ...summary,
+        racha,
         lastItems: rows.slice(0, RECENT_ITEMS),
       },
     };
