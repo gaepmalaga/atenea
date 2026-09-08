@@ -127,7 +127,8 @@ export async function getMiPerfil() {
     perfil: {
       email: 'alumno@academia.test',
       convocatoria: { escala: 'Escala Básica', fechaExamen: '2027-05-16', nota: null },
-      acceso: { estado: 'active', pago: 'al_dia' },
+      acceso: { estado: 'active' },
+      pagoDelMes: { periodo: 'septiembre de 2026', pagado: false },
       grupos: [{ nombre: 'Teoría mañana', tipo: 'Teoría' }, { nombre: 'Físicas L-X', tipo: 'Físicas' }],
     },
   });
