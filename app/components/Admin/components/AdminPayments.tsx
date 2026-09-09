@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BadgeEuro, RefreshCw, Check, Table2, CalendarDays } from 'lucide-react';
 import { getMonthlyPayments, getPaymentsHistory, setPayment } from '@/actions';
 import type { MonthlyPaymentsOverview } from '@/app/actions/payments';
@@ -73,6 +73,13 @@ function VistaHistorico() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // El mes en curso es la última columna. Sin esto, la rejilla abre por
+  // octubre del año pasado y hay que arrastrarla 12 meses para llegar a hoy.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (data && scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+  }, [data]);
+
   async function alterna(userId: string, period: string, paidAhora: boolean) {
     const clave = `${userId} ${period}`;
     setBusy(clave);
@@ -103,7 +110,7 @@ function VistaHistorico() {
     <>
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       <p className={TEXT.muted}>Un toque marca o desmarca el pago (sin importe). Para anotar importes, usa «Un mes».</p>
-      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div ref={scrollRef} className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
@@ -193,8 +200,13 @@ function VistaMes() {
     <>
       <div className="flex items-center gap-2">
         <select value={period} onChange={(e) => { setLoading(true); setPeriod(e.target.value); }}
-          className="text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 font-semibold capitalize">
-          {(data?.periodos ?? [period]).map((p) => <option key={p} value={p}>{formateaPeriodo(p)}</option>)}
+          className="text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 font-semibold">
+          {/* `capitalize` en CSS pone en mayúscula CADA palabra ("Septiembre De
+              2026"). Solo la primera letra. */}
+          {(data?.periodos ?? [period]).map((p) => {
+            const m = formateaPeriodo(p);
+            return <option key={p} value={p}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>;
+          })}
         </select>
         <button onClick={() => { setLoading(true); cargar(); }} className="w-11 h-11 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400" aria-label="Recargar">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />

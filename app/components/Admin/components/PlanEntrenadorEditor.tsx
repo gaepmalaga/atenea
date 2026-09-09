@@ -135,6 +135,7 @@ export default function PlanEntrenadorEditor({
             key={dia}
             label={dia}
             rows={3}
+            className="max-h-80"
             value={textoDias[dia] ?? ''}
             onChange={(e) => setTextoDias((prev) => ({ ...prev, [dia]: e.target.value }))}
             placeholder={'Dominadas; 4; 8-10; 90s\nFlexiones; 3; 15; 60s'}

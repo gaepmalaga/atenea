@@ -85,7 +85,11 @@ export function TextAreaField({
   return (
     <div>
       {label && <Label htmlFor={id}>{label}</Label>}
-      <textarea id={id} className={cx(CONTROL, 'resize-none leading-relaxed', className)} {...rest} />
+      {/* `resize-y`: en móvil una caja de altura fija recorta el texto sin
+          avisar (un plan de 5 ejercicios en `rows={3}`). `field-sizing:content`
+          la hace crecer sola donde el navegador lo soporta (Chrome/Edge);
+          donde no, el usuario la puede estirar. */}
+      <textarea id={id} className={cx(CONTROL, 'resize-y [field-sizing:content] leading-relaxed', className)} {...rest} />
       {hint && <p className={cx(TEXT.muted, 'mt-1.5')}>{hint}</p>}
     </div>
   );
