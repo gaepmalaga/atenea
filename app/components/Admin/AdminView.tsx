@@ -32,6 +32,25 @@ type AdminTab = 'students' | 'groups' | 'physical' | 'payments' | 'moderation' |
  */
 const ORDEN_KEY = 'atenea-admin-orden-pestanas';
 
+/**
+ * La pestaña abierta también se recuerda en ESTE navegador: el panel es una
+ * sola ruta, así que sin esto una recarga (o cerrar y volver) te devolvía
+ * siempre a «Alumnos». Comodidad por dispositivo, no ajuste de academia.
+ */
+const TAB_KEY = 'atenea-admin-pestana';
+const TABS_VALIDAS: AdminTab[] = [
+  'students', 'groups', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost',
+];
+
+function leeTabGuardada(): AdminTab | null {
+  try {
+    const t = localStorage.getItem(TAB_KEY);
+    return t && (TABS_VALIDAS as string[]).includes(t) ? (t as AdminTab) : null;
+  } catch {
+    return null;
+  }
+}
+
 function leeOrdenGuardado(): string[] {
   try {
     const raw = localStorage.getItem(ORDEN_KEY);
@@ -73,9 +92,22 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // Estado para la navegación
   // Añadimos 'bank' a los tipos permitidos
   const [activeTab, setActiveTab] = useState<AdminTab>('students');
-  
+
+  // La pestaña guardada se aplica en un efecto, no en el estado inicial: leerla
+  // en `useState` provocaría un desajuste de hidratación (el servidor no ve
+  // `localStorage`). Igual que el orden de las pestañas.
+  useEffect(() => {
+    const t = leeTabGuardada();
+    if (t) setActiveTab(t);
+  }, []);
+
+  const cambiaTab = (id: AdminTab) => {
+    setActiveTab(id);
+    try { localStorage.setItem(TAB_KEY, id); } catch { /* modo privado */ }
+  };
+
   // Truco para forzar recarga de componentes hijos sin recargar la página entera
-  const [refreshKey, setRefreshKey] = useState(0); 
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Al cambiar de seccion, arriba del todo. Mismo motivo que en el alumno: el
   // panel es UNA sola ruta con pestañas, asi que sin esto entras en la seccion
@@ -241,7 +273,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => cambiaTab(tab.id)}
                   className={`relative min-h-[44px] px-4 md:px-5 rounded-xl font-bold text-sm flex items-center gap-2.5 transition-all duration-300 ${
                     isActive
                       ? 'bg-slate-800 text-white ring-1 ring-slate-700'

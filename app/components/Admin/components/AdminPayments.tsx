@@ -140,12 +140,16 @@ function VistaHistorico() {
                         onClick={() => alterna(f.userId, c.period, paid)}
                         disabled={busy === clave}
                         aria-label={paid ? `${f.email} pagó ${c.period}, quitar` : `marcar ${f.email} como pagado ${c.period}`}
-                        className={cx('w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+                        title={paid ? 'Pagado — toca para quitar' : 'Sin pagar — toca para marcar'}
+                        className={cx(
+                          'mx-auto w-9 h-9 rounded-lg flex items-center justify-center transition-colors border-2',
+                          busy === clave && 'opacity-50',
                           paid
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25'
-                            : 'bg-slate-100 dark:bg-slate-800 text-transparent hover:bg-slate-200 dark:hover:bg-slate-700')}
+                            ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600 hover:border-emerald-600'
+                            : 'border-dashed border-slate-300 dark:border-slate-600 text-slate-300 dark:text-slate-600 hover:border-emerald-400 hover:text-emerald-500 dark:hover:border-emerald-500',
+                        )}
                       >
-                        <Check size={15} />
+                        <Check size={15} strokeWidth={3} />
                       </button>
                     </td>
                   );
