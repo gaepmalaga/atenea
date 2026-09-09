@@ -60,3 +60,6 @@ temario/fuentes/BOE-*.json
 # que las dibuja, no los PNG: una imagen en el repositorio envejece sin que
 # nadie lo note y acaba enseñando algo que ya no es la pantalla.
 .banco-pruebas/maquetas/*.png
+
+# guiones de siembra locales del piloto (contienen credenciales de prueba)
+scripts/_*.mjs
