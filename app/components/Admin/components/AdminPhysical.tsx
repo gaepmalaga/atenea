@@ -6,6 +6,7 @@ import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrai
 import type { GroupRow, SemanaDeGrupo } from '@/app/actions/groups';
 import { lunesDeSemana, semanasEditables, etiquetaSemana, type WeeklyPlan } from '@/app/lib/training-plan';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
+import CalendarioEntrenamiento from '@/app/components/student/modules/training/components/CalendarioEntrenamiento';
 import PlanEntrenadorEditor from './PlanEntrenadorEditor';
 import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
 
@@ -142,24 +143,24 @@ function SwitchCard({
   );
 }
 
-function SemanaSoloLectura({ plan }: { plan: WeeklyPlan | null }) {
-  if (!plan) return <p className={TEXT.muted}>Esa semana no tuvo plan.</p>;
+function SemanaSoloLectura({ plan, weekStart }: { plan: WeeklyPlan | null; weekStart: string }) {
+  if (!plan || plan.days.length === 0) return <p className={TEXT.muted}>Esa semana no tuvo plan.</p>;
   return (
     <div className="space-y-2">
       <p className={cx(TEXT.muted, 'italic')}>Semana pasada — solo lectura.</p>
-      {plan.week_focus && <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{plan.week_focus}</p>}
-      {plan.days.map((d, i) => (
-        <div key={i} className="text-xs border border-slate-200 dark:border-slate-800 rounded-lg p-2">
-          <p className="font-bold text-slate-700 dark:text-slate-200">{d.day}</p>
-          <ul className="text-slate-500 dark:text-slate-400 mt-0.5">
-            {d.exercises.map((e, j) => (
-              <li key={j}>· {e.name}{e.sets ? ` — ${e.sets}×${e.reps ?? ''}` : ''}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50/60 dark:bg-slate-900/40">
+        <CalendarioEntrenamiento semanas={[{ weekStart, plan }]} origen="grupo" />
+      </div>
     </div>
   );
+}
+
+/** El plan de la semana con contenido más reciente ANTERIOR a `weekStart`. */
+function planSemanaPrevia(semanas: SemanaDeGrupo[] | undefined, weekStart: string): SemanaDeGrupo | null {
+  const previas = (semanas ?? [])
+    .filter((s) => s.weekStart < weekStart && s.plan && s.plan.days.length > 0)
+    .sort((a, b) => (a.weekStart < b.weekStart ? 1 : -1));
+  return previas[0] ?? null;
 }
 
 function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
@@ -224,16 +225,23 @@ function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
           </div>
 
           {semanaSel < lunesHoy ? (
-            <SemanaSoloLectura plan={semanaActual?.plan ?? null} />
+            <SemanaSoloLectura plan={semanaActual?.plan ?? null} weekStart={semanaSel} />
           ) : (
             <>
-              <PlanEntrenadorEditor
-                key={semanaSel}
-                planActual={planSel === undefined ? undefined : planSel ? { id: `grupo:${g.id}`, weekStart: semanaSel, plan: planSel } : null}
-                etiquetaGuardado={semanaSel === lunesHoy ? 'Guardado. Es el plan de esta semana para el grupo.' : 'Guardado. Preparado para esa semana.'}
-                onSave={(params) => saveGroupTrainingPlan({ groupId: g.id, weekStart: semanaSel, weekFocus: params.weekFocus, days: params.days })}
-                onGuardado={() => { cargarPlan(); onCambio(); }}
-              />
+              {(() => {
+                const previa = planSemanaPrevia(semanas, semanaSel);
+                return (
+                  <PlanEntrenadorEditor
+                    key={semanaSel}
+                    planActual={planSel === undefined ? undefined : planSel ? { id: `grupo:${g.id}`, weekStart: semanaSel, plan: planSel } : null}
+                    etiquetaGuardado={semanaSel === lunesHoy ? 'Guardado. Es el plan de esta semana para el grupo.' : 'Guardado. Preparado para esa semana.'}
+                    onSave={(params) => saveGroupTrainingPlan({ groupId: g.id, weekStart: semanaSel, weekFocus: params.weekFocus, days: params.days })}
+                    onGuardado={() => { cargarPlan(); onCambio(); }}
+                    semanaAnteriorPlan={previa?.plan ?? null}
+                    etiquetaSemanaAnterior={previa ? etiquetaSemana(previa.weekStart) : null}
+                  />
+                );
+              })()}
 
               {semanaActual?.plan && (
                 <button

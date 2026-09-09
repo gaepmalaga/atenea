@@ -1443,6 +1443,34 @@ Lo que entra a mano se valida IGUAL que lo que escribe la IA (regla 27):
 `buildManualPlan` construye la entrada y pasa por el mismo `normalizePlan` —
 un preparador se equivoca con un campo vacío igual que Gemini.
 
+**El editor se rehízo el 9 sep** (`PlanEntrenadorEditor`, feedback del dueño:
+«más intuitivo, visual»). Ya no son siete `<textarea>` con la sintaxis
+`nombre; series; reps; descanso` —había que recordar el orden y un error se
+guardaba en silencio—: cada día es una lista de FILAS con campos de verdad. Lo
+que NO cambió: sigue produciendo el mismo `GuardarParams` (`{weekFocus, days}`)
+y pasando por `buildManualPlan` + `normalizePlan`, así que el guardado y el
+esquema del plan son idénticos. Piezas nuevas:
+
+- **`app/lib/exercise-library.ts`** (pura, `tests/exercise-library.test.ts`):
+  biblioteca de ejercicios (las 3 pruebas del CNP primero) para el desplegable
+  de cada fila —texto libre SIEMPRE permitido—, y `kindDeEjercicio` +
+  `camposDeKind`: el `kind` (`fuerza`/`carrera`/`circuito`/`general`) decide
+  **qué campos tiene la fila** (una serie de 200 m no son «series y reps»). Se
+  guarda en `Exercise.metric_type`, columna que ya existía y no escribía nadie.
+  El kind se deduce del nombre (biblioteca → pistas por palabra → `fuerza`).
+- **Vista previa** = el MISMO `CalendarioEntrenamiento` del alumno, construido
+  del mismo `buildManualPlan`. Lo que ve el preparador es lo que verá el alumno,
+  no una aproximación (regla 6/17). Es la única importación de un componente de
+  `student/` en `Admin/`, y es a propósito.
+- **«Partir de la semana pasada»** (`semanaAnteriorPlan`, lo pasa `AdminPhysical`
+  desde `semanas`): un preparador trabaja por progresión, no reescribe de cero.
+- **`SemanaSoloLectura`** (semana pasada) también usa `CalendarioEntrenamiento`.
+
+**El interruptor de la IA de físicas se ocultó el 9 sep** (regla 58, como el
+chat): el dueño no quiere publicar «que el alumno se genere su plan» todavía.
+El mecanismo sigue entero (`training_ai`, apagado por defecto); solo se retiró
+su `SwitchCard` de `AdminPhysical`.
+
 ### 49 · «Logs» no es un registro si no dice quién
 
 La pestaña enseñaba las últimas 20 respuestas de cualquier alumno a cualquier
@@ -2042,6 +2070,7 @@ tests/interview.test.ts         transcripción, informe final y máquina de esta
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
 tests/training-plan.test.ts     forma del plan semanal, progreso, progresión, y el registro consultable (workout_logs, §2.11)
+tests/exercise-library.test.ts  biblioteca de ejercicios del plan del preparador: tipo por nombre, campos por tipo, «sin datos» ≠ 0
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro
