@@ -114,12 +114,12 @@ export default function AdminStudents() {
       <Card tone={membershipRequired ? 'brand' : 'sunken'} pad="md" className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <KeyRound size={18} className="text-slate-500 dark:text-slate-400 shrink-0" />
+            <KeyRound size={18} className={cx('shrink-0', membershipRequired ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400')} />
             <div>
-              <p className="font-black text-slate-900 dark:text-white text-sm">
+              <p className={cx('font-black text-sm', membershipRequired ? 'text-white' : 'text-slate-900 dark:text-white')}>
                 {membershipRequired ? 'Control de acceso ENCENDIDO' : 'Control de acceso apagado'}
               </p>
-              <p className={cx(TEXT.muted, 'mt-0.5 max-w-md')}>
+              <p className={cx('text-xs leading-relaxed mt-0.5 max-w-md', membershipRequired ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400')}>
                 {membershipRequired
                   ? 'Solo entran los alumnos con acceso. Un alumno nuevo se registra y espera a que le des acceso.'
                   : 'La plataforma está abierta para todos. Enciéndelo cuando quieras que solo entren los que pagan.'}
@@ -182,7 +182,7 @@ export default function AdminStudents() {
       </div>
 
       {/* --- SALUD DEL CONTENIDO (de Academia) --- */}
-      <Card tone="contrast" className="mt-6">
+      <Card tone="base" className="mt-6">
         <SectionLabel icon={<BookOpen size={12} />}>El temario</SectionLabel>
         <p className={cx(TEXT.muted, 'mb-2')}>
           <span className="font-black text-amber-700 dark:text-amber-400">{sinBanco.length}</span>{' '}
@@ -194,7 +194,7 @@ export default function AdminStudents() {
         </div>
       </Card>
 
-      <Card tone="contrast">
+      <Card tone="base">
         <SectionLabel icon={<AlertTriangle size={12} />}>Preguntas que falla casi todo el mundo</SectionLabel>
         <p className={cx(TEXT.muted, 'mb-3 leading-relaxed')}>
           No son «las difíciles»: con suficientes intentos, una pregunta que casi nadie acierta suele estar mal redactada.

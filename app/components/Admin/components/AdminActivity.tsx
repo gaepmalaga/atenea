@@ -76,8 +76,15 @@ export default function AdminActivity() {
         </button>
       </Card>
 
+      {loading && (
+        <div className="flex items-center gap-2 px-1 py-8 justify-center text-slate-500 dark:text-slate-400">
+          <RefreshCw size={15} className="animate-spin" />
+          <span className="text-xs font-bold">Cargando…</span>
+        </div>
+      )}
+
       {/* ───────── ÚLTIMO ACCESO POR USUARIO ───────── */}
-      <div className="space-y-2">
+      <div className="space-y-2" hidden={loading}>
         <div className="flex items-center gap-2 px-1">
           <LogIn size={13} className="text-slate-500 dark:text-slate-400" />
           <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -128,7 +135,7 @@ export default function AdminActivity() {
       </div>
 
       {/* ───────── REGISTRO DE ACCIONES ───────── */}
-      <div className="space-y-2 pt-2">
+      <div className="space-y-2 pt-2" hidden={loading}>
         <div className="flex items-center gap-2 px-1">
           <ShieldCheck size={13} className="text-slate-500 dark:text-slate-400" />
           <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
