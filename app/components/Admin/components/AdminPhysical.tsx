@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { Dumbbell, RefreshCw, ChevronDown, Trash2, Sparkles, Users2, CalendarDays } from 'lucide-react';
+import { Dumbbell, RefreshCw, ChevronDown, Trash2, Users2, CalendarDays } from 'lucide-react';
 import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrainingPlan, getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import type { GroupRow, SemanaDeGrupo } from '@/app/actions/groups';
 import { lunesDeSemana, semanasEditables, etiquetaSemana, type WeeklyPlan } from '@/app/lib/training-plan';
@@ -67,17 +67,15 @@ export default function AdminPhysical() {
         </Card>
       )}
 
-      {/* --- LOS DOS INTERRUPTORES --- */}
+      {/* --- INTERRUPTOR DEL PLAN POR GRUPO ---
+          El interruptor de la IA («que el alumno se genere su propio plan»)
+          está oculto a propósito: el dueño no quiere publicar esa función
+          todavía. El mecanismo sigue entero (`training_ai` en `module_settings`,
+          `training-switch-guard`, apagado por defecto) — solo no se ofrece el
+          control, como el chat (regla 58). Para devolverlo: reañadir aquí su
+          `SwitchCard`. */}
       {switches && (
-        <div className="grid sm:grid-cols-2 gap-2 sm:gap-3">
-          <SwitchCard
-            icon={<Sparkles size={16} />}
-            label={TRAINING_SWITCH_LABEL.ai}
-            desc={TRAINING_SWITCH_DESC.ai}
-            on={switches.ai}
-            busy={busy}
-            onToggle={(v) => cambiaSwitch('ai', v)}
-          />
+        <div className="grid gap-2 sm:gap-3">
           <SwitchCard
             icon={<Users2 size={16} />}
             label={TRAINING_SWITCH_LABEL.group}
