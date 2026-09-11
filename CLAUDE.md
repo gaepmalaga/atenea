@@ -86,7 +86,22 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (8 sep 2026, `node
+1. **Ejecutar SQL. Queda UN guion pendiente**, el de P11:
+   - **`P11-multi-academia.sql`** (11 sep 2026) — los cimientos de servir la
+     plataforma a varias academias (`docs/PLAN-PRODUCTO.md`, fase P11):
+     `academies`, `academy_members`, y `organization_id` en cascada por
+     `question_bank` (nulable: NULL es el banco global), `class_groups`,
+     `group_kinds`, `academy_staff`, `admin_audit_log`, `memberships` y
+     `monthly_payments`. `academy_settings`, `membership_settings` y
+     `academy_convocatoria` dejan de ser una fila única y pasan a una por
+     academia. **No se ha tocado ni una línea de código todavía** — ninguna
+     acción escribe ni lee `organization_id` hasta que este guion se ejecute
+     (la única excepción es `app/lib/academies.ts`, lógica pura de validación
+     de slugs que no toca la base de datos). Lo único que sí se puede escribir
+     ya, sin SQL: el temario sigue siendo compartido (decidido), así que
+     `subjects`/`documents`/`document_chunks` no llevan `organization_id`.
+
+   Guiones de fases anteriores, todos ejecutados (8 sep 2026, `node
    scripts/schema-snapshot.mjs` — **36 tablas**):
    - **`convocatoria.sql`** (8 sep) — `academy_convocatoria` (fila única id=1:
      escala, `fecha_examen`, nota). Política de SELECT abierta para autenticados

@@ -829,9 +829,16 @@ aparcado por decisión del dueño.
 ## P11 · Multi-academia: una plataforma, varios `/alphapol`, `/depol`, `/corporepol`…
 
 > **Decisiones tomadas el 11 de septiembre de 2026, en conversación con el
-> dueño. Sin empezar.** Es la fase que da la vuelta a la decisión de P4: la
-> regla 31 descartó el rol `superadmin` por ser "ceremonia" con una sola
-> academia. Con varias, deja de serlo.
+> dueño.** Es la fase que da la vuelta a la decisión de P4: la regla 31
+> descartó el rol `superadmin` por ser "ceremonia" con una sola academia. Con
+> varias, deja de serlo.
+>
+> **Empezada el 11 sep.** El guion de esquema está escrito
+> ([`docs/sql/P11-multi-academia.sql`](sql/P11-multi-academia.sql)) y
+> **bloqueado esperando SQL** (ver *Lo que solo puedes hacer tú* en
+> [`CLAUDE.md`](../CLAUDE.md)) — nada de lo que sigue puede escribirse en
+> código hasta que se ejecute. Lo único adelantado: `app/lib/academies.ts`
+> (validación de slug, pura, sin tocar la base de datos) y sus tests.
 
 ### La pregunta que la origina
 
@@ -925,9 +932,9 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 
 | | Qué es | Estado |
 |---|---|---|
-| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | ⬜ |
-| P11b | `organization_id` en cascada por el contenido y la administración | ⬜ |
-| P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ |
+| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | 🔶 tabla + `academy_members` escritas en el guion, **sin ejecutar**; las rutas ni empezadas |
+| P11b | `organization_id` en cascada por el contenido y la administración | 🔶 columnas escritas en el guion, **sin ejecutar** |
+| P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ el guion deja `question_bank.organization_id` nulable; falta el código |
 | P11d | Rol `superadmin`, distinto de `admin` por academia | ⬜ |
 | P11e | Reportes del banco global enrutados al superadmin | ⬜ |
 | P11f | Panel de superadmin: alumnos, rentabilidad y moderación cruzados | ⬜ |
