@@ -86,7 +86,7 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Queda UN guion pendiente**, el de P11:
+1. **Ejecutar SQL. Queda UN guion, y su ejecución SIN VERIFICAR**, el de P11:
    - **`P11-multi-academia.sql`** (11 sep 2026) — los cimientos de servir la
      plataforma a varias academias (`docs/PLAN-PRODUCTO.md`, fase P11):
      `academies`, `academy_members`, y `organization_id` en cascada por
@@ -94,12 +94,31 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      `group_kinds`, `academy_staff`, `admin_audit_log`, `memberships` y
      `monthly_payments`. `academy_settings`, `membership_settings` y
      `academy_convocatoria` dejan de ser una fila única y pasan a una por
-     academia. **No se ha tocado ni una línea de código todavía** — ninguna
-     acción escribe ni lee `organization_id` hasta que este guion se ejecute
-     (la única excepción es `app/lib/academies.ts`, lógica pura de validación
-     de slugs que no toca la base de datos). Lo único que sí se puede escribir
-     ya, sin SQL: el temario sigue siendo compartido (decidido), así que
+     academia. Lo único escrito sin depender del esquema:
+     `app/lib/academies.ts` (validación pura de slugs, no toca la base de
+     datos); el temario sigue compartido (decidido), así que
      `subjects`/`documents`/`document_chunks` no llevan `organization_id`.
+   - **El dueño pegó el guion en el SQL Editor de Supabase el 11 sep 2026 y
+     cree haberlo ejecutado, pero NO está verificado desde ningún sesión con
+     acceso real** (esta sesión no tiene `.env.local` ni credenciales — no
+     existe el fichero en este entorno). **Antes de escribir una sola línea
+     de código que lea o escriba `organization_id`, la próxima sesión con
+     acceso local tiene que comprobarlo**:
+     1. `node scripts/schema-snapshot.mjs` y mirar que `supabase/schema.json`
+        tiene `academies`, `academy_members`, y `organization_id` en las
+        ocho tablas de arriba, y que `academy_settings` / `membership_settings`
+        / `academy_convocatoria` ya NO tienen columna `id`.
+     2. Las consultas del PASO 9 al final del propio guion (`academies` con
+        la fila `principal`, `academy_members` con una fila por perfil,
+        `question_bank.organization_id` todo en `NULL`).
+     3. `npm run check` en verde (los tests de `academies.test.ts` no tocan
+        la BD, pero `schema-drift` sí compara contra el `schema.json` recién
+        refrescado).
+     Si algo de eso no cuadra —una tabla a medias, un paso que falló a mitad—,
+     el guion es idempotente: se puede corregir y volver a lanzar entero.
+     Solo cuando los tres puntos estén verificados se actualiza esta entrada
+     a "ejecutado" y se sigue con el código (rol `superadmin`, resolución de
+     `/alphapol` en las rutas, filtro de `organization_id` en el panel).
 
    Guiones de fases anteriores, todos ejecutados (8 sep 2026, `node
    scripts/schema-snapshot.mjs` — **36 tablas**):

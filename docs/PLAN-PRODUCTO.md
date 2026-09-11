@@ -834,11 +834,15 @@ aparcado por decisión del dueño.
 > varias, deja de serlo.
 >
 > **Empezada el 11 sep.** El guion de esquema está escrito
-> ([`docs/sql/P11-multi-academia.sql`](sql/P11-multi-academia.sql)) y
-> **bloqueado esperando SQL** (ver *Lo que solo puedes hacer tú* en
-> [`CLAUDE.md`](../CLAUDE.md)) — nada de lo que sigue puede escribirse en
-> código hasta que se ejecute. Lo único adelantado: `app/lib/academies.ts`
-> (validación de slug, pura, sin tocar la base de datos) y sus tests.
+> ([`docs/sql/P11-multi-academia.sql`](sql/P11-multi-academia.sql)). El dueño
+> lo pegó en el SQL Editor de Supabase el 11 sep y cree haberlo ejecutado,
+> **pero ninguna sesión con acceso real lo ha verificado todavía** — esta
+> conversación no tiene credenciales de Supabase en este entorno. Ver *Lo que
+> solo puedes hacer tú* en [`CLAUDE.md`](../CLAUDE.md) para los tres pasos de
+> verificación exactos. Nada de código que toque `organization_id` se escribe
+> hasta que esos tres pasos confirmen que el guion corrió limpio. Lo único
+> adelantado: `app/lib/academies.ts` (validación de slug, pura, sin tocar la
+> base de datos) y sus tests.
 
 ### La pregunta que la origina
 
@@ -932,8 +936,8 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 
 | | Qué es | Estado |
 |---|---|---|
-| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | 🔶 tabla + `academy_members` escritas en el guion, **sin ejecutar**; las rutas ni empezadas |
-| P11b | `organization_id` en cascada por el contenido y la administración | 🔶 columnas escritas en el guion, **sin ejecutar** |
+| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | 🔶 tabla + `academy_members` escritas en el guion, **pegado en Supabase, sin verificar**; las rutas ni empezadas |
+| P11b | `organization_id` en cascada por el contenido y la administración | 🔶 columnas escritas en el guion, **pegado en Supabase, sin verificar** |
 | P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ el guion deja `question_bank.organization_id` nulable; falta el código |
 | P11d | Rol `superadmin`, distinto de `admin` por academia | ⬜ |
 | P11e | Reportes del banco global enrutados al superadmin | ⬜ |
