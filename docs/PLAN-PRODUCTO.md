@@ -15,8 +15,10 @@
 >
 > **Actualizado el 11 sep 2026:** nueva fase **P11 · Multi-academia**
 > (`/alphapol`, `/depol`, `/corporepol`…), con las decisiones tomadas sobre
-> banco global vs. privado por academia, rol `superadmin` y panel transversal.
-> **Sin empezar** — quedan tres preguntas abiertas al final de esa sección.
+> banco global vs. privado por academia, rol `superadmin`, panel transversal,
+> temario compartido, selector de academia si un alumno está en varias, y
+> alta de academias desde el propio panel de superadmin. **Sin empezar**, pero
+> sin decisiones pendientes.
 
 ---
 
@@ -900,15 +902,18 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 - **`organization_id` en cascada** por todo lo que hoy es de una sola
   academia: `question_bank` (nullable, punto 1), `class_groups`,
   `class_group_staff`, `group_kinds`, `monthly_payments`,
-  `admin_audit_log`, `academy_convocatoria`, y `documents` /
-  `document_chunks` / `subjects` si el temario deja de ser compartido (ver
-  preguntas abiertas). Las tablas del propio alumno (`question_notes`,
-  `profiles_physical`…) **no** necesitan tocarse: ya filtran por `user_id`
-  con la sesión (regla 34), y un alumno pertenece a una sola academia.
+  `admin_audit_log`, `academy_convocatoria`. **`documents` /
+  `document_chunks` / `subjects` NO llevan `organization_id`**: el temario
+  solo lo usas tú para generar preguntas (decidido, ver abajo), así que sigue
+  siendo una tabla única y compartida, igual que hoy. Las tablas del propio
+  alumno (`question_notes`, `profiles_physical`…) tampoco necesitan tocarse:
+  ya filtran por `user_id` con la sesión (regla 34).
 - **Rutas** — resolver `/alphapol` a un `organization_id` antes de nada: el
   login, el registro y toda Server Action necesitan saber de qué academia es
   la sesión. Es el cambio de más riesgo: hoy `requireUser` / `requireAdmin`
-  (regla 1) no llevan noción de academia.
+  (regla 1) no llevan noción de academia. Si un alumno pertenece a más de una
+  (raro pero posible, decidido abajo), el login pide **antes** un selector de
+  academia — la sesión no puede adivinar cuál de las dos quiere.
 - **El panel de administración entero** — cada consulta con la clave de
   servicio (regla 34: `question_bank`, `class_groups`…) necesita el filtro
   de academia añadido, o un admin de una vería los alumnos de otra. Es
@@ -927,25 +932,33 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 | P11e | Reportes del banco global enrutados al superadmin | ⬜ |
 | P11f | Panel de superadmin: alumnos, rentabilidad y moderación cruzados | ⬜ |
 | P11g | Migrar la academia actual a la primera fila de `academies` | ⬜ |
+| P11h | Selector de academia en el login, si el alumno está en más de una | ⬜ |
+| P11i | Alta de academias nuevas **desde el panel de superadmin** (no un guion) | ⬜ |
 
-### Preguntas abiertas antes de empezar
+### Las tres preguntas, respondidas (11 sep 2026)
 
-1. **¿El temario (`subjects` / `documents`) es compartido entre academias, o
-   también va por academia?** Lo hablado fue del banco de *preguntas*; el
-   temario en sí (los PDF indexados) no se decidió. Compartido es más simple
-   —todas estudian el mismo BOE y solo difieren en las preguntas—; separado
-   exige decidir si subir e indexar el PDF de una academia también pasa por
-   ti, igual que la generación de preguntas.
-2. **¿Un alumno puede pertenecer a más de una academia?** Hoy no hace falta
-   pensarlo; con varias, la sesión necesita saber cuál es "la suya" si algún
-   día alguien está en dos.
-3. **¿Cómo nace una academia nueva?** ¿La das de alta tú a mano (como hoy
-   `npm run cuenta`), o hace falta un flujo de alta propio? Con dos o tres
-   academias, a mano es de sobra y mucho más barato de construir.
+1. **El temario es compartido, no por academia.** *«El temario solo me sirve
+   a mí para generar las preguntas.»* `subjects` / `documents` /
+   `document_chunks` se quedan como están, sin `organization_id`: una sola
+   tabla, la usas tú, y las academias nunca la tocan. Esto simplifica P11b —
+   una tabla menos que migrar— y confirma que el filtro de academia solo
+   hace falta donde ya se había pensado (`question_bank` y para abajo).
 
-No hay respuesta todavía a estas tres. No bloquean escribir el modelo de
-datos, pero sí bloquean empezar P11a (rutas) y P11b/P11c en lo que toca al
-temario.
+2. **Un alumno SÍ puede estar en más de una academia**, aunque sea raro. La
+   sesión no elige sola: si al hacer login el correo pertenece a más de una
+   academia, se le enseña un **selector de academia** antes de entrar —
+   igual que ya se decidió para resolver `/alphapol` a un `organization_id`
+   (P11h). Con una sola academia asociada, el selector no se enseña y entra
+   directo, como hoy.
+
+3. **Las academias las das de alta tú, desde el panel de superadmin** — no un
+   guion de línea de comandos ni un flujo de autorregistro (P11i). Coherente
+   con que el superadmin ya es quien controla el banco global y ve todas las
+   academias: dar de alta una nueva es una pantalla más de ese panel, no una
+   pieza aparte.
+
+Con esto **no quedan decisiones pendientes** para arrancar P11 — el trabajo
+que sigue es de diseño de datos y construcción, no de esperar respuestas.
 
 ---
 
