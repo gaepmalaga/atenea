@@ -2,11 +2,20 @@
 -- P11 — Multi-academia: los cimientos (academies, organization_id en cascada)
 -- =============================================================================
 --
--- ⬜ SIN EJECUTAR. Primer guion de la fase P11 (docs/PLAN-PRODUCTO.md): servir
--- la plataforma a varias academias (/alphapol, /depol, /corporepol…), cada una
--- con su banco privado de preguntas, sus alumnos y su administración, y
--- compartiendo el banco global (lo sigues generando tú) y el temario (que es
--- tuyo, no de las academias).
+-- ✅ EJECUTADO (11 sep 2026) y VERIFICADO (12 sep 2026, `node
+-- scripts/schema-snapshot.mjs` + las consultas del PASO 9 contra el proyecto
+-- real): las 38 tablas incluyen `academies`/`academy_members`, los tres
+-- singleton perdieron su columna `id`, `organization_id` está poblado en todo
+-- lo que debía (`class_groups`, `group_kinds`, `academy_staff`,
+-- `memberships`, `monthly_payments`, `academy_settings`,
+-- `membership_settings`, `academy_convocatoria`), `question_bank` se quedó
+-- con sus 1000 filas en `organization_id = NULL` (el banco global), y RLS con
+-- la clave anónima devuelve 0 filas en `academies`/`academy_members`/
+-- `academy_convocatoria`. Primer guion de la fase P11 (docs/PLAN-PRODUCTO.md):
+-- servir la plataforma a varias academias (/alphapol, /depol, /corporepol…),
+-- cada una con su banco privado de preguntas, sus alumnos y su
+-- administración, y compartiendo el banco global (lo sigues generando tú) y
+-- el temario (que es tuyo, no de las academias).
 --
 -- Contrastado contra `supabase/schema.json` del 7 sep 2026. Es idempotente:
 -- volver a ejecutarlo no duplica nada. Después: `node scripts/schema-snapshot.mjs`.

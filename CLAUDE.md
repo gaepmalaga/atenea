@@ -65,6 +65,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
+| **P11** | **Multi-academia** (plan de producto) | 🔶 **empezada** (11 sep), **esquema verificado** (12 sep): `docs/sql/P11-multi-academia.sql` ejecutado y comprobado contra la BD real (38 tablas). Sigue el código: rol `superadmin`, resolver el slug de la academia en las rutas y el login, y el filtro de `organization_id` en el panel de administración. Ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 
 ## Producción
 
@@ -86,39 +87,26 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Queda UN guion, y su ejecución SIN VERIFICAR**, el de P11:
-   - **`P11-multi-academia.sql`** (11 sep 2026) — los cimientos de servir la
-     plataforma a varias academias (`docs/PLAN-PRODUCTO.md`, fase P11):
-     `academies`, `academy_members`, y `organization_id` en cascada por
-     `question_bank` (nulable: NULL es el banco global), `class_groups`,
-     `group_kinds`, `academy_staff`, `admin_audit_log`, `memberships` y
-     `monthly_payments`. `academy_settings`, `membership_settings` y
-     `academy_convocatoria` dejan de ser una fila única y pasan a una por
-     academia. Lo único escrito sin depender del esquema:
-     `app/lib/academies.ts` (validación pura de slugs, no toca la base de
-     datos); el temario sigue compartido (decidido), así que
-     `subjects`/`documents`/`document_chunks` no llevan `organization_id`.
-   - **El dueño pegó el guion en el SQL Editor de Supabase el 11 sep 2026 y
-     cree haberlo ejecutado, pero NO está verificado desde ningún sesión con
-     acceso real** (esta sesión no tiene `.env.local` ni credenciales — no
-     existe el fichero en este entorno). **Antes de escribir una sola línea
-     de código que lea o escriba `organization_id`, la próxima sesión con
-     acceso local tiene que comprobarlo**:
-     1. `node scripts/schema-snapshot.mjs` y mirar que `supabase/schema.json`
-        tiene `academies`, `academy_members`, y `organization_id` en las
-        ocho tablas de arriba, y que `academy_settings` / `membership_settings`
-        / `academy_convocatoria` ya NO tienen columna `id`.
-     2. Las consultas del PASO 9 al final del propio guion (`academies` con
-        la fila `principal`, `academy_members` con una fila por perfil,
-        `question_bank.organization_id` todo en `NULL`).
-     3. `npm run check` en verde (los tests de `academies.test.ts` no tocan
-        la BD, pero `schema-drift` sí compara contra el `schema.json` recién
-        refrescado).
-     Si algo de eso no cuadra —una tabla a medias, un paso que falló a mitad—,
-     el guion es idempotente: se puede corregir y volver a lanzar entero.
-     Solo cuando los tres puntos estén verificados se actualiza esta entrada
-     a "ejecutado" y se sigue con el código (rol `superadmin`, resolución de
-     `/alphapol` en las rutas, filtro de `organization_id` en el panel).
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (12 sep 2026, `node
+   scripts/schema-snapshot.mjs` — **38 tablas**):
+   - **`P11-multi-academia.sql`** (pegado 11 sep, **verificado con acceso real
+     el 12 sep**) — los cimientos de servir la plataforma a varias academias
+     (`docs/PLAN-PRODUCTO.md`, fase P11): `academies`, `academy_members`, y
+     `organization_id` en cascada por `question_bank` (nulable: NULL es el
+     banco global), `class_groups`, `group_kinds`, `academy_staff`,
+     `admin_audit_log` (nulable), `memberships` y `monthly_payments`.
+     `academy_settings`, `membership_settings` y `academy_convocatoria` dejan
+     de ser una fila única y pasan a una por academia, con `organization_id`
+     como clave (perdieron la columna `id`). Verificado con las consultas del
+     PASO 9 del propio guion: una academia `principal`/«Alphapol», 7
+     `academy_members` (tantos como perfiles), `question_bank` intacto en
+     `organization_id = NULL` (1000 filas), los tres singleton sin `id`, y
+     RLS con la clave anónima devolviendo 0 filas en `academies` /
+     `academy_members` / `academy_convocatoria`. El temario sigue compartido
+     (decidido), así que `subjects`/`documents`/`document_chunks` no llevan
+     `organization_id`. Sigue el código: rol `superadmin`, resolución de
+     `/alphapol` en las rutas y el login, y el filtro de `organization_id` en
+     el panel de administración — es grande, ver `docs/PLAN-PRODUCTO.md` §P11.
 
    Guiones de fases anteriores, todos ejecutados (8 sep 2026, `node
    scripts/schema-snapshot.mjs` — **36 tablas**):

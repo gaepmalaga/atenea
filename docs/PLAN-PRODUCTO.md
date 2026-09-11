@@ -833,16 +833,19 @@ aparcado por decisión del dueño.
 > descartó el rol `superadmin` por ser "ceremonia" con una sola academia. Con
 > varias, deja de serlo.
 >
-> **Empezada el 11 sep.** El guion de esquema está escrito
-> ([`docs/sql/P11-multi-academia.sql`](sql/P11-multi-academia.sql)). El dueño
-> lo pegó en el SQL Editor de Supabase el 11 sep y cree haberlo ejecutado,
-> **pero ninguna sesión con acceso real lo ha verificado todavía** — esta
-> conversación no tiene credenciales de Supabase en este entorno. Ver *Lo que
-> solo puedes hacer tú* en [`CLAUDE.md`](../CLAUDE.md) para los tres pasos de
-> verificación exactos. Nada de código que toque `organization_id` se escribe
-> hasta que esos tres pasos confirmen que el guion corrió limpio. Lo único
-> adelantado: `app/lib/academies.ts` (validación de slug, pura, sin tocar la
-> base de datos) y sus tests.
+> **Empezada el 11 sep, esquema verificado el 12 sep.** El guion de esquema
+> ([`docs/sql/P11-multi-academia.sql`](sql/P11-multi-academia.sql)) se pegó en
+> el SQL Editor de Supabase el 11 sep y **se ha verificado con acceso real**
+> el 12 sep: `node scripts/schema-snapshot.mjs` (38 tablas, `academies` +
+> `academy_members` presentes) y las consultas del PASO 9 del propio guion
+> confirman que corrió limpio — una academia `principal`/«Alphapol», 7
+> `academy_members` (tantos como perfiles), los tres singleton sin columna
+> `id`, `organization_id` poblado donde tocaba y `question_bank` intacto en
+> `NULL` (banco global). RLS con la clave anónima devuelve 0 filas en las tres
+> tablas que la llevan. `npm run check` sigue en rojo en dos tests de
+> `schema-drift` porque el CÓDIGO (`settings.ts`, `membership.ts`) todavía
+> escribe `id = 1`, el singleton que este guion retiró — es el primer punto
+> del código que sigue.
 
 ### La pregunta que la origina
 
@@ -936,8 +939,8 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 
 | | Qué es | Estado |
 |---|---|---|
-| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | 🔶 tabla + `academy_members` escritas en el guion, **pegado en Supabase, sin verificar**; las rutas ni empezadas |
-| P11b | `organization_id` en cascada por el contenido y la administración | 🔶 columnas escritas en el guion, **pegado en Supabase, sin verificar** |
+| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | 🔶 tabla + `academy_members` **ejecutadas y verificadas** (12 sep); las rutas, en marcha |
+| P11b | `organization_id` en cascada por el contenido y la administración | 🔶 columnas **ejecutadas y verificadas** (12 sep); falta añadir el filtro en el código de las Server Actions |
 | P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ el guion deja `question_bank.organization_id` nulable; falta el código |
 | P11d | Rol `superadmin`, distinto de `admin` por academia | ⬜ |
 | P11e | Reportes del banco global enrutados al superadmin | ⬜ |
