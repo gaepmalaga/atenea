@@ -12,6 +12,11 @@
 > ahora a **una sola academia**; el primer paso es un **piloto gratis** con una
 > academia amiga; y el problema de la pantalla del test **no era visual, era de
 > información**. P3, P4 y P6 están reescritas con eso.
+>
+> **Actualizado el 11 sep 2026:** nueva fase **P11 · Multi-academia**
+> (`/alphapol`, `/depol`, `/corporepol`…), con las decisiones tomadas sobre
+> banco global vs. privado por academia, rol `superadmin` y panel transversal.
+> **Sin empezar** — quedan tres preguntas abiertas al final de esa sección.
 
 ---
 
@@ -816,6 +821,131 @@ Tres quejas concretas después de probar lo anterior:
 **Lo que NO se hizo:** un CSV de pagos / recibos (se marca a mano); histórico de
 importes por alumno más allá del mes; y **P5e** (invitar por correo) sigue
 aparcado por decisión del dueño.
+
+---
+
+## P11 · Multi-academia: una plataforma, varios `/alphapol`, `/depol`, `/corporepol`…
+
+> **Decisiones tomadas el 11 de septiembre de 2026, en conversación con el
+> dueño. Sin empezar.** Es la fase que da la vuelta a la decisión de P4: la
+> regla 31 descartó el rol `superadmin` por ser "ceremonia" con una sola
+> academia. Con varias, deja de serlo.
+
+### La pregunta que la origina
+
+*«¿Costaría mucho que la plataforma sirva para distintas academias —por ej.
+`/alphapol`, `/depol`, `/corporepol`—, todo exactamente igual pero cada una con
+su enlace y sus propias preguntas, alumnos…?»*
+
+Respuesta corta: no se parte de cero —`module_settings.organization_id` ya
+existe desde P4, dejado en `null` a propósito para este día exacto (regla
+31)— pero es un proyecto del tamaño de P7+P8+P10 juntos: toca la
+autenticación, las consultas de las ~35 tablas y el panel de administración
+entero, que hoy asume una sola academia con la clave de servicio (regla
+34/35).
+
+### El modelo acordado
+
+1. **Banco de preguntas: global + privado, nunca compartido entre academias.**
+   - **Global** (`organization_id IS NULL`): lo generas tú con IA. Sigue el
+     mismo ciclo de vida de siempre (regla 3: `candidate` → `active` →
+     `disabled`) y la misma validación (regla 10).
+   - **Privado por academia** (`organization_id = X`): solo alta manual y
+     CSV/importación (regla 27 — la misma validación que la IA, aplicada
+     también en el servidor). **Ninguna academia puede llamar a Gemini.**
+   - Un test se sirve con `organization_id IS NULL OR organization_id = mi
+     academia`: un filtro añadido en el único sitio donde hoy se lee el
+     banco, no dos bancos que haya que fusionar pantalla a pantalla.
+
+2. **El gasto de IA deja de necesitar un tope por academia.** Se llegó a
+   plantear un crédito inicial + mensual con estimación previa a generar
+   (`ai-usage.ts` ya calcula el coste por llamada, regla 41), pero se
+   descarta: si ninguna academia puede generar, no hay gasto ahí que limitar.
+   El control de gasto sigue siendo el de siempre —el tuyo, ahora como
+   superadmin— y ya existe (`ai_usage`, panel **Consumo IA**, regla 51).
+
+3. **Rol `superadmin`, esta vez sí hace falta.** `profiles.role` pasa a
+   `student | admin | superadmin`. Cada `admin` ve solo su academia (su
+   `organization_id`); el `superadmin` (tú) las ve todas. Es la reversión
+   explícita de la P4e: el rol se descartó por no separar a nadie con una
+   sola academia, y aquí es exactamente lo que separa a cada academia del
+   resto.
+
+4. **Los reportes del banco global te llegan a ti, siempre.**
+   `question_reports` (regla 59, el botón "Avisar") ya puede distinguir por
+   el `organization_id` de la pregunta reportada: si es `null` (global), el
+   aviso solo lo ve el superadmin, sea cual sea la academia que lo mandó
+   —arreglarlo beneficia a todas—; si es de una academia, solo lo ve el
+   admin de esa academia. Mismo campo, sin tabla nueva.
+
+5. **Panel de superadmin, nuevo y transversal.**
+   - Alumnos por academia y comparativa entre academias — agregación sobre
+     datos que ya existen por academia (`profiles`, `class_members`), no
+     fontanería nueva.
+   - Rentabilidad por academia: gasto de IA (`ai_usage`, ya agregable, reglas
+     41/51) contra lo cobrado (`monthly_payments`, P8) — otro rollup, no una
+     tabla nueva.
+   - Moderación y estadísticas del banco global (qué pregunta falla todo el
+     mundo, qué temas cubre, regla 35) y sus reportes (punto 4).
+   - Hueco para cobrar por alumno el día que se decida: no se construye
+     ahora, solo se deja disponible el dato (alumnos activos por academia)
+     para cuando haga falta.
+
+### Lo que cambia en el código, y por qué es "grande"
+
+- **`academies`** — tabla nueva: slug (`alphapol`, `depol`…) y nombre. Lo que
+  hoy vive en `academy_settings` / `academy_staff` / `membership_settings`
+  como fila única (`id = 1` forzado por `CHECK`) pasa a tener una fila **por
+  academia**.
+- **`organization_id` en cascada** por todo lo que hoy es de una sola
+  academia: `question_bank` (nullable, punto 1), `class_groups`,
+  `class_group_staff`, `group_kinds`, `monthly_payments`,
+  `admin_audit_log`, `academy_convocatoria`, y `documents` /
+  `document_chunks` / `subjects` si el temario deja de ser compartido (ver
+  preguntas abiertas). Las tablas del propio alumno (`question_notes`,
+  `profiles_physical`…) **no** necesitan tocarse: ya filtran por `user_id`
+  con la sesión (regla 34), y un alumno pertenece a una sola academia.
+- **Rutas** — resolver `/alphapol` a un `organization_id` antes de nada: el
+  login, el registro y toda Server Action necesitan saber de qué academia es
+  la sesión. Es el cambio de más riesgo: hoy `requireUser` / `requireAdmin`
+  (regla 1) no llevan noción de academia.
+- **El panel de administración entero** — cada consulta con la clave de
+  servicio (regla 34: `question_bank`, `class_groups`…) necesita el filtro
+  de academia añadido, o un admin de una vería los alumnos de otra. Es
+  mecánico, pero son las ~15 pantallas de `Admin/`.
+- **Los guiones de siembra** (`npm run sembrar`) pasan a pedir para qué
+  academia es la tanda, o a tener un modo "global" explícito.
+
+### Estado de P11 · 11 de septiembre de 2026
+
+| | Qué es | Estado |
+|---|---|---|
+| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | ⬜ |
+| P11b | `organization_id` en cascada por el contenido y la administración | ⬜ |
+| P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ |
+| P11d | Rol `superadmin`, distinto de `admin` por academia | ⬜ |
+| P11e | Reportes del banco global enrutados al superadmin | ⬜ |
+| P11f | Panel de superadmin: alumnos, rentabilidad y moderación cruzados | ⬜ |
+| P11g | Migrar la academia actual a la primera fila de `academies` | ⬜ |
+
+### Preguntas abiertas antes de empezar
+
+1. **¿El temario (`subjects` / `documents`) es compartido entre academias, o
+   también va por academia?** Lo hablado fue del banco de *preguntas*; el
+   temario en sí (los PDF indexados) no se decidió. Compartido es más simple
+   —todas estudian el mismo BOE y solo difieren en las preguntas—; separado
+   exige decidir si subir e indexar el PDF de una academia también pasa por
+   ti, igual que la generación de preguntas.
+2. **¿Un alumno puede pertenecer a más de una academia?** Hoy no hace falta
+   pensarlo; con varias, la sesión necesita saber cuál es "la suya" si algún
+   día alguien está en dos.
+3. **¿Cómo nace una academia nueva?** ¿La das de alta tú a mano (como hoy
+   `npm run cuenta`), o hace falta un flujo de alta propio? Con dos o tres
+   academias, a mano es de sobra y mucho más barato de construir.
+
+No hay respuesta todavía a estas tres. No bloquean escribir el modelo de
+datos, pero sí bloquean empezar P11a (rutas) y P11b/P11c en lo que toca al
+temario.
 
 ---
 
