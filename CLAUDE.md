@@ -188,10 +188,23 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
    sola. La única excepción, documentada, es construir una funcionalidad nueva
    a la espera de su propio guion (audit-log, academia, P6), con el código
    degradando con gracia hasta que se ejecute.
-2. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
+2. **Configurar un SMTP propio en Supabase — PENDIENTE, y es urgente (12 sep
+   2026).** Sin él, los correos de confirmación de registro (`Confirm email`,
+   ver el aviso de abajo) los manda el servicio compartido de Supabase, que
+   está pensado **solo para desarrollo**: el límite es de un puñado de
+   correos por hora, no por día. Se agotó probando DOS altas seguidas
+   (P11j). Con el piloto de Alphapol captando alumnos reales, el segundo o
+   tercer registro en la misma hora fallará con "límite de correos
+   alcanzado" — y lo mismo bloquea `addAcademyAdmin` cuando invita a un
+   admin nuevo (regla 65). Se arregla en *Authentication → Emails → SMTP
+   Settings* de Supabase, con un proveedor externo (Resend, Postmark,
+   SendGrid… todos con un plan gratuito de miles de correos al mes, de sobra
+   para un piloto). Es una decisión y una configuración del dueño, no de
+   código — **aparcado por ahora, a la espera de que se decida**.
+3. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
-3. **Entrar como alumno y probar la pantalla del test.** Lo de P3 (blanco explícito,
+4. **Entrar como alumno y probar la pantalla del test.** Lo de P3 (blanco explícito,
    cuenta atrás, pantalla de revisión) y el repaso de fallos están cubiertos por tests y
    el build pasa, pero **no se han visto funcionando en pantalla**: hace falta una
    sesión, y una sesión pide contraseña.
