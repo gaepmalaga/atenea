@@ -964,7 +964,11 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 > falta ver a sus alumnos uno a uno, se crea un `admin` normal para ella. El
 > disparador que lo aplica
 > ([`docs/sql/P11j-asignar-academia-en-registro.sql`](sql/P11j-asignar-academia-en-registro.sql))
-> está sin ejecutar todavía.
+> **se ejecutó y se verificó el mismo 12 sep**: un alta real por `/alphapol`
+> (desde el navegador) quedó en Alphapol; un alta sin slug (probada contra la
+> API de administración, porque el límite de correos del plan Free de
+> Supabase bloqueó repetirlo desde la UI) quedó en `atenea`. Las dos cuentas
+> de prueba se borraron después.
 
 > **Lo que P11e/f/i tienen verificado, y lo que no (12 sep).** Contra la BD
 > real: las consultas de `getAcademiesOverview` (academias, miembros, roles,
