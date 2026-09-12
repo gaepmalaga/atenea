@@ -38,7 +38,7 @@ export default function AdminAcademies() {
   const totales = academias.reduce(
     (acc, a) => ({
       alumnos: acc.alumnos + a.alumnos,
-      admins: acc.admins + a.admins,
+      admins: acc.admins + a.admins.length,
       costeIA: acc.costeIA + a.costeIA,
       ingresosMes: acc.ingresosMes + a.ingresosMes,
     }),
@@ -103,10 +103,27 @@ export default function AdminAcademies() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
               <MiniStat icon={<Users size={13} />} label="Alumnos" value={a.alumnos} />
-              <MiniStat icon={<ShieldCheck size={13} />} label="Admins" value={a.admins} />
+              <MiniStat icon={<ShieldCheck size={13} />} label="Admins" value={a.admins.length} />
               <MiniStat icon={<Coins size={13} />} label="Coste IA" value={formateaUSD(a.costeIA)} />
               <MiniStat icon={<BadgeEuro size={13} />} label="Cobrado (mes)" value={formateaEUR(a.ingresosMes)} />
             </div>
+            {a.admins.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <p className={cx(TEXT.muted, 'mb-1.5')}>Quién la administra</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {a.admins.map((admin) => (
+                    <span
+                      key={admin.id}
+                      className="inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1 font-mono text-[11px] text-slate-700 dark:text-slate-200"
+                      title={admin.id}
+                    >
+                      <ShieldCheck size={11} className="text-slate-400 shrink-0" />
+                      {admin.email ?? admin.id.slice(0, 8)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         ))}
       </div>

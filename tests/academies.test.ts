@@ -84,16 +84,34 @@ describe('resumeAcademias (P11f: la comparativa del panel de superadmin)', () =>
     const roles = new Map([['u1', 'student'], ['u2', 'student'], ['u3', 'admin'], ['u4', 'student']]);
     const [alphapol, depol] = resumeAcademias(academias, miembros, roles, new Map(), []);
     expect(alphapol.alumnos).toBe(2);
-    expect(alphapol.admins).toBe(1);
+    expect(alphapol.admins).toHaveLength(1);
     expect(depol.alumnos).toBe(1);
-    expect(depol.admins).toBe(0);
+    expect(depol.admins).toHaveLength(0);
+  });
+
+  it('la lista de admins trae quién es, no solo cuántos — con su correo', () => {
+    const miembros = [
+      { academy_id: 'a1', user_id: 'u1' },
+      { academy_id: 'a1', user_id: 'u2' },
+    ];
+    const roles = new Map([['u1', 'student'], ['u2', 'admin']]);
+    const correos = new Map([['u2', 'morato@atenea.com']]);
+    const [alphapol] = resumeAcademias(academias, miembros, roles, new Map(), [], correos);
+    expect(alphapol.admins).toEqual([{ id: 'u2', email: 'morato@atenea.com' }]);
+  });
+
+  it('un admin sin correo conocido no revienta la lista: sale con email null', () => {
+    const miembros = [{ academy_id: 'a1', user_id: 'u1' }];
+    const roles = new Map([['u1', 'admin']]);
+    const [alphapol] = resumeAcademias(academias, miembros, roles, new Map(), []);
+    expect(alphapol.admins).toEqual([{ id: 'u1', email: null }]);
   });
 
   it('sin rol conocido, cuenta como alumno (el valor por defecto de profiles.role)', () => {
     const miembros = [{ academy_id: 'a1', user_id: 'sin-perfil' }];
     const [alphapol] = resumeAcademias(academias, miembros, new Map(), new Map(), []);
     expect(alphapol.alumnos).toBe(1);
-    expect(alphapol.admins).toBe(0);
+    expect(alphapol.admins).toHaveLength(0);
   });
 
   it('el coste de IA se atribuye por user_id, cruzando contra academy_members', () => {
@@ -139,6 +157,6 @@ describe('resumeAcademias (P11f: la comparativa del panel de superadmin)', () =>
   it('una academia sin ningún miembro ni pago sale en 0, no desaparece de la lista', () => {
     const resumen = resumeAcademias(academias, [], new Map(), new Map(), []);
     expect(resumen).toHaveLength(2);
-    expect(resumen.every((a) => a.alumnos === 0 && a.admins === 0 && a.costeIA === 0 && a.ingresosMes === 0)).toBe(true);
+    expect(resumen.every((a) => a.alumnos === 0 && a.admins.length === 0 && a.costeIA === 0 && a.ingresosMes === 0)).toBe(true);
   });
 });

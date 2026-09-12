@@ -87,13 +87,18 @@ export type AcademyRow = { id: string; slug: string; name: string };
 /** Una fila de `academy_members`. */
 export type MiembroRow = { academy_id: string; user_id: string };
 
+/** Un admin (o superadmin) de una academia, para la lista de «quién la lleva». */
+export type AdminDeAcademia = { id: string; email: string | null };
+
 /** El resumen de UNA academia para el panel transversal del superadmin (P11f). */
 export type AcademyStats = {
   id: string;
   slug: string;
   name: string;
   alumnos: number;
-  admins: number;
+  /** Quiénes la administran, no solo cuántos — el superadmin necesita saber a
+   *  quién llamar, no solo un número (feedback al probar el panel). */
+  admins: AdminDeAcademia[];
   /** Coste de IA acumulado de sus miembros (`ai_usage`, USD). */
   costeIA: number;
   /** Lo cobrado este mes (`monthly_payments.amount_eur`, solo lo pagado). */
@@ -120,6 +125,7 @@ export function resumeAcademias(
   roles: Map<string, string>,
   costePorUsuario: Map<string, number>,
   pagosDelMes: { organization_id: string | null; amount_eur: number | null; paid: boolean }[],
+  correos: Map<string, string | null> = new Map(),
 ): AcademyStats[] {
   const ingresosPorAcademia = new Map<string, number>();
   for (const p of pagosDelMes) {
@@ -138,12 +144,12 @@ export function resumeAcademias(
   return academias.map((a) => {
     const suyos = miembrosPorAcademia.get(a.id) ?? [];
     let alumnos = 0;
-    let admins = 0;
+    const admins: AdminDeAcademia[] = [];
     let costeIA = 0;
     for (const userId of suyos) {
       const rol = roles.get(userId);
       if (rol === 'student' || !rol) alumnos++;
-      else admins++;
+      else admins.push({ id: userId, email: correos.get(userId) ?? null });
       costeIA += costePorUsuario.get(userId) ?? 0;
     }
     return {
