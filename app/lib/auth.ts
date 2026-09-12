@@ -122,7 +122,12 @@ export async function getSessionUser(): Promise<AuthUser | null> {
   const role: AuthUser['role'] =
     profile?.role === 'admin' ? 'admin' : profile?.role === 'superadmin' ? 'superadmin' : 'student';
 
-  const organizationId = await resolveOrganizationId(data.user.id);
+  // Un `superadmin` NUNCA queda ligado a una academia (decidido tras probarlo:
+  // ver academia era su trabajo). Si se resolviera por `academy_members` como
+  // un `admin`, heredaría sin querer la academia del backfill original —
+  // vería sus alumnos, sus grupos, sus pagos— solo por historia, no porque
+  // le corresponda administrarla.
+  const organizationId = role === 'superadmin' ? null : await resolveOrganizationId(data.user.id);
   const access = await checkAccess(data.user.id, role, organizationId);
 
   return {

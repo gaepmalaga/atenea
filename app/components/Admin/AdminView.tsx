@@ -90,16 +90,27 @@ function aplicaOrden<T extends { id: string }>(tabs: T[], orden: string[]): T[] 
 }
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+  const esSuperadmin = user.role === 'superadmin';
+
   // Estado para la navegación
-  // Añadimos 'bank' a los tipos permitidos
-  const [activeTab, setActiveTab] = useState<AdminTab>('students');
+  // Un `superadmin` no administra NINGUNA academia (no tiene `organizationId`,
+  // regla 65): «Alumnos», «Grupos», «Prep. física» y «Pagos» son cosa de un
+  // admin de una academia y para él ni existen. Su pantalla de entrada es
+  // «Academias», no «Alumnos».
+  const [activeTab, setActiveTab] = useState<AdminTab>(esSuperadmin ? 'academies' : 'students');
 
   // La pestaña guardada se aplica en un efecto, no en el estado inicial: leerla
   // en `useState` provocaría un desajuste de hidratación (el servidor no ve
   // `localStorage`). Igual que el orden de las pestañas.
+  //
+  // Y solo si sigue siendo una pestaña QUE ESTE ROL PUEDE VER: el mismo
+  // navegador puede haber guardado "students" de una sesión de admin normal,
+  // y un superadmin no tiene esa pestaña — aplicarla igual habría dejado el
+  // área de contenido en blanco, sin ninguna marcada como activa.
   useEffect(() => {
     const t = leeTabGuardada();
-    if (t) setActiveTab(t);
+    if (t && tabs.some((tab) => tab.id === t)) setActiveTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cambiaTab = (id: AdminTab) => {
@@ -130,9 +141,9 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // `satisfies` y no `as`: obliga a que cada `id` sea un AdminTab de verdad,
   // sin borrar el tipo literal de cada uno. Antes se colaba con `as any` en el
   // onClick, asi que una pestaña mal escrita compilaba y no hacia nada.
-  const esSuperadmin = user.role === 'superadmin';
+  type TabDef = { id: AdminTab; label: string; icon: LucideIcon; color: string };
 
-  const tabs = [
+  const TABS_DE_ACADEMIA: TabDef[] = [
     { id: 'students', label: 'Alumnos', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'groups', label: 'Grupos', icon: Users2, color: 'text-teal-700 dark:text-teal-400' },
     { id: 'physical', label: 'Prep. física', icon: Dumbbell, color: 'text-orange-700 dark:text-orange-400' },
@@ -143,12 +154,22 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     { id: 'modules', label: 'Ajustes', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
     { id: 'cost', label: 'Consumo IA', icon: Coins, color: 'text-lime-700 dark:text-lime-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-500 dark:text-slate-400' },
-    // P11f: SOLO el superadmin ve todas las academias a la vez. Un admin
-    // normal ni sabe que esta pestaña existe.
-    ...(esSuperadmin
-      ? [{ id: 'academies', label: 'Academias', icon: Building2, color: 'text-fuchsia-700 dark:text-fuchsia-400' } as const]
-      : []),
-  ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
+  ];
+
+  const TAB_ACADEMIAS: TabDef = { id: 'academies', label: 'Academias', icon: Building2, color: 'text-fuchsia-700 dark:text-fuchsia-400' };
+
+  // P11f, afinado tras probarlo: el `superadmin` NO administra ninguna
+  // academia (`organizationId` es siempre `null` para él, regla 65) — lo
+  // suyo es el banco COMÚN: el temario del que salen las preguntas
+  // («Temario & IA»), sus reportes y candidatas («Moderación»), y la
+  // comparativa entre academias («Academias»). Nada de «Alumnos», «Grupos»,
+  // «Pagos» ni «Prep. física»: eso es de quien administra UNA academia.
+  const tabs: TabDef[] = esSuperadmin
+    ? [
+        ...TABS_DE_ACADEMIA.filter((t) => t.id === 'content' || t.id === 'moderation'),
+        TAB_ACADEMIAS,
+      ]
+    : TABS_DE_ACADEMIA;
 
   const tabsOrdenadas = aplicaOrden(tabs, orden);
 
