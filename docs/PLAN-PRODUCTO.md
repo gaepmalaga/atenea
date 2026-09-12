@@ -982,6 +982,38 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 > prueba creada, admin existente añadido sin correo, todo sin error) —
 > limpiado después. Sin nada pendiente de verificación en P11.
 
+> **P11k, decidido el 12 sep: `training_ai` es un privilegio de «atenea», no
+> un interruptor por academia.** *«En la academia madre 'atenea' quiero que
+> sea todo lo contrario al resto: que le salga las físicas con IA. El resto
+> solo físicas manuales, si quieren.»* «Atenea» es la academia «casa» de P11j
+> —donde caen los registros sin enlace de una academia real, y de facto el
+> entorno del propio dueño—, y es la única que debe poder ofrecer al alumno
+> generar su plan con Gemini; academias reales como Alphapol no deben ni ver
+> esa opción, por el mismo motivo de siempre (regla 39: el gasto de IA no lo
+> decide quien no paga la factura).
+>
+> Esto es **distinto** de lo que dejó preparado la regla 54: `training_ai` /
+> `training_group` son hoy dos interruptores de `module_settings` que
+> cualquier admin podía tocar (ocultos en la UI, pero el mecanismo es
+> simétrico). Con varias academias hace falta una segunda capa que un admin
+> normal NO controle:
+>
+> 1. **El interruptor de siempre** (`module_settings`, ahora sí con
+>    `organization_id` relleno de verdad — P11b ya lo dejó listo para el
+>    resto de módulos): cada admin sigue encendiendo/apagando
+>    `training_group` para SU academia.
+> 2. **Un permiso nuevo, que decide el superadmin, no el admin de la
+>    academia**: si esa academia puede siquiera LLEGAR a encender
+>    `training_ai`. Por defecto, ninguna — una columna en `academies`
+>    (`training_ai_allowed boolean not null default false`), a `true` solo en
+>    la fila de `atenea`. El panel de una academia sin el permiso no enseña el
+>    interruptor de `training_ai`; no lo enseña apagado, no existe, mismo
+>    criterio que el chat fuera del MVP (regla 58).
+>
+> **Sin empezar.** Necesita su propio guion (`academies.training_ai_allowed`)
+> y el código que lo lee a la vez — la lección de P11 esta misma semana es que
+> lo destructivo y lo nuevo van con el código listo al lado, nunca antes.
+
 ### Las tres preguntas, respondidas (11 sep 2026)
 
 1. **El temario es compartido, no por academia.** *«El temario solo me sirve
