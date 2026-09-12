@@ -87,9 +87,9 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Queda UN guion pendiente**, y es importante — sin él,
-   **nadie que se registre hoy entra en ninguna academia**:
-   - **`P11j-asignar-academia-en-registro.sql`** (12 sep 2026) — un
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (12 sep 2026):
+   - **`P11j-asignar-academia-en-registro.sql`** (12 sep 2026, **ejecutado y
+     verificado con dos altas reales el mismo día**) — un
      disparador de Postgres (`on_auth_user_created_academia`) que da de alta
      la membresía en `academy_members` en cuanto se registra una cuenta. Hace
      falta porque ningún camino de código lo hacía: `supabase.auth.signUp()`
@@ -108,7 +108,13 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      ella, igual que para cualquier otra. No toca el disparador que ya crea
      `profiles` —vive solo en Supabase, no en este repo—: es un
      `AFTER INSERT` independiente sobre `auth.users`, y Postgres permite
-     varios.
+     varios. **Verificado end-to-end el mismo día**: un alta real por
+     `/alphapol` (desde el navegador, con el correo mandado de verdad) quedó
+     en `academy_members` apuntando a Alphapol; el límite de envío de
+     correos del plan Free de Supabase impidió repetirlo por `/` desde la
+     UI, así que ese segundo camino se comprobó contra la API de
+     administración (mismo disparador, sin metadata de academia) y quedó en
+     `atenea`. Las dos cuentas de prueba se borraron después.
 
    Ejecutados y verificados (12 sep 2026, `node scripts/schema-snapshot.mjs`
    — **38 tablas**):
