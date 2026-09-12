@@ -11,6 +11,7 @@ import StudentDashboard from './student/StudentDashboard';
 import AdminView from './Admin/AdminView';
 import LoginScreen, { type ModoAuth } from './auth/LoginScreen';
 import AccessLocked from './auth/AccessLocked';
+import SetPasswordScreen from './auth/SetPasswordScreen';
 
 /**
  * LA APLICACIÓN ENTERA (regla 37), independiente de por qué ruta se entró.
@@ -46,8 +47,61 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [avisoMsg, setAvisoMsg] = useState<string | null>(null);
 
+  // Alguien que acaba de aceptar una invitación (`addAcademyAdmin`, regla 65)
+  // tiene sesión pero NUNCA ha puesto contraseña — `inviteUserByEmail` no la
+  // pide. Sin este paso, entraba una vez con el enlace y se quedaba sin forma
+  // de volver a entrar: `signInWithPassword` no tenía nada que comprobar.
+  const [needsPassword, setNeedsPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
   useEffect(() => {
     async function checkSession() {
+      // El enlace de confirmación de correo (registro, P11j) y el de
+      // invitación (`addAcademyAdmin`, regla 65) vuelven cada uno con una
+      // forma distinta de sesión sin canjear en la URL, y nadie lo hacía: la
+      // persona aterrizaba otra vez en el formulario de entrar, con el
+      // código o el token colgando sin explicación.
+      //
+      // - REGISTRO propio (`signUp` desde `handleAuth`, más abajo): el
+      //   cliente pide PKCE, así que el enlace vuelve con `?code=...` — se
+      //   canjea con `exchangeCodeForSession` y ya tiene contraseña (la puso
+      //   al registrarse), así que entra derecho al panel.
+      // - INVITACIÓN (`inviteUserByEmail`, sin cliente de por medio): vuelve
+      //   con `#access_token=...&refresh_token=...&type=invite` — un flujo
+      //   distinto (implícito), y sin contraseña ninguna: quien la recibe
+      //   nunca ha elegido una. Se establece la sesión con `setSession` y se
+      //   le pide que ponga una antes de dejarla pasar (`SetPasswordScreen`);
+      //   sin ese paso se quedaría sin forma de volver a entrar.
+      const code = new URLSearchParams(window.location.search).get('code');
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hash.get('access_token');
+      const refreshToken = hash.get('refresh_token');
+
+      if (code) {
+        // Se limpia de la URL pase lo que pase: un código ya usado (recargar
+        // la página, volver a pulsar el enlace) no puede quedarse ahí para
+        // siempre intentando canjearse en cada visita.
+        window.history.replaceState({}, '', window.location.pathname);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          // La cuenta probablemente ya quedó confirmada en el servidor
+          // aunque el canje falle aquí (enlace reutilizado, sesión ya
+          // canjeada en otra pestaña): se le pide que entre a mano en vez de
+          // enseñar un error técnico sobre un código que ya no importa.
+          setAvisoMsg('Tu cuenta ya debería estar confirmada. Inicia sesión con tu correo y tu contraseña.');
+        }
+      } else if (accessToken && refreshToken) {
+        window.history.replaceState({}, '', window.location.pathname);
+        const tipo = hash.get('type');
+        const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        if (error) {
+          setAvisoMsg('Ese enlace ya no es válido. Inicia sesión con tu correo y tu contraseña.');
+        } else if (tipo === 'invite') {
+          setNeedsPassword(true);
+        }
+      }
+
       // El rol lo decide el servidor a partir de la cookie de sesion; el
       // cliente ya no envia ningun id.
       //
@@ -68,12 +122,29 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
       }
     }
     checkSession();
-  }, []);
+  }, [supabase]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     setUser(null);
     setRole('student');
+  }
+
+  async function handleSetPassword(password: string) {
+    setPasswordLoading(true);
+    setPasswordError(null);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      // La sesión de la invitación ya era válida (`setSession` en
+      // `checkSession`), y `user`/`role` ya se cargaron con ella: no hace
+      // falta pedirle nada más, solo dejar de tapar el panel.
+      setNeedsPassword(false);
+    } catch (err: unknown) {
+      setPasswordError(mensajeDeAuth(err));
+    } finally {
+      setPasswordLoading(false);
+    }
   }
 
   function cambiarModo(modo: ModoAuth) {
@@ -138,6 +209,20 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
           Cargando Atenea…
         </p>
       </div>
+    );
+  }
+
+  // Sesión de invitación sin contraseña todavía: se le pide ANTES de dejarla
+  // pasar, incluso aunque `user` ya se haya cargado con esa misma sesión
+  // (regla 65 — `addAcademyAdmin` invita sin pedir contraseña ninguna).
+  if (needsPassword) {
+    return (
+      <SetPasswordScreen
+        email={user?.email ?? null}
+        onSubmit={handleSetPassword}
+        cargando={passwordLoading}
+        error={passwordError}
+      />
     );
   }
 
