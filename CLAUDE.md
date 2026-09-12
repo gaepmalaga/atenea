@@ -98,11 +98,17 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
      tu academia» sin ninguna forma de salir de ahí. El disparador lee el
      slug que `AppShell.tsx` ya manda como metadata del registro
      (`options.data.academia_slug`) cuando se registra desde `/<slug>`; sin
-     slug (registro por `/`), cae al mismo criterio que
-     `resolveOrganizationId`: si solo hay una academia en toda la
-     plataforma, es esa. No toca el disparador que ya crea `profiles` —vive
-     solo en Supabase, no en este repo—: es un `AFTER INSERT` independiente
-     sobre `auth.users`, y Postgres permite varios.
+     slug (registro por `/`, la URL pelada), entra en **`atenea`** — la
+     academia «casa», ya creada (decidido con el dueño el mismo día: sin
+     grupos ni cobro en persona, donde caen los registros genéricos y
+     estudian con el banco común). Es un destino FIJO, no "si solo hay una
+     academia" — eso se habría roto en cuanto naciera una segunda academia
+     real. El `superadmin` no la administra como excepción: si algún día
+     hace falta ver uno a uno a sus alumnos, se crea un `admin` normal para
+     ella, igual que para cualquier otra. No toca el disparador que ya crea
+     `profiles` —vive solo en Supabase, no en este repo—: es un
+     `AFTER INSERT` independiente sobre `auth.users`, y Postgres permite
+     varios.
 
    Ejecutados y verificados (12 sep 2026, `node scripts/schema-snapshot.mjs`
    — **38 tablas**):

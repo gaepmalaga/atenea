@@ -25,12 +25,21 @@
 -- cliente tenga que hacer una segunda llamada (que además violaría la regla
 -- 1: nadie más que la sesión puede decir "yo soy este `user_id`").
 --
--- Si no hay slug (alguien se registró por `/`) o el slug no existe, se aplica
--- el MISMO criterio que `resolveOrganizationId`: si hoy solo hay UNA academia
--- en toda la plataforma, es inequívoco quién es. Con dos o más, no se
--- adivina — la fila de `academy_members` no se crea, y esa cuenta se queda
--- en «no encontrada» hasta que un admin la añada a mano (`addAcademyAdmin`,
--- P11i) o el alumno se registre por el enlace correcto.
+-- SIN SLUG (alguien se registró por `/`, la URL pelada, sin el enlace de
+-- ninguna academia concreta) o con un slug que no existe: entra en
+-- **`atenea`**, la academia «casa» (decidido con el dueño, 12 sep 2026:
+-- academia real, ya creada — `slug = 'atenea'`, sin grupos ni cobro en
+-- persona — donde caen los registros genéricos y estudian con el banco
+-- común). NO es "si solo hay una academia en la plataforma, es esa" —esa
+-- primera versión se rompía en cuanto existiera una segunda academia real—;
+-- es un destino FIJO y permanente, independiente de cuántas academias más se
+-- den de alta después.
+--
+-- Decidido también: el `superadmin` NO administra `atenea` como excepción
+-- (sería lo mismo que el hueco que se corrigió en regla 65 — heredar una
+-- academia por casualidad). Si algún día hace falta ver uno a uno a sus
+-- alumnos, se crea una cuenta `admin` normal para esa academia, igual que
+-- para cualquier otra.
 --
 -- NO TOCA el disparador que ya crea `public.profiles` al registrarse —vive
 -- en Supabase, no en este repo, y no hace falta saber cómo está escrito—:
@@ -57,13 +66,12 @@ begin
     select id into v_academy_id from public.academies where slug = v_slug;
   end if;
 
-  -- Sin slug, o un slug que no existe: si solo hay UNA academia en toda la
-  -- plataforma, es la suya sin ambigüedad (mismo criterio que
-  -- resolveOrganizationId). Con dos o más, no se adivina.
+  -- Sin slug, o un slug que no existe: la academia «casa», fija. Si por lo
+  -- que sea ni siquiera esa existiera todavía, no se adivina con ninguna
+  -- otra — se deja sin asignar antes que colar a alguien en la academia
+  -- equivocada.
   if v_academy_id is null then
-    if (select count(*) from public.academies) = 1 then
-      select id into v_academy_id from public.academies limit 1;
-    end if;
+    select id into v_academy_id from public.academies where slug = 'atenea';
   end if;
 
   if v_academy_id is not null then
@@ -91,9 +99,11 @@ create trigger on_auth_user_created_academia
 --   select tgname from pg_trigger where tgname = 'on_auth_user_created_academia';
 --   -- una fila
 --
--- Y de verdad, desde la app: registra una cuenta nueva por /alphapol (con
--- "Confirm email" activado, hace falta pulsar el enlace del correo antes de
--- entrar) y comprueba que aparece en academy_members apuntando a Alphapol:
+-- Y de verdad, desde la app:
+--   1. Registra una cuenta por /alphapol (con "Confirm email" activado, hace
+--      falta pulsar el enlace del correo antes de entrar) y comprueba que
+--      entra en Alphapol.
+--   2. Registra otra por / (la URL pelada) y comprueba que entra en `atenea`.
 --
 --   select am.user_id, a.slug
 --   from public.academy_members am
