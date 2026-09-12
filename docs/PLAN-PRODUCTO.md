@@ -953,6 +953,19 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 | P11h | Selector de academia en el login, si el alumno está en más de una | ⬜ sin UI. Hay una red de seguridad: si `resolveOrganizationId` no puede decidir (cero o varias academias sin que ninguna coincida con la cookie), el acceso es `no-academy` en vez de adivinar (`AccessLocked`, `AccessDecision`) |
 | P11i | Alta de academias nuevas **desde el panel de superadmin** (no un guion) | ✅ **cerrada** (12 sep): botón «Nueva academia» en la pestaña «Academias» (`createAcademy`, `normalizeAcademyInput`). Como una academia recién creada no tiene a nadie que la administre, se completó con «Añadir admin» (`addAcademyAdmin`, por correo, sobre una cuenta ya existente) — sin esto, dar de alta una academia sería un callejón sin salida |
 
+> **P11j, decidido el mismo día: la academia «casa».** Preguntando cómo sabe
+> el sistema a qué academia entra alguien que se registra, salió el hueco de
+> raíz: nadie asignaba `academy_members` para un alta nueva. Se resuelve con
+> una academia real más, `atenea` (slug fijo, ya creada) — sin grupos ni
+> cobro en persona—, donde caen los registros que llegan por la URL pelada
+> (`/`, sin el enlace de ninguna academia concreta) y estudian con el banco
+> común. El `superadmin` NO la administra como excepción (mismo criterio que
+> regla 65: no hereda ninguna academia por casualidad) — si algún día hace
+> falta ver a sus alumnos uno a uno, se crea un `admin` normal para ella. El
+> disparador que lo aplica
+> ([`docs/sql/P11j-asignar-academia-en-registro.sql`](sql/P11j-asignar-academia-en-registro.sql))
+> está sin ejecutar todavía.
+
 > **Lo que P11e/f/i tienen verificado, y lo que no (12 sep).** Contra la BD
 > real: las consultas de `getAcademiesOverview` (academias, miembros, roles,
 > gasto, pagos) se ejecutaron directamente y devuelven lo esperado; con la
