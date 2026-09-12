@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from './core';
 import { requireAdmin } from '../lib/auth';
-import { QUESTION_STATUS } from '../lib/questions';
+import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import {
   resumeAlumnos,
   contarPorEstado,
@@ -101,7 +101,11 @@ export async function getAcademyOverview(): Promise<
           .limit(MAX_INTENTOS)
       : Promise.resolve({ data: [], error: null }),
     supabaseAdmin.from('subjects').select('id, title').order('topic_number', { ascending: true }),
-    supabaseAdmin.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
+    supabaseAdmin
+      .from('question_bank')
+      .select('subject_id')
+      .eq('status', QUESTION_STATUS.ACTIVE)
+      .or(filtroBancoPorAcademia(organizationId)),
     // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
     supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', organizationId).order('name'),

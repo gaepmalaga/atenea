@@ -26,13 +26,30 @@ import crypto from 'crypto';
  * El enunciado entra ya normalizado (`validateGeneratedQuestion` recorta y
  * quita el Markdown): dos preguntas que solo se diferencien en un `**` son la
  * misma pregunta.
+ *
+ * `organizationId` (P11c) es la ÚNICA extensión que se le hizo a la fórmula
+ * desde que existe, y se hizo para no tener que tocarla de verdad: se añade
+ * al payload SOLO cuando no es `null`, así que las 1000 preguntas del banco
+ * global —todas con `organization_id = null`, generadas por IA— siguen dando
+ * EXACTAMENTE el mismo hash que daban antes de P11 (regla 27: cambiar la
+ * fórmula dejaría huérfanas las huellas ya guardadas). Lo que sí cambia es el
+ * alta manual y la importación CSV: dos academias distintas escribiendo la
+ * misma pregunta, palabra por palabra, para el mismo tema, ya no chocan entre
+ * sí contra la restricción ÚNICA de `question_hash` —sin esto, la segunda
+ * academia se habría encontrado con "esa pregunta ya existe" señalando una
+ * fila que ni siquiera es suya.
  */
-export function questionHash(subjectId: number, question: string, correctIndex: number): string {
-  const payload = JSON.stringify({
-    s: subjectId,
-    q: question.trim(),
-    c: correctIndex,
-  });
+export function questionHash(
+  subjectId: number,
+  question: string,
+  correctIndex: number,
+  organizationId?: string | null,
+): string {
+  const payload = JSON.stringify(
+    organizationId
+      ? { s: subjectId, q: question.trim(), c: correctIndex, o: organizationId }
+      : { s: subjectId, q: question.trim(), c: correctIndex },
+  );
   return crypto.createHash('sha256').update(payload).digest('hex');
 }
 

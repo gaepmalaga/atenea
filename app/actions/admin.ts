@@ -6,7 +6,7 @@ import type { DocumentChunkRow } from '../lib/documents';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraAccion } from '../lib/admin-audit';
-import { isQuestionStatus, QUESTION_STATUS, type QuestionStatus } from '../lib/questions';
+import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus } from '../lib/questions';
 import type { ActivityRow } from '../lib/stats';
 
 // --- TIPOS DEL TEMARIO ---
@@ -482,7 +482,11 @@ export async function getStudentSyllabus(): Promise<
 
   const [bloquesRes, bancoRes] = await Promise.all([
     supabase.from('blocks').select('id, name, subjects(id, title, topic_number)').order('id', { ascending: true }),
-    supabase.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
+    supabase
+      .from('question_bank')
+      .select('subject_id')
+      .eq('status', QUESTION_STATUS.ACTIVE)
+      .or(filtroBancoPorAcademia(auth.user.organizationId)),
   ]);
   if (bloquesRes.error) {
     console.error('getStudentSyllabus:', bloquesRes.error.message);
@@ -657,6 +661,12 @@ export async function getAdminQuestionBank(params: {
       .select('*, subjects(id, title, topic_number)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // P11c: un admin normal ve el banco GLOBAL más el PRIVADO de su propia
+    // academia — nunca el de otra. Un `superadmin` ve todo, sin filtrar.
+    if (auth.user.role !== 'superadmin') {
+      query = query.or(filtroBancoPorAcademia(auth.user.organizationId));
+    }
 
     if (isQuestionStatus(status)) {
       query = query.eq('status', status);

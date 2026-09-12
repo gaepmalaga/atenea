@@ -325,3 +325,26 @@ export function isQuestionStatus(value: unknown): value is QuestionStatus {
 
 /** Estados que un alumno puede recibir en un test desde el banco. */
 export const SERVABLE_STATUSES: QuestionStatus[] = [QUESTION_STATUS.ACTIVE];
+
+/**
+ * EL FILTRO DEL BANCO POR ACADEMIA (P11c).
+ *
+ * Un alumno recibe el banco GLOBAL (`organization_id IS NULL`, lo generas tú)
+ * más el PRIVADO de su propia academia — nunca el de otra. Es la expresión
+ * `.or()` de PostgREST que va en cada sitio donde hoy se sirve
+ * `question_bank` a un alumno (`getAdaptiveSession`, `getSimulacro`,
+ * `getRecuentoEntrenamiento`, `getMisCajones`, `getQuestionsFromBank`, todos
+ * en `actions/exams.ts`): un filtro añadido en cada uno de esos sitios, no un
+ * banco fusionado a mano.
+ *
+ * `organizationId` sale siempre de `auth.user.organizationId` (una academia
+ * real, resuelta por el servidor) — nunca de un parámetro que llegue del
+ * cliente (regla 1). Si por lo que sea no hay academia resuelta, se sirve
+ * SOLO el banco global: es el mismo criterio de "no adivinar" de la regla 65,
+ * aplicado a contenido en vez de a datos de administración.
+ */
+export function filtroBancoPorAcademia(organizationId: string | null): string {
+  return organizationId
+    ? `organization_id.is.null,organization_id.eq.${organizationId}`
+    : 'organization_id.is.null';
+}

@@ -15,6 +15,7 @@ import {
   toDifficultyLevel,
   DIFFICULTY_DEFAULT,
   mapBankRowToQuestion,
+  filtroBancoPorAcademia,
   type QuestionStatus,
   type DifficultyLevel,
   type BankRow,
@@ -510,7 +511,8 @@ export async function getAdaptiveSession(params: {
     .from('question_bank')
     .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, global_success_rate, difficulty_level')
     .in('subject_id', ids)
-    .eq('status', QUESTION_STATUS.ACTIVE);
+    .eq('status', QUESTION_STATUS.ACTIVE)
+    .or(filtroBancoPorAcademia(auth.user.organizationId));
 
   if (bancoError) return { success: false as const, error: bancoError.message };
   const filas = (banco ?? []) as (BankRow & { global_success_rate?: number | null; difficulty_level?: number | null })[];
@@ -639,7 +641,8 @@ export async function getSimulacro(params: {
     .from('question_bank')
     .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, difficulty_level')
     .in('subject_id', ids)
-    .eq('status', QUESTION_STATUS.ACTIVE);
+    .eq('status', QUESTION_STATUS.ACTIVE)
+    .or(filtroBancoPorAcademia(auth.user.organizationId));
   if (bancoError) return { success: false as const, error: bancoError.message };
 
   const filas = (banco ?? []) as (BankRow & { difficulty_level?: number | null })[];
@@ -702,7 +705,11 @@ export async function getRecuentoEntrenamiento(topics: string[]): Promise<
   if (!ids.length) return { success: true as const, propuestas: 0, disponibles: 0 };
 
   const { data: banco } = await supabase
-    .from('question_bank').select('id').in('subject_id', ids).eq('status', QUESTION_STATUS.ACTIVE);
+    .from('question_bank')
+    .select('id')
+    .in('subject_id', ids)
+    .eq('status', QUESTION_STATUS.ACTIVE)
+    .or(filtroBancoPorAcademia(auth.user.organizationId));
   const bankIds = new Set(((banco ?? []) as { id: string }[]).map((r) => r.id));
   const disponibles = bankIds.size;
   if (!disponibles) return { success: true as const, propuestas: 0, disponibles: 0 };
@@ -742,7 +749,11 @@ export async function getMisCajones(): Promise<
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const [bancoRes, temasRes] = await Promise.all([
-    supabase.from('question_bank').select('id, subject_id').eq('status', QUESTION_STATUS.ACTIVE),
+    supabase
+      .from('question_bank')
+      .select('id, subject_id')
+      .eq('status', QUESTION_STATUS.ACTIVE)
+      .or(filtroBancoPorAcademia(auth.user.organizationId)),
     supabase.from('subjects').select('id, title'),
   ]);
   if (bancoRes.error) return { success: false as const, error: bancoRes.error.message };
@@ -835,7 +846,8 @@ export async function getQuestionsFromBank(params: {
       .from('question_bank')
       .select('*')
       .in('subject_id', ids)
-      .eq('status', QUESTION_STATUS.ACTIVE);
+      .eq('status', QUESTION_STATUS.ACTIVE)
+      .or(filtroBancoPorAcademia(auth.user.organizationId));
 
   const nivel = params.difficulty ? toDifficultyLevel(params.difficulty) : null;
 
