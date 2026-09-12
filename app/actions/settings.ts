@@ -19,20 +19,30 @@ import { CONVOCATORIA_VACIA, type Convocatoria } from '../lib/convocatoria';
  */
 
 export async function getAcademySettings(): Promise<
-  { success: true; settings: AcademySettings } | { success: false; error: string }
+  { success: true; settings: AcademySettings; slug: string } | { success: false; error: string }
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
   if (!auth.user.organizationId) return { success: false, error: 'No hay una academia seleccionada.' };
 
-  const { data, error } = await supabaseAdmin
-    .from('academy_settings')
-    .select('*')
-    .eq('organization_id', auth.user.organizationId)
-    .maybeSingle();
+  const [settingsRes, academyRes] = await Promise.all([
+    supabaseAdmin
+      .from('academy_settings')
+      .select('*')
+      .eq('organization_id', auth.user.organizationId)
+      .maybeSingle(),
+    // El slug (el enlace de registro/entrada de la academia, `/alphapol`) vive
+    // en `academies`, no en `academy_settings` — sin esto, el propio admin de
+    // una academia no tenía forma de ver en ningún sitio cuál es su enlace.
+    supabaseAdmin.from('academies').select('slug').eq('id', auth.user.organizationId).maybeSingle(),
+  ]);
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, settings: rowToAcademySettings(data) };
+  if (settingsRes.error) return { success: false, error: settingsRes.error.message };
+  return {
+    success: true,
+    settings: rowToAcademySettings(settingsRes.data),
+    slug: (academyRes.data?.slug as string) ?? '',
+  };
 }
 
 export async function saveAcademySettings(input: unknown) {

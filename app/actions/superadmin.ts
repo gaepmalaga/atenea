@@ -118,16 +118,28 @@ export async function createAcademy(
  * Añade a alguien como admin de una academia, por su correo.
  *
  * Una academia recién creada no tiene a nadie que pueda administrarla — sin
- * esto, darla de alta sería un callejón sin salida. Busca una cuenta YA
- * EXISTENTE (no crea usuarios desde aquí, eso sigue siendo el registro
- * normal): si es `student`, la sube a `admin`; si ya es `admin` o
- * `superadmin`, se deja el rol como está. `ignoreDuplicates` en
- * `academy_members`: añadir dos veces al mismo no es un error.
+ * esto, darla de alta sería un callejón sin salida. Dos caminos:
+ *
+ *  - **La cuenta ya existe**: si es `student`, la sube a `admin`; si ya es
+ *    `admin` o `superadmin`, se deja el rol como está.
+ *  - **No existe ninguna cuenta con ese correo**: se INVITA
+ *    (`auth.admin.inviteUserByEmail`) — Supabase crea la cuenta y le manda un
+ *    correo con un enlace para que ponga su contraseña. No hace falta que se
+ *    registre antes por su cuenta: es justo el hueco que se encontró al
+ *    probarlo (un superadmin dando de alta una academia nueva normalmente
+ *    está pensando en gente que TODAVÍA no tiene cuenta en la plataforma).
+ *    La invitación lleva la academia como metadata
+ *    (`academia_slug`), así que el disparador de P11j
+ *    (`docs/sql/P11j-asignar-academia-en-registro.sql`) la asigna sola, en
+ *    la misma operación — sin eso, entraría por defecto en `atenea`.
+ *
+ * `ignoreDuplicates` en `academy_members`: añadir dos veces al mismo no es un
+ * error, y sirve de red por si el disparador ya la asignó.
  */
 export async function addAcademyAdmin(
   academyId: string,
   email: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; invitada?: boolean }> {
   const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false, error: auth.error };
   if (!academyId || !email) return { success: false, error: 'Falta la academia o el correo.' };
@@ -135,13 +147,32 @@ export async function addAcademyAdmin(
   const correo = email.trim().toLowerCase();
   if (!correo) return { success: false, error: 'Falta el correo.' };
 
-  const { data: perfil, error: leer } = await supabaseAdmin
+  const { data: academia, error: acadErr } = await supabaseAdmin
+    .from('academies')
+    .select('slug')
+    .eq('id', academyId)
+    .maybeSingle();
+  if (acadErr) return { success: false, error: acadErr.message };
+  if (!academia) return { success: false, error: 'Esa academia no existe.' };
+
+  let { data: perfil, error: leer } = await supabaseAdmin
     .from('profiles')
     .select('id, role')
     .ilike('email', correo)
     .maybeSingle();
   if (leer) return { success: false, error: leer.message };
-  if (!perfil) return { success: false, error: 'No hay ninguna cuenta con ese correo. Tiene que registrarse antes.' };
+
+  let invitada = false;
+  if (!perfil) {
+    const invite = await supabaseAdmin.auth.admin.inviteUserByEmail(correo, {
+      data: { academia_slug: academia.slug },
+    });
+    if (invite.error || !invite.data.user) {
+      return { success: false, error: invite.error?.message ?? 'No se pudo invitar a esa cuenta.' };
+    }
+    perfil = { id: invite.data.user.id, role: 'student' };
+    invitada = true;
+  }
 
   if (perfil.role === 'student') {
     const { error: rolErr } = await supabaseAdmin.from('profiles').update({ role: 'admin' }).eq('id', perfil.id);
@@ -153,7 +184,7 @@ export async function addAcademyAdmin(
     .upsert({ academy_id: academyId, user_id: perfil.id }, { onConflict: 'academy_id,user_id', ignoreDuplicates: true });
 
   if (!error) {
-    registraAccion({ actorId: auth.user.id, action: 'add_academy_admin', target: correo, detail: { academyId } });
+    registraAccion({ actorId: auth.user.id, action: 'add_academy_admin', target: correo, detail: { academyId, invitada } });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: error?.message, invitada };
 }

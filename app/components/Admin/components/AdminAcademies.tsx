@@ -232,7 +232,7 @@ function AnadirAdminModal({
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState(false);
+  const [hecho, setHecho] = useState<{ invitada: boolean } | null>(null);
 
   async function guardar() {
     setBusy(true);
@@ -240,14 +240,14 @@ function AnadirAdminModal({
     const res = await addAcademyAdmin(academia.id, email);
     setBusy(false);
     if (!res.success) { setError(res.error ?? 'No se pudo añadir.'); return; }
-    setHecho(true);
+    setHecho({ invitada: !!res.invitada });
     onHecho();
   }
 
   return (
     <Modal
       title={`Añadir admin a ${academia.name}`}
-      subtitle="Tiene que existir ya la cuenta — esto no la crea, solo le da el rol."
+      subtitle="Si la cuenta ya existe, le da el rol. Si no, la invita por correo."
       onClose={onClose}
       footer={
         hecho ? (
@@ -264,7 +264,9 @@ function AnadirAdminModal({
     >
       {hecho ? (
         <p className="text-sm text-emerald-700 dark:text-emerald-400 font-semibold">
-          Hecho: {email.trim()} ya administra {academia.name}.
+          {hecho.invitada
+            ? `Hecho: se ha enviado un correo a ${email.trim()} para que ponga su contraseña. En cuanto entre, ya administra ${academia.name}.`
+            : `Hecho: ${email.trim()} ya administra ${academia.name}.`}
         </p>
       ) : (
         <div className="space-y-4">
