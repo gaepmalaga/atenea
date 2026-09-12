@@ -31,5 +31,9 @@ export default async function AcademiaPage({
 
   if (!data) notFound();
 
-  return <AppShell />;
+  // P11j: el registro necesita saber por qué academia entró para poder
+  // asignarla (docs/sql/P11j-asignar-academia-en-registro.sql). En `/` (sin
+  // slug) AppShell no lo recibe, y el disparador cae a "si solo hay una
+  // academia, es esa" — igual que `resolveOrganizationId`.
+  return <AppShell academiaSlug={academia} />;
 }
