@@ -64,10 +64,23 @@ export async function getModerationQueue() {
     // El join resuelve porque la FK question_reports.question_id -> question_bank
     // esta declarada. Si no lo estuviera, PostgREST devolveria error y la cola
     // saldria vacia.
-    const { data: rep } = await supabaseAdmin
+    //
+    // P11e: «los reportes del banco global te llegan a ti, siempre». Se
+    // enruta por la academia de la PREGUNTA reportada, no por quién la
+    // reportó: un `superadmin` ve los reportes de preguntas GLOBALES
+    // (`organization_id IS NULL`) — arreglarlas beneficia a todas—; un
+    // `admin` normal ve solo los de SU academia. `!inner` convierte el embed
+    // en INNER JOIN, que es lo que deja filtrar por una columna de la tabla
+    // embebida (`question.organization_id`).
+    let repQuery = supabaseAdmin
       .from('question_reports')
-      .select('*, question:question_bank(*)')
+      .select('*, question:question_bank!inner(*)')
       .eq('status', 'open');
+    repQuery =
+      auth.user.role === 'superadmin'
+        ? repQuery.is('question.organization_id', null)
+        : repQuery.eq('question.organization_id', auth.user.organizationId);
+    const { data: rep } = await repQuery;
 
     /** Aplana `subject.title` a `topic`, que es lo que pinta la interfaz. */
     const conTema = (fila: unknown): ModerationCandidate => {

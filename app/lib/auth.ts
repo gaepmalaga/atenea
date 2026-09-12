@@ -223,3 +223,17 @@ export async function requireAdmin(): Promise<AuthCheck> {
   if (user.role === 'admin' && user.organizationId === null) return { ok: false, error: NOT_IN_ACADEMY };
   return { ok: true, user };
 }
+
+/**
+ * Exige `superadmin` (P11f/P11i): el panel transversal de varias academias —
+ * comparativa de alumnos, rentabilidad, y dar de alta una academia nueva. Un
+ * `admin` normal, por muy bien resuelta que tenga su academia, no pasa de
+ * aquí: esto no es "más admin", es ver y decidir cosas de TODAS las academias
+ * a la vez.
+ */
+export async function requireSuperadmin(): Promise<AuthCheck> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, error: NOT_AUTHENTICATED };
+  if (user.role !== 'superadmin') return { ok: false, error: NOT_ADMIN };
+  return { ok: true, user };
+}

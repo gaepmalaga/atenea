@@ -18,3 +18,4 @@ export * from './ai-cost';
 export * from './membership';
 export * from './groups';
 export * from './payments';
+export * from './superadmin';

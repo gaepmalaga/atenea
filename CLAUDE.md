@@ -65,7 +65,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
-| **P11** | **Multi-academia** (plan de producto) | 🔶 **cimientos + banco privado cerrados** (12 sep): esquema ejecutado y verificado, rol `superadmin`, rutas `/<slug>` (`middleware.ts` + `app/[academia]/`), filtro de `organization_id` en todo el panel de administración, y el banco global/privado (`filtroBancoPorAcademia`, alta manual y CSV etiquetadas por academia) — todo verificado end-to-end en el preview contra la BD real. Ver **regla 65**. Slug de producción renombrado a `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Queda, y es decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin` (hoy `morato@atenea.com` los sigue usando en el piloto). **Sin empezar**: reportes al superadmin (P11e) y el panel transversal (P11f) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
+| **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Sin verificar en pantalla con sesión de superadmin de verdad** (sin su contraseña) — sí verificado que un `admin` normal NO ve la pestaña, y las consultas contra la BD real. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 
 ## Producción
 
@@ -2178,6 +2178,46 @@ Alphapol en el piloto real — restringirlo de golpe, sin que el dueño lo pida,
 sería tomar una decisión de producto que no me corresponde. Se queda pendiente
 para cuando exista una segunda academia de verdad, o para cuando el dueño lo
 pida explícitamente.
+
+**El panel transversal SÍ llegó, el mismo día (P11f/P11i, 12 sep):**
+`requireSuperadmin()` (`app/lib/auth.ts`) es una guarda NUEVA, no una variante
+de `requireAdmin()` — un `admin` normal, por bien resuelta que tenga su
+academia, no la pasa. La pestaña **«Academias»** (`AdminAcademies.tsx`,
+`app/actions/superadmin.ts`), solo visible con ese rol, es lo único que mira a
+TODAS las academias a la vez: cuántos alumnos y admins tiene cada una, cuánto
+cuesta en IA (`ai_usage`, cruzado por `user_id` contra `academy_members` al
+leer — la misma aproximación documentada en el guion SQL para un alumno en dos
+academias: cuenta en las dos) y cuánto ha entrado este mes
+(`monthly_payments`, que sí lleva `organization_id`, sin cruce). Y desde ahí se
+da de alta una academia nueva (P11i, decidido: ni un guion de línea de
+comandos ni autorregistro) — con un segundo paso que no estaba en el plan
+pero hacía falta para que sirviera de algo: **«Añadir admin» por correo**,
+sobre una cuenta que ya exista. Sin eso, una academia recién creada no tiene
+nadie que la administre y darla de alta sería un callejón sin salida.
+
+**Los reportes se enrutan por la academia de la PREGUNTA, no de quien
+reporta (P11e, mismo día).** `getModerationQueue` (`moderation.ts`) cambia el
+embed a `question:question_bank!inner(*)` —el `!inner` es lo que deja
+filtrar por una columna de la tabla embebida— y decide: `superadmin` ve los
+reportes de preguntas GLOBALES (`organization_id IS NULL`, arreglarlas
+beneficia a todas); un `admin` normal ve solo los de SU academia. Un alumno de
+Alphapol que reporta una pregunta global no se lo lleva `morato@atenea.com`:
+se lo lleva quien puede arreglarla de verdad.
+
+**De paso, un hueco que no era nuevo pero sí relevante para la comparativa:**
+`getAiCostOverview` (el panel «Consumo IA») no estaba acotado por academia —
+cualquier admin veía el gasto de TODOS los alumnos, de cualquier academia.
+Se scopeó con el mismo patrón (`academy_members` para un `admin`, sin filtro
+para `superadmin`), porque además hacía falta ese mismo cruce para construir
+`getAcademiesOverview`.
+
+**Verificado el 12 sep, sin sesión de superadmin de verdad** (no hay
+contraseña de `gaepmalaga@gmail.com` en este entorno): las consultas de
+`getAcademiesOverview` se ejecutaron directamente contra la BD real y
+devuelven lo esperado, y con la sesión de `morato@atenea.com` se confirmó que
+la pestaña «Academias» no aparece para un `admin` normal, y que «Moderación»
+y «Consumo IA» siguen sin errores con sus filtros nuevos. **Lo que falta ver
+en pantalla**: «Nueva academia» y «Añadir admin» de verdad, con esa sesión.
 
 ---
 

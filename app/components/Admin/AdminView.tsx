@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Shield, LogOut, RefreshCw, Users, Book,
+  Shield, LogOut, RefreshCw, Users, Book, Building2,
   Activity, AlertTriangle, Database, Power, Coins, KeyRound, Users2, Dumbbell,
   ArrowLeftRight, ChevronLeft, ChevronRight, Check
 } from 'lucide-react';
@@ -18,11 +18,12 @@ import AdminModules from './components/AdminModules';
 import AdminCost from './components/AdminCost';
 import AdminGroups from './components/AdminGroups';
 import AdminPhysical from './components/AdminPhysical';
+import AdminAcademies from './components/AdminAcademies';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'students' | 'groups' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost';
+type AdminTab = 'students' | 'groups' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
 
 /**
  * El orden de las pestañas lo puede cambiar cada admin y se recuerda en SU
@@ -39,7 +40,7 @@ const ORDEN_KEY = 'atenea-admin-orden-pestanas';
  */
 const TAB_KEY = 'atenea-admin-pestana';
 const TABS_VALIDAS: AdminTab[] = [
-  'students', 'groups', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost',
+  'students', 'groups', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies',
 ];
 
 function leeTabGuardada(): AdminTab | null {
@@ -129,6 +130,8 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // `satisfies` y no `as`: obliga a que cada `id` sea un AdminTab de verdad,
   // sin borrar el tipo literal de cada uno. Antes se colaba con `as any` en el
   // onClick, asi que una pestaña mal escrita compilaba y no hacia nada.
+  const esSuperadmin = user.role === 'superadmin';
+
   const tabs = [
     { id: 'students', label: 'Alumnos', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'groups', label: 'Grupos', icon: Users2, color: 'text-teal-700 dark:text-teal-400' },
@@ -140,6 +143,11 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     { id: 'modules', label: 'Ajustes', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
     { id: 'cost', label: 'Consumo IA', icon: Coins, color: 'text-lime-700 dark:text-lime-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-500 dark:text-slate-400' },
+    // P11f: SOLO el superadmin ve todas las academias a la vez. Un admin
+    // normal ni sabe que esta pestaña existe.
+    ...(esSuperadmin
+      ? [{ id: 'academies', label: 'Academias', icon: Building2, color: 'text-fuchsia-700 dark:text-fuchsia-400' } as const]
+      : []),
   ] satisfies { id: AdminTab; label: string; icon: LucideIcon; color: string }[];
 
   const tabsOrdenadas = aplicaOrden(tabs, orden);
@@ -185,7 +193,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
             </h1>
             <div className="flex items-center gap-2 mt-1 min-w-0">
               <span className="text-[9px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
-                Admin
+                {esSuperadmin ? 'Superadmin' : 'Admin'}
               </span>
               <p className="text-[11px] font-mono text-slate-400 truncate">{user.email}</p>
             </div>
@@ -319,6 +327,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
                 {activeTab === 'modules' && <AdminModules />}
                 {activeTab === 'cost' && <AdminCost />}
                 {activeTab === 'activity' && <AdminActivity />}
+                {activeTab === 'academies' && esSuperadmin && <AdminAcademies />}
             </ModuleErrorBoundary>
         </div>
       </main>

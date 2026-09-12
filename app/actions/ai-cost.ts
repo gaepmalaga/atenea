@@ -41,11 +41,28 @@ export async function getAiCostOverview(): Promise<
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('ai_usage')
     .select('user_id, route, cost_usd, input_tokens, output_tokens, cached_tokens, created_at, subject_id')
     .order('created_at', { ascending: false })
     .limit(MAX_FILAS);
+
+  // P11: `ai_usage` no lleva `organization_id` a propósito (docs/sql/P11-
+  // multi-academia.sql — evita la ambigüedad de un alumno en dos academias).
+  // Un admin normal solo ve el gasto DE SU academia, cruzando por
+  // `academy_members`; un `superadmin` ve el gasto de todas, como en el panel
+  // transversal (regla 65).
+  if (auth.user.role !== 'superadmin') {
+    const { data: miembros, error: miembrosErr } = await supabaseAdmin
+      .from('academy_members')
+      .select('user_id')
+      .eq('academy_id', auth.user.organizationId);
+    if (miembrosErr) return { success: false as const, error: miembrosErr.message };
+    const ids = (miembros ?? []).map((m) => m.user_id as string);
+    query = ids.length ? query.in('user_id', ids) : query.eq('user_id', '00000000-0000-0000-0000-000000000000');
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     // No se traga (regla 4): un panel de gasto que enseña "$0.00" cuando la
