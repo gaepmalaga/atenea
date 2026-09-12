@@ -65,7 +65,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
-| **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Sin verificar en pantalla con sesión de superadmin de verdad** (sin su contraseña) — sí verificado que un `admin` normal NO ve la pestaña, y las consultas contra la BD real. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
+| **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Verificado en pantalla con sesión de superadmin real** (12 sep): las 4 pestañas correctas, «Academias» con su comparativa, y «Nueva academia»/«Añadir admin» probados de verdad sin errores. SMTP propio (Gmail) también configurado y verificado end-to-end. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 
 ## Producción
 
@@ -188,19 +188,32 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
    sola. La única excepción, documentada, es construir una funcionalidad nueva
    a la espera de su propio guion (audit-log, academia, P6), con el código
    degradando con gracia hasta que se ejecute.
-2. **Configurar un SMTP propio en Supabase — PENDIENTE, y es urgente (12 sep
-   2026).** Sin él, los correos de confirmación de registro (`Confirm email`,
-   ver el aviso de abajo) los manda el servicio compartido de Supabase, que
-   está pensado **solo para desarrollo**: el límite es de un puñado de
-   correos por hora, no por día. Se agotó probando DOS altas seguidas
-   (P11j). Con el piloto de Alphapol captando alumnos reales, el segundo o
-   tercer registro en la misma hora fallará con "límite de correos
-   alcanzado" — y lo mismo bloquea `addAcademyAdmin` cuando invita a un
-   admin nuevo (regla 65). Se arregla en *Authentication → Emails → SMTP
-   Settings* de Supabase, con un proveedor externo (Resend, Postmark,
-   SendGrid… todos con un plan gratuito de miles de correos al mes, de sobra
-   para un piloto). Es una decisión y una configuración del dueño, no de
-   código — **aparcado por ahora, a la espera de que se decida**.
+2. **SMTP propio en Supabase — CONFIGURADO Y VERIFICADO (12 sep 2026).** El
+   servicio compartido de Supabase (pensado solo para desarrollo, un puñado
+   de correos por hora) se agotó probando DOS altas seguidas el mismo día
+   (P11j), y con alumnos reales el segundo o tercer registro en la misma hora
+   habría fallado con "límite de correos alcanzado" — lo mismo bloquea
+   `addAcademyAdmin` al invitar a un admin nuevo (regla 65). El dueño dio de
+   alta una cuenta de Gmail dedicada (`atenea.alumnos@gmail.com`, con
+   verificación en 2 pasos y contraseña de aplicación) y la conectó en
+   *Authentication → Emails → SMTP Settings* (`smtp.gmail.com`, puerto
+   **587**). Un primer intento falló con Gmail bloqueando el envío por
+   seguridad (error `534 5.7.14`, cuenta nueva + IP de servidor
+   desconocida para Google) — se resolvió entrando en esa cuenta desde un
+   navegador normal y visitando `https://accounts.google.com/DisplayUnlockCaptcha`.
+   **Verificado end-to-end**: registro real por `/alphapol`, correo recibido y
+   confirmado, cuenta creada con el disparador de P11j asignándola a Alphapol
+   correctamente. Cuenta de prueba borrada después.
+
+   **Fragilidad conocida, no resuelta del todo:** Gmail personal no es un
+   proveedor transaccional — si vuelve a detectar el envío como sospechoso
+   (un pico de registros, unos días sin actividad), puede volver a bloquear
+   con el mismo error 534, y el mismo desbloqueo de `DisplayUnlockCaptcha`
+   debería arreglarlo. El límite de envío de Gmail (~500/día) es de sobra
+   para el piloto, pero si esto da problemas de nuevo o el piloto crece,
+   migrar a un proveedor transaccional (Resend, Postmark, SendGrid — planes
+   gratuitos de miles de correos al mes, sin este riesgo) es la solución
+   definitiva.
 3. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
@@ -210,7 +223,8 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
    sesión, y una sesión pide contraseña.
 
 > **Cuidado con `Confirm email`:** está activado. Quien se registre no podrá entrar hasta
-> pulsar el enlace del correo, y en el plan Free el envío es limitado.
+> pulsar el enlace del correo. Desde el 12 sep 2026 el envío va por el SMTP propio
+> (Gmail dedicado, ver punto 2 de arriba), no por el límite de desarrollo de Supabase.
 
 **Verificado contra el Supabase real (26 ago 2026):** RLS cierra el acceso anónimo a las
 21 tablas (comprobado con `curl` y la clave pública); `consume_ai_quota` corta a la
@@ -2277,13 +2291,24 @@ Se scopeó con el mismo patrón (`academy_members` para un `admin`, sin filtro
 para `superadmin`), porque además hacía falta ese mismo cruce para construir
 `getAcademiesOverview`.
 
-**Verificado el 12 sep, sin sesión de superadmin de verdad** (no hay
-contraseña de `gaepmalaga@gmail.com` en este entorno): las consultas de
+**Verificado el 12 sep, primero sin sesión de superadmin de verdad** (no
+había contraseña de `gaepmalaga@gmail.com` en ese momento): las consultas de
 `getAcademiesOverview` se ejecutaron directamente contra la BD real y
-devuelven lo esperado, y con la sesión de `morato@atenea.com` se confirmó que
+devolvían lo esperado, y con la sesión de `morato@atenea.com` se confirmó que
 la pestaña «Academias» no aparece para un `admin` normal, y que «Moderación»
-y «Consumo IA» siguen sin errores con sus filtros nuevos. **Lo que falta ver
-en pantalla**: «Nueva academia» y «Añadir admin» de verdad, con esa sesión.
+y «Consumo IA» siguen sin errores con sus filtros nuevos.
+
+**Verificación completa el mismo 12 sep, ya con la sesión real de
+`gaepmalaga@gmail.com` en producción:** las 4 pestañas correctas (Temario &
+IA, Banco Oficial, Moderación, Academias — nada de Alumnos/Grupos/Pagos/Prep.
+física), todas cargando sin errores de consola. «Academias» con su
+comparativa completa (2 academias, alumnos/admins/coste IA/cobrado por cada
+una). **«Nueva academia» y «Añadir admin» probados de verdad**: se creó una
+academia de prueba (apareció al instante con 0 alumnos/admins) y se le añadió
+como admin una cuenta ya existente (`morato@atenea.com`, camino de "la cuenta
+ya existe" — sin disparar ningún correo), las dos operaciones sin error.
+Academia y membresía de prueba borradas después. Sin nada pendiente de este
+punto.
 
 **Corregido el mismo 12 sep, tras desplegarlo y probarlo:** el `superadmin`
 SÍ heredaba una academia. `resolveOrganizationId` lo resolvía igual que a un
@@ -2332,6 +2357,40 @@ verde.
   Alphapol» en la pestaña «Academias» — un rastro que no tenía sentido para
   alguien que ya no la administra. Se borró esa fila a mano con la clave de
   servicio (dato, no código: no hay guion porque es un caso de uno).
+
+### 66 · Un aviso de «sin revisar» que salía siempre no avisaba de nada
+
+Encontrado probando el entrenamiento con `alumno@atenea.com` (12 sep): toda
+pregunta, sin excepción, llevaba el aviso ámbar **«⚠ Generada por IA · sin
+revisar»** — incluidas las 1795 del Banco Oficial, ya aprobadas y activas.
+`ActiveTest.tsx` decidía el aviso con `currentQ.origin === 'bank'`, pero
+**ninguna fila de `question_bank` tiene ese origen**: las 1795 se sembraron
+con `seedQuestionBank`, que graba `origin: 'bank_seed'` (comprobado contra la
+BD real, paginando la tabla entera). La condición nunca se cumplía con datos
+de verdad, así que el aviso salía siempre — el caso contrario del que se
+quería avisar.
+
+La distinción `origin === 'bank'` es de antes de la regla 39: cuando el
+alumno SÍ podía disparar generación en vivo (`origin: 'live_ai'`,
+`status: 'candidate'`, sin pasar por moderación), el aviso tenía sentido.
+Desde que eso se cerró, `generateAndSaveCandidate` —la única función que
+crea esa combinación— **no la llama ningún componente**: quedó sin usar.
+Todo lo que llega hoy a `ActiveTest` ya es `status: 'active'` (bank, seed o
+manual), así que la comparación correcta no es por `origin`, es por si el
+origen es uno de los dos que en teoría no deberían llegar aquí:
+
+```ts
+// MAL — nunca es 'bank' con datos reales; el aviso salía siempre
+currentQ.origin === 'bank'
+
+// BIEN — solo avisa de lo que de verdad no debería estar aquí
+currentQ.origin !== 'live_ai' && currentQ.origin !== 'candidate'
+```
+
+Verificado en local contra la Supabase real, con la sesión de
+`alumno@atenea.com`: la misma pregunta que antes mostraba «sin revisar» pasa
+a mostrar «📚 Banco oficial». `npm run check` en verde (ningún test dependía
+de la condición vieja).
 
 ---
 
