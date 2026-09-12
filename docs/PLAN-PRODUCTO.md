@@ -1010,9 +1010,27 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 >    interruptor de `training_ai`; no lo enseña apagado, no existe, mismo
 >    criterio que el chat fuera del MVP (regla 58).
 >
-> **Sin empezar.** Necesita su propio guion (`academies.training_ai_allowed`)
-> y el código que lo lee a la vez — la lección de P11 esta misma semana es que
-> lo destructivo y lo nuevo van con el código listo al lado, nunca antes.
+> **Cerrado el mismo 12 sep, en una sesión paralela que no vio esta nota
+> hasta después** (dos sesiones de Claude trabajando la misma rama a la vez:
+> esta escribió el diseño de arriba, la otra ya lo había implementado con un
+> enfoque más simple antes de que se fusionaran). Lo construido es la mitad
+> 1 de esta nota tal cual —`module_settings.organization_id` relleno de
+> verdad, con la academia incrustada en el propio `module_id` para no
+> necesitar el guion de P11b— más la exclusión `ai`/`group` de la mitad 2,
+> pero **sin la columna nueva**: en vez de un permiso en `academies` que
+> decide el superadmin, `ACADEMIA_CASA_SLUG` (`lib/academies.ts`) compara
+> contra el slug `atenea` directamente. Mismo resultado para lo que existe
+> hoy —una sola academia con el privilegio, exactamente `atenea`— sin
+> esperar a un guion SQL. Ver **regla 68** de `CLAUDE.md`.
+>
+> **Lo que la nota de arriba tenía y esto no construyó:** que el superadmin
+> pueda dar el privilegio a una SEGUNDA academia sin tocar código. Con una
+> sola academia «casa» posible hoy, es exactamente el mismo trueque que ya
+> aceptó P11e/i (regla 65: «restringirlo de golpe, sin que el dueño lo pida,
+> sería tomar una decisión de producto que no corresponde»). Si algún día
+> hace falta una segunda academia solo-IA, ahí sí hace falta la columna
+> `academies.training_ai_allowed` de esta nota — hoy sería una tabla para
+> una fila.
 
 ### Las tres preguntas, respondidas (11 sep 2026)
 
