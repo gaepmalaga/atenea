@@ -36,7 +36,7 @@ export async function getAcademiesOverview(): Promise<
   const [academiasRes, miembrosRes, perfilesRes, gastoRes, pagosRes] = await Promise.all([
     supabaseAdmin.from('academies').select('id, slug, name').order('name'),
     supabaseAdmin.from('academy_members').select('academy_id, user_id'),
-    supabaseAdmin.from('profiles').select('id, role').limit(MAX_PERFILES),
+    supabaseAdmin.from('profiles').select('id, role, email').limit(MAX_PERFILES),
     supabaseAdmin.from('ai_usage').select('user_id, cost_usd').limit(MAX_FILAS_GASTO),
     supabaseAdmin.from('monthly_payments').select('organization_id, amount_eur, paid').eq('period', periodo),
   ]);
@@ -47,7 +47,11 @@ export async function getAcademiesOverview(): Promise<
   }
 
   const roles = new Map<string, string>();
-  for (const p of perfilesRes.data ?? []) roles.set(p.id as string, (p.role as string) ?? 'student');
+  const correos = new Map<string, string | null>();
+  for (const p of perfilesRes.data ?? []) {
+    roles.set(p.id as string, (p.role as string) ?? 'student');
+    correos.set(p.id as string, (p.email as string) ?? null);
+  }
 
   // `cost_usd` es `numeric` en Postgres: PostgREST lo sirve como CADENA
   // (regla del panel de consumo de IA, `lib/ai-cost.ts`). Sumarlo sin
@@ -68,6 +72,7 @@ export async function getAcademiesOverview(): Promise<
     roles,
     costePorUsuario,
     (pagosRes.data ?? []) as { organization_id: string | null; amount_eur: number | null; paid: boolean }[],
+    correos,
   );
 
   return { success: true as const, data };
