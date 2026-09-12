@@ -2252,6 +2252,21 @@ de siempre, sin ningún cambio (el `admin` normal nunca pasó por
 `resolveOrganizationId` de otra forma). `npm run check` y `npm run build` en
 verde.
 
+**Dos ajustes más, el mismo día, al probarlo de verdad:**
+
+- **«Banco Oficial» faltaba en la lista del superadmin**, y era el hueco más
+  caro de los tres: es donde se NAVEGA el banco resultante y donde el alta
+  manual/CSV para el banco GLOBAL ya estaba preparada solo para él
+  (`bancoDestino` en `moderation.ts` manda sus altas siempre a
+  `organization_id = null`) — sin esa pestaña, esa capacidad no tenía dónde
+  vivir. Se añadió de vuelta junto a Temario & IA y Moderación.
+- **`academy_members` conservaba la fila del backfill original** para
+  `gaepmalaga@gmail.com` en Alphapol: aunque `organizationId` ya no se lo
+  daba (así que no cambiaba su acceso), sí lo hacía aparecer como «admin de
+  Alphapol» en la pestaña «Academias» — un rastro que no tenía sentido para
+  alguien que ya no la administra. Se borró esa fila a mano con la clave de
+  servicio (dato, no código: no hay guion porque es un caso de uno).
+
 ---
 
 ## Los tests
