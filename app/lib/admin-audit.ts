@@ -32,6 +32,16 @@ export type EntradaAuditoria = {
   target?: string | null;
   /** Lo que explica la acción sin tener que adivinarlo. */
   detail?: Record<string, unknown>;
+  /**
+   * La academia del actor (P11), `null` si es una acción de plataforma (sin
+   * academia concreta — hoy no hay ninguna así, pero la columna es nulable a
+   * propósito para el día que la haya). `undefined` se guarda igual que
+   * `null`: un admin siempre tiene `organizationId` resuelto
+   * (`requireAdmin` lo exige), así que un `undefined` aquí sería un olvido en
+   * la llamada, no una acción de plataforma legítima — pero fallar cerrado
+   * (guardando `null`) es mejor que perder la auditoría entera.
+   */
+  organizationId?: string | null;
 };
 
 /** La línea que va al registro del servidor. Prefijo fijo para poder filtrar. */
@@ -75,6 +85,7 @@ async function persisteAccion(e: EntradaAuditoria): Promise<void> {
       action: e.action,
       target: e.target ?? null,
       detail: e.detail ?? null,
+      organization_id: e.organizationId ?? null,
     });
     if (error) console.error('[admin-audit] no se pudo guardar:', error.message);
   } catch (err) {

@@ -32,11 +32,15 @@ export async function getAdminAuditLog(limit = 50): Promise<
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
 
-  const { data, error } = await supabaseAdmin
+  // Acotado a LA academia del admin (P11). Un `superadmin` sin academia
+  // resuelta ve el registro entero — es quien vigila la plataforma completa.
+  let q = supabaseAdmin
     .from('admin_audit_log')
     .select('id, actor_id, action, target, detail, created_at')
     .order('created_at', { ascending: false })
     .limit(Math.max(1, Math.min(200, limit)));
+  if (auth.user.organizationId) q = q.eq('organization_id', auth.user.organizationId);
+  const { data, error } = await q;
 
   if (error) {
     // PostgREST: "Could not find the table 'public.admin_audit_log' in the schema cache".
@@ -95,8 +99,23 @@ export async function getInicioSesiones(): Promise<
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
 
+  // Acotado a LA academia del admin (P11): `profiles` no lleva
+  // `organization_id`, así que la pertenencia sale de `academy_members`. Un
+  // `superadmin` sin academia resuelta ve a todo el mundo.
+  let idsAcademia: string[] | null = null;
+  if (auth.user.organizationId) {
+    const { data: miembros, error: miembrosErr } = await supabaseAdmin
+      .from('academy_members')
+      .select('user_id')
+      .eq('academy_id', auth.user.organizationId);
+    if (miembrosErr) return { success: false, error: miembrosErr.message };
+    idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
+  }
+
   const [perfilesRes, sesionesRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role, created_at'),
+    idsAcademia
+      ? supabaseAdmin.from('profiles').select('id, email, role, created_at').in('id', idsAcademia.length ? idsAcademia : ['00000000-0000-0000-0000-000000000000'])
+      : supabaseAdmin.from('profiles').select('id, email, role, created_at'),
     // Si esto falla, se sigue: se pierden las fechas de conexión, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
   ]);

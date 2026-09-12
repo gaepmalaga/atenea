@@ -12,8 +12,15 @@ export const ACCESS_STATUS = {
 } as const;
 export type AccessStatus = (typeof ACCESS_STATUS)[keyof typeof ACCESS_STATUS];
 
-/** Lo que la puerta le dice al alumno. `pending` = registrado, sin activar. */
-export type AccessDecision = 'ok' | 'pending' | 'suspended';
+/**
+ * Lo que la puerta le dice al alumno. `pending` = registrado, sin activar.
+ * `no-academy` (P11) = no se ha podido resolver a qué academia pertenece —
+ * cero academias, o pertenece a varias y ninguna coincide con la de la URL.
+ * Es un caso distinto de `pending`: aquí no hay ni siquiera una fila de
+ * `memberships` que mirar, así que `decideAccess` no lo decide (lo resuelve
+ * antes `auth.ts`, al resolver la academia de la sesión).
+ */
+export type AccessDecision = 'ok' | 'pending' | 'suspended' | 'no-academy';
 
 /** Una fila de `memberships`, o `null` si el alumno no tiene ninguna todavía. */
 export type MembershipRow = {
@@ -42,14 +49,14 @@ export type MembershipRow = {
  */
 export function decideAccess(params: {
   required: boolean;
-  role: 'admin' | 'student';
+  role: 'admin' | 'student' | 'superadmin';
   row: MembershipRow;
   /** `false` si la consulta a `memberships`/`membership_settings` dio error. */
   readOk: boolean;
 }): AccessDecision {
   const { required, role, row, readOk } = params;
 
-  if (role === 'admin') return 'ok';
+  if (role !== 'student') return 'ok';
   if (!required) return 'ok';
   if (!readOk) return 'ok';
   if (!row) return 'pending';

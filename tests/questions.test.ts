@@ -9,6 +9,7 @@ import {
   DIFFICULTY_DEFAULT,
   mapBankRowToQuestion,
   mapCandidateToQuestion,
+  filtroBancoPorAcademia,
 } from '../app/lib/questions';
 
 const bankRow = {
@@ -195,5 +196,23 @@ describe('dificultad de las preguntas', () => {
     for (const basura of [0, 4, -1, 99, null, undefined, '', 'dificil', NaN, {}, []]) {
       expect(toDifficultyLevel(basura), String(basura)).toBe(DIFFICULTY_DEFAULT);
     }
+  });
+});
+
+describe('filtroBancoPorAcademia (P11c: global + privado, nunca de otra academia)', () => {
+  it('sin academia resuelta, solo sirve el banco global', () => {
+    expect(filtroBancoPorAcademia(null)).toBe('organization_id.is.null');
+  });
+
+  it('con academia resuelta, sirve el global MAS el propio', () => {
+    const filtro = filtroBancoPorAcademia('org-123');
+    expect(filtro).toContain('organization_id.is.null');
+    expect(filtro).toContain('organization_id.eq.org-123');
+  });
+
+  it('nunca menciona la academia de otro: el filtro solo lleva la que se le pasa', () => {
+    // Regresion sencilla: dos academias distintas no pueden acabar compartiendo
+    // el mismo filtro literal.
+    expect(filtroBancoPorAcademia('org-A')).not.toBe(filtroBancoPorAcademia('org-B'));
   });
 });

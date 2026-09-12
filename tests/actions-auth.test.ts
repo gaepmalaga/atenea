@@ -63,8 +63,10 @@ describe('superficie de las Server Actions', () => {
   });
 
   it('todas comprueban la sesion antes de tocar nada', () => {
+    // `requireSuperadmin` (P11f/P11i) es la tercera guarda: el panel
+    // transversal de varias academias, que ni `requireAdmin` deja pasar.
     const sinGuarda = allActions
-      .filter((a) => !/require(User|Admin)\(\)/.test(a.body))
+      .filter((a) => !/require(User|Admin|Superadmin)\(\)/.test(a.body))
       .map((a) => `${a.file}: ${a.name}`);
 
     expect(sinGuarda).toEqual([]);

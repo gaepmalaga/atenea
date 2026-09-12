@@ -23,11 +23,12 @@ export async function getMembershipRequired(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: true as const, required: false };
 
   const { data, error } = await supabaseAdmin
     .from('membership_settings')
     .select('required')
-    .eq('id', 1)
+    .eq('organization_id', auth.user.organizationId)
     .maybeSingle();
 
   if (error) return { success: false as const, error: error.message };
@@ -38,14 +39,24 @@ export async function getMembershipRequired(): Promise<
 export async function setMembershipRequired(required: boolean) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const { error } = await supabaseAdmin
     .from('membership_settings')
-    .upsert({ id: 1, required: required === true, updated_at: new Date().toISOString() });
+    .upsert({
+      organization_id: auth.user.organizationId,
+      required: required === true,
+      updated_at: new Date().toISOString(),
+    });
 
   if (!error) {
-    olvidaMembershipRequired();
-    registraAccion({ actorId: auth.user.id, action: 'set_membership_required', detail: { required } });
+    olvidaMembershipRequired(auth.user.organizationId);
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'set_membership_required',
+      detail: { required },
+      organizationId: auth.user.organizationId,
+    });
   }
   return { success: !error, error: error?.message };
 }
@@ -54,18 +65,30 @@ export async function setMembershipRequired(required: boolean) {
 export async function setMemberAccess(studentId: string, status: AccessStatus) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
 
   const valor = status === ACCESS_STATUS.SUSPENDED ? ACCESS_STATUS.SUSPENDED : ACCESS_STATUS.ACTIVE;
   const { error } = await supabaseAdmin
     .from('memberships')
     .upsert(
-      { user_id: studentId, access_status: valor, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' },
+      {
+        organization_id: auth.user.organizationId,
+        user_id: studentId,
+        access_status: valor,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'organization_id,user_id' },
     );
 
   if (!error) {
-    registraAccion({ actorId: auth.user.id, action: 'set_member_access', target: studentId, detail: { status: valor } });
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'set_member_access',
+      target: studentId,
+      detail: { status: valor },
+      organizationId: auth.user.organizationId,
+    });
   }
   return { success: !error, error: error?.message };
 }
@@ -74,19 +97,38 @@ export async function setMemberAccess(studentId: string, status: AccessStatus) {
  * Da acceso de golpe a todos los alumnos que ya existen. Es el botón de ANTES
  * de encender el interruptor global: sin él, encenderlo dejaría fuera a toda la
  * academia. `ignoreDuplicates`: no resucita a un suspendido.
+ *
+ * SOLO a los alumnos de LA MISMA academia (P11): `profiles` no lleva
+ * `organization_id` (la pertenencia va por `academy_members`), así que el
+ * roster sale de cruzar las dos, no de `profiles` a secas — sin esto, activar
+ * "a todos" en una academia habría dado acceso a los alumnos de todas.
  */
 export async function activateAllCurrentStudents() {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  const organizationId = auth.user.organizationId;
+
+  const { data: miembros, error: leerMiembros } = await supabaseAdmin
+    .from('academy_members')
+    .select('user_id')
+    .eq('academy_id', organizationId)
+    .limit(MAX_PERFILES);
+  if (leerMiembros) return { success: false as const, error: leerMiembros.message };
+
+  const idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
+  if (!idsAcademia.length) return { success: true as const, error: undefined, activados: 0 };
 
   const { data: perfiles, error: leer } = await supabaseAdmin
     .from('profiles')
     .select('id')
     .eq('role', 'student')
+    .in('id', idsAcademia)
     .limit(MAX_PERFILES);
   if (leer) return { success: false as const, error: leer.message };
 
   const filas = (perfiles ?? []).map((p) => ({
+    organization_id: organizationId,
     user_id: p.id as string,
     access_status: ACCESS_STATUS.ACTIVE,
     updated_at: new Date().toISOString(),
@@ -95,8 +137,15 @@ export async function activateAllCurrentStudents() {
 
   const { error } = await supabaseAdmin
     .from('memberships')
-    .upsert(filas, { onConflict: 'user_id', ignoreDuplicates: true });
+    .upsert(filas, { onConflict: 'organization_id,user_id', ignoreDuplicates: true });
 
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'activate_all_students', detail: { total: filas.length } });
+  if (!error) {
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'activate_all_students',
+      detail: { total: filas.length },
+      organizationId,
+    });
+  }
   return { success: !error, error: error?.message, activados: filas.length };
 }

@@ -65,6 +65,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
+| **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Sin verificar en pantalla con sesión de superadmin de verdad** (sin su contraseña) — sí verificado que un `admin` normal NO ve la pestaña, y las consultas contra la BD real. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 
 ## Producción
 
@@ -86,7 +87,28 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (8 sep 2026, `node
+1. **Ejecutar SQL. NO queda ningún guion pendiente** (12 sep 2026, `node
+   scripts/schema-snapshot.mjs` — **38 tablas**):
+   - **`P11-multi-academia.sql`** (pegado 11 sep, **verificado con acceso real
+     el 12 sep**) — los cimientos de servir la plataforma a varias academias
+     (`docs/PLAN-PRODUCTO.md`, fase P11): `academies`, `academy_members`, y
+     `organization_id` en cascada por `question_bank` (nulable: NULL es el
+     banco global), `class_groups`, `group_kinds`, `academy_staff`,
+     `admin_audit_log` (nulable), `memberships` y `monthly_payments`.
+     `academy_settings`, `membership_settings` y `academy_convocatoria` dejan
+     de ser una fila única y pasan a una por academia, con `organization_id`
+     como clave (perdieron la columna `id`). Verificado con las consultas del
+     PASO 9 del propio guion: una academia `principal`/«Alphapol», 7
+     `academy_members` (tantos como perfiles), `question_bank` intacto en
+     `organization_id = NULL` (1000 filas), los tres singleton sin `id`, y
+     RLS con la clave anónima devolviendo 0 filas en `academies` /
+     `academy_members` / `academy_convocatoria`. El temario sigue compartido
+     (decidido), así que `subjects`/`documents`/`document_chunks` no llevan
+     `organization_id`. Sigue el código: rol `superadmin`, resolución de
+     `/alphapol` en las rutas y el login, y el filtro de `organization_id` en
+     el panel de administración — es grande, ver `docs/PLAN-PRODUCTO.md` §P11.
+
+   Guiones de fases anteriores, todos ejecutados (8 sep 2026, `node
    scripts/schema-snapshot.mjs` — **36 tablas**):
    - **`convocatoria.sql`** (8 sep) — `academy_convocatoria` (fila única id=1:
      escala, `fecha_examen`, nota). Política de SELECT abierta para autenticados
@@ -2048,6 +2070,154 @@ Todo se lee con la clave de servicio filtrando por el propio usuario (regla 34):
 La **biodata / psicotécnico / entrevista** (`interview`) sale del MVP como el
 chat (regla 58): código entero, `requireModule` sigue protegiéndolo, solo no se
 ofrece. Los datos personales que importan viven ahora en «Mi perfil».
+
+### 65 · La academia de la sesión se resuelve una vez, no se repite en cada acción
+
+P11 (multi-academia). `profiles` no lleva `organization_id` — la pertenencia
+va por `academy_members`, muchos-a-muchos— así que ni `admin` ni `student`
+podían saber a qué academia pertenecían sin repetir la misma consulta en cada
+Server Action. Se resuelve **una vez**, en `getSessionUser` (`app/lib/auth.ts`,
+`resolveOrganizationId`), y viaja colgada de `auth.user.organizationId` —igual
+que `auth.user.role`—: ninguna acción vuelve a preguntarlo.
+
+**Cómo se resuelve, en orden:**
+
+1. Si la cuenta pertenece a UNA sola academia (el caso de HOY: todo el mundo,
+   por el backfill del guion), es esa. Sin más vuelta, y sin tocar cookies.
+2. Si pertenece a varias, se usa la cookie `atenea-academia` que deja
+   `middleware.ts` al visitar `/<slug>` — el único sitio que traduce la URL a
+   algo que una Server Action pueda leer, porque las Server Actions no ven la
+   URL desde la que se llaman.
+3. Si no hay coincidencia —cero academias, o la cookie no encaja con ninguna
+   de las suyas— `null`. **Nunca se adivina**: enseñar los datos de la
+   academia equivocada es peor que pedir que se identifique otra vez (regla
+   34 — con la clave de servicio, nada más que el código lo impide).
+
+**`admin` y `superadmin` se tratan igual para esto.** Un `admin` con
+`organizationId` nulo se rechaza en `requireAdmin()` (fallar cerrado: dejarlo
+pasar sería la mitad de las academias viendo los datos de todas). Un
+`superadmin` con `organizationId` nulo también pasa por `requireAdmin()`,
+pero HOY administra su propia academia resuelta exactamente igual que un
+`admin` — la diferencia de rol es de cara al panel transversal de varias
+academias (P11f), que no existe todavía. Promover a alguien a `superadmin` no
+cambia una sola pantalla mientras solo haya una academia: es a propósito, y es
+como se comprobó que promover la cuenta del dueño no rompía nada del panel de
+hoy.
+
+**Un `student` sin academia resuelta no es `pending`, es `no-academy`**
+(`AccessDecision`, `app/lib/membership.ts`): son huecos distintos. `pending`
+tiene una fila de `memberships` que mirar y dice «espera a que te activen»;
+`no-academy` no tiene ni eso, y decirlo con el mismo mensaje mandaría a
+alguien a esperar una activación que nunca decidirá nadie porque nadie sabe de
+qué academia es.
+
+**Las tablas de administración llevan `organization_id` NOT NULL**
+(`class_groups`, `group_kinds`, `academy_staff`, `memberships`,
+`monthly_payments`, `academy_settings`, `membership_settings`,
+`academy_convocatoria`); `question_bank` y `admin_audit_log` se quedan
+NULABLES a propósito (banco global / acción de plataforma). Tres consecuencias
+que costó ver la primera vez:
+
+- **`group_kinds` cambió de clave**: antes era `id` (el slug, `'fisicas'`) a
+  secas; ahora es `(organization_id, id)`, porque dos academias pueden llamar
+  `'fisicas'` a tipos distintos sin chocar. Todo `upsert` sobre esa tabla
+  necesita `onConflict: 'organization_id,id'`, y todo `.eq('id', kindId)`
+  necesita ir acompañado de `.eq('organization_id', …)` — sin lo segundo, el
+  slug de otra academia con el mismo nombre se ve o se borra por error.
+  `memberships` y `monthly_payments` tuvieron el mismo cambio de clave
+  (`organization_id,user_id` y `organization_id,user_id,period`).
+- **Los tres singleton (`academy_settings`, `membership_settings`,
+  `academy_convocatoria`) perdieron su columna `id`**: la fila ya no es
+  `id = 1`, es `organization_id = la-que-sea`. Un `.eq('id', 1)` que
+  sobreviviera aquí no daría error — devolvería la fila de OTRA academia, o
+  ninguna, sin que nada lo avisara. `tests/schema-drift.test.ts` lo pilla
+  porque `id` ya no existe en el volcado del esquema.
+- **`setStudentGroups` tiene que filtrar los grupos "que tiene ahora" por la
+  academia activa**, no traer TODOS los `class_members` del alumno: un alumno
+  en dos academias (P11, decidido que puede pasar) perdería sus grupos de la
+  OTRA academia en cuanto un admin tocara el interruptor de la suya. Se
+  resuelve con un `class_groups!inner(organization_id)` embebido y
+  `.eq('class_groups.organization_id', …)`, no con un `.eq('user_id', …)` a
+  secas.
+
+**Lo que NO lleva `organization_id`, a propósito:** el temario
+(`subjects`/`documents`/`document_chunks`, decidido: lo generas tú, es
+compartido) y las tablas que ya filtran por `user_id` con la sesión del propio
+alumno (regla 34) — un alumno pertenece a su academia vía `academy_members`,
+duplicarlo en cada una de sus tablas no añade nada.
+
+**Verificado el 12 sep, end-to-end, contra la BD real de producción**: con la
+sesión de `morato@atenea.com` (admin real de Alphapol) en el preview, Alumnos,
+Grupos, Ajustes (convocatoria + datos de la academia + profesores), Pagos,
+Prep. física y Logs & Auditoría cargaron los datos reales de su academia, sin
+fugas y sin un solo error en consola ni en el registro del servidor.
+
+**`question_bank` se cerró después, el mismo día (P11c, 12 sep).** No lleva
+`organization_id` NOT NULL —`null` es el banco GLOBAL, a propósito— pero ya
+tiene su propio filtro, `filtroBancoPorAcademia` (`app/lib/questions.ts`):
+sirve el global MÁS el privado de la academia del que pregunta, nunca el de
+otra. Va en las 5 rutas de `exams.ts` que sirven preguntas a un alumno, y en
+las que dicen qué temas tienen banco (`getStudentSyllabus`,
+`getAcademyOverview`). El alta manual y el CSV (`moderation.ts`) deciden solo
+a qué banco entra lo que escribe cada uno: `null` si es el `superadmin` (el
+mismo que mantiene el global con IA), la academia de quien sea si es un
+`admin` normal — `bancoDestino()`. Esto obligó a la ÚNICA extensión que se le
+ha hecho nunca a `questionHash` (`app/lib/question-hash.ts`): la academia se
+añade al payload SOLO cuando no es `null`, así que el banco global (IA, 1000
+preguntas) sigue dando exactamente el mismo hash que antes de P11 — la regla
+27 ("no se toca la fórmula") se respeta porque no se tocó para nadie que ya
+existía, solo se AÑADIÓ una dimensión nueva para quien no la usaba.
+
+**Lo que queda fuera de esta regla, a propósito, y es una decisión del
+dueño, no mía:** `admin.ts` (temario y documentos, compartidos por todas las
+academias) y `moderation.ts` (aprobar/descartar/editar candidatas — todas del
+banco GLOBAL, porque solo el `superadmin` genera con IA) siguen con
+`requireAdmin` sin acotar a `superadmin`. Cerrar esto del todo se lo quitaría
+HOY a `morato@atenea.com`, que administra el temario y modera el banco de
+Alphapol en el piloto real — restringirlo de golpe, sin que el dueño lo pida,
+sería tomar una decisión de producto que no me corresponde. Se queda pendiente
+para cuando exista una segunda academia de verdad, o para cuando el dueño lo
+pida explícitamente.
+
+**El panel transversal SÍ llegó, el mismo día (P11f/P11i, 12 sep):**
+`requireSuperadmin()` (`app/lib/auth.ts`) es una guarda NUEVA, no una variante
+de `requireAdmin()` — un `admin` normal, por bien resuelta que tenga su
+academia, no la pasa. La pestaña **«Academias»** (`AdminAcademies.tsx`,
+`app/actions/superadmin.ts`), solo visible con ese rol, es lo único que mira a
+TODAS las academias a la vez: cuántos alumnos y admins tiene cada una, cuánto
+cuesta en IA (`ai_usage`, cruzado por `user_id` contra `academy_members` al
+leer — la misma aproximación documentada en el guion SQL para un alumno en dos
+academias: cuenta en las dos) y cuánto ha entrado este mes
+(`monthly_payments`, que sí lleva `organization_id`, sin cruce). Y desde ahí se
+da de alta una academia nueva (P11i, decidido: ni un guion de línea de
+comandos ni autorregistro) — con un segundo paso que no estaba en el plan
+pero hacía falta para que sirviera de algo: **«Añadir admin» por correo**,
+sobre una cuenta que ya exista. Sin eso, una academia recién creada no tiene
+nadie que la administre y darla de alta sería un callejón sin salida.
+
+**Los reportes se enrutan por la academia de la PREGUNTA, no de quien
+reporta (P11e, mismo día).** `getModerationQueue` (`moderation.ts`) cambia el
+embed a `question:question_bank!inner(*)` —el `!inner` es lo que deja
+filtrar por una columna de la tabla embebida— y decide: `superadmin` ve los
+reportes de preguntas GLOBALES (`organization_id IS NULL`, arreglarlas
+beneficia a todas); un `admin` normal ve solo los de SU academia. Un alumno de
+Alphapol que reporta una pregunta global no se lo lleva `morato@atenea.com`:
+se lo lleva quien puede arreglarla de verdad.
+
+**De paso, un hueco que no era nuevo pero sí relevante para la comparativa:**
+`getAiCostOverview` (el panel «Consumo IA») no estaba acotado por academia —
+cualquier admin veía el gasto de TODOS los alumnos, de cualquier academia.
+Se scopeó con el mismo patrón (`academy_members` para un `admin`, sin filtro
+para `superadmin`), porque además hacía falta ese mismo cruce para construir
+`getAcademiesOverview`.
+
+**Verificado el 12 sep, sin sesión de superadmin de verdad** (no hay
+contraseña de `gaepmalaga@gmail.com` en este entorno): las consultas de
+`getAcademiesOverview` se ejecutaron directamente contra la BD real y
+devuelven lo esperado, y con la sesión de `morato@atenea.com` se confirmó que
+la pestaña «Academias» no aparece para un `admin` normal, y que «Moderación»
+y «Consumo IA» siguen sin errores con sus filtros nuevos. **Lo que falta ver
+en pantalla**: «Nueva academia» y «Añadir admin» de verdad, con esa sesión.
 
 ---
 

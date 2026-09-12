@@ -309,6 +309,27 @@ describe('la huella de una pregunta', () => {
   it('cambia si cambia la respuesta correcta', () => {
     expect(questionHash(3, 'Un enunciado cualquiera', 1)).not.toBe(questionHash(3, 'Un enunciado cualquiera', 2));
   });
+
+  it('P11c: sin organizationId (o null), da EXACTAMENTE el hash de siempre', () => {
+    // El banco global (1000 preguntas, todas de IA) se generó y se sigue
+    // generando SIN academia. Si esto cambiara, todo ese banco pasaría a ser
+    // "nuevo" la próxima vez que algo recalculara su huella (regla 27: la
+    // fórmula no se toca).
+    const sinArgumento = questionHash(3, 'Un enunciado cualquiera', 1);
+    expect(questionHash(3, 'Un enunciado cualquiera', 1, null)).toBe(sinArgumento);
+    expect(questionHash(3, 'Un enunciado cualquiera', 1, undefined)).toBe(sinArgumento);
+  });
+
+  it('P11c: con organizationId, la huella es distinta de la global Y de la de otra academia', () => {
+    // Dos academias escribiendo la MISMA pregunta a mano no pueden chocar
+    // entre sí contra la restricción única de `question_hash` — sin esto, la
+    // segunda vería "ya existe" señalando una fila que no es suya.
+    const global = questionHash(3, 'Un enunciado cualquiera', 1);
+    const academiaA = questionHash(3, 'Un enunciado cualquiera', 1, 'org-A');
+    const academiaB = questionHash(3, 'Un enunciado cualquiera', 1, 'org-B');
+    expect(academiaA).not.toBe(global);
+    expect(academiaA).not.toBe(academiaB);
+  });
 });
 
 // ============================================================

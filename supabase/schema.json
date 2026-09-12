@@ -1,24 +1,61 @@
 {
-  "generado": "2026-09-07",
+  "generado": "2026-09-12",
   "tablas": {
+    "academies": {
+      "columnas": [
+        "created_at",
+        "id",
+        "name",
+        "slug"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "name",
+        "slug"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "name": "text",
+        "slug": "text"
+      }
+    },
     "academy_convocatoria": {
       "columnas": [
         "escala",
         "fecha_examen",
-        "id",
         "nota",
+        "organization_id",
         "updated_at"
       ],
       "obligatorias": [
-        "id",
+        "organization_id",
         "updated_at"
       ],
       "tipos": {
         "escala": "text",
         "fecha_examen": "date",
-        "id": "integer",
         "nota": "text",
+        "organization_id": "uuid",
         "updated_at": "timestamp with time zone"
+      }
+    },
+    "academy_members": {
+      "columnas": [
+        "academy_id",
+        "created_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "academy_id",
+        "created_at",
+        "user_id"
+      ],
+      "tipos": {
+        "academy_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "user_id": "uuid"
       }
     },
     "academy_settings": {
@@ -26,21 +63,21 @@
         "address",
         "contact_email",
         "contact_phone",
-        "id",
         "name",
+        "organization_id",
         "schedule",
         "updated_at"
       ],
       "obligatorias": [
-        "id",
+        "organization_id",
         "updated_at"
       ],
       "tipos": {
         "address": "text",
         "contact_email": "text",
         "contact_phone": "text",
-        "id": "integer",
         "name": "text",
+        "organization_id": "uuid",
         "schedule": "text",
         "updated_at": "timestamp with time zone"
       }
@@ -52,6 +89,7 @@
         "email",
         "id",
         "name",
+        "organization_id",
         "phone",
         "role"
       ],
@@ -60,6 +98,7 @@
         "created_at",
         "id",
         "name",
+        "organization_id",
         "role"
       ],
       "tipos": {
@@ -68,6 +107,7 @@
         "email": "text",
         "id": "uuid",
         "name": "text",
+        "organization_id": "uuid",
         "phone": "text",
         "role": "text"
       }
@@ -79,6 +119,7 @@
         "created_at",
         "detail",
         "id",
+        "organization_id",
         "target"
       ],
       "obligatorias": [
@@ -93,6 +134,7 @@
         "created_at": "timestamp with time zone",
         "detail": "jsonb",
         "id": "uuid",
+        "organization_id": "uuid",
         "target": "text"
       }
     },
@@ -239,19 +281,22 @@
         "id",
         "kind",
         "name",
+        "organization_id",
         "schedule"
       ],
       "obligatorias": [
         "created_at",
         "id",
         "kind",
-        "name"
+        "name",
+        "organization_id"
       ],
       "tipos": {
         "created_at": "timestamp with time zone",
         "id": "uuid",
         "kind": "text",
         "name": "text",
+        "organization_id": "uuid",
         "schedule": "text"
       }
     },
@@ -424,6 +469,7 @@
         "id",
         "label",
         "lleva_plan",
+        "organization_id",
         "sort_order"
       ],
       "obligatorias": [
@@ -431,6 +477,7 @@
         "id",
         "label",
         "lleva_plan",
+        "organization_id",
         "sort_order"
       ],
       "tipos": {
@@ -438,6 +485,7 @@
         "id": "text",
         "label": "text",
         "lleva_plan": "boolean",
+        "organization_id": "uuid",
         "sort_order": "integer"
       }
     },
@@ -490,17 +538,17 @@
     },
     "membership_settings": {
       "columnas": [
-        "id",
+        "organization_id",
         "required",
         "updated_at"
       ],
       "obligatorias": [
-        "id",
+        "organization_id",
         "required",
         "updated_at"
       ],
       "tipos": {
-        "id": "integer",
+        "organization_id": "uuid",
         "required": "boolean",
         "updated_at": "timestamp with time zone"
       }
@@ -509,12 +557,14 @@
       "columnas": [
         "access_status",
         "note",
+        "organization_id",
         "payment_status",
         "updated_at",
         "user_id"
       ],
       "obligatorias": [
         "access_status",
+        "organization_id",
         "payment_status",
         "updated_at",
         "user_id"
@@ -522,6 +572,7 @@
       "tipos": {
         "access_status": "text",
         "note": "text",
+        "organization_id": "uuid",
         "payment_status": "text",
         "updated_at": "timestamp with time zone",
         "user_id": "uuid"
@@ -551,6 +602,7 @@
       "columnas": [
         "amount_eur",
         "note",
+        "organization_id",
         "paid",
         "paid_on",
         "period",
@@ -559,6 +611,7 @@
         "user_id"
       ],
       "obligatorias": [
+        "organization_id",
         "paid",
         "period",
         "updated_at",
@@ -567,6 +620,7 @@
       "tipos": {
         "amount_eur": "numeric",
         "note": "text",
+        "organization_id": "uuid",
         "paid": "boolean",
         "paid_on": "date",
         "period": "text",
@@ -740,6 +794,7 @@
         "id",
         "legal_reference",
         "options",
+        "organization_id",
         "origin",
         "question_hash",
         "question_text",
@@ -762,6 +817,7 @@
         "id": "uuid",
         "legal_reference": "text",
         "options": "jsonb",
+        "organization_id": "uuid",
         "origin": "text",
         "question_hash": "text",
         "question_text": "text",

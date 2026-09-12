@@ -62,7 +62,10 @@ describe('las guardas de las acciones de acceso', () => {
   });
 
   it('cambiar el interruptor tira la caché', () => {
+    // P11: la caché es por academia, así que se olvida pasando la suya —
+    // `olvidaMembershipRequired()` sin argumento la vaciaría ENTERA, de
+    // todas las academias, en cada cambio de una sola.
     const fn = src.slice(src.indexOf('export async function setMembershipRequired'));
-    expect(fn.slice(0, 500)).toMatch(/olvidaMembershipRequired\(\)/);
+    expect(fn.slice(0, 700)).toMatch(/olvidaMembershipRequired\(auth\.user\.organizationId\)/);
   });
 });

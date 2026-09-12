@@ -69,14 +69,21 @@ describe('la puerta de entrada no se queda fuera del sistema de diseno', () => {
     join(__dirname, '..', 'app', 'components', 'auth', 'LoginScreen.tsx'),
     'utf-8',
   ));
-  const page = sinComentarios(readFileSync(join(__dirname, '..', 'app', 'page.tsx'), 'utf-8'));
+  // El `page` de este test es quien RENDERIZA el login: antes era
+  // `app/page.tsx` directamente; con P11 (rutas `/alphapol`, `/depol`…) ese
+  // fichero es solo un re-export, y quien monta `LoginScreen` de verdad es
+  // `AppShell`, la aplicación entera (regla 37) que renderizan tanto `/` como
+  // `/[academia]`.
+  const page = sinComentarios(readFileSync(join(__dirname, '..', 'app', 'components', 'AppShell.tsx'), 'utf-8'));
 
   it('vive en app/components/, que es lo unico que recorre la guarda del diseno', () => {
     // ESTA es la razon de que fuera la unica pantalla sin migrar:
     // `design-system.test.ts` recorre `app/components/` y nada mas, asi que
-    // en `app/page.tsx` no la alcanzaba ninguna regla.
+    // en `app/page.tsx` no la alcanzaba ninguna regla. Ahora quien renderiza
+    // el login es `AppShell`, y AppShell TAMBIÉN vive en `app/components/`
+    // (regla 37, P11): la guarda del diseño alcanza a los dos.
     expect(login).toMatch(/from '\.\.\/ui'/);
-    expect(page).toMatch(/components\/auth\/LoginScreen/);
+    expect(page).toMatch(/from '\.\/auth\/LoginScreen'/);
   });
 
   it('los campos permiten al gestor de contrasenas rellenarlos', () => {

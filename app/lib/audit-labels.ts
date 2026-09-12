@@ -36,7 +36,9 @@ export type AccionAuditada =
   | 'delete_group_kind'
   | 'save_group_training_plan'
   | 'delete_group_training_plan'
-  | 'set_training_switch';
+  | 'set_training_switch'
+  | 'create_academy'
+  | 'add_academy_admin';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -65,4 +67,6 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   save_group_training_plan: 'Guardó el plan de entrenamiento de un grupo',
   delete_group_training_plan: 'Borró el plan de entrenamiento de un grupo',
   set_training_switch: 'Cambió un interruptor de preparación física',
+  create_academy: 'Dio de alta una academia',
+  add_academy_admin: 'Añadió un admin a una academia',
 };

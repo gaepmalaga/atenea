@@ -64,10 +64,23 @@ export async function getModerationQueue() {
     // El join resuelve porque la FK question_reports.question_id -> question_bank
     // esta declarada. Si no lo estuviera, PostgREST devolveria error y la cola
     // saldria vacia.
-    const { data: rep } = await supabaseAdmin
+    //
+    // P11e: «los reportes del banco global te llegan a ti, siempre». Se
+    // enruta por la academia de la PREGUNTA reportada, no por quién la
+    // reportó: un `superadmin` ve los reportes de preguntas GLOBALES
+    // (`organization_id IS NULL`) — arreglarlas beneficia a todas—; un
+    // `admin` normal ve solo los de SU academia. `!inner` convierte el embed
+    // en INNER JOIN, que es lo que deja filtrar por una columna de la tabla
+    // embebida (`question.organization_id`).
+    let repQuery = supabaseAdmin
       .from('question_reports')
-      .select('*, question:question_bank(*)')
+      .select('*, question:question_bank!inner(*)')
       .eq('status', 'open');
+    repQuery =
+      auth.user.role === 'superadmin'
+        ? repQuery.is('question.organization_id', null)
+        : repQuery.eq('question.organization_id', auth.user.organizationId);
+    const { data: rep } = await repQuery;
 
     /** Aplana `subject.title` a `topic`, que es lo que pinta la interfaz. */
     const conTema = (fila: unknown): ModerationCandidate => {
@@ -233,6 +246,7 @@ type FilaNueva = {
   status: string;
   origin: string;
   created_at: string;
+  organization_id: string | null;
 };
 
 /**
@@ -248,8 +262,18 @@ type FilaNueva = {
  * administrador sobre su propio temario, mandarlas a su propia cola de
  * moderacion no aporta nada. Se pueden descartar desde el banco como cualquier
  * otra.
+ *
+ * `organizationId` (P11c) decide a qué banco entra: `null` es el GLOBAL —solo
+ * lo escribe un `superadmin`, el mismo que lo mantiene con IA (regla 65)—, y
+ * el id de una academia es su banco PRIVADO, el que ningún otro admin ve ni
+ * modera. Quién manda cuál lo decide `createManualQuestion` /
+ * `importManualQuestions`, no esta función.
  */
-function aFilaNueva(entrada: unknown, subjectId: number): { ok: true; fila: FilaNueva } | { ok: false; motivo: string } {
+function aFilaNueva(
+  entrada: unknown,
+  subjectId: number,
+  organizationId: string | null,
+): { ok: true; fila: FilaNueva } | { ok: false; motivo: string } {
   const check = validateGeneratedQuestion(entrada);
   if (!check.ok) return { ok: false, motivo: check.reason };
 
@@ -266,13 +290,25 @@ function aFilaNueva(entrada: unknown, subjectId: number): { ok: true; fila: Fila
       options: check.value.options,
       correct_index: check.value.correctIndex,
       explanation: check.value.explanation,
-      question_hash: questionHash(subjectId, check.value.question, check.value.correctIndex),
+      question_hash: questionHash(subjectId, check.value.question, check.value.correctIndex, organizationId),
       difficulty_level: nivel,
       status: QUESTION_STATUS.ACTIVE,
       origin: QUESTION_ORIGIN.MANUAL,
       created_at: new Date().toISOString(),
+      organization_id: organizationId,
     },
   };
+}
+
+/**
+ * A qué banco entra lo que escribe a mano ESTE admin (P11c). Un `superadmin`
+ * escribe en el GLOBAL —es el mismo que lo mantiene con IA—; cualquier otro
+ * `admin` escribe en el PRIVADO de su propia academia. `requireAdmin()` ya
+ * garantiza que un `admin` normal siempre tiene `organizationId` resuelto —
+ * si no, ni habría pasado la guarda.
+ */
+function bancoDestino(user: { role: string; organizationId: string | null }): string | null {
+  return user.role === 'superadmin' ? null : user.organizationId;
 }
 
 /** El tema tiene que existir: `question_bank.subject_id` es clave ajena de `subjects`. */
@@ -306,7 +342,7 @@ export async function createManualQuestion(
     return { success: false, error: 'Ese tema no existe.' };
   }
 
-  const preparada = aFilaNueva(input, subjectId);
+  const preparada = aFilaNueva(input, subjectId, bancoDestino(auth.user));
   if (!preparada.ok) return { success: false, error: preparada.motivo };
 
   // `ignoreDuplicates`, igual que en los otros dos caminos de escritura: si la
@@ -388,6 +424,7 @@ export async function importManualQuestions(
     return { success: false, error: 'Ese tema no existe.' };
   }
 
+  const destino = bancoDestino(auth.user);
   const rechazadas: { indice: number; motivo: string }[] = [];
   const filas: FilaNueva[] = [];
   const huellas = new Set<string>();
@@ -405,7 +442,7 @@ export async function importManualQuestions(
       return;
     }
 
-    const preparada = aFilaNueva(q, temaFila);
+    const preparada = aFilaNueva(q, temaFila, destino);
     if (!preparada.ok) {
       rechazadas.push({ indice: i, motivo: preparada.motivo });
       return;
