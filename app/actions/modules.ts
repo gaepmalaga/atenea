@@ -4,10 +4,10 @@ import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
 import { isModuleId, type ModuleSettings } from '../lib/modules';
 import { leeModuleSettings, olvidaModuleSettings } from '../lib/module-guard';
-import { leeTrainingSwitches, olvidaTrainingSwitches } from '../lib/training-switch-guard';
+import { leeTrainingSwitches, olvidaTrainingSwitches, esAcademiaCasa } from '../lib/training-switch-guard';
 import {
-  TRAINING_SWITCH_ROW,
   TRAINING_SWITCH_IDS,
+  trainingSwitchModuleId,
   type TrainingSwitchId,
   type TrainingSwitches,
 } from '../lib/training-switches';
@@ -77,18 +77,28 @@ export async function setModuleEnabled(input: unknown): Promise<{ success: boole
  * `lib/training-switches.ts`.
  */
 export async function getTrainingSwitches(): Promise<
-  { success: true; switches: TrainingSwitches } | { success: false; error: string }
+  | { success: true; switches: TrainingSwitches; esCasa: boolean }
+  | { success: false; error: string }
 > {
   // requireUser: el módulo del alumno esconde el botón «generar» si la IA está
   // apagada. El corte de verdad está en el servidor, en `generateWeeklyPlan`.
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  return { success: true as const, switches: await leeTrainingSwitches() };
+  const organizationId = auth.user.organizationId;
+  return {
+    success: true as const,
+    switches: await leeTrainingSwitches(organizationId),
+    // El panel de admin lo usa para decidir CUÁL de los dos interruptores
+    // ofrecer — ver regla de la academia casa en `training-switches.ts`.
+    esCasa: organizationId ? await esAcademiaCasa(organizationId) : false,
+  };
 }
 
 export async function setTrainingSwitch(input: unknown): Promise<{ success: boolean; error?: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
+  if (!auth.user.organizationId) return { success: false, error: 'No hay una academia seleccionada.' };
+  const organizationId = auth.user.organizationId;
 
   const d = (input ?? {}) as { switchId?: unknown; enabled?: unknown };
   if (typeof d.switchId !== 'string' || !(TRAINING_SWITCH_IDS as readonly string[]).includes(d.switchId)) {
@@ -97,9 +107,26 @@ export async function setTrainingSwitch(input: unknown): Promise<{ success: bool
   if (typeof d.enabled !== 'boolean') return { success: false, error: 'Falta el estado.' };
   const switchId = d.switchId as TrainingSwitchId;
 
+  // `ai` y `group` son excluyentes por academia (regla de la academia casa):
+  // ni el panel debería ofrecer el que no toca, pero una Server Action es un
+  // endpoint público — se rechaza aquí también, no solo se esconde el botón.
+  if (switchId === 'ai' || switchId === 'group') {
+    const esCasa = await esAcademiaCasa(organizationId);
+    const permitido = esCasa ? switchId === 'ai' : switchId === 'group';
+    if (!permitido) {
+      return {
+        success: false,
+        error: esCasa
+          ? 'Esta academia solo puede usar el plan de físicas con IA.'
+          : 'Esta academia solo puede usar el plan de físicas manual por grupo.',
+      };
+    }
+  }
+
   const { error } = await supabaseAdmin.from('module_settings').upsert(
     {
-      module_id: TRAINING_SWITCH_ROW[switchId],
+      module_id: trainingSwitchModuleId(switchId, organizationId),
+      organization_id: organizationId,
       enabled: d.enabled,
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
@@ -107,14 +134,15 @@ export async function setTrainingSwitch(input: unknown): Promise<{ success: bool
     { onConflict: 'module_id' }
   );
 
-  olvidaTrainingSwitches();
+  olvidaTrainingSwitches(organizationId);
 
   if (!error) {
     registraAccion({
       actorId: auth.user.id,
       action: 'set_training_switch',
-      target: TRAINING_SWITCH_ROW[switchId],
+      target: trainingSwitchModuleId(switchId, organizationId),
       detail: { enabled: d.enabled },
+      organizationId,
     });
   }
 

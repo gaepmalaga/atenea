@@ -158,6 +158,36 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
     setAvisoMsg(null);
   }
 
+  /**
+   * «¿Olvidaste tu contraseña?» — mismo enlace implícito que una invitación
+   * (regla 67): vuelve con `type=recovery`, y `checkSession` ya sabe
+   * enseñarle `SetPasswordScreen` en cuanto establece la sesión.
+   *
+   * Supabase no dice si el correo existe o no — ni aquí conviene decirlo: un
+   * mensaje que confirmara «esa cuenta no existe» serviría para averiguar qué
+   * correos están dados de alta.
+   */
+  async function handleForgotPassword(email: string) {
+    setErrorMsg(null);
+    setAvisoMsg(null);
+    if (!email) {
+      setErrorMsg('Escribe primero tu correo, arriba.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setAvisoMsg(`Si existe una cuenta con ${email}, te hemos enviado un correo para elegir una contraseña nueva.`);
+    } catch (err: unknown) {
+      setErrorMsg(mensajeDeAuth(err));
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   async function handleAuth(email: string, password: string) {
     setAuthLoading(true);
     setErrorMsg(null);
@@ -237,6 +267,7 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
         modo={authMode}
         onModo={cambiarModo}
         onSubmit={handleAuth}
+        onOlvido={handleForgotPassword}
         cargando={authLoading}
         error={errorMsg}
         aviso={avisoMsg}

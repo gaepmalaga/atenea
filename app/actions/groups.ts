@@ -372,7 +372,7 @@ export async function saveGroupTrainingPlan(params: {
   if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!params.groupId) return { success: false as const, error: 'Falta el grupo.' };
 
-  const permiteGrupo = await requireTrainingSwitch('group');
+  const permiteGrupo = await requireTrainingSwitch('group', auth.user.organizationId);
   if (!permiteGrupo.ok) return { success: false as const, error: permiteGrupo.error };
 
   // La semana es el lunes que manda la pantalla, o el de esta semana. Nunca una

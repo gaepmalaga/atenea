@@ -46,6 +46,8 @@ interface Props {
   modo: ModoAuth;
   onModo: (modo: ModoAuth) => void;
   onSubmit: (email: string, password: string) => void;
+  /** «¿Olvidaste tu contraseña?» — solo en modo `login`. Recibe el correo ya escrito. */
+  onOlvido: (email: string) => void;
   cargando: boolean;
   /** Ya traducido con `mensajeDeAuth`. */
   error: string | null;
@@ -73,7 +75,7 @@ const CAMPO = cx(
 
 const ETIQUETA = 'block text-[11px] font-black uppercase tracking-[0.14em] text-[#3d4a5a] mb-2';
 
-export default function LoginScreen({ modo, onModo, onSubmit, cargando, error, aviso }: Props) {
+export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando, error, aviso }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [verClave, setVerClave] = useState(false);
@@ -199,8 +201,17 @@ export default function LoginScreen({ modo, onModo, onSubmit, cargando, error, a
                 {verClave ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
               </button>
             </div>
-            {esAlta && (
+            {esAlta ? (
               <p className={cx('mt-2 text-xs font-semibold', C.tinta2)}>Mínimo 6 caracteres.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onOlvido(email.trim())}
+                disabled={cargando}
+                className={cx('mt-2 text-xs font-bold underline', C.tinta2, TAP, 'flex items-center')}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
             )}
           </div>
 

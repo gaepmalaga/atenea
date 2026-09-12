@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { Dumbbell, RefreshCw, ChevronDown, Trash2, Users2, CalendarDays } from 'lucide-react';
+import { Dumbbell, RefreshCw, ChevronDown, Trash2, Users2, CalendarDays, Sparkles } from 'lucide-react';
 import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrainingPlan, getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import type { GroupRow, SemanaDeGrupo } from '@/app/actions/groups';
 import { lunesDeSemana, semanasEditables, etiquetaSemana, type WeeklyPlan } from '@/app/lib/training-plan';
@@ -12,15 +12,19 @@ import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
 
 /**
  * «Preparación física» (P7, afinado tras P8): el entrenamiento vive aquí, por
- * GRUPO, no en la ficha de cada alumno.
+ * GRUPO, no en la ficha de cada alumno — salvo en la academia «casa», que es
+ * la excepción a propósito (ver más abajo).
  *
- * Dos interruptores, que el dueño pidió por separado del módulo entero:
- *  - IA: que el alumno se genere su propio plan (de pago).
- *  - Grupo: el plan manual por grupo, que sus miembros heredan.
+ * `ai` y `group` son EXCLUYENTES por academia (decidido el 12 sep, ver regla
+ * en `lib/training-switches.ts`): la academia casa (`ACADEMIA_CASA_SLUG`) es
+ * solo-IA — el alumno se genera su plan —; cualquier otra es solo-manual — un
+ * preparador escribe el plan por grupo —. `esCasa` decide cuál de los dos
+ * interruptores se ofrece; el otro ni aparece, no solo se apaga.
  */
 export default function AdminPhysical() {
   const [grupos, setGrupos] = useState<GroupRow[]>([]);
   const [switches, setSwitches] = useState<TrainingSwitches | null>(null);
+  const [esCasa, setEsCasa] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,7 +33,8 @@ export default function AdminPhysical() {
     const [gruposRes, switchesRes] = await Promise.all([getGroups(), getTrainingSwitches()]);
     if (gruposRes.success) setGrupos(gruposRes.groups.filter((g) => g.llevaPlan));
     else setError(gruposRes.error);
-    if (switchesRes.success) setSwitches(switchesRes.switches);
+    if (switchesRes.success) { setSwitches(switchesRes.switches); setEsCasa(switchesRes.esCasa); }
+    else setError(switchesRes.error);
     setLoading(false);
   }, []);
 
@@ -44,6 +49,7 @@ export default function AdminPhysical() {
   }
 
   const grupoOn = switches?.group !== false;
+  const iaOn = switches?.ai !== false;
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">
@@ -54,7 +60,9 @@ export default function AdminPhysical() {
           </div>
           <div>
             <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Preparación física</h3>
-            <p className={cx(TEXT.muted, 'mt-0.5')}>Un plan por grupo de físicas. Sus miembros lo heredan.</p>
+            <p className={cx(TEXT.muted, 'mt-0.5')}>
+              {esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'Un plan por grupo de físicas. Sus miembros lo heredan.'}
+            </p>
           </div>
         </div>
         <button onClick={() => { setLoading(true); cargar(); }} className="w-11 h-11 shrink-0 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400" aria-label="Recargar">
@@ -68,27 +76,43 @@ export default function AdminPhysical() {
         </Card>
       )}
 
-      {/* --- INTERRUPTOR DEL PLAN POR GRUPO ---
-          El interruptor de la IA («que el alumno se genere su propio plan»)
-          está oculto a propósito: el dueño no quiere publicar esa función
-          todavía. El mecanismo sigue entero (`training_ai` en `module_settings`,
-          `training-switch-guard`, apagado por defecto) — solo no se ofrece el
-          control, como el chat (regla 58). Para devolverlo: reañadir aquí su
-          `SwitchCard`. */}
+      {/* --- INTERRUPTOR, UNO SOLO: `ai` en la academia casa, `group` en
+          cualquier otra (regla de la academia casa). El que no toca no se
+          ofrece — no es solo que esté apagado, es que aquí no es una opción. */}
       {switches && (
         <div className="grid gap-2 sm:gap-3">
-          <SwitchCard
-            icon={<Users2 size={16} />}
-            label={TRAINING_SWITCH_LABEL.group}
-            desc={TRAINING_SWITCH_DESC.group}
-            on={switches.group}
-            busy={busy}
-            onToggle={(v) => cambiaSwitch('group', v)}
-          />
+          {esCasa ? (
+            <SwitchCard
+              icon={<Sparkles size={16} />}
+              label={TRAINING_SWITCH_LABEL.ai}
+              desc={TRAINING_SWITCH_DESC.ai}
+              on={switches.ai}
+              busy={busy}
+              onToggle={(v) => cambiaSwitch('ai', v)}
+            />
+          ) : (
+            <SwitchCard
+              icon={<Users2 size={16} />}
+              label={TRAINING_SWITCH_LABEL.group}
+              desc={TRAINING_SWITCH_DESC.group}
+              on={switches.group}
+              busy={busy}
+              onToggle={(v) => cambiaSwitch('group', v)}
+            />
+          )}
         </div>
       )}
 
-      {!grupoOn ? (
+      {esCasa ? (
+        !iaOn && (
+          <EmptyState
+            icon={<Sparkles size={40} />}
+            title="La generación con IA está apagada"
+            hint="Enciéndela arriba para que el alumno pueda pedir su plan semanal."
+            bordered
+          />
+        )
+      ) : !grupoOn ? (
         <EmptyState
           icon={<Users2 size={40} />}
           title="El plan por grupo está apagado"

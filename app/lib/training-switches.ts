@@ -10,14 +10,32 @@
  *                 repetición espaciada + cajones por alumno. Apagado = vuelve a
  *                 la selección aleatoria de siempre.
  *
- * Se guardan en `module_settings` con `module_id` de TEXTO LIBRE
- * (`training_ai`, `training_group`). La tabla ya lo admite y `toModuleSettings`
- * ignora los ids que no conoce, así que esto NO necesita SQL.
+ * Se guardan en `module_settings` con `module_id` de TEXTO LIBRE. La tabla ya
+ * lo admite y `toModuleSettings` ignora los ids que no conoce, así que esto NO
+ * necesita SQL.
+ *
+ * **POR ACADEMIA, no global** (12 sep 2026, encontrado probando con dos
+ * academias reales): `module_settings.organization_id` existe en la tabla
+ * desde P11-multi-academia.sql, pero nadie lo usaba — la clave de conflicto
+ * del upsert es `module_id` a secas, así que una sola fila `training_ai`
+ * gobernaba TODAS las academias a la vez. Sin migrar la restricción (no hay
+ * DDL desde aquí), el `module_id` lleva la academia incrustada —
+ * `trainingSwitchModuleId('ai', organizationId)` da `training_ai:<uuid>` — y
+ * así cada academia tiene su propia fila con el mismo mecanismo de siempre,
+ * sin tocar el esquema. Mismo truco que ya usa P8 (regla 54).
  *
  * Misma semántica que P4, y por los mismos motivos:
  *   - SIN FILA = ENCENDIDO (crear nada no apaga; un interruptor nuevo nace on).
  *   - Si la LECTURA FALLA se cae a encendido: un blip de la BD no puede
  *     parecerse a un apagado deliberado y dejar a la clase sin plan.
+ *
+ * **`ai` y `group` son EXCLUYENTES por academia** (decidido el 12 sep): la
+ * academia «casa» (`ACADEMIA_CASA_SLUG`) es solo-IA — el alumno se genera su
+ * plan, sin grupos de físicas —; cualquier otra academia es solo-manual — un
+ * preparador escribe el plan por grupo, sin que el alumno pueda pedirle uno a
+ * Gemini —. `aplicaReglaCasa` fuerza el que no toca a `false` pase lo que diga
+ * la fila guardada: no es solo qué interruptor se OFRECE en el panel, es lo
+ * que de verdad corta `requireTrainingSwitch` en el servidor.
  *
  * ESTE fichero es PURO (etiquetas, ids, `toTrainingSwitches`): lo importa el
  * panel de admin, que es cliente. El LECTOR con caché y el corte de servidor
@@ -29,12 +47,17 @@
 export const TRAINING_SWITCH_IDS = ['ai', 'group', 'adaptive'] as const;
 export type TrainingSwitchId = (typeof TRAINING_SWITCH_IDS)[number];
 
-/** El `module_id` con el que se guarda cada uno en `module_settings`. */
+/** El prefijo del `module_id` con el que se guarda cada uno en `module_settings`. */
 export const TRAINING_SWITCH_ROW: Record<TrainingSwitchId, string> = {
   ai: 'training_ai',
   group: 'training_group',
   adaptive: 'training_adaptive',
 };
+
+/** El `module_id` real de una academia: el prefijo + la academia incrustada. */
+export function trainingSwitchModuleId(id: TrainingSwitchId, organizationId: string): string {
+  return `${TRAINING_SWITCH_ROW[id]}:${organizationId}`;
+}
 
 export type TrainingSwitches = Record<TrainingSwitchId, boolean>;
 
@@ -55,23 +78,42 @@ export function todosLosSwitches(): TrainingSwitches {
   return { ai: true, group: true, adaptive: true };
 }
 
-/** Invierte `TRAINING_SWITCH_ROW`: del `module_id` guardado al id corto. */
-function idDeFila(moduleId: unknown): TrainingSwitchId | null {
+/** Invierte `trainingSwitchModuleId`: del `module_id` guardado al id corto. */
+function idDeFila(moduleId: unknown, organizationId: string): TrainingSwitchId | null {
   if (typeof moduleId !== 'string') return null;
   for (const id of TRAINING_SWITCH_IDS) {
-    if (TRAINING_SWITCH_ROW[id] === moduleId) return id;
+    if (trainingSwitchModuleId(id, organizationId) === moduleId) return id;
   }
   return null;
 }
 
-/** Filas de `module_settings` -> estado de los dos interruptores. */
-export function toTrainingSwitches(filas: { module_id?: unknown; enabled?: unknown }[]): TrainingSwitches {
+/**
+ * Filas de `module_settings` de UNA academia -> estado de sus interruptores.
+ * `organizationId` decide qué `module_id` compuesto le pertenece a cada fila
+ * — la consulta ya viene filtrada por `organization_id`, pero el `module_id`
+ * es lo único que dice CUÁL de los tres interruptores es.
+ */
+export function toTrainingSwitches(
+  filas: { module_id?: unknown; enabled?: unknown }[],
+  organizationId: string,
+): TrainingSwitches {
   const out = todosLosSwitches();
   for (const fila of filas ?? []) {
-    const id = idDeFila(fila?.module_id);
+    const id = idDeFila(fila?.module_id, organizationId);
     if (id && fila.enabled === false) out[id] = false;
   }
   return out;
+}
+
+/**
+ * `ai` y `group` no pueden convivir encendidos en la misma academia (decidido
+ * el 12 sep): la academia «casa» es solo-IA, cualquier otra es solo-manual.
+ * Se fuerza el que no toca a `false` aquí, en el sitio que leen TODOS los
+ * consumidores (`requireTrainingSwitch`, el panel de admin, el módulo del
+ * alumno) — así no hay un camino que se olvide de comprobarlo.
+ */
+export function aplicaReglaCasa(switches: TrainingSwitches, esCasa: boolean): TrainingSwitches {
+  return esCasa ? { ...switches, group: false } : { ...switches, ai: false };
 }
 
 /** El mensaje que ve quien intenta usar un interruptor apagado. */

@@ -982,6 +982,56 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 > prueba creada, admin existente añadido sin correo, todo sin error) —
 > limpiado después. Sin nada pendiente de verificación en P11.
 
+> **P11k, decidido el 12 sep: `training_ai` es un privilegio de «atenea», no
+> un interruptor por academia.** *«En la academia madre 'atenea' quiero que
+> sea todo lo contrario al resto: que le salga las físicas con IA. El resto
+> solo físicas manuales, si quieren.»* «Atenea» es la academia «casa» de P11j
+> —donde caen los registros sin enlace de una academia real, y de facto el
+> entorno del propio dueño—, y es la única que debe poder ofrecer al alumno
+> generar su plan con Gemini; academias reales como Alphapol no deben ni ver
+> esa opción, por el mismo motivo de siempre (regla 39: el gasto de IA no lo
+> decide quien no paga la factura).
+>
+> Esto es **distinto** de lo que dejó preparado la regla 54: `training_ai` /
+> `training_group` son hoy dos interruptores de `module_settings` que
+> cualquier admin podía tocar (ocultos en la UI, pero el mecanismo es
+> simétrico). Con varias academias hace falta una segunda capa que un admin
+> normal NO controle:
+>
+> 1. **El interruptor de siempre** (`module_settings`, ahora sí con
+>    `organization_id` relleno de verdad — P11b ya lo dejó listo para el
+>    resto de módulos): cada admin sigue encendiendo/apagando
+>    `training_group` para SU academia.
+> 2. **Un permiso nuevo, que decide el superadmin, no el admin de la
+>    academia**: si esa academia puede siquiera LLEGAR a encender
+>    `training_ai`. Por defecto, ninguna — una columna en `academies`
+>    (`training_ai_allowed boolean not null default false`), a `true` solo en
+>    la fila de `atenea`. El panel de una academia sin el permiso no enseña el
+>    interruptor de `training_ai`; no lo enseña apagado, no existe, mismo
+>    criterio que el chat fuera del MVP (regla 58).
+>
+> **Cerrado el mismo 12 sep, en una sesión paralela que no vio esta nota
+> hasta después** (dos sesiones de Claude trabajando la misma rama a la vez:
+> esta escribió el diseño de arriba, la otra ya lo había implementado con un
+> enfoque más simple antes de que se fusionaran). Lo construido es la mitad
+> 1 de esta nota tal cual —`module_settings.organization_id` relleno de
+> verdad, con la academia incrustada en el propio `module_id` para no
+> necesitar el guion de P11b— más la exclusión `ai`/`group` de la mitad 2,
+> pero **sin la columna nueva**: en vez de un permiso en `academies` que
+> decide el superadmin, `ACADEMIA_CASA_SLUG` (`lib/academies.ts`) compara
+> contra el slug `atenea` directamente. Mismo resultado para lo que existe
+> hoy —una sola academia con el privilegio, exactamente `atenea`— sin
+> esperar a un guion SQL. Ver **regla 68** de `CLAUDE.md`.
+>
+> **Lo que la nota de arriba tenía y esto no construyó:** que el superadmin
+> pueda dar el privilegio a una SEGUNDA academia sin tocar código. Con una
+> sola academia «casa» posible hoy, es exactamente el mismo trueque que ya
+> aceptó P11e/i (regla 65: «restringirlo de golpe, sin que el dueño lo pida,
+> sería tomar una decisión de producto que no corresponde»). Si algún día
+> hace falta una segunda academia solo-IA, ahí sí hace falta la columna
+> `academies.training_ai_allowed` de esta nota — hoy sería una tabla para
+> una fila.
+
 ### Las tres preguntas, respondidas (11 sep 2026)
 
 1. **El temario es compartido, no por academia.** *«El temario solo me sirve

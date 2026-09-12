@@ -2433,6 +2433,66 @@ pre-visita por seguridad y gasta el token de un solo uso antes de poder
 pulsarlos a propósito) — los dos caminos, registro e invitación, entran
 derecho sin pasar por el formulario de login. `npm run check` en verde.
 
+### 68 · Los interruptores de físicas eran globales, no por academia
+
+Encontrado el 12 sep probando con dos academias reales: `module_settings`
+—de donde salen `training_ai` y `training_group` (regla 54)— tiene una
+columna `organization_id` desde `P11-multi-academia.sql`, pero **nadie la
+usaba**. La clave de conflicto del `upsert` es `module_id` a secas, así que
+había UNA fila `training_ai` para toda la plataforma: apagarlo en una
+academia lo apagaba en todas. Es el mismo agujero que P11c cerró para
+`question_bank` (regla 65), pero en esta tabla nadie lo tocó.
+
+**Sin DDL disponible, la academia se incrusta en el propio `module_id`**
+(mismo truco que ya usa P8, regla 54, para no tocar el esquema):
+`trainingSwitchModuleId('ai', organizationId)` da `training_ai:<uuid>`. Cada
+academia tiene así su propia fila con el mecanismo de siempre — sin fila
+sigue siendo encendido, un fallo de lectura se cae a encendido.
+
+**Y de paso, una regla de negocio nueva (decidida el mismo día): `ai` y
+`group` son EXCLUYENTES por academia.** La academia «casa»
+(`ACADEMIA_CASA_SLUG` = `atenea`, `lib/academies.ts`) es **solo-IA** — el
+alumno se genera su plan, sin grupos de físicas —; cualquier otra academia es
+**solo-manual** — un preparador escribe el plan por grupo, sin que el alumno
+pueda pedirle uno a Gemini —. `aplicaReglaCasa` (`training-switches.ts`)
+fuerza el que no toca a `false` **pase lo que diga la fila guardada**, y es
+lo único que `requireTrainingSwitch` / el panel de admin / el módulo del
+alumno leen — no hay un segundo camino que se olvide de comprobarlo.
+`setTrainingSwitch` además RECHAZA que un admin encienda el interruptor que
+no le toca a su academia (defensa en profundidad: una Server Action es un
+endpoint público, regla 1).
+
+El panel de admin (`AdminPhysical.tsx`) ya no muestra los dos interruptores
+con uno oculto por CSS (como estaba desde regla 48): ahora **ofrece solo el
+que corresponde** — `esCasa` decide cuál, que viaja en la respuesta de
+`getTrainingSwitches`.
+
+Verificado en local contra la Supabase real, con la sesión de
+`morato@atenea.com` (Alphapol, NO es la casa): solo aparece «Plan de físicas
+manual por grupo», y el grupo real de la academia (con sus semanas ya
+escritas) sigue intacto — la migración no tocó ni una fila de
+`group_training_plans`. `npm run check` en verde, con los tests de
+`aplicaReglaCasa` y del `module_id` compuesto nuevos.
+
+### 69 · «¿Olvidaste tu contraseña?» no existía
+
+La regla 67 dejó el backend listo para un enlace de recuperación —
+`checkSession` ya sabe tratar `type=recovery` igual que `type=invite`, con
+`SetPasswordScreen`— pero nadie había puesto el botón que lo dispara. Un
+alumno o admin que olvidara su contraseña no tenía ninguna salida.
+
+`LoginScreen` gana un enlace «¿Olvidaste tu contraseña?» (solo en modo
+`login`, debajo del campo de contraseña) que llama a
+`supabase.auth.resetPasswordForEmail(email, { redirectTo: origin })` desde
+`AppShell.handleForgotPassword`. **El mensaje es el mismo exista o no la
+cuenta** («si existe una cuenta con…») — Supabase ya no distingue, y decirlo
+serviría para averiguar qué correos están dados de alta en la plataforma.
+
+De paso se le dio a la plantilla de correo «Reset password» de Supabase la
+misma marca que «Confirm sign up» e «Invite user» (regla 66/67 del email):
+español, cabecera Atenea Policial, botón rojo — antes era la plantilla en
+inglés por defecto, sin tocar.
+
 ---
 
 ## Los tests

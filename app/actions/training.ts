@@ -77,7 +77,7 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     // El interruptor de «plan con IA», aparte del módulo. Va ANTES de la cuota y
     // de Gemini, igual que `requireModule`: apagarlo tiene que evitar la llamada
     // de pago, no solo esconder el botón.
-    const permiteIA = await requireTrainingSwitch('ai');
+    const permiteIA = await requireTrainingSwitch('ai', auth.user.organizationId);
     if (!permiteIA.ok) return { success: false, error: permiteIA.error };
 
     const quota = await checkQuota(userId, 'plan');
@@ -181,7 +181,7 @@ export async function getActiveTrainingPlan(): Promise<
     }
 
     // Si la academia ha apagado el plan de grupo, el alumno no lo hereda.
-    const switches = await leeTrainingSwitches();
+    const switches = await leeTrainingSwitches(auth.user.organizationId);
     if (!switches.group) return { success: true, plan: null };
 
     const idsFisicas = await idsGruposConPlan(userId, auth.user.organizationId);
@@ -232,7 +232,7 @@ export async function getStudentGroupWeeks(): Promise<
     const auth = await requireUser();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
-    const switches = await leeTrainingSwitches();
+    const switches = await leeTrainingSwitches(auth.user.organizationId);
     if (!switches.group) return { success: true as const, semanas: [] };
 
     const idsFisicas = await idsGruposConPlan(auth.user.id, auth.user.organizationId);
@@ -356,7 +356,7 @@ export async function generateNextWeek() {
     const modulo = await requireModule('training');
     if (!modulo.ok) return { success: false as const, error: modulo.error, plan: null };
 
-    const permiteIA = await requireTrainingSwitch('ai');
+    const permiteIA = await requireTrainingSwitch('ai', auth.user.organizationId);
     if (!permiteIA.ok) return { success: false as const, error: permiteIA.error, plan: null };
 
     const quota = await checkQuota(userId, 'plan');
