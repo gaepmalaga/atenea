@@ -865,9 +865,17 @@ export default function ActiveTest({
 
               Queda solo «Avisar», que sí sirve: si la respuesta marcada como
               correcta está mal, el alumno estudia un dato falso (regla 10). En
-              fila normal, sin tapar nada. */}
+              fila normal, sin tapar nada.
+
+              El aviso de «sin revisar» es solo para `live_ai`/`candidate`
+              (regla 39: desde que el alumno dejó de disparar generación en
+              vivo, esos orígenes no deberían llegar aquí, pero si algún día
+              vuelven, avisan). `bank`, `bank_seed` y `manual` son las tres
+              formas de llegar al banco activo, y las tres están aprobadas —
+              comprobar solo `=== 'bank'` dejaba el aviso encendido para el
+              100% de las preguntas reales, todas sembradas con `bank_seed`. */}
           <div className="mb-5 flex items-start justify-between gap-3 relative z-10">
-             {currentQ.origin === 'bank' ? (
+             {currentQ.origin !== 'live_ai' && currentQ.origin !== 'candidate' ? (
                <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
                  📚 Banco oficial
                </span>

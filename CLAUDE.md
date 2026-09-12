@@ -2358,6 +2358,40 @@ verde.
   alguien que ya no la administra. Se borró esa fila a mano con la clave de
   servicio (dato, no código: no hay guion porque es un caso de uno).
 
+### 66 · Un aviso de «sin revisar» que salía siempre no avisaba de nada
+
+Encontrado probando el entrenamiento con `alumno@atenea.com` (12 sep): toda
+pregunta, sin excepción, llevaba el aviso ámbar **«⚠ Generada por IA · sin
+revisar»** — incluidas las 1795 del Banco Oficial, ya aprobadas y activas.
+`ActiveTest.tsx` decidía el aviso con `currentQ.origin === 'bank'`, pero
+**ninguna fila de `question_bank` tiene ese origen**: las 1795 se sembraron
+con `seedQuestionBank`, que graba `origin: 'bank_seed'` (comprobado contra la
+BD real, paginando la tabla entera). La condición nunca se cumplía con datos
+de verdad, así que el aviso salía siempre — el caso contrario del que se
+quería avisar.
+
+La distinción `origin === 'bank'` es de antes de la regla 39: cuando el
+alumno SÍ podía disparar generación en vivo (`origin: 'live_ai'`,
+`status: 'candidate'`, sin pasar por moderación), el aviso tenía sentido.
+Desde que eso se cerró, `generateAndSaveCandidate` —la única función que
+crea esa combinación— **no la llama ningún componente**: quedó sin usar.
+Todo lo que llega hoy a `ActiveTest` ya es `status: 'active'` (bank, seed o
+manual), así que la comparación correcta no es por `origin`, es por si el
+origen es uno de los dos que en teoría no deberían llegar aquí:
+
+```ts
+// MAL — nunca es 'bank' con datos reales; el aviso salía siempre
+currentQ.origin === 'bank'
+
+// BIEN — solo avisa de lo que de verdad no debería estar aquí
+currentQ.origin !== 'live_ai' && currentQ.origin !== 'candidate'
+```
+
+Verificado en local contra la Supabase real, con la sesión de
+`alumno@atenea.com`: la misma pregunta que antes mostraba «sin revisar» pasa
+a mostrar «📚 Banco oficial». `npm run check` en verde (ningún test dependía
+de la condición vieja).
+
 ---
 
 ## Los tests
