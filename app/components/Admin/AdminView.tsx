@@ -161,12 +161,15 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // P11f, afinado tras probarlo: el `superadmin` NO administra ninguna
   // academia (`organizationId` es siempre `null` para él, regla 65) — lo
   // suyo es el banco COMÚN: el temario del que salen las preguntas
-  // («Temario & IA»), sus reportes y candidatas («Moderación»), y la
-  // comparativa entre academias («Academias»). Nada de «Alumnos», «Grupos»,
-  // «Pagos» ni «Prep. física»: eso es de quien administra UNA academia.
+  // («Temario & IA»), navegarlo y darlo de alta a mano/CSV («Banco Oficial»
+  // — `bancoDestino` en `moderation.ts` manda sus altas siempre al banco
+  // global, nunca a una academia), sus reportes y candidatas
+  // («Moderación»), y la comparativa entre academias («Academias»). Nada de
+  // «Alumnos», «Grupos», «Pagos» ni «Prep. física»: eso es de quien
+  // administra UNA academia.
   const tabs: TabDef[] = esSuperadmin
     ? [
-        ...TABS_DE_ACADEMIA.filter((t) => t.id === 'content' || t.id === 'moderation'),
+        ...TABS_DE_ACADEMIA.filter((t) => t.id === 'content' || t.id === 'bank' || t.id === 'moderation'),
         TAB_ACADEMIAS,
       ]
     : TABS_DE_ACADEMIA;
