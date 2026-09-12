@@ -527,7 +527,7 @@ export async function getAdaptiveSession(params: {
   const filaPorId = new Map(filas.map((f) => [f.id, f]));
   const temaDeFila = (f: BankRow) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
 
-  const adaptativo = await adaptativoEncendido();
+  const adaptativo = await adaptativoEncendido(auth.user.organizationId);
 
   // ---- Camino ALEATORIO (interruptor apagado) ----
   if (!adaptativo) {

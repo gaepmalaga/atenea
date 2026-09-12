@@ -38,6 +38,15 @@ const SLUG_MAX = 30;
 export const ACADEMIA_COOKIE = 'atenea-academia';
 
 /**
+ * La academia «casa» (P11j, regla 65 y `docs/sql/P11j-asignar-academia-en-registro.sql`):
+ * donde cae un alta sin slug, sin grupos ni cobro en persona. Vive como
+ * constante porque el disparador de Postgres la tiene fija por su cuenta —
+ * cambiar el slug ahí y no aquí (o al revés) dejaría los dos sitios
+ * discrepando en silencio.
+ */
+export const ACADEMIA_CASA_SLUG = 'atenea';
+
+/**
  * Slug a partir del nombre de una academia: «Alpha Policía» -> «alpha-policia».
  * Misma normalización que `slugDeTipo` en `groups.ts` (quita tildes, minúsculas,
  * guiones), con su propio límite de longitud porque este va en la URL, no en

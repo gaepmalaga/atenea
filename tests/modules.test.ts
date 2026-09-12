@@ -18,6 +18,7 @@ import {
   TRAINING_SWITCH_DESC,
   todosLosSwitches,
   toTrainingSwitches,
+  aplicaReglaCasa,
 } from '../app/lib/training-switches';
 
 /**
@@ -198,24 +199,43 @@ describe('los interruptores de entrenamiento', () => {
     expect(TRAINING_SWITCH_ROW).toEqual({ ai: 'training_ai', group: 'training_group', adaptive: 'training_adaptive' });
   });
 
+  const ORG = 'org-1';
+
   it('SIN FILA = ENCENDIDO, igual que P4', () => {
-    expect(toTrainingSwitches([])).toEqual(todosLosSwitches());
+    expect(toTrainingSwitches([], ORG)).toEqual(todosLosSwitches());
     expect(todosLosSwitches()).toEqual({ ai: true, group: true, adaptive: true });
   });
 
-  it('solo apaga lo que viene explicitamente a false, y por su module_id largo', () => {
+  it('solo apaga lo que viene explicitamente a false, y por su module_id compuesto con la academia', () => {
     const s = toTrainingSwitches([
-      { module_id: 'training_ai', enabled: false },
-      { module_id: 'training_group', enabled: true },
-      { module_id: 'training_adaptive', enabled: false },
+      { module_id: `training_ai:${ORG}`, enabled: false },
+      { module_id: `training_group:${ORG}`, enabled: true },
+      { module_id: `training_adaptive:${ORG}`, enabled: false },
       { module_id: 'chat', enabled: false }, // de otro sistema: se ignora
-    ]);
+    ], ORG);
     expect(s).toEqual({ ai: false, group: true, adaptive: false });
   });
 
+  it('una fila de OTRA academia no cuenta, aunque el prefijo coincida', () => {
+    const s = toTrainingSwitches([{ module_id: 'training_ai:otra-academia', enabled: false }], ORG);
+    expect(s).toEqual(todosLosSwitches());
+  });
+
   it('la basura no apaga nada', () => {
-    expect(toTrainingSwitches([{ module_id: null }, { module_id: 'ai', enabled: false }, {}]))
+    expect(toTrainingSwitches([{ module_id: null }, { module_id: 'ai', enabled: false }, {}], ORG))
       .toEqual({ ai: true, group: true, adaptive: true });
+  });
+});
+
+describe('la regla de la academia casa: ai y group son excluyentes', () => {
+  it('en la academia casa se fuerza group a false, diga lo que diga la fila', () => {
+    expect(aplicaReglaCasa({ ai: true, group: true, adaptive: true }, true))
+      .toEqual({ ai: true, group: false, adaptive: true });
+  });
+
+  it('en cualquier otra academia se fuerza ai a false', () => {
+    expect(aplicaReglaCasa({ ai: true, group: true, adaptive: true }, false))
+      .toEqual({ ai: false, group: true, adaptive: true });
   });
 });
 
@@ -223,7 +243,7 @@ describe('apagar un interruptor de fisicas lo apaga en el servidor', () => {
   it('generateWeeklyPlan y generateNextWeek cortan si la IA esta apagada, ANTES de la cuota', () => {
     for (const accion of ['generateWeeklyPlan', 'generateNextWeek']) {
       const cuerpo = cuerpoDe('training.ts', accion);
-      expect(cuerpo, accion).toContain("requireTrainingSwitch('ai')");
+      expect(cuerpo, accion).toContain("requireTrainingSwitch('ai',");
       const sw = cuerpo.indexOf('requireTrainingSwitch(');
       const cuota = cuerpo.indexOf('checkQuota(');
       expect(sw, `${accion}: el interruptor va despues de checkQuota`).toBeGreaterThan(-1);
@@ -232,7 +252,7 @@ describe('apagar un interruptor de fisicas lo apaga en el servidor', () => {
   });
 
   it('saveGroupTrainingPlan corta si el plan de grupo esta apagado', () => {
-    expect(cuerpoDe('groups.ts', 'saveGroupTrainingPlan')).toContain("requireTrainingSwitch('group')");
+    expect(cuerpoDe('groups.ts', 'saveGroupTrainingPlan')).toContain("requireTrainingSwitch('group',");
   });
 
   it('getActiveTrainingPlan no hereda el plan de grupo si esta apagado', () => {
