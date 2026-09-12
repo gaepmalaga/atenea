@@ -2219,6 +2219,39 @@ la pestaña «Academias» no aparece para un `admin` normal, y que «Moderación
 y «Consumo IA» siguen sin errores con sus filtros nuevos. **Lo que falta ver
 en pantalla**: «Nueva academia» y «Añadir admin» de verdad, con esa sesión.
 
+**Corregido el mismo 12 sep, tras desplegarlo y probarlo:** el `superadmin`
+SÍ heredaba una academia. `resolveOrganizationId` lo resolvía igual que a un
+`admin` —por `academy_members`—, y como `gaepmalaga@gmail.com` es miembro de
+Alphapol desde el backfill original del guion, su sesión de superadmin
+resolvía a Alphapol y veía sus alumnos, grupos, pagos y prep. física, tal
+cual se los enseñaría a `morato@atenea.com`. **Un `superadmin` no administra
+NINGUNA academia**, así que:
+
+- `getSessionUser` (`app/lib/auth.ts`) ya no llama a `resolveOrganizationId`
+  para un `superadmin`: su `organizationId` es SIEMPRE `null`, venga o no de
+  ningún `academy_members`. Todas las acciones de administración de UNA
+  academia ya fallaban cerradas sin `organizationId` (regla 65) — este cambio
+  no tocó ni una de ellas, solo dejó de dárselo al superadmin.
+- **El alcance real de `superadmin` es más estrecho de lo que sugería «ve
+  todas las academias»**: solo administra el banco COMÚN — el temario del
+  que se generan las preguntas («Temario & IA», con el generador de IA
+  dentro) y sus candidatas/reportes («Moderación») — y la comparativa
+  transversal («Academias»). `AdminView.tsx` reduce sus pestañas a
+  exactamente esas tres; «Alumnos», «Grupos», «Prep. física», «Pagos»,
+  **«Banco Oficial»** (el alta manual/CSV y la papelera del banco, que
+  también toca contenido, pero no es "el temario"), «Ajustes», «Consumo IA»
+  y «Logs & Auditoría» son cosa de quien administra UNA academia, y ni
+  aparecen para él. Su pestaña de entrada es «Academias», no «Alumnos».
+- La pestaña guardada en `localStorage` de una sesión de `admin` no se aplica
+  si el `superadmin` no la tiene disponible (comprobado contra su lista de
+  pestañas antes de restaurarla) — sin esto, el mismo navegador podía dejar
+  el área de contenido en blanco.
+
+Verificado tras el cambio: `morato@atenea.com` sigue viendo sus 10 pestañas
+de siempre, sin ningún cambio (el `admin` normal nunca pasó por
+`resolveOrganizationId` de otra forma). `npm run check` y `npm run build` en
+verde.
+
 ---
 
 ## Los tests
