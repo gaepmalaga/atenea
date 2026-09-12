@@ -13,12 +13,11 @@
 > academia amiga; y el problema de la pantalla del test **no era visual, era de
 > información**. P3, P4 y P6 están reescritas con eso.
 >
-> **Actualizado el 11 sep 2026:** nueva fase **P11 · Multi-academia**
-> (`/alphapol`, `/depol`, `/corporepol`…), con las decisiones tomadas sobre
-> banco global vs. privado por academia, rol `superadmin`, panel transversal,
-> temario compartido, selector de academia si un alumno está en varias, y
-> alta de academias desde el propio panel de superadmin. **Sin empezar**, pero
-> sin decisiones pendientes.
+> **Actualizado el 12 sep 2026:** fase **P11 · Multi-academia**
+> (`/alphapol`, `/depol`, `/corporepol`…) prácticamente cerrada y verificada
+> en producción con una sesión real de `superadmin` — ver el estado detallado
+> en §P11 más abajo. Solo queda P11h (selector de academia si un alumno está
+> en varias) sin empezar, y no hace falta con una sola academia por alumno.
 
 ---
 
@@ -970,17 +969,18 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 > Supabase bloqueó repetirlo desde la UI) quedó en `atenea`. Las dos cuentas
 > de prueba se borraron después.
 
-> **Lo que P11e/f/i tienen verificado, y lo que no (12 sep).** Contra la BD
-> real: las consultas de `getAcademiesOverview` (academias, miembros, roles,
-> gasto, pagos) se ejecutaron directamente y devuelven lo esperado; con la
-> sesión de `morato@atenea.com` en el preview se confirmó que la pestaña
-> «Academias» **NO aparece** para un `admin` normal (la comprobación de
-> seguridad que más importa aquí), y que «Moderación» y «Consumo IA» siguen
-> funcionando sin errores con sus nuevos filtros. **Lo que NO se ha visto en
-> pantalla**: la propia pestaña «Academias» con una sesión de `superadmin` de
-> verdad — esta sesión no tiene la contraseña de `gaepmalaga@gmail.com`. Antes
-> de darla por buena del todo, entra como superadmin y prueba «Nueva
-> academia» y «Añadir admin» una vez.
+> **P11e/f/i, verificado del todo (12 sep).** Contra la BD real: las consultas
+> de `getAcademiesOverview` (academias, miembros, roles, gasto, pagos) se
+> ejecutaron directamente y devuelven lo esperado; con la sesión de
+> `morato@atenea.com` en el preview se confirmó que la pestaña «Academias»
+> **NO aparece** para un `admin` normal (la comprobación de seguridad que más
+> importa aquí), y que «Moderación» y «Consumo IA» siguen funcionando sin
+> errores con sus nuevos filtros. Y ya en producción, con la sesión real de
+> `gaepmalaga@gmail.com`: las 4 pestañas correctas (Temario & IA, Banco
+> Oficial, Moderación, Academias), la comparativa de «Academias» cargando
+> bien, y «Nueva academia» + «Añadir admin» probados de verdad (academia de
+> prueba creada, admin existente añadido sin correo, todo sin error) —
+> limpiado después. Sin nada pendiente de verificación en P11.
 
 ### Las tres preguntas, respondidas (11 sep 2026)
 
