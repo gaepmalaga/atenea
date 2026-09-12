@@ -57,22 +57,27 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
 
   useEffect(() => {
     async function checkSession() {
-      // El enlace de confirmación de correo (registro, P11j) y el de
-      // invitación (`addAcademyAdmin`, regla 65) vuelven cada uno con una
-      // forma distinta de sesión sin canjear en la URL, y nadie lo hacía: la
-      // persona aterrizaba otra vez en el formulario de entrar, con el
-      // código o el token colgando sin explicación.
+      // El enlace de confirmación de correo (registro, P11j), el de
+      // invitación (`addAcademyAdmin`, regla 65) y el de recuperar
+      // contraseña vuelven cada uno con una forma distinta de sesión sin
+      // canjear en la URL, y nadie lo hacía: la persona aterrizaba otra vez
+      // en el formulario de entrar, con el código o el token colgando sin
+      // explicación.
       //
       // - REGISTRO propio (`signUp` desde `handleAuth`, más abajo): el
       //   cliente pide PKCE, así que el enlace vuelve con `?code=...` — se
       //   canjea con `exchangeCodeForSession` y ya tiene contraseña (la puso
       //   al registrarse), así que entra derecho al panel.
-      // - INVITACIÓN (`inviteUserByEmail`, sin cliente de por medio): vuelve
-      //   con `#access_token=...&refresh_token=...&type=invite` — un flujo
-      //   distinto (implícito), y sin contraseña ninguna: quien la recibe
-      //   nunca ha elegido una. Se establece la sesión con `setSession` y se
-      //   le pide que ponga una antes de dejarla pasar (`SetPasswordScreen`);
-      //   sin ese paso se quedaría sin forma de volver a entrar.
+      // - INVITACIÓN (`inviteUserByEmail`, sin cliente de por medio) o
+      //   RECUPERACIÓN (`resetPasswordForEmail` / un enlace de recuperación
+      //   generado a mano): vuelven con
+      //   `#access_token=...&refresh_token=...&type=invite|recovery` — un
+      //   flujo distinto (implícito). En los dos casos no hay contraseña
+      //   utilizable todavía —la invitación nunca la pidió, y quien recupera
+      //   está aquí precisamente porque la suya no sirve—, así que los dos se
+      //   tratan igual: se establece la sesión con `setSession` y se le pide
+      //   que ponga una antes de dejarla pasar (`SetPasswordScreen`); sin ese
+      //   paso se quedaría otra vez sin forma de volver a entrar.
       const code = new URLSearchParams(window.location.search).get('code');
       const hash = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = hash.get('access_token');
@@ -97,7 +102,7 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
         const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
         if (error) {
           setAvisoMsg('Ese enlace ya no es válido. Inicia sesión con tu correo y tu contraseña.');
-        } else if (tipo === 'invite') {
+        } else if (tipo === 'invite' || tipo === 'recovery') {
           setNeedsPassword(true);
         }
       }
