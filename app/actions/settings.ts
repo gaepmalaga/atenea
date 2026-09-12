@@ -23,11 +23,12 @@ export async function getAcademySettings(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
+  if (!auth.user.organizationId) return { success: false, error: 'No hay una academia seleccionada.' };
 
   const { data, error } = await supabaseAdmin
     .from('academy_settings')
     .select('*')
-    .eq('id', 1)
+    .eq('organization_id', auth.user.organizationId)
     .maybeSingle();
 
   if (error) return { success: false, error: error.message };
@@ -37,14 +38,17 @@ export async function getAcademySettings(): Promise<
 export async function saveAcademySettings(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const clean = normalizeAcademySettingsInput((input ?? {}) as Record<string, unknown>);
 
   const { error } = await supabaseAdmin
     .from('academy_settings')
-    .upsert({ id: 1, ...clean, updated_at: new Date().toISOString() });
+    .upsert({ organization_id: auth.user.organizationId, ...clean, updated_at: new Date().toISOString() });
 
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'save_academy_settings' });
+  if (!error) {
+    registraAccion({ actorId: auth.user.id, action: 'save_academy_settings', organizationId: auth.user.organizationId });
+  }
   return { success: !error, error: error?.message };
 }
 
@@ -61,11 +65,16 @@ export async function getConvocatoria(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  // Un admin/superadmin sin academia resuelta no debería llegar aquí (P11:
+  // `requireUser` ya lo habría cortado para un student vía `access`), pero un
+  // admin SÍ puede pedirla — sin fila `organization_id` que mirar, se
+  // devuelve vacía en vez de reventar.
+  if (!auth.user.organizationId) return { success: true as const, convocatoria: CONVOCATORIA_VACIA };
 
   const { data, error } = await supabaseAdmin
     .from('academy_convocatoria')
     .select('escala, fecha_examen, nota')
-    .eq('id', 1)
+    .eq('organization_id', auth.user.organizationId)
     .maybeSingle();
 
   if (error) {
@@ -88,6 +97,7 @@ export async function getConvocatoria(): Promise<
 export async function saveConvocatoria(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const raw = (input ?? {}) as Record<string, unknown>;
   const texto = (v: unknown) => {
@@ -100,7 +110,7 @@ export async function saveConvocatoria(input: unknown) {
   const { error } = await supabaseAdmin
     .from('academy_convocatoria')
     .upsert({
-      id: 1,
+      organization_id: auth.user.organizationId,
       escala: texto(raw.escala),
       fecha_examen: fecha,
       nota: texto(raw.nota),
@@ -111,7 +121,7 @@ export async function saveConvocatoria(input: unknown) {
     const tablaFalta = /could not find the table/i.test(error.message);
     return { success: false as const, error: error.message, tablaFalta };
   }
-  registraAccion({ actorId: auth.user.id, action: 'save_convocatoria' });
+  registraAccion({ actorId: auth.user.id, action: 'save_convocatoria', organizationId: auth.user.organizationId });
   return { success: true as const };
 }
 
@@ -120,10 +130,12 @@ export async function listStaff(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
+  if (!auth.user.organizationId) return { success: true, staff: [] };
 
   const { data, error } = await supabaseAdmin
     .from('academy_staff')
     .select('*')
+    .eq('organization_id', auth.user.organizationId)
     .order('active', { ascending: false })
     .order('name', { ascending: true });
 
@@ -135,26 +147,39 @@ export async function listStaff(): Promise<
 export async function saveStaff(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const raw = (input ?? {}) as Record<string, unknown>;
   const clean = normalizeStaffInput(raw);
   if (!clean) return { success: false as const, error: 'Falta el nombre.' };
 
   const id = typeof raw.id === 'string' && raw.id ? raw.id : undefined;
-  const payload: typeof clean & { id?: string } = { ...clean };
+  const payload: typeof clean & { id?: string; organization_id: string } = {
+    ...clean,
+    organization_id: auth.user.organizationId,
+  };
   if (id) payload.id = id;
   const { error } = await supabaseAdmin.from('academy_staff').upsert(payload);
 
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'save_staff', target: clean.name });
+  if (!error) {
+    registraAccion({ actorId: auth.user.id, action: 'save_staff', target: clean.name, organizationId: auth.user.organizationId });
+  }
   return { success: !error, error: error?.message };
 }
 
 export async function deleteStaff(id: string) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!id) return { success: false as const, error: 'Falta quién borrar.' };
 
-  const { error } = await supabaseAdmin.from('academy_staff').delete().eq('id', id);
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_staff', target: id });
+  const { error } = await supabaseAdmin
+    .from('academy_staff')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', auth.user.organizationId);
+  if (!error) {
+    registraAccion({ actorId: auth.user.id, action: 'delete_staff', target: id, organizationId: auth.user.organizationId });
+  }
   return { success: !error, error: error?.message };
 }

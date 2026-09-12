@@ -32,10 +32,12 @@ export async function getGroupKinds(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: true as const, kinds: [] };
 
   const { data, error } = await supabaseAdmin
     .from('group_kinds')
     .select('id, label, lleva_plan, sort_order')
+    .eq('organization_id', auth.user.organizationId)
     .order('sort_order')
     .order('label');
 
@@ -46,34 +48,47 @@ export async function getGroupKinds(): Promise<
 export async function saveGroupKind(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const clean = normalizeKindInput((input ?? {}) as Record<string, unknown>);
   if (!clean) return { success: false as const, error: 'El tipo necesita un nombre.' };
 
   const { error } = await supabaseAdmin
     .from('group_kinds')
-    .upsert({ id: clean.id, label: clean.label, lleva_plan: clean.lleva_plan }, { onConflict: 'id' });
+    .upsert(
+      { organization_id: auth.user.organizationId, id: clean.id, label: clean.label, lleva_plan: clean.lleva_plan },
+      { onConflict: 'organization_id,id' },
+    );
 
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'save_group_kind', target: clean.label });
+  if (!error) {
+    registraAccion({ actorId: auth.user.id, action: 'save_group_kind', target: clean.label, organizationId: auth.user.organizationId });
+  }
   return { success: !error, error: error?.message };
 }
 
 export async function deleteGroupKind(kindId: string) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!kindId) return { success: false as const, error: 'Falta el tipo.' };
+  const organizationId = auth.user.organizationId;
 
   // Si algún grupo lo usa, no se borra: dejaría grupos con un tipo huérfano.
   const { count } = await supabaseAdmin
     .from('class_groups')
     .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
     .eq('kind', kindId);
   if ((count ?? 0) > 0) {
     return { success: false as const, error: `Ese tipo lo usan ${count} grupo(s). Cámbiaselos primero.` };
   }
 
-  const { error } = await supabaseAdmin.from('group_kinds').delete().eq('id', kindId);
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group_kind', target: kindId });
+  const { error } = await supabaseAdmin
+    .from('group_kinds')
+    .delete()
+    .eq('id', kindId)
+    .eq('organization_id', organizationId);
+  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group_kind', target: kindId, organizationId });
   return { success: !error, error: error?.message };
 }
 
@@ -100,14 +115,16 @@ export async function getGroups(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: true as const, groups: [] };
+  const organizationId = auth.user.organizationId;
 
   const [gruposRes, miembrosRes, staffRes, staffGrupoRes, planesRes, kindsRes] = await Promise.all([
-    supabaseAdmin.from('class_groups').select('id, name, kind, schedule').order('name'),
+    supabaseAdmin.from('class_groups').select('id, name, kind, schedule').eq('organization_id', organizationId).order('name'),
     supabaseAdmin.from('class_members').select('class_id, user_id'),
-    supabaseAdmin.from('academy_staff').select('id, name'),
+    supabaseAdmin.from('academy_staff').select('id, name').eq('organization_id', organizationId),
     supabaseAdmin.from('class_group_staff').select('class_id, staff_id'),
     supabaseAdmin.from('group_training_plans').select('class_id'),
-    supabaseAdmin.from('group_kinds').select('id, label, lleva_plan'),
+    supabaseAdmin.from('group_kinds').select('id, label, lleva_plan').eq('organization_id', organizationId),
   ]);
 
   if (gruposRes.error) {
@@ -176,25 +193,27 @@ async function sincronizaProfesores(classId: string, staffIds: string[]) {
 export async function createGroup(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const clean = normalizeGroupInput((input ?? {}) as Record<string, unknown>);
   if (!clean) return { success: false as const, error: 'El grupo necesita un nombre.' };
 
   const { data, error } = await supabaseAdmin
     .from('class_groups')
-    .insert({ name: clean.name, kind: clean.kind, schedule: clean.schedule })
+    .insert({ organization_id: auth.user.organizationId, name: clean.name, kind: clean.kind, schedule: clean.schedule })
     .select('id')
     .single();
 
   if (error) return { success: false as const, error: error.message };
   await sincronizaProfesores(data.id as string, clean.staffIds);
-  registraAccion({ actorId: auth.user.id, action: 'create_group', target: clean.name });
+  registraAccion({ actorId: auth.user.id, action: 'create_group', target: clean.name, organizationId: auth.user.organizationId });
   return { success: true as const, error: undefined };
 }
 
 export async function updateGroup(groupId: string, input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!groupId) return { success: false as const, error: 'Falta el grupo.' };
 
   const clean = normalizeGroupInput((input ?? {}) as Record<string, unknown>);
@@ -203,21 +222,27 @@ export async function updateGroup(groupId: string, input: unknown) {
   const { error } = await supabaseAdmin
     .from('class_groups')
     .update({ name: clean.name, kind: clean.kind, schedule: clean.schedule })
-    .eq('id', groupId);
+    .eq('id', groupId)
+    .eq('organization_id', auth.user.organizationId);
   if (error) return { success: false as const, error: error.message };
 
   await sincronizaProfesores(groupId, clean.staffIds);
-  registraAccion({ actorId: auth.user.id, action: 'update_group', target: clean.name });
+  registraAccion({ actorId: auth.user.id, action: 'update_group', target: clean.name, organizationId: auth.user.organizationId });
   return { success: true as const, error: undefined };
 }
 
 export async function deleteGroup(groupId: string) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!groupId) return { success: false as const, error: 'Falta el grupo.' };
 
-  const { error } = await supabaseAdmin.from('class_groups').delete().eq('id', groupId);
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group', target: groupId });
+  const { error } = await supabaseAdmin
+    .from('class_groups')
+    .delete()
+    .eq('id', groupId)
+    .eq('organization_id', auth.user.organizationId);
+  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group', target: groupId, organizationId: auth.user.organizationId });
   return { success: !error, error: error?.message };
 }
 
@@ -229,14 +254,30 @@ export async function deleteGroup(groupId: string) {
 export async function setStudentGroups(studentId: string, classIds: string[]) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
+  const organizationId = auth.user.organizationId;
 
-  const quieren = new Set((Array.isArray(classIds) ? classIds : []).filter((id) => typeof id === 'string' && id));
+  // Los grupos que se pueden marcar son los DE ESTA academia (P11): sin este
+  // filtro, la pantalla podría mandar el id de un grupo de otra academia y
+  // este alumno acabaría metido en él.
+  const pedidos = (Array.isArray(classIds) ? classIds : []).filter((id) => typeof id === 'string' && id);
+  const { data: gruposDeLaAcademia, error: leerGrupos } = await supabaseAdmin
+    .from('class_groups')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .in('id', pedidos.length ? pedidos : ['00000000-0000-0000-0000-000000000000']);
+  if (leerGrupos) return { success: false as const, error: leerGrupos.message };
+  const quieren = new Set((gruposDeLaAcademia ?? []).map((g) => g.id as string));
 
+  // Solo los grupos de ESTA academia cuentan como "los que tiene ahora": un
+  // alumno puede pertenecer a varias academias (P11, decidido), y tocar solo
+  // el interruptor de una no puede sacarlo de los grupos de otra.
   const { data: actuales, error: leer } = await supabaseAdmin
     .from('class_members')
-    .select('class_id')
-    .eq('user_id', studentId);
+    .select('class_id, class_groups!inner(organization_id)')
+    .eq('user_id', studentId)
+    .eq('class_groups.organization_id', organizationId);
   if (leer) return { success: false as const, error: leer.message };
 
   const tienen = new Set((actuales ?? []).map((m) => m.class_id as string));
@@ -286,7 +327,16 @@ export async function getGroupTrainingPlan(
 ): Promise<{ success: true; semanas: SemanaDeGrupo[] } | { success: false; error: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!groupId) return { success: false as const, error: 'Falta el grupo.' };
+
+  const { data: grupo } = await supabaseAdmin
+    .from('class_groups')
+    .select('id')
+    .eq('id', groupId)
+    .eq('organization_id', auth.user.organizationId)
+    .maybeSingle();
+  if (!grupo) return { success: false as const, error: 'Ese grupo no existe.' };
 
   const { data, error } = await supabaseAdmin
     .from('group_training_plans')
@@ -319,6 +369,7 @@ export async function saveGroupTrainingPlan(params: {
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!params.groupId) return { success: false as const, error: 'Falta el grupo.' };
 
   const permiteGrupo = await requireTrainingSwitch('group');
@@ -335,8 +386,13 @@ export async function saveGroupTrainingPlan(params: {
   }
 
   const [grupoRes, kindsRes] = await Promise.all([
-    supabaseAdmin.from('class_groups').select('kind, name').eq('id', params.groupId).maybeSingle(),
-    supabaseAdmin.from('group_kinds').select('id, label, lleva_plan'),
+    supabaseAdmin
+      .from('class_groups')
+      .select('kind, name')
+      .eq('id', params.groupId)
+      .eq('organization_id', auth.user.organizationId)
+      .maybeSingle(),
+    supabaseAdmin.from('group_kinds').select('id, label, lleva_plan').eq('organization_id', auth.user.organizationId),
   ]);
   if (grupoRes.error) return { success: false as const, error: grupoRes.error.message };
   if (!grupoRes.data) return { success: false as const, error: 'Ese grupo no existe.' };
@@ -355,7 +411,13 @@ export async function saveGroupTrainingPlan(params: {
     );
 
   if (!error) {
-    registraAccion({ actorId: auth.user.id, action: 'save_group_training_plan', target: grupoRes.data.name as string, detail: { weekStart } });
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'save_group_training_plan',
+      target: grupoRes.data.name as string,
+      detail: { weekStart },
+      organizationId: auth.user.organizationId,
+    });
   }
   return { success: !error, error: error?.message };
 }
@@ -363,13 +425,30 @@ export async function saveGroupTrainingPlan(params: {
 export async function deleteGroupTrainingPlan(groupId: string, weekStart?: string) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!groupId) return { success: false as const, error: 'Falta el grupo.' };
+
+  const { data: grupo } = await supabaseAdmin
+    .from('class_groups')
+    .select('id')
+    .eq('id', groupId)
+    .eq('organization_id', auth.user.organizationId)
+    .maybeSingle();
+  if (!grupo) return { success: false as const, error: 'Ese grupo no existe.' };
 
   let q = supabaseAdmin.from('group_training_plans').delete().eq('class_id', groupId);
   if (typeof weekStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     q = q.eq('week_start', weekStart);
   }
   const { error } = await q;
-  if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group_training_plan', target: groupId, detail: { weekStart: weekStart ?? 'todas' } });
+  if (!error) {
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'delete_group_training_plan',
+      target: groupId,
+      detail: { weekStart: weekStart ?? 'todas' },
+      organizationId: auth.user.organizationId,
+    });
+  }
   return { success: !error, error: error?.message };
 }

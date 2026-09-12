@@ -40,13 +40,28 @@ export async function getMonthlyPayments(
 ): Promise<{ success: true; data: MonthlyPaymentsOverview } | { success: false; error: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  const organizationId = auth.user.organizationId;
 
   const p = typeof period === 'string' && /^\d{4}-\d{2}$/.test(period) ? period : periodoActual();
 
+  const { data: miembros, error: miembrosErr } = await supabaseAdmin
+    .from('academy_members')
+    .select('user_id')
+    .eq('academy_id', organizationId);
+  if (miembrosErr) return { success: false as const, error: miembrosErr.message };
+  const idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
+  if (!idsAcademia.length) {
+    return {
+      success: true as const,
+      data: { ...resumeMes(p, [], []), periodos: periodosRecientes(12) },
+    };
+  }
+
   const [perfilesRes, membresiasRes, pagosRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').limit(MAX_PERFILES),
-    supabaseAdmin.from('memberships').select('user_id, access_status'),
-    supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').eq('period', p),
+    supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').in('id', idsAcademia).limit(MAX_PERFILES),
+    supabaseAdmin.from('memberships').select('user_id, access_status').eq('organization_id', organizationId),
+    supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').eq('organization_id', organizationId).eq('period', p),
   ]);
 
   if (perfilesRes.error) {
@@ -92,13 +107,25 @@ export async function getPaymentsHistory(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  const organizationId = auth.user.organizationId;
 
   const periodos = periodosRecientes(MESES_HISTORICO).slice().reverse();
 
+  const { data: miembros, error: miembrosErr } = await supabaseAdmin
+    .from('academy_members')
+    .select('user_id')
+    .eq('academy_id', organizationId);
+  if (miembrosErr) return { success: false as const, error: miembrosErr.message };
+  const idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
+  if (!idsAcademia.length) {
+    return { success: true as const, data: resumeHistorico(periodos, [], []) };
+  }
+
   const [perfilesRes, membresiasRes, pagosRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').limit(MAX_PERFILES),
-    supabaseAdmin.from('memberships').select('user_id, access_status'),
-    supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').in('period', periodos),
+    supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').in('id', idsAcademia).limit(MAX_PERFILES),
+    supabaseAdmin.from('memberships').select('user_id, access_status').eq('organization_id', organizationId),
+    supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').eq('organization_id', organizationId).in('period', periodos),
   ]);
 
   if (perfilesRes.error) {
@@ -128,6 +155,7 @@ export async function getPaymentsHistory(): Promise<
 export async function setPayment(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
 
   const raw = (input ?? {}) as Record<string, unknown>;
   const studentId = typeof raw.studentId === 'string' ? raw.studentId : '';
@@ -146,6 +174,7 @@ export async function setPayment(input: unknown) {
 
   const { error } = await supabaseAdmin.from('monthly_payments').upsert(
     {
+      organization_id: auth.user.organizationId,
       user_id: studentId,
       period,
       paid,
@@ -155,11 +184,17 @@ export async function setPayment(input: unknown) {
       recorded_by: auth.user.id,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'user_id,period' },
+    { onConflict: 'organization_id,user_id,period' },
   );
 
   if (!error) {
-    registraAccion({ actorId: auth.user.id, action: 'set_payment', target: studentId, detail: { period, paid } });
+    registraAccion({
+      actorId: auth.user.id,
+      action: 'set_payment',
+      target: studentId,
+      detail: { period, paid },
+      organizationId: auth.user.organizationId,
+    });
   }
   return { success: !error, error: error?.message };
 }

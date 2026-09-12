@@ -30,14 +30,31 @@ export async function getMiPerfil(): Promise<
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const userId = auth.user.id;
+  const organizationId = auth.user.organizationId;
 
   const periodo = periodoActual();
   const [convRes, memRes, gruposRes, kindsRes, pagoRes] = await Promise.all([
-    supabaseAdmin.from('academy_convocatoria').select('escala, fecha_examen, nota').eq('id', 1).maybeSingle(),
-    supabaseAdmin.from('memberships').select('access_status').eq('user_id', userId).maybeSingle(),
-    supabaseAdmin.from('class_members').select('class_groups!inner(name, kind)').eq('user_id', userId),
-    supabaseAdmin.from('group_kinds').select('id, label'),
-    supabaseAdmin.from('monthly_payments').select('paid').eq('user_id', userId).eq('period', periodo).maybeSingle(),
+    organizationId
+      ? supabaseAdmin.from('academy_convocatoria').select('escala, fecha_examen, nota').eq('organization_id', organizationId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    organizationId
+      ? supabaseAdmin.from('memberships').select('access_status').eq('organization_id', organizationId).eq('user_id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    // Los grupos se acotan a los DE ESTA academia (P11): un alumno en varias
+    // no debe ver aquí los de una que no es la de la sesión.
+    organizationId
+      ? supabaseAdmin
+          .from('class_members')
+          .select('class_groups!inner(name, kind, organization_id)')
+          .eq('user_id', userId)
+          .eq('class_groups.organization_id', organizationId)
+      : Promise.resolve({ data: [], error: null }),
+    organizationId
+      ? supabaseAdmin.from('group_kinds').select('id, label').eq('organization_id', organizationId)
+      : Promise.resolve({ data: [], error: null }),
+    organizationId
+      ? supabaseAdmin.from('monthly_payments').select('paid').eq('organization_id', organizationId).eq('user_id', userId).eq('period', periodo).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   const convocatoria: Convocatoria = convRes.error || !convRes.data

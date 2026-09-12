@@ -124,22 +124,30 @@ export type StoredPlan = {
 
 /**
  * Los `class_id` de los grupos de físicas del alumno — los de un `group_kinds`
- * con `lleva_plan = true`. Se lee con la clave de servicio filtrando por el
- * propio usuario (regla 34): `class_members` y `group_kinds` son de
- * administración. Vacío si no está en ninguno.
+ * con `lleva_plan = true`, DE SU ACADEMIA (P11: `group_kinds.id` es un slug
+ * que se reutiliza entre academias, así que sin acotar por
+ * `organization_id` el `in('class_groups.kind', idsKind)` de abajo podría
+ * colar el grupo de OTRA academia con el mismo slug de tipo). Se lee con la
+ * clave de servicio filtrando por el propio usuario (regla 34): `class_members`
+ * y `group_kinds` son de administración. Vacío si no está en ninguno, o si
+ * no se ha resuelto la academia de la sesión.
  */
-async function idsGruposConPlan(userId: string): Promise<string[]> {
+async function idsGruposConPlan(userId: string, organizationId: string | null): Promise<string[]> {
+    if (!organizationId) return [];
+
     const { data: kindsConPlan } = await supabaseAdmin
         .from('group_kinds')
         .select('id')
+        .eq('organization_id', organizationId)
         .eq('lleva_plan', true);
     const idsKind = (kindsConPlan ?? []).map((k) => k.id as string);
     if (!idsKind.length) return [];
 
     const { data: susGrupos } = await supabaseAdmin
         .from('class_members')
-        .select('class_id, class_groups!inner(kind)')
+        .select('class_id, class_groups!inner(kind, organization_id)')
         .eq('user_id', userId)
+        .eq('class_groups.organization_id', organizationId)
         .in('class_groups.kind', idsKind);
 
     return (susGrupos ?? []).map((m) => m.class_id as string);
@@ -176,7 +184,7 @@ export async function getActiveTrainingPlan(): Promise<
     const switches = await leeTrainingSwitches();
     if (!switches.group) return { success: true, plan: null };
 
-    const idsFisicas = await idsGruposConPlan(userId);
+    const idsFisicas = await idsGruposConPlan(userId, auth.user.organizationId);
     if (idsFisicas.length) {
         // P9: varias semanas por grupo. El alumno ve la de esta semana — el
         // `week_start` más reciente que no pase del lunes de hoy. Una semana
@@ -227,7 +235,7 @@ export async function getStudentGroupWeeks(): Promise<
     const switches = await leeTrainingSwitches();
     if (!switches.group) return { success: true as const, semanas: [] };
 
-    const idsFisicas = await idsGruposConPlan(auth.user.id);
+    const idsFisicas = await idsGruposConPlan(auth.user.id, auth.user.organizationId);
     if (!idsFisicas.length) return { success: true as const, semanas: [] };
 
     const lunesHoy = lunesDeSemana();
@@ -476,11 +484,30 @@ export async function savePhysicalProfile(data: PhysicalProfile) {
 // Si algún día hay varias personas dando planes, se resuelve dando de alta
 // más admins — no hace falta un rol nuevo para eso.
 
+/**
+ * Comprueba que `studentId` pertenece a la academia del admin (P11), antes de
+ * leer o escribir su plan individual: sin esto, un admin podría pasar
+ * cualquier `studentId` de otra academia.
+ */
+async function esDeMiAcademia(studentId: string, organizationId: string | null): Promise<boolean> {
+    if (!organizationId) return false;
+    const { data } = await supabaseAdmin
+        .from('academy_members')
+        .select('user_id')
+        .eq('academy_id', organizationId)
+        .eq('user_id', studentId)
+        .maybeSingle();
+    return !!data;
+}
+
 /** El plan activo de UN alumno, para no escribir a ciegas encima de otro. */
 export async function getStudentActivePlan(studentId: string) {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
     if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
+    if (!(await esDeMiAcademia(studentId, auth.user.organizationId))) {
+        return { success: false as const, error: 'Ese alumno no pertenece a tu academia.' };
+    }
 
     const { data } = await supabaseAdmin
         .from('training_plans')
@@ -513,6 +540,9 @@ export async function saveManualTrainingPlan(params: {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
     if (!params.studentId) return { success: false as const, error: 'Falta el alumno.' };
+    if (!(await esDeMiAcademia(params.studentId, auth.user.organizationId))) {
+        return { success: false as const, error: 'Ese alumno no pertenece a tu academia.' };
+    }
 
     const plan = normalizePlan(buildManualPlan({ weekFocus: params.weekFocus, days: params.days }));
     if (!plan) return { success: false as const, error: 'El plan no tiene ningún día con ejercicios.' };
@@ -535,7 +565,12 @@ export async function saveManualTrainingPlan(params: {
     });
 
     if (!error) {
-        registraAccion({ actorId: auth.user.id, action: 'save_manual_training_plan', target: params.studentId });
+        registraAccion({
+            actorId: auth.user.id,
+            action: 'save_manual_training_plan',
+            target: params.studentId,
+            organizationId: auth.user.organizationId,
+        });
     }
 
     return { success: !error, error: error?.message };

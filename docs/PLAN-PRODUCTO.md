@@ -833,19 +833,23 @@ aparcado por decisión del dueño.
 > descartó el rol `superadmin` por ser "ceremonia" con una sola academia. Con
 > varias, deja de serlo.
 >
-> **Empezada el 11 sep, esquema verificado el 12 sep.** El guion de esquema
+> **Empezada el 11 sep, esquema verificado y código de administración cerrado
+> el 12 sep.** El guion de esquema
 > ([`docs/sql/P11-multi-academia.sql`](sql/P11-multi-academia.sql)) se pegó en
-> el SQL Editor de Supabase el 11 sep y **se ha verificado con acceso real**
-> el 12 sep: `node scripts/schema-snapshot.mjs` (38 tablas, `academies` +
-> `academy_members` presentes) y las consultas del PASO 9 del propio guion
-> confirman que corrió limpio — una academia `principal`/«Alphapol», 7
-> `academy_members` (tantos como perfiles), los tres singleton sin columna
-> `id`, `organization_id` poblado donde tocaba y `question_bank` intacto en
-> `NULL` (banco global). RLS con la clave anónima devuelve 0 filas en las tres
-> tablas que la llevan. `npm run check` sigue en rojo en dos tests de
-> `schema-drift` porque el CÓDIGO (`settings.ts`, `membership.ts`) todavía
-> escribe `id = 1`, el singleton que este guion retiró — es el primer punto
-> del código que sigue.
+> el SQL Editor de Supabase el 11 sep y se verificó con acceso real el 12 sep
+> (`node scripts/schema-snapshot.mjs`, 38 tablas, y las consultas del PASO 9
+> del propio guion). El mismo día se escribió y se verificó en el preview
+> contra la BD real el código que dependía de él: `profiles.role` admite
+> `superadmin`, las rutas `/<slug>` resuelven la academia de la sesión
+> (`middleware.ts` + `resolveOrganizationId` en `app/lib/auth.ts`), y el panel
+> de administración entero filtra por `organization_id` — ver P11a/P11b/P11d
+> en la tabla de abajo para el detalle exacto de qué toca cada uno. Dos
+> cambios de datos, autorizados y ejecutados el 12 sep: el slug de la
+> academia pasó de `principal` a `alphapol`, y `gaepmalaga@gmail.com` es ahora
+> `superadmin` (`morato@atenea.com`, el admin real de la academia, se queda
+> `admin`). Lo que sigue abierto —banco privado por academia (P11c), reportes
+> al superadmin (P11e), el panel transversal (P11f) y el alta de academias
+> desde una pantalla (P11i)— no tiene código empezado.
 
 ### La pregunta que la origina
 
@@ -939,15 +943,15 @@ entero, que hoy asume una sola academia con la clave de servicio (regla
 
 | | Qué es | Estado |
 |---|---|---|
-| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | 🔶 tabla + `academy_members` **ejecutadas y verificadas** (12 sep); las rutas, en marcha |
-| P11b | `organization_id` en cascada por el contenido y la administración | 🔶 columnas **ejecutadas y verificadas** (12 sep); falta añadir el filtro en el código de las Server Actions |
-| P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ el guion deja `question_bank.organization_id` nulable; falta el código |
-| P11d | Rol `superadmin`, distinto de `admin` por academia | ⬜ |
+| P11a | Tabla `academies` (slug, nombre) y rutas `/[academia]` | ✅ **cerrada** (12 sep): `middleware.ts` deja la cookie `atenea-academia` al visitar `/<slug>`; `app/[academia]/page.tsx` valida el slug (forma + existencia) y renderiza `AppShell`; `resolveOrganizationId` (`app/lib/auth.ts`) la lee cuando una cuenta pertenece a varias academias (hoy nadie, así que ni hace falta) |
+| P11b | `organization_id` en cascada por el contenido y la administración | ✅ **cerrada para la administración** (12 sep): `settings.ts`, `membership.ts`, `academy.ts`, `groups.ts`, `audit.ts`, `payments.ts`, `perfil.ts`, `training.ts` (grupos de físicas) y `admin-audit.ts` filtran/escriben por `auth.user.organizationId`. Verificado end-to-end en el preview contra la BD real, con sesión de `morato@atenea.com`: Alumnos, Grupos, Ajustes (convocatoria + datos de la academia + profesores), Pagos, Prep. física y Logs & Auditoría, todos con los datos reales de Alphapol y sin fugas. **`question_bank` queda fuera a propósito** — ver P11c |
+| P11c | Banco global (IA, solo tú) + banco privado por academia (manual/CSV) | ⬜ el guion deja `question_bank.organization_id` nulable; falta el código. `admin.ts` (temario/banco) y `moderation.ts` siguen con `requireAdmin` sin acotar — cualquier academia podría hoy borrar temario o moderar el banco global. Se decide y se hace junto con P11c, no antes |
+| P11d | Rol `superadmin`, distinto de `admin` por academia | 🔶 **el tipo y las guardas están** (12 sep): `AuthUser.role` admite `'superadmin'`, `requireAdmin()` lo acepta igual que `admin`, y por ahora administra SU academia resuelta igual que un admin normal (no hay panel transversal todavía, ver P11f). `gaepmalaga@gmail.com` ya tiene el rol en producción; `morato@atenea.com` se queda `admin` |
 | P11e | Reportes del banco global enrutados al superadmin | ⬜ |
 | P11f | Panel de superadmin: alumnos, rentabilidad y moderación cruzados | ⬜ |
-| P11g | Migrar la academia actual a la primera fila de `academies` | ⬜ |
-| P11h | Selector de academia en el login, si el alumno está en más de una | ⬜ |
-| P11i | Alta de academias nuevas **desde el panel de superadmin** (no un guion) | ⬜ |
+| P11g | Migrar la academia actual a la primera fila de `academies` | ✅ **cerrada** (12 sep): el backfill del guion creó la fila `principal`/«Alphapol»; se renombró el slug a `alphapol` |
+| P11h | Selector de academia en el login, si el alumno está en más de una | ⬜ sin UI. Hay una red de seguridad: si `resolveOrganizationId` no puede decidir (cero o varias academias sin que ninguna coincida con la cookie), el acceso es `no-academy` en vez de adivinar (`AccessLocked`, `AccessDecision`) |
+| P11i | Alta de academias nuevas **desde el panel de superadmin** (no un guion) | ⬜ sigue siendo un `UPDATE`/`INSERT` a mano con la clave de servicio |
 
 ### Las tres preguntas, respondidas (11 sep 2026)
 

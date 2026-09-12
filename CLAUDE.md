@@ -65,7 +65,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
-| **P11** | **Multi-academia** (plan de producto) | 🔶 **empezada** (11 sep), **esquema verificado** (12 sep): `docs/sql/P11-multi-academia.sql` ejecutado y comprobado contra la BD real (38 tablas). Sigue el código: rol `superadmin`, resolver el slug de la academia en las rutas y el login, y el filtro de `organization_id` en el panel de administración. Ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
+| **P11** | **Multi-academia** (plan de producto) | 🔶 **cimientos cerrados** (12 sep): esquema ejecutado y verificado, rol `superadmin`, rutas `/<slug>` (`middleware.ts` + `app/[academia]/`) y el filtro de `organization_id` en todo el panel de administración — verificado end-to-end en el preview contra la BD real. Ver **regla 65**. Slug de producción renombrado a `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Queda**: banco privado por academia (P11c), reportes al superadmin (P11e) y el panel transversal (P11f) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 
 ## Producción
 
@@ -2070,6 +2070,94 @@ Todo se lee con la clave de servicio filtrando por el propio usuario (regla 34):
 La **biodata / psicotécnico / entrevista** (`interview`) sale del MVP como el
 chat (regla 58): código entero, `requireModule` sigue protegiéndolo, solo no se
 ofrece. Los datos personales que importan viven ahora en «Mi perfil».
+
+### 65 · La academia de la sesión se resuelve una vez, no se repite en cada acción
+
+P11 (multi-academia). `profiles` no lleva `organization_id` — la pertenencia
+va por `academy_members`, muchos-a-muchos— así que ni `admin` ni `student`
+podían saber a qué academia pertenecían sin repetir la misma consulta en cada
+Server Action. Se resuelve **una vez**, en `getSessionUser` (`app/lib/auth.ts`,
+`resolveOrganizationId`), y viaja colgada de `auth.user.organizationId` —igual
+que `auth.user.role`—: ninguna acción vuelve a preguntarlo.
+
+**Cómo se resuelve, en orden:**
+
+1. Si la cuenta pertenece a UNA sola academia (el caso de HOY: todo el mundo,
+   por el backfill del guion), es esa. Sin más vuelta, y sin tocar cookies.
+2. Si pertenece a varias, se usa la cookie `atenea-academia` que deja
+   `middleware.ts` al visitar `/<slug>` — el único sitio que traduce la URL a
+   algo que una Server Action pueda leer, porque las Server Actions no ven la
+   URL desde la que se llaman.
+3. Si no hay coincidencia —cero academias, o la cookie no encaja con ninguna
+   de las suyas— `null`. **Nunca se adivina**: enseñar los datos de la
+   academia equivocada es peor que pedir que se identifique otra vez (regla
+   34 — con la clave de servicio, nada más que el código lo impide).
+
+**`admin` y `superadmin` se tratan igual para esto.** Un `admin` con
+`organizationId` nulo se rechaza en `requireAdmin()` (fallar cerrado: dejarlo
+pasar sería la mitad de las academias viendo los datos de todas). Un
+`superadmin` con `organizationId` nulo también pasa por `requireAdmin()`,
+pero HOY administra su propia academia resuelta exactamente igual que un
+`admin` — la diferencia de rol es de cara al panel transversal de varias
+academias (P11f), que no existe todavía. Promover a alguien a `superadmin` no
+cambia una sola pantalla mientras solo haya una academia: es a propósito, y es
+como se comprobó que promover la cuenta del dueño no rompía nada del panel de
+hoy.
+
+**Un `student` sin academia resuelta no es `pending`, es `no-academy`**
+(`AccessDecision`, `app/lib/membership.ts`): son huecos distintos. `pending`
+tiene una fila de `memberships` que mirar y dice «espera a que te activen»;
+`no-academy` no tiene ni eso, y decirlo con el mismo mensaje mandaría a
+alguien a esperar una activación que nunca decidirá nadie porque nadie sabe de
+qué academia es.
+
+**Las tablas de administración llevan `organization_id` NOT NULL**
+(`class_groups`, `group_kinds`, `academy_staff`, `memberships`,
+`monthly_payments`, `academy_settings`, `membership_settings`,
+`academy_convocatoria`); `question_bank` y `admin_audit_log` se quedan
+NULABLES a propósito (banco global / acción de plataforma). Tres consecuencias
+que costó ver la primera vez:
+
+- **`group_kinds` cambió de clave**: antes era `id` (el slug, `'fisicas'`) a
+  secas; ahora es `(organization_id, id)`, porque dos academias pueden llamar
+  `'fisicas'` a tipos distintos sin chocar. Todo `upsert` sobre esa tabla
+  necesita `onConflict: 'organization_id,id'`, y todo `.eq('id', kindId)`
+  necesita ir acompañado de `.eq('organization_id', …)` — sin lo segundo, el
+  slug de otra academia con el mismo nombre se ve o se borra por error.
+  `memberships` y `monthly_payments` tuvieron el mismo cambio de clave
+  (`organization_id,user_id` y `organization_id,user_id,period`).
+- **Los tres singleton (`academy_settings`, `membership_settings`,
+  `academy_convocatoria`) perdieron su columna `id`**: la fila ya no es
+  `id = 1`, es `organization_id = la-que-sea`. Un `.eq('id', 1)` que
+  sobreviviera aquí no daría error — devolvería la fila de OTRA academia, o
+  ninguna, sin que nada lo avisara. `tests/schema-drift.test.ts` lo pilla
+  porque `id` ya no existe en el volcado del esquema.
+- **`setStudentGroups` tiene que filtrar los grupos "que tiene ahora" por la
+  academia activa**, no traer TODOS los `class_members` del alumno: un alumno
+  en dos academias (P11, decidido que puede pasar) perdería sus grupos de la
+  OTRA academia en cuanto un admin tocara el interruptor de la suya. Se
+  resuelve con un `class_groups!inner(organization_id)` embebido y
+  `.eq('class_groups.organization_id', …)`, no con un `.eq('user_id', …)` a
+  secas.
+
+**Lo que NO lleva `organization_id`, a propósito:** el temario
+(`subjects`/`documents`/`document_chunks`, decidido: lo generas tú, es
+compartido) y las tablas que ya filtran por `user_id` con la sesión del propio
+alumno (regla 34) — un alumno pertenece a su academia vía `academy_members`,
+duplicarlo en cada una de sus tablas no añade nada.
+
+**Verificado el 12 sep, end-to-end, contra la BD real de producción**: con la
+sesión de `morato@atenea.com` (admin real de Alphapol) en el preview, Alumnos,
+Grupos, Ajustes (convocatoria + datos de la academia + profesores), Pagos,
+Prep. física y Logs & Auditoría cargaron los datos reales de su academia, sin
+fugas y sin un solo error en consola ni en el registro del servidor.
+
+**Lo que queda fuera de esta regla, a propósito:** `question_bank` (P11c, el
+banco privado por academia todavía no tiene código que lo escriba) y
+`admin.ts`/`moderation.ts` (el temario y la moderación del banco global siguen
+con `requireAdmin` sin acotar — cualquier admin de cualquier academia puede
+hoy tocarlos, y decidir si eso pasa a ser cosa solo del `superadmin` es
+trabajo de P11c, no de esta regla).
 
 ---
 

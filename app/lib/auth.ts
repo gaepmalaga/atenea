@@ -1,26 +1,42 @@
 import 'server-only';
 
+import { cookies } from 'next/headers';
 import { supabaseAdmin } from '../actions/core';
 import { createSupabaseServerClient } from './supabase/server';
 import { decideAccess, type AccessDecision, type MembershipRow } from './membership';
+import { ACADEMIA_COOKIE } from './academies';
 
 export type AuthUser = {
   id: string;
   email: string;
-  role: 'admin' | 'student';
+  role: 'admin' | 'student' | 'superadmin';
   /**
    * Si el alumno puede usar la plataforma (P6). `ok` salvo que el control de
-   * acceso esté encendido y el administrador no lo haya activado (`pending`) o
-   * le haya quitado el acceso (`suspended`). Un admin es siempre `ok`.
+   * acceso esté encendido y el administrador no lo haya activado (`pending`),
+   * le haya quitado el acceso (`suspended`), o no se haya podido resolver a
+   * qué academia pertenece (`no-academy`, P11). Un admin/superadmin es
+   * siempre `ok`.
    */
   access: AccessDecision;
+  /**
+   * LA ACADEMIA ACTIVA DE LA SESIÓN (P11). Todo lo que un admin lee o escribe
+   * en el panel se acota a esta academia — `null` solo puede pasarle a un
+   * `superadmin` sin academia resuelta (ver `resolveOrganizationId`), nunca a
+   * un `admin` ni a un `student` con acceso `ok`.
+   */
+  organizationId: string | null;
 };
 
 export const NOT_ACTIVE_MEMBER =
   'Tu acceso a la plataforma no está activo. Habla con la academia.';
 
+export const NOT_IN_ACADEMY =
+  'No hemos podido asociar tu cuenta a una academia. Habla con ella o revisa el enlace que usaste para entrar.';
+
 /**
- * `membership_settings.required` en caché por instancia.
+ * `membership_settings.required` en caché por instancia, POR ACADEMIA (P11):
+ * la fila ahora es una por academia (`organization_id`), así que el valor de
+ * una no sirve para otra.
  *
  * `getSessionUser` corre en cada Server Action, y el interruptor global cambia
  * una vez cada varios meses. Sin caché, cada llamada serían dos consultas de
@@ -28,11 +44,45 @@ export const NOT_ACTIVE_MEMBER =
  * cachea: suspender a alguien tiene que notarse al momento.
  */
 const REQUIRED_CACHE_MS = 30_000;
-let requiredCache: { valor: boolean; hasta: number } | null = null;
+const requiredCache = new Map<string, { valor: boolean; hasta: number }>();
 
 /** La llama la acción que cambia el interruptor, para verlo sin esperar. */
-export function olvidaMembershipRequired(): void {
-  requiredCache = null;
+export function olvidaMembershipRequired(organizationId?: string | null): void {
+  if (organizationId) requiredCache.delete(organizationId);
+  else requiredCache.clear();
+}
+
+/**
+ * LA ACADEMIA ACTIVA DE LA SESIÓN (P11).
+ *
+ * Si el usuario pertenece a una sola academia — el caso de HOY, todo el mundo
+ * entró en la academia `principal` por el backfill del guion — es esa, sin
+ * más vuelta. Si pertenece a varias (raro, decidido que puede pasar), se usa
+ * la cookie que deja `middleware.ts` al visitar `/<slug>`; si no hay ninguna
+ * coincidencia —cero academias, o la cookie no encaja con ninguna de las
+ * suyas— `null`: mejor no adivinar y enseñarle los datos de la academia
+ * equivocada que resolver algo (regla 34 — con la clave de servicio, nada más
+ * que el código lo impide).
+ */
+async function resolveOrganizationId(userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('academy_members')
+    .select('academy_id, academies(slug)')
+    .eq('user_id', userId);
+
+  if (error || !data || data.length === 0) return null;
+  if (data.length === 1) return data[0].academy_id as string;
+
+  type FilaMembresia = { academy_id: string; academies: { slug: string } | { slug: string }[] | null };
+  const cookieStore = await cookies();
+  const slug = cookieStore.get(ACADEMIA_COOKIE)?.value;
+  if (!slug) return null;
+
+  const match = (data as FilaMembresia[]).find((f) => {
+    const a = Array.isArray(f.academies) ? f.academies[0] : f.academies;
+    return a?.slug === slug;
+  });
+  return match ? match.academy_id : null;
 }
 
 /**
@@ -69,44 +119,56 @@ export async function getSessionUser(): Promise<AuthUser | null> {
     .eq('id', data.user.id)
     .single();
 
-  const role: 'admin' | 'student' = profile?.role === 'admin' ? 'admin' : 'student';
-  const access = await checkAccess(data.user.id, role);
+  const role: AuthUser['role'] =
+    profile?.role === 'admin' ? 'admin' : profile?.role === 'superadmin' ? 'superadmin' : 'student';
+
+  const organizationId = await resolveOrganizationId(data.user.id);
+  const access = await checkAccess(data.user.id, role, organizationId);
 
   return {
     id: data.user.id,
     email: data.user.email ?? '',
     role,
+    organizationId,
     access,
   };
 }
 
 /**
- * Decide si el alumno tiene acceso (P6). Un admin es siempre `ok` y ni siquiera
- * se consulta la base de datos.
+ * Decide si el alumno tiene acceso (P6). Un admin/superadmin es siempre `ok` y
+ * ni siquiera se consulta la base de datos.
  *
  * Si algo falla —la tabla aún no existe, la BD no contesta— se ABRE la puerta:
  * un fallo de lectura no puede dejar fuera a alumnos que sí han pagado (regla
- * 34, y ver `decideAccess`).
+ * 34, y ver `decideAccess`). La excepción es no tener academia resuelta
+ * (P11): ahí no hay ninguna fila que mirar, así que se corta antes de tocar
+ * la base de datos.
  */
-async function checkAccess(userId: string, role: 'admin' | 'student'): Promise<AccessDecision> {
-  if (role === 'admin') return 'ok';
+async function checkAccess(
+  userId: string,
+  role: AuthUser['role'],
+  organizationId: string | null,
+): Promise<AccessDecision> {
+  if (role !== 'student') return 'ok';
+  if (organizationId === null) return 'no-academy';
 
   let required = false;
   let row: MembershipRow = null;
   let readOk = true;
 
   try {
-    if (requiredCache && requiredCache.hasta > Date.now()) {
-      required = requiredCache.valor;
+    const cacheado = requiredCache.get(organizationId);
+    if (cacheado && cacheado.hasta > Date.now()) {
+      required = cacheado.valor;
     } else {
       const { data, error } = await supabaseAdmin
         .from('membership_settings')
         .select('required')
-        .eq('id', 1)
+        .eq('organization_id', organizationId)
         .maybeSingle();
       if (error) throw error;
       required = data?.required === true;
-      requiredCache = { valor: required, hasta: Date.now() + REQUIRED_CACHE_MS };
+      requiredCache.set(organizationId, { valor: required, hasta: Date.now() + REQUIRED_CACHE_MS });
     }
 
     // Solo se mira la fila del alumno si la puerta está cerrada: si no, da igual.
@@ -114,6 +176,7 @@ async function checkAccess(userId: string, role: 'admin' | 'student'): Promise<A
       const { data, error } = await supabaseAdmin
         .from('memberships')
         .select('access_status, payment_status')
+        .eq('organization_id', organizationId)
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
@@ -138,14 +201,25 @@ async function checkAccess(userId: string, role: 'admin' | 'student'): Promise<A
 export async function requireUser(): Promise<AuthCheck> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: NOT_AUTHENTICATED };
+  if (user.access === 'no-academy') return { ok: false, error: NOT_IN_ACADEMY };
   if (user.access !== 'ok') return { ok: false, error: NOT_ACTIVE_MEMBER };
   return { ok: true, user };
 }
 
-/** Exige un usuario autenticado con rol de administrador. */
+/**
+ * Exige un usuario autenticado con rol de administrador — `admin` o
+ * `superadmin` (P11): el segundo puede todo lo que el primero, y además verá
+ * el día de mañana el panel transversal de varias academias.
+ *
+ * Un `admin` SIN academia resuelta se rechaza aquí, no más abajo: cada
+ * consulta de este panel se acota a `user.organizationId`, y dejar pasar un
+ * `null` sería la mitad de las academias viendo los datos de todas (regla
+ * 34 — con la clave de servicio, nada más que el código lo impide).
+ */
 export async function requireAdmin(): Promise<AuthCheck> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: NOT_AUTHENTICATED };
-  if (user.role !== 'admin') return { ok: false, error: NOT_ADMIN };
+  if (user.role !== 'admin' && user.role !== 'superadmin') return { ok: false, error: NOT_ADMIN };
+  if (user.role === 'admin' && user.organizationId === null) return { ok: false, error: NOT_IN_ACADEMY };
   return { ok: true, user };
 }

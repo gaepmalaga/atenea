@@ -66,6 +66,19 @@ export async function getAcademyOverview(): Promise<
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  const organizationId = auth.user.organizationId;
+
+  // QUIÉN PERTENECE A ESTA ACADEMIA (P11): `profiles` no lleva
+  // `organization_id` —la pertenencia va por `academy_members`—, así que el
+  // roster de alumnos sale de cruzar las dos. Sin este filtro, el panel de
+  // una academia enseñaría a los alumnos de todas.
+  const { data: miembros, error: miembrosErr } = await supabaseAdmin
+    .from('academy_members')
+    .select('user_id')
+    .eq('academy_id', organizationId);
+  if (miembrosErr) return { success: false as const, error: miembrosErr.message };
+  const idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
 
   // LA ULTIMA CONEXION SALE DE `auth.users`, no de las respuestas.
   //
@@ -76,21 +89,26 @@ export async function getAcademyOverview(): Promise<
   // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
   // no era un numero feo, era una llamada de telefono equivocada.
   const periodo = periodoActual();
-  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosRes, membresiasRes, pagosRes, ajustesRes] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role, created_at'),
-    supabaseAdmin
-      .from('question_attempts')
-      .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
-      .limit(MAX_INTENTOS),
+  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosGrupoRes, membresiasRes, pagosRes, ajustesRes] = await Promise.all([
+    idsAcademia.length
+      ? supabaseAdmin.from('profiles').select('id, email, role, created_at').in('id', idsAcademia)
+      : Promise.resolve({ data: [], error: null }),
+    idsAcademia.length
+      ? supabaseAdmin
+          .from('question_attempts')
+          .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
+          .in('user_id', idsAcademia)
+          .limit(MAX_INTENTOS)
+      : Promise.resolve({ data: [], error: null }),
     supabaseAdmin.from('subjects').select('id, title').order('topic_number', { ascending: true }),
     supabaseAdmin.from('question_bank').select('subject_id').eq('status', QUESTION_STATUS.ACTIVE),
     // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
-    supabaseAdmin.from('class_groups').select('id, name, kind').order('name'),
+    supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', organizationId).order('name'),
     supabaseAdmin.from('class_members').select('class_id, user_id'),
-    supabaseAdmin.from('memberships').select('user_id, access_status'),
-    supabaseAdmin.from('monthly_payments').select('user_id, paid').eq('period', periodo).eq('paid', true),
-    supabaseAdmin.from('membership_settings').select('required').eq('id', 1).maybeSingle(),
+    supabaseAdmin.from('memberships').select('user_id, access_status').eq('organization_id', organizationId),
+    supabaseAdmin.from('monthly_payments').select('user_id, paid').eq('organization_id', organizationId).eq('period', periodo).eq('paid', true),
+    supabaseAdmin.from('membership_settings').select('required').eq('organization_id', organizationId).maybeSingle(),
   ]);
 
   if (perfilesRes.error || intentosRes.error) {
@@ -111,7 +129,7 @@ export async function getAcademyOverview(): Promise<
   // Los admin NO son alumnos: fuera de la lista, de los cuadros y del filtro.
   // Un profesor mirando «a quién llamar» no se llama a sí mismo.
   const perfilesConConexion = (perfilesRes.data ?? [])
-    .filter((p) => p.role !== 'admin')
+    .filter((p) => p.role !== 'admin' && p.role !== 'superadmin')
     .map((p) => ({
       ...p,
       last_sign_in_at: conexiones.get(p.id) ?? null,
@@ -125,7 +143,7 @@ export async function getAcademyOverview(): Promise<
   const grupos = ((gruposRes.data as FilaGrupo[]) ?? []);
   const grupoPorId = new Map(grupos.map((g) => [g.id, g]));
   const gruposDeAlumno = new Map<string, GrupoDeAlumno[]>();
-  for (const m of miembrosRes.data ?? []) {
+  for (const m of miembrosGrupoRes.data ?? []) {
     const g = grupoPorId.get(m.class_id as string);
     if (!g) continue;
     const lista = gruposDeAlumno.get(m.user_id as string) ?? [];
@@ -214,7 +232,18 @@ export async function getStudentDetail(
 ): Promise<{ success: true; data: StudentDetail } | { success: false; error: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
+  if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
+
+  // El alumno tiene que ser de ESTA academia (P11): sin esto, un admin podría
+  // pedir la ficha de cualquier `studentId` de cualquier otra.
+  const { data: esMiembro } = await supabaseAdmin
+    .from('academy_members')
+    .select('user_id')
+    .eq('academy_id', auth.user.organizationId)
+    .eq('user_id', studentId)
+    .maybeSingle();
+  if (!esMiembro) return { success: false as const, error: 'Ese alumno no pertenece a tu academia.' };
 
   const [perfilRes, intentosRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role, created_at').eq('id', studentId).maybeSingle(),

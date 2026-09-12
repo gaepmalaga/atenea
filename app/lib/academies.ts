@@ -27,6 +27,16 @@ const SLUG_MIN = 2;
 const SLUG_MAX = 30;
 
 /**
+ * La cookie que deja `middleware.ts` al visitar `/<slug>`, y que
+ * `app/lib/auth.ts` lee para resolver la academia activa de la sesión
+ * (`resolveOrganizationId`) cuando una cuenta pertenece a más de una. Vive
+ * aquí, no en `auth.ts` (`server-only`), porque el middleware corre en el
+ * runtime Edge y no puede importar ese módulo (arrastra Gemini y la clave de
+ * servicio).
+ */
+export const ACADEMIA_COOKIE = 'atenea-academia';
+
+/**
  * Slug a partir del nombre de una academia: «Alpha Policía» -> «alpha-policia».
  * Misma normalización que `slugDeTipo` en `groups.ts` (quita tildes, minúsculas,
  * guiones), con su propio límite de longitud porque este va en la URL, no en
