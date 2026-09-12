@@ -16,13 +16,22 @@ import AccessLocked from './auth/AccessLocked';
  * LA APLICACIÓN ENTERA (regla 37), independiente de por qué ruta se entró.
  *
  * `app/page.tsx` (sin academia en la URL) y `app/[academia]/page.tsx` (P11,
- * `/alphapol`, `/depol`…) renderizan exactamente esto. La academia activa de
- * la sesión NO es una prop de este componente: la resuelve el servidor en
+ * `/alphapol`, `/depol`…) renderizan esto. La academia de una SESIÓN YA
+ * ABIERTA no es una prop de este componente: la resuelve el servidor en
  * `getSessionUser` (cookie que deja `middleware.ts` + `academy_members`), así
- * que este componente no necesita saber en qué ruta está — es la misma razón
- * por la que `LoginScreen` no cambia una línea entre `/alphapol` y `/depol`.
+ * que `LoginScreen` no cambia una línea entre `/alphapol` y `/depol`.
+ *
+ * `academiaSlug` es la ÚNICA excepción, y solo para el REGISTRO (P11j): un
+ * alta nueva no tiene todavía ninguna fila en `academy_members` que
+ * `resolveOrganizationId` pueda mirar, así que hace falta decir por qué
+ * academia se está registrando en el momento mismo del `signUp` — se manda
+ * como metadata (`options.data.academia_slug`), y un disparador de Postgres
+ * (`docs/sql/P11j-asignar-academia-en-registro.sql`) la lee para dar de alta
+ * la membresía. Sin slug (registro por `/`), el disparador cae al mismo
+ * criterio que `resolveOrganizationId`: si solo hay una academia en toda la
+ * plataforma, es esa.
  */
-export default function AppShell() {
+export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {}) {
   // Cliente con sesion en COOKIES: es lo que permite que las Server Actions
   // verifiquen quien llama. Con el cliente por defecto la sesion vivia en
   // localStorage y el servidor no podia verla.
@@ -89,7 +98,16 @@ export default function AppShell() {
           setRole(current.role);
         }
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
+        // P11j: el slug viaja como metadata del propio alta — el disparador
+        // de Postgres la lee para dar de alta la membresía (docs/sql/P11j-
+        // asignar-academia-en-registro.sql). Sin slug (registro por `/`), cae
+        // al mismo criterio que `resolveOrganizationId`: si solo hay una
+        // academia en toda la plataforma, es esa.
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          ...(academiaSlug ? { options: { data: { academia_slug: academiaSlug } } } : {}),
+        });
         if (error) throw error;
         // Antes esto era un `alert()` del navegador que decia "Revisa tu email
         // o inicia sesion". La "o" era falsa: con `Confirm email` activado NO

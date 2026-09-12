@@ -87,8 +87,25 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (12 sep 2026, `node
-   scripts/schema-snapshot.mjs` — **38 tablas**):
+1. **Ejecutar SQL. Queda UN guion pendiente**, y es importante — sin él,
+   **nadie que se registre hoy entra en ninguna academia**:
+   - **`P11j-asignar-academia-en-registro.sql`** (12 sep 2026) — un
+     disparador de Postgres (`on_auth_user_created_academia`) que da de alta
+     la membresía en `academy_members` en cuanto se registra una cuenta. Hace
+     falta porque ningún camino de código lo hacía: `supabase.auth.signUp()`
+     (`AppShell.tsx`) no decía de qué academia era, así que un alta nueva
+     confirmaba su correo, entraba, y se encontraba con «No hemos encontrado
+     tu academia» sin ninguna forma de salir de ahí. El disparador lee el
+     slug que `AppShell.tsx` ya manda como metadata del registro
+     (`options.data.academia_slug`) cuando se registra desde `/<slug>`; sin
+     slug (registro por `/`), cae al mismo criterio que
+     `resolveOrganizationId`: si solo hay una academia en toda la
+     plataforma, es esa. No toca el disparador que ya crea `profiles` —vive
+     solo en Supabase, no en este repo—: es un `AFTER INSERT` independiente
+     sobre `auth.users`, y Postgres permite varios.
+
+   Ejecutados y verificados (12 sep 2026, `node scripts/schema-snapshot.mjs`
+   — **38 tablas**):
    - **`P11-multi-academia.sql`** (pegado 11 sep, **verificado con acceso real
      el 12 sep**) — los cimientos de servir la plataforma a varias academias
      (`docs/PLAN-PRODUCTO.md`, fase P11): `academies`, `academy_members`, y
