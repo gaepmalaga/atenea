@@ -2392,6 +2392,47 @@ Verificado en local contra la Supabase real, con la sesión de
 a mostrar «📚 Banco oficial». `npm run check` en verde (ningún test dependía
 de la condición vieja).
 
+### 67 · Confirmar un enlace de correo no es lo mismo que quedar dentro
+
+Encontrado probando el alta y la invitación de admin de verdad, con el SMTP ya
+funcionando (12 sep): los dos enlaces de correo (`signUp` → confirmación;
+`inviteUserByEmail` → invitación) devolvían a la aplicación con una sesión sin
+canjear colgando en la URL, y nadie la canjeaba — quien acababa de confirmar
+su cuenta, o de aceptar una invitación de admin, aterrizaba otra vez en el
+formulario de ENTRAR, con un `?code=...` o un `#access_token=...` sin usar, y
+tenía que iniciar sesión a mano como si el enlace no hubiera servido de nada.
+
+**Son dos flujos DISTINTOS, y hay que manejar los dos:**
+
+| | Cómo vuelve | Por qué | Contraseña |
+|---|---|---|---|
+| Confirmar registro (`signUp` desde el propio `AppShell`) | `?code=...` (PKCE — el cliente de `@supabase/ssr` lo pide por defecto) | El navegador ya generó el `code_verifier` al registrarse | Ya la puso en el formulario de alta |
+| Invitación de admin (`inviteUserByEmail`, sin cliente de por medio) | `#access_token=...&refresh_token=...&type=invite` (flujo implícito — no hay `code_verifier` que canjear) | La invitación la dispara el servidor, no un navegador con PKCE | **Nunca la puso — `inviteUserByEmail` no la pide** |
+
+`AppShell.tsx` (`checkSession`) ahora resuelve los dos: `?code=` se canjea con
+`exchangeCodeForSession` y entra derecho al panel (ya tiene contraseña);
+`#access_token=`+`#refresh_token=` se establece con `setSession`, y si el
+`type` es `invite` se le enseña una pantalla nueva — **`SetPasswordScreen`**
+(`app/components/auth/`, mismo lenguaje visual que `LoginScreen`, regla
+43) — que pide una contraseña antes de dejarla pasar. Sin este paso, un admin
+recién invitado entraba una vez con el enlace y se quedaba **sin forma de
+volver a entrar**: `signInWithPassword` no tenía nada que comprobar contra una
+cuenta que nunca tuvo contraseña. Es el mismo fallo, ya real, de
+`comprofresh@gmail.com` (regla 65): aceptó la invitación pero nadie le pidió
+que pusiera una clave.
+
+El código se limpia de la URL con `history.replaceState` en cuanto se lee,
+haya funcionado el canje o no: un código de un solo uso que falla (enlace
+reutilizado, ya canjeado en otra pestaña) no puede quedarse ahí intentándolo
+en cada visita — se le pide entrar a mano en su lugar, sin enseñar un error
+técnico sobre un código que ya no importa.
+
+**Verificado en local contra la Supabase real, con enlaces generados por la
+API de administración** (los del correo se invalidan solos: Gmail los
+pre-visita por seguridad y gasta el token de un solo uso antes de poder
+pulsarlos a propósito) — los dos caminos, registro e invitación, entran
+derecho sin pasar por el formulario de login. `npm run check` en verde.
+
 ---
 
 ## Los tests
