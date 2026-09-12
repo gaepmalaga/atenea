@@ -481,6 +481,7 @@ export async function getAcademySettings() {
       contactPhone: '600 111 222',
       updatedAt: new Date(Date.now() - 3 * 864e5).toISOString(),
     },
+    slug: 'alphapol',
   });
 }
 export async function saveAcademySettings() { return { success: true as const }; }

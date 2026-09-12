@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, Loader2, Plus, Pencil, Trash2, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Building2, Loader2, Plus, Pencil, Trash2, AlertTriangle, CalendarClock, Link2, Check, Copy } from 'lucide-react';
 import {
   getAcademySettings,
   saveAcademySettings,
@@ -26,6 +26,7 @@ import { Card, Button, Modal, TextField, TextAreaField, SectionLabel, TEXT, cx }
  */
 export default function AcademyIdentity() {
   const [settings, setSettings] = useState<AcademySettings | null>(null);
+  const [slug, setSlug] = useState('');
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [cargando, setCargando] = useState(true);
   const [tablaFalta, setTablaFalta] = useState(false);
@@ -35,7 +36,7 @@ export default function AcademyIdentity() {
     let vivo = true;
     Promise.all([getAcademySettings(), listStaff()]).then(([s, st]) => {
       if (!vivo) return;
-      if (s.success) setSettings(s.settings);
+      if (s.success) { setSettings(s.settings); setSlug(s.slug); }
       else setError(s.error);
       if (st.success) setStaff(st.staff);
       else if (/could not find the table/i.test(st.error)) setTablaFalta(true);
@@ -67,10 +68,62 @@ export default function AcademyIdentity() {
 
   return (
     <div className="space-y-6">
+      <CardEnlace slug={slug} />
       <CardConvocatoria />
       <FichaAcademia inicial={settings} error={error} />
       <ListaProfesores staff={staff} onCambio={setStaff} />
     </div>
+  );
+}
+
+/**
+ * EL ENLACE DE LA ACADEMIA (`/alphapol`, `/depol`…) — P11.
+ *
+ * Salió de una pregunta directa: "¿dónde tienen las academias su enlace para
+ * poder enviarlo a sus alumnos?". En ningún sitio: el admin de una academia
+ * no tenía forma de ver su propio slug. Es lo que un alumno usa para
+ * registrarse en ESTA academia (P11j) — sin él, no hay forma de repartirlo.
+ *
+ * `window.location.origin` y no un dominio a fuego: en local enseña
+ * `localhost:3000`, en producción el dominio real, sin mantenimiento.
+ */
+function CardEnlace({ slug }: { slug: string }) {
+  const [copiado, setCopiado] = useState(false);
+  if (!slug) return null;
+
+  const url = typeof window !== 'undefined' ? `${window.location.origin}/${slug}` : `/${slug}`;
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Portapapeles bloqueado (permisos, contexto no seguro): el enlace
+      // sigue ahí, seleccionable a mano.
+    }
+  }
+
+  return (
+    <Card pad="md" className="space-y-3">
+      <SectionLabel icon={<Link2 size={16} />}>Tu enlace de acceso</SectionLabel>
+      <p className={TEXT.muted}>
+        Es lo que le das a un alumno para que se registre en tu academia — nunca la URL pelada.
+      </p>
+      <div className="flex items-center gap-2 min-w-0">
+        <code className="flex-1 min-w-0 truncate rounded-xl bg-slate-100 dark:bg-slate-800 px-3 py-2.5 text-sm font-mono text-slate-700 dark:text-slate-200">
+          {url}
+        </code>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={copiado ? <Check size={14} /> : <Copy size={14} />}
+          onClick={copiar}
+        >
+          {copiado ? 'Copiado' : 'Copiar'}
+        </Button>
+      </div>
+    </Card>
   );
 }
 

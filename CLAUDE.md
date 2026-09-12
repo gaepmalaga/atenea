@@ -2208,6 +2208,30 @@ sería tomar una decisión de producto que no me corresponde. Se queda pendiente
 para cuando exista una segunda academia de verdad, o para cuando el dueño lo
 pida explícitamente.
 
+**Dos huecos más, encontrados al preguntarse cómo se reparte el enlace y
+cómo se invita a un admin (12 sep, después de desplegar P11f/i):**
+
+- **El admin de una academia no tenía dónde ver su propio enlace.**
+  `AcademyIdentity.tsx` («Ajustes» → «Datos de la academia») ganó una
+  tarjeta «Tu enlace de acceso» con la URL completa
+  (`window.location.origin` + `/<slug>`, nunca un dominio a fuego) y un
+  botón de copiar. `getAcademySettings` (`settings.ts`) ahora también trae
+  el `slug` —vive en `academies`, no en `academy_settings`— junto a los
+  datos de siempre.
+- **«Añadir admin» exigía que la cuenta ya existiera**, y eso no era lo que
+  se esperaba: un superadmin dando de alta una academia normalmente está
+  pensando en alguien que TODAVÍA no tiene cuenta. `addAcademyAdmin`
+  (`superadmin.ts`) ahora, si no encuentra el correo, **invita** con
+  `auth.admin.inviteUserByEmail` —Supabase crea la cuenta y manda el correo
+  con el enlace para poner contraseña— pasando la academia como la MISMA
+  metadata que ya lee el disparador de P11j (`academia_slug`): así entra
+  directamente en la academia correcta en la misma operación, en vez de caer
+  por defecto en `atenea`. Verificado el camino de "la cuenta ya existe"
+  contra la BD real (sube el rol, añade la membresía); el de la invitación
+  no se pudo mandar de verdad por el mismo límite de correos del plan Free
+  de Supabase — es la misma llamada estándar de la API, con los parámetros
+  correctos.
+
 **El panel transversal SÍ llegó, el mismo día (P11f/P11i, 12 sep):**
 `requireSuperadmin()` (`app/lib/auth.ts`) es una guarda NUEVA, no una variante
 de `requireAdmin()` — un `admin` normal, por bien resuelta que tenga su
