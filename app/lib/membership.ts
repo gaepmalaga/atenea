@@ -9,6 +9,13 @@
 export const ACCESS_STATUS = {
   ACTIVE: 'active',
   SUSPENDED: 'suspended',
+  /**
+   * Una solicitud de alta ya materializada (P12) — antes "pendiente" era
+   * la AUSENCIA de fila (regla 52); ahora también puede ser una fila real,
+   * para poder avisar al admin una sola vez. Las dos formas decretan lo
+   * mismo en `decideAccess`: fuera hasta que alguien decida.
+   */
+  PENDING: 'pending',
 } as const;
 export type AccessStatus = (typeof ACCESS_STATUS)[keyof typeof ACCESS_STATUS];
 
@@ -25,6 +32,8 @@ export type AccessDecision = 'ok' | 'pending' | 'suspended' | 'no-academy';
 /** Una fila de `memberships`, o `null` si el alumno no tiene ninguna todavía. */
 export type MembershipRow = {
   access_status?: string | null;
+  /** P12: exento de pago, por estar en la lista blanca de su academia. */
+  exempt?: boolean | null;
 } | null;
 
 /**
@@ -41,10 +50,11 @@ export type MembershipRow = {
  *     abre la puerta. Un fallo de lectura no puede dejar a la academia entera
  *     fuera sin que nadie lo haya decidido — misma regla que `module-guard`,
  *     pero aquí el coste de equivocarse es mayor: son alumnos que SÍ han pagado.
- *  4. SIN FILA = pendiente. Un alumno recién registrado no entra hasta que el
- *     administrador lo active.
+ *  4. SIN FILA, o fila con `pending` (P12: la solicitud ya materializada
+ *     para poder avisar al admin una sola vez) = pendiente. Un alumno recién
+ *     registrado no entra hasta que el administrador lo acepte.
  *  5. Fila con `suspended` = fuera. Es lo que el administrador pone cuando
- *     alguien deja de pagar o pide la baja.
+ *     rechaza una solicitud, o cuando alguien deja de pagar o pide la baja.
  *  6. Cualquier otra cosa (fila `active`) = dentro.
  */
 export function decideAccess(params: {
@@ -61,5 +71,6 @@ export function decideAccess(params: {
   if (!readOk) return 'ok';
   if (!row) return 'pending';
   if (row.access_status === ACCESS_STATUS.SUSPENDED) return 'suspended';
+  if (row.access_status === ACCESS_STATUS.PENDING) return 'pending';
   return 'ok';
 }

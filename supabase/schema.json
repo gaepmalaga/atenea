@@ -536,6 +536,23 @@
         "user_id": "uuid"
       }
     },
+    "membership_exemptions": {
+      "columnas": [
+        "created_at",
+        "email",
+        "organization_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "email",
+        "organization_id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "email": "text",
+        "organization_id": "uuid"
+      }
+    },
     "membership_settings": {
       "columnas": [
         "organization_id",
@@ -556,6 +573,7 @@
     "memberships": {
       "columnas": [
         "access_status",
+        "exempt",
         "note",
         "organization_id",
         "payment_status",
@@ -564,6 +582,7 @@
       ],
       "obligatorias": [
         "access_status",
+        "exempt",
         "organization_id",
         "payment_status",
         "updated_at",
@@ -571,6 +590,7 @@
       ],
       "tipos": {
         "access_status": "text",
+        "exempt": "boolean",
         "note": "text",
         "organization_id": "uuid",
         "payment_status": "text",

@@ -80,6 +80,19 @@ describe('resumeMes', () => {
     const r = resumeMes('2026-09', roster, [{ user_id: 'a', period: '2026-09', paid: true, amount_eur: '29,90' }]);
     expect(r.cobrado).toBeCloseTo(29.9, 2);
   });
+
+  it('P12: un exento aparece en las filas pero NO cuenta en pagados/porPagar/total/cobrado', () => {
+    const conExento = [...roster, { id: 'd', email: 'd@x.com', exempt: true }];
+    const r = resumeMes('2026-09', conExento, [
+      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
+    ]);
+    expect(r.filas).toHaveLength(4);
+    expect(r.filas.find((f) => f.userId === 'd')!.exempt).toBe(true);
+    // Los otros 3 son los "en juego": a pagó, b y c no.
+    expect(r.total).toBe(3);
+    expect(r.pagados).toBe(1);
+    expect(r.porPagar).toBe(2);
+  });
 });
 
 describe('resumeHistorico · la rejilla de todos los meses', () => {
@@ -119,6 +132,19 @@ describe('resumeHistorico · la rejilla de todos los meses', () => {
     ]);
     expect(h.filas.find((f) => f.userId === 'a')!.pagadosEnRango).toBe(0);
     expect(h.columnas.every((c) => c.cobrado === 0)).toBe(true);
+  });
+
+  it('P12: un exento no cuenta en las columnas, aunque tenga celdas pagadas', () => {
+    const conExento = [...roster, { id: 'c', email: 'c@x.com', exempt: true }];
+    const h = resumeHistorico(periodos, conExento, [
+      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
+      { user_id: 'c', period: '2026-09', paid: true, amount_eur: '999' },
+    ]);
+    const sep = h.columnas.find((c) => c.period === '2026-09')!;
+    expect(sep.total).toBe(2); // solo a y b, no c
+    expect(sep.pagados).toBe(1); // solo a
+    expect(sep.cobrado).toBeCloseTo(45, 2); // el importe de c no se suma
+    expect(h.filas.find((f) => f.userId === 'c')!.exempt).toBe(true);
   });
 });
 

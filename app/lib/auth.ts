@@ -5,6 +5,7 @@ import { supabaseAdmin } from '../actions/core';
 import { createSupabaseServerClient } from './supabase/server';
 import { decideAccess, type AccessDecision, type MembershipRow } from './membership';
 import { ACADEMIA_COOKIE } from './academies';
+import { resolveFirstContact } from './registration-requests';
 
 export type AuthUser = {
   id: string;
@@ -128,7 +129,7 @@ export async function getSessionUser(): Promise<AuthUser | null> {
   // vería sus alumnos, sus grupos, sus pagos— solo por historia, no porque
   // le corresponda administrarla.
   const organizationId = role === 'superadmin' ? null : await resolveOrganizationId(data.user.id);
-  const access = await checkAccess(data.user.id, role, organizationId);
+  const access = await checkAccess(data.user.id, role, organizationId, data.user.email ?? '');
 
   return {
     id: data.user.id,
@@ -148,11 +149,18 @@ export async function getSessionUser(): Promise<AuthUser | null> {
  * 34, y ver `decideAccess`). La excepción es no tener academia resuelta
  * (P11): ahí no hay ninguna fila que mirar, así que se corta antes de tocar
  * la base de datos.
+ *
+ * P12: si no hay fila y la puerta está cerrada, es el PRIMER CONTACTO de este
+ * alumno — se materializa aquí (`resolveFirstContact`: exento, o solicitud
+ * pendiente con aviso al admin). Va dentro del mismo `try`: un fallo al
+ * escribir cae en el mismo `catch` de abajo y abre la puerta, que es preferible
+ * a dejar a alguien fuera por un problema de escritura, no de decisión.
  */
 async function checkAccess(
   userId: string,
   role: AuthUser['role'],
   organizationId: string | null,
+  email: string,
 ): Promise<AccessDecision> {
   if (role !== 'student') return 'ok';
   if (organizationId === null) return 'no-academy';
@@ -172,7 +180,7 @@ async function checkAccess(
         .eq('organization_id', organizationId)
         .maybeSingle();
       if (error) throw error;
-      required = data?.required === true;
+      required = data?.required !== false;
       requiredCache.set(organizationId, { valor: required, hasta: Date.now() + REQUIRED_CACHE_MS });
     }
 
@@ -180,12 +188,12 @@ async function checkAccess(
     if (required) {
       const { data, error } = await supabaseAdmin
         .from('memberships')
-        .select('access_status, payment_status')
+        .select('access_status, payment_status, exempt')
         .eq('organization_id', organizationId)
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
-      row = data ?? null;
+      row = data ?? (await resolveFirstContact(organizationId, userId, email));
     }
   } catch (e) {
     console.error('checkAccess (se abre la puerta):', e instanceof Error ? e.message : e);
