@@ -36,6 +36,14 @@ describe('decideAccess · quién entra', () => {
     expect(decideAccess({ ...base, row: { access_status: ACCESS_STATUS.ACTIVE } })).toBe('ok');
   });
 
+  it('P12: una fila con access_status "pending" (solicitud ya materializada) decide igual que sin fila', () => {
+    expect(decideAccess({ ...base, row: { access_status: ACCESS_STATUS.PENDING } })).toBe('pending');
+  });
+
+  it('P12: exento y activo entra igual que cualquier otro activo', () => {
+    expect(decideAccess({ ...base, row: { access_status: ACCESS_STATUS.ACTIVE, exempt: true } })).toBe('ok');
+  });
+
   it('el orden: admin > interruptor > fallo de lectura > sin fila > suspendido', () => {
     expect(decideAccess({ required: false, role: 'student', row: { access_status: 'suspended' }, readOk: true })).toBe('ok');
     expect(decideAccess({ required: true, role: 'student', row: { access_status: 'suspended' }, readOk: false })).toBe('ok');

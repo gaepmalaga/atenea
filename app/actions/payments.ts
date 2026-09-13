@@ -60,7 +60,7 @@ export async function getMonthlyPayments(
 
   const [perfilesRes, membresiasRes, pagosRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').in('id', idsAcademia).limit(MAX_PERFILES),
-    supabaseAdmin.from('memberships').select('user_id, access_status').eq('organization_id', organizationId),
+    supabaseAdmin.from('memberships').select('user_id, access_status, exempt').eq('organization_id', organizationId),
     supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').eq('organization_id', organizationId).eq('period', p),
   ]);
 
@@ -72,12 +72,14 @@ export async function getMonthlyPayments(
   // El roster del mes: alumnos cuyo `access_status` es 'active'. Sin fila en
   // `memberships` = pendiente = NO entra todavía (regla de P6/P8).
   const activos = new Set<string>();
+  const exentos = new Set<string>();
   for (const m of membresiasRes.data ?? []) {
     if (m.access_status === 'active') activos.add(m.user_id as string);
+    if (m.exempt === true) exentos.add(m.user_id as string);
   }
   const roster = (perfilesRes.data ?? [])
     .filter((u) => activos.has(u.id as string))
-    .map((u) => ({ id: u.id as string, email: (u.email as string) ?? null }));
+    .map((u) => ({ id: u.id as string, email: (u.email as string) ?? null, exempt: exentos.has(u.id as string) }));
 
   const resumen = resumeMes(p, roster, (pagosRes.data ?? []) as MonthlyPaymentRow[]);
   const emailPorId = new Map(roster.map((r) => [r.id, r.email]));
@@ -124,7 +126,7 @@ export async function getPaymentsHistory(): Promise<
 
   const [perfilesRes, membresiasRes, pagosRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').in('id', idsAcademia).limit(MAX_PERFILES),
-    supabaseAdmin.from('memberships').select('user_id, access_status').eq('organization_id', organizationId),
+    supabaseAdmin.from('memberships').select('user_id, access_status, exempt').eq('organization_id', organizationId),
     supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').eq('organization_id', organizationId).in('period', periodos),
   ]);
 
@@ -134,12 +136,14 @@ export async function getPaymentsHistory(): Promise<
   }
 
   const activos = new Set<string>();
+  const exentos = new Set<string>();
   for (const m of membresiasRes.data ?? []) {
     if (m.access_status === 'active') activos.add(m.user_id as string);
+    if (m.exempt === true) exentos.add(m.user_id as string);
   }
   const roster = (perfilesRes.data ?? [])
     .filter((u) => activos.has(u.id as string))
-    .map((u) => ({ id: u.id as string, email: (u.email as string) ?? null }))
+    .map((u) => ({ id: u.id as string, email: (u.email as string) ?? null, exempt: exentos.has(u.id as string) }))
     .sort((a, b) => (a.email ?? '').localeCompare(b.email ?? ''));
 
   return {

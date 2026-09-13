@@ -115,6 +115,8 @@ export type FilaAlumno = {
    * igual, pero se muestra igualmente para poder activar antes de encenderlo.
    */
   acceso: 'active' | 'suspended' | 'pending';
+  /** P12: exento de pago (lista blanca del admin). Lo pone la acción. */
+  exento: boolean;
   /** ¿Ha pagado el mes en curso? (P8). Lo pone la acción. */
   pagadoMesActual: boolean;
   /** Respuestas CONTESTADAS. Los blancos van aparte (regla 24). */
@@ -212,6 +214,7 @@ export function resumeAlumnos(
       role: p.role ?? null,
       grupos: [],
       acceso: 'pending' as const,
+      exento: false,
       pagadoMesActual: false,
       contestadas: acc?.contestadas ?? 0,
       blancos: acc?.blancos ?? 0,

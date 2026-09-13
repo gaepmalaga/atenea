@@ -129,8 +129,13 @@ function VistaHistorico() {
               <tr key={f.userId}>
                 <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 font-mono text-[11px] text-slate-700 dark:text-slate-200 px-2 py-1.5 border-t border-slate-100 dark:border-slate-800 max-w-[10rem] truncate">
                   {f.email ?? f.userId.slice(0, 8)}
+                  {f.exempt && <span className="ml-1.5 font-sans text-[9px] font-bold text-indigo-600 dark:text-indigo-400">EXENTO</span>}
                 </td>
-                {data.columnas.map((c) => {
+                {f.exempt ? (
+                  <td colSpan={data.columnas.length} className="text-center border-t border-slate-100 dark:border-slate-800 px-1 py-1 text-[11px] text-indigo-600 dark:text-indigo-400 italic">
+                    exento de pago
+                  </td>
+                ) : data.columnas.map((c) => {
                   const celda = f.celdas[c.period];
                   const paid = celda?.paid === true;
                   const clave = `${f.userId} ${c.period}`;
@@ -249,7 +254,9 @@ function VistaMes() {
                 {data.filas.map((f) => (
                   <div key={f.userId} className={cx('flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm', f.paid && 'bg-emerald-500/5')}>
                     <span className="font-mono text-xs text-slate-700 dark:text-slate-200 min-w-0 truncate flex-1">{f.email ?? f.userId.slice(0, 8)}</span>
-                    {f.paid ? (
+                    {f.exempt ? (
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">Exento</span>
+                    ) : f.paid ? (
                       <span className="flex items-center gap-2 shrink-0">
                         <span className="font-mono tabular-nums font-bold text-emerald-700 dark:text-emerald-400">{formateaEUR(f.amount)}</span>
                         {f.paidOn && <span className={TEXT.muted}>{f.paidOn}</span>}

@@ -110,7 +110,7 @@ export async function getAcademyOverview(): Promise<
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
     supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', organizationId).order('name'),
     supabaseAdmin.from('class_members').select('class_id, user_id'),
-    supabaseAdmin.from('memberships').select('user_id, access_status').eq('organization_id', organizationId),
+    supabaseAdmin.from('memberships').select('user_id, access_status, exempt').eq('organization_id', organizationId),
     supabaseAdmin.from('monthly_payments').select('user_id, paid').eq('organization_id', organizationId).eq('period', periodo).eq('paid', true),
     supabaseAdmin.from('membership_settings').select('required').eq('organization_id', organizationId).maybeSingle(),
   ]);
@@ -154,16 +154,23 @@ export async function getAcademyOverview(): Promise<
     lista.push({ id: g.id, name: g.name, kind: g.kind });
     gruposDeAlumno.set(m.user_id as string, lista);
   }
-  // Acceso (P6) y pago del mes en curso (P8), pegados a cada fila.
-  const accesoPorAlumno = new Map<string, 'active' | 'suspended'>();
+  // Acceso (P6/P12) y pago del mes en curso (P8), pegados a cada fila.
+  const accesoPorAlumno = new Map<string, 'active' | 'suspended' | 'pending'>();
+  const exentoPorAlumno = new Set<string>();
   for (const m of membresiasRes.data ?? []) {
-    accesoPorAlumno.set(m.user_id as string, m.access_status === 'suspended' ? 'suspended' : 'active');
+    const estado = m.access_status as string;
+    accesoPorAlumno.set(
+      m.user_id as string,
+      estado === 'suspended' ? 'suspended' : estado === 'pending' ? 'pending' : 'active',
+    );
+    if (m.exempt === true) exentoPorAlumno.add(m.user_id as string);
   }
   const pagadoEsteMes = new Set((pagosRes.data ?? []).map((p) => p.user_id as string));
 
   for (const a of alumnos) {
     a.grupos = (gruposDeAlumno.get(a.id) ?? []).sort((x, y) => x.name.localeCompare(y.name, 'es'));
     a.acceso = accesoPorAlumno.get(a.id) ?? 'pending';
+    a.exento = exentoPorAlumno.has(a.id);
     a.pagadoMesActual = pagadoEsteMes.has(a.id);
   }
 
@@ -209,7 +216,10 @@ export async function getAcademyOverview(): Promise<
       alumnos,
       porEstado: contarPorEstado(alumnos),
       grupos: grupos.map((g) => ({ id: g.id, name: g.name, kind: g.kind })),
-      membershipRequired: ajustesRes.data?.required === true,
+      // P12: sin fila, el interruptor se lee ENCENDIDO por defecto (norma
+      // global nueva) — tiene que coincidir con lo que de verdad aplica
+      // `checkAccess` (auth.ts), o el panel mentiría sobre su propio estado.
+      membershipRequired: ajustesRes.data?.required !== false,
       periodoActual: periodo,
       cobertura,
       sospechosas: conTexto,

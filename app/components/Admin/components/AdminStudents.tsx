@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
+  Mail, ShieldCheck, X, Send,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
   setMemberAccess, setMembershipRequired, activateAllCurrentStudents, setStudentGroups,
+  listExemptEmails, addExemptEmail, removeExemptEmail, inviteStudent,
 } from '@/actions';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno } from '@/app/lib/academy';
@@ -51,10 +53,16 @@ export default function AdminStudents() {
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const SIN_GRUPO = '__sin__';
 
+  const [exentos, setExentos] = useState<string[]>([]);
+  const [nuevoExento, setNuevoExento] = useState('');
+  const [correoInvitar, setCorreoInvitar] = useState('');
+  const [avisoInvitar, setAvisoInvitar] = useState<string | null>(null);
+
   const recargar = useCallback(async () => {
-    const res = await getAcademyOverview();
+    const [res, exentosRes] = await Promise.all([getAcademyOverview(), listExemptEmails()]);
     if (res.success) setDatos(res.data);
     else setError(res.error);
+    if (exentosRes.success) setExentos(exentosRes.emails);
     setCargando(false);
   }, []);
 
@@ -64,6 +72,21 @@ export default function AdminStudents() {
     setBusy(true);
     const res = await fn();
     if (!res.success) setError(res.error ?? 'No se pudo guardar.');
+    await recargar();
+    setBusy(false);
+  }
+
+  async function invitar() {
+    const correo = correoInvitar.trim();
+    if (!correo) return;
+    setBusy(true);
+    setAvisoInvitar(null);
+    const res = await inviteStudent(correo);
+    if (!res.success) setError(res.error ?? 'No se pudo invitar.');
+    else {
+      setAvisoInvitar(res.invitada ? `Invitación enviada a ${correo}.` : `${correo} ya tenía cuenta: le hemos dado acceso.`);
+      setCorreoInvitar('');
+    }
     await recargar();
     setBusy(false);
   }
@@ -135,6 +158,51 @@ export default function AdminStudents() {
           <div className="flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
             <p className="text-xs text-amber-800 dark:text-amber-200">Hay {pendientes} sin activar. Si son alumnos que ya tenías, dales acceso de golpe.</p>
             <Button size="sm" variant="secondary" disabled={busy} onClick={() => accion(async () => activateAllCurrentStudents())}>Activar a todos</Button>
+          </div>
+        )}
+      </Card>
+
+      {/* --- INVITAR ALUMNO POR CORREO --- */}
+      <Card tone="base" pad="md" className="space-y-2">
+        <SectionLabel icon={<Send size={12} />}>Invitar a un alumno por correo</SectionLabel>
+        <p className={cx(TEXT.muted)}>Le llega un correo con un enlace para entrar. Al invitarlo tú, entra con acceso directo — sin pasar por la solicitud.</p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="email"
+            value={correoInvitar}
+            onChange={(e) => setCorreoInvitar(e.target.value)}
+            placeholder="correo@ejemplo.com"
+            className="flex-1 min-w-[200px] text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+          />
+          <Button size="sm" disabled={busy || !correoInvitar.trim()} onClick={invitar} icon={<Mail size={14} />}>Invitar</Button>
+        </div>
+        {avisoInvitar && <p className="text-xs text-emerald-700 dark:text-emerald-400">{avisoInvitar}</p>}
+      </Card>
+
+      {/* --- EXENTOS DE PAGO --- */}
+      <Card tone="base" pad="md" className="space-y-2">
+        <SectionLabel icon={<ShieldCheck size={12} />}>Correos exentos de pago</SectionLabel>
+        <p className={cx(TEXT.muted)}>Un correo de esta lista entra directo, con acceso ilimitado, sin solicitud ni pago.</p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="email"
+            value={nuevoExento}
+            onChange={(e) => setNuevoExento(e.target.value)}
+            placeholder="correo@ejemplo.com"
+            className="flex-1 min-w-[200px] text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
+          />
+          <Button size="sm" variant="secondary" disabled={busy || !nuevoExento.trim()} onClick={() => { const c = nuevoExento.trim(); setNuevoExento(''); accion(() => addExemptEmail(c)); }}>Añadir</Button>
+        </div>
+        {exentos.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {exentos.map((e) => (
+              <span key={e} className="text-[11px] font-semibold px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                {e}
+                <button onClick={() => accion(() => removeExemptEmail(e))} disabled={busy} aria-label={`Quitar ${e} de exentos`} className="hover:text-red-600">
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
           </div>
         )}
       </Card>
@@ -247,12 +315,17 @@ function FilaAlumnoUI({
               {ESTADO_ALUMNO_LABEL[a.estado]}
             </span>
             <span className={cx('text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1', badge.cls)}><Icon size={10} /> {badge.label}</span>
+            {a.exento && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
+                <ShieldCheck size={10} /> Exento
+              </span>
+            )}
             {a.grupos.map((g) => (
               <span key={g.id} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center gap-1">
                 <GraduationCap size={10} /> {g.name}
               </span>
             ))}
-            {a.acceso === 'active' && (
+            {a.acceso === 'active' && !a.exento && (
               a.pagadoMesActual
                 ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><BadgeEuro size={10} /> pagó</span>
                 : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-700 dark:text-red-400 flex items-center gap-1"><BadgeEuro size={10} /> debe {formateaPeriodo(periodo).split(' de ')[0]}</span>
@@ -274,13 +347,17 @@ function FilaAlumnoUI({
       {estaAbierto && (
         <div className="px-4 pb-4 border-t border-slate-200 dark:border-slate-800 pt-4 space-y-5">
 
-          {/* ACCESO */}
+          {/* ACCESO — «Aceptar»/«Rechazar» cuando hay una solicitud de verdad esperando (P12); el mismo botón sirve luego para reactivar o suspender. */}
           <div className="flex flex-wrap gap-2">
             {a.acceso !== 'active' && (
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => onAccion(() => setMemberAccess(a.id, 'active'))}>Dar acceso</Button>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => onAccion(() => setMemberAccess(a.id, 'active'))}>
+                {a.acceso === 'pending' ? 'Aceptar solicitud' : 'Dar acceso'}
+              </Button>
             )}
             {a.acceso !== 'suspended' && (
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => onAccion(() => setMemberAccess(a.id, 'suspended'))}>Suspender</Button>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => onAccion(() => setMemberAccess(a.id, 'suspended'))}>
+                {a.acceso === 'pending' ? 'Rechazar solicitud' : 'Suspender'}
+              </Button>
             )}
           </div>
 
@@ -310,13 +387,15 @@ function FilaAlumnoUI({
             )}
           </div>
 
-          {/* PAGO DEL MES — solo aviso. Se marca en «Pagos». */}
+          {/* PAGO DEL MES — solo aviso. Se marca en «Pagos». Un exento no debe nada. */}
           {a.acceso === 'active' && (
             <p className={cx(TEXT.muted, 'flex items-center gap-2')}>
               <BadgeEuro size={13} className="shrink-0" />
-              {a.pagadoMesActual
-                ? <>Pagó {formateaPeriodo(periodo)}.</>
-                : <>Sin pagar {formateaPeriodo(periodo)}. Se marca en la pestaña «Pagos».</>}
+              {a.exento
+                ? <>Exento de pago.</>
+                : a.pagadoMesActual
+                  ? <>Pagó {formateaPeriodo(periodo)}.</>
+                  : <>Sin pagar {formateaPeriodo(periodo)}. Se marca en la pestaña «Pagos».</>}
             </p>
           )}
 

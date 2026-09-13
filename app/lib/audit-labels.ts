@@ -38,7 +38,10 @@ export type AccionAuditada =
   | 'delete_group_training_plan'
   | 'set_training_switch'
   | 'create_academy'
-  | 'add_academy_admin';
+  | 'add_academy_admin'
+  | 'add_exempt_email'
+  | 'remove_exempt_email'
+  | 'invite_student';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -69,4 +72,7 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   set_training_switch: 'Cambió un interruptor de preparación física',
   create_academy: 'Dio de alta una academia',
   add_academy_admin: 'Añadió un admin a una academia',
+  add_exempt_email: 'Añadió un correo exento de pago',
+  remove_exempt_email: 'Quitó un correo de la lista de exentos',
+  invite_student: 'Invitó a un alumno por correo',
 };
