@@ -66,6 +66,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
 | **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Verificado en pantalla con sesión de superadmin real** (12 sep): las 4 pestañas correctas, «Academias» con su comparativa, y «Nueva academia»/«Añadir admin» probados de verdad sin errores. SMTP propio (Gmail) también configurado y verificado end-to-end. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
+| **P12** | **Solicitudes de alta con aviso por correo, y exentos de pago** | ✅ **cerrada y verificada end-to-end** (12 sep). Decisión del dueño: la norma global pasa a ser que TODO alumno que se registra —incluida `atenea`, la casa— espera a que su academia lo acepte; el admin recibe un correo con la solicitud y el alumno recibe el resultado por correo; una lista blanca por academia deja entrar correos concretos sin solicitud ni pago («exentos»); y hay un campo para invitar a un alumno por correo (entra con acceso directo, sin solicitud). Ver **regla 70**. Guion SQL ejecutado, alumnos actuales de Alphapol y `atenea` activados y el interruptor encendido en las dos. El correo va por **Resend con dominio propio** (`ateneapolicial.com`), no por Gmail — la cuenta de Gmail se bloqueó a mitad del despliegue y se abandonó del todo |
 
 ## Producción
 
@@ -87,7 +88,17 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. NO queda ningún guion pendiente** (12 sep 2026):
+1. **Ejecutar SQL. Queda UN guion pendiente** (12 sep 2026):
+   - **`P12-solicitudes-y-exentos.sql`** — **SIN EJECUTAR.** Amplía el `CHECK`
+     de `memberships.access_status` a un tercer valor (`'pending'`), añade
+     `memberships.exempt` y la tabla `membership_exemptions`, y cambia el
+     `DEFAULT` de `membership_settings.required` a `true` (regla 70, la
+     solicitud de alta con aviso por correo y los exentos de pago). Después de
+     ejecutarlo: `node scripts/schema-snapshot.mjs`, y luego dar acceso a
+     todos los alumnos actuales de Alphapol y `atenea` (botón «Activar a
+     todos» en «Alumnos», una vez por academia) **antes** de encender el
+     interruptor de control de acceso en las dos — si se enciende primero, se
+     quedan fuera de golpe.
    - **`P11j-asignar-academia-en-registro.sql`** (12 sep 2026, **ejecutado y
      verificado con dos altas reales el mismo día**) — un
      disparador de Postgres (`on_auth_user_created_academia`) que da de alta
@@ -214,10 +225,22 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
    migrar a un proveedor transaccional (Resend, Postmark, SendGrid — planes
    gratuitos de miles de correos al mes, sin este riesgo) es la solución
    definitiva.
-3. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
+3. **`SMTP_PASS` para el correo que manda la propia app — FALTA, bloquea P12
+   (regla 70).** Es una variable de entorno DISTINTA de la configuración de
+   Supabase de arriba: los avisos de solicitud de alta y su resolución no
+   salen por Supabase Auth (que solo manda sus propios correos), sino
+   directamente desde la app con `nodemailer` (`app/lib/mailer.ts`). Reusa la
+   MISMA cuenta Gmail (`atenea.alumnos@gmail.com`) y la MISMA contraseña de
+   aplicación que ya se generó para el punto 2 — no hace falta generar una
+   nueva, solo copiarla también aquí. Cuatro variables en `.env.local` y en
+   Vercel (ver `.env.example`): `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+   `SMTP_USER=atenea.alumnos@gmail.com`, `SMTP_PASS=`. Sin `SMTP_PASS`, `sendMail`
+   se lo salta y lo registra en el log del servidor — no rompe nada, pero
+   ningún aviso llega.
+4. **Login con Google**, si se quiere. Hoy el proveedor Google está *Disabled* y el
    código solo tiene email + contraseña. Hacen falta credenciales OAuth de Google Cloud
    pegadas en Supabase, y un botón `signInWithOAuth` en `app/page.tsx`.
-4. **Entrar como alumno y probar la pantalla del test.** Lo de P3 (blanco explícito,
+5. **Entrar como alumno y probar la pantalla del test.** Lo de P3 (blanco explícito,
    cuenta atrás, pantalla de revisión) y el repaso de fallos están cubiertos por tests y
    el build pasa, pero **no se han visto funcionando en pantalla**: hace falta una
    sesión, y una sesión pide contraseña.
@@ -2493,6 +2516,165 @@ misma marca que «Confirm sign up» e «Invite user» (regla 66/67 del email):
 español, cabecera Atenea Policial, botón rojo — antes era la plantilla en
 inglés por defecto, sin tocar.
 
+### 70 · Registrarse ya no da acceso: se solicita, y la solicitud se avisa por correo (P12)
+
+Decisión del dueño (12 sep 2026): la norma global pasa a ser que **todo**
+alumno que se registra espera a que su academia lo acepte — **incluida
+`atenea`**, la casa, que hasta entonces daba acceso directo (regla 65/P11j).
+El admin recibe un correo cuando hay una solicitud nueva, la acepta o la
+rechaza desde el panel, y el alumno recibe el resultado por correo. Como
+excepción, cada admin puede dejar una lista de correos que entran directos,
+sin solicitud ni pago.
+
+**«Pendiente» ya no es solo la ausencia de fila.** Antes (regla 52) bastaba
+con que no hubiera fila en `memberships` — nadie avisaba de nada, el admin
+tenía que abrir el panel para enterarse. Ahora hace falta poder decir «esto ya
+se le avisó al admin» y no volver a mandar el correo cada vez que el alumno
+abre la app, así que `access_status` admite un tercer valor, `'pending'`, y el
+primer contacto de un alumno nuevo (`resolveFirstContact`,
+`app/lib/registration-requests.ts`) le crea una fila real la primera vez que
+`checkAccess` (`auth.ts`) lo encuentra sin ninguna. Las dos formas —sin fila, o
+fila `pending`— **decretan lo mismo** en `decideAccess`: fuera hasta que
+alguien decida. El upsert es `ignoreDuplicates: true` (regla 3): dos pestañas
+abriéndose a la vez no mandan el correo dos veces, porque solo la que de
+verdad CREÓ la fila dispara el aviso.
+
+**El correo de la solicitud y de su resolución NO los manda Supabase Auth.**
+El SMTP que se configuró ahí (regla 2 de «Lo que solo puedes hacer tú») solo
+cubre SUS propios correos: confirmar cuenta, invitación, recuperar clave.
+Avisar a un admin de que hay una solicitud, o avisarle a un alumno de si se le
+acepta o no, es la app decidiendo mandar un correo por su cuenta — así que se
+reusa la MISMA cuenta Gmail (`atenea.alumnos@gmail.com`), pero conectada
+DIRECTAMENTE desde la app con `nodemailer` (`app/lib/mailer.ts`), no a través
+de Supabase. Necesita sus propias variables de entorno (`SMTP_HOST`,
+`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) — **distintas** de la configuración de
+Supabase, aunque apunten a la misma cuenta. `sendMail` nunca lanza (mismo
+patrón que `ai-usage.ts`/`admin-audit.ts`): sin las variables, se registra en
+el log del servidor y no manda nada — dar de alta a un alumno tiene que quedar
+hecho aunque el aviso no llegue.
+
+Las plantillas (`app/lib/app-email-templates.ts`, puro, con tests) siguen el
+mismo lenguaje visual que las de Supabase (reglas 66/67/69): cabecera oscura,
+filete de la bandera, botón rojo. `setMemberAccess` manda el correo de
+resolución **solo si el estado CAMBIA de verdad** — pulsar dos veces el mismo
+botón no manda un segundo correo — y sirve para las dos cosas a la vez: la
+PRIMERA resolución de una solicitud, y una suspensión o reactivación más
+adelante. No hacía falta un camino separado para cada una.
+
+**Los exentos** (`membership_exemptions`, una lista por academia) son la
+excepción que decide el admin de antemano: un correo ahí entra `active` +
+`exempt` directo, sin pasar por la solicitud ni avisar a nadie. `exempt` es un
+booleano en la propia fila de `memberships`, no una fila aparte — así que
+añadirlo a la lista NO reactiva sola a un alumno que ya estuviera `pending` o
+`suspended`; la lista blanca solo decide lo que pasa la PRIMERA vez. En
+**Pagos** (P8), un exento aparece en la rejilla —para que se vea que existe y
+por qué no paga— pero no cuenta en `pagados`/`porPagar`/`cobrado`: no es ni
+«pagó» ni «debe», es un caso aparte, y contarlo como cualquiera de los dos
+mentiría sobre cuánto se ha cobrado (regla 8).
+
+**Invitar a un alumno por correo** (`inviteStudent`, mismo patrón que
+`addAcademyAdmin` de la regla 65: si la cuenta no existe, se invita con
+`auth.admin.inviteUserByEmail` y la academia viaja como metadata para que el
+disparador de P11j la asigne sola) **NO pasa por la solicitud**: el admin ya
+está decidiendo por él al invitarlo, así que entra `active` directamente —
+pero no `exempt`: invitar y eximir de pago son dos decisiones independientes,
+y el admin puede tomar la segunda aparte si quiere.
+
+**Una academia NUEVA nace CERRADA** (`membership_settings.required` con
+`DEFAULT true`, al revés que la regla 52 original) — esto no toca las
+academias que YA EXISTEN, que tienen su fila explícita a `false`: esas se
+encienden aparte, y solo DESPUÉS de dar acceso de golpe a todos sus alumnos
+actuales (`activateAllCurrentStudents`), para que nadie se quede fuera al
+encender el interruptor. El mismo orden que ya obligaba el guion de P6.
+
+Guion [`docs/sql/P12-solicitudes-y-exentos.sql`](docs/sql/P12-solicitudes-y-exentos.sql)
+**ejecutado y verificado** (12 sep 2026): el `CHECK` de `access_status` admite
+`pending`, existe `memberships.exempt`, `membership_exemptions` tiene RLS sin
+políticas, y `membership_settings.required` por defecto es `true`. Migración de
+datos hecha el mismo día: acceso `active` dado de golpe a los 4 alumnos de
+Alphapol y al 1 de `atenea` que ya existían, y **después** encendido el
+interruptor en las dos academias — nadie se quedó fuera.
+
+**Actualización el mismo día: Gmail se abandonó del todo, por Resend con
+dominio propio.** La cuenta `atenea.alumnos@gmail.com` quedó bloqueada por
+Google (sospecha de bot, apelación sin resolver) — ni con la contraseña de
+aplicación correcta dejaba autenticar (`535 5.7.8 Username and Password not
+accepted`), y eso también cortaba el SMTP de Supabase Auth que llevaba semanas
+funcionando. Se compró **`ateneapolicial.com`** (Cloudflare Registrar, precio
+al coste, sin subidas de renovación) y se verificó en **Resend** (el "Auto
+configure" de Resend deja los registros DNS solo, con permiso a la cuenta de
+Cloudflare). `app/lib/mailer.ts` ya no usa `nodemailer`/SMTP: es una llamada
+`fetch` directa a la API REST de Resend (`RESEND_API_KEY`, sin SDK — es una
+sola petición HTTP, no compensa la dependencia). Y el SMTP de **Supabase
+Auth** (confirmar cuenta, invitación, recuperar clave) se migró también al
+relay SMTP de Resend (`smtp.resend.com`, usuario `resend`, la misma API key
+de contraseña) — los dos caminos de correo de la plataforma comparten ahora el
+mismo dominio y el mismo proveedor. Verificado end-to-end los dos: un correo
+de prueba por la API de Resend, y un `resetPasswordForEmail` real disparado
+contra Supabase, ambos recibidos.
+
+### 71 · Un solo byte NUL tumba la fila entera, y Postgres no dice por qué
+
+Al indexar un PDF nuevo (los exámenes oficiales de la regla 72), uno de los
+cinco falló al insertar en `documents` con un error que no decía nada:
+`unsupported Unicode escape sequence`. Ni el nombre de la columna, ni el
+caracter, ni una pista de qué fila. Es un error real de Postgres: **`text` no
+admite el byte NUL (código 0), y no hay forma de escaparlo** — no es una
+cuestión de tamaño ni de codificación, ese byte no puede vivir ahí, punto.
+
+Y ya estaba previsto, solo que apuntaba a la línea equivocada.
+`cleanLegalText` (`app/lib/text.ts`) traía desde siempre un comentario que
+decía *"el original usaba `.replace(/[]/g, '')` para limpiar caracteres de
+control"* — pero una clase de caracteres **vacía** en una regex de JavaScript
+no casa con nada. Era un no-op silencioso desde el principio, documentado como
+tal (`tests/text.test.ts` lo tenía marcado `BUG:` exactamente por esto), y
+nunca había hecho falta arreglarlo porque el temario real (51 PDF) nunca trajo
+un byte así. Un PDF de un tercero sí lo trajo — probablemente un glifo de una
+fuente Type3 mal decodificado por `pdf2json` — y ahí se notó.
+
+El arreglo es `.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')`, los caracteres
+de control C0 de verdad, **salvo tabulador, salto de línea y retorno de
+carro** — esos tres los sigue necesitando `rejoinPdfLines` justo debajo, y
+quitarlos habría deshecho la reconstrucción de párrafos de la regla 9.
+
+**La lección no es solo el regex.** Es que un comentario que describe una
+intención («esto limpia caracteres de control») no es lo mismo que el código
+cumpliéndola, y aquí sobrevivió sin que nada lo cantara porque el caso que lo
+destapa —un byte NUL de verdad en el texto— es raro. `uploadTopicPDF` (el
+mismo camino que usa el panel de administración) se beneficia del arreglo
+igual que el guion de siembra: es la misma función, sin duplicar nada.
+
+### 72 · El temario también admite exámenes reales como tema extra
+
+El dueño preguntó si comprar el temario de pago de una academia rival (120€,
+marca de agua con el email del comprador para rastrear redistribución) para
+generar preguntas con IA a partir de él. Se desaconsejó: comprar un libro y
+estudiar de él es uso personal legítimo, pero subir el compilado editorial de
+un competidor —su selección de preguntas, sus mnemotécnicos— para fabricar un
+banco que sirve a los alumnos de PAGO de varias academias ya no es estudio
+personal, es competencia desleal, y la marca de agua deja claro que el
+vendedor lo vigila activamente. No se construyó esa función.
+
+La alternativa limpia: los **exámenes oficiales reales** de las últimas cinco
+convocatorias de la Escala Básica (2021-2025) están publicados gratis, sin
+registro, en `blucop.es/examenes` — cuadernillos oficiales del Estado con su
+plantilla de respuestas correcta, la misma categoría que las leyes del BOE que
+ya usa Atenea (no el material compilado de una academia privada). El Portal
+del Aspirante de la Policía Nacional (`policia.es/portalaspirantes`) es la
+fuente primaria; blucop.es es un espejo gratuito conveniente.
+
+Los cinco PDF (versión "resuelta y desarrollada", con explicación y
+referencia legal de cada pregunta) se indexaron como **cinco temas más**, en
+un bloque nuevo `EXÁMENES OFICIALES ANTERIORES` (`topic_number` 46-50, fuera
+del rango 1-45 del temario real para no interferir con su cobertura). El
+guion [`scripts/operacion/indexar-examenes-oficiales.mjs`](scripts/operacion/indexar-examenes-oficiales.mjs)
+reutiliza `chunkDocument`/`cleanLegalText` de `app/lib/text.ts` — la misma
+regla de siempre: no duplicar la lógica de indexado del panel de
+administración. Es reanudable (salta lo ya indexado) y fue justo el que
+destapó el bug de la regla 71. Resultado: 571 fragmentos, ninguno con
+referencia de artículo (es normal — son preguntas y respuestas, no texto
+legal estructurado).
+
 ---
 
 ## Los tests
@@ -2524,8 +2706,9 @@ tests/modules.test.ts           módulos encendidos/apagados y la guarda del ser
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
 tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
-tests/membership.test.ts        la puerta de acceso (decideAccess) y sus guardas
-tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes y «sin importe» ≠ 0 €
+tests/membership.test.ts        la puerta de acceso (decideAccess), la solicitud pendiente (P12) y sus guardas
+tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes, «sin importe» ≠ 0 € y los exentos (P12) fuera del recuento
+tests/app-email-templates.test.ts los correos que manda la propia app (P12): solicitud, aceptado, rechazado
 tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan y el histórico de semanas que ve el alumno
 tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
 tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva

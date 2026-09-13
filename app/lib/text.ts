@@ -12,14 +12,22 @@
 /**
  * Normaliza el texto crudo extraido de un PDF legal.
  *
- * NOTA: el original en core.ts incluia `.replace(/[]/g, '')`. Una clase de
- * caracteres vacia en JavaScript no casa con NADA, asi que esa linea siempre
- * fue un no-op silencioso (probablemente se intentaba limpiar caracteres de
- * control). Aqui se replica el comportamiento actual a proposito: limpiarlos
- * de verdad es un cambio funcional y esta planificado en la Fase 3.
+ * NOTA (cerrada): el original en `core.ts` incluia `.replace(/[]/g, '')`. Una
+ * clase de caracteres vacia en JavaScript no casa con NADA, asi que esa linea
+ * siempre fue un no-op silencioso — se intentaba limpiar caracteres de control
+ * y nunca limpiaba nada. Se destapo con un PDF real: un examen oficial cuya
+ * extraccion de texto colaba un byte NUL (un glifo de una fuente Type3 mal
+ * decodificado), y Postgres RECHAZA la fila ENTERA con "unsupported Unicode
+ * escape sequence" — `text` no admite ese byte, no hay forma de escaparlo.
+ * Sin este filtro, un PDF con un solo caracter asi no se puede subir nunca, y
+ * el error que da PostgREST no dice ni de lejos por que. Se quitan los de
+ * control C0 salvo tabulador, salto de linea y retorno de carro, que
+ * `rejoinPdfLines` sigue necesitando debajo.
  */
 export function cleanLegalText(raw: string): string {
   const sinRuido = raw
+    // eslint-disable-next-line no-control-regex -- a proposito: es justo lo que hay que quitar.
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .replace(/%[0-9A-F]{2}/g, (match) => {
       try {
         return decodeURIComponent(match);
