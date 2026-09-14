@@ -1164,16 +1164,13 @@ mucho más pequeño — y es una decisión de producto, no una pregunta de dato:
    proceso por no subir el certificado a tiempo. Sin banco de preguntas, sin
    IA, sin `question_bank` — una columna y un aviso, parecido a `payment_status`.
 
-### Qué necesito del dueño
-
-**Cuál de las dos**, si alguna. No es un dato que buscar en ningún sitio más
-— es una decisión tuya sobre qué le sirve a la academia.
-
 ### Estado
 
-Descartado tal como se planteó el 13 sep. Si se retoma, es la opción 2
-(seguimiento), y es pequeña: una columna en `memberships` o similar, no un
-módulo.
+**Aparcado por decisión del dueño (14 sep 2026): «olvidamos inglés por
+ahora».** No se construye ni la opción 1 ni la 2. Queda documentado aquí para
+que si se retoma más adelante, la decisión sea la 2 (seguimiento
+administrativo de la acreditación) y no revivir la número 1 (banco de
+preguntas), que ya se descartó por no corresponder a nada real del proceso.
 
 ---
 
