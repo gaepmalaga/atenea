@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowRight, Brain, Target, BadgeEuro, Layers, BookOpenCheck,
-  Sparkles, PlayCircle,
+  Sparkles, Lightbulb, ListChecks, BarChart3,
 } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -45,10 +45,17 @@ const COMPARATIVA: FilaComparativa[] = [
   },
   {
     criterio: 'Cómo diagnostica un fallo',
-    atenea: 'Se deduce del tiempo y los cambios de opción; solo pregunta cuando de verdad cambia el repaso',
+    atenea: 'Se deduce del tiempo y los cambios de opción, y explica también por qué fallan las opciones incorrectas; solo pregunta cuando de verdad cambia el repaso',
     bancos: 'No se distingue del acierto',
     socias: 'No publicado',
     propio: 'Lo que decidas construir',
+  },
+  {
+    criterio: 'Qué repasa primero',
+    atenea: 'La urgencia de cada alumno + el peso real de cada tema en los 5 últimos exámenes oficiales',
+    bancos: 'Orden fijo, o aleatorio',
+    socias: 'No publicado',
+    propio: 'Lo que programes',
   },
   {
     criterio: 'Nota del simulacro',
@@ -94,10 +101,28 @@ const FEATURES = [
       'El tiempo de respuesta y los cambios de opción ya dicen si el alumno dudó o fue firme, y si un fallo es un olvido, una trampa o una laguna. Solo se le pregunta cuando de verdad cambia el repaso — nunca por rutina.',
   },
   {
+    icon: Lightbulb,
+    titulo: 'El porqué de cada fallo, no solo la respuesta correcta',
+    texto:
+      'Cuando el alumno falla, la explicación no se limita a justificar la opción correcta: dice también por qué cada opción incorrecta está mal. Mismo listón para lo que genera la IA, lo que escribe un profesor a mano o lo que sube por Excel — sin pedirle a nadie una etiqueta de más.',
+  },
+  {
+    icon: ListChecks,
+    titulo: 'La programación, a la vista del alumno',
+    texto:
+      'Antes de cada pregunta, el alumno ve por qué le toca hoy — "la fallaste hace tres días", "una más y se retira una temporada". Y en su perfil, de un vistazo, cuántas preguntas vencen cada uno de los próximos 7 días.',
+  },
+  {
     icon: Target,
     titulo: 'La nota que sale en el examen real',
     texto:
       'El simulacro puntúa con la fórmula oficial de la convocatoria: los fallos restan, los blancos no penalizan. El alumno entrena la misma estrategia que necesita el día del examen, no una versión que le miente hacia arriba.',
+  },
+  {
+    icon: BarChart3,
+    titulo: 'Aprende de los datos, sin pedir ni una etiqueta',
+    texto:
+      'El repaso prioriza también por el peso real de cada tema en los 5 últimos exámenes oficiales (2021-2025), no solo por lo más atrasado. Y el profesor ve, calculado solo a partir de las respuestas, qué preguntas se confunden entre sí en su academia — nadie las marca a mano.',
   },
   {
     icon: Layers,
@@ -109,13 +134,7 @@ const FEATURES = [
     icon: BookOpenCheck,
     titulo: 'Banco compartido, y el vuestro propio encima',
     texto:
-      'El temario oficial (45 temas) y los exámenes reales de las últimas convocatorias vienen ya indexados y se comparten entre academias. Vuestro banco privado —escrito a mano o importado desde Excel— no lo ve nadie más.',
-  },
-  {
-    icon: PlayCircle,
-    titulo: 'Más que test: fichas, entrevista y físicas',
-    texto:
-      'Fichas de repaso con repetición espaciada, simulacro de entrevista personal con informe final, y planes de entrenamiento físico. No es una plataforma de test con extras: es la preparación completa a la oposición.',
+      'El temario oficial (45 temas) y los exámenes reales de las últimas convocatorias vienen ya indexados y se comparten entre academias. Vuestro banco privado —escrito a mano o importado desde Excel— no lo ve nadie más. Y el repaso incluye fichas de memoria con repetición espaciada, no solo test.',
   },
 ];
 
