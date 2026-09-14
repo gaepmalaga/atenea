@@ -3,7 +3,7 @@ import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjec
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
-import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
+import { requireSuperadmin, requireUser } from '../lib/auth';
 import { registraGasto } from '../lib/ai-usage';
 import { checkQuota } from '../lib/rate-limit';
 import { requireModule } from '../lib/module-guard';

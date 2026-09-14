@@ -5,7 +5,7 @@ import { buildFlashcardPrompt } from '../lib/flashcard-prompt';
 import { flashcardHash } from '../lib/question-hash';
 import { QUESTION_STATUS } from '../lib/questions';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
-import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
+import { requireSuperadmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
