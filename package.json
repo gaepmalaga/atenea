@@ -26,7 +26,8 @@
     "reset": "node --experimental-strip-types scripts/operacion/reset.mjs",
     "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",
     "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs",
-    "sembrar:demo": "node --experimental-strip-types scripts/operacion/sembrar-demo.mjs"
+    "sembrar:demo": "node --experimental-strip-types scripts/operacion/sembrar-demo.mjs",
+    "sembrar:peso": "node --experimental-strip-types scripts/operacion/sembrar-por-peso.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

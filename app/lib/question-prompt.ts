@@ -28,6 +28,43 @@ export type ContextoPregunta = {
   legal_reference: string | null;
 };
 
+/**
+ * ESTILO SACADO DE LOS 5 EXÁMENES OFICIALES REALES (regla 72/75), NO DE SU
+ * CONTENIDO.
+ *
+ * Analizado a mano sobre el texto indexado de los temas 46-50 (regla 75: esos
+ * temas están vetados como FUENTE de generación — esto no es una excepción,
+ * es una lectura hecha una vez por una persona, no algo que el modelo repita
+ * por pregunta). Tres patrones que se repiten en el examen real y que el
+ * banco propio no imitaba:
+ *
+ *   1. La pregunta pide un dato PRECISO (un plazo, quién hace qué, cómo se
+ *      clasifica algo dentro de la norma) en vez de "¿qué dice el artículo
+ *      X?" en abstracto — «¿cuánto tiempo hay para declarar...?», «¿quién
+ *      aprueba y quién ratifica...?».
+ *   2. Los distractores son VECINOS plausibles del dato correcto, no
+ *      absurdos: si la respuesta es un plazo de 10 días, las otras dos
+ *      opciones son también plazos razonables de un trámite parecido (72
+ *      horas, 7 días) — nunca "30 años" al lado de "10 días".
+ *   3. Algunas preguntas no piden el dato literal, piden dónde ENCAJA dentro
+ *      de la norma (¿es un derecho fundamental o un principio rector?, ¿es
+ *      un requisito o no lo es?) — miden si el alumno entiende la estructura,
+ *      no solo si memorizó una frase.
+ */
+const ESTILO_EXAMEN_REAL = `
+      ESTILO (de cómo pregunta el examen real, NUNCA de qué dice):
+      - Pide un dato preciso y verificable (un plazo, un sujeto, una cifra, una
+        clasificación), no "¿qué dice el artículo X?" en genérico.
+      - Los distractores son plazos, cifras o conceptos VECINOS y plausibles
+        del dato correcto — nunca opciones absurdas o evidentemente falsas.
+      - Cuando el texto lo permite, considera una pregunta de ENCAJE: no "qué
+        dice" sino "dónde se clasifica" o "quién es el competente".
+      IMPORTANTE: esto es SOLO una guía de FORMA. El HECHO legal —el número,
+      el plazo, el artículo, la excepción— sale EXCLUSIVAMENTE del TEXTO de
+      abajo. No emplees ningún dato, cifra o artículo que no esté en ese
+      texto, aunque te suene de un examen real: una norma citada hace años
+      puede haber cambiado desde entonces.`;
+
 export function buildQuestionPrompt(
   contexto: ContextoPregunta,
   nivel: DifficultyLevel,
@@ -53,6 +90,7 @@ export function buildQuestionPrompt(
       ${contexto.legal_reference
         ? `6. El texto es el ${contexto.legal_reference}. Cítalo en 'explanation'.`
         : ''}
+      ${ESTILO_EXAMEN_REAL}
     `;
 }
 

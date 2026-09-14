@@ -640,7 +640,12 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
     | { success: false; error?: string };
   const [resultado, setResultado] = useState<Resultado | null>(null);
 
-  const temas = syllabus.flatMap((b) => b.subjects);
+  // Los temas 46-50 son los exámenes oficiales indexados (regla 72): sirven
+  // para el peso real del examen, no como fuente de preguntas nuevas — un
+  // artículo citado en un examen de hace años puede haber cambiado desde
+  // entonces. El servidor ya lo rechaza (`esFuenteDeGeneracionValida`,
+  // `exams.ts`); esto solo evita ofrecer una opción que fallaría siempre.
+  const temas = syllabus.flatMap((b) => b.subjects).filter((s) => s.number <= 45);
 
   const recargarFichas = useCallback(async () => {
     const res = await getFlashcardBankCounts();

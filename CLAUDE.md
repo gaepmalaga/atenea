@@ -71,6 +71,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Un admin de academia ya no puede tocar el banco de OTRA academia, ni el global entero** | ✅ **cerrada** (14 sep), a preguntas directas del dueño mirando el panel de un admin real. `seedQuestionBank`/`seedFlashcardBank`/`generateAndSaveCandidate`/Temario & IA entero pasan de `requireAdmin` a `requireSuperadmin` (escribían SIEMPRE en el banco global, sin distinguir academia); `disableQuestion`/`updateQuestion`/`discardAllQuestions`/`resolveReport` se quedan en `requireAdmin` pero acotados por `organization_id` dentro de la propia consulta; «Consumo IA» pasa a ser solo del superadmin (para un admin normal de una academia manual salía siempre a 0 €). Ver **regla 75**. Verificado con sesión real de `morato@atenea.com`: sus pestañas bajan de 10 a 8, «Banco Oficial» y «Moderación» siguen funcionando sin fugas. `npm run check` (1019 tests) y `npm run build` en verde |
 | — | **El panel de «Alumnos» dice si el motor adaptativo está funcionando** | ✅ **cerrada** (15 sep). `progresoSemanalAcademia` (`app/lib/academy.ts`) corre el mismo cálculo por alumno (hoy vs hace 7 días) y suma: *"Esta semana el sistema ha llevado N preguntas más a dominadas, entre M alumnos"*, sin consulta nueva (reutiliza los `intentos` que `getAcademyOverview` ya trae). Se oculta si la suma es 0. Ver **regla 76** |
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
+| — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada** (15 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. Ver **regla 78**. `npm run check` (1047 tests) en verde |
 
 ## Producción
 
@@ -287,6 +288,8 @@ npm run reset                      # ensayo: qué se borraría. `-- --hazlo` bor
 npm run cuenta -- correo 'clave' student   # una cuenta con el correo ya confirmado
 npm run sembrar                    # indexa los 51 PDF y llena el banco (de pago)
 npm run sembrar -- --solo-fichas --fichas=15   # el BANCO DE FICHAS (de pago)
+npm run sembrar:peso -- --ensayo   # qué generaría por franja de peso real, SIN gastar (regla 78)
+npm run sembrar:peso               # siembra el banco según el peso real del examen (de pago)
 
 node scripts/schema-snapshot.mjs   # refresca supabase/schema.json desde el proyecto real
 node scripts/dump-migration.mjs    # regenera supabase/migrations/0001_esquema_actual.sql
@@ -3091,6 +3094,71 @@ curva entera en cada visita en vez de cachear el pasado.
 Verificado en el preview con datos reales de `alumno@atenea.com`, incluida
 la corrección del fallo de fecha contra la producción real. `npm run check`
 (1047 tests) y `npm run build` en verde.
+
+### 78 · El banco crece donde pesa el examen real, no a cifra plana — y los exámenes oficiales nunca son fuente de preguntas nuevas
+
+Preguntas directas del dueño comparando con la competencia real
+(`academiametapol.com`, Moodle con tema Boost sin motor adaptativo —
+confirmado mirando el HTML servido, nada que competir ahí en profundidad):
+*«qué número de preguntas necesitamos para un banco propio considerable»* y,
+tras varias vueltas con datos reales encima de la mesa, su criterio cerrado:
+*«cantidad de temas poco preguntados me parece mal, cantidad de los muy
+preguntados me parece bien»* — más donde pesa, nada de más donde es "paja".
+
+**El banco (1.795 preguntas) estaba repartido CASI IDÉNTICO en los 45
+temas** (~40 cada uno), sin mirar `PESO_EXAMEN_REAL` (regla 73) en absoluto:
+el tema que más cae en el examen real (Constitución II, 32 de 497) tenía
+las mismas 40 preguntas que el que casi nunca cae (Principios éticos, 1 de
+497). Tres franjas nuevas:
+
+- **"Paja" (peso ≤ 7, 17 temas): NO SE TOCA.** Lo que ya hay es de sobra.
+- **"Normal" (peso 8-14, 17 temas): objetivo plano, 55.**
+- **"Importante" (peso ≥ 16, 11 temas): SUELO POR ARTÍCULO, no por tema.**
+  3-5 preguntas por cada artículo indexado del tema (definición, excepción,
+  plazo/sanción, sujeto — según cuánto pesa), no una cifra de tema. Medido
+  contra la BD real: Derecho Procesal Penal (peso 18) tiene **149**
+  artículos indexados; Funcionarios Públicos (peso 25) solo **20**. Una
+  cifra plana de "100 por tema importante" dejaba al primero con menos de 1
+  pregunta por artículo y al segundo ya sobrado (5-6). Los dos temas sin
+  artículos (UE, Ciberdelincuencia — son apuntes) caen a un objetivo plano,
+  80.
+
+**Cobertura real, no azar.** `elegirContexto` (en `exams.ts` y en
+`sembrar.mjs`) elegía el artículo AL AZAR: con 149 artículos y unos cientos
+de tiradas, unos salen muchas veces y otros ninguna. El guion nuevo,
+`scripts/operacion/sembrar-por-peso.mjs`, en la franja "importante" elige
+el artículo MENOS cubierto hasta ahora (cuenta las preguntas activas de
+cada `legal_reference` y tira del que menos tiene) — así el suelo por
+artículo se cumple de verdad. Reanudable, igual que `sembrar.mjs`: cada tema
+vuelve a comprobar cuántas preguntas tiene antes de generar ninguna.
+
+**Los 5 exámenes oficiales indexados (temas 46-50, regla 72) quedan VETADOS
+como fuente de preguntas nuevas, en el servidor.** Se estaban usando para
+el peso real del examen y para la búsqueda del chat, pero **eran
+seleccionables en el generador** (`GeneradorPanel`) porque tienen
+`block_id` asignado — nada lo impedía. El riesgo real: es texto de examen
+ya resuelto, sin `legal_reference` que lo delate, y un artículo citado en
+un examen de hace 5 años puede haberse modificado o derogado desde
+entonces. `esFuenteDeGeneracionValida` (`exams.ts`) lo bloquea en
+`generateAndSaveCandidate` y `seedQuestionBank` — comprobado: **0
+preguntas del banco venían de ahí**, pero la puerta estaba abierta (regla
+1: una Server Action es un endpoint público, esconder la opción del menú
+no basta). El desplegable del generador (`AdminContent.tsx`) también deja
+de ofrecerlos, por higiene, no como la barrera real.
+
+**El prompt incorpora el ESTILO de esos exámenes, nunca su contenido.**
+Leído a mano (no por el modelo, por mí, una vez): las preguntas reales
+piden un dato preciso (un plazo, un sujeto, una clasificación) en vez de
+"¿qué dice el artículo X?" en abstracto, y los distractores son vecinos
+plausibles del dato correcto (si la respuesta es "10 días", las otras dos
+opciones son también plazos razonables, no "30 años"). `question-prompt.ts`
+añade esa guía de FORMA con una instrucción explícita: el hecho legal —la
+cifra, el plazo, el artículo— sale EXCLUSIVAMENTE del texto del tema actual
+que se le pasa al modelo, nunca de lo que "suene" de un examen real.
+
+Verificado con un ensayo (`--ensayo`, sin gastar nada) antes de lanzar
+nada de verdad: **2.830 preguntas nuevas**, banco global final de
+**~4.625**. `npm run check` (1047 tests) en verde.
 
 ---
 

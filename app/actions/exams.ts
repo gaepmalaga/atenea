@@ -135,6 +135,21 @@ async function elegirContexto(subjectId: number): Promise<ContextoGeneracion | n
   };
 }
 
+/**
+ * Los temas 46-50 son los 5 exámenes oficiales indexados (regla 72): sirven
+ * para buscar en el chat y para calcular el peso real del examen
+ * (`PESO_EXAMEN_REAL`, regla 73), pero NUNCA como fuente de preguntas nuevas.
+ * Es texto de examen ya resuelto, sin `legal_reference` que lo delate, y un
+ * artículo que citaba hace 5 años puede haberse modificado o derogado desde
+ * entonces — generar una pregunta nueva a partir de ese texto arriesga a
+ * reproducir un dato caducado como si fuera vigente (regla 75, misma lógica
+ * de "cerrar la puerta en el servidor, no solo en el menú").
+ */
+async function esFuenteDeGeneracionValida(subjectId: number): Promise<boolean> {
+  const { data } = await supabase.from('subjects').select('topic_number').eq('id', subjectId).maybeSingle();
+  return !!data && typeof data.topic_number === 'number' && data.topic_number <= 45;
+}
+
 /** Fila de `question_bank` recien insertada o recuperada. */
 type SavedQuestion = { id: string; subject_id: number; status: string } | null;
 
@@ -257,6 +272,10 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number, d
         subjectId = topicNameOrId;
     } else {
         subjectId = await getSubjectIdByName(topicNameOrId.toString());
+    }
+
+    if (!(await esFuenteDeGeneracionValida(subjectId))) {
+      return { success: false as const, error: 'Los exámenes oficiales no se usan como fuente de preguntas nuevas.' };
     }
 
     // B. Generar Pregunta
@@ -384,6 +403,9 @@ export async function seedQuestionBank(params: {
   const { subjectId, concurrency = 2, autoApprove = true } = params;
   const status: QuestionStatus = autoApprove ? QUESTION_STATUS.ACTIVE : QUESTION_STATUS.CANDIDATE;
   if (!subjectId) return { success: false as const, error: "Falta ID de tema" };
+  if (!(await esFuenteDeGeneracionValida(subjectId))) {
+    return { success: false as const, error: 'Los exámenes oficiales no se usan como fuente de preguntas nuevas.' };
+  }
 
   // Tope duro: `count` venia del cliente sin limite y cada unidad es una
   // llamada de pago a Gemini.
