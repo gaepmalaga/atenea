@@ -1059,6 +1059,174 @@ que sigue es de diseño de datos y construcción, no de esperar respuestas.
 
 ---
 
+## P13 · Psicotécnicos de aptitud
+
+> **Propuesta, sin empezar.** Nace de la conversación del 13-14 sep 2026: hoy
+> «psicotécnico» en Atenea significa el cuestionario de personalidad de
+> `BiodataManager` (P15). El proceso real de la Escala Básica tiene además una
+> prueba de **aptitud** — series numéricas, matrices, sinónimos/antónimos,
+> razonamiento espacial, series de figuras — y de eso no hay ni un ítem.
+
+### Lo que hay hoy
+
+Nada. `question_bank` es preguntas de opción múltiple sobre el temario legal;
+no hay tabla, pantalla ni prompt para un ítem cuya respuesta correcta se
+**calcula**, no se **sabe**.
+
+### Qué hay que hacer
+
+- **Una tabla nueva**, no una fila más de `question_bank`: la forma del dato es
+  distinta (una matriz, una serie, un conjunto de figuras) y la corrección es
+  determinista, no una opción marcada a mano. Mismo ciclo de vida que las
+  preguntas (`candidate` / `active` / `disabled`, regla 3), con `category`
+  (numérico / verbal / espacial / abstracto / mecánico), el ítem en un
+  `payload` estructurado, la respuesta correcta y la explicación.
+- **La IA escribe el ítem; el código comprueba la respuesta.** Es la regla 10
+  llevada un paso más allá: en una serie numérica, la respuesta se puede
+  **recalcular** aplicando la regla declarada, no solo confiar en lo que diga
+  el modelo. Donde no se pueda verificar así (una analogía verbal), el ítem
+  entra como `candidate` y pasa por moderación humana — nunca directo a
+  `active` sin ese cálculo o esa revisión.
+- **Un modo de examen propio**, separado del simulacro del temario: estas
+  pruebas van por baterías con su **propio límite de tiempo**, no los 30 s por
+  pregunta de la regla 25.
+- **De dónde sale el contenido — la misma cautela que la regla 72.** El
+  *formato* (series, matrices…) es un género público, sin autor; el ítem
+  concreto de una academia de pago no se copia. Se genera de cero con Gemini o
+  se escribe a mano, igual que el resto del banco.
+
+### Confirmado contra el BOE (`BOE-A-2026-15055`, 14 sep 2026)
+
+Ya no hace falta esperar nada del dueño para este dato — se fue a la fuente
+primaria en vez de fiarse de la competencia:
+
+- Es la parte **c) de la tercera prueba** (base 6.1.3.c): «test dirigidos a
+  determinar las aptitudes (inteligencia general y específica) de la persona
+  aspirante para el desempeño de la función policial».
+- **Duración total: 60 minutos**, no por batería. Las bases dicen «uno o
+  varios test» sin fijar cuántos tipos ni cuánto tiempo tiene cada uno — eso
+  lo decide el tribunal al administrar la prueba, no la convocatoria. Diseñar
+  con los tipos habituales del sector (numérico, verbal, espacial, abstracto,
+  mecánico) es una elección legítima, no una suposición: el BOE no dice otra
+  cosa que pudiera contradecirla.
+- **La corrección usa la MISMA fórmula que el examen de conocimientos**
+  (`[A − E/(n−1)] × 10/P`, regla 22) — si hay varios ejercicios, la nota final
+  es la media aritmética. Esto simplifica el modo de examen: `app/lib/scoring.ts`
+  ya tiene la fórmula, no hace falta inventar una segunda.
+
+Con esto, P13 puede construirse con el tiempo total real (60 min) desde el
+principio, sin ningún valor provisional.
+
+### Por qué es la más grande de las tres
+
+Es contenido **y** un ciclo de generación-validación nuevo, comparable en
+esfuerzo a construir el banco de preguntas desde cero (P1). Por eso, si solo
+hay hueco para una sesión larga, es la que más conviene hacer primero: las
+otras dos reutilizan mucho de lo que ya existe.
+
+---
+
+## P14 · Inglés — replanteada de raíz tras leer el BOE (14 sep 2026)
+
+> **La premisa con la que se escribió esta sección era falsa.** La primera
+> versión (13 sep) asumía «examen de inglés B1, tipo test» a partir de una
+> ficha de producto de la competencia. Al ir al BOE (`BOE-A-2026-15055`) para
+> confirmar el formato — el mismo paso que corrigió P13 — apareció otra cosa
+> completamente distinta. No hay examen de inglés que preparar con test.
+
+### Lo que dice el BOE de verdad
+
+- **Nivel A2, no B1**, para la Escala Básica (B1 es el requisito de la Escala
+  **Ejecutiva** — otro proceso). Base 2.1.1.i: «estar en posesión de, al
+  menos, el nivel A2 en cualquiera de los idiomas prioritarios (inglés o
+  francés)».
+- **Es un requisito de ADMISIÓN, no una prueba del proceso.** Se acredita con
+  un certificado externo reconocido (Cambridge, Trinity, IELTS, TOEFL, EOI…)
+  **antes de que acabe el plazo de instancias** (base 7.1). Quien no lo
+  acredita queda **excluido antes de empezar** — no hay nota, no hay
+  simulacro, no hay nada que entrenar dentro de la oposición.
+- Y el dato que explica por qué la competencia habla de esto: la convocatoria
+  **eliminó** la prueba específica de idioma que existía en convocatorias
+  anteriores, sustituyéndola por este requisito previo. Construir un «tema de
+  inglés» con banco de preguntas habría sido resolver un problema que ya no
+  existe.
+
+### Qué significa esto para Atenea
+
+**No hay contenido de inglés que generar.** Lo que sí sería real y útil es
+mucho más pequeño — y es una decisión de producto, no una pregunta de dato:
+
+1. **Nada.** No es competencia de una plataforma de contenido del temario;
+   quien necesite el A2 estudia inglés con quien enseña inglés, no aquí.
+2. **Un seguimiento administrativo**, no educativo: en la ficha del alumno
+   (P8, «Alumnos»), un campo «Acreditación de idioma: sí/no/fecha límite» para
+   que la academia sepa a quién le falta antes de que se quede fuera del
+   proceso por no subir el certificado a tiempo. Sin banco de preguntas, sin
+   IA, sin `question_bank` — una columna y un aviso, parecido a `payment_status`.
+
+### Estado
+
+**Aparcado por decisión del dueño (14 sep 2026): «olvidamos inglés por
+ahora».** No se construye ni la opción 1 ni la 2. Queda documentado aquí para
+que si se retoma más adelante, la decisión sea la 2 (seguimiento
+administrativo de la acreditación) y no revivir la número 1 (banco de
+preguntas), que ya se descartó por no corresponder a nada real del proceso.
+
+---
+
+## P15 · Biodata con diagnóstico real
+
+> **Propuesta, sin empezar.** Nace de una queja concreta: *«tiene 4 preguntas
+> básicas y poco más… nada de herramientas reales de diagnóstico»*.
+
+### Lo que hay hoy — más de lo que parece, y aun así corto
+
+`BiodataManager` no son 4 preguntas: son 7 campos de texto libre (entorno,
+estudios, motivación, miedos, incidentes…) más un **test de personalidad de 30
+ítems** con corrección por deseabilidad social (los ítems de control invierten
+la puntuación si el aspirante se retrata como perfecto, regla del propio
+fichero) que calcula cuatro factores: sinceridad, estabilidad, normatividad,
+liderazgo.
+
+Y ese perfil **ya se usa**: `app/actions/interview.ts` lo lee para decidir la
+estrategia del entrevistador simulado (más o menos presión según el factor).
+Lo que falta no es el motor — es que **el alumno nunca ve una interpretación
+de lo suyo**. Ve cuatro barras de 0 a 10 y una etiqueta genérica
+(«Resistencia presión»); ni qué significa un 3, ni qué hacer con ello. Eso es
+justo la queja: el dato existe, el diagnóstico no.
+
+### Qué hay que hacer
+
+- **Interpretación por tramo, por factor** — texto real, no una barra: qué
+  significa un liderazgo bajo para quien va a un tribunal de la Escala Básica,
+  y qué trabajar antes de la entrevista. Vive en `app/lib/` como datos puros
+  (mismo patrón que `ERROR_LABELS`), escrito una vez y revisado, no generado
+  por IA en caliente — no hace falta gastar una llamada por alumno para decir
+  algo que no cambia.
+- **Un resumen que cruza los cuatro factores** con lo que el aspirante ya
+  escribió (miedos, incidentes) en vez de cuatro números sueltos sin relación
+  entre sí.
+- **Opcional, y ese sí cuesta dinero**: una llamada a Gemini que redacte tres
+  o cuatro líneas de coaching personalizado tras rellenar el perfil. Si se
+  hace, pasa por la cuota (regla 20) y por `requireModule` como cualquier
+  llamada de IA del alumno — no es gratis solo porque parezca un detalle
+  pequeño.
+
+### Qué necesito del dueño
+
+Nada que bloquee empezar. No hace falta SQL —no hay columna nueva—, así que
+esta es la única de las tres que se puede arrancar y terminar en una sesión
+sin esperar ningún dato externo.
+
+### Por qué va la última de las tres
+
+Es la más barata y la que menos depende de nadie, así que sostiene mejor una
+sesión corta o de repaso después de las otras dos, que si se hace primero
+consume la sesión más fácil sin dejar cuerda para las que sí necesitan una
+decisión tuya.
+
+---
+
 ## Orden propuesto
 
 ```
