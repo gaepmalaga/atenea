@@ -160,7 +160,7 @@ export default function AcademiasLandingPage() {
             Ver la demo <ArrowRight size={18} aria-hidden />
           </Link>
           <a
-            href="mailto:contacto@ateneapolicial.com"
+            href="mailto:contacto@ateneapolicial.com?subject=Quiero%20precio%20para%20mi%20academia&body=Nombre%20de%20la%20academia%3A%20%0ANumero%20de%20alumnos%3A%20%0A"
             className={`min-h-[56px] border-[3px] ${C.borde} px-6 flex items-center text-sm font-black uppercase tracking-wider`}
           >
             Pedir precio
@@ -290,7 +290,7 @@ export default function AcademiasLandingPage() {
               Ver la demo <ArrowRight size={18} aria-hidden />
             </Link>
             <a
-              href="mailto:contacto@ateneapolicial.com"
+              href="mailto:contacto@ateneapolicial.com?subject=Quiero%20precio%20para%20mi%20academia&body=Nombre%20de%20la%20academia%3A%20%0ANumero%20de%20alumnos%3A%20%0A"
               className="min-h-[56px] border-[3px] border-white px-6 flex items-center text-sm font-black uppercase tracking-wider"
             >
               contacto@ateneapolicial.com

@@ -403,7 +403,7 @@ function FilaAlumnoUI({
           {cargandoFicha && <p className="text-xs text-slate-500 flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Abriendo la ficha…</p>}
           {!cargandoFicha && ficha && (
             <div className="grid md:grid-cols-2 gap-6">
-              <div>
+              <div className="min-w-0">
                 <SectionLabel icon={<Layers size={11} />}>Temas, del peor al mejor</SectionLabel>
                 {ficha.temas.length === 0 && <p className={TEXT.muted}>Todavía no ha contestado ninguna pregunta.</p>}
                 <div className="space-y-2">
@@ -420,7 +420,7 @@ function FilaAlumnoUI({
                   ))}
                 </div>
               </div>
-              <div>
+              <div className="min-w-0">
                 <SectionLabel icon={<Target size={11} />}>Cómo se equivoca</SectionLabel>
                 {ficha.errores.porTipo.length === 0 && ficha.errores.sinClasificar === 0 && <p className={TEXT.muted}>Sin fallos registrados.</p>}
                 <div className="space-y-1.5">
