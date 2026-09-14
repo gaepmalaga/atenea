@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { after } from 'next/server';
 import { supabaseAdmin } from '../actions/core';
 import { sendMail } from './mailer';
 import { plantillaSolicitudAdmin } from './app-email-templates';
@@ -72,8 +73,16 @@ export async function resolveFirstContact(
     .select('access_status, payment_status, exempt');
 
   if (!error && creada && creada.length > 0) {
-    avisarAdmins(organizationId, correo).catch((e) =>
-      console.error('[solicitud-alta] aviso al admin:', e instanceof Error ? e.message : e),
+    // `after()`, no un `.catch()` suelto: en el runtime serverless de Vercel, la
+    // función se corta en cuanto la respuesta sale, y una promesa sin `await`
+    // ni `after()` se queda a medias — el envío a Resend nunca llegaba a
+    // dispararse (confirmado en los logs: la petición hacía las lecturas de
+    // Supabase pero cero llamadas salientes a api.resend.com). `after()`
+    // garantiza que esto termina, sin retrasar la respuesta al alumno.
+    after(() =>
+      avisarAdmins(organizationId, correo).catch((e) =>
+        console.error('[solicitud-alta] aviso al admin:', e instanceof Error ? e.message : e),
+      ),
     );
   }
 

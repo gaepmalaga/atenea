@@ -1,5 +1,6 @@
 'use server'
 
+import { after } from 'next/server';
 import { supabaseAdmin } from './core';
 import { requireAdmin, olvidaMembershipRequired } from '../lib/auth';
 import { registraAccion } from '../lib/admin-audit';
@@ -83,6 +84,9 @@ export async function setMemberAccess(studentId: string, status: AccessStatus) {
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
   if (!studentId) return { success: false as const, error: 'Falta el alumno.' };
+  // Capturado en una constante: TS no conserva el estrechamiento de
+  // `auth.user.organizationId` dentro del cierre de `after()` más abajo.
+  const organizationId = auth.user.organizationId;
 
   const valor = status === ACCESS_STATUS.SUSPENDED ? ACCESS_STATUS.SUSPENDED : ACCESS_STATUS.ACTIVE;
 
@@ -115,8 +119,14 @@ export async function setMemberAccess(studentId: string, status: AccessStatus) {
     });
 
     if (antes?.access_status !== valor) {
-      avisaResolucion(auth.user.organizationId, studentId, valor === ACCESS_STATUS.ACTIVE).catch((e) =>
-        console.error('[correo-resolucion]', e instanceof Error ? e.message : e),
+      // `after()`, mismo motivo que `resolveFirstContact` (registration-requests.ts):
+      // sin él, el runtime serverless corta la función en cuanto sale la
+      // respuesta y este correo se queda a medias, sin ni intentar la llamada
+      // a Resend.
+      after(() =>
+        avisaResolucion(organizationId, studentId, valor === ACCESS_STATUS.ACTIVE).catch((e) =>
+          console.error('[correo-resolucion]', e instanceof Error ? e.message : e),
+        ),
       );
     }
   }
