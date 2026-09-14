@@ -1,0 +1,37 @@
+# La academia Demo es de acceso compartido (se le dan las credenciales a
+# prospectos para que prueben el panel real). En vez de bloquear la escritura
+# —que habría tocado casi toda la capa de acciones—, se optó por «reseeding
+# periódico» (decidido 14 sep 2026): cada noche se vuelve a sembrar desde
+# cero, así que lo que un prospecto cambie o rompa durante el día no dura.
+#
+# `npm run sembrar:demo -- --borrar` es idempotente y seguro de repetir: las
+# cuentas, grupos y ajustes van con upsert (no se duplican), y `--borrar`
+# fuerza a rehacer la actividad (question_attempts, fichas) de cada alumno
+# desde cero en vez de saltarla por ya tener datos.
+#
+# `workflow_dispatch` deja lanzarlo a mano para probarlo sin esperar al cron.
+name: reseed-demo
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # 04:00 UTC — de madrugada en España, para y con margen antes de que alguien vuelva a entrar
+  workflow_dispatch:
+
+jobs:
+  reseed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: node --experimental-strip-types scripts/operacion/sembrar-demo.mjs -- --borrar
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
