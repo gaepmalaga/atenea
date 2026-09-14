@@ -149,13 +149,50 @@ en la conversación de esta sesión, no en `docs/`.
 
 1. ~~**La academia demo real**~~ → **hecha, 14 sep 2026.** Ver el apartado
    siguiente.
-2. **Supabase Auth: añadir `https://ateneapolicial.com/\*\*` a las Redirect
-   URLs**, y confirmar si `RESEND_API_KEY` se añade ahora o se deja para
-   más adelante — son dos cosas que solo se resuelven con acceso a paneles
-   que esta sesión tampoco tenía (Supabase Auth no tiene API de gestión con
-   la clave de servicio; Resend necesita la clave del propio panel).
+2. ~~**Supabase Auth: Redirect URLs · `RESEND_API_KEY`**~~ → **hechas, 14
+   sep 2026.** Ver «Lo que se cerró después» más abajo — con acceso real a
+   Cloudflare y Supabase desde el propio Chrome de la sesión, resultó que sí
+   se podía.
 3. **P13 (psicotécnicos)**, si hay hueco para una sesión larga — es la pieza
    de producto más grande de las tres y ya no tiene ningún dato pendiente.
+   Recomendado con Opus 5: hay decisiones de arquitectura de por medio.
+
+---
+
+## 14 de septiembre · Lo que se cerró después (con acceso real a los paneles)
+
+Con Cloudflare y Supabase logueados en el propio Chrome de la sesión (algo
+que la sesión en la nube no tenía), se pudo cerrar todo lo que antes
+quedaba «pendiente del dueño»:
+
+- **Bug real encontrado y arreglado**: los dos correos de P12 (aviso de
+  solicitud al admin, resolución al alumno) nunca llegaban a intentarse.
+  `avisarAdmins(...).catch(...)` se lanzaba sin `await` justo antes de que
+  la Server Action devolviera su respuesta — el runtime serverless de
+  Vercel corta la función en cuanto sale la respuesta, así que ese envío en
+  segundo plano se quedaba a medias. Confirmado con los logs de Vercel
+  (Logs → External APIs): la petición hacía las lecturas de Supabase pero
+  **cero** llamadas salientes a `api.resend.com`. Arreglado con `after()`
+  de `next/server` en `app/lib/registration-requests.ts` y
+  `app/actions/membership.ts`. Verificado end-to-end con una cuenta de
+  prueba real: el correo de confirmación de Supabase llegó, y tras el
+  arreglo el aviso al admin también (visible en Resend → Emails).
+- **`RESEND_API_KEY` creada y activa** en Vercel (Production + Preview) —
+  clave dedicada, `Sending access`, restringida al dominio
+  `ateneapolicial.com`.
+- **Email Routing de `ateneapolicial.com`** configurado en Cloudflare:
+  `contacto@` y `alumnos@` reenviando al Gmail del dueño. Verificado con un
+  correo real recibido desde otra cuenta.
+- **Typo corregido**: `profiles.email` de la admin de `atenea` tenía
+  `atanea.alumnos@gmail.com` (con «a»); el correo de login real en
+  `auth.users` siempre fue `atenea.alumnos@gmail.com`. Ya coinciden — sin
+  esto, el aviso de P12 rebotaba (`Recipient not found`) aunque el código
+  ya funcionara.
+- **Supabase Auth → Redirect URLs**: añadida `https://ateneapolicial.com/**`
+  (el Site URL se dejó tal cual, en `atenea-eight.vercel.app` — no se pidió
+  cambiarlo).
+
+Todo verificado en producción, no solo en el preview.
 
 ---
 
@@ -226,10 +263,9 @@ comercial…), no dejarlas en una URL indexable.
   `AteneaDemo26`. Cambiar la contraseña es un `npm run sembrar:demo` con
   otra clave en el guion, o `npm run cuenta -- admin@academia-demo.es
   'otraClave' admin`.
-- Añadir `https://ateneapolicial.com/**` a las Redirect URLs de Supabase
-  Auth (Authentication → URL Configuration) — panel al que ninguna sesión
-  ha tenido acceso todavía.
-- Decidir si `RESEND_API_KEY` se activa ya o se deja apagado un poco más,
-  y cómo se entregan las credenciales de la demo a un prospecto (ver
-  arriba: a propósito no están en la página pública).
+- ~~Añadir `https://ateneapolicial.com/**` a las Redirect URLs de Supabase
+  Auth~~ → hecho, 14 sep 2026.
+- ~~Decidir si `RESEND_API_KEY` se activa~~ → activada, 14 sep 2026.
+  Pendiente solo cómo se entregan las credenciales de la demo a un
+  prospecto (a propósito no están en la página pública — ver arriba).
 - P13 y P15 se pueden empezar sin esperar respuesta de nadie.
