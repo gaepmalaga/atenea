@@ -1059,6 +1059,153 @@ que sigue es de diseño de datos y construcción, no de esperar respuestas.
 
 ---
 
+## P13 · Psicotécnicos de aptitud
+
+> **Propuesta, sin empezar.** Nace de la conversación del 13-14 sep 2026: hoy
+> «psicotécnico» en Atenea significa el cuestionario de personalidad de
+> `BiodataManager` (P15). El proceso real de la Escala Básica tiene además una
+> prueba de **aptitud** — series numéricas, matrices, sinónimos/antónimos,
+> razonamiento espacial, series de figuras — y de eso no hay ni un ítem.
+
+### Lo que hay hoy
+
+Nada. `question_bank` es preguntas de opción múltiple sobre el temario legal;
+no hay tabla, pantalla ni prompt para un ítem cuya respuesta correcta se
+**calcula**, no se **sabe**.
+
+### Qué hay que hacer
+
+- **Una tabla nueva**, no una fila más de `question_bank`: la forma del dato es
+  distinta (una matriz, una serie, un conjunto de figuras) y la corrección es
+  determinista, no una opción marcada a mano. Mismo ciclo de vida que las
+  preguntas (`candidate` / `active` / `disabled`, regla 3), con `category`
+  (numérico / verbal / espacial / abstracto / mecánico), el ítem en un
+  `payload` estructurado, la respuesta correcta y la explicación.
+- **La IA escribe el ítem; el código comprueba la respuesta.** Es la regla 10
+  llevada un paso más allá: en una serie numérica, la respuesta se puede
+  **recalcular** aplicando la regla declarada, no solo confiar en lo que diga
+  el modelo. Donde no se pueda verificar así (una analogía verbal), el ítem
+  entra como `candidate` y pasa por moderación humana — nunca directo a
+  `active` sin ese cálculo o esa revisión.
+- **Un modo de examen propio**, separado del simulacro del temario: estas
+  pruebas van por baterías con su **propio límite de tiempo**, no los 30 s por
+  pregunta de la regla 25.
+- **De dónde sale el contenido — la misma cautela que la regla 72.** El
+  *formato* (series, matrices…) es un género público, sin autor; el ítem
+  concreto de una academia de pago no se copia. Se genera de cero con Gemini o
+  se escribe a mano, igual que el resto del banco.
+
+### Qué necesito del dueño antes de escribir el examen final
+
+El **formato exacto y el tiempo por batería** de la convocatoria vigente, del
+BOE — no de memoria (mismo principio que la fórmula de nota de la regla 22).
+Mientras tanto se puede construir con un tiempo configurable y ajustarlo
+cuando llegue el dato real, igual que se hizo con la penalización antes de
+tener la convocatoria delante.
+
+### Por qué es la más grande de las tres
+
+Es contenido **y** un ciclo de generación-validación nuevo, comparable en
+esfuerzo a construir el banco de preguntas desde cero (P1). Por eso, si solo
+hay hueco para una sesión larga, es la que más conviene hacer primero: las
+otras dos reutilizan mucho de lo que ya existe.
+
+---
+
+## P14 · Inglés B1
+
+> **Propuesta, sin empezar.** Obligatorio desde la convocatoria 41 (dato visto
+> al investigar la competencia, 13 sep 2026) y hoy la plataforma no tiene ni
+> un tema, ni una pregunta, ni un módulo con ese nombre.
+
+### Lo que hay hoy
+
+Nada, ni en el temario ni en el banco.
+
+### Qué hay que hacer
+
+Comparado con P13, esto es sobre todo **contenido**, no un módulo nuevo: si el
+examen real es de opción múltiple (comprensión lectora, gramática,
+vocabulario — lo habitual en una prueba escrita masiva), encaja en
+`question_bank` tal cual está, con un `subject` nuevo. Reutiliza el generador,
+`ActiveTest`, el simulacro y el entrenamiento adaptativo (P10) sin tocarlos.
+
+- Un tema «Inglés B1» en el temario, con el contenido gramatical y léxico del
+  nivel (el marco B1 del MCER es un estándar público, no hace falta ninguna
+  fuente de pago para generar ítems que se ajusten a él).
+- Preguntas generadas con Gemini como las demás, pero con una validación
+  añadida: un fallo de matiz de idioma no lo pilla `validateGeneratedQuestion`
+  tal como está —comprueba la forma, no si el inglés es correcto—, así que
+  hace falta un segundo paso que sí lo revise antes de `active`.
+
+### Qué necesito del dueño
+
+**El formato real del examen**, del BOE de la convocatoria vigente: si es solo
+lectura y gramática o si incluye algo que esta plataforma no sirve hoy (un
+audio, por ejemplo, que sería un tipo de contenido nuevo de verdad y no encaja
+en `question_bank`). Sin ese dato se construiría a ciegas, y ya se sabe cómo
+termina eso (regla 22).
+
+### Por qué es probablemente la más barata de las tres
+
+No es un módulo: es un tema más del temario, dentro de una tubería que ya
+existe y ya está probada.
+
+---
+
+## P15 · Biodata con diagnóstico real
+
+> **Propuesta, sin empezar.** Nace de una queja concreta: *«tiene 4 preguntas
+> básicas y poco más… nada de herramientas reales de diagnóstico»*.
+
+### Lo que hay hoy — más de lo que parece, y aun así corto
+
+`BiodataManager` no son 4 preguntas: son 7 campos de texto libre (entorno,
+estudios, motivación, miedos, incidentes…) más un **test de personalidad de 30
+ítems** con corrección por deseabilidad social (los ítems de control invierten
+la puntuación si el aspirante se retrata como perfecto, regla del propio
+fichero) que calcula cuatro factores: sinceridad, estabilidad, normatividad,
+liderazgo.
+
+Y ese perfil **ya se usa**: `app/actions/interview.ts` lo lee para decidir la
+estrategia del entrevistador simulado (más o menos presión según el factor).
+Lo que falta no es el motor — es que **el alumno nunca ve una interpretación
+de lo suyo**. Ve cuatro barras de 0 a 10 y una etiqueta genérica
+(«Resistencia presión»); ni qué significa un 3, ni qué hacer con ello. Eso es
+justo la queja: el dato existe, el diagnóstico no.
+
+### Qué hay que hacer
+
+- **Interpretación por tramo, por factor** — texto real, no una barra: qué
+  significa un liderazgo bajo para quien va a un tribunal de la Escala Básica,
+  y qué trabajar antes de la entrevista. Vive en `app/lib/` como datos puros
+  (mismo patrón que `ERROR_LABELS`), escrito una vez y revisado, no generado
+  por IA en caliente — no hace falta gastar una llamada por alumno para decir
+  algo que no cambia.
+- **Un resumen que cruza los cuatro factores** con lo que el aspirante ya
+  escribió (miedos, incidentes) en vez de cuatro números sueltos sin relación
+  entre sí.
+- **Opcional, y ese sí cuesta dinero**: una llamada a Gemini que redacte tres
+  o cuatro líneas de coaching personalizado tras rellenar el perfil. Si se
+  hace, pasa por la cuota (regla 20) y por `requireModule` como cualquier
+  llamada de IA del alumno — no es gratis solo porque parezca un detalle
+  pequeño.
+
+### Qué necesito del dueño
+
+Nada que bloquee empezar. No hace falta SQL —no hay columna nueva—, así que
+esta es la única de las tres que se puede arrancar y terminar en una sesión
+sin esperar ningún dato externo.
+
+### Por qué va la última de las tres
+
+Es la más barata y la que menos depende de nadie, así que sostiene mejor una
+sesión corta o de repaso después de las otras dos, que si se hace primero
+consume la sesión más fácil sin dejar cuerda para las que sí necesitan una
+decisión tuya.
+
+---
+
 ## Orden propuesto
 
 ```
