@@ -1,7 +1,7 @@
 'use server'
 
 import { supabaseAdmin } from './core';
-import { requireAdmin } from '../lib/auth';
+import { requireSuperadmin } from '../lib/auth';
 import {
   resumeGastoIA,
   type FilaGastoIA,
@@ -38,31 +38,20 @@ export type AiCostOverview = Omit<ResumenGastoIA, 'porAlumno'> & {
 export async function getAiCostOverview(): Promise<
   { success: true; data: AiCostOverview } | { success: false; error: string }
 > {
-  const auth = await requireAdmin();
+  // Regla 75: el único gasto de IA hoy sale de generar contra el banco
+  // COMÚN (Temario & IA, también restringido al superadmin) y, en la
+  // academia «casa», del plan de físicas por IA — en cualquier otra
+  // academia (banco manual) esta pantalla saldría siempre a 0 €. Se
+  // concentra en el panel transversal del superadmin en vez de repetir una
+  // pestaña vacía en cada academia.
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  let query = supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('ai_usage')
     .select('user_id, route, cost_usd, input_tokens, output_tokens, cached_tokens, created_at, subject_id')
     .order('created_at', { ascending: false })
     .limit(MAX_FILAS);
-
-  // P11: `ai_usage` no lleva `organization_id` a propósito (docs/sql/P11-
-  // multi-academia.sql — evita la ambigüedad de un alumno en dos academias).
-  // Un admin normal solo ve el gasto DE SU academia, cruzando por
-  // `academy_members`; un `superadmin` ve el gasto de todas, como en el panel
-  // transversal (regla 65).
-  if (auth.user.role !== 'superadmin') {
-    const { data: miembros, error: miembrosErr } = await supabaseAdmin
-      .from('academy_members')
-      .select('user_id')
-      .eq('academy_id', auth.user.organizationId);
-    if (miembrosErr) return { success: false as const, error: miembrosErr.message };
-    const ids = (miembros ?? []).map((m) => m.user_id as string);
-    query = ids.length ? query.in('user_id', ids) : query.eq('user_id', '00000000-0000-0000-0000-000000000000');
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     // No se traga (regla 4): un panel de gasto que enseña "$0.00" cuando la

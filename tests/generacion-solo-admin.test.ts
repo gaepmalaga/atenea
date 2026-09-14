@@ -20,6 +20,12 @@ import { join } from 'node:path';
  *
  * Ahora el contenido lo siembra el administrador. Este test es estatico: lee
  * el codigo y no necesita Supabase.
+ *
+ * Regla 75 (multi-academia): ambas funciones escriben SIEMPRE en el banco
+ * GLOBAL (`question_bank`/`flashcard_bank` sin `organization_id`), asi que
+ * "el administrador" paso de ser cualquier `admin` a ser el `superadmin` —
+ * sembrar desde una academia ya no puede publicar contenido para todas las
+ * demas de un clic.
  */
 
 const raiz = join(__dirname, '..');
@@ -31,12 +37,15 @@ function sinComentarios(src: string): string {
 }
 
 describe('solo el administrador gasta en IA', () => {
-  it('generar una pregunta exige requireAdmin, no requireUser', () => {
+  it('generar una pregunta exige requireSuperadmin, no requireAdmin ni requireUser', () => {
     const src = sinComentarios(leer('app/actions/exams.ts'));
     const cuerpo = src.slice(src.indexOf('export async function generateAndSaveCandidate'));
     const hasta = cuerpo.slice(0, cuerpo.indexOf('try {'));
-    expect(hasta).toMatch(/requireAdmin\(\)/);
+    expect(hasta).toMatch(/requireSuperadmin\(\)/);
     expect(hasta).not.toMatch(/requireUser\(\)/);
+    // No basta con "algún tipo de admin": un `admin` normal sembraría en el
+    // banco de OTRAS academias sin saberlo (regla 75).
+    expect(hasta).not.toMatch(/requireAdmin\(\)/);
   });
 
   it('la pantalla del examen ya no puede pedir preguntas a la IA', () => {
@@ -66,12 +75,12 @@ describe('solo el administrador gasta en IA', () => {
     expect(cuerpo).toMatch(/flashcard_bank/);
   });
 
-  it('sembrar fichas exige requireAdmin', () => {
+  it('sembrar fichas exige requireSuperadmin', () => {
     const src = sinComentarios(leer('app/actions/flashcards.ts'));
     const desde = src.indexOf('export async function seedFlashcardBank');
     expect(desde).toBeGreaterThan(-1);
     const cabecera = src.slice(desde, desde + 600);
-    expect(cabecera).toMatch(/requireAdmin\(\)/);
+    expect(cabecera).toMatch(/requireSuperadmin\(\)/);
     expect(cabecera).not.toMatch(/requireUser\(\)/);
   });
 

@@ -1,7 +1,7 @@
 'use server'
 
 import { supabaseAdmin } from './core';
-import { requireAdmin, requireUser } from '../lib/auth';
+import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import {
   QUESTION_STATUS,
   QUESTION_ORIGIN,
@@ -53,13 +53,21 @@ export async function getModerationQueue() {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false as const, error: auth.error };
 
+    // Las CANDIDATAS solo las produce el superadmin: generar en vivo
+    // (`generateAndSaveCandidate`) y sembrar sin auto-aprobar (`seedQuestionBank`)
+    // exigen `requireSuperadmin()` desde la regla 75, y las dos escriben
+    // siempre en el banco GLOBAL. Un admin normal no tiene nada que moderar
+    // aquí — lo suyo son los REPORTES de su propia academia, más abajo.
+    //
     // El titulo del tema se trae por join: `question_bank` guarda `subject_id`.
     // Sin esto el panel pintaba `q.topic` y siempre salia vacio.
-    const { data: cand } = await supabaseAdmin
-      .from('question_bank')
-      .select('*, subject:subjects(title)')
-      .eq('status', QUESTION_STATUS.CANDIDATE)
-      .limit(50);
+    const { data: cand } = auth.user.role === 'superadmin'
+      ? await supabaseAdmin
+          .from('question_bank')
+          .select('*, subject:subjects(title)')
+          .eq('status', QUESTION_STATUS.CANDIDATE)
+          .limit(50)
+      : { data: [] as unknown[] };
 
     // El join resuelve porque la FK question_reports.question_id -> question_bank
     // esta declarada. Si no lo estuviera, PostgREST devolveria error y la cola
@@ -100,8 +108,11 @@ export async function getModerationQueue() {
     return { success: true as const, data };
 }
 
+// Aprobar SOLO tiene sentido sobre una candidata, y las candidatas son
+// siempre del banco GLOBAL (ver `getModerationQueue`): es acción exclusiva
+// del superadmin, igual que generarlas.
 export async function approveQuestion(questionId: string): Promise<ModerationResult> {
-    const auth = await requireAdmin();
+    const auth = await requireSuperadmin();
     if (!auth.ok) return { success: false, error: auth.error };
 
     const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.ACTIVE }).eq('id', questionId);
@@ -115,7 +126,7 @@ export async function approveQuestion(questionId: string): Promise<ModerationRes
  * aprobarlas de una en una no da abasto.
  */
 export async function approveQuestions(questionIds: string[]): Promise<ModerationResult & { approved?: number }> {
-    const auth = await requireAdmin();
+    const auth = await requireSuperadmin();
     if (!auth.ok) return { success: false, error: auth.error };
     if (!questionIds.length) return { success: true, approved: 0 };
 
@@ -136,9 +147,18 @@ export async function disableQuestion(questionId: string): Promise<ModerationRes
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
 
-    const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.DISABLED }).eq('id', questionId);
-    if (!error) registraAccion({ actorId: auth.user.id, action: 'disable_question', target: questionId });
-    return { success: !error, error: error?.message };
+    let query = supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.DISABLED }).eq('id', questionId);
+    // Un admin normal solo puede tocar SU banco privado — nunca el global ni
+    // el de otra academia. Filtrando en el propio UPDATE, una fila que no le
+    // pertenece simplemente no cambia, en vez de depender de una lectura
+    // previa que alguien podría olvidar (regla 65: un `superadmin` no se
+    // filtra, administra el banco global y, si hace falta, cualquier otro).
+    if (auth.user.role !== 'superadmin') query = query.eq('organization_id', auth.user.organizationId);
+    const { data, error } = await query.select('id');
+    if (error) return { success: false, error: error.message };
+    if (!data || data.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+    registraAccion({ actorId: auth.user.id, action: 'disable_question', target: questionId });
+    return { success: true };
 }
 
 /**
@@ -158,11 +178,17 @@ export async function discardAllQuestions(): Promise<ModerationResult & { discar
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
         .from('question_bank')
         .update({ status: QUESTION_STATUS.DISABLED })
-        .neq('status', QUESTION_STATUS.DISABLED)
-        .select('id');
+        .neq('status', QUESTION_STATUS.DISABLED);
+    // Nunca "todo, de todas las academias": un admin normal vacía SU banco
+    // privado; el superadmin, el GLOBAL. Sin este filtro, «Descartar todo»
+    // desde CUALQUIER academia borraba el banco entero de la plataforma.
+    query = auth.user.role === 'superadmin'
+      ? query.is('organization_id', null)
+      : query.eq('organization_id', auth.user.organizationId);
+    const { data, error } = await query.select('id');
 
     if (!error) {
         registraAccion({ actorId: auth.user.id, action: 'discard_all_candidates', detail: { cantidad: data?.length ?? 0 } });
@@ -173,6 +199,22 @@ export async function discardAllQuestions(): Promise<ModerationResult & { discar
 export async function resolveReport(reportId: string): Promise<ModerationResult> {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
+
+    // `question_reports` no lleva `organization_id` propio (P11e): la
+    // propiedad se decide por la academia de la PREGUNTA reportada, mismo
+    // criterio que `getModerationQueue`. Sin esto, un admin podía resolver —
+    // y así ocultar de la cola— el reporte de una pregunta que no era suya.
+    if (auth.user.role !== 'superadmin') {
+      const { data: rep } = await supabaseAdmin
+        .from('question_reports')
+        .select('question:question_bank!inner(organization_id)')
+        .eq('id', reportId)
+        .maybeSingle();
+      const orgDeLaPregunta = (rep as { question?: { organization_id: string | null } } | null)?.question?.organization_id ?? null;
+      if (orgDeLaPregunta !== auth.user.organizationId) {
+        return { success: false, error: 'Ese reporte no es de tu academia.' };
+      }
+    }
 
     const { error } = await supabaseAdmin.from('question_reports').update({ status: 'dismissed' }).eq('id', reportId);
     if (!error) registraAccion({ actorId: auth.user.id, action: 'resolve_report', target: reportId });
@@ -199,13 +241,19 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
 
     // Se escriben los valores YA normalizados, no los de entrada: es lo que
     // recorta espacios y deja el indice como numero.
-    const { error } = await supabaseAdmin.from('question_bank').update({
+    let query = supabaseAdmin.from('question_bank').update({
         question_text: check.value.question,
         options: check.value.options,
         correct_index: check.value.correctIndex,
         explanation: check.value.explanation,
     }).eq('id', questionId);
-    return { success: !error, error: error?.message };
+    // Mismo criterio que `disableQuestion`: un admin normal solo edita SU
+    // banco privado, nunca el global ni el de otra academia.
+    if (auth.user.role !== 'superadmin') query = query.eq('organization_id', auth.user.organizationId);
+    const { data: filas, error } = await query.select('id');
+    if (error) return { success: false, error: error.message };
+    if (!filas || filas.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+    return { success: true };
 }
 
 

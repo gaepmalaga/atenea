@@ -201,7 +201,7 @@ describe('dificultad de las preguntas', () => {
 
 describe('filtroBancoPorAcademia (P11c: global + privado, nunca de otra academia)', () => {
   it('sin academia resuelta, solo sirve el banco global', () => {
-    expect(filtroBancoPorAcademia(null)).toBe('organization_id.is.null');
+    expect(filtroBancoPorAcademia(null)).toContain('organization_id.is.null');
   });
 
   it('con academia resuelta, sirve el global MAS el propio', () => {
@@ -214,5 +214,13 @@ describe('filtroBancoPorAcademia (P11c: global + privado, nunca de otra academia
     // Regresion sencilla: dos academias distintas no pueden acabar compartiendo
     // el mismo filtro literal.
     expect(filtroBancoPorAcademia('org-A')).not.toBe(filtroBancoPorAcademia('org-B'));
+  });
+
+  it('regla 75: nunca incluye las candidatas del banco global', () => {
+    // Solo el superadmin las genera y las modera (getModerationQueue,
+    // moderation.ts). Sin esto, un admin normal veía en «Banco Oficial»
+    // preguntas del banco global que no podía aprobar ni descartar.
+    expect(filtroBancoPorAcademia(null)).toMatch(new RegExp(`status\\.neq\\.candidate`));
+    expect(filtroBancoPorAcademia('org-123')).toMatch(new RegExp(`status\\.neq\\.candidate`));
   });
 });

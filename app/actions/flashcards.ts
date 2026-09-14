@@ -5,7 +5,7 @@ import { buildFlashcardPrompt } from '../lib/flashcard-prompt';
 import { flashcardHash } from '../lib/question-hash';
 import { QUESTION_STATUS } from '../lib/questions';
 import { scheduleCard, nextReviewDate } from '../lib/srs';
-import { requireAdmin, requireUser } from '../lib/auth';
+import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
@@ -292,7 +292,10 @@ export async function seedFlashcardBank(params: {
   topic: string;
   count: number;
 }) {
-  const auth = await requireAdmin();
+  // `flashcard_bank` es compartido por TODAS las academias sin distinción
+  // (no lleva `organization_id`, a diferencia de `question_bank` desde P11c):
+  // solo el superadmin lo siembra, igual que el banco de preguntas.
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   const modulo = await requireModule('cards');
@@ -362,7 +365,7 @@ export async function seedFlashcardBank(params: {
 
 /** Cuántas fichas hay por tema. Para que el panel no siembre a ciegas. */
 export async function getFlashcardBankCounts() {
-  const auth = await requireAdmin();
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   const { data, error } = await supabase

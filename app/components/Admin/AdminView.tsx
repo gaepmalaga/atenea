@@ -143,20 +143,26 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // onClick, asi que una pestaña mal escrita compilaba y no hacia nada.
   type TabDef = { id: AdminTab; label: string; icon: LucideIcon; color: string };
 
-  const TABS_DE_ACADEMIA: TabDef[] = [
+  // Regla 75: «Temario & IA» (genera contra el banco COMÚN) y «Consumo IA»
+  // (mide ESE gasto) son del `superadmin`, no de quien administra una
+  // academia — hasta ahora cualquier `admin` podía sembrar preguntas
+  // ACTIVAS directamente en el banco global de TODAS las academias con un
+  // clic, sin que nada lo impidiera. «Banco Oficial» y «Moderación» se
+  // quedan para los dos: un admin normal ve y modera lo suyo (su banco
+  // privado, sus reportes); el superadmin, lo global.
+  const TODAS_LAS_PESTANAS: TabDef[] = [
     { id: 'students', label: 'Alumnos', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'groups', label: 'Grupos', icon: Users2, color: 'text-teal-700 dark:text-teal-400' },
     { id: 'physical', label: 'Prep. física', icon: Dumbbell, color: 'text-orange-700 dark:text-orange-400' },
     { id: 'payments', label: 'Pagos', icon: KeyRound, color: 'text-rose-700 dark:text-rose-400' },
     { id: 'content', label: 'Temario & IA', icon: Book, color: 'text-purple-700 dark:text-purple-400' },
-    { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-700 dark:text-emerald-400' }, // <--- NUEVA PESTAÑA
+    { id: 'bank', label: 'Banco Oficial', icon: Database, color: 'text-emerald-700 dark:text-emerald-400' },
     { id: 'moderation', label: 'Moderación', icon: AlertTriangle, color: 'text-amber-700 dark:text-amber-400' },
     { id: 'modules', label: 'Ajustes', icon: Power, color: 'text-cyan-700 dark:text-cyan-400' },
     { id: 'cost', label: 'Consumo IA', icon: Coins, color: 'text-lime-700 dark:text-lime-400' },
     { id: 'activity', label: 'Logs & Auditoría', icon: Activity, color: 'text-slate-500 dark:text-slate-400' },
+    { id: 'academies', label: 'Academias', icon: Building2, color: 'text-fuchsia-700 dark:text-fuchsia-400' },
   ];
-
-  const TAB_ACADEMIAS: TabDef = { id: 'academies', label: 'Academias', icon: Building2, color: 'text-fuchsia-700 dark:text-fuchsia-400' };
 
   // P11f, afinado tras probarlo: el `superadmin` NO administra ninguna
   // academia (`organizationId` es siempre `null` para él, regla 65) — lo
@@ -164,15 +170,16 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // («Temario & IA»), navegarlo y darlo de alta a mano/CSV («Banco Oficial»
   // — `bancoDestino` en `moderation.ts` manda sus altas siempre al banco
   // global, nunca a una academia), sus reportes y candidatas
-  // («Moderación»), y la comparativa entre academias («Academias»). Nada de
+  // («Moderación»), cuánto cuesta mantenerlo («Consumo IA», también sin
+  // filtro para él), y la comparativa entre academias («Academias»). Nada de
   // «Alumnos», «Grupos», «Pagos» ni «Prep. física»: eso es de quien
   // administra UNA academia.
-  const tabs: TabDef[] = esSuperadmin
-    ? [
-        ...TABS_DE_ACADEMIA.filter((t) => t.id === 'content' || t.id === 'bank' || t.id === 'moderation'),
-        TAB_ACADEMIAS,
-      ]
-    : TABS_DE_ACADEMIA;
+  const IDS_SUPERADMIN: AdminTab[] = ['content', 'bank', 'moderation', 'cost', 'academies'];
+  const IDS_ADMIN: AdminTab[] = ['students', 'groups', 'physical', 'payments', 'bank', 'moderation', 'modules', 'activity'];
+
+  const tabs: TabDef[] = TODAS_LAS_PESTANAS.filter((t) =>
+    (esSuperadmin ? IDS_SUPERADMIN : IDS_ADMIN).includes(t.id)
+  );
 
   const tabsOrdenadas = aplicaOrden(tabs, orden);
 
@@ -346,7 +353,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
                 {activeTab === 'physical' && <AdminPhysical />}
                 {activeTab === 'payments' && <AdminPayments />}
                 {activeTab === 'content' && <AdminContent />}
-                {activeTab === 'bank' && <AdminBank />}
+                {activeTab === 'bank' && <AdminBank esSuperadmin={esSuperadmin} />}
                 {activeTab === 'moderation' && <AdminModeration />}
                 {activeTab === 'modules' && <AdminModules />}
                 {activeTab === 'cost' && <AdminCost />}

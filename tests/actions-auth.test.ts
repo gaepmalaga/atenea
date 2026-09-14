@@ -74,24 +74,21 @@ describe('superficie de las Server Actions', () => {
 
   it('las acciones de administracion exigen rol de admin', () => {
     const debenSerAdmin = [
+      // Un admin normal las necesita para SU academia: leer el temario
+      // (compartido) al elegir tema, y moderar/editar SU banco privado o los
+      // reportes de sus alumnos (moderation.ts acota por organization_id
+      // dentro de cada función; ver `debenSerSuperadmin` para lo que NO).
       'getOfficialSyllabus',
-      'deleteDocument',
-      'uploadTopicPDF',
-      'deleteTopic',
       'getAdminUsersList',
       'getGlobalActivity',
       'getAdminQuestionBank',
       'getModerationQueue',
-      'approveQuestion',
       'disableQuestion',
       'resolveReport',
       'updateQuestion',
-      'seedQuestionBank',
       // P2: escriben directamente en el banco de los alumnos.
       'createManualQuestion',
       'importManualQuestions',
-      // P6: el gasto de IA es dato de administración (ai_usage sin políticas).
-      'getAiCostOverview',
       // Interruptores de preparación física (feedback tras P8).
       'setTrainingSwitch',
       // P6/P8: control de acceso.
@@ -120,6 +117,43 @@ describe('superficie de las Server Actions', () => {
     const flojas = debenSerAdmin.filter((name) => {
       const action = allActions.find((a) => a.name === name);
       return !action || !/requireAdmin\(\)/.test(action.body);
+    });
+
+    expect(flojas).toEqual([]);
+  });
+
+  it('regla 75: lo que toca al banco COMÚN o a su coste exige superadmin, no admin', () => {
+    // Hasta ahora todo esto exigía solo `requireAdmin()`: cualquier admin de
+    // CUALQUIER academia podía subir/borrar temario, sembrar preguntas
+    // ACTIVAS o fichas directamente en el banco GLOBAL (sin `organization_id`,
+    // así que afecta a TODAS las academias a la vez), aprobar candidatas
+    // ajenas, o ver el gasto de IA de otra academia. Nada de esto es "más
+    // admin": es administración de la plataforma entera, no de UNA academia.
+    const debenSerSuperadmin = [
+      // Temario & IA: documentos y su indexado, compartidos por todas.
+      'deleteDocument',
+      'uploadTopicPDF',
+      'reindexDocument',
+      'getDocumentChunks',
+      'deleteTopic',
+      // Generar o sembrar contra el banco global (preguntas y fichas).
+      'generateAndSaveCandidate',
+      'seedQuestionBank',
+      'seedFlashcardBank',
+      'getFlashcardBankCounts',
+      // Aprobar solo tiene sentido sobre una candidata, y las candidatas son
+      // siempre del banco global (`getModerationQueue` las oculta a un admin
+      // normal).
+      'approveQuestion',
+      'approveQuestions',
+      // El coste de mantener ese banco común (y, en la academia «casa», del
+      // entrenamiento con IA) se mira desde el panel transversal.
+      'getAiCostOverview',
+    ];
+
+    const flojas = debenSerSuperadmin.filter((name) => {
+      const action = allActions.find((a) => a.name === name);
+      return !action || !/requireSuperadmin\(\)/.test(action.body);
     });
 
     expect(flojas).toEqual([]);

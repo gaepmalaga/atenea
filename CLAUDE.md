@@ -65,9 +65,10 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El test, planteamiento definitivo** | ✅ **hecho** (7 sep): fuera la fricción por pregunta (se deduce, regla 60), DOS modos y solo dos (entrenamiento sin nota / simulacro representativo con cuadrícula, regla 59), selector de alcance (tema/bloques/todo), «hoy te tocan N», y las 3 señales del método (distractor fijo, tiempo relativo, `first_touch_ms`). El chat sale del MVP (regla 58). Logo: la égida. Verificado en el preview. Ver [`docs/TEST-Y-ENTRENAMIENTO.md`](docs/TEST-Y-ENTRENAMIENTO.md) |
 | — | **Pulido tras probar en el móvil** | ✅ **hecho** (7 sep): selector de tema = hoja modal numerada (no `<select>`), sin reloj en entrenamiento, fuera los pulgares de votar pregunta (queda «Avisar»), y el calendario de físicas con fechas reales + mirar semanas anteriores del plan de grupo. Reglas 57 y 59 |
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
-| **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Verificado en pantalla con sesión de superadmin real** (12 sep): las 4 pestañas correctas, «Academias» con su comparativa, y «Nueva academia»/«Añadir admin» probados de verdad sin errores. SMTP propio (Gmail) también configurado y verificado end-to-end. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
+| **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Verificado en pantalla con sesión de superadmin real** (12 sep): las 4 pestañas correctas, «Academias» con su comparativa, y «Nueva academia»/«Añadir admin» probados de verdad sin errores. SMTP propio (Gmail) también configurado y verificado end-to-end. **Decidido y cerrado el 14 sep** (regla 75): el temario y la moderación del banco global pasan a ser solo del `superadmin` — ver más abajo. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 | **P12** | **Solicitudes de alta con aviso por correo, y exentos de pago** | ✅ **cerrada y verificada end-to-end** (12 sep). Decisión del dueño: la norma global pasa a ser que TODO alumno que se registra —incluida `atenea`, la casa— espera a que su academia lo acepte; el admin recibe un correo con la solicitud y el alumno recibe el resultado por correo; una lista blanca por academia deja entrar correos concretos sin solicitud ni pago («exentos»); y hay un campo para invitar a un alumno por correo (entra con acceso directo, sin solicitud). Ver **regla 70**. Guion SQL ejecutado, alumnos actuales de Alphapol y `atenea` activados y el interruptor encendido en las dos. El correo va por **Resend con dominio propio** (`ateneapolicial.com`), no por Gmail — la cuenta de Gmail se bloqueó a mitad del despliegue y se abandonó del todo |
 | — | **Motor adaptativo v2: aprender del comportamiento, no de etiquetas** | ✅ **cerrada** (14 sep). Foco perdido descontado de la firmeza, curva de olvido personal POR PREGUNTA (`factorPersonal`), la programación hecha visible al alumno (`razonRepaso`/`porQueHoy`), feedback que explica también por qué fallan las opciones incorrectas (prompt + mínimo real en `explanation`), los tres tipos de blanco (`tipoDeBlanco`, enganchado en `ResultadoSimulacro`) — de paso salió y se corrigió un fallo real: `toResultRow` borraba `first_touch_ms` de TODO blanco, también del que sí se había medido —, un grafo de confusión entre preguntas descubierto de los datos (`detectaConfusion`), enganchado en «Alumnos» junto a «Preguntas que falla casi todo el mundo», **`answer_path`** (el camino completo de la respuesta: `docs/sql/camino-respuesta.sql` **ejecutado** por el dueño, `patronDeCambio` distingue autocorrección de volver al primer instinto, ya integrado en `inferFirmeza`), y **el peso real del examen** (`PESO_EXAMEN_REAL`, 497 preguntas de los 5 exámenes oficiales 2021-2025 clasificadas por tema con una expresión regular sobre el propio texto del PDF —nada de IA—, usado como desempate en `smart-session.ts` sin pisar nunca la urgencia). Ver **regla 73**: por qué se descartó un diseño con `claims`/mecanismos de distractor etiquetados, y una corrección de rumbo real a media sesión sobre el peso del examen (se dijo primero que hacía falta IA para extraerlo; no era cierto, y quedó corregido). Todo verificado escribiendo de verdad contra la producción real, con sesión de alumna y de admin. `npm run check` (997 tests) y `npm run build` en verde |
+| — | **Un admin de academia ya no puede tocar el banco de OTRA academia, ni el global entero** | ✅ **cerrada** (14 sep), a preguntas directas del dueño mirando el panel de un admin real. `seedQuestionBank`/`seedFlashcardBank`/`generateAndSaveCandidate`/Temario & IA entero pasan de `requireAdmin` a `requireSuperadmin` (escribían SIEMPRE en el banco global, sin distinguir academia); `disableQuestion`/`updateQuestion`/`discardAllQuestions`/`resolveReport` se quedan en `requireAdmin` pero acotados por `organization_id` dentro de la propia consulta; «Consumo IA» pasa a ser solo del superadmin (para un admin normal de una academia manual salía siempre a 0 €). Ver **regla 75**. Verificado con sesión real de `morato@atenea.com`: sus pestañas bajan de 10 a 8, «Banco Oficial» y «Moderación» siguen funcionando sin fugas. `npm run check` (1019 tests) y `npm run build` en verde |
 
 ## Producción
 
@@ -2885,6 +2886,94 @@ Verificado en pantalla con sesión real de alumna: «Lo que te toca» mostró
 correctamente apagado. `npm run check` (1011 tests) y `npm run build` en
 verde.
 
+### 75 · Un admin de academia podía tocar el banco de OTRA academia, o el global entero
+
+El dueño preguntó, mirando el panel de un admin de academia real (14 sep
+2026): *«¿por qué tiene "Temario & IA" si eso solo lo debería generar el
+superadmin? ¿Y las candidatas del banco global, quién las modera, cualquiera?
+¿Y "Consumo IA" para qué le sirve a un admin normal?»*. Las tres preguntas
+apuntaban al MISMO agujero que la regla 65 ya había dejado por escrito como
+pendiente: P11c acotó bien la **lectura** del banco (`filtroBancoPorAcademia`:
+global + el privado de la propia academia, nunca el de otra), pero la
+**escritura** se quedó sin el mismo filtro. Comprobado contra la producción
+real antes de tocar nada:
+
+- `seedQuestionBank` escribe **siempre** en el banco GLOBAL (no lleva
+  `organization_id`) y por defecto en estado `active` —ni siquiera pasaba por
+  moderación—: cualquier `admin`, de cualquier academia, podía sembrar
+  preguntas activas para TODAS las academias con un clic. Lo mismo
+  `seedFlashcardBank` sobre `flashcard_bank`, que no distingue academia en
+  absoluto.
+- `disableQuestion`, `updateQuestion` y `approveQuestion(s)` no comprobaban
+  de quién era la pregunta: un `admin` normal podía desactivar, editar o
+  aprobar por id cualquier fila de `question_bank`, incluida la de otra
+  academia o el banco global entero.
+- `discardAllQuestions` («Vaciar banco») no filtraba por academia en
+  absoluto: un solo clic desde CUALQUIER academia descartaba el banco
+  GLOBAL completo, el de todas a la vez.
+- `resolveReport` resolvía cualquier reporte por id, sin comprobar que la
+  pregunta reportada fuera de la academia de quien lo resolvía —al revés que
+  la *lectura* de reportes, que P11e sí enrutaba bien.
+- `getModerationQueue` traía TODAS las candidatas sin filtrar: un admin
+  normal veía —y podía aprobar o descartar— las candidatas generadas por
+  cualquier otro admin de cualquier academia.
+
+**La solución no es solo esconder pestañas.** Una Server Action es un
+endpoint público (regla 1): ocultar «Temario & IA» en el menú no impide
+llamar a `uploadTopicPDF` directamente. Dos cambios, los dos necesarios:
+
+1. **Lo que toca al banco COMÚN pasa de `requireAdmin()` a
+   `requireSuperadmin()`**: `uploadTopicPDF`, `deleteDocument`,
+   `reindexDocument`, `getDocumentChunks`, `deleteTopic` (Temario & IA
+   entero), `seedQuestionBank`, `generateAndSaveCandidate`,
+   `seedFlashcardBank`, `getFlashcardBankCounts` (sembrar), y
+   `approveQuestion`/`approveQuestions` (aprobar solo tiene sentido sobre
+   una candidata, y las candidatas ya son siempre del banco global). También
+   `getAiCostOverview` («Consumo IA»): con la generación restringida al
+   superadmin, el único gasto de IA por alumno que queda hoy es el plan de
+   físicas en la academia «casa» —en cualquier otra academia (banco manual)
+   esa pestaña saldría siempre a 0 €, así que se concentra en el panel
+   transversal del superadmin en vez de repetir una pestaña muerta en cada
+   academia (decisión del dueño, no algo que se pudiera derivar solo del
+   código).
+2. **Lo que se queda en `requireAdmin()` —`disableQuestion`, `updateQuestion`,
+   `discardAllQuestions`, `resolveReport`— filtra por `organization_id`
+   dentro de la propia consulta**: para un `admin` normal, el `UPDATE` lleva
+   `.eq('organization_id', auth.user.organizationId)` (o
+   `.is('organization_id', null)` en `discardAllQuestions` para el
+   `superadmin`, que vacía el global, nunca «todas las academias»). Filtrar
+   en el propio `WHERE` en vez de leer antes y comprobar aparte: una fila que
+   no toca simplemente no cambia, sin depender de una comprobación que
+   alguien podría olvidar añadir en el próximo sitio. `resolveReport` hace lo
+   mismo vía join (`question_reports` no lleva `organization_id` propio: se
+   resuelve por la academia de la PREGUNTA reportada, el mismo criterio que
+   ya usaba la lectura en P11e).
+
+**`filtroBancoPorAcademia` (P11c) también se cerró**, y con él el «Banco
+Oficial» de un admin normal: ya no puede ni VER las candidatas del banco
+global (`and(organization_id.is.null,status.neq.candidate)` en vez de un
+`.or()` plano) — verlas sin poder aprobarlas ni descartarlas era una lista
+muerta que además tentaba a pulsar «aprobar en lote» para nada.
+Comprobado contra la base de datos real: hoy `question_bank` tiene **1795
+preguntas y las 1795 son globales** —ninguna academia ha escrito nunca en su
+banco privado—, así que el filtro nuevo no le quita a nadie una sola
+pregunta que tuviera de verdad; solo cierra el hueco para el día que sí haya
+contenido privado.
+
+**`AdminBank` («Vaciar banco») pasa a decir la verdad según quién pulsa**:
+antes el aviso de confirmación decía «vas a descartar TODAS las preguntas del
+banco» sin distinguir — ahora, para un admin normal, dice explícitamente que
+el banco global «no se toca» (recibe `esSuperadmin` como prop desde
+`AdminView`, regla 26: una acción irreversible no puede prometer más o menos
+de lo que en verdad hace).
+
+Verificado con sesión real de `morato@atenea.com` (admin de Alphapol, NO
+superadmin) en local: sus pestañas pasan de 10 a 8 —fuera «Temario & IA» y
+«Consumo IA»—, «Banco Oficial» sigue sirviendo las 1795 preguntas globales
+sin error, y «Moderación» muestra «Candidatos (0)» / «Reportes (0)»
+correctamente, sin ninguna candidata ajena colada. `npm run check` (1019
+tests, con `tests/moderation.test.ts` nuevo) y `npm run build` en verde.
+
 ---
 
 ## Los tests
@@ -2915,6 +3004,7 @@ tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
+tests/moderation.test.ts        regla 75: candidatas solo para superadmin, y editar/desactivar/descartar/resolver acotado a la propia academia
 tests/pagination.test.ts        paginar por encima del tope de PostgREST (regla 74), sin perder lo ya traído si falla a media página
 tests/question-confusion.test.ts grafo de confusión descubierto de los datos (regla 73): lift, mínimo de muestra, solo dentro del mismo tema
 tests/exam-weights.test.ts      peso real del examen (regla 73): extrae «Tema N ·» de los PDF reales, cuenta por tema

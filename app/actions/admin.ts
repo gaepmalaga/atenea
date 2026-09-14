@@ -3,7 +3,7 @@ import PDFParser from 'pdf2json';
 import { supabaseAdmin as supabase, embeddingModel } from './core';
 import { cleanLegalText, chunkDocument, type LegalChunk } from '../lib/text';
 import type { DocumentChunkRow } from '../lib/documents';
-import { requireAdmin, requireUser } from '../lib/auth';
+import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraAccion } from '../lib/admin-audit';
 import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus } from '../lib/questions';
@@ -101,8 +101,13 @@ export async function getOfficialSyllabus() {
   }
 }
 
+// P11c/regla 75: «Temario & IA» es el banco COMÚN del que salen las
+// preguntas con IA — subir/borrar/reindexar un documento, o generar contra
+// él, afecta a TODAS las academias a la vez. Solo lo administra el
+// `superadmin`; un `admin` normal tiene su banco privado en «Banco Oficial»
+// (`getAdminQuestionBank`, que sí sigue con `requireAdmin`).
 export async function deleteDocument(documentId: string) {
-    const auth = await requireAdmin();
+    const auth = await requireSuperadmin();
     if (!auth.ok) return { success: false, error: auth.error };
 
     try {
@@ -116,7 +121,7 @@ export async function deleteDocument(documentId: string) {
 }
 
 export async function uploadTopicPDF(formData: FormData) {
-  const auth = await requireAdmin();
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false, error: auth.error };
 
   // Un PDF de temario son decenas de embeddings, uno por fragmento.
@@ -332,7 +337,7 @@ async function indexarFragmentos(
  * algoritmo viejo: reindexarlos es la forma de que ganen la estructura legal.
  */
 export async function reindexDocument(documentId: string) {
-  const auth = await requireAdmin();
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!documentId) return { success: false as const, error: 'Falta el id del documento.' };
 
@@ -407,7 +412,7 @@ export async function reindexDocument(documentId: string) {
  * `indexarFragmentos` inserta cada lote de una vez y en orden.
  */
 export async function getDocumentChunks(documentId: string) {
-  const auth = await requireAdmin();
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!documentId) return { success: false as const, error: 'Falta el id del documento.' };
 
@@ -425,7 +430,7 @@ export async function getDocumentChunks(documentId: string) {
   return { success: true as const, chunks: (data ?? []) as DocumentChunkRow[] };
 }
 export async function deleteTopic(topicNameOrId: string) {
-    const auth = await requireAdmin();
+    const auth = await requireSuperadmin();
     if (!auth.ok) return { success: false, error: auth.error };
     const { data } = await supabase.from('subjects').select('id, title').ilike('title', `%${topicNameOrId}%`).single();
     if (data) {

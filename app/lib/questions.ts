@@ -356,9 +356,15 @@ export const SERVABLE_STATUSES: QuestionStatus[] = [QUESTION_STATUS.ACTIVE];
  * cliente (regla 1). Si por lo que sea no hay academia resuelta, se sirve
  * SOLO el banco global: es el mismo criterio de "no adivinar" de la regla 65,
  * aplicado a contenido en vez de a datos de administración.
+ *
+ * Las CANDIDATAS del banco global se excluyen siempre (regla 75): solo el
+ * superadmin las genera y las modera, así que ni un alumno debería recibirlas
+ * —no debería pasar, filtran por `status = active` antes— ni un admin normal
+ * debería verlas en «Banco Oficial» sin poder aprobarlas ni descartarlas.
  */
 export function filtroBancoPorAcademia(organizationId: string | null): string {
+  const globalNoCandidata = `and(organization_id.is.null,status.neq.${QUESTION_STATUS.CANDIDATE})`;
   return organizationId
-    ? `organization_id.is.null,organization_id.eq.${organizationId}`
-    : 'organization_id.is.null';
+    ? `organization_id.eq.${organizationId},${globalNoCandidata}`
+    : globalNoCandidata;
 }

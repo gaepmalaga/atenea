@@ -179,10 +179,10 @@ describe('etiquetaRuta', () => {
 describe('la accion getAiCostOverview', () => {
   const src = readFileSync(join(__dirname, '..', 'app', 'actions', 'ai-cost.ts'), 'utf-8');
 
-  it('exige rol de admin antes de tocar nada (regla 34: ai_usage no tiene politicas)', () => {
-    expect(src).toMatch(/requireAdmin\(\)/);
+  it('exige superadmin antes de tocar nada (regla 34/75: ai_usage no tiene politicas, y el gasto es de la plataforma, no de UNA academia)', () => {
+    expect(src).toMatch(/requireSuperadmin\(\)/);
     const cuerpo = src.slice(src.indexOf('export async function getAiCostOverview'));
-    expect(cuerpo.indexOf('requireAdmin')).toBeLessThan(cuerpo.indexOf('supabaseAdmin'));
+    expect(cuerpo.indexOf('requireSuperadmin')).toBeLessThan(cuerpo.indexOf('supabaseAdmin'));
   });
 
   it('va con la clave de servicio, no con la sesion', () => {

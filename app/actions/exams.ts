@@ -3,7 +3,7 @@ import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjec
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
-import { requireAdmin, requireUser } from '../lib/auth';
+import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import { registraGasto } from '../lib/ai-usage';
 import { checkQuota } from '../lib/rate-limit';
 import { requireModule } from '../lib/module-guard';
@@ -241,7 +241,7 @@ function toUiQuestion(qData: GeneratedQuestion, saved: SavedQuestion) {
  * Si un tema se queda corto, la pantalla del examen lo DICE en vez de gastar.
  */
 export async function generateAndSaveCandidate(topicNameOrId: string | number, difficulty?: number) {
-  const auth = await requireAdmin();
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   const modulo = await requireModule('test');
@@ -370,7 +370,10 @@ export async function seedQuestionBank(params: {
    */
   autoApprove?: boolean;
 }) {
-  const auth = await requireAdmin();
+  // Sembrar escribe SIEMPRE en el banco GLOBAL (no lleva organization_id):
+  // sin esto, cualquier admin de una academia podía publicar preguntas
+  // activas para TODAS las demás con un clic. Solo el superadmin.
+  const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   // Sembrar es de admin, pero es lo que mas cuesta por llamada: hasta

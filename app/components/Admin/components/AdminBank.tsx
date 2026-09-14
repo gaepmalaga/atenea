@@ -40,7 +40,7 @@ const getTopicStyle = (num: number) => {
     return { bg: 'bg-purple-500/10', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-500/20', label: 'TÉCNICAS' };
 };
 
-export default function AdminBank() {
+export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   // --- ESTADOS ---
   const [questions, setQuestions] = useState<AdminBankRow[]>([]);
   const [subjects, setSubjects] = useState<SyllabusSubject[]>([]);
@@ -148,13 +148,22 @@ export default function AdminBank() {
   }
 
   /**
-   * Vacía el banco entero de un golpe: pasa a `disabled` todas las preguntas
-   * activas o candidatas que haya, sin importar el filtro que se esté viendo.
-   * No borra filas (regla 3): `question_attempts` y compañía las referencian.
+   * Vacía el banco de un golpe: pasa a `disabled` todas las preguntas activas
+   * o candidatas que haya, sin importar el filtro que se esté viendo. No
+   * borra filas (regla 3): `question_attempts` y compañía las referencian.
+   *
+   * Nunca "todo, de todas las academias" (regla 75): un admin normal solo
+   * vacía SU banco privado — el global, que también ve aquí, no se toca —;
+   * el superadmin, el GLOBAL. `discardAllQuestions` ya lo acota en el
+   * servidor; el texto de confirmación tiene que decir lo que de verdad va
+   * a pasar, no una versión que asuste más de la cuenta.
    */
   async function handleDiscardAll() {
+      const alcance = esSuperadmin
+        ? 'TODAS las preguntas del banco GLOBAL (activas y candidatas)'
+        : 'TODAS las preguntas de TU banco privado (activas y candidatas) — el banco global, que también ves aquí, no se toca';
       const escrito = window.prompt(
-          `Vas a descartar TODAS las preguntas del banco (activas y candidatas), no solo las de este filtro.\n` +
+          `Vas a descartar ${alcance}, no solo las de este filtro.\n` +
           `Dejan de servirse a los alumnos y no se borran: es reversible desde la base de datos, pero no desde este panel.\n\n` +
           `Escribe BORRAR para confirmar:`
       );
@@ -472,7 +481,9 @@ export default function AdminBank() {
                 <button
                     onClick={handleDiscardAll}
                     disabled={clearingAll}
-                    title="Descarta TODAS las preguntas del banco, sin importar el filtro"
+                    title={esSuperadmin
+                      ? 'Descarta TODAS las preguntas del banco global, sin importar el filtro'
+                      : 'Descarta TODAS las preguntas de tu banco privado, sin importar el filtro (el banco global no se toca)'}
                     className="shrink-0 min-h-[44px] px-5 bg-transparent hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-700 dark:text-red-400 hover:text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                     {clearingAll ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16} strokeWidth={3}/>}
