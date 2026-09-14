@@ -1,12 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CalendarClock, ShieldCheck, ShieldAlert, Users, Mail, Sun, Moon, Monitor } from 'lucide-react';
+import { CalendarClock, ShieldCheck, ShieldAlert, Users, Mail, Sun, Moon, Monitor, ListChecks } from 'lucide-react';
 import { getMiPerfil } from '@/actions';
 import type { MiPerfil as MiPerfilData } from '@/app/actions/perfil';
 import { diasHasta, fechaLarga, textoCuentaAtras } from '@/app/lib/convocatoria';
 import { leeTema, guardaTema, type Tema } from '@/app/lib/theme';
 import { Card, SectionLabel, cx, TEXT, TAP } from '../../../ui';
+
+/** Lun, Mar, Mié… a partir de una fecha `YYYY-MM-DD`. Se parsea en LOCAL
+ *  (no `new Date('YYYY-MM-DD')`, que Safari/Chrome interpretan como UTC medianoche
+ *  y puede caer en el día de antes según el huso). */
+const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+function etiquetaDia(fecha: string, indice: number): string {
+  if (indice === 0) return 'Hoy';
+  if (indice === 1) return 'Mañana';
+  const [y, m, d] = fecha.split('-').map(Number);
+  return DIAS_SEMANA[new Date(y, m - 1, d).getDay()];
+}
 
 export default function MiPerfil({ user }: { user: { id: string; email?: string } }) {
   const [data, setData] = useState<MiPerfilData | null>(null);
@@ -57,6 +68,38 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
           </p>
         )}
       </Card>
+
+      {/* ───────── LO QUE TE TOCA ─────────
+          Hacer visible la programación, más allá de la frase pregunta a
+          pregunta (`razonRepaso`/`porQueHoy` en ActiveTest). NO es una
+          promesa de sesión: es cuántas preguntas VENCEN cada día, no cuántas
+          va a repartir el entrenamiento — eso depende de los cupos y topes
+          de `buildSmartSession`. */}
+      {data && data.proyeccion.some((d) => d.vencen > 0) && (
+        <Card>
+          <SectionLabel icon={<ListChecks size={14} />}>Lo que te toca</SectionLabel>
+          <div className="grid grid-cols-7 gap-1.5">
+            {data.proyeccion.map((d, i) => (
+              <div key={d.fecha} className="text-center">
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
+                  {etiquetaDia(d.fecha, i)}
+                </p>
+                <div className={cx(
+                  'rounded-xl py-2 text-sm font-black',
+                  d.vencen > 0
+                    ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                    : 'bg-slate-50 text-slate-300 dark:bg-slate-900/40 dark:text-slate-700',
+                )}>
+                  {d.vencen}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className={cx(TEXT.muted, 'mt-3')}>
+            Preguntas que vencen cada día — no es cuántas verás de golpe: el entrenamiento reparte cuántas te trae cada vez.
+          </p>
+        </Card>
+      )}
 
       {/* ───────── MI ACCESO ───────── */}
       {(data?.acceso || data?.pagoDelMes) && (

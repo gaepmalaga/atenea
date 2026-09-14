@@ -1,8 +1,14 @@
 'use server'
 import { supabaseAdmin } from './core';
 import { requireUser } from '../lib/auth';
+import { createSupabaseServerClient } from '../lib/supabase/server';
 import { CONVOCATORIA_VACIA, type Convocatoria } from '../lib/convocatoria';
 import { periodoActual, formateaPeriodo } from '../lib/payments';
+import { computeQuestionStates, proyeccionRepaso, type IntentoPregunta, type DiaProyeccion } from '../lib/question-scheduler';
+import { paginaCompleta } from '../lib/pagination';
+
+/** Mismo tope que el planificador P10 (`exams.ts`): de sobra para un alumno real. */
+const MAX_INTENTOS_PERFIL = 30_000;
 
 /**
  * MI PERFIL — lo que un opositor necesita ver de sí mismo, en una sola llamada.
@@ -22,6 +28,12 @@ export type MiPerfil = {
    *  suelto de `memberships` (que P8 dejó de usar). */
   pagoDelMes: { periodo: string; pagado: boolean } | null;
   grupos: { nombre: string; tipo: string }[];
+  /**
+   * La programación de un vistazo (regla 73): cuántas preguntas vencen cada
+   * uno de los próximos 7 días. NO es «lo que verás cada día» —eso lo decide
+   * `buildSmartSession` con sus cupos y topes—, es cuántas hay esperando.
+   */
+  proyeccion: DiaProyeccion[];
 };
 
 export async function getMiPerfil(): Promise<
@@ -57,6 +69,23 @@ export async function getMiPerfil(): Promise<
       : Promise.resolve({ data: null, error: null }),
   ]);
 
+  // Las respuestas del propio alumno van con SU SESIÓN (regla 34):
+  // `question_attempts` tiene política de propietario, no la clave de
+  // servicio. Paginado por encima del tope de PostgREST (`paginaCompleta`,
+  // el mismo hallazgo que en `academy.ts`/`exams.ts`).
+  const db = await createSupabaseServerClient();
+  const { data: intentos } = await paginaCompleta<IntentoPregunta>(
+    (desde, hasta) =>
+      db
+        .from('question_attempts')
+        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .range(desde, hasta) as unknown as Promise<{ data: IntentoPregunta[] | null; error: { message: string } | null }>,
+    { maxFilas: MAX_INTENTOS_PERFIL },
+  );
+  const proyeccion = proyeccionRepaso(computeQuestionStates(intentos), 7);
+
   const convocatoria: Convocatoria = convRes.error || !convRes.data
     ? CONVOCATORIA_VACIA
     : {
@@ -86,6 +115,6 @@ export async function getMiPerfil(): Promise<
 
   return {
     success: true as const,
-    perfil: { email: auth.user.email, convocatoria, acceso, pagoDelMes, grupos },
+    perfil: { email: auth.user.email, convocatoria, acceso, pagoDelMes, grupos, proyeccion },
   };
 }

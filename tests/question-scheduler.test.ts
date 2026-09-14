@@ -7,11 +7,13 @@ import {
   diasDeRetraso,
   resumeCajonesPorTema,
   factorPersonal,
+  proyeccionRepaso,
   BOX_INTERVALS_DAYS,
   MAX_BOX,
   MAX_BOX_TITUBEANTE,
   LAPSES_ATASCADA,
   type IntentoPregunta,
+  type QuestionState,
 } from '../app/lib/question-scheduler';
 
 /**
@@ -274,6 +276,80 @@ describe('la firmeza deducida usa el primer toque y el ritmo del alumno', () => 
     const s = computeQuestionStates([...rapidas, ...lentas]);
     expect(s.get('q')!.box).toBe(MAX_BOX_TITUBEANTE);
     expect(s.get('q')!.cajon).toBe('aprendiendo');
+  });
+});
+
+describe('proyeccionRepaso: la programación de un vistazo', () => {
+  // Construidas con el constructor LOCAL (sin 'Z'), a propósito: el test tiene
+  // que dar el mismo resultado sin importar en qué huso horario corra la CI.
+  // `medianoche(0)` es la medianoche local del día de HOY; `medianoche(1)` la
+  // de mañana, etc. — el mismo ancla que usa la función, para no depender de
+  // adivinar equivalencias UTC.
+  const HOY = new Date(2026, 8, 10, 9, 0, 0); // 10 sep, 09:00 hora local
+  const medianoche = (i: number) => new Date(2026, 8, 10 + i, 0, 0, 0).getTime();
+
+  function estado(o: Partial<QuestionState> & { questionId: string }): QuestionState {
+    return {
+      box: 3, cajon: 'aprendiendo', streak: 1, lapses: 0, respuestas: 3, aciertos: 2,
+      lastAnsweredAt: null, dueAt: null, avgTimeMs: null, avgChanges: null,
+      lastErrorType: null, soloBlancos: false, dominadaFragil: false, distractorFijo: null,
+      ...o,
+    };
+  }
+
+  it('sin estados, siete días en cero, con la fecha de hoy en el primero', () => {
+    const dias = proyeccionRepaso(new Map(), 7, HOY);
+    expect(dias).toHaveLength(7);
+    expect(dias.every((d) => d.vencen === 0)).toBe(true);
+    expect(dias[0].fecha).toBe('2026-09-10');
+    expect(dias[6].fecha).toBe('2026-09-16');
+  });
+
+  it('una pregunta que vence hoy cuenta en el primer día', () => {
+    const states = new Map([
+      ['q1', estado({ questionId: 'q1', dueAt: new Date(medianoche(0) + 5 * 3_600_000).toISOString() })],
+    ]);
+    expect(proyeccionRepaso(states, 7, HOY)[0].vencen).toBe(1);
+  });
+
+  it('una pregunta atrasada (dueAt ya pasado) cuenta HOY, no se reparte', () => {
+    const states = new Map([
+      ['q1', estado({ questionId: 'q1', dueAt: new Date(medianoche(-5) + 5 * 3_600_000).toISOString() })], // 5 días atrasada
+    ]);
+    const dias = proyeccionRepaso(states, 7, HOY);
+    expect(dias[0].vencen).toBe(1);
+    expect(dias.slice(1).every((d) => d.vencen === 0)).toBe(true);
+  });
+
+  it('reparte por el día exacto que corresponde dentro de la ventana', () => {
+    const states = new Map([
+      ['manana', estado({ questionId: 'manana', dueAt: new Date(medianoche(1) + 12 * 3_600_000).toISOString() })],
+      ['en3dias', estado({ questionId: 'en3dias', dueAt: new Date(medianoche(3) + 1 * 3_600_000).toISOString() })],
+    ]);
+    const dias = proyeccionRepaso(states, 7, HOY);
+    expect(dias[1].vencen).toBe(1); // mañana
+    expect(dias[3].vencen).toBe(1); // en 3 días
+    expect(dias[0].vencen + dias[2].vencen + dias[4].vencen + dias[5].vencen + dias[6].vencen).toBe(0);
+  });
+
+  it('lo que vence más allá de la ventana no se cuenta', () => {
+    const states = new Map([
+      ['lejos', estado({ questionId: 'lejos', dueAt: new Date(medianoche(21) + 5 * 3_600_000).toISOString() })],
+    ]);
+    const dias = proyeccionRepaso(states, 7, HOY);
+    expect(dias.reduce((a, d) => a + d.vencen, 0)).toBe(0);
+  });
+
+  it('las NUEVAS (box 0) no cuentan: no vencen un día concreto', () => {
+    const states = new Map([
+      ['nueva', estado({ questionId: 'nueva', box: 0, cajon: 'nueva', dueAt: null })],
+    ]);
+    const dias = proyeccionRepaso(states, 7, HOY);
+    expect(dias.reduce((a, d) => a + d.vencen, 0)).toBe(0);
+  });
+
+  it('un tope de días distinto de 7 se respeta', () => {
+    expect(proyeccionRepaso(new Map(), 3, HOY)).toHaveLength(3);
   });
 });
 

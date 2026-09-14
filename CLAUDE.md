@@ -2836,6 +2836,55 @@ repaso.» antes de la pregunta, y el panel de fallo sigue funcionando igual
 que antes. `npm run check` (969 tests, tras el arreglo de `first_touch_ms`)
 y `npm run build` en verde.
 
+### 74 · PostgREST corta a 1.000 filas SIN avisar — y el entrenamiento adaptativo llevaba tiempo trabajando con menos de la mitad del histórico
+
+Encontrado el 14 sep 2026 investigando por qué "Alumnos" iba lento: no era el
+código nuevo (`detectaConfusion` tarda 24 ms con 1.782 intentos reales), era
+que la función de Vercel corría en EE.UU. y Supabase en Irlanda —arreglado en
+la propia Vercel, sin tocar código: región `dub1`, la misma que `eu-west-1`—.
+Pero mirando el código para descartarlo salió un fallo real y más grave.
+
+`getAcademyOverview`/`getStudentDetail` (`academy.ts`) y CUATRO sitios de
+`exams.ts` —incluida `getAdaptiveSession`, la que calcula los cajones del
+entrenamiento adaptativo— pedían hasta `MAX_INTENTOS`/`MAX_INTENTOS_SCHEDULER`
+(20.000-30.000) con `.limit()`. **PostgREST corta a lo que tenga configurado
+el proyecto (`db-max-rows`, hoy 1.000) pase lo que pase**: no es un error, es
+un `206 Partial Content` con la cabecera `Content-Range` diciendo el total
+real, y nada de este código la miraba — verificado contra la BD real:
+`Content-Range: 0-999/1782`.
+
+La consecuencia real: **cualquier alumno con más de 1.000 respuestas ya tenía
+su propio entrenamiento adaptativo calculado sobre un histórico incompleto**
+— cajones, rachas, curva de aprendizaje, ¿Aprobaría?, todo. No hacía falta
+que fallara nada para que pasara: PostgREST respondía correctamente A LO QUE
+LE CABÍA, así que ni un test ni un log lo habría cantado nunca.
+
+`paginaCompleta` (`app/lib/pagination.ts`, puro, con tests) pagina por
+encima del tope, inyectando cómo se pide cada página — no importa Supabase,
+lo usa el que llama con su propio cliente (servicio o sesión). Enganchado en
+los 6 sitios (2 en `academy.ts`, 4 en `exams.ts` vía `fetchIntentosDelAlumno`).
+Verificado end-to-end contra la BD real y en pantalla, con sesión de alumna:
+entrenamiento, «Repasar fallos», Estadísticas (dominio del temario y
+¿Aprobaría?) siguen funcionando igual, ahora sobre el histórico completo.
+
+**De paso, la vista que pidió el dueño: «lo que te toca», de un vistazo.**
+`proyeccionRepaso` (`question-scheduler.ts`, pura, con tests) cuenta cuántas
+preguntas VENCEN cada uno de los próximos 7 días — no es una promesa de
+sesión (`buildSmartSession` reparte con cupos, no sirve todo lo vencido de
+golpe), es cuántas hay esperando. Lo atrasado cuenta en HOY, no se reparte;
+las nuevas (caja 0) no tienen fecha fija y no entran. Vive en «Mi perfil»
+(`MiPerfil.tsx`), con un desliz real de camino: la fecha se formateaba con
+`.toISOString()`, que convierte a UTC — en cualquier huso por delante de
+Greenwich (España incluida) la medianoche local cae en la tarde del día UTC
+anterior, y «hoy» se habría etiquetado como ayer. Arreglado con un formateo
+en LOCAL (mismo principio que la regla 54 con `lunesDeSemana`), y el test que
+lo detectó se dejó documentado para que no vuelva.
+
+Verificado en pantalla con sesión real de alumna: «Lo que te toca» mostró
+154 hoy, 36 mañana, 3-9-0-4-11 el resto de la semana, con el día sin nada
+correctamente apagado. `npm run check` (1011 tests) y `npm run build` en
+verde.
+
 ---
 
 ## Los tests
@@ -2866,13 +2915,16 @@ tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
 tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
+tests/pagination.test.ts        paginar por encima del tope de PostgREST (regla 74), sin perder lo ya traído si falla a media página
+tests/question-confusion.test.ts grafo de confusión descubierto de los datos (regla 73): lift, mínimo de muestra, solo dentro del mismo tema
+tests/exam-weights.test.ts      peso real del examen (regla 73): extrae «Tema N ·» de los PDF reales, cuenta por tema
 tests/ai-cost.test.ts           panel de consumo de IA: agregación del gasto y sus guardas
 tests/membership.test.ts        la puerta de acceso (decideAccess), la solicitud pendiente (P12) y sus guardas
 tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes, «sin importe» ≠ 0 € y los exentos (P12) fuera del recuento
 tests/app-email-templates.test.ts los correos que manda la propia app (P12): solicitud, aceptado, rechazado
 tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan y el histórico de semanas que ve el alumno
 tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
-tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva
+tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva, curva de olvido personal (regla 73), proyección semanal «lo que te toca» (regla 74)
 tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
 tests/confidence.test.ts        calibración de la confianza (P10b): niveles, neto de adivinar, «sin datos» ≠ 0
 tests/exam-blueprint.test.ts    el simulacro representativo (regla 59): reparto por temas, cobertura por artículo, mezcla de dificultad fija, no repite lo reciente

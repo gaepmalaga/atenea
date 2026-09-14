@@ -332,6 +332,78 @@ export function diasDeRetraso(state: QuestionState | undefined, now: Date = new 
 }
 
 // ============================================================
+// LA PROGRAMACIÓN, DE UN VISTAZO
+// ============================================================
+
+export type DiaProyeccion = {
+  /** `YYYY-MM-DD`, en la zona horaria local — «hoy» es el día del alumno. */
+  fecha: string;
+  /** Cuántas preguntas vencen ESE día. */
+  vencen: number;
+};
+
+/**
+ * Cuántas preguntas vencen cada uno de los próximos `dias`, para enseñarle al
+ * alumno «lo que le toca» de un vistazo, no solo pregunta a pregunta
+ * (`razonRepaso`/`porQueHoy`, regla 73).
+ *
+ * NO es una promesa de sesión: `buildSmartSession` reparte con cupos y topes
+ * (recaídas primero, atascadas a 2 por sesión…), así que un día con 40
+ * vencidas no significa que el alumno vaya a ver 40 preguntas — significa que
+ * hay 40 esperando. Es una cuenta de vencimientos, no un calendario de lo que
+ * se le va a servir.
+ *
+ * Las NUEVAS (box 0) no tienen fecha fija — están disponibles siempre, no
+ * "vencen" un día concreto — así que no entran en ningún cubo de este
+ * recuento. Lo atrasado (`dueAt` ya pasado) cuenta en HOY, igual que hace
+ * `estaVencida`: lo que ya tocaba no se reparte entre los días que lleva
+ * esperando.
+ */
+/**
+ * `YYYY-MM-DD` en LOCAL, nunca `.toISOString()`: esa convierte a UTC, y en
+ * cualquier huso por delante de Greenwich (España incluida) la medianoche
+ * local cae en la TARDE del día UTC anterior — «hoy» se habría etiquetado
+ * como ayer. El mismo tipo de fallo que la regla 54 ya resolvió para
+ * `lunesDeSemana`: «esta semana es la del alumno, no la de UTC».
+ */
+function fechaLocalISO(ms: number): string {
+  const d = new Date(ms);
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mes}-${dia}`;
+}
+
+export function proyeccionRepaso(
+  states: Map<string, QuestionState>,
+  dias = 7,
+  now: Date = new Date(),
+): DiaProyeccion[] {
+  const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const n = Math.max(1, Math.floor(dias));
+
+  const buckets: DiaProyeccion[] = Array.from({ length: n }, (_, i) => ({
+    fecha: fechaLocalISO(inicioHoy + i * 86_400_000),
+    vencen: 0,
+  }));
+
+  const finVentana = inicioHoy + n * 86_400_000;
+
+  for (const s of states.values()) {
+    if (s.box === 0 || !s.dueAt) continue;
+    const due = Date.parse(s.dueAt);
+    if (due < inicioHoy) {
+      buckets[0].vencen++; // atrasada: cuenta como si venciera hoy
+    } else if (due < finVentana) {
+      buckets[Math.floor((due - inicioHoy) / 86_400_000)].vencen++;
+    }
+    // Más allá de la ventana no se cuenta: prometer algo tan lejos no sirve
+    // de nada y depende de repasos que aún no han pasado.
+  }
+
+  return buckets;
+}
+
+// ============================================================
 // LA CURVA DE APRENDIZAJE: CÓMO LLEVA CADA TEMA
 // ============================================================
 

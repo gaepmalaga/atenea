@@ -28,6 +28,7 @@ import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoP
 import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart-session';
 import { planExamen } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
+import { paginaCompleta } from '../lib/pagination';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -460,6 +461,34 @@ export async function seedQuestionBank(params: {
  */
 const MAX_INTENTOS_SCHEDULER = 30_000;
 
+/**
+ * Trae TODAS las respuestas del propio alumno para el planificador P10,
+ * paginando por encima del tope de PostgREST (`paginaCompleta`,
+ * `app/lib/pagination.ts`). El mismo fallo encontrado en `academy.ts` el 14
+ * sep 2026 (verificado contra la BD real: `Content-Range: 0-999/1782`)
+ * estaba aquí también: `.limit(MAX_INTENTOS_SCHEDULER)` sin paginar nunca
+ * pasaba de los primeros 1.000 intentos, así que un alumno con más
+ * respuestas que eso llevaba SU PROPIO entrenamiento adaptativo calculado
+ * sobre un histórico incompleto — cajones, rachas y curva de aprendizaje
+ * incluidos.
+ */
+async function fetchIntentosDelAlumno(
+  db: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+): Promise<IntentoPregunta[]> {
+  const { data } = await paginaCompleta<IntentoPregunta>(
+    (desde, hasta) =>
+      db
+        .from('question_attempts')
+        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .range(desde, hasta) as unknown as Promise<{ data: IntentoPregunta[] | null; error: { message: string } | null }>,
+    { maxFilas: MAX_INTENTOS_SCHEDULER },
+  );
+  return data;
+}
+
 export type AdaptiveSession = {
   questions: Question[];
   adaptativo: boolean;
@@ -552,14 +581,9 @@ export async function getAdaptiveSession(params: {
   // Las respuestas del propio alumno: con SU sesión (regla 34). `question_attempts`
   // tiene política de propietario, y aquí no hay join con `question_bank`.
   const db = await createSupabaseServerClient();
-  const { data: intentos } = await db
-    .from('question_attempts')
-    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
-    .eq('user_id', auth.user.id)
-    .order('created_at', { ascending: true })
-    .limit(MAX_INTENTOS_SCHEDULER);
+  const intentos = await fetchIntentosDelAlumno(db, auth.user.id);
 
-  const states = computeQuestionStates((intentos ?? []) as IntentoPregunta[]);
+  const states = computeQuestionStates(intentos);
 
   const sesion = buildSmartSession({
     states,
@@ -726,14 +750,9 @@ export async function getRecuentoEntrenamiento(topics: string[]): Promise<
   if (!disponibles) return { success: true as const, propuestas: 0, disponibles: 0 };
 
   const db = await createSupabaseServerClient();
-  const { data: intentos } = await db
-    .from('question_attempts')
-    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
-    .eq('user_id', auth.user.id)
-    .order('created_at', { ascending: true })
-    .limit(MAX_INTENTOS_SCHEDULER);
+  const intentos = await fetchIntentosDelAlumno(db, auth.user.id);
 
-  const states = computeQuestionStates((intentos ?? []) as IntentoPregunta[]);
+  const states = computeQuestionStates(intentos);
   const now = new Date();
   let tocan = 0;
   for (const id of bankIds) {
@@ -778,14 +797,9 @@ export async function getMisCajones(): Promise<
   }
 
   const db = await createSupabaseServerClient();
-  const { data: intentos } = await db
-    .from('question_attempts')
-    .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
-    .eq('user_id', auth.user.id)
-    .order('created_at', { ascending: true })
-    .limit(MAX_INTENTOS_SCHEDULER);
+  const intentos = await fetchIntentosDelAlumno(db, auth.user.id);
 
-  const states = computeQuestionStates((intentos ?? []) as IntentoPregunta[]);
+  const states = computeQuestionStates(intentos);
   return { success: true as const, temas: resumeCajonesPorTema(states, preguntasPorTema) };
 }
 
@@ -805,17 +819,25 @@ export async function getSimulacros(): Promise<
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const db = await createSupabaseServerClient();
-  const { data, error } = await db
-    .from('question_attempts')
-    .select('exam_id, is_correct, selected_index, created_at')
-    .eq('user_id', auth.user.id)
-    .not('exam_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(MAX_INTENTOS_SCHEDULER);
+  // Paginado por encima del tope de PostgREST (mismo hallazgo que arriba):
+  // un alumno con muchos simulacros se quedaba con solo los últimos 1.000
+  // intentos de examen, y «¿Aprobaría?» salía calculado sobre un histórico
+  // incompleto de convocatorias.
+  const { data, error } = await paginaCompleta<IntentoSimulacro>(
+    (desde, hasta) =>
+      db
+        .from('question_attempts')
+        .select('exam_id, is_correct, selected_index, created_at')
+        .eq('user_id', auth.user.id)
+        .not('exam_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .range(desde, hasta) as unknown as Promise<{ data: IntentoSimulacro[] | null; error: { message: string } | null }>,
+    { maxFilas: MAX_INTENTOS_SCHEDULER },
+  );
 
   if (error) {
-    console.error('getSimulacros:', error.message);
-    return { success: false as const, error: error.message };
+    console.error('getSimulacros:', error);
+    return { success: false as const, error };
   }
 
   return { success: true as const, data: resumeSimulacros((data ?? []) as IntentoSimulacro[]) };

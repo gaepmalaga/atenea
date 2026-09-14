@@ -22,6 +22,7 @@ import type { ErrorType } from '../lib/stats';
 import { periodoActual } from '../lib/payments';
 import { detectaConfusion, type ParConfuso } from '../lib/question-confusion';
 import { isBlankAnswer } from '../lib/exam-results';
+import { paginaCompleta } from '../lib/pagination';
 
 /**
  * El panel de la academia (P5).
@@ -49,6 +50,29 @@ import { isBlankAnswer } from '../lib/exam-results';
  * agregada en SQL, no en un tope mas grande.
  */
 const MAX_INTENTOS = 20_000;
+
+/**
+ * Trae TODOS los intentos de estos alumnos, paginando por encima del tope de
+ * PostgREST (`paginaCompleta`, `app/lib/pagination.ts` — encontrado y
+ * verificado el 14 sep 2026 contra la BD real: `Content-Range: 0-999/1782`).
+ * `userIds` con un solo elemento sirve igual para un alumno suelto
+ * (`getStudentDetail`) que para toda una academia (`getAcademyOverview`).
+ */
+async function fetchTodosLosIntentos(
+  userIds: string[]
+): Promise<{ data: IntentoAlumno[]; error: string | null }> {
+  if (!userIds.length) return { data: [], error: null };
+
+  return paginaCompleta<IntentoAlumno>(
+    (desde, hasta) =>
+      supabaseAdmin
+        .from('question_attempts')
+        .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
+        .in('user_id', userIds)
+        .range(desde, hasta) as unknown as Promise<{ data: IntentoAlumno[] | null; error: { message: string } | null }>,
+    { maxFilas: MAX_INTENTOS },
+  );
+}
 
 export type AcademyOverview = {
   alumnos: FilaAlumno[];
@@ -102,13 +126,10 @@ export async function getAcademyOverview(): Promise<
     idsAcademia.length
       ? supabaseAdmin.from('profiles').select('id, email, role, created_at').in('id', idsAcademia)
       : Promise.resolve({ data: [], error: null }),
-    idsAcademia.length
-      ? supabaseAdmin
-          .from('question_attempts')
-          .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
-          .in('user_id', idsAcademia)
-          .limit(MAX_INTENTOS)
-      : Promise.resolve({ data: [], error: null }),
+    // Paginado por encima del tope de PostgREST (ver `fetchTodosLosIntentos`):
+    // sin esto, una academia con más de 1.000 intentos reales se quedaba con
+    // solo los primeros 1.000, sin ningún aviso.
+    fetchTodosLosIntentos(idsAcademia),
     supabaseAdmin.from('subjects').select('id, title').order('topic_number', { ascending: true }),
     supabaseAdmin
       .from('question_bank')
@@ -127,7 +148,7 @@ export async function getAcademyOverview(): Promise<
   if (perfilesRes.error || intentosRes.error) {
     // No se traga: sin esto el panel diria que no hay alumnos, que es la
     // mentira mas tranquilizadora posible (regla 4).
-    const mensaje = perfilesRes.error?.message ?? intentosRes.error?.message ?? 'error';
+    const mensaje = perfilesRes.error?.message ?? intentosRes.error ?? 'error';
     console.error('getAcademyOverview:', mensaje);
     return { success: false as const, error: mensaje };
   }
@@ -304,16 +325,15 @@ export async function getStudentDetail(
 
   const [perfilRes, intentosRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role, created_at').eq('id', studentId).maybeSingle(),
-    supabaseAdmin
-      .from('question_attempts')
-      .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
-      .eq('user_id', studentId)
-      .limit(MAX_INTENTOS),
+    // Paginado, mismo motivo que en `getAcademyOverview`: un alumno con más
+    // de 1.000 intentos reales (varios ya los tienen) se quedaba con la
+    // ficha calculada sobre los primeros 1.000, sin ningún aviso.
+    fetchTodosLosIntentos([studentId]),
   ]);
 
   if (intentosRes.error) {
-    console.error('getStudentDetail:', intentosRes.error.message);
-    return { success: false as const, error: intentosRes.error.message };
+    console.error('getStudentDetail:', intentosRes.error);
+    return { success: false as const, error: intentosRes.error };
   }
 
   const intentos = (intentosRes.data ?? []) as IntentoAlumno[];
