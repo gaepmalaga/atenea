@@ -1095,13 +1095,27 @@ no hay tabla, pantalla ni prompt para un ítem cuya respuesta correcta se
   concreto de una academia de pago no se copia. Se genera de cero con Gemini o
   se escribe a mano, igual que el resto del banco.
 
-### Qué necesito del dueño antes de escribir el examen final
+### Confirmado contra el BOE (`BOE-A-2026-15055`, 14 sep 2026)
 
-El **formato exacto y el tiempo por batería** de la convocatoria vigente, del
-BOE — no de memoria (mismo principio que la fórmula de nota de la regla 22).
-Mientras tanto se puede construir con un tiempo configurable y ajustarlo
-cuando llegue el dato real, igual que se hizo con la penalización antes de
-tener la convocatoria delante.
+Ya no hace falta esperar nada del dueño para este dato — se fue a la fuente
+primaria en vez de fiarse de la competencia:
+
+- Es la parte **c) de la tercera prueba** (base 6.1.3.c): «test dirigidos a
+  determinar las aptitudes (inteligencia general y específica) de la persona
+  aspirante para el desempeño de la función policial».
+- **Duración total: 60 minutos**, no por batería. Las bases dicen «uno o
+  varios test» sin fijar cuántos tipos ni cuánto tiempo tiene cada uno — eso
+  lo decide el tribunal al administrar la prueba, no la convocatoria. Diseñar
+  con los tipos habituales del sector (numérico, verbal, espacial, abstracto,
+  mecánico) es una elección legítima, no una suposición: el BOE no dice otra
+  cosa que pudiera contradecirla.
+- **La corrección usa la MISMA fórmula que el examen de conocimientos**
+  (`[A − E/(n−1)] × 10/P`, regla 22) — si hay varios ejercicios, la nota final
+  es la media aritmética. Esto simplifica el modo de examen: `app/lib/scoring.ts`
+  ya tiene la fórmula, no hace falta inventar una segunda.
+
+Con esto, P13 puede construirse con el tiempo total real (60 min) desde el
+principio, sin ningún valor provisional.
 
 ### Por qué es la más grande de las tres
 
@@ -1112,44 +1126,54 @@ otras dos reutilizan mucho de lo que ya existe.
 
 ---
 
-## P14 · Inglés B1
+## P14 · Inglés — replanteada de raíz tras leer el BOE (14 sep 2026)
 
-> **Propuesta, sin empezar.** Obligatorio desde la convocatoria 41 (dato visto
-> al investigar la competencia, 13 sep 2026) y hoy la plataforma no tiene ni
-> un tema, ni una pregunta, ni un módulo con ese nombre.
+> **La premisa con la que se escribió esta sección era falsa.** La primera
+> versión (13 sep) asumía «examen de inglés B1, tipo test» a partir de una
+> ficha de producto de la competencia. Al ir al BOE (`BOE-A-2026-15055`) para
+> confirmar el formato — el mismo paso que corrigió P13 — apareció otra cosa
+> completamente distinta. No hay examen de inglés que preparar con test.
 
-### Lo que hay hoy
+### Lo que dice el BOE de verdad
 
-Nada, ni en el temario ni en el banco.
+- **Nivel A2, no B1**, para la Escala Básica (B1 es el requisito de la Escala
+  **Ejecutiva** — otro proceso). Base 2.1.1.i: «estar en posesión de, al
+  menos, el nivel A2 en cualquiera de los idiomas prioritarios (inglés o
+  francés)».
+- **Es un requisito de ADMISIÓN, no una prueba del proceso.** Se acredita con
+  un certificado externo reconocido (Cambridge, Trinity, IELTS, TOEFL, EOI…)
+  **antes de que acabe el plazo de instancias** (base 7.1). Quien no lo
+  acredita queda **excluido antes de empezar** — no hay nota, no hay
+  simulacro, no hay nada que entrenar dentro de la oposición.
+- Y el dato que explica por qué la competencia habla de esto: la convocatoria
+  **eliminó** la prueba específica de idioma que existía en convocatorias
+  anteriores, sustituyéndola por este requisito previo. Construir un «tema de
+  inglés» con banco de preguntas habría sido resolver un problema que ya no
+  existe.
 
-### Qué hay que hacer
+### Qué significa esto para Atenea
 
-Comparado con P13, esto es sobre todo **contenido**, no un módulo nuevo: si el
-examen real es de opción múltiple (comprensión lectora, gramática,
-vocabulario — lo habitual en una prueba escrita masiva), encaja en
-`question_bank` tal cual está, con un `subject` nuevo. Reutiliza el generador,
-`ActiveTest`, el simulacro y el entrenamiento adaptativo (P10) sin tocarlos.
+**No hay contenido de inglés que generar.** Lo que sí sería real y útil es
+mucho más pequeño — y es una decisión de producto, no una pregunta de dato:
 
-- Un tema «Inglés B1» en el temario, con el contenido gramatical y léxico del
-  nivel (el marco B1 del MCER es un estándar público, no hace falta ninguna
-  fuente de pago para generar ítems que se ajusten a él).
-- Preguntas generadas con Gemini como las demás, pero con una validación
-  añadida: un fallo de matiz de idioma no lo pilla `validateGeneratedQuestion`
-  tal como está —comprueba la forma, no si el inglés es correcto—, así que
-  hace falta un segundo paso que sí lo revise antes de `active`.
+1. **Nada.** No es competencia de una plataforma de contenido del temario;
+   quien necesite el A2 estudia inglés con quien enseña inglés, no aquí.
+2. **Un seguimiento administrativo**, no educativo: en la ficha del alumno
+   (P8, «Alumnos»), un campo «Acreditación de idioma: sí/no/fecha límite» para
+   que la academia sepa a quién le falta antes de que se quede fuera del
+   proceso por no subir el certificado a tiempo. Sin banco de preguntas, sin
+   IA, sin `question_bank` — una columna y un aviso, parecido a `payment_status`.
 
 ### Qué necesito del dueño
 
-**El formato real del examen**, del BOE de la convocatoria vigente: si es solo
-lectura y gramática o si incluye algo que esta plataforma no sirve hoy (un
-audio, por ejemplo, que sería un tipo de contenido nuevo de verdad y no encaja
-en `question_bank`). Sin ese dato se construiría a ciegas, y ya se sabe cómo
-termina eso (regla 22).
+**Cuál de las dos**, si alguna. No es un dato que buscar en ningún sitio más
+— es una decisión tuya sobre qué le sirve a la academia.
 
-### Por qué es probablemente la más barata de las tres
+### Estado
 
-No es un módulo: es un tema más del temario, dentro de una tubería que ya
-existe y ya está probada.
+Descartado tal como se planteó el 13 sep. Si se retoma, es la opción 2
+(seguimiento), y es pequeña: una columna en `memberships` o similar, no un
+módulo.
 
 ---
 
