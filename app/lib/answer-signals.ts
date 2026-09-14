@@ -76,6 +76,12 @@ export type SeñalesRespuesta = {
    * tiempo total. `null`/`0` = no medido (histórico, simulacro).
    */
   first_touch_ms?: number | null;
+  /**
+   * Secuencia de índices de opción marcados antes de confirmar («motor
+   * adaptativo v2», fase 2). `null`/ausente = no medido (histórico, antes de
+   * `docs/sql/camino-respuesta.sql`).
+   */
+  answer_path?: number[] | null;
 };
 
 /**
@@ -136,6 +142,13 @@ function cambios(v: unknown): number | null {
  * Sin dato de tiempo NO es titubeante: es normal (reglas 8 y 16).
  */
 export function inferFirmeza(s: SeñalesRespuesta, base?: PerfilTiempos): Firmeza {
+  // Volver a la opción inicial (B → C → B) es peor señal que un cambio
+  // limpio (B → C, se queda): dudó, se lo pensó, y aun así se echó atrás a
+  // su primer instinto. Manda incluso sobre el conteo de cambios normal —
+  // dos cambios que terminan en la opción de partida no son indecisión
+  // cualquiera, son la firmeza más baja que hay.
+  if (patronDeCambio(s?.answer_path) === PATRON_CAMBIO.VUELTA_A_INICIAL) return FIRMEZA.TITUBEANTE;
+
   const c = cambios(s?.option_changes);
   if (c !== null && c >= CAMBIOS_TITUBEA) return FIRMEZA.TITUBEANTE;
 
@@ -256,3 +269,78 @@ export const FALLO_DEDUCIDO: Record<string, { label: string; porque: string }> =
   fallo_procesamiento: { label: 'Un despiste', porque: 'contestaste muy rápido' },
   desconocimiento: { label: 'Una laguna', porque: 'no la tenías vista' },
 };
+
+// ============================================================
+// POR QUÉ QUEDÓ EN BLANCO
+// ============================================================
+
+/**
+ * Dos motivos legítimos para dejar una pregunta sin contestar, deducidos sin
+ * preguntar nada — el mismo principio de esta regla, aplicado al blanco.
+ *
+ * Antes solo existía «en blanco» a secas, y los dos casos son muy distintos
+ * para un alumno: uno no arriesgó nada; el otro llegó a decidir y calculó que
+ * no compensaba (regla 22/26 — con penalización, callarse puede ser lo
+ * correcto). Confundirlos le ocultaría cuánta nota está dejando sobre la mesa
+ * por CÁLCULO, que es la única de las dos que puede animarle a cambiar algo.
+ */
+export const TIPO_BLANCO = {
+  /** No llegó a tocar ninguna opción: no lo sabía, o no le dio tiempo. */
+  IGNORANCIA: 'ignorancia',
+  /** Tocó una opción y la retiró (el botón «Dejar en blanco», regla 26): decidió no arriesgar. */
+  CALCULO: 'calculo',
+} as const;
+
+export type TipoBlanco = (typeof TIPO_BLANCO)[keyof typeof TIPO_BLANCO];
+
+/**
+ * `first_touch_ms` se anota en el PRIMER toque sobre una opción, ANTES de que
+ * se pueda retirar la respuesta (`ActiveTest.marcarPrimerToque`, siempre
+ * corre antes que `dejarEnBlanco`). Si tiene dato, el alumno llegó a marcar y
+ * luego se echó atrás: es una decisión, no ignorancia. Sin dato, ni lo
+ * intentó — igual que la firmeza (reglas 8 y 16), un blanco sin tiempo medido
+ * (histórico, o el simulacro entregado por el reloj) se lee como el caso por
+ * defecto, `ignorancia`, no se inventa un cálculo que no se pudo observar.
+ */
+export function tipoDeBlanco(s: Pick<SeñalesRespuesta, 'first_touch_ms'>): TipoBlanco {
+  return ms(s?.first_touch_ms) !== null ? TIPO_BLANCO.CALCULO : TIPO_BLANCO.IGNORANCIA;
+}
+
+// ============================================================
+// EL CAMINO DE LA RESPUESTA (motor adaptativo v2, fase 2)
+// ============================================================
+
+/**
+ * Tres formas de llegar a una respuesta que un simple contador de cambios no
+ * distingue:
+ *
+ *   directo          la marcó y no la tocó más.
+ *   autocorreccion    cambió y se quedó en la nueva opción — dudó, decidió.
+ *   vuelta_a_inicial  cambió y volvió a la de partida — dudó, y al final se
+ *                     echó atrás a su primer instinto. Es la peor de las tres:
+ *                     ni siquiera la deliberación le dio una respuesta nueva
+ *                     en la que confiar más.
+ */
+export const PATRON_CAMBIO = {
+  DIRECTO: 'directo',
+  AUTOCORRECCION: 'autocorreccion',
+  VUELTA_A_INICIAL: 'vuelta_a_inicial',
+} as const;
+
+export type PatronCambio = (typeof PATRON_CAMBIO)[keyof typeof PATRON_CAMBIO];
+
+/**
+ * `answerPath` guarda un elemento por cada marca REALMENTE distinta a la
+ * anterior (mismo criterio que `option_changes`, `ActiveTest.handleAnswer`),
+ * así que un camino de 2+ elementos siempre representa al menos un cambio
+ * real: comparar el primero con el último basta para saber si volvió.
+ *
+ * `null` con menos de un elemento = no medido (histórico, sin dato).
+ */
+export function patronDeCambio(answerPath: number[] | null | undefined): PatronCambio | null {
+  if (!Array.isArray(answerPath) || answerPath.length === 0) return null;
+  if (answerPath.length === 1) return PATRON_CAMBIO.DIRECTO;
+  return answerPath[0] === answerPath[answerPath.length - 1]
+    ? PATRON_CAMBIO.VUELTA_A_INICIAL
+    : PATRON_CAMBIO.AUTOCORRECCION;
+}

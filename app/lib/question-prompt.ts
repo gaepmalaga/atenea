@@ -44,7 +44,12 @@ export function buildQuestionPrompt(
       2. Dificultad: ${DIFFICULTY_BRIEF[nivel]}
       3. Las tres opciones deben ser distintas y plausibles.
       4. 'correctIndex' es la posición de la opción correcta: 0, 1 o 2.
-      5. 'explanation' justifica la respuesta citando el texto.
+      5. 'explanation' hace DOS cosas, las dos obligatorias: primero justifica
+         POR QUÉ la correcta lo es, citando el texto; después, en una frase
+         por cada una, dice POR QUÉ cada una de las OTRAS DOS opciones está
+         mal — qué dato cambian, confunden o inventan. No basta con justificar
+         solo la correcta: un alumno que falla necesita saber por qué la
+         opción que marcó él en concreto no vale, no solo cuál era la buena.
       ${contexto.legal_reference
         ? `6. El texto es el ${contexto.legal_reference}. Cítalo en 'explanation'.`
         : ''}

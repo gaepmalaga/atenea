@@ -25,7 +25,7 @@ import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/
 import { buildQuestionPrompt } from '../lib/question-prompt';
 import { adaptativoEncendido } from '../lib/training-switch-guard';
 import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
-import { buildSmartSession, type ResumenSesion } from '../lib/smart-session';
+import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart-session';
 import { planExamen } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
 
@@ -495,12 +495,14 @@ export async function getAdaptiveSession(params: {
 
   // Tema (título) <-> subject_id. Se traen TODOS los temas de una vez y se
   // cruzan en memoria: antes eran ~90 consultas `ilike` para «Todos» los temas.
-  const { data: temasDb } = await supabase.from('subjects').select('id, title');
+  const { data: temasDb } = await supabase.from('subjects').select('id, title, topic_number');
   const tituloPorId = new Map<number, string>();
   const idPorTitulo = new Map<string, number>();
-  for (const s of (temasDb ?? []) as { id: number; title: string }[]) {
+  const numeroPorId = new Map<number, number>();
+  for (const s of (temasDb ?? []) as { id: number; title: string; topic_number: number | null }[]) {
     tituloPorId.set(s.id, s.title);
     idPorTitulo.set(s.title.trim().toLowerCase(), s.id);
+    if (s.topic_number != null) numeroPorId.set(s.id, s.topic_number);
   }
   const ids = topics
     .map((t) => idPorTitulo.get(t.toLowerCase()))
@@ -566,6 +568,10 @@ export async function getAdaptiveSession(params: {
       topic: temaDeFila(f),
       globalSuccessRate: typeof f.global_success_rate === 'number' ? f.global_success_rate : null,
       difficultyLevel: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
+      // Peso real del examen (regla 73): cuántas preguntas de los 5 exámenes
+      // oficiales 2021-2025 cayeron en este tema. `null` si el tema no tiene
+      // número resuelto (no debería pasar, pero un dato que falta no es cero).
+      topicNumber: f.subject_id != null ? numeroPorId.get(f.subject_id) ?? null : null,
     })),
     limit,
     dificultad: typeof params.difficulty === 'number' ? params.difficulty : null,
@@ -575,6 +581,10 @@ export async function getAdaptiveSession(params: {
   // cosa: si el alumno falla algo que ya tenía aprendido, ofrecerle corregir el
   // diagnóstico que el sistema ha deducido. Fallar material nuevo no pregunta
   // nada (`mereceLaPenaPreguntar` en `lib/answer-signals.ts`).
+  //
+  // `porQueHoy` es el mismo cálculo hecho visible: el planificador ya decide
+  // de qué cubo sale cada pregunta (`sesion.cuboPorPregunta`), y hasta ahora
+  // esa decisión se tiraba al aplanar la sesión a una lista de ids.
   const questions = sesion.questionIds
     .map((id) => filaPorId.get(id))
     .filter((f): f is BankRow => !!f)
@@ -582,6 +592,7 @@ export async function getAdaptiveSession(params: {
       ...mapBankRowToQuestion(f),
       topic: temaDeFila(f),
       cajon: states.get(f.id)?.cajon ?? 'nueva',
+      porQueHoy: razonRepaso(sesion.cuboPorPregunta[f.id], states.get(f.id)),
     }));
 
   return {

@@ -116,6 +116,15 @@ export const REQUIRED_OPTIONS = OPTION_IDS.length;
 
 const MIN_QUESTION_CHARS = 15;
 const MIN_OPTION_CHARS = 1;
+/**
+ * Antes `explanation` no se comprobaba: una cadena vacía pasaba igual que una
+ * explicación real. Y esta función es el ÚNICO sitio por el que pasan los
+ * tres caminos de escritura del banco (regla 27: generación con IA, alta
+ * manual y CSV), así que el mínimo se aplica a los tres a la vez sin tocar
+ * tres validaciones distintas — sube el listón también a lo que escribe una
+ * academia a mano, sin pedirle ningún campo nuevo.
+ */
+const MIN_EXPLANATION_CHARS = 20;
 
 /**
  * Quita las marcas de Markdown que el modelo cuela en el texto.
@@ -187,13 +196,21 @@ export function validateGeneratedQuestion(data: unknown): Validation<ValidatedQu
     return { ok: false, reason: `correctIndex fuera de rango: ${String(d.correctIndex ?? d.correct_index)}.` };
   }
 
+  // Sin esto, una explicación vacía o de cuatro caracteres pasaba igual que
+  // una real, en los tres caminos de escritura (regla 27) — el alumno fallaba
+  // y no tenía nada que leer.
+  const explanation = normalize(d.explanation);
+  if (explanation.length < MIN_EXPLANATION_CHARS) {
+    return { ok: false, reason: `Explicación vacía o demasiado corta (${explanation.length} caracteres).` };
+  }
+
   return {
     ok: true,
     value: {
       question,
       options,
       correctIndex,
-      explanation: normalize(d.explanation),
+      explanation,
     },
   };
 }

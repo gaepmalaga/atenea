@@ -6,6 +6,7 @@ import {
   estaVencida,
   diasDeRetraso,
   resumeCajonesPorTema,
+  factorPersonal,
   BOX_INTERVALS_DAYS,
   MAX_BOX,
   MAX_BOX_TITUBEANTE,
@@ -140,6 +141,38 @@ describe('la fecha de repaso', () => {
     ]).get('q1')!;
     expect(diasDeRetraso(s, new Date(Date.parse(base) + 1 * DAY))).toBe(0);
     expect(diasDeRetraso(s, new Date(Date.parse(base) + 5 * DAY))).toBe(4);
+  });
+
+  it('factorPersonal solo recorta, nunca alarga, y tiene un tope', () => {
+    expect(factorPersonal(0)).toBe(1);
+    expect(factorPersonal(1)).toBeCloseTo(0.9);
+    expect(factorPersonal(2)).toBeCloseTo(0.8);
+    expect(factorPersonal(10)).toBeCloseTo(0.6); // tope del 40%
+    expect(factorPersonal(-3)).toBe(1); // no aplica a negativos
+  });
+
+  it('una pregunta que ya ha recaído varias veces vuelve ANTES que el calendario fijo', () => {
+    const base = '2026-09-01T10:00:00Z';
+    // Simula una pregunta que ha recaído dos veces (lapses=2) y ahora está en
+    // caja 3 tras un tercer acierto reciente.
+    const seq: IntentoPregunta[] = [
+      { question_id: 'q1', is_correct: true, selected_index: 0, created_at: enDias(base, 0) }, // box 2
+      { question_id: 'q1', is_correct: true, selected_index: 0, created_at: enDias(base, 1) }, // box 3
+      { question_id: 'q1', is_correct: false, error_type: 'desconocimiento', selected_index: 1, created_at: enDias(base, 2) }, // recae, lapses=1
+      { question_id: 'q1', is_correct: true, selected_index: 0, created_at: enDias(base, 3) }, // box 2
+      { question_id: 'q1', is_correct: true, selected_index: 0, created_at: enDias(base, 4) }, // box 3
+      { question_id: 'q1', is_correct: false, error_type: 'desconocimiento', selected_index: 1, created_at: enDias(base, 5) }, // recae, lapses=2
+      { question_id: 'q1', is_correct: true, selected_index: 0, created_at: enDias(base, 6) }, // box 2
+      { question_id: 'q1', is_correct: true, selected_index: 0, created_at: enDias(base, 7) }, // box 3
+    ];
+    const s = computeQuestionStates(seq).get('q1')!;
+    expect(s.box).toBe(3);
+    expect(s.lapses).toBe(2);
+    const ultimo = Date.parse(enDias(base, 7) as string);
+    const esperadoFijo = ultimo + BOX_INTERVALS_DAYS[3] * DAY;
+    const esperadoPersonal = new Date(ultimo + BOX_INTERVALS_DAYS[3] * factorPersonal(2) * DAY).getTime();
+    expect(Date.parse(s.dueAt!)).toBeLessThan(esperadoFijo);
+    expect(Date.parse(s.dueAt!)).toBe(esperadoPersonal);
   });
 });
 

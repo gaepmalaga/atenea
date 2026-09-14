@@ -33,6 +33,15 @@ export type AnswerMetrics = {
    * en filas nuevas.
    */
   confidence?: number | null;
+  /**
+   * Secuencia de índices de opción marcados antes de confirmar («motor
+   * adaptativo v2», fase 2 — `docs/sql/camino-respuesta.sql`, ejecutado).
+   * Un elemento MÁS que `optionChanges` (mismo criterio: solo cuenta una
+   * marca realmente distinta a la anterior). `[1,2,1]` = marcó B, cambió a
+   * C, volvió a B — la señal que un simple contador no puede dar
+   * (`patronDeCambio` en `answer-signals.ts`). `null`/ausente = no medido.
+   */
+  answerPath?: number[] | null;
 };
 
 /**
@@ -57,6 +66,8 @@ export type ResultRow = {
   selected_index: number | null;
   /** 0-2, o `null`. Ver `AnswerMetrics.confidence`. */
   confidence: number | null;
+  /** Ver `AnswerMetrics.answerPath`. */
+  answer_path: number[] | null;
 };
 
 /**
@@ -104,12 +115,34 @@ export const EMPTY_METRICS: AnswerMetrics = {
   firstTouchMs: null,
   errorType: null,
   confidence: null,
+  answerPath: null,
 };
 
 /** ms >= 1, o `null`. Un `0` no es un primer toque, es «no medido» (regla 16). */
 export function normalizeFirstTouch(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+/**
+ * Tope de elementos de `answerPath`. Generoso a propósito —nadie cambia de
+ * opción 50 veces— pero necesario: una Server Action es un endpoint público
+ * (regla 1) y sin tope un cliente manipulado podría mandar un array enorme.
+ */
+const MAX_ANSWER_PATH = 50;
+
+/**
+ * Array de índices de opción válidos (enteros >= 0), o `null` si no llegó
+ * nada usable. No se filtra por blanco (igual que `normalizeFirstTouch` desde
+ * el arreglo de la regla 73): un blanco por CÁLCULO sí tocó una opción antes
+ * de retirarla, y ese camino es justo el dato que interesa conservar.
+ */
+export function normalizeAnswerPath(value: unknown): number[] | null {
+  if (!Array.isArray(value)) return null;
+  const limpio = value
+    .filter((v): v is number => Number.isInteger(v) && v >= 0)
+    .slice(0, MAX_ANSWER_PATH);
+  return limpio.length ? limpio : null;
 }
 
 /** 0, 1 o 2. Cualquier otra cosa (incluida NaN o fuera de rango) cae a `null`. */
@@ -149,13 +182,24 @@ export function toResultRow(
     is_correct: enBlanco ? false : Boolean(input.isCorrect),
     response_time_ms: safeCount(input.responseTimeMs),
     option_changes: safeCount(input.optionChanges),
-    // Un blanco no tiene «primer toque»: no se tocó ninguna opción.
-    first_touch_ms: enBlanco ? null : normalizeFirstTouch(input.firstTouchMs),
+    // Un blanco NO fuerza `first_touch_ms` a null (BUG hasta el «motor
+    // adaptativo v2», encontrado al construir `tipoDeBlanco`): un blanco por
+    // IGNORANCIA nunca llegó a tocar ninguna opción, así que ya llega sin
+    // dato — pero desde la regla 26 («Dejar en blanco» retira una respuesta
+    // YA marcada) hay un segundo blanco, por CÁLCULO, que SÍ tocó una opción
+    // antes de arrepentirse. Forzar el null aquí borraba justo el dato que
+    // distingue «no lo sabía» de «lo pensé y decidí no arriesgar» — y ese
+    // segundo caso es el único de los dos que le puede decir algo al alumno.
+    first_touch_ms: normalizeFirstTouch(input.firstTouchMs),
     // Un blanco no se diagnostica: no hubo error que clasificar.
     error_type: enBlanco ? null : input.errorType ?? null,
     selected_index: normalizeSelectedIndex(input.selectedIndex),
     // Un blanco no lleva confianza: no hubo respuesta en la que confiar.
     confidence: enBlanco ? null : normalizeConfidence(input.confidence),
+    // Igual que `first_touch_ms`: no se fuerza a null en un blanco. Un
+    // blanco por CÁLCULO llegó a marcar una opción (y quizás cambió de
+    // opción antes de retirarla) — ese camino es el dato, no ruido.
+    answer_path: normalizeAnswerPath(input.answerPath),
   };
 }
 
@@ -182,6 +226,7 @@ type FinishedQuestion = {
   timeMs?: number;
   changes?: number;
   firstTouchMs?: number | null;
+  answerPath?: number[] | null;
   /** Las opciones, para saber QUE indice marco. Sin ellas no se puede deducir. */
   options?: { id: string }[];
 };
@@ -222,6 +267,7 @@ export function buildExamResults(
     optionChanges: safeCount(q.changes),
     firstTouchMs: normalizeFirstTouch(q.firstTouchMs),
     errorType: q.errorType ?? null,
+    answerPath: normalizeAnswerPath(q.answerPath),
   }));
 }
 

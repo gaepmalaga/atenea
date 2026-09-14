@@ -149,7 +149,7 @@ describe('importar un fichero entero', () => {
   it('una fila mala no se lleva por delante a las buenas, y se dice cual es', () => {
     const texto = [
       CABECERA,
-      '¿Cuantos Diputados como minimo tiene el Congreso?;300;350;400;A;Articulo 68.1.;1',
+      '¿Cuantos Diputados como minimo tiene el Congreso?;300;350;400;A;Articulo 68.1: minimo de Diputados.;1',
       '¿Cuantos senadores por provincia se eligen?;Cuatro;Cuatro;Dos;A;Repetidas a proposito.;2',
       '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum del 6 de diciembre.;2',
     ].join('\n');
@@ -193,7 +193,7 @@ describe('importar un fichero entero', () => {
   it('no se importan mas de MAX_IMPORT, y se avisa de que se corto', () => {
     const filas = Array.from(
       { length: MAX_IMPORT + 5 },
-      (_, i) => `¿Pregunta numero ${i} del banco de prueba?;uno ${i};dos ${i};tres ${i};A;porque si;2`
+      (_, i) => `¿Pregunta numero ${i} del banco de prueba?;uno ${i};dos ${i};tres ${i};A;Porque asi lo dice el enunciado de prueba.;2`
     );
     const res = parseQuestionsCsv([CABECERA, ...filas].join('\n'));
     expect(res.preguntas).toHaveLength(MAX_IMPORT);
@@ -208,7 +208,7 @@ describe('la columna "tema" (CSV multi-tema)', () => {
     { id: 20, number: 5, title: 'La Constitución Española (I): estructura' },
     { id: 30, number: 6, title: 'La Constitución Española (II): Corona' },
   ];
-  const CAB = 'enunciado;A;B;C;correcta;tema';
+  const CAB = 'enunciado;A;B;C;correcta;explicacion;tema';
 
   it('resuelve por número, con o sin la palabra "Tema" delante', () => {
     expect(resuelveTema('5', TEMAS)).toBe(20);
@@ -225,7 +225,7 @@ describe('la columna "tema" (CSV multi-tema)', () => {
   });
 
   it('sin la lista de temas, la columna solo se guarda como texto', () => {
-    const texto = [CAB, '¿Cuantos titulos tiene?;Diez;Once;Doce;B;5'].join('\n');
+    const texto = [CAB, '¿Cuantos titulos tiene?;Diez;Once;Doce;B;Un preliminar y diez numerados.;5'].join('\n');
     const res = parseQuestionsCsv(texto);
     expect(res.rechazadas).toEqual([]);
     expect(res.preguntas[0].temaRaw).toBe('5');
@@ -235,9 +235,9 @@ describe('la columna "tema" (CSV multi-tema)', () => {
   it('con la lista, cada fila va a su tema y una celda vacía no molesta', () => {
     const texto = [
       CAB,
-      '¿Que es una norma juridica positiva?;Una costumbre;Una ley escrita;Un principio;B;1',
-      '¿Cuantos titulos tiene la Constitucion?;Diez;Once;Doce;B;Tema 5',
-      '¿Que regula el Titulo II?;El Gobierno;La Corona;El Poder Judicial;B;',
+      '¿Que es una norma juridica positiva?;Una costumbre;Una ley escrita;Un principio;B;Emana del poder legislativo.;1',
+      '¿Cuantos titulos tiene la Constitucion?;Diez;Once;Doce;B;Un preliminar y diez numerados.;Tema 5',
+      '¿Que regula el Titulo II?;El Gobierno;La Corona;El Poder Judicial;B;El Titulo II regula la Corona.;',
     ].join('\n');
     const res = parseQuestionsCsv(texto, TEMAS);
     expect(res.rechazadas).toEqual([]);
@@ -247,8 +247,8 @@ describe('la columna "tema" (CSV multi-tema)', () => {
   it('un tema que no existe RECHAZA la fila, no la cuela en el de por defecto', () => {
     const texto = [
       CAB,
-      '¿Pregunta buena de un tema real?;uno;dos;tres;A;5',
-      '¿Pregunta de un tema inventado?;uno;dos;tres;A;Historia del arte flamenco',
+      '¿Pregunta buena de un tema real?;uno;dos;tres;A;Una explicacion valida y suficientemente larga.;5',
+      '¿Pregunta de un tema inventado?;uno;dos;tres;A;Otra explicacion valida y suficientemente larga.;Historia del arte flamenco',
     ].join('\n');
     const res = parseQuestionsCsv(texto, TEMAS);
     expect(res.preguntas).toHaveLength(1);
@@ -261,8 +261,8 @@ describe('la columna "tema" (CSV multi-tema)', () => {
   it('la misma pregunta en dos temas distintos NO se deduplica', () => {
     const texto = [
       CAB,
-      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;5',
-      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;6',
+      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum del 6 de diciembre de 1978.;5',
+      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum del 6 de diciembre de 1978.;6',
     ].join('\n');
     const { preguntas } = parseQuestionsCsv(texto, TEMAS);
     const { unicas, repetidas } = quitaRepetidas(preguntas);
@@ -282,8 +282,8 @@ describe('repetidas dentro del propio fichero', () => {
   it('se quitan antes de llegar a la base de datos', () => {
     const texto = [
       CABECERA,
-      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum.;2',
-      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum.;2',
+      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum del 6 de diciembre.;2',
+      '¿En que anio se aprobo la Constitucion espaniola?;1975;1978;1981;B;Referendum del 6 de diciembre.;2',
     ].join('\n');
 
     const { preguntas } = parseQuestionsCsv(texto);

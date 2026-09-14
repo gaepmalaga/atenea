@@ -5,6 +5,7 @@ import {
   toResultRow,
   buildExamResults,
   countChange,
+  normalizeAnswerPath,
   EMPTY_METRICS,
   BLANK_INDEX,
   isBlankAnswer,
@@ -55,16 +56,62 @@ describe('toResultRow', () => {
       error_type: 'trampa',
       selected_index: null,
       confidence: null,
+      answer_path: null,
     });
   });
 
-  it('guarda el primer toque cuando se mide; un 0 o un blanco lo dejan a null', () => {
+  it('guarda el primer toque cuando se mide; un 0 o ausente lo dejan a null', () => {
     expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, firstTouchMs: 4200 }).first_touch_ms).toBe(4200);
     expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true, firstTouchMs: 0 }).first_touch_ms).toBeNull();
     expect(toResultRow({ questionId: 'q', topic: 't', isCorrect: true }).first_touch_ms).toBeNull();
+  });
+
+  it('un blanco que SÍ llegó a tocar una opción (la retiró, regla 26) conserva el primer toque', () => {
+    // Es el dato que distingue el blanco por CÁLCULO (tocó y se echó atrás) del
+    // blanco por IGNORANCIA (nunca tocó nada) — `tipoDeBlanco` en
+    // `answer-signals.ts`. Forzarlo a null aquí borraba esa distinción antes de
+    // que llegara a la base de datos.
     expect(
       toResultRow({ questionId: 'q', topic: 't', isCorrect: false, selectedIndex: -1, firstTouchMs: 4200 }).first_touch_ms,
+    ).toBe(4200);
+  });
+
+  it('un blanco por ignorancia (nunca tocó nada) sigue sin dato', () => {
+    expect(
+      toResultRow({ questionId: 'q', topic: 't', isCorrect: false, selectedIndex: -1 }).first_touch_ms,
     ).toBeNull();
+  });
+});
+
+describe('normalizeAnswerPath: el camino de la respuesta', () => {
+  it('un array de enteros validos se conserva', () => {
+    expect(normalizeAnswerPath([0, 1, 0])).toEqual([0, 1, 0]);
+    expect(normalizeAnswerPath([2])).toEqual([2]);
+  });
+
+  it('lo que no es un array usable cae a null', () => {
+    expect(normalizeAnswerPath(undefined)).toBeNull();
+    expect(normalizeAnswerPath(null)).toBeNull();
+    expect(normalizeAnswerPath([])).toBeNull();
+    expect(normalizeAnswerPath('no es un array')).toBeNull();
+  });
+
+  it('filtra los elementos que no son indices validos, sin tirar el array entero', () => {
+    expect(normalizeAnswerPath([0, -1, 1.5, 'x', 2])).toEqual([0, 2]);
+  });
+
+  it('tiene un tope de longitud, por si llega un array manipulado', () => {
+    const largo = Array.from({ length: 200 }, (_, i) => i % 3);
+    expect(normalizeAnswerPath(largo)!.length).toBeLessThanOrEqual(50);
+  });
+
+  it('toResultRow lo guarda, tambien en un blanco por calculo', () => {
+    expect(
+      toResultRow({ questionId: 'q', topic: 't', isCorrect: true, answerPath: [1, 2] }).answer_path,
+    ).toEqual([1, 2]);
+    expect(
+      toResultRow({ questionId: 'q', topic: 't', isCorrect: false, selectedIndex: -1, answerPath: [1, 2, 1] }).answer_path,
+    ).toEqual([1, 2, 1]);
   });
 
   it('rellena las metricas ausentes con 0, no con undefined', () => {
@@ -107,6 +154,13 @@ describe('buildExamResults', () => {
     const [row] = buildExamResults([q({ timeMs: 9_000, changes: 3 })]);
     expect(row.responseTimeMs).toBe(9_000);
     expect(row.optionChanges).toBe(3);
+  });
+
+  it('conserva el camino de la respuesta', () => {
+    const [row] = buildExamResults([q({ answerPath: [0, 1, 0] })]);
+    expect(row.answerPath).toEqual([0, 1, 0]);
+    const [sinCamino] = buildExamResults([q({ answerPath: undefined })]);
+    expect(sinCamino.answerPath).toBeNull();
   });
 
   it('deriva el acierto comparando la respuesta con la correcta', () => {

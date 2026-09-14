@@ -132,6 +132,30 @@ function fecha(v: unknown): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
+/**
+ * CURVA DE OLVIDO PERSONAL, POR PREGUNTA.
+ *
+ * `BOX_INTERVALS_DAYS` es el mismo calendario para cualquier alumno: la caja
+ * 3 siempre vuelve a los 8 días, la haya aprendido a la primera o le haya
+ * costado tres recaídas. Pero `lapses` —cuántas veces ha caído esta pregunta
+ * CONCRETA desde una caja aprendida— ya dice que a ESE alumno esa pregunta
+ * en particular se le resiste más que al calendario fijo. Recortar el
+ * intervalo con esa historia es personalizar sin necesitar ni un concepto ni
+ * una etiqueta nueva: el dato ya se contaba, solo no se usaba para esto.
+ *
+ * Solo RECORTA, nunca alarga: un intervalo más corto es el único lado en el
+ * que equivocarse sale barato (un repaso de más cuesta un click; uno de menos
+ * cuesta el olvido). Tope del 40%: por encima, la caja deja de significar
+ * nada.
+ */
+const RECORTE_POR_RECAIDA = 0.1;
+const RECORTE_MAX = 0.4;
+
+export function factorPersonal(lapses: number): number {
+  const n = Number.isFinite(lapses) && lapses > 0 ? Math.floor(lapses) : 0;
+  return 1 - Math.min(RECORTE_MAX, n * RECORTE_POR_RECAIDA);
+}
+
 function cajonDe(box: number, lapses: number): Cajon {
   if (lapses >= LAPSES_ATASCADA) return 'atascada';
   if (box <= 0) return 'nueva';
@@ -252,9 +276,10 @@ export function computeQuestionStates(
       : null;
 
     const lastMs = s.lastAnsweredAt ? Date.parse(s.lastAnsweredAt) : null;
+    const intervaloDias = BOX_INTERVALS_DAYS[Math.min(s.box, MAX_BOX)] * factorPersonal(s.lapses);
     const dueAt =
       lastMs !== null && s.box >= 1
-        ? new Date(lastMs + BOX_INTERVALS_DAYS[Math.min(s.box, MAX_BOX)] * 86_400_000).toISOString()
+        ? new Date(lastMs + intervaloDias * 86_400_000).toISOString()
         : null;
 
     const dominadaFragil =

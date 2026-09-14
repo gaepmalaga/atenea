@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Question } from './ExamManager';
 import type { AdaptiveSession } from '@/app/actions/exams';
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
+import { tipoDeBlanco, TIPO_BLANCO } from '@/app/lib/answer-signals';
 import {
   XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles, CheckCircle2, Scale, Clock, X,
 } from 'lucide-react';
@@ -109,6 +110,16 @@ function ResultadoSimulacro({
   const perdidoPorFallos = rawPercentage - Math.round(score * 10);
   const [abierta, setAbierta] = useState<number | null>(null);
 
+  // Por qué quedó en blanco (motor adaptativo v2, `tipoDeBlanco`): de los que
+  // no tocó nada («no lo sabía») a los que llegó a marcar una opción y la
+  // retiró («decidió no arriesgar», regla 26) hay una diferencia real — el
+  // segundo es una decisión de estrategia, no una laguna. `firstTouchMs`
+  // viaja por pregunta desde `ActiveTest`, y desde la corrección de esta
+  // misma vuelta ya no se pierde al guardar un blanco.
+  const porCalculo = questions.filter(
+    (qq) => !qq.userAnswer && tipoDeBlanco({ first_touch_ms: qq.firstTouchMs }) === TIPO_BLANCO.CALCULO,
+  ).length;
+
   const estadoDe = (q: Question): 'ok' | 'mal' | 'blanco' =>
     !q.userAnswer ? 'blanco' : q.userAnswer === q.correctOptionId ? 'ok' : 'mal';
 
@@ -163,6 +174,13 @@ function ResultadoSimulacro({
           {wrong === 0 && blank > 0 && (
             <p className="text-[11px] text-emerald-600 dark:text-emerald-400 leading-relaxed">
               Ni un fallo: dejar en blanco lo que no sabías no te ha restado nada.
+            </p>
+          )}
+          {porCalculo > 0 && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {porCalculo} de esos blancos {porCalculo === 1 ? 'lo pensaste' : 'los pensaste'} antes
+              de dejarlo{porCalculo === 1 ? '' : 's'} así: no fue que no lo supieras, fue que
+              calculaste que no compensaba arriesgar.
             </p>
           )}
         </Card>

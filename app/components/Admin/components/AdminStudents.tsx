@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
-  Mail, ShieldCheck, X, Send,
+  Mail, ShieldCheck, X, Send, Shuffle,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
@@ -118,7 +118,7 @@ export default function AdminStudents() {
   }
   if (!datos) return null;
 
-  const { alumnos, porEstado, grupos, cobertura, sospechosas, membershipRequired, periodoActual } = datos;
+  const { alumnos, porEstado, grupos, cobertura, sospechosas, confusas, membershipRequired, periodoActual } = datos;
   const sinBanco = cobertura.filter((c) => c.preguntas === 0);
   const pendientes = alumnos.filter((a) => a.acceso === 'pending').length;
   const pagadosMes = alumnos.filter((a) => a.pagadoMesActual).length;
@@ -278,6 +278,36 @@ export default function AdminStudents() {
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-200 leading-snug">
                 {p.texto ?? <span className="italic text-slate-500 dark:text-slate-400">Ya no está en el banco</span>}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Descubierto de los datos (regla 73): NO dice por qué se confunden,
+          solo que los alumnos que fallan una fallan la otra más de lo que el
+          azar explicaría — suele ser la misma distinción mal explicada, o
+          dos preguntas casi duplicadas. Nadie las ha etiquetado. */}
+      <Card tone="base">
+        <SectionLabel icon={<Shuffle size={12} />}>Preguntas que se confunden entre sí</SectionLabel>
+        <p className={cx(TEXT.muted, 'mb-3 leading-relaxed')}>
+          Los alumnos que fallan una fallan la otra más de lo esperado por azar. No dice por qué —
+          revísalas: suele ser la misma idea mal explicada, o dos preguntas casi duplicadas.
+        </p>
+        {confusas.length === 0 && <p className={TEXT.muted}>Ninguna, de momento (hace falta volumen de respuestas para que signifique algo).</p>}
+        <div className="space-y-3 max-h-72 overflow-y-auto">
+          {confusas.map((p) => (
+            <div key={`${p.a}-${p.b}`} className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3">
+              <div className="flex flex-wrap items-center gap-x-2 mb-2">
+                <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-400">×{p.lift} lo esperado</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{p.fallanAmbas}/{p.n} las fallan las dos</span>
+                {p.topic && <span className="text-[10px] text-slate-500 dark:text-slate-400">· {p.topic}</span>}
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-200 leading-snug mb-1.5">
+                {p.textoA ?? <span className="italic text-slate-500 dark:text-slate-400">Ya no está en el banco</span>}
+              </p>
+              <p className="text-xs text-slate-700 dark:text-slate-200 leading-snug">
+                {p.textoB ?? <span className="italic text-slate-500 dark:text-slate-400">Ya no está en el banco</span>}
               </p>
             </div>
           ))}

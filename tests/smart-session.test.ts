@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildSmartSession, type CandidataSesion } from '../app/lib/smart-session';
+import { buildSmartSession, razonRepaso, type CandidataSesion } from '../app/lib/smart-session';
 import type { QuestionState } from '../app/lib/question-scheduler';
 
 /**
@@ -232,6 +232,75 @@ describe('calibración al 85 %', () => {
     const r = buildSmartSession({ states, disponibles, limit: 20 });
     // No debería salir una sesión imposible (todo recaídas al 0,55)
     expect(r.aciertoEstimado).toBeGreaterThan(0.6);
+  });
+});
+
+describe('el peso real del examen desempata dentro de la urgencia (regla 73)', () => {
+  it('entre dos recaídas igual de urgentes, gana el tema con más preguntas reales', () => {
+    const states = new Map<string, QuestionState>();
+    // Las dos igual de vencidas y con los mismos lapses: sin el peso real,
+    // el orden entre ellas seria arbitrario (el de llegada).
+    states.set('pocas', estado({ questionId: 'pocas', box: 1, cajon: 'recaida', lapses: 1 }));
+    states.set('muchas', estado({ questionId: 'muchas', box: 1, cajon: 'recaida', lapses: 1 }));
+    const disponibles: CandidataSesion[] = [
+      { questionId: 'pocas', topic: 'T-pocas', topicNumber: 30 }, // 1 pregunta real (ver exam-weight-data)
+      { questionId: 'muchas', topic: 'T-muchas', topicNumber: 3 }, // 32 preguntas reales
+    ];
+    const r = buildSmartSession({ states, disponibles, limit: 1 });
+    // Con limit 1 solo entra una recaída: tiene que ser la del tema que mas
+    // pesa en el examen real, a igualdad de urgencia.
+    expect(r.questionIds).toEqual(['muchas']);
+  });
+
+  it('sin topicNumber, no rompe el orden por urgencia (no pesa ni de mas ni de menos)', () => {
+    const states = new Map<string, QuestionState>();
+    states.set('r1', estado({ questionId: 'r1', box: 1, cajon: 'recaida', lapses: 3 }));
+    states.set('r2', estado({ questionId: 'r2', box: 1, cajon: 'recaida', lapses: 1 }));
+    const disponibles: CandidataSesion[] = [
+      { questionId: 'r1', topic: 'T1' }, // sin topicNumber
+      { questionId: 'r2', topic: 'T1' },
+    ];
+    const r = buildSmartSession({ states, disponibles, limit: 1 });
+    // La de mas lapses sigue ganando: el peso real no puede imponerse sobre
+    // la urgencia real cuando no hay dato.
+    expect(r.questionIds).toEqual(['r1']);
+  });
+});
+
+describe('hacer visible la programación: de qué cubo salió cada pregunta', () => {
+  it('cuboPorPregunta cuadra con el resumen por cubo', () => {
+    const states = new Map<string, QuestionState>();
+    for (let i = 0; i < 3; i++) states.set(`r${i}`, estado({ questionId: `r${i}`, box: 1, cajon: 'recaida' }));
+    const disponibles = [...banco(3, 'T1', 'r'), ...banco(20, 'T1', 'n')];
+    const r = buildSmartSession({ states, disponibles, limit: 10 });
+    for (const id of r.questionIds) expect(r.cuboPorPregunta[id]).toBeDefined();
+    const recaidasEnMapa = r.questionIds.filter((id) => r.cuboPorPregunta[id] === 'recaida').length;
+    expect(recaidasEnMapa).toBe(r.resumen.recaida);
+  });
+});
+
+describe('razonRepaso: por qué le toca esta pregunta hoy', () => {
+  it('da un motivo distinto para cada cubo, siempre una frase con contenido', () => {
+    const s = estado({ questionId: 'q', lapses: 2 });
+    for (const cubo of ['recaida', 'atascada', 'repaso', 'consolidar', 'nueva', 'refuerzo'] as const) {
+      const razon = razonRepaso(cubo, s);
+      expect(typeof razon).toBe('string');
+      expect(razon.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('una atascada por distractor fijo lo dice explícitamente', () => {
+    const s = estado({ questionId: 'q', distractorFijo: 1 });
+    expect(razonRepaso('atascada', s)).toMatch(/misma opción/);
+  });
+
+  it('sin cubo ni estado (pregunta nueva de verdad), dice que no la había visto', () => {
+    expect(razonRepaso(undefined, undefined)).toMatch(/no la habías visto/i);
+  });
+
+  it('una nueva que suele dejarse en blanco lo dice, no el mensaje genérico', () => {
+    const s = estado({ questionId: 'q', box: 0, cajon: 'nueva', soloBlancos: true });
+    expect(razonRepaso('nueva', s)).toMatch(/en blanco/);
   });
 });
 

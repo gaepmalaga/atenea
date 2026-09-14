@@ -20,6 +20,8 @@ import {
 } from '../lib/academy';
 import type { ErrorType } from '../lib/stats';
 import { periodoActual } from '../lib/payments';
+import { detectaConfusion, type ParConfuso } from '../lib/question-confusion';
+import { isBlankAnswer } from '../lib/exam-results';
 
 /**
  * El panel de la academia (P5).
@@ -59,6 +61,13 @@ export type AcademyOverview = {
   periodoActual: string;
   cobertura: CoberturaTema[];
   sospechosas: (PreguntaSospechosa & { texto: string | null; tema: string | null })[];
+  /**
+   * Pares de preguntas que se confunden entre sí — descubierto de los datos,
+   * sin que nadie las etiquete (regla 73, `detectaConfusion`). No dice POR
+   * QUÉ se confunden: señala dónde mirar. Suele ser la misma distinción mal
+   * explicada, o dos preguntas casi duplicadas.
+   */
+  confusas: (ParConfuso & { textoA: string | null; textoB: string | null })[];
 };
 
 export async function getAcademyOverview(): Promise<
@@ -210,6 +219,39 @@ export async function getAcademyOverview(): Promise<
     });
   }
 
+  // PARES QUE SE CONFUNDEN (regla 73, `detectaConfusion`) — mismo patrón que
+  // las sospechosas: se calcula de los intentos ya en memoria (sin consulta
+  // nueva) y se enriquece con el enunciado de las dos preguntas después. Los
+  // blancos se descartan antes: dejar una pregunta sin contestar no es una
+  // creencia falsa, es no arriesgar (regla 24), y contarlo aquí ensuciaría la
+  // señal con abstenciones.
+  const paraConfusion = intentos
+    .filter((i) => i.question_id && i.user_id && !isBlankAnswer(i.selected_index))
+    .map((i) => ({
+      questionId: i.question_id as string,
+      userId: i.user_id as string,
+      isCorrect: Boolean(i.is_correct),
+      topic: i.topic ?? '',
+    }));
+  const confusasCrudas = detectaConfusion(paraConfusion).slice(0, 10);
+
+  let confusas: AcademyOverview['confusas'] = confusasCrudas.map((p) => ({ ...p, textoA: null, textoB: null }));
+  if (confusasCrudas.length) {
+    const idsConfusas = [...new Set(confusasCrudas.flatMap((p) => [p.a, p.b]))];
+    const { data: preguntasConfusas } = await supabaseAdmin
+      .from('question_bank')
+      .select('id, question_text')
+      .in('id', idsConfusas);
+    const textoPorId = new Map(
+      ((preguntasConfusas ?? []) as { id: string; question_text: string | null }[]).map((q) => [q.id, q.question_text]),
+    );
+    confusas = confusasCrudas.map((p) => ({
+      ...p,
+      textoA: textoPorId.get(p.a) ?? null,
+      textoB: textoPorId.get(p.b) ?? null,
+    }));
+  }
+
   return {
     success: true as const,
     data: {
@@ -223,6 +265,7 @@ export async function getAcademyOverview(): Promise<
       periodoActual: periodo,
       cobertura,
       sospechosas: conTexto,
+      confusas,
     },
   };
 }

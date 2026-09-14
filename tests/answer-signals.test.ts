@@ -7,6 +7,10 @@ import {
   errorTypeDe,
   mereceLaPenaPreguntar,
   perfilTiempos,
+  tipoDeBlanco,
+  TIPO_BLANCO,
+  patronDeCambio,
+  PATRON_CAMBIO,
   FIRMEZA,
   MS_FIRME,
   MS_TITUBEA,
@@ -197,6 +201,51 @@ describe('el planificador usa las seniales', () => {
     ]);
     expect(states.get('q1')!.box).toBe(1);
     expect(states.get('q1')!.lastErrorType).toBe('trampa');
+  });
+});
+
+describe('patronDeCambio: el camino de la respuesta', () => {
+  it('sin dato, o un solo elemento, es directo o sin medir', () => {
+    expect(patronDeCambio(undefined)).toBeNull();
+    expect(patronDeCambio(null)).toBeNull();
+    expect(patronDeCambio([])).toBeNull();
+    expect(patronDeCambio([1])).toBe(PATRON_CAMBIO.DIRECTO);
+  });
+
+  it('cambiar y quedarse en la nueva opcion es autocorreccion', () => {
+    expect(patronDeCambio([1, 2])).toBe(PATRON_CAMBIO.AUTOCORRECCION);
+    expect(patronDeCambio([0, 1, 2])).toBe(PATRON_CAMBIO.AUTOCORRECCION);
+  });
+
+  it('volver a la opcion de partida es vuelta_a_inicial', () => {
+    expect(patronDeCambio([1, 2, 1])).toBe(PATRON_CAMBIO.VUELTA_A_INICIAL);
+    expect(patronDeCambio([0, 1, 2, 0])).toBe(PATRON_CAMBIO.VUELTA_A_INICIAL);
+  });
+
+  it('una vuelta a inicial manda sobre la firmeza, aunque contestara rapido y con pocos cambios', () => {
+    // Un solo cambio (option_changes: 1) no llegaria a titubeante por si solo,
+    // pero volver a la opcion de partida si — es peor senial que un cambio limpio.
+    expect(
+      inferFirmeza({ response_time_ms: 5_000, option_changes: 1, answer_path: [0, 1, 0] }),
+    ).toBe(FIRMEZA.TITUBEANTE);
+    // El mismo tiempo y cambios, pero SIN volver (autocorreccion limpia), no es titubeante.
+    expect(
+      inferFirmeza({ response_time_ms: 5_000, option_changes: 1, answer_path: [0, 1] }),
+    ).not.toBe(FIRMEZA.TITUBEANTE);
+  });
+});
+
+describe('por que quedo en blanco', () => {
+  it('sin ningun toque medido, es IGNORANCIA', () => {
+    expect(tipoDeBlanco({})).toBe(TIPO_BLANCO.IGNORANCIA);
+    expect(tipoDeBlanco({ first_touch_ms: null })).toBe(TIPO_BLANCO.IGNORANCIA);
+    expect(tipoDeBlanco({ first_touch_ms: 0 })).toBe(TIPO_BLANCO.IGNORANCIA);
+  });
+
+  it('si llego a tocar una opcion antes de retirarla, es CALCULO', () => {
+    // marcarPrimerToque anota esto ANTES de que se pueda pulsar "Dejar en
+    // blanco" (regla 26): si hay dato, decidio no arriesgar.
+    expect(tipoDeBlanco({ first_touch_ms: 4_000 })).toBe(TIPO_BLANCO.CALCULO);
   });
 });
 

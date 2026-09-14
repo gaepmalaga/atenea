@@ -12,8 +12,10 @@
 import {
   estaVencida,
   diasDeRetraso,
+  MAX_BOX,
   type QuestionState,
 } from './question-scheduler.ts';
+import { PESO_EXAMEN_REAL } from './exam-weight-data.ts';
 
 // ============================================================
 // LO QUE ENTRA
@@ -27,7 +29,28 @@ export type CandidataSesion = {
   globalSuccessRate?: number | null;
   /** `question_bank.difficulty_level` (1 fácil · 2 media · 3 alta). */
   difficultyLevel?: number | null;
+  /**
+   * `subjects.topic_number` (1-45), para mirar el peso real del examen
+   * (`PESO_EXAMEN_REAL`, regla 73). `null`/ausente = sin dato, no pesa nada
+   * de más ni de menos — es un criterio de desempate, no un filtro.
+   */
+  topicNumber?: number | null;
 };
+
+/**
+ * Cuántas preguntas de los 5 exámenes oficiales reales (2021-2025) cayeron
+ * en este tema — `0` si no hay dato, nunca un valor inventado.
+ *
+ * Es un DESEMPATE, no el criterio principal: la urgencia del repaso (días de
+ * retraso, cuántas veces ha recaído) sigue mandando. Entre dos preguntas
+ * igual de urgentes, se prefiere la del tema que de verdad ha salido más en
+ * el examen real — es la diferencia entre "repasar lo que fallas" y
+ * "repasar lo que fallas Y además cuenta más para aprobar".
+ */
+function pesoExamenReal(topicNumber: number | null | undefined): number {
+  if (!topicNumber) return 0;
+  return PESO_EXAMEN_REAL[topicNumber] ?? 0;
+}
 
 /**
  * Tasa global de acierto USABLE: un `0` (o `null`, o algo fuera de rango) no es
@@ -52,6 +75,14 @@ export type SesionAdaptativa = {
   bancoCorto: boolean;
   /** Preguntas del alumno que están «atascadas» (falladas 4+ veces). */
   atascadasTotales: number;
+  /**
+   * De qué cubo salió cada pregunta de la sesión. La pantalla del test lo usa
+   * junto con el estado (`question-scheduler.ts`) para decirle al alumno POR
+   * QUÉ le toca hoy — el sistema ya calcula esta decisión; esto es solo
+   * dejarla viajar hasta donde se pinta, en vez de perderla al aplanar la
+   * sesión a una lista de ids.
+   */
+  cuboPorPregunta: Record<string, Cubo>;
 };
 
 // P(acierto) esperado de cada cubo. Alimenta la calibración al 85 %.
@@ -122,7 +153,8 @@ function ordenaCubo(cubo: Cubo, items: ConEstado[], now: Date, dificultad: numbe
     arr.sort(
       (a, b) =>
         diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now) ||
-        (b.state?.lapses ?? 0) - (a.state?.lapses ?? 0),
+        (b.state?.lapses ?? 0) - (a.state?.lapses ?? 0) ||
+        pesoExamenReal(b.topicNumber) - pesoExamenReal(a.topicNumber),
     );
   } else if (cubo === 'repaso') {
     const acc = (x: ConEstado) => {
@@ -133,10 +165,15 @@ function ordenaCubo(cubo: Cubo, items: ConEstado[], now: Date, dificultad: numbe
       (a, b) =>
         diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now) ||
         acc(a) - acc(b) ||
+        pesoExamenReal(b.topicNumber) - pesoExamenReal(a.topicNumber) ||
         preferido(a) - preferido(b),
     );
   } else if (cubo === 'consolidar') {
-    arr.sort((a, b) => diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now));
+    arr.sort(
+      (a, b) =>
+        diasDeRetraso(b.state, now) - diasDeRetraso(a.state, now) ||
+        pesoExamenReal(b.topicNumber) - pesoExamenReal(a.topicNumber),
+    );
   } else if (cubo === 'nueva') {
     // Las que el alumno EVITA (solo blancos) primero. Luego el nivel pedido, y
     // luego las globalmente más fáciles (no hundir el acierto de la sesión).
@@ -207,6 +244,7 @@ export function buildSmartSession(params: {
     aciertoEstimado: 0,
     bancoCorto: limit > 0,
     atascadasTotales: 0,
+    cuboPorPregunta: {},
   };
   if (limit === 0 || !params.disponibles?.length) return vacio;
 
@@ -357,8 +395,12 @@ export function buildSmartSession(params: {
 
   // 5. Ordenar.
   const seleccion: { questionId: string; topic: string }[] = [];
-  for (const items of elegidas.values()) {
-    for (const it of items) seleccion.push({ questionId: it.questionId, topic: it.topic });
+  const cuboPorPregunta: Record<string, Cubo> = {};
+  for (const [cubo, items] of elegidas) {
+    for (const it of items) {
+      seleccion.push({ questionId: it.questionId, topic: it.topic });
+      cuboPorPregunta[it.questionId] = cubo;
+    }
   }
 
   // Un tema que el alumno APENAS ha tocado se sirve en BLOQUE al principio, no
@@ -384,5 +426,48 @@ export function buildSmartSession(params: {
           ...intercala(resto),
         ];
 
-  return { questionIds, resumen, aciertoEstimado: Math.round(acierto * 100) / 100, bancoCorto, atascadasTotales };
+  return {
+    questionIds,
+    resumen,
+    aciertoEstimado: Math.round(acierto * 100) / 100,
+    bancoCorto,
+    atascadasTotales,
+    cuboPorPregunta,
+  };
+}
+
+// ============================================================
+// POR QUÉ LE TOCA HOY (hacer visible la programación al alumno)
+// ============================================================
+
+/**
+ * Una frase corta de por qué el sistema ha elegido esta pregunta para hoy.
+ *
+ * El planificador ya sabe el motivo — de qué cubo salió, cuántos días de
+ * retraso lleva, cuántas veces se le resiste—; hasta ahora esa decisión se
+ * tomaba y se tiraba. Esto no añade ninguna inteligencia nueva: solo dice en
+ * voz alta la que ya existe, para que «te estoy programando algo» deje de ser
+ * una promesa y sea algo que el alumno puede leer.
+ */
+export function razonRepaso(cubo: Cubo | undefined, state: QuestionState | undefined): string {
+  if (cubo === 'atascada') {
+    return state?.distractorFijo != null
+      ? 'Sueles marcar la misma opción cuando la fallas — hoy toca para acabar con esa confusión.'
+      : `Se te resiste (la has fallado ${state?.lapses ?? 'varias'} veces) — repetirla no basta, por eso hoy no vuelve a repetirse sola.`;
+  }
+  if (cubo === 'recaida') {
+    const dias = state ? diasDeRetraso(state) : 0;
+    return dias > 0
+      ? `La fallaste hace ${Math.round(dias)} día${Math.round(dias) === 1 ? '' : 's'}: toca repasarla ya.`
+      : 'La fallaste la última vez: toca repasarla.';
+  }
+  if (cubo === 'repaso') return 'Está en aprendizaje y le tocaba su repaso.';
+  if (cubo === 'consolidar') {
+    return state?.box === MAX_BOX
+      ? 'Ya la dominas — un acierto más y no la volverás a ver en semanas.'
+      : 'Está casi consolidada: un repaso ligero para confirmarlo.';
+  }
+  if (cubo === 'refuerzo') return 'La viste hace poco: un repaso de refuerzo para que no se enfríe.';
+  if (state?.soloBlancos) return 'Sueles dejarla en blanco — hoy toca intentarla.';
+  return 'Todavía no la habías visto.';
 }

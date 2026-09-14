@@ -5,7 +5,7 @@ import {
   ChevronRight, CheckCircle2, XCircle,
   ArrowLeft, Clock, Layers,
   Flag, Send, Bookmark, Eraser,
-  Scale, LayoutGrid
+  Scale, LayoutGrid, Sparkles
 } from 'lucide-react';
 import { Modal, Button, TextAreaField } from '../../../ui';
 import { formatTime } from '@/app/lib/timer';
@@ -122,14 +122,42 @@ export default function ActiveTest({
   // Un ref y no estado: se escribe y se lee dentro del mismo manejador, y con
   // `useState` el cierre devolvería el valor anterior (regla 13). Ese fallo ya
   // pasó aquí: en entrenamiento se guardaban siempre 0 cambios.
-  const metricasRef = useRef<Map<number, { tiempo: number; cambios: number; primerToque: number | null }>>(new Map());
+  const metricasRef = useRef<Map<number, { tiempo: number; cambios: number; primerToque: number | null; focoPerdido: number; camino: number[] }>>(new Map());
   /** Momento en que se entró en la pregunta que se está viendo. */
   const entradaRef = useRef<number>(Date.now());
 
   const metricasDe = useCallback(
-    (indice: number) => metricasRef.current.get(indice) ?? { tiempo: 0, cambios: 0, primerToque: null },
+    (indice: number) => metricasRef.current.get(indice) ?? { tiempo: 0, cambios: 0, primerToque: null, focoPerdido: 0, camino: [] as number[] },
     []
   );
+
+  /**
+   * PÉRDIDA DE FOCO DE LA PESTAÑA («motor adaptativo v2», fase 1).
+   *
+   * `response_time_ms` medía «cuánto tardó», y una llamada de teléfono a
+   * mitad de pregunta se leía igual que dudar mucho — contaminando la única
+   * señal que decide si un acierto sube de caja (`MAX_BOX_TITUBEANTE`,
+   * `answer-signals.ts`). Se resta el tiempo sin foco ANTES de guardar nada:
+   * no hace falta una columna nueva, basta con que el tiempo que se manda sea
+   * el correcto.
+   */
+  const focoDesdeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        focoDesdeRef.current = Date.now();
+        return;
+      }
+      if (focoDesdeRef.current === null) return;
+      const perdido = Date.now() - focoDesdeRef.current;
+      focoDesdeRef.current = null;
+      const m = metricasDe(currentIndex);
+      metricasRef.current.set(currentIndex, { ...m, focoPerdido: m.focoPerdido + perdido });
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [currentIndex, metricasDe]);
 
   /** Anota el tiempo hasta el PRIMER toque en una opción, una sola vez. */
   const marcarPrimerToque = useCallback((indice: number) => {
@@ -137,14 +165,17 @@ export default function ActiveTest({
     if (m.primerToque === null) {
       metricasRef.current.set(indice, {
         ...m,
-        primerToque: m.tiempo + (Date.now() - entradaRef.current),
+        primerToque: Math.max(0, m.tiempo + (Date.now() - entradaRef.current) - m.focoPerdido),
       });
     }
   }, [metricasDe]);
 
-  /** Lo que lleva acumulado la pregunta actual, contando la visita en curso. */
+  /** Lo que lleva acumulado la pregunta actual, contando la visita en curso y descontando el foco perdido. */
   const tiempoActual = useCallback(
-    () => metricasDe(currentIndex).tiempo + (Date.now() - entradaRef.current),
+    () => {
+      const m = metricasDe(currentIndex);
+      return Math.max(0, m.tiempo + (Date.now() - entradaRef.current) - m.focoPerdido);
+    },
     [currentIndex, metricasDe]
   );
 
@@ -238,6 +269,21 @@ export default function ActiveTest({
     // una vez, antes de nada.
     marcarPrimerToque(currentIndex);
 
+    // EL CAMINO de la respuesta («motor adaptativo v2», fase 2:
+    // `answer_path`). Mismo criterio que `option_changes` —solo cuenta una
+    // marca REALMENTE distinta a la anterior, no volver a pulsar la misma—
+    // para que las dos columnas cuenten la misma historia: `answer_path`
+    // siempre tiene un elemento más que `option_changes`. Es lo que permite
+    // distinguir, más adelante, un cambio limpio (B → C) de volver al primer
+    // instinto (B → C → B) — la señal que un simple contador no puede dar.
+    const esPrimerToque = metricasDe(currentIndex).camino.length === 0;
+    const esCambioReal = countChange(currentQ.userAnswer, optionId);
+    if (esPrimerToque || esCambioReal) {
+      const optIndex = currentQ.options.findIndex((o) => o.id === optionId);
+      const m = metricasDe(currentIndex);
+      metricasRef.current.set(currentIndex, { ...m, camino: [...m.camino, optIndex] });
+    }
+
     // Cambiar de opción SOLO existe en el simulacro: ahí la respuesta no se
     // cierra hasta entregar, así que el alumno puede volver y cambiarla, y cada
     // cambio real (a una opción DISTINTA, no la primera marca) es materia prima
@@ -246,7 +292,7 @@ export default function ActiveTest({
     // En ENTRENAMIENTO no hay nada que contar: el primer toque cierra la
     // pregunta y la corrige. Por eso `option_changes` siempre es 0 en las filas
     // de entrenamiento — no es un fallo, es que ahí ese gesto no se puede hacer.
-    if (mode === 'exam' && countChange(currentQ.userAnswer, optionId)) {
+    if (mode === 'exam' && esCambioReal) {
         const m = metricasDe(currentIndex);
         metricasRef.current.set(currentIndex, { ...m, cambios: m.cambios + 1 });
     }
@@ -269,6 +315,7 @@ export default function ActiveTest({
                 optionChanges: metricasDe(currentIndex).cambios,
                 firstTouchMs: metricasDe(currentIndex).primerToque,
                 selectedIndex: currentQ.options.findIndex((o) => o.id === optionId),
+                answerPath: metricasDe(currentIndex).camino,
             }
         );
         // Se guarda el id por si el alumno corrige el diagnóstico: se ACTUALIZA
@@ -405,7 +452,15 @@ export default function ActiveTest({
     // dudas de la primera se habrían perdido.
     const finales = localQuestions.map((q, i) => {
       const m = metricasDe(i);
-      return { ...q, timeMs: m.tiempo, changes: m.cambios, firstTouchMs: m.primerToque };
+      // El tiempo con foco perdido descontado (fase 1, «motor adaptativo v2»):
+      // sin esto, una interrupción real se leía como haber dudado mucho.
+      return {
+        ...q,
+        timeMs: Math.max(0, m.tiempo - m.focoPerdido),
+        changes: m.cambios,
+        firstTouchMs: m.primerToque,
+        answerPath: m.camino.length ? m.camino : null,
+      };
     });
 
     setLocalQuestions(finales);
@@ -897,6 +952,18 @@ export default function ActiveTest({
                </button>
              )}
           </div>
+
+          {/* POR QUÉ LE TOCA HOY (hacer visible la programación, ver plan
+              «motor adaptativo v2»). El planificador ya decide esto —
+              `razonRepaso` en `smart-session.ts`—; aquí solo se enseña.
+              Solo en entrenamiento y antes de contestar: una vez respondida
+              ya importa más el feedback que el motivo de haberla elegido. */}
+          {mode === 'practice' && !isAnswered && currentQ.porQueHoy && (
+            <p className="mb-4 flex items-center gap-1.5 text-[11px] font-bold text-indigo-500 dark:text-indigo-400 relative z-10">
+              <Sparkles size={12} className="shrink-0" />
+              {currentQ.porQueHoy}
+            </p>
+          )}
 
           <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-6 sm:mb-10 leading-snug relative z-10">
               {currentQ.question}

@@ -89,9 +89,18 @@ describe('validateGeneratedQuestion', () => {
       question_text: '¿Cuantos titulos tiene la Constitucion?',
       options: ['Diez', 'Once', 'Doce'],
       correct_index: 2,
-      explanation: 'x',
+      explanation: 'Un preliminar y diez numerados.',
     });
     expect(res.ok).toBe(true);
+  });
+
+  it('rechaza una explicacion vacia o demasiado corta', () => {
+    // Antes una cadena vacia pasaba igual que una explicacion real, y el
+    // alumno fallaba sin tener nada que leer — en los tres caminos de
+    // escritura del banco (regla 27), no solo en el generado por IA.
+    expect(validateGeneratedQuestion(question({ explanation: '' })).ok).toBe(false);
+    expect(validateGeneratedQuestion(question({ explanation: 'x' })).ok).toBe(false);
+    expect(validateGeneratedQuestion(question({ explanation: '   ' })).ok).toBe(false);
   });
 
   // --- EL FALLO PELIGROSO ---

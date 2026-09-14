@@ -42,6 +42,12 @@ export type Question = {
   /** ms hasta el primer toque en una opcion. La pantalla del test lo mide. */
   firstTouchMs?: number | null;
   /**
+   * Secuencia de indices de opcion marcados antes de confirmar («motor
+   * adaptativo v2», fase 2). Un elemento mas que `changes` (regla 6: mismo
+   * criterio de que cuenta como cambio real). `null` = no medido.
+   */
+  answerPath?: number[] | null;
+  /**
    * En que cajon tiene el ALUMNO esta pregunta al empezar la sesion (P10):
    * nueva / recaida / aprendiendo / consolidando / dominada / atascada.
    *
@@ -51,6 +57,14 @@ export type Question = {
    * normal y no se pregunta; fallar algo que ya tenias, no.
    */
   cajon?: string | null;
+  /**
+   * Frase corta de POR QUÉ el sistema ha elegido esta pregunta para hoy
+   * (`razonRepaso` en `smart-session.ts`). El planificador ya toma esta
+   * decisión; esto solo la hace visible en vez de tirarla al aplanar la
+   * sesión. `null` en el simulacro y en el camino aleatorio (interruptor
+   * apagado), que no programan nada que explicar.
+   */
+  porQueHoy?: string | null;
 };
 
 /**

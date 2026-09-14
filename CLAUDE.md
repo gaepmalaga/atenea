@@ -67,6 +67,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Segunda vuelta de feedback: fichas, velocidad, «fallos», estadísticas, «Mi perfil»** | ✅ **hecho** (8 sep): fichas instantáneas (precarga, regla 61), animación de cambio de módulo a 150 ms, `SelectorTema` (hoja modal en test/fallos/fichas), rediseño de «Repasar fallos» (por prioridad, regla 62), **Inicio vs Estadísticas** sin solape (regla 63), **¿Aprobaría?** (media de simulacros por `exam_id`), **«Mi perfil»** con la convocatoria y su cuenta atrás (regla 64), biodata/entrevista fuera del MVP (regla 58). `docs/sql/convocatoria.sql` **ejecutado** (8 sep) |
 | **P11** | **Multi-academia** (plan de producto) | 🔶 **P11a-g e i cerradas** (12 sep): esquema, rol `superadmin`, rutas `/<slug>`, filtro de `organization_id` en el panel, banco global/privado, reportes enrutados al superadmin (P11e), y la pestaña **«Academias»** — comparativa entre academias y alta de academias nuevas (P11f/P11i). Ver **regla 65**. Slug de producción `alphapol`; `gaepmalaga@gmail.com` es `superadmin`. **Verificado en pantalla con sesión de superadmin real** (12 sep): las 4 pestañas correctas, «Academias» con su comparativa, y «Nueva academia»/«Añadir admin» probados de verdad sin errores. SMTP propio (Gmail) también configurado y verificado end-to-end. **Queda, decisión del dueño**: si el temario y la moderación del banco global pasan a ser solo del `superadmin`. **Sin empezar**: selector de academia en el login si una cuenta está en varias (P11h) — ver [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) §P11 |
 | **P12** | **Solicitudes de alta con aviso por correo, y exentos de pago** | ✅ **cerrada y verificada end-to-end** (12 sep). Decisión del dueño: la norma global pasa a ser que TODO alumno que se registra —incluida `atenea`, la casa— espera a que su academia lo acepte; el admin recibe un correo con la solicitud y el alumno recibe el resultado por correo; una lista blanca por academia deja entrar correos concretos sin solicitud ni pago («exentos»); y hay un campo para invitar a un alumno por correo (entra con acceso directo, sin solicitud). Ver **regla 70**. Guion SQL ejecutado, alumnos actuales de Alphapol y `atenea` activados y el interruptor encendido en las dos. El correo va por **Resend con dominio propio** (`ateneapolicial.com`), no por Gmail — la cuenta de Gmail se bloqueó a mitad del despliegue y se abandonó del todo |
+| — | **Motor adaptativo v2: aprender del comportamiento, no de etiquetas** | ✅ **cerrada** (14 sep). Foco perdido descontado de la firmeza, curva de olvido personal POR PREGUNTA (`factorPersonal`), la programación hecha visible al alumno (`razonRepaso`/`porQueHoy`), feedback que explica también por qué fallan las opciones incorrectas (prompt + mínimo real en `explanation`), los tres tipos de blanco (`tipoDeBlanco`, enganchado en `ResultadoSimulacro`) — de paso salió y se corrigió un fallo real: `toResultRow` borraba `first_touch_ms` de TODO blanco, también del que sí se había medido —, un grafo de confusión entre preguntas descubierto de los datos (`detectaConfusion`), enganchado en «Alumnos» junto a «Preguntas que falla casi todo el mundo», **`answer_path`** (el camino completo de la respuesta: `docs/sql/camino-respuesta.sql` **ejecutado** por el dueño, `patronDeCambio` distingue autocorrección de volver al primer instinto, ya integrado en `inferFirmeza`), y **el peso real del examen** (`PESO_EXAMEN_REAL`, 497 preguntas de los 5 exámenes oficiales 2021-2025 clasificadas por tema con una expresión regular sobre el propio texto del PDF —nada de IA—, usado como desempate en `smart-session.ts` sin pisar nunca la urgencia). Ver **regla 73**: por qué se descartó un diseño con `claims`/mecanismos de distractor etiquetados, y una corrección de rumbo real a media sesión sobre el peso del examen (se dijo primero que hacía falta IA para extraerlo; no era cierto, y quedó corregido). Todo verificado escribiendo de verdad contra la producción real, con sesión de alumna y de admin. `npm run check` (997 tests) y `npm run build` en verde |
 
 ## Producción
 
@@ -2674,6 +2675,166 @@ administración. Es reanudable (salta lo ya indexado) y fue justo el que
 destapó el bug de la regla 71. Resultado: 571 fragmentos, ninguno con
 referencia de artículo (es normal — son preguntas y respuestas, no texto
 legal estructurado).
+
+### 73 · El motor adaptativo v2 aprende del comportamiento, no de etiquetas — y por qué se descartó un diseño más ambicioso
+
+El dueño planteó la pregunta de fondo: *«no creo que la plataforma ayude a
+los alumnos a aprender de sus fallos»*. Se exploró un rediseño completo con
+`claims` (hechos atómicos), un grafo de confusión etiquetado a mano y una
+taxonomía de mecanismos de distractor por opción — un diseño de
+investigación aplicada, documentado a fondo, pero **descartado** por dos
+premisas que puso el dueño al cerrarlo: **los admins no van a meter
+etiquetas por pregunta, y los admins no usan IA** (así que tampoco vale un
+asistente que ellos tengan que revisar). Y una segunda razón, encontrada al
+comprobarlo: las preguntas que escribe una academia a mano o importa por
+CSV —P2, regla 27— **nunca llevan `legal_reference`**
+(`app/actions/moderation.ts`, `aFilaNueva`), así que cualquier mejora que
+dependa del artículo no llega al contenido propio de cada academia (P11c).
+
+**El principio que queda fijado:** la inteligencia sale del comportamiento
+del alumno —lo que ya se mide o es barato de medir—, nunca de que alguien
+etiquete la pregunta. Escribir una pregunta sigue siendo lo de siempre:
+enunciado, 3 opciones, cuál es la correcta, una explicación. Lo construido:
+
+- **El foco perdido ya no contamina la firmeza.** `response_time_ms` leía
+  una llamada de teléfono a mitad de pregunta como «dudó mucho», y esa es la
+  única señal que decide si un acierto sube de caja
+  (`MAX_BOX_TITUBEANTE`). `ActiveTest.tsx` escucha `visibilitychange` y
+  resta el tiempo sin foco ANTES de guardar nada — sin columna nueva, el
+  dato que se manda ya es el correcto (`metricasRef` lleva un `focoPerdido`
+  por pregunta).
+- **Curva de olvido personal, por PREGUNTA** (`factorPersonal` en
+  `question-scheduler.ts`): el intervalo fijo de la caja (`BOX_INTERVALS_DAYS`)
+  se recorta hasta un 40 % según cuántas veces ha recaído ESA pregunta para
+  ESE alumno (`lapses`, que ya se contaba). Solo RECORTA, nunca alarga — el
+  único lado en el que equivocarse sale barato. No es un modelo de memoria
+  por concepto (eso exigiría el diseño descartado): es el mismo dato de
+  siempre, mejor aprovechado.
+- **La programación se hace visible** (`razonRepaso` en `smart-session.ts`):
+  el planificador ya decide de qué cubo sale cada pregunta —recaída,
+  atascada, repaso, consolidar, nueva, refuerzo—; antes esa decisión se
+  tiraba al aplanar la sesión a una lista de ids. Ahora viaja como
+  `Question.porQueHoy` y se enseña en una frase antes de contestar («te
+  toca porque la fallaste hace 3 días» / «una más y se retira una
+  temporada»). Nada de motor nuevo: es la misma decisión, dicha en voz alta.
+- **Feedback distractor-consciente, sin pedirle nada nuevo a quien escribe.**
+  `buildQuestionPrompt` (`question-prompt.ts`) ahora exige que `explanation`
+  diga también por qué CADA opción incorrecta está mal, no solo por qué la
+  correcta vale — cero esfuerzo humano, lo escribe el modelo igual que
+  siempre. Y `validateGeneratedQuestion` (`ai-output.ts`) exige un mínimo
+  real de contenido (`MIN_EXPLANATION_CHARS = 20`): antes una cadena vacía
+  pasaba igual que una explicación de verdad. Como los tres caminos de
+  escritura del banco pasan por esta función (regla 27: IA, alta manual,
+  CSV), el mínimo sube también para lo que escribe una academia a mano, sin
+  tocar tres validaciones distintas ni añadir un solo campo al formulario.
+- **Los tres tipos de blanco** — `tipoDeBlanco` en `answer-signals.ts`:
+  `ignorancia` (nunca tocó ninguna opción) vs. `calculo` (llegó a marcar y
+  la retiró con «Dejar en blanco», regla 26 — decidió que no compensaba
+  arriesgar). Se deduce de `first_touch_ms`. Enganchado en
+  `ResultadoSimulacro` (`ExamResults.tsx`): si algún blanco fue por cálculo,
+  lo dice en una frase.
+
+  **Un fallo real, encontrado al engancharlo:** `toResultRow`
+  (`exam-results.ts`) forzaba `first_touch_ms` a `null` para CUALQUIER
+  blanco, con el comentario «un blanco no tiene primer toque». Era cierto
+  para el blanco por ignorancia (nunca tocó nada, así que ya llegaba sin
+  dato), pero FALSO para el blanco por cálculo: el botón «Dejar en blanco»
+  (regla 26) retira una respuesta YA marcada, así que `first_touch_ms` sí se
+  había medido — y el servidor lo borraba antes de guardarlo, destruyendo
+  justo el dato que distingue los dos casos. Es el mismo patrón de la regla
+  38 («lo que no se ha usado, no funciona»): el código llevaba así desde la
+  regla 26, y nadie lo notó porque nada leía `first_touch_ms` en un blanco
+  hasta ahora. Arreglado: ya no se fuerza a `null`, `normalizeFirstTouch` se
+  aplica igual que en una respuesta contestada.
+
+- **`answer_path`** (el camino completo de la respuesta) — **ejecutado y
+  enganchado** (14 sep). `docs/sql/camino-respuesta.sql` lo ejecutó el
+  dueño; `node scripts/schema-snapshot.mjs` lo confirmó contra la BD real.
+  `ActiveTest.handleAnswer` anota un índice por cada marca REALMENTE
+  distinta a la anterior (mismo criterio que `option_changes`, así que
+  `answer_path.length` es siempre `option_changes + 1`), viaja por
+  `AnswerMetrics`/`ResultRow` (`exam-results.ts`, con el mismo criterio que
+  `first_touch_ms`: NO se fuerza a `null` en un blanco por cálculo), y
+  `patronDeCambio` (`answer-signals.ts`) lo lee de vuelta: `directo` /
+  `autocorreccion` / `vuelta_a_inicial` (cambió y volvió a su primer
+  instinto — la peor de las tres, y algo que un simple contador no podía
+  distinguir de una autocorrección limpia). `inferFirmeza` ya la usa: una
+  vuelta a inicial es titubeante SIEMPRE, mande lo que mande el conteo de
+  cambios. **Verificado escribiendo de verdad contra la producción real**
+  (con sesión de `laura.gomez@academia-demo.es`, comparando contra el reloj
+  del propio servidor para no confundirse con las fechas simuladas del
+  guion de siembra): las respuestas nuevas guardan `answer_path` con el
+  índice correcto.
+
+**Priorizar el repaso por peso real del examen — construido (14 sep), con una
+corrección de rumbo por el camino.** Primero se dijo que hacía falta un
+proyecto aparte porque los exámenes reales de la regla 72 eran «571
+fragmentos de texto sin trocear, 0 preguntas estructuradas» y extraerlas
+«probablemente necesitaría IA». **Eso también era un error** — el mismo tipo
+de error que decir «500 exámenes» sin haber mirado la BD: una afirmación
+sobre datos sin haber leído el dato. Al leer `documents.full_text` de verdad,
+los 5 PDF («resueltos y desarrollados» por BluCop) etiquetan CADA pregunta
+con su propio patrón de texto — `N. enunciado... A) B) C) con ✔ en la
+correcta... POR QUÉ explicación... Tema M · Título` — consistente en 497 de
+las 500 preguntas (las 3 que faltan son variación de OCR, no un fallo del
+patrón). Ningún modelo hace falta: es un `matchAll` de una expresión regular.
+
+- `extraeTemasDeExamenReal` (`app/lib/exam-weights.ts`, pura, con tests):
+  lee `Tema\s+(\d{1,2})\s*·` del texto y devuelve un número de tema (1-45)
+  por cada pregunta real encontrada.
+- `scripts/operacion/calcular-pesos-examenes.mjs`: lee los 5 documentos,
+  cuenta por tema y genera `app/lib/exam-weight-data.ts` —
+  `PESO_EXAMEN_REAL: Record<number, number>`, **497 preguntas reales
+  clasificadas**, de tema 30 (1 pregunta) a tema 3 (32 preguntas). Dato
+  histórico, comitado como cualquier otra constante de referencia — no se
+  recalcula en cada despliegue, solo si se añade una convocatoria nueva.
+- `smart-session.ts` (`pesoExamenReal`) lo usa como **desempate**, nunca
+  como criterio principal: dentro de `recaida`/`repaso`/`consolidar`, la
+  urgencia (días de retraso, número de recaídas, acierto) sigue mandando
+  primero — el peso real del examen solo decide entre preguntas igual de
+  urgentes. Sin `topicNumber` (algún tema sin resolver), el desempate no
+  pesa ni a favor ni en contra: nunca se inventa un peso que no hay.
+
+Verificado con el guion real contra la BD (497/500, desglosado por año) y
+con tests que fijan el patrón exacto del PDF, incluido el espaciado real
+(«distractores típicos.  Tema 5 ·», con doble espacio, tal cual sale del
+PDF). `npm run check` (997 tests) y `npm run build` en verde.
+
+**Lo que se dejó fuera de esta vuelta, y sigue siendo lo correcto dejar fuera:**
+- **Un grafo de confusión entre preguntas descubierto de los datos**
+  (`detectaConfusion`, `app/lib/question-confusion.ts`, con tests). Se
+  replanteó al construirlo: el diseño original hablaba de «el mismo señuelo»
+  entre dos preguntas, pero eso exigiría saber que la opción 1 de A y la
+  opción 1 de B representan la MISMA idea falsa — y eso es exactamente la
+  taxonomía de mecanismos de distractor que se descartó por pedir etiquetas.
+  Lo que SÍ se puede medir sin etiquetar nada: si los alumnos que fallan A
+  fallan B MÁS de lo que el azar explicaría (`lift` = co-fallo real dividido
+  entre el esperado si fueran independientes), comparando solo DENTRO del
+  mismo tema. No dice por qué se confunden, pero señala dónde mirar — dos
+  preguntas con co-fallo alto suelen ser la misma distinción mal explicada o
+  casi duplicadas (regla 35). Gateado por un mínimo de alumnos que hayan
+  respondido a las dos (`MIN_ENCUESTADOS = 8`) y un mínimo de co-fallos
+  reales, así que con poco volumen simplemente no devuelve nada — no hace
+  falta una bandera aparte para «esperar a que haya datos».
+
+  **Dónde vive, y por qué ahí y no en `smart-session`:** en «Alumnos»
+  (`AdminStudents.tsx`), junto a «Preguntas que falla casi todo el mundo»
+  (regla 35, mismo patrón exacto: se calcula de los intentos que
+  `getAcademyOverview` ya trae a memoria, sin consulta nueva, y se enriquece
+  con el enunciado de las dos preguntas después). Es una herramienta de
+  revisión para el admin, no algo que decida qué le sirve la plataforma a un
+  alumno: es una señal estadística sin validar, y dejar que reprogramara
+  sesiones de examen sin que nadie la hubiera mirado antes sería apostar la
+  experiencia de un alumno a un `lift` que nadie ha comprobado que signifique
+  algo de verdad. Si con el tiempo los admins confirman que los pares que
+  salen son confusiones reales, ese es el momento de plantear que alimente
+  `smart-session`.
+
+**Verificado en local, con sesión real de alumna** (`laura.gomez@academia-demo.es`,
+academia Demo): el entrenamiento enseña «Está en aprendizaje y le tocaba su
+repaso.» antes de la pregunta, y el panel de fallo sigue funcionando igual
+que antes. `npm run check` (969 tests, tras el arreglo de `first_touch_ms`)
+y `npm run build` en verde.
 
 ---
 
