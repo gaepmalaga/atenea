@@ -84,7 +84,7 @@ describe('aislamiento de fallos', () => {
       'FailedQuestions',
       'FlashcardDeck',
       'PhysicalTrainer',
-      'StatsPanel',
+      'MiEvolucion',
       'MiPerfil',
       'BiodataManager',
     ];

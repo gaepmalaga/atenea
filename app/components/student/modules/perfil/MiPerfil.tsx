@@ -96,7 +96,7 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
             ))}
           </div>
           <p className={cx(TEXT.muted, 'mt-3')}>
-            Preguntas que vencen cada día — no es cuántas verás de golpe: el entrenamiento reparte cuántas te trae cada vez.
+            Cada pregunta vuelve justo cuando tú empiezas a olvidarla, no en un calendario fijo — esto es lo que hay esperando, no cuántas verás de golpe: el entrenamiento reparte cuántas te trae cada vez.
           </p>
         </Card>
       )}

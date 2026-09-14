@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   LayoutGrid, MessageSquareText, Crosshair, Zap,
-  Fingerprint, BarChart2, Dumbbell, Target, UserRound
+  Fingerprint, TrendingUp, Dumbbell, Target, UserRound
 } from 'lucide-react';
 
 // --- LAYOUT COMPONENTS ---
@@ -19,7 +19,7 @@ import FlashcardDeck from './modules/flashcards/FlashcardDeck';
 import PhysicalTrainer from './modules/training/PhysicalTrainer'; // NUEVO MÓDULO
 import BiodataManager from './modules/profile/BiodataManager';
 import InterviewRoom from './modules/interview/InterviewRoom';
-import StatsPanel from './modules/stats/StatsPanel';
+import MiEvolucion from './modules/evolucion/MiEvolucion';
 import FailedQuestions from './modules/review/FailedQuestions';
 import MiPerfil from './modules/perfil/MiPerfil';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
@@ -60,7 +60,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     { id: 'cards', label: 'Drills (Memoria)', icon: Zap },
     { id: 'training', label: 'Prep. Física', icon: Dumbbell }, // NUEVO
     { id: 'interview', label: 'Perfilado & Voz', icon: Fingerprint },
-    { id: 'stats', label: 'Estadísticas', icon: BarChart2 },
+    { id: 'stats', label: 'Mi Evolución', icon: TrendingUp },
     { id: 'profile', label: 'Mi perfil', icon: UserRound },
   ];
 
@@ -311,8 +311,8 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             )}
 
             {activeTab === 'stats' && (
-                <ModuleErrorBoundary moduleName="Rango y estadisticas">
-                    <StatsPanel user={user} />
+                <ModuleErrorBoundary moduleName="Mi evolucion">
+                    <MiEvolucion user={user} />
                 </ModuleErrorBoundary>
             )}
 

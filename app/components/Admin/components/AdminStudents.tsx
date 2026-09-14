@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
-  Mail, ShieldCheck, X, Send, Shuffle,
+  Mail, ShieldCheck, X, Send, Shuffle, Brain,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
@@ -118,7 +118,7 @@ export default function AdminStudents() {
   }
   if (!datos) return null;
 
-  const { alumnos, porEstado, grupos, cobertura, sospechosas, confusas, membershipRequired, periodoActual } = datos;
+  const { alumnos, porEstado, grupos, cobertura, sospechosas, confusas, membershipRequired, periodoActual, progresoSemanal } = datos;
   const sinBanco = cobertura.filter((c) => c.preguntas === 0);
   const pendientes = alumnos.filter((a) => a.acceso === 'pending').length;
   const pagadosMes = alumnos.filter((a) => a.pagadoMesActual).length;
@@ -206,6 +206,22 @@ export default function AdminStudents() {
           </div>
         )}
       </Card>
+
+      {/* --- EL MOTOR ADAPTATIVO, DE UN VISTAZO (regla 76) ---
+          Sin esto, nada en el panel decía que el sistema está aprendiendo de
+          cada alumno — solo se ve si se entra pregunta a pregunta. Se oculta
+          si no hay nada que contar (regla 8): una semana en cero no se
+          disfraza, pero tampoco hace falta anunciarla. */}
+      {progresoSemanal.dominadasEstaSemana > 0 && (
+        <Card tone="brand" pad="md" className="flex items-center gap-3">
+          <Brain size={20} className="text-indigo-200 shrink-0" />
+          <p className="text-sm text-white font-medium leading-relaxed">
+            Esta semana el sistema ha llevado <strong>{progresoSemanal.dominadasEstaSemana}</strong>{' '}
+            {progresoSemanal.dominadasEstaSemana === 1 ? 'pregunta' : 'preguntas'} más a dominadas, entre{' '}
+            <strong>{progresoSemanal.alumnosQueAvanzan}</strong> {progresoSemanal.alumnosQueAvanzan === 1 ? 'alumno' : 'alumnos'}.
+          </p>
+        </Card>
+      )}
 
       {/* --- CIFRAS --- */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">

@@ -366,7 +366,7 @@ export type DiaProyeccion = {
  * como ayer. El mismo tipo de fallo que la regla 54 ya resolvió para
  * `lunesDeSemana`: «esta semana es la del alumno, no la de UTC».
  */
-function fechaLocalISO(ms: number): string {
+export function fechaLocalISO(ms: number): string {
   const d = new Date(ms);
   const mes = String(d.getMonth() + 1).padStart(2, '0');
   const dia = String(d.getDate()).padStart(2, '0');
@@ -401,6 +401,34 @@ export function proyeccionRepaso(
   }
 
   return buckets;
+}
+
+// ============================================================
+// CUÁNTO HA APRENDIDO, DE VERDAD — EN CUALQUIER FECHA DEL PASADO
+// ============================================================
+
+/**
+ * El motor adaptativo (curva de olvido personal, cajones por pregunta...)
+ * trabaja en silencio: nada en pantalla decía que estuviera pasando algo, así
+ * que "lo que no se ve no se valora" (regla 77). Esto no es una frase de
+ * marketing — es el MISMO cálculo (`computeQuestionStates`) corrido con el
+ * historial cortado a como estaba en `corteMs`. Un hecho verificable, no una
+ * promesa: si nada había cambiado a esa fecha, da 0 — nunca se inventa un
+ * progreso que no hubo (regla 8).
+ *
+ * Es la pieza que reutilizan tanto "cuánto llevas dominado hoy" (`corteMs =
+ * ahora`) como la curva diaria de "Mi Evolución" (un `corteMs` por cada día
+ * desde que empezó): un día YA PASADO da siempre el mismo número, así que se
+ * puede calcular una vez y cachear para siempre — solo el punto de HOY
+ * cambia en cada visita.
+ */
+export function dominadasHasta(intentos: IntentoPregunta[], corteMs: number): number {
+  const pasados = intentos.filter((i) => {
+    const ms = fecha(i.created_at);
+    return ms !== null && ms <= corteMs;
+  });
+  const states = computeQuestionStates(pasados);
+  return [...states.values()].filter((s) => s.cajon === 'dominada').length;
 }
 
 // ============================================================

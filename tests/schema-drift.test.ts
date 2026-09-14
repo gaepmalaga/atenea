@@ -48,11 +48,10 @@ const columnasDe = (tabla: string) => new Set(snapshot.tablas[tabla]?.columnas ?
  * tenerla.
  */
 const PENDIENTE_SQL: Record<string, string> = {
-  // Vacío: todos los guiones de `docs/sql/` están ejecutados y en el volcado
-  // (`academy_convocatoria` incluida — 8 sep 2026). Cuando aparezca uno nuevo
-  // cuya tabla el código ya usa pero que el dueño no ha ejecutado, se añade —
-  //   nombre_tabla: 'docs/sql/su-guion.sql'
-  // — y se quita en cuanto `schema-snapshot.mjs` la traiga de vuelta.
+  // Regla 77 · "Mi Evolución": la curva diaria cachea el pasado en esta
+  // tabla, pero el código degrada con gracia si todavía no existe (recalcula
+  // en vez de cachear). Se quita en cuanto `schema-snapshot.mjs` la traiga.
+  curva_progreso: 'docs/sql/curva-progreso.sql',
 };
 
 const ficheros = readdirSync(ACTIONS)

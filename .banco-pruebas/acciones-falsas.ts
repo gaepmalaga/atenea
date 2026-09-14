@@ -130,6 +130,15 @@ export async function getMiPerfil() {
       acceso: { estado: 'active' },
       pagoDelMes: { periodo: 'septiembre de 2026', pagado: false },
       grupos: [{ nombre: 'Teoría mañana', tipo: 'Teoría' }, { nombre: 'Físicas L-X', tipo: 'Físicas' }],
+      proyeccion: [
+        { fecha: '2026-09-14', vencen: 18 },
+        { fecha: '2026-09-15', vencen: 6 },
+        { fecha: '2026-09-16', vencen: 0 },
+        { fecha: '2026-09-17', vencen: 11 },
+        { fecha: '2026-09-18', vencen: 4 },
+        { fecha: '2026-09-19', vencen: 0 },
+        { fecha: '2026-09-20', vencen: 9 },
+      ],
     },
   });
 }
@@ -364,6 +373,7 @@ export async function getAcademyOverview() {
         { subjectId: 3, title: TEMAS[2], preguntas: 12, alumnos: 0 },
       ],
       sospechosas: [{ questionId: 'q-1', veces: 22, aciertos: 2, winRate: 9, texto: '¿Pregunta que casi todos fallan y probablemente esté mal redactada?', tema: TEMAS[0] }],
+      progresoSemanal: { alumnosQueAvanzan: 2, dominadasEstaSemana: 14 },
     },
   });
 }

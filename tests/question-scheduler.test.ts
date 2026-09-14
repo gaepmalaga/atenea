@@ -8,6 +8,8 @@ import {
   resumeCajonesPorTema,
   factorPersonal,
   proyeccionRepaso,
+  dominadasHasta,
+  fechaLocalISO,
   BOX_INTERVALS_DAYS,
   MAX_BOX,
   MAX_BOX_TITUBEANTE,
@@ -350,6 +352,60 @@ describe('proyeccionRepaso: la programación de un vistazo', () => {
 
   it('un tope de días distinto de 7 se respeta', () => {
     expect(proyeccionRepaso(new Map(), 3, HOY)).toHaveLength(3);
+  });
+});
+
+describe('dominadasHasta: cuánto llevaba dominado en CUALQUIER fecha del pasado', () => {
+  const BASE = '2026-09-01T10:00:00Z';
+  const HOY_MS = Date.parse(BASE) + 20 * DAY; // 20 días después de BASE
+
+  /** 4 aciertos firmes seguidos, uno por día desde `desdeDia`: box 0→2→3→4→5. */
+  function secuenciaDominada(questionId: string, desdeDia: number): IntentoPregunta[] {
+    return [0, 1, 2, 3].map((i) => intento({ question_id: questionId, created_at: enDias(BASE, desdeDia + i) }));
+  }
+  /** El corte, en ms, al día `d` desde BASE. */
+  const corteEnDia = (d: number) => Date.parse(BASE) + d * DAY;
+
+  it('sin ninguna respuesta, 0 dominadas', () => {
+    expect(dominadasHasta([], HOY_MS)).toBe(0);
+  });
+
+  it('una pregunta dominada ANTES del corte cuenta', () => {
+    const intentos = secuenciaDominada('vieja', 0); // días 0-3
+    expect(dominadasHasta(intentos, corteEnDia(10))).toBe(1);
+  });
+
+  it('una pregunta dominada DESPUÉS del corte no cuenta todavía a esa fecha', () => {
+    const intentos = secuenciaDominada('tardia', 15); // termina el día 18
+    expect(dominadasHasta(intentos, corteEnDia(10))).toBe(0); // día 10: aún no
+    expect(dominadasHasta(intentos, corteEnDia(18))).toBe(1); // día 18: ya sí
+  });
+
+  it('es la misma cuenta que `computeQuestionStates` con el corte hoy — un punto ya pasado no cambia nunca', () => {
+    // La propiedad que sostiene toda la caché de la curva de "Mi Evolución"
+    // (regla 77): recalcular el mismo corte dos veces da SIEMPRE el mismo
+    // número, porque solo depende de intentos que ya ocurrieron.
+    const intentos = secuenciaDominada('estable', 0);
+    const corte = corteEnDia(5);
+    expect(dominadasHasta(intentos, corte)).toBe(dominadasHasta(intentos, corte));
+  });
+
+  it('una recaída después del corte no borra lo que ya estaba dominado A esa fecha', () => {
+    const intentos = [
+      ...secuenciaDominada('recae', 0), // dominada el día 3
+      intento({ question_id: 'recae', is_correct: false, created_at: enDias(BASE, 16) }), // falla el día 16
+    ];
+    expect(dominadasHasta(intentos, corteEnDia(10))).toBe(1); // antes de la recaída
+    expect(dominadasHasta(intentos, HOY_MS)).toBe(0); // después, ya no
+  });
+});
+
+describe('fechaLocalISO', () => {
+  it('dos milisegundos del mismo día local dan la misma fecha', () => {
+    const d = new Date(2026, 8, 14, 3, 0, 0).getTime();
+    const d2 = new Date(2026, 8, 14, 23, 0, 0).getTime();
+    expect(fechaLocalISO(d)).toBe(fechaLocalISO(d2));
+    expect(fechaLocalISO(d)).toBe('2026-09-14');
   });
 });
 

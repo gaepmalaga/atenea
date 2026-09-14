@@ -10,6 +10,7 @@ import {
   erroresDelAlumno,
   preguntasSospechosas,
   coberturaTemario,
+  progresoSemanalAcademia,
   type IntentoAlumno,
   type FilaAlumno,
   type EstadoAlumno,
@@ -17,6 +18,7 @@ import {
   type CoberturaTema,
   type PreguntaSospechosa,
   type GrupoDeAlumno,
+  type ProgresoAcademia,
 } from '../lib/academy';
 import type { ErrorType } from '../lib/stats';
 import { periodoActual } from '../lib/payments';
@@ -92,6 +94,13 @@ export type AcademyOverview = {
    * explicada, o dos preguntas casi duplicadas.
    */
   confusas: (ParConfuso & { textoA: string | null; textoB: string | null })[];
+  /**
+   * El motor adaptativo, de un vistazo (regla 76): cuánto ha aprendido la
+   * academia esta semana. Es la prueba de que está pasando algo, no una
+   * frase de ánimo — se calcula igual que `progresoSemanal` del alumno, solo
+   * que agregado.
+   */
+  progresoSemanal: ProgresoAcademia;
 };
 
 export async function getAcademyOverview(): Promise<
@@ -170,6 +179,14 @@ export async function getAcademyOverview(): Promise<
     }));
 
   const alumnos = resumeAlumnos(perfilesConConexion, intentos);
+
+  // Solo los ALUMNOS cuentan para el progreso de la academia (regla 54: los
+  // admin no son alumnos) — sin este filtro, la generación de contenido de
+  // un admin en Temario & IA podría colarse en la cuenta.
+  const idsAlumnos = new Set(perfilesConConexion.map((p) => p.id));
+  const progresoSemanalDeLaAcademia = progresoSemanalAcademia(
+    intentos.filter((i) => i.user_id && idsAlumnos.has(i.user_id)),
+  );
 
   // Los grupos de cada alumno (P7). El grupo es de administración: se resuelve
   // aquí y se pega a la fila, no lo hace `resumeAlumnos` (que es puro).
@@ -287,6 +304,7 @@ export async function getAcademyOverview(): Promise<
       cobertura,
       sospechosas: conTexto,
       confusas,
+      progresoSemanal: progresoSemanalDeLaAcademia,
     },
   };
 }

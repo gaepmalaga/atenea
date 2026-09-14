@@ -69,6 +69,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P12** | **Solicitudes de alta con aviso por correo, y exentos de pago** | ✅ **cerrada y verificada end-to-end** (12 sep). Decisión del dueño: la norma global pasa a ser que TODO alumno que se registra —incluida `atenea`, la casa— espera a que su academia lo acepte; el admin recibe un correo con la solicitud y el alumno recibe el resultado por correo; una lista blanca por academia deja entrar correos concretos sin solicitud ni pago («exentos»); y hay un campo para invitar a un alumno por correo (entra con acceso directo, sin solicitud). Ver **regla 70**. Guion SQL ejecutado, alumnos actuales de Alphapol y `atenea` activados y el interruptor encendido en las dos. El correo va por **Resend con dominio propio** (`ateneapolicial.com`), no por Gmail — la cuenta de Gmail se bloqueó a mitad del despliegue y se abandonó del todo |
 | — | **Motor adaptativo v2: aprender del comportamiento, no de etiquetas** | ✅ **cerrada** (14 sep). Foco perdido descontado de la firmeza, curva de olvido personal POR PREGUNTA (`factorPersonal`), la programación hecha visible al alumno (`razonRepaso`/`porQueHoy`), feedback que explica también por qué fallan las opciones incorrectas (prompt + mínimo real en `explanation`), los tres tipos de blanco (`tipoDeBlanco`, enganchado en `ResultadoSimulacro`) — de paso salió y se corrigió un fallo real: `toResultRow` borraba `first_touch_ms` de TODO blanco, también del que sí se había medido —, un grafo de confusión entre preguntas descubierto de los datos (`detectaConfusion`), enganchado en «Alumnos» junto a «Preguntas que falla casi todo el mundo», **`answer_path`** (el camino completo de la respuesta: `docs/sql/camino-respuesta.sql` **ejecutado** por el dueño, `patronDeCambio` distingue autocorrección de volver al primer instinto, ya integrado en `inferFirmeza`), y **el peso real del examen** (`PESO_EXAMEN_REAL`, 497 preguntas de los 5 exámenes oficiales 2021-2025 clasificadas por tema con una expresión regular sobre el propio texto del PDF —nada de IA—, usado como desempate en `smart-session.ts` sin pisar nunca la urgencia). Ver **regla 73**: por qué se descartó un diseño con `claims`/mecanismos de distractor etiquetados, y una corrección de rumbo real a media sesión sobre el peso del examen (se dijo primero que hacía falta IA para extraerlo; no era cierto, y quedó corregido). Todo verificado escribiendo de verdad contra la producción real, con sesión de alumna y de admin. `npm run check` (997 tests) y `npm run build` en verde |
 | — | **Un admin de academia ya no puede tocar el banco de OTRA academia, ni el global entero** | ✅ **cerrada** (14 sep), a preguntas directas del dueño mirando el panel de un admin real. `seedQuestionBank`/`seedFlashcardBank`/`generateAndSaveCandidate`/Temario & IA entero pasan de `requireAdmin` a `requireSuperadmin` (escribían SIEMPRE en el banco global, sin distinguir academia); `disableQuestion`/`updateQuestion`/`discardAllQuestions`/`resolveReport` se quedan en `requireAdmin` pero acotados por `organization_id` dentro de la propia consulta; «Consumo IA» pasa a ser solo del superadmin (para un admin normal de una academia manual salía siempre a 0 €). Ver **regla 75**. Verificado con sesión real de `morato@atenea.com`: sus pestañas bajan de 10 a 8, «Banco Oficial» y «Moderación» siguen funcionando sin fugas. `npm run check` (1019 tests) y `npm run build` en verde |
+| — | **El panel de «Alumnos» dice si el motor adaptativo está funcionando** | ✅ **cerrada** (15 sep). `progresoSemanalAcademia` (`app/lib/academy.ts`) corre el mismo cálculo por alumno (hoy vs hace 7 días) y suma: *"Esta semana el sistema ha llevado N preguntas más a dominadas, entre M alumnos"*, sin consulta nueva (reutiliza los `intentos` que `getAcademyOverview` ya trae). Se oculta si la suma es 0. Ver **regla 76** |
+| **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
 
 ## Producción
 
@@ -90,8 +92,17 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Queda UN guion pendiente** (12 sep 2026):
-   - **`P12-solicitudes-y-exentos.sql`** — **SIN EJECUTAR.** Amplía el `CHECK`
+1. **Ejecutar SQL. Quedan DOS guiones pendientes:**
+   - **`docs/sql/curva-progreso.sql`** (15 sep 2026) — **SIN EJECUTAR.** Crea
+     `curva_progreso` (`user_id, fecha, dominadas`, PK compuesta) para cachear
+     la curva diaria de «Mi Evolución» (regla 77) entre visitas y entre
+     dispositivos — el dueño fue explícito: nada de `localStorage`. Sin
+     ejecutarlo, la pantalla funciona igual, solo recalcula la curva entera
+     cada vez en vez de cachear el pasado (degradación con gracia, igual que
+     `admin_audit_log`). Después de ejecutarlo: `node
+     scripts/schema-snapshot.mjs`, y quitar `curva_progreso` de
+     `PENDIENTE_SQL` en `tests/schema-drift.test.ts`.
+   - **`P12-solicitudes-y-exentos.sql`** (12 sep 2026) — **SIN EJECUTAR.** Amplía el `CHECK`
      de `memberships.access_status` a un tercer valor (`'pending'`), añade
      `memberships.exempt` y la tabla `membership_exemptions`, y cambia el
      `DEFAULT` de `membership_settings.required` a `true` (regla 70, la
@@ -2974,6 +2985,113 @@ sin error, y «Moderación» muestra «Candidatos (0)» / «Reportes (0)»
 correctamente, sin ninguna candidata ajena colada. `npm run check` (1019
 tests, con `tests/moderation.test.ts` nuevo) y `npm run build` en verde.
 
+### 76 · El motor adaptativo trabajaba en silencio: el panel de "Alumnos" ya lo dice
+
+El dueño lo dijo directo: *«hemos hablado de la curva del olvido... pero no
+se ve visualmente, y hay que dejar muy claro que la plataforma sabe lo que
+hace y lleva al alumno al objetivo»*. Tenía razón: `factorPersonal`, los
+cajones, `patronDeCambio`... todo el motor de la regla 73 es real, pero nada
+en pantalla lo demostraba.
+
+Del lado del profesor, `progresoSemanalAcademia` (`app/lib/academy.ts`) corre
+`computeQuestionStates` dos veces por alumno —una con todo el historial, otra
+con el historial cortado a como estaba hace 7 días— y suma cuántas preguntas
+han pasado a `dominada` de una corrida a la otra, agrupado por `user_id`. Un
+hecho verificable, no una frase de ánimo, y sin consulta nueva: reutiliza los
+`intentos` que `getAcademyOverview` ya trae para `resumeAlumnos`/
+`detectaConfusion`. El panel de «Alumnos» lo enseña como aviso agregado —
+*"Esta semana el sistema ha llevado N preguntas más a dominadas, entre M
+alumnos"*— y se oculta si la suma es 0 (regla 8: una semana en cero no se
+disfraza, pero tampoco hace falta anunciarla). **Solo cuenta a los ALUMNOS**,
+nunca a los admin (regla 54): se filtra por el mismo conjunto de ids que ya
+excluye admins de la lista.
+
+Del lado del alumno, la primera versión de esto era una tarjeta suelta
+—«Cómo vas»— en «Mi perfil». Se construyó y se probó, pero el mismo día el
+dueño pidió mucho más: no un número más, sino una pantalla entera que cuente
+la historia completa. Esa tarjeta se retiró sin llegar a producción,
+sustituida por «Mi Evolución» (regla 77), que hace lo mismo y bastante más.
+
+### 77 · «Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos
+
+La instrucción del dueño, textual: *«tenemos datos muy esparcidos [Inicio,
+Fallos, Estadísticas, Mi Perfil]... imagino algo como: has empezado tal día,
+tienes tantas preguntas dominadas, hay tantas que siempre fallas, hay una
+curva de evolución... que quien lo vea diga "la aplicación lo sabe todo de
+mí"... Quiero que explotemos la aplicación. Sea una puta pasada.»* Y una
+instrucción de proceso, antes de escribir una línea: discutirlo primero con
+una maqueta (Artifact), no código a ciegas — así se cerraron tres decisiones
+suyas: **fusionar** el mapa de temas con el resumen agregado en vez de dos
+piezas separadas, **no adivinar el futuro** (nada de proyecciones de cuándo
+"aprobarías"), y el **orden de las secciones** lo elegí yo, con libertad.
+
+**`dominadasHasta(intentos, corteMs)`** (`question-scheduler.ts`) es la
+pieza que sostiene todo: corre `computeQuestionStates` con los intentos
+filtrados a `created_at <= corteMs` y cuenta cuántos están en caja
+`dominada`. La propiedad que importa: **un corte YA PASADO da siempre el
+mismo número** — no depende de nada que vaya a cambiar — así que se puede
+calcular una vez y no recalcular jamás. Sustituye a `progresoSemanal`, que
+solo sabía comparar "hoy vs hace 7 días"; `dominadasHasta` sirve para
+CUALQUIER fecha, que es lo que pide una curva diaria de 60 puntos.
+
+**La curva se cachea de verdad, y NUNCA en `localStorage`** — decisión
+explícita del dueño: *«para la caché nada de local, que se guarde de la
+forma que sirva en varios dispositivos»*. `curvaConCache`
+(`app/actions/evolucion.ts`) lee `curva_progreso` (`user_id, fecha,
+dominadas`), calcula solo los días del pasado que faltan
+(`dominadasHasta` + `finDeDiaLocalMs`) y los escribe; **hoy** se recalcula
+siempre, en cada visita. Si la tabla no existe todavía (SQL sin ejecutar,
+ver más abajo), el error de PostgREST se reconoce y se cae a recalcular
+todo sin caché — el mismo patrón de degradación con gracia que
+`admin_audit_log` (regla 49) y `academy_convocatoria` (regla 64).
+
+Qué hay en la pantalla (`MiEvolucion.tsx`, `app/lib/evolucion.ts` puro):
+
+- **Cabecera**: fecha de inicio (regla 8: `null` si no ha contestado nunca,
+  no "el año 1970"), racha, resumen del banco.
+- **Mapa de temas**, fusionado con el resumen agregado del banco entero
+  (`resumeBanco`: total / dominadas / en camino / vistas-sin-asentar /
+  sin-tocar — los cuatro cubos SIEMPRE suman el total, sin doble conteo).
+- **Desglose con contexto** (`desgloseConContexto`): no solo cuántas
+  atascadas, sino **de qué tema** son más (`temaQueMasResiste`), y cuántas
+  preguntas se evitan del todo (`soloBlancos` siempre).
+- **¿Aprobaría?**: la misma pieza que ya existía en Estadísticas
+  (`resumeSimulacros`), sin reescribirla.
+- **Curva diaria**: SVG dibujado a mano (línea + área con degradado), sin
+  ninguna librería externa — se probó con Chart.js en la maqueta y se
+  descartó, una dependencia menos por una gráfica que no la necesita.
+- **Racha en calendario**: heatmap de actividad por día, divs con clases de
+  intensidad, tampoco necesita librería.
+
+**Lo que se DEJÓ FUERA deliberadamente al consolidar**, porque ya vivía en
+otro sitio o era redundante: «Cómo respondes» (firmeza, en Estadísticas
+vieja — el KPI físico y el historial reciente ya tienen su propio módulo),
+y el rango Cadete→Inspector (retirado en regla 63, no se resucita).
+
+**Reemplaza «Estadísticas» en el mismo hueco del menú** (`TabId: 'stats'`,
+mismo `requireModule('stats')`): `StatsPanel.tsx` se borró, no se dejó
+apagado — código muerto que nadie marca es como acabó `flashcard_bank` sin
+usar (regla 39). Inicio (`DashboardHome.tsx`) enlaza a la pantalla nueva en
+vez de duplicar el cálculo.
+
+**Un fallo real de fecha, encontrado contra la BD real, no en un test.**
+`rangoCurva` calculaba los días desde el inicio con una resta de
+milisegundos cruda (`Math.floor((hoyMs - inicioMs) / 86_400_000)`), que
+falla si la hora del día de "inicio" es más tarde que la de "ahora" en la
+comparación de calendario — mismo tipo de fallo que ya corrigió la regla 54
+con `lunesDeSemana`. En pantalla, con datos reales: *"Empezaste el 11 de
+agosto"* pero la curva empezaba el *"12 de agosto"*. Arreglado con
+`medianocheLocal()` (medianoche a medianoche, no milisegundos exactos), con
+un test que reproduce exactamente el desajuste de hora que lo destapó.
+
+`docs/sql/curva-progreso.sql` — **SIN EJECUTAR** (ver «Lo que solo puedes
+hacer tú»). Sin la tabla, la pantalla funciona igual, solo recalcula la
+curva entera en cada visita en vez de cachear el pasado.
+
+Verificado en el preview con datos reales de `alumno@atenea.com`, incluida
+la corrección del fallo de fecha contra la producción real. `npm run check`
+(1047 tests) y `npm run build` en verde.
+
 ---
 
 ## Los tests
@@ -3003,7 +3121,7 @@ tests/question-import.test.ts   alta manual e importación CSV (columna `tema` m
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
-tests/academy.test.ts           panel de academia: abandono, fichas y cobertura del temario
+tests/academy.test.ts           panel de academia: abandono, fichas, cobertura del temario y el progreso semanal agregado (regla 76)
 tests/moderation.test.ts        regla 75: candidatas solo para superadmin, y editar/desactivar/descartar/resolver acotado a la propia academia
 tests/pagination.test.ts        paginar por encima del tope de PostgREST (regla 74), sin perder lo ya traído si falla a media página
 tests/question-confusion.test.ts grafo de confusión descubierto de los datos (regla 73): lift, mínimo de muestra, solo dentro del mismo tema
@@ -3014,7 +3132,8 @@ tests/payments.test.ts          pagos mes a mes (P8): periodos, resumen del mes,
 tests/app-email-templates.test.ts los correos que manda la propia app (P12): solicitud, aceptado, rechazado
 tests/groups.test.ts            grupos (muchos-a-muchos), tipos editables, asignación desde el alumno, herencia del plan y el histórico de semanas que ve el alumno
 tests/review.test.ts            repaso de lo fallado: agrupación, «atascada» (4+ fallos) y guardas
-tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva, curva de olvido personal (regla 73), proyección semanal «lo que te toca» (regla 74)
+tests/question-scheduler.test.ts los cajones por alumno (P10): transiciones de caja, blanco neutro, fecha de repaso, curva, curva de olvido personal (regla 73), proyección semanal «lo que te toca» (regla 74), `dominadasHasta` en cualquier fecha del pasado y `fechaLocalISO` (regla 77)
+tests/evolucion.test.ts       «Mi Evolución» (regla 77): resumen del banco sin doble conteo, desglose con contexto, fecha de inicio, actividad diaria, la ventana de la curva recortada por días de CALENDARIO
 tests/smart-session.test.ts     la sesión adaptativa (P10): recaídas primero, tope de nuevas escalado, refuerzo sin cupo, intercalado
 tests/confidence.test.ts        calibración de la confianza (P10b): niveles, neto de adivinar, «sin datos» ≠ 0
 tests/exam-blueprint.test.ts    el simulacro representativo (regla 59): reparto por temas, cobertura por artículo, mezcla de dificultad fija, no repite lo reciente

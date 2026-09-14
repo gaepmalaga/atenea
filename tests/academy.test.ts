@@ -8,6 +8,7 @@ import {
   erroresDelAlumno,
   preguntasSospechosas,
   coberturaTemario,
+  progresoSemanalAcademia,
   DIAS_EN_RIESGO,
   DIAS_ABANDONO,
   ESTADO_ALUMNO_LABEL,
@@ -295,6 +296,55 @@ describe('los grupos los pone la acción, no resumeAlumnos (P7)', () => {
   it('resumeAlumnos deja `grupos` vacío: es un dato de administración', () => {
     const [a] = resumeAlumnos([{ id: 'a' }], [], AHORA);
     expect(a.grupos).toEqual([]);
+  });
+});
+
+describe('progresoSemanalAcademia: el motor adaptativo, agregado para el profesor', () => {
+  const HOY = new Date(AHORA);
+  /** 4 aciertos firmes seguidos, uno por día desde `desdeDia` (días ANTES de AHORA). */
+  function secuenciaDominada(userId: string, questionId: string, desdeDiasAntes: number): IntentoAlumno[] {
+    return [3, 2, 1, 0].map((restante) => ({
+      user_id: userId,
+      question_id: questionId,
+      is_correct: true,
+      selected_index: 0,
+      created_at: haceDias(desdeDiasAntes + restante),
+    }));
+  }
+
+  it('sin intentos, nadie avanza', () => {
+    expect(progresoSemanalAcademia([], HOY)).toEqual({ alumnosQueAvanzan: 0, dominadasEstaSemana: 0 });
+  });
+
+  it('un alumno que domina una pregunta dentro de la última semana cuenta', () => {
+    const intentos = secuenciaDominada('ana', 'q1', 3); // hace 3-6 días, dentro de la ventana
+    expect(progresoSemanalAcademia(intentos, HOY)).toEqual({ alumnosQueAvanzan: 1, dominadasEstaSemana: 1 });
+  });
+
+  it('una pregunta dominada hace tiempo no suma al progreso DE ESTA semana', () => {
+    const intentos = secuenciaDominada('ana', 'q1', 30); // muy anterior al corte de 7 días
+    expect(progresoSemanalAcademia(intentos, HOY)).toEqual({ alumnosQueAvanzan: 0, dominadasEstaSemana: 0 });
+  });
+
+  it('suma entre varios alumnos, cada uno con su propio historial', () => {
+    const intentos = [
+      ...secuenciaDominada('ana', 'q1', 3),
+      ...secuenciaDominada('bea', 'q2', 5),
+      ...secuenciaDominada('bea', 'q3', 5),
+    ];
+    expect(progresoSemanalAcademia(intentos, HOY)).toEqual({ alumnosQueAvanzan: 2, dominadasEstaSemana: 3 });
+  });
+
+  it('un admin que hubiera colado un intento no se confunde con un alumno: cuenta igual, es tarea del que llama filtrar antes', () => {
+    // La función es agnóstica de rol: filtrar admins es responsabilidad de
+    // quien construye `intentos` (getAcademyOverview), no de esta función pura.
+    const intentos = secuenciaDominada('cualquiera', 'q1', 3);
+    expect(progresoSemanalAcademia(intentos, HOY).dominadasEstaSemana).toBe(1);
+  });
+
+  it('ignora los intentos sin user_id', () => {
+    const intentos: IntentoAlumno[] = [{ question_id: 'q1', is_correct: true, created_at: haceDias(1) }];
+    expect(progresoSemanalAcademia(intentos, HOY)).toEqual({ alumnosQueAvanzan: 0, dominadasEstaSemana: 0 });
   });
 });
 

@@ -14,6 +14,7 @@
 
 import { isBlankAnswer } from './exam-results';
 import { ERROR_TYPES, type ErrorType } from './stats';
+import { dominadasHasta } from './question-scheduler';
 
 // ============================================================
 // CUANDO SE DA POR PERDIDO A UN ALUMNO
@@ -424,4 +425,46 @@ export function coberturaTemario(
       alumnos: alumnosPorTitulo.get(t.title.trim())?.size ?? 0,
     }))
     .sort((a, b) => a.preguntas - b.preguntas || a.title.localeCompare(b.title));
+}
+
+// ============================================================
+// EL MOTOR ADAPTATIVO, DE UN VISTAZO PARA EL PROFESOR (regla 76)
+// ============================================================
+
+export type ProgresoAcademia = {
+  /** Cuántos alumnos han dominado al menos una pregunta más que hace 7 días. */
+  alumnosQueAvanzan: number;
+  /** Suma de preguntas dominadas nuevas esta semana, en toda la academia. */
+  dominadasEstaSemana: number;
+};
+
+/**
+ * Lo mismo que la curva de "Mi Evolución" (`dominadasHasta`,
+ * question-scheduler.ts), pero para TODA la academia de una vez: el profesor
+ * no entra a ver alumno por alumno, así que la prueba de que el motor
+ * adaptativo está funcionando tiene que caber en una frase del panel de
+ * «Alumnos». Se agrupa por `user_id` y se corre el mismo cálculo (hoy vs
+ * hace 7 días) por cada uno — sin tabla nueva, sobre los mismos `intentos`
+ * que ya trae `getAcademyOverview` para `resumeAlumnos`.
+ */
+export function progresoSemanalAcademia(intentos: IntentoAlumno[], now: Date = new Date()): ProgresoAcademia {
+  const porAlumno = new Map<string, IntentoAlumno[]>();
+  for (const it of intentos ?? []) {
+    if (!it.user_id) continue;
+    const lista = porAlumno.get(it.user_id) ?? [];
+    lista.push(it);
+    porAlumno.set(it.user_id, lista);
+  }
+
+  const haceUnaSemana = now.getTime() - 7 * 86_400_000;
+  let alumnosQueAvanzan = 0;
+  let dominadasEstaSemana = 0;
+  for (const propios of porAlumno.values()) {
+    const delta = dominadasHasta(propios, now.getTime()) - dominadasHasta(propios, haceUnaSemana);
+    if (delta > 0) {
+      alumnosQueAvanzan++;
+      dominadasEstaSemana += delta;
+    }
+  }
+  return { alumnosQueAvanzan, dominadasEstaSemana };
 }
