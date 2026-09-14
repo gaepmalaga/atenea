@@ -25,7 +25,8 @@
     "temario:comprobar": "node --experimental-strip-types scripts/temario/comprobar-tema.mjs",
     "reset": "node --experimental-strip-types scripts/operacion/reset.mjs",
     "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",
-    "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs"
+    "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs",
+    "sembrar:demo": "node --experimental-strip-types scripts/operacion/sembrar-demo.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

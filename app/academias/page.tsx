@@ -154,7 +154,7 @@ export default function AcademiasLandingPage() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/academias/demo"
+            href="/demo"
             className={`min-h-[56px] ${C.rojo} text-white px-6 flex items-center gap-3 text-sm font-black uppercase tracking-wider active:translate-y-px transition-transform`}
           >
             Ver la demo <ArrowRight size={18} aria-hidden />
@@ -284,7 +284,7 @@ export default function AcademiasLandingPage() {
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link
-              href="/academias/demo"
+              href="/demo"
               className="min-h-[56px] bg-white text-[#c60b1e] px-6 flex items-center gap-3 text-sm font-black uppercase tracking-wider"
             >
               Ver la demo <ArrowRight size={18} aria-hidden />

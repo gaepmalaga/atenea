@@ -147,23 +147,89 @@ en la conversación de esta sesión, no en `docs/`.
 
 ## Por dónde seguir (sesión local)
 
-1. **La academia demo real** — es lo que el dueño pidió último y con más
-   claridad. Ver §1. Necesita `SUPABASE_SERVICE_ROLE_KEY` real, que la
-   sesión local ya tiene en su `.env.local`.
+1. ~~**La academia demo real**~~ → **hecha, 14 sep 2026.** Ver el apartado
+   siguiente.
 2. **Supabase Auth: añadir `https://ateneapolicial.com/\*\*` a las Redirect
    URLs**, y confirmar si `RESEND_API_KEY` se añade ahora o se deja para
    más adelante — son dos cosas que solo se resuelven con acceso a paneles
-   que esta sesión no tenía.
+   que esta sesión tampoco tenía (Supabase Auth no tiene API de gestión con
+   la clave de servicio; Resend necesita la clave del propio panel).
 3. **P13 (psicotécnicos)**, si hay hueco para una sesión larga — es la pieza
    de producto más grande de las tres y ya no tiene ningún dato pendiente.
 
 ---
 
+## 14 de septiembre · La academia "Demo" real, y fuera los fixtures
+
+Lo del §1 de arriba, hecho: `scripts/operacion/sembrar-demo.mjs`
+(`npm run sembrar:demo`) crea una academia **real** (`academies`, slug
+`demo`) contra el Supabase de producción — nada de fixtures. Reanudable:
+cuentas, grupos, ajustes, pagos y membresías van con upsert; la actividad
+(`question_attempts`, fichas) se salta si el alumno ya tiene datos, salvo
+`--borrar`.
+
+Qué crea, todo con filas de verdad:
+
+- **1 admin** (`admin@academia-demo.es` / `AteneaDemo26`) y **8 alumnos**
+  (misma clave), con nombres reconocibles (Laura, Marcos, Nerea, Iván,
+  Sara, Pablo, Cristina, Álvaro).
+- **2 profesores** (`academy_staff`), **3 tipos de grupo** (`group_kinds`:
+  físicas con plan, repaso e inglés sin plan) y **3 grupos**
+  (`class_groups` + `class_members`).
+- **Control de acceso ENCENDIDO** (`membership_settings.required = true`,
+  al revés que el resto de academias) para que el panel de Alumnos se vea
+  haciendo algo: Iván **suspendido** (dejó de pagar), Sara **exenta**, y
+  **Pablo sin fila en `memberships`** — pendiente de activar.
+- **~1.780 `question_attempts`** repartidos en 7 alumnos, con simulacros
+  (nota BOE con penalización), preguntas atascadas (P10, distractor fijo) y
+  el acierto subiendo semana a semana — del banco GLOBAL real
+  (`organization_id is null`, 1.795 preguntas activas), no preguntas
+  inventadas.
+- **Pagos** de los dos últimos meses (`monthly_payments`) y un **plan de
+  físicas de grupo** de 2 semanas (`group_training_plans`).
+- **Login REAL** (`signInWithPassword` con la clave anónima) para el admin
+  y 7 de los 8 alumnos, para que `last_sign_in_at` no sea inventado —
+  Pablo se deja sin loguear a propósito, así «nunca ha entrado» (regla 46)
+  también es un dato real y no una etiqueta puesta a mano. **Limitación
+  técnica, no descuido:** `last_sign_in_at` no se puede escribir por API
+  (lo pone Supabase Auth al autenticar, no PostgREST), así que solo se
+  pueden producir dos estados reales del eje «¿viene?» — activo (logueado
+  hoy) o nunca ha entrado —, no los intermedios («en riesgo», «abandonado»).
+  El eje «¿estudia?» (que sale de `question_attempts.created_at`, una
+  columna que sí se controla) tiene toda la variedad.
+
+**Verificado en el preview, con la sesión de admin real** (no solo
+`npm run check`, que también pasa: 957 tests, typecheck limpio): la
+pestaña **Alumnos** pinta los 8 con sus estados reales calculados en vivo
+(Pablo con «Nunca ha entrado · Sin activar · Llamar» a la vez, Laura al
+73 % de acierto en 363, Iván «Suspendido»); **Grupos** con los 3 grupos y
+sus profesores; **Pagos**, vista histórico, con la rejilla de dos meses,
+Sara marcada «Exenta» y **el roster excluyendo a Iván** (suspendido —
+regla 53: solo entran los alumnos con acceso `active`).
+
+Las páginas de fixtures (`app/academias/demo/{page,fixtures,DemoBanner}.tsx`
+y `academia/`, `alumno/`) **se borraron**: mentían siendo una maqueta que
+decía «no es una maqueta». Los dos «Ver la demo» de `app/academias/page.tsx`
+apuntan ahora a `/demo` — la academia real, así que entrar de verdad pide
+la contraseña de arriba. **A propósito no se han publicado las credenciales
+en la página pública**: un admin de cualquier academia puede generar
+contenido con Gemini (gasto real), así que antes de enseñarlas a un
+prospecto conviene decidir cómo se entregan (de viva voz, en el dossier
+comercial…), no dejarlas en una URL indexable.
+
+---
+
 ## Pendiente del dueño
 
-- Confirmar el correo y la contraseña que quiere para el admin de la
-  academia demo (`demoacademia@atenea.com` fue el ejemplo, no
-  necesariamente el definitivo).
-- Decidir si `RESEND_API_KEY` se activa ya o se deja apagado un poco más.
-- Nada más está bloqueado — P13 y P15 se pueden empezar sin esperar
-  respuesta de nadie.
+- ~~Confirmar el correo y la contraseña del admin de la academia demo~~ →
+  resuelto sin esperar (no bloqueaba nada): `admin@academia-demo.es` /
+  `AteneaDemo26`. Cambiar la contraseña es un `npm run sembrar:demo` con
+  otra clave en el guion, o `npm run cuenta -- admin@academia-demo.es
+  'otraClave' admin`.
+- Añadir `https://ateneapolicial.com/**` a las Redirect URLs de Supabase
+  Auth (Authentication → URL Configuration) — panel al que ninguna sesión
+  ha tenido acceso todavía.
+- Decidir si `RESEND_API_KEY` se activa ya o se deja apagado un poco más,
+  y cómo se entregan las credenciales de la demo a un prospecto (ver
+  arriba: a propósito no están en la página pública).
+- P13 y P15 se pueden empezar sin esperar respuesta de nadie.
