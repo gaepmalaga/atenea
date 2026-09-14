@@ -22,6 +22,11 @@ const RESERVED_ACADEMY_SLUGS = new Set([
   'admin', 'superadmin', 'api', 'app', 'auth', 'login', 'logout', 'register',
   'static', 'assets', 'public', 'www', '_next', 'icon', 'apple-icon',
   'favicon', 'manifest', 'robots', 'sitemap', 'principal', 'null', 'undefined',
+  // La landing comercial (`app/academias/`) es una ruta estática y Next la
+  // sirve antes que `[academia]` de todas formas — esto es cinturón y
+  // tirantes para que un alta de academia con este slug no quede inalcanzable
+  // en silencio.
+  'academias',
 ]);
 
 const SLUG_MIN = 2;
