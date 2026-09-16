@@ -336,7 +336,13 @@ export async function getOfficialSyllabus() {
 }
 
 export async function getAdminQuestionBank() {
-  return ok({ data: Array.from({ length: 6 }, (_, i) => pregunta(i)), total: 6, page: 1, totalPages: 1, status: 'active' });
+  // Regla 78: dos de seis son de "tu academia" (privadas), el resto del banco
+  // global — así se ve la insignia y el filtro de origen sin tener que subir
+  // nada a mano.
+  return ok({
+    data: Array.from({ length: 6 }, (_, i) => ({ ...pregunta(i), academyName: i < 2 ? 'Tu academia' : null })),
+    total: 6, page: 1, totalPages: 1, status: 'active',
+  });
 }
 
 export async function getModerationQueue() {

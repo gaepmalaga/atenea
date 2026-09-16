@@ -169,6 +169,8 @@ export type BankRow = {
   explanation?: string;
   origin?: Question['origin'];
   legal_reference?: string | null;
+  /** `null` = banco global (regla 65/78: quien la escribió no importa aquí, solo de dónde es). */
+  organization_id?: string | null;
 };
 
 /**
@@ -213,6 +215,12 @@ export type ModerationReport = {
  */
 export type AdminBankRow = ModerationCandidate & {
   subjects?: { id: number; title: string; topic_number: number } | null;
+  /**
+   * El nombre de la academia dueña (regla 78), resuelto en el servidor —
+   * nunca el UUID a secas, que no le dice nada a nadie. `null` en el banco
+   * global.
+   */
+  academyName?: string | null;
 };
 
 /** Lo que devuelve `getModerationQueue`. */

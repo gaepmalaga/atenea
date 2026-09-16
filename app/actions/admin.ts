@@ -6,7 +6,7 @@ import type { DocumentChunkRow } from '../lib/documents';
 import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraAccion } from '../lib/admin-audit';
-import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus } from '../lib/questions';
+import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus, type AdminBankRow } from '../lib/questions';
 import type { ActivityRow } from '../lib/stats';
 
 // --- TIPOS DEL TEMARIO ---
@@ -653,12 +653,18 @@ export async function getAdminQuestionBank(params: {
    * vacia, sin ninguna forma de llegar a las pendientes desde esta pantalla.
    */
   status?: QuestionStatus | 'all';
+  /**
+   * Regla 78: antes el banco global y el privado de la academia se veian
+   * mezclados sin ninguna forma de distinguirlos ni de auditar aparte lo que
+   * la propia academia ha subido — 'own' | 'global', o sin filtrar ('all').
+   */
+  origen?: 'all' | 'global' | 'propia';
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   try {
-    const { subjectId, search, page = 1, limit = 20, status = 'all' } = params;
+    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all' } = params;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -677,6 +683,9 @@ export async function getAdminQuestionBank(params: {
       query = query.eq('status', status);
     }
 
+    if (origen === 'global') query = query.is('organization_id', null);
+    else if (origen === 'propia') query = query.not('organization_id', 'is', null);
+
     if (subjectId) {
       query = query.eq('subject_id', subjectId);
     }
@@ -689,9 +698,36 @@ export async function getAdminQuestionBank(params: {
 
     if (error) throw error;
 
+    // El nombre de la academia se resuelve aquí, no en el cliente: un UUID
+    // suelto no le dice nada a nadie que esté auditando de dónde sale una
+    // pregunta (regla 5). Para un admin normal ya se sabe sin consulta —solo
+    // puede ser SU academia, filtroBancoPorAcademia no deja ver otra— pero un
+    // superadmin ve preguntas privadas de CUALQUIER academia, así que hace
+    // falta el nombre real.
+    const filas = (data ?? []) as unknown as AdminBankRow[];
+    const nombrePorAcademia = new Map<string, string>();
+    if (auth.user.role === 'superadmin') {
+      const ids = [...new Set(filas.map((f) => f.organization_id).filter((id): id is string => !!id))];
+      if (ids.length) {
+        const { data: academias } = await supabase.from('academies').select('id, name').in('id', ids);
+        for (const a of academias ?? []) nombrePorAcademia.set(a.id as string, a.name as string);
+      }
+    }
+    // Un admin normal no necesita consulta: filtroBancoPorAcademia ya
+    // garantiza que si `organization_id` no es null, solo puede ser la suya.
+
+    const conAcademia = filas.map((f) => ({
+      ...f,
+      academyName: !f.organization_id
+        ? null
+        : auth.user.role === 'superadmin'
+          ? (nombrePorAcademia.get(f.organization_id) ?? 'Otra academia')
+          : 'Tu academia',
+    }));
+
     return {
       success: true as const,
-      data: data || [],
+      data: conAcademia,
       total: count || 0,
       page,
       totalPages: Math.ceil((count || 0) / limit),

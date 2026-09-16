@@ -52,6 +52,9 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   // 'all' por defecto: filtrar 'active' en duro era lo que hacia que un admin
   // sembrara cientos de preguntas y viera la lista vacia.
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all');
+  // Regla 78: antes el banco global y el privado de la academia se veían
+  // mezclados sin forma de auditar aparte lo que la propia academia ha subido.
+  const [origenFilter, setOrigenFilter] = useState<'all' | 'global' | 'propia'>('all');
   const [bulkRunning, setBulkRunning] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
@@ -81,7 +84,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
     const timer = setTimeout(() => { loadQuestions(1); }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSubject, searchTerm, statusFilter]);
+  }, [selectedSubject, searchTerm, statusFilter, origenFilter]);
 
   // --- CARGA DE DATOS ---
   async function loadSyllabus() {
@@ -98,6 +101,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         subjectId: selectedSubject,
         search: searchTerm,
         status: statusFilter,
+        origen: origenFilter,
         page,
         limit: 15 // Menos preguntas por página para diseño más aireado
     });
@@ -268,9 +272,27 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
                     </div>
                 </div>
 
+                {/* Regla 78: sin esto, una pregunta subida por la propia academia se
+                    perdía mezclada con las 1.795+ del banco global, sin forma de
+                    aislarla para auditarla. */}
+                <div className="relative group w-full sm:w-48">
+                    <select
+                        value={origenFilter}
+                        onChange={(e) => setOrigenFilter(e.target.value as 'all' | 'global' | 'propia')}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer"
+                    >
+                        <option value="all">Global + propias</option>
+                        <option value="global">Solo banco global</option>
+                        <option value="propia">{esSuperadmin ? 'Solo privadas (cualquier academia)' : 'Solo las de tu academia'}</option>
+                    </select>
+                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500 dark:text-slate-400">
+                        <MoreHorizontal size={14}/>
+                    </div>
+                </div>
+
                 <div className="relative group w-full sm:w-64">
                     <Filter className="absolute left-4 top-3 text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-400 transition-colors" size={18}/>
-                    <select 
+                    <select
                         value={selectedSubject || ''}
                         onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}
                         className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer truncate"
@@ -334,6 +356,15 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
                                     </span>
                                     <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_STYLE[q.status as QuestionStatus] ?? STATUS_STYLE[QUESTION_STATUS.DISABLED]}`}>
                                         {QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}
+                                    </span>
+                                    {/* Regla 78: de dónde viene la pregunta — antes no se
+                                        veía, mezclada con el resto de la lista. */}
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${
+                                        q.academyName
+                                            ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300/50 dark:border-slate-700'
+                                    }`}>
+                                        {q.academyName ?? 'Banco global'}
                                     </span>
                                     {/* La columna se llama `difficulty_level`, no
                                         `difficulty`. Con el estado en `any` esto era
