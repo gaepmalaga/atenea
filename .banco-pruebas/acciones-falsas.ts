@@ -356,15 +356,23 @@ export async function getModerationQueue() {
 export async function getAcademyOverview() {
   return ok({
     data: {
+      // `grupos`, `acceso`, `exento` y `pagadoMesActual` los pone la ACCIÓN
+      // por cada alumno (`FilaAlumno`, app/lib/academy.ts) — no es solo la
+      // lista de grupos de la academia. Faltaban en el stub desde siempre;
+      // `formas.ts` no lo pilla porque solo compara las claves de PRIMER
+      // NIVEL, nunca las de dentro de un array — así fue como AdminStudents
+      // se caía de verdad, en cada pestaña de administración, con
+      // "Cannot read properties of undefined (reading 'length')" en
+      // `a.grupos.length`.
       alumnos: [
-        { id: 'u2', email: 'alumno.que.acaba.de.registrarse@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: null, diasSinEntrar: null, diasSinEstudiar: null, estado: 'nunca_entro' as const, estudiando: 'nunca' as const },
-        { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const },
+        { id: 'u2', email: 'alumno.que.acaba.de.registrarse@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: null, diasSinEntrar: null, diasSinEstudiar: null, estado: 'nunca_entro' as const, estudiando: 'nunca' as const, grupos: [], acceso: 'pending' as const, exento: false, pagadoMesActual: false },
+        { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const, grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }], acceso: 'active' as const, exento: false, pagadoMesActual: false },
         // ESTE ES EL CASO QUE ARREGLÓ LA REGLA: entra HOY (activo de verdad),
         // pero no ha contestado ni una pregunta. Antes salía como «nunca ha
         // entrado» y encabezaba la lista de a quién llamar — al revés de lo
         // que tocaba. Sin este caso en el stub, el fallo no se veía nunca.
-        { id: 'u4', email: 'entra.pero.no.hace.tests@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: null, estado: 'activo' as const, estudiando: 'nunca' as const },
-        { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', contestadas: 36, blancos: 6, aciertos: 24, winRate: 67, ultimaActividad: new Date().toISOString(), ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: 0, estado: 'activo' as const, estudiando: 'al_dia' as const },
+        { id: 'u4', email: 'entra.pero.no.hace.tests@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: null, estado: 'activo' as const, estudiando: 'nunca' as const, grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }, { id: 'g2', name: 'Físicas L-X', kind: 'fisicas' }], acceso: 'active' as const, exento: false, pagadoMesActual: true },
+        { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', contestadas: 36, blancos: 6, aciertos: 24, winRate: 67, ultimaActividad: new Date().toISOString(), ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: 0, estado: 'activo' as const, estudiando: 'al_dia' as const, grupos: [], acceso: 'active' as const, exento: false, pagadoMesActual: false },
       ],
       porEstado: { nunca_entro: 1, activo: 2, en_riesgo: 0, abandonado: 1 },
       grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }, { id: 'g2', name: 'Físicas L-X', kind: 'fisicas' }],
@@ -385,7 +393,7 @@ export async function getAcademyOverview() {
 export async function getStudentDetail() {
   return ok({
     data: {
-      alumno: { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const },
+      alumno: { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const, grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }], acceso: 'active' as const, exento: false, pagadoMesActual: false },
       temas: [{ topic: TEMAS[0], contestadas: 12, winRate: 25 }, { topic: TEMAS[1], contestadas: 6, winRate: 50 }],
       errores: { porTipo: [{ tipo: 'olvido' as const, veces: 5 }, { tipo: 'desconocimiento' as const, veces: 2 }], sinClasificar: 4 },
     },
@@ -539,3 +547,174 @@ export async function getInicioSesiones() {
     ],
   });
 }
+
+// ── ENTRENAMIENTO ADAPTATIVO (P10) ──────────────────────────────────────────
+
+export async function getAdaptiveSession({ limit = 20 }: { topics: string[]; limit: number; difficulty?: number }) {
+  return ok({
+    data: {
+      questions: Array.from({ length: limit }, (_, i) => ({ ...pregunta(i), cajon: (['nueva', 'recaida', 'aprendiendo', 'consolidando'] as const)[i % 4], porQueHoy: i % 3 === 0 ? 'Te toca porque la fallaste hace 3 días.' : null })),
+      adaptativo: true,
+      resumen: null,
+      aciertoEstimado: 82,
+      bancoCorto: false,
+      motivoCorto: null,
+      atascadasTotales: 2,
+    },
+  });
+}
+
+// ── MI EVOLUCIÓN (regla 77) ──────────────────────────────────────────────────
+
+export async function getMiEvolucion() {
+  const tema = (i: number, progreso: number) => ({
+    topic: TEMAS[i % TEMAS.length], total: 40, nuevas: Math.round(40 * (1 - progreso / 100) * 0.5),
+    aprendiendo: 6, consolidando: 5, dominadas: Math.round(40 * (progreso / 100)), atascadas: i === 0 ? 3 : 0, progreso,
+  });
+  return ok({
+    data: {
+      fechaInicio: new Date(Date.now() - 37 * 864e5).toISOString(),
+      diasEnOposicion: 37,
+      racha: 6,
+      mapaTemas: [tema(0, 12), tema(1, 48), tema(2, 71), tema(3, 0)],
+      resumenBanco: { total: 1795, dominadas: 210, enCamino: 96, vistasSinAsentar: 340, sinTocar: 1149 },
+      desglose: {
+        dominadas: 210, enCamino: 96, seResisten: 14,
+        temaQueMasResiste: { topic: TEMAS[0], veces: 6 },
+        evitas: 9,
+      },
+      curva: Array.from({ length: 14 }, (_, i) => ({
+        fecha: new Date(Date.now() - (13 - i) * 864e5).toISOString().slice(0, 10),
+        dominadas: 150 + i * 4,
+      })),
+      diasDesdeCache: 0,
+      actividad: Array.from({ length: 20 }, (_, i) => ({
+        fecha: new Date(Date.now() - i * 864e5).toISOString().slice(0, 10),
+        respuestas: i % 5 === 0 ? 0 : 8 + (i % 12),
+      })),
+      simulacros: {
+        simulacros: [
+          { examId: 'ex-1', fecha: new Date(Date.now() - 86400000).toISOString(), total: 50, aciertos: 30, fallos: 15, blancos: 5, nota: 5.8, aprobado: true },
+          { examId: 'ex-5', fecha: new Date(Date.now() - 5 * 86400000).toISOString(), total: 50, aciertos: 28, fallos: 17, blancos: 5, nota: 4.9, aprobado: true },
+        ],
+        media: 5.35, mejor: 5.8, tendencia: 'sube' as const,
+      },
+    },
+  });
+}
+
+// ── CONSUMO DE IA (regla 51/75, solo superadmin) ────────────────────────────
+
+export async function getAiCostOverview() {
+  return ok({
+    data: {
+      total: { coste: 4.32, entrada: 1_200_000, salida: 180_000, cacheados: 0, llamadas: 620 },
+      porAlumno: [
+        { userId: 'u2', coste: 1.8, llamadas: 240, entrada: 500000, salida: 70000, email: 'alumno@atenea.com' },
+        { userId: 'u3', coste: 0.9, llamadas: 110, entrada: 220000, salida: 30000, email: 'alumno.flojo@ejemplo.com' },
+      ],
+      porRuta: [{ ruta: 'pregunta', coste: 3.1, llamadas: 480 }, { ruta: 'chat', coste: 1.22, llamadas: 140 }],
+      porMes: [{ mes: '2026-08', coste: 2.1, llamadas: 300 }, { mes: '2026-09', coste: 2.22, llamadas: 320 }],
+      costeMedioPorAlumno: 1.35,
+    },
+  });
+}
+
+// ── ACADEMIAS (P11f/P11i, solo superadmin) ──────────────────────────────────
+
+export async function getAcademiesOverview() {
+  return ok({
+    data: [
+      { id: 'org-1', slug: 'alphapol', name: 'Alphapol', alumnos: 6, admins: [{ id: 'u5', email: 'morato@atenea.com' }], costeIA: 4.32, ingresosMes: 180 },
+      { id: 'org-2', slug: 'atenea', name: 'Atenea (casa)', alumnos: 1, admins: [], costeIA: 0.4, ingresosMes: 0 },
+    ],
+  });
+}
+export async function createAcademy() {
+  return { success: true as const, id: 'org-3', slug: 'academia-nueva' };
+}
+export async function addAcademyAdmin() {
+  return { success: true as const, invitada: false };
+}
+
+// ── GRUPOS Y TIPOS DE GRUPO (P7/P8) ─────────────────────────────────────────
+
+export async function getGroupKinds() {
+  return ok({ kinds: [{ id: 'teoria', label: 'Teoría', lleva_plan: false, sort_order: 1 }, { id: 'fisicas', label: 'Físicas', lleva_plan: true, sort_order: 2 }] });
+}
+export async function saveGroupKind() { return { success: true as const }; }
+export async function deleteGroupKind() { return { success: true as const }; }
+
+export async function getGroups() {
+  return ok({
+    groups: [
+      { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'L-V 9:00', staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, tienePlan: false },
+      { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: 'L,X 18:00', staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, tienePlan: true },
+    ],
+  });
+}
+export async function createGroup() { return { success: true as const, error: undefined }; }
+export async function updateGroup() { return { success: true as const, error: undefined }; }
+export async function deleteGroup() { return { success: true as const }; }
+export async function setStudentGroups() { return { success: true as const, error: undefined }; }
+
+export async function getGroupTrainingPlan() {
+  const lunes = new Date();
+  lunes.setDate(lunes.getDate() - lunes.getDay() + 1);
+  const semana = (offset: number, vigente: boolean) => ({
+    weekStart: new Date(lunes.getTime() + offset * 7 * 864e5).toISOString().slice(0, 10),
+    plan: PLAN.plan_data,
+    vigente,
+    pasada: offset < 0,
+  });
+  return ok({ semanas: [semana(-1, false), semana(0, true), semana(1, false)] });
+}
+export async function saveGroupTrainingPlan() { return { success: true as const, error: undefined }; }
+export async function deleteGroupTrainingPlan() { return { success: true as const }; }
+
+// ── ACCESO Y EXENTOS (P6/P12) ────────────────────────────────────────────────
+
+export async function setMembershipRequired() { return { success: true as const }; }
+export async function setMemberAccess() { return { success: true as const }; }
+export async function activateAllCurrentStudents() { return { success: true as const, activados: 4 }; }
+export async function listExemptEmails() { return ok({ emails: ['exento@ejemplo.com'] }); }
+export async function addExemptEmail() { return { success: true as const }; }
+export async function removeExemptEmail() { return { success: true as const }; }
+export async function inviteStudent() { return { success: true as const, invitada: true }; }
+
+// ── INTERRUPTORES DE FÍSICAS (regla 54/68) ──────────────────────────────────
+
+export async function getTrainingSwitches() {
+  return ok({ switches: { ai: false, group: true, adaptive: true }, esCasa: false });
+}
+export async function setTrainingSwitch() { return { success: true as const }; }
+
+// ── PAGOS MENSUALES (P8) ─────────────────────────────────────────────────────
+
+export async function getMonthlyPayments() {
+  return ok({
+    data: {
+      period: '2026-09',
+      filas: [
+        { userId: 'u2', email: 'alumno@atenea.com', paid: true, amount: 45, paidOn: '2026-09-03', exempt: false },
+        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', paid: false, amount: null, paidOn: null, exempt: false },
+      ],
+      pagados: 1, porPagar: 1, total: 2, cobrado: 45,
+      periodos: ['2026-09', '2026-08', '2026-07'],
+    },
+  });
+}
+export async function getPaymentsHistory() {
+  const periodos = ['2026-07', '2026-08', '2026-09'];
+  return ok({
+    data: {
+      periodos,
+      columnas: periodos.map((period, i) => ({ period, pagados: i === 2 ? 1 : 2, total: 2, cobrado: i === 2 ? 45 : 90 })),
+      filas: [
+        { userId: 'u2', email: 'alumno@atenea.com', celdas: { '2026-07': { paid: true, amount: 45 }, '2026-08': { paid: true, amount: 45 }, '2026-09': { paid: true, amount: 45 } }, pagadosEnRango: 3, exempt: false },
+        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', celdas: { '2026-07': { paid: true, amount: 45 }, '2026-08': { paid: true, amount: 45 } }, pagadosEnRango: 2, exempt: false },
+      ],
+    },
+  });
+}
+export async function setPayment() { return { success: true as const }; }

@@ -129,19 +129,27 @@ const mira = async (page, donde, fallosJS) => {
 
 // Las cinco de la barra + las del cajon "Más".
 // [etiqueta en la barra, etiqueta en el cajon "Más", fichero]
+// Actualizado a la app real de hoy (16 sep 2026) — estaba desde antes de P8,
+// P11 y las reglas 58/63/64/75/76/77, y ya no correspondía con nada:
+// "Chat" y "Perfilado" (interview) están fuera del MVP a propósito (regla
+// 58/64, no un fallo), "Rango" se llama "Mi Evolución" desde la regla 77, y
+// el panel de admin dejó de tener pestañas "Usuarios"/"Academia"/"Temario"
+// desde P8 (regla 53) y P11c/75 (Temario & IA es solo del superadmin).
 const ALUMNO = [
   ['Inicio', null, 'a-inicio'],
-  ['Chat', null, 'a-chat'],
   ['Test', null, 'a-test'],
   ['Fallos', null, 'a-fallos'],
-  [null, 'Drills', 'a-fichas'],
+  ['Fichas', null, 'a-fichas'],
   [null, 'Prep. Física', 'a-fisica'],
-  [null, 'Perfilado', 'a-perfil'],
-  [null, 'Rango', 'a-rango'],
+  [null, 'Mi Evolución', 'a-evolucion'],
+  [null, 'Mi perfil', 'a-perfil'],
 ];
+// Pestañas de un `admin` normal (no `superadmin`) — regla 75, IDS_ADMIN en
+// `AdminView.tsx`. El stub de `getCurrentUser` devuelve role: 'admin'.
 const ADMIN = [
-  ['Usuarios', 'b-usuarios'], ['Academia', 'b-academia'], ['Temario', 'b-temario'],
-  ['Banco', 'b-banco'], ['Moderación', 'b-moderacion'], ['Ajustes', 'b-ajustes'], ['Logs', 'b-logs'],
+  ['Alumnos', 'b-alumnos'], ['Grupos', 'b-grupos'], ['Prep. física', 'b-fisica'],
+  ['Pagos', 'b-pagos'], ['Banco Oficial', 'b-banco'], ['Moderación', 'b-moderacion'],
+  ['Ajustes', 'b-ajustes'], ['Logs & Auditoría', 'b-logs'],
 ];
 
 (async () => {
@@ -193,7 +201,17 @@ const ADMIN = [
       await page.waitForTimeout(450);
       boton = page.locator('div.fixed.inset-0 button', { hasText: enCajon }).first();
     }
-    if (await boton.count() === 0) { anota(`${etiqueta}: no hay forma de llegar`); continue; }
+    if (await boton.count() === 0) {
+      anota(`${etiqueta}: no hay forma de llegar`);
+      // Si el modulo no aparecio, el cajon "Mas" puede haberse quedado
+      // abierto (o cerrarse solo si ya no hay overlay) — sin cerrarlo, el
+      // siguiente intento de pulsar "Mas" choca con este overlay muerto y
+      // se queda esperando para siempre (era la causa real del timeout que
+      // tumbaba el guion entero a mitad de recorrido).
+      const cerrar = page.locator('button[aria-label="Cerrar"]').first();
+      if (await cerrar.count() > 0) await cerrar.click().catch(() => {});
+      continue;
+    }
     await boton.click();
     await page.waitForTimeout(1400);
     console.log(`\n--- ${etiqueta} ---`);
@@ -235,19 +253,30 @@ const ADMIN = [
   }
 
   // La sala de voz: es una capa a pantalla completa, no una pestaña.
+  // "Perfilado & Voz" está fuera del MVP (regla 58/64, como el chat): no se
+  // ofrece en el menú a propósito, así que no encontrarlo aquí es el
+  // resultado ESPERADO, no un fallo — se salta sin más, sin el click en
+  // bruto que antes se quedaba esperando 30s y tumbaba el guion entero.
   await page.locator('nav.fixed').locator('button', { hasText: 'Más' }).first().click();
   await page.waitForTimeout(450);
-  await page.locator('div.fixed.inset-0 button', { hasText: 'Perfilado' }).first().click();
-  await page.waitForTimeout(1200);
-  const simular = page.locator('button[aria-label*="simulación"]').first();
-  if (await simular.count()) {
-    await simular.click();
-    await page.waitForTimeout(1200);
-    console.log('\n--- Sala de voz ---');
-    await page.screenshot({ path: `${TOMAS}/a-sala-voz.png`, fullPage: true });
-    await mira(page, 'Sala de voz', fallosJS);
+  const perfilado = page.locator('div.fixed.inset-0 button', { hasText: 'Perfilado' }).first();
+  if (await perfilado.count() === 0) {
+    console.log('\n--- Sala de voz --- (omitida: Perfilado & Voz está fuera del MVP, regla 58/64)');
+    const cerrar = page.locator('button[aria-label="Cerrar"]').first();
+    if (await cerrar.count() > 0) await cerrar.click().catch(() => {});
   } else {
-    anota('Sala de voz: no se encuentra el boton de iniciar simulacion');
+    await perfilado.click();
+    await page.waitForTimeout(1200);
+    const simular = page.locator('button[aria-label*="simulación"]').first();
+    if (await simular.count()) {
+      await simular.click();
+      await page.waitForTimeout(1200);
+      console.log('\n--- Sala de voz ---');
+      await page.screenshot({ path: `${TOMAS}/a-sala-voz.png`, fullPage: true });
+      await mira(page, 'Sala de voz', fallosJS);
+    } else {
+      anota('Sala de voz: no se encuentra el boton de iniciar simulacion');
+    }
   }
 
   console.log('\n=== ADMINISTRACIÓN ===');

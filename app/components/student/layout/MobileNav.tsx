@@ -38,7 +38,11 @@ const ETIQUETA_CORTA: Record<string, string> = {
   cards: 'Fichas',
   training: 'Física',
   interview: 'Perfil',
-  stats: 'Rango',
+  // "Rango" era el nombre de antes de la regla 77 ("Rango & Estadísticas").
+  // Hoy no se ve (stats cae en el cajón "Más", que usa el nombre largo, "Mi
+  // Evolución") pero seguía mal aquí — en cuanto se apague un módulo y stats
+  // suba a las 4 pestañas principales, saldría con el nombre viejo.
+  stats: 'Evolución',
 };
 
 export default function MobileNav({ activeTab, onTabChange, onLogout, items }: MobileNavProps) {
