@@ -1,7 +1,7 @@
 /** El test con una opcion ya marcada: es donde entra el rojo de la bandera. */
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch({ channel: 'msedge' });
   for (const [tema, suf] of [['dark','-oscuro'],['light','-claro']]) {
     const p = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2, colorScheme:tema });
     await p.goto('http://localhost:8899/index.html', { waitUntil:'networkidle' });
@@ -15,7 +15,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
     await p.waitForTimeout(2200);
     await p.locator('[data-opcion]').nth(1).click();
     await p.waitForTimeout(600);
-    await p.screenshot({ path:`/home/user/atenea/.banco-pruebas/tomas/DESPUES-marcada${suf}.png`, fullPage:true });
+    await p.screenshot({ path:`tomas/DESPUES-marcada${suf}.png`, fullPage:true });
     console.log(tema, '✓');
     await p.close();
   }

@@ -4,7 +4,9 @@
  * este dice en que.
  */
 import ts from 'typescript';
-const RAIZ = '/home/user/atenea';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cfg = ts.readConfigFile(`${RAIZ}/tsconfig.json`, ts.sys.readFile);
 const parsed = ts.parseJsonConfigFileContent(cfg.config, ts.sys, RAIZ);
 const prog = ts.createProgram(parsed.fileNames, { ...parsed.options, noEmit: true });

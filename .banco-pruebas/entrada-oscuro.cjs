@@ -7,9 +7,9 @@
  * solo de `prefers-color-scheme`. Es justo el caso que no cubre el banco, y
  * es como la ve quien tiene el movil en oscuro — la mayoria.
  */
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: 'msedge' });
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
     deviceScaleFactor: 2,
@@ -19,7 +19,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   page.on('pageerror', (e) => fallos.push(String(e)));
   await page.goto('http://localhost:8899/index.html?vista=login', { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
-  await page.screenshot({ path: '/home/user/atenea/.banco-pruebas/tomas/entrada-oscuro.png', fullPage: true });
+  await page.screenshot({ path: 'tomas/entrada-oscuro.png', fullPage: true });
   const ancho = await page.evaluate(() => ({
     doc: document.documentElement.clientWidth,
     scroll: document.documentElement.scrollWidth,

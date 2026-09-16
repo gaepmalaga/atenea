@@ -19,7 +19,7 @@
  * salen cientos de avisos de texto de apoyo gris que está bien como está. Una
  * guardia que se queja de lo razonable acaba desactivada.
  */
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 
 const UMBRAL = 3;
 
@@ -127,7 +127,7 @@ const ALUMNO = [['Inicio', null], ['Chat', null], ['Test', null], ['Fallos', nul
 const ADMIN = ['Usuarios', 'Academia', 'Temario', 'Banco', 'Moderación', 'Módulos', 'Logs'];
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({ channel: 'msedge' });
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   page.on('dialog', (d) => d.accept());
 

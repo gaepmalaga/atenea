@@ -1,7 +1,7 @@
 /** ¿Se ve el enunciado al pasar de pregunta, o hay que subir a mano? */
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch({ channel: 'msedge' });
   const p = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2, colorScheme:'light' });
   await p.goto('http://localhost:8899/index.html', { waitUntil:'networkidle' });
   await p.waitForTimeout(900);
@@ -41,6 +41,6 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 
   console.log(`scroll antes de avanzar: ${antes}px · después: ${despues}px`);
   console.log(`enunciado visible al llegar: ${visible === null ? '?' : visible ? 'SÍ ✓' : 'NO ⚠'}`);
-  await p.screenshot({ path:'/home/user/atenea/.banco-pruebas/tomas/scroll-pregunta.png' });
+  await p.screenshot({ path:'tomas/scroll-pregunta.png' });
   await b.close();
 })();

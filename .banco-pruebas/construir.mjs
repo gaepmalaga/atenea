@@ -1,5 +1,7 @@
 import * as esbuild from 'esbuild';
-const R = '/home/user/atenea';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+const R = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 await esbuild.build({
   entryPoints: [`${R}/.banco-pruebas/entrada.tsx`],
   bundle: true, outfile: `${R}/.banco-pruebas/app.js`,

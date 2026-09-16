@@ -52,9 +52,11 @@ temario/fuentes/BOE-*.json
 
 # Banco de pruebas de la interfaz: bundle generado, CSS compilado y capturas.
 # Los guiones que lo levantan SI se versionan (ver docs/BANCO-DE-PRUEBAS.md).
+# `entrada.css` NO va aquí: es el FUENTE de 3 líneas de compilar-css.mjs, no
+# un artefacto — estuvo ignorado por error y el fichero ni siquiera existía
+# en el repo, así que este guion nunca pudo correr desde un clon limpio.
 .banco-pruebas/app.js
 .banco-pruebas/estilos.css
-.banco-pruebas/entrada.css
 .banco-pruebas/tomas/
 # Las maquetas SE GENERAN (`maquetas/tomar.cjs`). Lo que se guarda es el guion
 # que las dibuja, no los PNG: una imagen en el repositorio envejece sin que

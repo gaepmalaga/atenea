@@ -1,7 +1,7 @@
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
-const T = '/home/user/atenea/.banco-pruebas/tomas';
+const { chromium } = require('playwright');
+const T = 'tomas';
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const b = await chromium.launch({ channel: 'msedge' });
   const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   p.on('dialog', d => d.accept());
   const barra = () => p.locator('nav.fixed');

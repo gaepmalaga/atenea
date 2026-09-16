@@ -8,18 +8,18 @@
  * tocarlo en tres sitios y acabarian siendo tres pantallas distintas sin que
  * nadie lo decidiera.
  */
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 const CASOS = [
   ['hud', 'a', 'hud-bandera'], ['hud', 'b', 'hud-oro'], ['hud', 'c', 'hud-azul'],
   ['brut', 'a', 'brut-bandera'], ['brut', 'b', 'brut-oro'], ['brut', 'c', 'brut-rojo-hueso'],
 ];
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ channel: 'msedge' });
   for (const [fam, p, nombre] of CASOS) {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
     await page.goto(`http://localhost:8899/maquetas/${fam}.html?p=${p}`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(300);
-    await page.screenshot({ path: `/home/user/atenea/.banco-pruebas/maquetas/${nombre}.png` });
+    await page.screenshot({ path: `${nombre}.png` });
     const [v, r] = await page.evaluate(() => [document.documentElement.clientWidth, document.documentElement.scrollWidth]);
     console.log(`${nombre}: ${v}/${r} ${r > v ? '⚠ SE VA A LOS LADOS' : '✓'}`);
     await page.close();

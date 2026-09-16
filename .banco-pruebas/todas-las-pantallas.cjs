@@ -10,9 +10,9 @@
  * se corta, que todo lo que se toca llega a 44px, que nada se pinta a 0x0 y
  * que la consola no escupe errores.
  */
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 
-const TOMAS = '/home/user/atenea/.banco-pruebas/tomas';
+const TOMAS = 'tomas';
 const problemas = [];
 const anota = (t) => { problemas.push(t); console.log('  ⚠ ' + t); };
 
@@ -145,7 +145,7 @@ const ADMIN = [
 ];
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch({ channel: 'msedge' });
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const fallosJS = [];
   page.on('pageerror', (e) => fallosJS.push('pageerror: ' + e.message));

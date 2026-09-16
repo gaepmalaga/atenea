@@ -1,0 +1,8 @@
+/* El punto de entrada de Tailwind para el banco de pruebas: NO existía en el
+   repo (faltaba el fichero entero, no solo la ruta) y compilar-css.mjs
+   siempre apuntaba a él con una ruta absoluta de Linux. `@source` es
+   explícito, no confiar en la detección automática de Tailwind 4 al vivir
+   fuera de `app/`. Mismas dos líneas que `app/globals.css`. */
+@import "tailwindcss";
+@source "../app";
+@custom-variant dark (&:where(.dark, .dark *));
