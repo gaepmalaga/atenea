@@ -65,8 +65,18 @@ describe('superficie de las Server Actions', () => {
   it('todas comprueban la sesion antes de tocar nada', () => {
     // `requireSuperadmin` (P11f/P11i) es la tercera guarda: el panel
     // transversal de varias academias, que ni `requireAdmin` deja pasar.
+    //
+    // `getSessionUser()` a secas es la CUARTA, y a propósito más floja:
+    // `requireUser()` RECHAZA a quien no tiene `access: 'ok'` (pendiente,
+    // suspendido, sin academia resuelta) — pero `getCurrentUser` y
+    // `getMisAcademias` (P11h) son justo las dos acciones que tienen que
+    // seguir respondiendo a ESA persona: la primera para que sepa POR QUÉ
+    // está fuera, la segunda para poder ofrecerle un selector si el motivo
+    // es ambigüedad entre varias academias, no una decisión real de la
+    // academia. Las dos siguen exigiendo una sesión válida — solo no el
+    // resto de la guarda de acceso.
     const sinGuarda = allActions
-      .filter((a) => !/require(User|Admin|Superadmin)\(\)/.test(a.body))
+      .filter((a) => !/require(User|Admin|Superadmin)\(\)|getSessionUser\(\)/.test(a.body))
       .map((a) => `${a.file}: ${a.name}`);
 
     expect(sinGuarda).toEqual([]);

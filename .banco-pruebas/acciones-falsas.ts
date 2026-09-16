@@ -74,6 +74,11 @@ const pregunta = (i: number) => ({
 export async function getCurrentUser() {
   return { id: '11111111-1111-1111-1111-111111111111', email: 'gaepmalaga@gmail.com', role: 'admin' as const };
 }
+// P11h: el selector de academia no se ejerce en este banco (no hay login),
+// pero el stub tiene que existir para que construir.mjs no reviente.
+export async function getMisAcademias() {
+  return ok({ academias: [{ slug: 'alphapol', name: 'Alphapol' }] });
+}
 
 export async function getPsychProfile() {
   return ok({ data: { user_id: '11111111-1111-1111-1111-111111111111', answers: {} } });

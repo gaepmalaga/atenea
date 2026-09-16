@@ -22,6 +22,38 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   return getSessionUser();
 }
 
+/**
+ * Las academias a las que pertenece la sesión actual (P11h).
+ *
+ * A propósito NO pasa por `requireUser()`: esa guarda rechaza de entrada a
+ * quien está en `access: 'no-academy'` — que es EXACTAMENTE a quien esto
+ * tiene que poder responder. Alguien en dos academias, sin que la cookie de
+ * `middleware.ts` coincida con ninguna (`resolveOrganizationId`,
+ * `app/lib/auth.ts`), cae en ese estado — hasta ahora sin salida, solo
+ * "habla con tu academia" (`AccessLocked`). Con la lista real se le puede
+ * ofrecer elegir en vez de dejarlo fuera.
+ */
+export async function getMisAcademias(): Promise<
+  { success: true; academias: { slug: string; name: string }[] } | { success: false; error: string }
+> {
+  const user = await getSessionUser();
+  if (!user) return { success: false as const, error: 'Sesión no válida.' };
+
+  const { data, error } = await supabaseAdmin
+    .from('academy_members')
+    .select('academies(slug, name)')
+    .eq('user_id', user.id);
+  if (error) return { success: false as const, error: error.message };
+
+  type Fila = { academies: { slug: string; name: string } | { slug: string; name: string }[] | null };
+  const academias = ((data ?? []) as Fila[])
+    .map((f) => (Array.isArray(f.academies) ? f.academies[0] : f.academies))
+    .filter((a): a is { slug: string; name: string } => !!a)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { success: true as const, academias };
+}
+
 // --- ESTADISTICAS ---
 
 /** Cuantos resultados recientes se agregan para las metricas. */

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { getCurrentUser } from '@/actions';
+import { getCurrentUser, getMisAcademias } from '@/actions';
 import { createSupabaseBrowserClient } from '@/app/lib/supabase/client';
 import { mensajeDeAuth } from '@/app/lib/auth-messages';
 import type { AuthUser } from '@/app/lib/auth';
@@ -11,6 +11,7 @@ import StudentDashboard from './student/StudentDashboard';
 import AdminView from './Admin/AdminView';
 import LoginScreen, { type ModoAuth } from './auth/LoginScreen';
 import AccessLocked from './auth/AccessLocked';
+import SelectAcademyScreen from './auth/SelectAcademyScreen';
 import SetPasswordScreen from './auth/SetPasswordScreen';
 
 /**
@@ -41,6 +42,10 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [role, setRole] = useState<string>('student');
   const [loadingUser, setLoadingUser] = useState(true);
+  // P11h: solo se rellena si hace falta — cuando `access` sale `no-academy`.
+  // `null` = todavía no se ha mirado; `[]` = mirado, y de verdad no hay
+  // ninguna (el caso que sí es un callejón sin salida real).
+  const [academiasDisponibles, setAcademiasDisponibles] = useState<{ slug: string; name: string }[] | null>(null);
 
   const [authMode, setAuthMode] = useState<ModoAuth>('login');
   const [authLoading, setAuthLoading] = useState(false);
@@ -118,6 +123,7 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
         if (current) {
           setUser(current);
           setRole(current.role);
+          await cargaAcademiasSiHaceFalta(current);
         }
       } catch (e) {
         console.error('checkSession:', e);
@@ -128,6 +134,25 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
     }
     checkSession();
   }, [supabase]);
+
+  /**
+   * P11h: solo consulta si hace falta.
+   *
+   * Dos casos tienen `organizationId: null` sin ser ambiguos — un `student`
+   * o `admin` de verdad sin academia (`access: 'no-academy'`) y un
+   * `superadmin`, que NUNCA queda ligado a ninguna a propósito (regla 65) —
+   * y uno que SÍ lo es: un `admin` en más de una academia, sin que la cookie
+   * dijera cuál. Ese último es indistinguible del primero solo con
+   * `access` (`requireAdmin` no tiene su propio estado de acceso, siempre es
+   * `ok`), así que hace falta la lista real para saber cuál es cuál.
+   */
+  async function cargaAcademiasSiHaceFalta(current: AuthUser) {
+    const podriaSerAmbiguo =
+      current.access === 'no-academy' || (current.role === 'admin' && current.organizationId === null);
+    if (!podriaSerAmbiguo) return;
+    const res = await getMisAcademias();
+    setAcademiasDisponibles(res.success ? res.academias : []);
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -202,6 +227,7 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
           if (!current) throw new Error('No se pudo establecer la sesión.');
           setUser(current);
           setRole(current.role);
+          await cargaAcademiasSiHaceFalta(current);
         }
       } else {
         // P11j: el slug viaja como metadata del propio alta — el disparador
@@ -273,6 +299,17 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
         aviso={avisoMsg}
       />
     );
+  }
+
+  // P11h: `no-academy` (o un `admin` con `organizationId: null` sin ser
+  // superadmin) con MÁS DE UNA academia real detrás no es un callejón sin
+  // salida — es que la cookie de `middleware.ts` no decía cuál usar. Se le
+  // ofrece elegir en vez de mandarlo a "habla con tu academia" (regla 56: no
+  // se pregunta lo deducible, pero esto NO es deducible — nadie más que la
+  // persona sabe con cuál quiere entrar).
+  const esAdminAmbiguo = user.role === 'admin' && user.organizationId === null;
+  if ((user.access === 'no-academy' || esAdminAmbiguo) && academiasDisponibles && academiasDisponibles.length > 1) {
+    return <SelectAcademyScreen academias={academiasDisponibles} email={user.email} onLogout={handleLogout} />;
   }
 
   // P6: si la academia ha cerrado el acceso y este alumno no está activo, no ve
