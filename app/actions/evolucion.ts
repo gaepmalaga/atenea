@@ -24,7 +24,6 @@ import {
   type Desglose,
   type DiaActividad,
 } from '../lib/evolucion';
-import { resumeSimulacros, type ResumenSimulacros } from '../lib/simulacros';
 
 /**
  * "MI EVOLUCIÓN" (regla 77) — sustituye a "Estadísticas". La historia
@@ -51,7 +50,6 @@ export type MiEvolucion = {
   /** Cuántos días de la curva ya estaban cacheados: 0 = primer cálculo entero. */
   diasDesdeCache: number;
   actividad: DiaActividad[];
-  simulacros: ResumenSimulacros;
 };
 
 /** Fin del día LOCAL (`YYYY-MM-DD`) en milisegundos — construido por componentes,
@@ -164,7 +162,7 @@ export async function getMiEvolucion(): Promise<
     (desde, hasta) =>
       db
         .from('question_attempts')
-        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at, exam_id')
+        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
         .range(desde, hasta) as unknown as Promise<{ data: IntentoPregunta[] | null; error: { message: string } | null }>,
@@ -197,10 +195,6 @@ export async function getMiEvolucion(): Promise<
 
   const { curva, diasDesdeCache } = await curvaConCache(db, userId, intentos, inicio);
 
-  // ¿Aprobaría? — mismos simulacros que ya cuenta `resumeSimulacros`, sobre
-  // el mismo `intentos` (que ya trae `exam_id`, sin consulta aparte).
-  const simulacros = resumeSimulacros(intentos);
-
   return {
     success: true as const,
     data: {
@@ -213,7 +207,6 @@ export async function getMiEvolucion(): Promise<
       curva,
       diasDesdeCache,
       actividad,
-      simulacros,
     },
   };
 }

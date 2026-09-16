@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Flame, Map as MapIcon, Layers, XCircle, TrendingUp, TrendingDown,
+  Flame, Map as MapIcon, Layers, TrendingUp,
   Activity, Sparkles,
 } from 'lucide-react';
 import { getMiEvolucion } from '@/actions';
 import type { MiEvolucion as MiEvolucionData, PuntoCurva } from '@/app/actions/evolucion';
-import { CNP_SCORING } from '@/app/lib/scoring';
 import { Card, SectionLabel, EmptyState, cx, TEXT, TAP } from '../../../ui';
 
 interface MiEvolucionProps {
@@ -125,8 +124,6 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
   const temasAMostrar = verTodosLosTemas ? temasConBanco : temasConBanco.slice(0, TEMAS_VISIBLES);
   const hayMasTemas = temasConBanco.length > TEMAS_VISIBLES;
 
-  const { simulacros } = data;
-
   return (
     <div className="max-w-3xl mx-auto space-y-4 pb-4 animate-in fade-in duration-150">
 
@@ -236,55 +233,6 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
           <p className={cx(TEXT.muted, 'mt-1.5')}>Nunca te has atrevido a contestarlas. Por algo será.</p>
         </div>
       </div>
-
-      {/* ───────── ¿APROBARÍA? ───────── */}
-      <Card pad="lg" elevation="raised">
-        <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 mb-1')}>¿Aprobaría?</p>
-        <p className={cx(TEXT.muted, 'mb-4')}>
-          Media de tus simulacros, con la nota de la convocatoria. Se aprueba con {CNP_SCORING.passMark}.
-        </p>
-        {simulacros.media !== null ? (
-          <>
-            <div className="flex items-end gap-4 flex-wrap">
-              <p className={cx(
-                'text-5xl font-black leading-none tracking-tighter',
-                simulacros.media >= CNP_SCORING.passMark ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
-              )}>
-                {nota(simulacros.media)}
-              </p>
-              <span className="text-slate-400 dark:text-slate-500 text-lg font-black mb-1">/ {CNP_SCORING.scale}</span>
-              {simulacros.tendencia && simulacros.tendencia !== 'estable' && (
-                <span className={cx(
-                  'inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-full mb-1.5',
-                  simulacros.tendencia === 'sube'
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
-                    : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
-                )}>
-                  {simulacros.tendencia === 'sube' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  {simulacros.tendencia === 'sube' ? 'subiendo' : 'bajando'}
-                </span>
-              )}
-            </div>
-            {simulacros.simulacros.length > 1 && (
-              <div className="flex items-end gap-1 h-10 mt-4">
-                {[...simulacros.simulacros].reverse().slice(-12).map((s) => (
-                  <div
-                    key={s.examId}
-                    title={`${nota(s.nota)} · ${s.fecha ? new Date(s.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : ''}`}
-                    className={cx('flex-1 rounded-sm min-w-[6px]', s.aprobado ? 'bg-emerald-500' : 'bg-red-400')}
-                    style={{ height: `${Math.max(12, (s.nota / CNP_SCORING.scale) * 100)}%` }}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex items-center gap-3 py-2">
-            <XCircle size={20} className="text-slate-300 dark:text-slate-600 shrink-0" />
-            <p className={cx(TEXT.muted)}>Aún no has hecho ningún simulacro. Cuando hagas uno, aquí verás si aprobarías.</p>
-          </div>
-        )}
-      </Card>
 
       {/* ───────── CÓMO HAS CRECIDO ───────── */}
       <Card>

@@ -606,13 +606,6 @@ export async function getMiEvolucion() {
         fecha: new Date(Date.now() - i * 864e5).toISOString().slice(0, 10),
         respuestas: i % 5 === 0 ? 0 : 8 + (i % 12),
       })),
-      simulacros: {
-        simulacros: [
-          { examId: 'ex-1', fecha: new Date(Date.now() - 86400000).toISOString(), total: 50, aciertos: 30, fallos: 15, blancos: 5, nota: 5.8, aprobado: true },
-          { examId: 'ex-5', fecha: new Date(Date.now() - 5 * 86400000).toISOString(), total: 50, aciertos: 28, fallos: 17, blancos: 5, nota: 4.9, aprobado: true },
-        ],
-        media: 5.35, mejor: 5.8, tendencia: 'sube' as const,
-      },
     },
   });
 }
