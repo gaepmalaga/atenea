@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
-  Mail, ShieldCheck, X, Send, Shuffle, Brain,
+  Mail, ShieldCheck, X, Send, Shuffle, Brain, Search, Archive,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
@@ -52,6 +52,13 @@ export default function AdminStudents() {
 
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const SIN_GRUPO = '__sin__';
+  const [busqueda, setBusqueda] = useState('');
+  // Con el paso de los meses se acumulan alumnos de años que ya no estudian
+  // (suspendidos), mezclados con los activos, y la lista se vuelve
+  // interminable. Un suspendido ya es una decisión tomada — no hace falta
+  // llamarle (regla 35: la lista es para saber A QUIÉN LLAMAR) — así que se
+  // recoge aparte por defecto, no se pierde ni se borra.
+  const [verSuspendidos, setVerSuspendidos] = useState(false);
 
   const [exentos, setExentos] = useState<string[]>([]);
   const [nuevoExento, setNuevoExento] = useState('');
@@ -125,10 +132,21 @@ export default function AdminStudents() {
   const conAcceso = alumnos.filter((a) => a.acceso === 'active').length;
 
   const hayAlgunSinGrupo = alumnos.some((a) => a.grupos.length === 0);
-  const alumnosVistos =
+  const porGrupo =
     filtroGrupo === '' ? alumnos
     : filtroGrupo === SIN_GRUPO ? alumnos.filter((a) => a.grupos.length === 0)
     : alumnos.filter((a) => a.grupos.some((g) => g.id === filtroGrupo));
+
+  const q = busqueda.trim().toLowerCase();
+  const porBusqueda = q ? porGrupo.filter((a) => (a.email ?? '').toLowerCase().includes(q)) : porGrupo;
+
+  // Los suspendidos se recogen aparte: ya es una decisión tomada, no alguien
+  // a quien llamar — sin este corte, un piloto de meses acumula alumnos de
+  // cursos anteriores hasta que la lista es un scroll interminable. Una
+  // búsqueda activa SÍ los busca (quien busca por nombre quiere encontrarlo,
+  // esté donde esté), para no esconder a alguien que se está buscando.
+  const suspendidos = porBusqueda.filter((a) => a.acceso === 'suspended');
+  const alumnosVistos = (verSuspendidos || q) ? porBusqueda : porBusqueda.filter((a) => a.acceso !== 'suspended');
 
   return (
     <div className="space-y-4 animate-in fade-in pb-24">
@@ -231,6 +249,18 @@ export default function AdminStudents() {
         <StatTile label={`Pagó ${formateaPeriodo(periodoActual).split(' de ')[0]}`} value={`${pagadosMes}/${conAcceso}`} tone="brand" />
       </div>
 
+      {/* --- BUSCADOR --- */}
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por correo…"
+          className="w-full text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-9 pr-3 py-2"
+        />
+      </div>
+
       {/* --- FILTRO POR GRUPO --- */}
       {grupos.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap text-sm">
@@ -246,7 +276,7 @@ export default function AdminStudents() {
       )}
 
       {/* --- LA LISTA --- */}
-      <p className={cx(TEXT.muted)}>{alumnos.length} personas · abandono a partir de {DIAS_ABANDONO} días sin entrar</p>
+      <p className={cx(TEXT.muted)}>{alumnosVistos.length} personas · abandono a partir de {DIAS_ABANDONO} días sin entrar</p>
       <div className="space-y-2">
         {alumnosVistos.length === 0 && <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">Nadie aquí.</p>}
         {alumnosVistos.map((a) => (
@@ -264,6 +294,21 @@ export default function AdminStudents() {
           />
         ))}
       </div>
+
+      {/* --- LOS SUSPENDIDOS, RECOGIDOS APARTE ---
+          Ya es una decisión tomada: no aparecen en "a quién llamar" (regla
+          35), y sin este corte se acumulan curso tras curso hasta que la
+          lista de arriba es un scroll interminable. No se pierden — un toque
+          los trae de vuelta. */}
+      {!q && suspendidos.length > 0 && (
+        <button
+          onClick={() => setVerSuspendidos((v) => !v)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-600"
+        >
+          <Archive size={13} />
+          {verSuspendidos ? 'Ocultar' : 'Ver'} {suspendidos.length} {suspendidos.length === 1 ? 'suspendido' : 'suspendidos'}
+        </button>
+      )}
 
       {/* --- SALUD DEL CONTENIDO (de Academia) --- */}
       <Card tone="base" className="mt-6">

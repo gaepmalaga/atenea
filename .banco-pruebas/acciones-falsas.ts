@@ -379,8 +379,11 @@ export async function getAcademyOverview() {
         // que tocaba. Sin este caso en el stub, el fallo no se veía nunca.
         { id: 'u4', email: 'entra.pero.no.hace.tests@ejemplo.com', role: 'student', contestadas: 0, blancos: 0, aciertos: 0, winRate: null, ultimaActividad: null, ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: null, estado: 'activo' as const, estudiando: 'nunca' as const, grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }, { id: 'g2', name: 'Físicas L-X', kind: 'fisicas' }], acceso: 'active' as const, exento: false, pagadoMesActual: true },
         { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', contestadas: 36, blancos: 6, aciertos: 24, winRate: 67, ultimaActividad: new Date().toISOString(), ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: 0, estado: 'activo' as const, estudiando: 'al_dia' as const, grupos: [], acceso: 'active' as const, exento: false, pagadoMesActual: false },
+        // Un suspendido: para ver que se recoge aparte de la lista principal
+        // (regla nueva, "la lista no se vuelve interminable con los meses").
+        { id: 'u5', email: 'alumno.del.curso.pasado@ejemplo.com', role: 'student', contestadas: 240, blancos: 30, aciertos: 150, winRate: 71, ultimaActividad: new Date(Date.now() - 200 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 200 * 86400000).toISOString(), diasSinEntrar: 200, diasSinEstudiar: 200, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const, grupos: [], acceso: 'suspended' as const, exento: false, pagadoMesActual: false },
       ],
-      porEstado: { nunca_entro: 1, activo: 2, en_riesgo: 0, abandonado: 1 },
+      porEstado: { nunca_entro: 1, activo: 2, en_riesgo: 0, abandonado: 2 },
       grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }, { id: 'g2', name: 'Físicas L-X', kind: 'fisicas' }],
       membershipRequired: true,
       periodoActual: '2026-09',
