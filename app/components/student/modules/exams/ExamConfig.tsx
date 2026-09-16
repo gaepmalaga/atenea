@@ -31,7 +31,11 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
   const [cargando, setCargando] = useState(true);
   const [settings, setSettings] = useState<ExamSettings>(initialSettings);
 
-  const [alcance, setAlcance] = useState<Alcance>('uno');
+  // «Todo» es el camino natural: es donde el motor adaptativo compara
+  // urgencia entre TODOS los temas, no solo dentro de uno. Restringir a un
+  // tema sigue siendo legítimo (repasar justo lo que acabas de estudiar),
+  // pero es la excepción que elige el alumno, no el punto de partida.
+  const [alcance, setAlcance] = useState<Alcance>('todo');
   const [temaUnico, setTemaUnico] = useState<string>('');
   const [bloquesElegidos, setBloquesElegidos] = useState<Set<number>>(new Set());
 
@@ -187,12 +191,19 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
         </div>
 
         {alcance === 'uno' && (
-          <SelectorTema
-            value={temaUnico}
-            onChange={setTemaUnico}
-            grupos={gruposSelector}
-            ayuda="El número es el del temario oficial"
-          />
+          <>
+            <SelectorTema
+              value={temaUnico}
+              onChange={setTemaUnico}
+              grupos={gruposSelector}
+              ayuda="El número es el del temario oficial"
+            />
+            {esEntreno && (
+              <p className={cx(TEXT.muted, 'mt-3')}>
+                Solo vas a ver preguntas de este tema — el sistema sigue priorizando por urgencia, pero solo dentro de él. Lo que toque en otros temas espera hasta que elijas «Todo».
+              </p>
+            )}
+          </>
         )}
 
         {alcance === 'bloques' && (
@@ -233,7 +244,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
         {alcance === 'todo' && (
           <p className={cx(TEXT.muted)}>
             {todosLosTemas.length} temas del temario. {esEntreno
-              ? 'El sistema reparte por lo que más te conviene.'
+              ? 'Así es como más se aprovecha el sistema: compara la urgencia real entre TODOS tus temas y te trae primero lo que de verdad toca, adaptado a ti.'
               : 'El simulacro reparte las preguntas como la convocatoria.'}
           </p>
         )}

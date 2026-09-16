@@ -8,7 +8,7 @@ import {
 import { getMiEvolucion } from '@/actions';
 import type { MiEvolucion as MiEvolucionData, PuntoCurva } from '@/app/actions/evolucion';
 import { CNP_SCORING } from '@/app/lib/scoring';
-import { Card, SectionLabel, EmptyState, cx, TEXT } from '../../../ui';
+import { Card, SectionLabel, EmptyState, cx, TEXT, TAP } from '../../../ui';
 
 interface MiEvolucionProps {
   user: { id: string };
@@ -75,6 +75,7 @@ function nivelActividad(n: number): string {
 export default function MiEvolucion({ user }: MiEvolucionProps) {
   const [data, setData] = useState<MiEvolucionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [verTodosLosTemas, setVerTodosLosTemas] = useState(false);
 
   useEffect(() => {
     getMiEvolucion()
@@ -113,6 +114,16 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
     { valor: data.resumenBanco.vistasSinAsentar, color: 'bg-slate-300 dark:bg-slate-600' },
     { valor: data.resumenBanco.sinTocar, color: 'bg-slate-100 dark:bg-slate-800' },
   ];
+
+  // El mapa por temas: con 45 temas era un scroll interminable, sobre todo en
+  // móvil, y sin orden — se veía tal cual salía de la BD, no lo que más
+  // importa (regla 35: "la lista se ordena por urgencia, no por nombre").
+  // Se ordena por el que MENOS dominado está (lo accionable primero) y se
+  // recorta a un puñado, con un botón para ver los 45 si hace falta.
+  const TEMAS_VISIBLES = 6;
+  const temasConBanco = [...data.mapaTemas].filter((t) => t.total > 0).sort((a, b) => a.progreso - b.progreso);
+  const temasAMostrar = verTodosLosTemas ? temasConBanco : temasConBanco.slice(0, TEMAS_VISIBLES);
+  const hayMasTemas = temasConBanco.length > TEMAS_VISIBLES;
 
   const { simulacros } = data;
 
@@ -172,19 +183,29 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
           <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300"><span className="inline-block w-2 h-2 rounded-sm bg-slate-100 dark:bg-slate-800 mr-1.5" /><b className="text-slate-900 dark:text-white">{data.resumenBanco.sinTocar}</b> sin tocar</span>
         </div>
 
-        {data.mapaTemas.filter((t) => t.total > 0).length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {data.mapaTemas.filter((t) => t.total > 0).map((t) => {
-              const c = colorTema(t.progreso);
-              return (
-                <div key={t.topic} className={cx('relative overflow-hidden rounded-xl p-3', c.bg)}>
-                  <div className={cx('absolute left-0 bottom-0 w-full opacity-20', c.bar)} style={{ height: `${t.progreso}%` }} />
-                  <p className="relative text-[11px] font-bold text-slate-800 dark:text-slate-100 leading-snug mb-3 line-clamp-2 min-h-[28px]">{t.topic}</p>
-                  <p className={cx('relative text-lg font-black', c.ink)}>{t.progreso}<span className="text-[10px] font-bold text-slate-400 ml-0.5">%</span></p>
-                </div>
-              );
-            })}
-          </div>
+        {temasConBanco.length > 0 && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {temasAMostrar.map((t) => {
+                const c = colorTema(t.progreso);
+                return (
+                  <div key={t.topic} className={cx('relative overflow-hidden rounded-xl p-3', c.bg)}>
+                    <div className={cx('absolute left-0 bottom-0 w-full opacity-20', c.bar)} style={{ height: `${t.progreso}%` }} />
+                    <p className="relative text-[11px] font-bold text-slate-800 dark:text-slate-100 leading-snug mb-3 line-clamp-2 min-h-[28px]">{t.topic}</p>
+                    <p className={cx('relative text-lg font-black', c.ink)}>{t.progreso}<span className="text-[10px] font-bold text-slate-400 ml-0.5">%</span></p>
+                  </div>
+                );
+              })}
+            </div>
+            {hayMasTemas && (
+              <button
+                onClick={() => setVerTodosLosTemas((v) => !v)}
+                className={cx(TAP, 'w-full mt-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 active:scale-[0.98] transition-transform')}
+              >
+                {verTodosLosTemas ? 'Ver menos' : `Ver los ${temasConBanco.length} temas`}
+              </button>
+            )}
+          </>
         )}
       </Card>
 
