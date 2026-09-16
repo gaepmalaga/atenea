@@ -367,12 +367,16 @@ export async function getAcademyOverview() {
         { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', contestadas: 36, blancos: 6, aciertos: 24, winRate: 67, ultimaActividad: new Date().toISOString(), ultimaConexion: new Date().toISOString(), diasSinEntrar: 0, diasSinEstudiar: 0, estado: 'activo' as const, estudiando: 'al_dia' as const },
       ],
       porEstado: { nunca_entro: 1, activo: 2, en_riesgo: 0, abandonado: 1 },
+      grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }, { id: 'g2', name: 'Físicas L-X', kind: 'fisicas' }],
+      membershipRequired: true,
+      periodoActual: '2026-09',
       cobertura: [
         { subjectId: 1, title: TEMAS[0], preguntas: 24, alumnos: 2 },
         { subjectId: 2, title: TEMAS[1], preguntas: 0, alumnos: 0 },
         { subjectId: 3, title: TEMAS[2], preguntas: 12, alumnos: 0 },
       ],
       sospechosas: [{ questionId: 'q-1', veces: 22, aciertos: 2, winRate: 9, texto: '¿Pregunta que casi todos fallan y probablemente esté mal redactada?', tema: TEMAS[0] }],
+      confusas: [{ a: 'q-1', b: 'q-2', topic: TEMAS[0], n: 12, fallanAmbas: 9, tasaCoFallo: 0.75, lift: 3.4, textoA: '¿Pregunta A que se confunde con B?', textoB: '¿Pregunta B, casi la misma distinción?' }],
       progresoSemanal: { alumnosQueAvanzan: 2, dominadasEstaSemana: 14 },
     },
   });

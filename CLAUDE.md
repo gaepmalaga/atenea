@@ -71,7 +71,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Un admin de academia ya no puede tocar el banco de OTRA academia, ni el global entero** | ✅ **cerrada** (14 sep), a preguntas directas del dueño mirando el panel de un admin real. `seedQuestionBank`/`seedFlashcardBank`/`generateAndSaveCandidate`/Temario & IA entero pasan de `requireAdmin` a `requireSuperadmin` (escribían SIEMPRE en el banco global, sin distinguir academia); `disableQuestion`/`updateQuestion`/`discardAllQuestions`/`resolveReport` se quedan en `requireAdmin` pero acotados por `organization_id` dentro de la propia consulta; «Consumo IA» pasa a ser solo del superadmin (para un admin normal de una academia manual salía siempre a 0 €). Ver **regla 75**. Verificado con sesión real de `morato@atenea.com`: sus pestañas bajan de 10 a 8, «Banco Oficial» y «Moderación» siguen funcionando sin fugas. `npm run check` (1019 tests) y `npm run build` en verde |
 | — | **El panel de «Alumnos» dice si el motor adaptativo está funcionando** | ✅ **cerrada** (15 sep). `progresoSemanalAcademia` (`app/lib/academy.ts`) corre el mismo cálculo por alumno (hoy vs hace 7 días) y suma: *"Esta semana el sistema ha llevado N preguntas más a dominadas, entre M alumnos"*, sin consulta nueva (reutiliza los `intentos` que `getAcademyOverview` ya trae). Se oculta si la suma es 0. Ver **regla 76** |
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
-| — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada** (15 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. Ver **regla 78**. `npm run check` (1047 tests) en verde |
+| — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
 
 ## Producción
 
@@ -93,26 +93,16 @@ Los guiones de Supabase que estaban pendientes en fases anteriores (RLS, cuota d
 `question_attempts`, `ai_usage` de la regla 41 y el historial del chat de la regla 44)
 **ya están ejecutados**. Lo que queda necesita algo que no se puede hacer desde aquí:
 
-1. **Ejecutar SQL. Quedan DOS guiones pendientes:**
-   - **`docs/sql/curva-progreso.sql`** (15 sep 2026) — **SIN EJECUTAR.** Crea
-     `curva_progreso` (`user_id, fecha, dominadas`, PK compuesta) para cachear
-     la curva diaria de «Mi Evolución» (regla 77) entre visitas y entre
-     dispositivos — el dueño fue explícito: nada de `localStorage`. Sin
-     ejecutarlo, la pantalla funciona igual, solo recalcula la curva entera
-     cada vez en vez de cachear el pasado (degradación con gracia, igual que
-     `admin_audit_log`). Después de ejecutarlo: `node
-     scripts/schema-snapshot.mjs`, y quitar `curva_progreso` de
-     `PENDIENTE_SQL` en `tests/schema-drift.test.ts`.
-   - **`P12-solicitudes-y-exentos.sql`** (12 sep 2026) — **SIN EJECUTAR.** Amplía el `CHECK`
-     de `memberships.access_status` a un tercer valor (`'pending'`), añade
-     `memberships.exempt` y la tabla `membership_exemptions`, y cambia el
-     `DEFAULT` de `membership_settings.required` a `true` (regla 70, la
-     solicitud de alta con aviso por correo y los exentos de pago). Después de
-     ejecutarlo: `node scripts/schema-snapshot.mjs`, y luego dar acceso a
-     todos los alumnos actuales de Alphapol y `atenea` (botón «Activar a
-     todos» en «Alumnos», una vez por academia) **antes** de encender el
-     interruptor de control de acceso en las dos — si se enciende primero, se
-     quedan fuera de golpe.
+1. **Ejecutar SQL. No queda ningún guion pendiente** (16 sep 2026 — verificado
+   contra la base de datos real, no solo contra lo que decía este documento:
+   `curva_progreso`, `memberships.exempt` y `membership_exemptions` existen
+   los tres). El guion de la regla 77 se sumó al volcado el mismo día
+   (`node scripts/schema-snapshot.mjs`, ya son **40 tablas**), y de paso se
+   corrigió aquí un error de documentación de antes de esta sesión: este
+   apartado llevaba tiempo diciendo que `P12-solicitudes-y-exentos.sql`
+   seguía sin ejecutar cuando llevaba ejecutado desde el 12 sep (regla 70 y
+   «Estado actual» ya lo decían bien; solo esta lista se había quedado
+   atrás).
    - **`P11j-asignar-academia-en-registro.sql`** (12 sep 2026, **ejecutado y
      verificado con dos altas reales el mismo día**) — un
      disparador de Postgres (`on_auth_user_created_academia`) que da de alta
@@ -3087,9 +3077,10 @@ agosto"* pero la curva empezaba el *"12 de agosto"*. Arreglado con
 `medianocheLocal()` (medianoche a medianoche, no milisegundos exactos), con
 un test que reproduce exactamente el desajuste de hora que lo destapó.
 
-`docs/sql/curva-progreso.sql` — **SIN EJECUTAR** (ver «Lo que solo puedes
-hacer tú»). Sin la tabla, la pantalla funciona igual, solo recalcula la
-curva entera en cada visita en vez de cachear el pasado.
+`docs/sql/curva-progreso.sql` — **ejecutado y verificado** (16 sep 2026):
+`curva_progreso` existe contra la BD real y el volcado ya la trae
+(`node scripts/schema-snapshot.mjs`, 40 tablas). La degradación con gracia
+se queda en el código por si la tabla se cayera, pero ya no hace falta.
 
 Verificado en el preview con datos reales de `alumno@atenea.com`, incluida
 la corrección del fallo de fecha contra la producción real. `npm run check`
@@ -3156,9 +3147,10 @@ añade esa guía de FORMA con una instrucción explícita: el hecho legal —la
 cifra, el plazo, el artículo— sale EXCLUSIVAMENTE del texto del tema actual
 que se le pasa al modelo, nunca de lo que "suene" de un examen real.
 
-Verificado con un ensayo (`--ensayo`, sin gastar nada) antes de lanzar
-nada de verdad: **2.830 preguntas nuevas**, banco global final de
-**~4.625**. `npm run check` (1047 tests) en verde.
+Verificado primero con un ensayo (`--ensayo`, sin gastar nada: proyectaba
+2.830 preguntas nuevas), y **ejecutado de verdad y terminado** (15-16 sep
+2026): **2.822 preguntas nuevas, 8 repetidas, 0 fallidas — banco global
+activo en 4.617**. `npm run check` (1047 tests) en verde.
 
 ---
 

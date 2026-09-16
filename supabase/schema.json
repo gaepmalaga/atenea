@@ -1,5 +1,5 @@
 {
-  "generado": "2026-09-14",
+  "generado": "2026-09-16",
   "tablas": {
     "academies": {
       "columnas": [
@@ -314,6 +314,23 @@
       "tipos": {
         "class_id": "uuid",
         "created_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
+    "curva_progreso": {
+      "columnas": [
+        "dominadas",
+        "fecha",
+        "user_id"
+      ],
+      "obligatorias": [
+        "dominadas",
+        "fecha",
+        "user_id"
+      ],
+      "tipos": {
+        "dominadas": "integer",
+        "fecha": "date",
         "user_id": "uuid"
       }
     },

@@ -10,8 +10,8 @@
 -- cantara: se escribian columnas inexistentes y PostgREST rechazaba la
 -- escritura entera en silencio.
 --
--- Fecha del volcado: 2026-09-07
--- Tablas: 36   ·   Politicas: 24
+-- Fecha del volcado: 2026-09-16
+-- Tablas: 40   ·   Politicas: 25
 -- =============================================================================
 
 create extension if not exists "uuid-ossp";
@@ -22,23 +22,38 @@ create extension if not exists vector;
 -- ==========================================================================
 
 -- --------------------------------------------------------------------------
+create table if not exists public.academies (
+  id uuid not null default gen_random_uuid(),
+  slug text not null,
+  name text not null,
+  created_at timestamp with time zone not null default now()
+);
+
+-- --------------------------------------------------------------------------
 create table if not exists public.academy_convocatoria (
-  id integer not null default 1,
   escala text,
   fecha_examen date,
   nota text,
-  updated_at timestamp with time zone not null default now()
+  updated_at timestamp with time zone not null default now(),
+  organization_id uuid not null
+);
+
+-- --------------------------------------------------------------------------
+create table if not exists public.academy_members (
+  academy_id uuid not null,
+  user_id uuid not null,
+  created_at timestamp with time zone not null default now()
 );
 
 -- --------------------------------------------------------------------------
 create table if not exists public.academy_settings (
-  id integer not null default 1,
   name text,
   address text,
   schedule text,
   contact_email text,
   contact_phone text,
-  updated_at timestamp with time zone not null default now()
+  updated_at timestamp with time zone not null default now(),
+  organization_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -49,7 +64,8 @@ create table if not exists public.academy_staff (
   email text,
   phone text,
   active boolean not null default true,
-  created_at timestamp with time zone not null default now()
+  created_at timestamp with time zone not null default now(),
+  organization_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -59,7 +75,8 @@ create table if not exists public.admin_audit_log (
   action text not null,
   target text,
   detail jsonb,
-  created_at timestamp with time zone not null default now()
+  created_at timestamp with time zone not null default now(),
+  organization_id uuid
 );
 
 -- --------------------------------------------------------------------------
@@ -123,7 +140,8 @@ create table if not exists public.class_groups (
   name text not null,
   kind text not null default 'otro'::text,
   schedule text,
-  created_at timestamp with time zone not null default now()
+  created_at timestamp with time zone not null default now(),
+  organization_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -131,6 +149,13 @@ create table if not exists public.class_members (
   class_id uuid not null,
   user_id uuid not null,
   created_at timestamp with time zone not null default now()
+);
+
+-- --------------------------------------------------------------------------
+create table if not exists public.curva_progreso (
+  user_id uuid not null,
+  fecha date not null,
+  dominadas integer not null
 );
 
 -- --------------------------------------------------------------------------
@@ -200,7 +225,8 @@ create table if not exists public.group_kinds (
   label text not null,
   lleva_plan boolean not null default false,
   sort_order integer not null default 0,
-  created_at timestamp with time zone not null default now()
+  created_at timestamp with time zone not null default now(),
+  organization_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -223,10 +249,17 @@ create table if not exists public.interview_reports (
 );
 
 -- --------------------------------------------------------------------------
+create table if not exists public.membership_exemptions (
+  organization_id uuid not null,
+  email text not null,
+  created_at timestamp with time zone not null default now()
+);
+
+-- --------------------------------------------------------------------------
 create table if not exists public.membership_settings (
-  id integer not null default 1,
-  required boolean not null default false,
-  updated_at timestamp with time zone not null default now()
+  required boolean not null default true,
+  updated_at timestamp with time zone not null default now(),
+  organization_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -235,7 +268,9 @@ create table if not exists public.memberships (
   access_status text not null default 'active'::text,
   payment_status text not null default 'al_dia'::text,
   note text,
-  updated_at timestamp with time zone not null default now()
+  updated_at timestamp with time zone not null default now(),
+  organization_id uuid not null,
+  exempt boolean not null default false
 );
 
 -- --------------------------------------------------------------------------
@@ -256,7 +291,8 @@ create table if not exists public.monthly_payments (
   paid_on date,
   note text,
   recorded_by uuid,
-  updated_at timestamp with time zone not null default now()
+  updated_at timestamp with time zone not null default now(),
+  organization_id uuid not null
 );
 
 -- --------------------------------------------------------------------------
@@ -327,7 +363,8 @@ create table if not exists public.question_attempts (
   created_at timestamp with time zone not null default timezone('utc'::text, now()),
   option_changes integer not null default 0,
   confidence smallint,
-  first_touch_ms integer
+  first_touch_ms integer,
+  answer_path jsonb
 );
 
 -- --------------------------------------------------------------------------
@@ -345,7 +382,8 @@ create table if not exists public.question_bank (
   origin text default 'bank'::text,
   global_success_rate double precision default 0,
   created_at timestamp with time zone default now(),
-  legal_reference text
+  legal_reference text,
+  organization_id uuid
 );
 
 -- --------------------------------------------------------------------------
@@ -412,10 +450,14 @@ create table if not exists public.workout_logs (
 -- Claves primarias, ajenas, unicidad y checks
 -- ==========================================================================
 
+alter table public.academies drop constraint if exists academies_pkey;
+alter table public.academies add constraint academies_pkey PRIMARY KEY (id);
 alter table public.academy_convocatoria drop constraint if exists academy_convocatoria_pkey;
-alter table public.academy_convocatoria add constraint academy_convocatoria_pkey PRIMARY KEY (id);
+alter table public.academy_convocatoria add constraint academy_convocatoria_pkey PRIMARY KEY (organization_id);
+alter table public.academy_members drop constraint if exists academy_members_pkey;
+alter table public.academy_members add constraint academy_members_pkey PRIMARY KEY (academy_id, user_id);
 alter table public.academy_settings drop constraint if exists academy_settings_pkey;
-alter table public.academy_settings add constraint academy_settings_pkey PRIMARY KEY (id);
+alter table public.academy_settings add constraint academy_settings_pkey PRIMARY KEY (organization_id);
 alter table public.academy_staff drop constraint if exists academy_staff_pkey;
 alter table public.academy_staff add constraint academy_staff_pkey PRIMARY KEY (id);
 alter table public.admin_audit_log drop constraint if exists admin_audit_log_pkey;
@@ -436,6 +478,8 @@ alter table public.class_groups drop constraint if exists class_groups_pkey;
 alter table public.class_groups add constraint class_groups_pkey PRIMARY KEY (id);
 alter table public.class_members drop constraint if exists class_members_pkey;
 alter table public.class_members add constraint class_members_pkey PRIMARY KEY (class_id, user_id);
+alter table public.curva_progreso drop constraint if exists curva_progreso_pkey;
+alter table public.curva_progreso add constraint curva_progreso_pkey PRIMARY KEY (user_id, fecha);
 alter table public.document_chunks drop constraint if exists document_chunks_pkey;
 alter table public.document_chunks add constraint document_chunks_pkey PRIMARY KEY (id);
 alter table public.documents drop constraint if exists documents_pkey;
@@ -447,19 +491,21 @@ alter table public.flashcard_progress add constraint flashcard_progress_pkey PRI
 alter table public.flashcard_results drop constraint if exists flashcard_results_pkey;
 alter table public.flashcard_results add constraint flashcard_results_pkey PRIMARY KEY (id);
 alter table public.group_kinds drop constraint if exists group_kinds_pkey;
-alter table public.group_kinds add constraint group_kinds_pkey PRIMARY KEY (id);
+alter table public.group_kinds add constraint group_kinds_pkey PRIMARY KEY (organization_id, id);
 alter table public.group_training_plans drop constraint if exists group_training_plans_pkey;
 alter table public.group_training_plans add constraint group_training_plans_pkey PRIMARY KEY (class_id, week_start);
 alter table public.interview_reports drop constraint if exists interview_reports_pkey;
 alter table public.interview_reports add constraint interview_reports_pkey PRIMARY KEY (id);
+alter table public.membership_exemptions drop constraint if exists membership_exemptions_pkey;
+alter table public.membership_exemptions add constraint membership_exemptions_pkey PRIMARY KEY (organization_id, email);
 alter table public.membership_settings drop constraint if exists membership_settings_pkey;
-alter table public.membership_settings add constraint membership_settings_pkey PRIMARY KEY (id);
+alter table public.membership_settings add constraint membership_settings_pkey PRIMARY KEY (organization_id);
 alter table public.memberships drop constraint if exists memberships_pkey;
-alter table public.memberships add constraint memberships_pkey PRIMARY KEY (user_id);
+alter table public.memberships add constraint memberships_pkey PRIMARY KEY (organization_id, user_id);
 alter table public.module_settings drop constraint if exists module_settings_pkey;
 alter table public.module_settings add constraint module_settings_pkey PRIMARY KEY (module_id);
 alter table public.monthly_payments drop constraint if exists monthly_payments_pkey;
-alter table public.monthly_payments add constraint monthly_payments_pkey PRIMARY KEY (user_id, period);
+alter table public.monthly_payments add constraint monthly_payments_pkey PRIMARY KEY (organization_id, user_id, period);
 alter table public.profiles drop constraint if exists profiles_pkey;
 alter table public.profiles add constraint profiles_pkey PRIMARY KEY (id);
 alter table public.profiles_biodata drop constraint if exists profiles_biodata_pkey;
@@ -484,6 +530,8 @@ alter table public.training_plans drop constraint if exists training_plans_pkey;
 alter table public.training_plans add constraint training_plans_pkey PRIMARY KEY (id);
 alter table public.workout_logs drop constraint if exists workout_logs_pkey;
 alter table public.workout_logs add constraint workout_logs_pkey PRIMARY KEY (id);
+alter table public.academies drop constraint if exists academies_slug_key;
+alter table public.academies add constraint academies_slug_key UNIQUE (slug);
 alter table public.blocks drop constraint if exists blocks_name_key;
 alter table public.blocks add constraint blocks_name_key UNIQUE (name);
 alter table public.question_bank drop constraint if exists question_bank_question_hash_key;
@@ -492,26 +540,36 @@ alter table public.question_notes drop constraint if exists question_notes_user_
 alter table public.question_notes add constraint question_notes_user_question_key UNIQUE (user_id, question_id);
 alter table public.subjects drop constraint if exists subjects_topic_number_key;
 alter table public.subjects add constraint subjects_topic_number_key UNIQUE (topic_number);
-alter table public.academy_convocatoria drop constraint if exists academy_convocatoria_singleton;
-alter table public.academy_convocatoria add constraint academy_convocatoria_singleton CHECK ((id = 1));
-alter table public.academy_settings drop constraint if exists academy_settings_singleton;
-alter table public.academy_settings add constraint academy_settings_singleton CHECK ((id = 1));
 alter table public.chat_messages drop constraint if exists chat_messages_role_check;
 alter table public.chat_messages add constraint chat_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'ai'::text])));
+alter table public.curva_progreso drop constraint if exists curva_progreso_dominadas_check;
+alter table public.curva_progreso add constraint curva_progreso_dominadas_check CHECK ((dominadas >= 0));
 alter table public.documents drop constraint if exists documents_index_status_check;
 alter table public.documents add constraint documents_index_status_check CHECK ((index_status = ANY (ARRAY['pendiente'::text, 'indexado'::text, 'parcial'::text, 'fallido'::text])));
-alter table public.membership_settings drop constraint if exists membership_settings_singleton;
-alter table public.membership_settings add constraint membership_settings_singleton CHECK ((id = 1));
 alter table public.memberships drop constraint if exists memberships_access_status_check;
-alter table public.memberships add constraint memberships_access_status_check CHECK ((access_status = ANY (ARRAY['active'::text, 'suspended'::text])));
+alter table public.memberships add constraint memberships_access_status_check CHECK ((access_status = ANY (ARRAY['active'::text, 'suspended'::text, 'pending'::text])));
 alter table public.memberships drop constraint if exists memberships_payment_status_check;
 alter table public.memberships add constraint memberships_payment_status_check CHECK ((payment_status = ANY (ARRAY['al_dia'::text, 'debe'::text])));
+alter table public.question_attempts drop constraint if exists question_attempts_answer_path_check;
+alter table public.question_attempts add constraint question_attempts_answer_path_check CHECK (((answer_path IS NULL) OR (jsonb_typeof(answer_path) = 'array'::text)));
 alter table public.question_attempts drop constraint if exists question_attempts_confidence_check;
 alter table public.question_attempts add constraint question_attempts_confidence_check CHECK (((confidence IS NULL) OR ((confidence >= 0) AND (confidence <= 2))));
 alter table public.question_attempts drop constraint if exists question_attempts_first_touch_ms_check;
 alter table public.question_attempts add constraint question_attempts_first_touch_ms_check CHECK (((first_touch_ms IS NULL) OR (first_touch_ms >= 0)));
+alter table public.academy_convocatoria drop constraint if exists academy_convocatoria_organization_id_fkey;
+alter table public.academy_convocatoria add constraint academy_convocatoria_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
+alter table public.academy_members drop constraint if exists academy_members_academy_id_fkey;
+alter table public.academy_members add constraint academy_members_academy_id_fkey FOREIGN KEY (academy_id) REFERENCES academies(id) ON DELETE CASCADE;
+alter table public.academy_members drop constraint if exists academy_members_user_id_fkey;
+alter table public.academy_members add constraint academy_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+alter table public.academy_settings drop constraint if exists academy_settings_organization_id_fkey;
+alter table public.academy_settings add constraint academy_settings_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
+alter table public.academy_staff drop constraint if exists academy_staff_organization_id_fkey;
+alter table public.academy_staff add constraint academy_staff_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.admin_audit_log drop constraint if exists admin_audit_log_actor_id_fkey;
 alter table public.admin_audit_log add constraint admin_audit_log_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL;
+alter table public.admin_audit_log drop constraint if exists admin_audit_log_organization_id_fkey;
+alter table public.admin_audit_log add constraint admin_audit_log_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.ai_quota drop constraint if exists ai_quota_user_id_fkey;
 alter table public.ai_quota add constraint ai_quota_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.ai_usage drop constraint if exists ai_usage_user_id_fkey;
@@ -526,10 +584,14 @@ alter table public.class_group_staff drop constraint if exists class_group_staff
 alter table public.class_group_staff add constraint class_group_staff_class_id_fkey FOREIGN KEY (class_id) REFERENCES class_groups(id) ON DELETE CASCADE;
 alter table public.class_group_staff drop constraint if exists class_group_staff_staff_id_fkey;
 alter table public.class_group_staff add constraint class_group_staff_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES academy_staff(id) ON DELETE CASCADE;
+alter table public.class_groups drop constraint if exists class_groups_organization_id_fkey;
+alter table public.class_groups add constraint class_groups_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.class_members drop constraint if exists class_members_class_id_fkey;
 alter table public.class_members add constraint class_members_class_id_fkey FOREIGN KEY (class_id) REFERENCES class_groups(id) ON DELETE CASCADE;
 alter table public.class_members drop constraint if exists class_members_user_id_fkey;
 alter table public.class_members add constraint class_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+alter table public.curva_progreso drop constraint if exists curva_progreso_user_id_fkey;
+alter table public.curva_progreso add constraint curva_progreso_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.document_chunks drop constraint if exists document_chunks_document_id_fkey;
 alter table public.document_chunks add constraint document_chunks_document_id_fkey FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
 alter table public.documents drop constraint if exists documents_subject_id_fkey;
@@ -538,14 +600,24 @@ alter table public.flashcard_progress drop constraint if exists flashcard_progre
 alter table public.flashcard_progress add constraint flashcard_progress_card_id_fkey FOREIGN KEY (card_id) REFERENCES flashcard_bank(id);
 alter table public.flashcard_progress drop constraint if exists flashcard_progress_user_id_fkey;
 alter table public.flashcard_progress add constraint flashcard_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id);
+alter table public.group_kinds drop constraint if exists group_kinds_organization_id_fkey;
+alter table public.group_kinds add constraint group_kinds_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.group_training_plans drop constraint if exists group_training_plans_class_id_fkey;
 alter table public.group_training_plans add constraint group_training_plans_class_id_fkey FOREIGN KEY (class_id) REFERENCES class_groups(id) ON DELETE CASCADE;
 alter table public.interview_reports drop constraint if exists interview_reports_user_id_fkey;
 alter table public.interview_reports add constraint interview_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+alter table public.membership_exemptions drop constraint if exists membership_exemptions_organization_id_fkey;
+alter table public.membership_exemptions add constraint membership_exemptions_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
+alter table public.membership_settings drop constraint if exists membership_settings_organization_id_fkey;
+alter table public.membership_settings add constraint membership_settings_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
+alter table public.memberships drop constraint if exists memberships_organization_id_fkey;
+alter table public.memberships add constraint memberships_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.memberships drop constraint if exists memberships_user_id_fkey;
 alter table public.memberships add constraint memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 alter table public.module_settings drop constraint if exists module_settings_updated_by_fkey;
 alter table public.module_settings add constraint module_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+alter table public.monthly_payments drop constraint if exists monthly_payments_organization_id_fkey;
+alter table public.monthly_payments add constraint monthly_payments_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.monthly_payments drop constraint if exists monthly_payments_recorded_by_fkey;
 alter table public.monthly_payments add constraint monthly_payments_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 alter table public.monthly_payments drop constraint if exists monthly_payments_user_id_fkey;
@@ -562,6 +634,8 @@ alter table public.question_attempts drop constraint if exists question_attempts
 alter table public.question_attempts add constraint question_attempts_question_id_fkey FOREIGN KEY (question_id) REFERENCES question_bank(id) ON DELETE SET NULL;
 alter table public.question_bank drop constraint if exists question_bank_document_id_fkey;
 alter table public.question_bank add constraint question_bank_document_id_fkey FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL;
+alter table public.question_bank drop constraint if exists question_bank_organization_id_fkey;
+alter table public.question_bank add constraint question_bank_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES academies(id) ON DELETE CASCADE;
 alter table public.question_bank drop constraint if exists question_bank_subject_id_fkey;
 alter table public.question_bank add constraint question_bank_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE;
 alter table public.question_notes drop constraint if exists question_notes_question_id_fkey;
@@ -589,14 +663,17 @@ alter table public.workout_logs add constraint workout_logs_user_id_fkey FOREIGN
 -- Indices
 -- ==========================================================================
 
+create index if not exists academy_members_user_idx ON public.academy_members USING btree (user_id);
 create index if not exists admin_audit_actor ON public.admin_audit_log USING btree (actor_id, created_at DESC);
 create index if not exists admin_audit_fecha ON public.admin_audit_log USING btree (created_at DESC);
+create index if not exists admin_audit_log_org_idx ON public.admin_audit_log USING btree (organization_id);
 create index if not exists ai_quota_reset_at_idx ON public.ai_quota USING btree (reset_at);
 create index if not exists ai_usage_ruta_fecha ON public.ai_usage USING btree (route, created_at DESC);
 create index if not exists ai_usage_user_fecha ON public.ai_usage USING btree (user_id, created_at DESC);
 create index if not exists chat_conv_user ON public.chat_conversations USING btree (user_id, updated_at DESC);
 create index if not exists chat_msg_conv ON public.chat_messages USING btree (conversation_id, created_at);
 create index if not exists class_group_staff_staff_idx ON public.class_group_staff USING btree (staff_id);
+create index if not exists class_groups_org_idx ON public.class_groups USING btree (organization_id);
 create index if not exists class_members_user_idx ON public.class_members USING btree (user_id);
 create unique index if not exists flashcard_bank_hash_uq ON public.flashcard_bank USING btree (card_hash);
 create index if not exists flashcard_bank_topic_idx ON public.flashcard_bank USING btree (topic);
@@ -615,6 +692,7 @@ create index if not exists question_attempts_question_idx ON public.question_att
 create index if not exists question_attempts_user_created_idx ON public.question_attempts USING btree (user_id, created_at DESC);
 create index if not exists question_attempts_user_idx ON public.question_attempts USING btree (user_id);
 create index if not exists idx_qbank_subject ON public.question_bank USING btree (subject_id);
+create index if not exists question_bank_org_idx ON public.question_bank USING btree (organization_id);
 create index if not exists idx_subjects_block ON public.subjects USING btree (block_id);
 
 -- ==========================================================================
@@ -625,7 +703,9 @@ create index if not exists idx_subjects_block ON public.subjects USING btree (bl
 -- Significa acceso directo DENEGADO con la clave publica; la aplicacion las lee
 -- con la clave de servicio, que salta RLS. Ver docs/sql/1.3-activar-rls.sql.
 
+alter table public.academies enable row level security;
 alter table public.academy_convocatoria enable row level security;
+alter table public.academy_members enable row level security;
 alter table public.academy_settings enable row level security;
 alter table public.academy_staff enable row level security;
 alter table public.admin_audit_log enable row level security;
@@ -637,6 +717,7 @@ alter table public.chat_messages enable row level security;
 alter table public.class_group_staff enable row level security;
 alter table public.class_groups enable row level security;
 alter table public.class_members enable row level security;
+alter table public.curva_progreso enable row level security;
 alter table public.document_chunks enable row level security;
 alter table public.documents enable row level security;
 alter table public.flashcard_bank enable row level security;
@@ -645,6 +726,7 @@ alter table public.flashcard_results enable row level security;
 alter table public.group_kinds enable row level security;
 alter table public.group_training_plans enable row level security;
 alter table public.interview_reports enable row level security;
+alter table public.membership_exemptions enable row level security;
 alter table public.membership_settings enable row level security;
 alter table public.memberships enable row level security;
 alter table public.module_settings enable row level security;
@@ -666,7 +748,9 @@ drop policy if exists "convocatoria lectura" on public.academy_convocatoria;
 create policy "convocatoria lectura" on public.academy_convocatoria
   for select
   to authenticated
-  using (true);
+  using ((organization_id IN ( SELECT academy_members.academy_id
+   FROM academy_members
+  WHERE (academy_members.user_id = auth.uid()))));
 
 drop policy if exists "conv_propietario" on public.chat_conversations;
 create policy "conv_propietario" on public.chat_conversations
@@ -681,6 +765,13 @@ create policy "msg_propietario" on public.chat_messages
   to public
   using ((auth.uid() = user_id))
   with check ((auth.uid() = user_id));
+
+drop policy if exists "curva_progreso_propietario" on public.curva_progreso;
+create policy "curva_progreso_propietario" on public.curva_progreso
+  for all
+  to authenticated
+  using ((user_id = auth.uid()))
+  with check ((user_id = auth.uid()));
 
 drop policy if exists "Users can CRUD own flashcard_progress" on public.flashcard_progress;
 create policy "Users can CRUD own flashcard_progress" on public.flashcard_progress
@@ -820,6 +911,36 @@ create policy "workout_logs_propietario" on public.workout_logs
 -- ==========================================================================
 -- Funciones del proyecto
 -- ==========================================================================
+
+CREATE OR REPLACE FUNCTION public.asigna_academia_en_registro()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_slug text;
+  v_academy_id uuid;
+begin
+  v_slug := new.raw_user_meta_data->>'academia_slug';
+
+  if v_slug is not null and v_slug <> '' then
+    select id into v_academy_id from public.academies where slug = v_slug;
+  end if;
+
+  if v_academy_id is null then
+    select id into v_academy_id from public.academies where slug = 'atenea';
+  end if;
+
+  if v_academy_id is not null then
+    insert into public.academy_members (academy_id, user_id)
+    values (v_academy_id, new.id)
+    on conflict do nothing;
+  end if;
+
+  return new;
+end;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.consume_ai_quota(p_user_id uuid, p_bucket text, p_limit integer, p_window interval)
  RETURNS TABLE(allowed boolean, remaining integer, reset_at timestamp with time zone)
