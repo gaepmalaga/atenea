@@ -123,7 +123,7 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
 
         <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c60b1e] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
           {esAlta
-            ? 'Te enviaremos un correo para confirmar la cuenta. Hasta que pulses ese enlace no podrás entrar.'
+            ? 'Te enviaremos un correo para confirmar la cuenta. Después revisamos tu solicitud y te avisamos por correo en cuanto tengas acceso.'
             : 'El temario oficial completo, con tests que puntúan como la convocatoria: cada dos fallos, un acierto menos.'}
         </p>
 

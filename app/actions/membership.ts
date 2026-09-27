@@ -6,7 +6,8 @@ import { requireAdmin, olvidaMembershipRequired } from '../lib/auth';
 import { registraAccion } from '../lib/admin-audit';
 import { ACCESS_STATUS, type AccessStatus } from '../lib/membership';
 import { sendMail } from '../lib/mailer';
-import { plantillaAccesoConcedido, plantillaAccesoRechazado } from '../lib/app-email-templates';
+import { plantillaAccesoConcedido, plantillaAccesoRechazado, plantillaBienvenidaFundador, CORREO_ALUMNOS } from '../lib/app-email-templates';
+import { ACADEMIA_CASA_SLUG } from '../lib/academies';
 import { siteUrl } from '../lib/registration-requests';
 
 /**
@@ -136,14 +137,23 @@ export async function setMemberAccess(studentId: string, status: AccessStatus) {
 async function avisaResolucion(organizationId: string, studentId: string, aceptado: boolean): Promise<void> {
   const [{ data: alumno }, { data: academia }] = await Promise.all([
     supabaseAdmin.from('profiles').select('email').eq('id', studentId).maybeSingle(),
-    supabaseAdmin.from('academies').select('name').eq('id', organizationId).maybeSingle(),
+    supabaseAdmin.from('academies').select('name, slug').eq('id', organizationId).maybeSingle(),
   ]);
   if (!alumno?.email || !academia?.name) return;
+
+  // En la academia «casa» quien entra es un opositor fundador, no el alumno
+  // de una academia: otra bienvenida, y las respuestas llegan a alumnos@.
+  const esCasa = academia.slug === ACADEMIA_CASA_SLUG;
+  if (aceptado && esCasa) {
+    const { subject, html } = plantillaBienvenidaFundador({ appUrl: siteUrl() });
+    await sendMail({ to: alumno.email, subject, html, replyTo: CORREO_ALUMNOS });
+    return;
+  }
 
   const { subject, html } = aceptado
     ? plantillaAccesoConcedido({ academiaName: academia.name, appUrl: siteUrl() })
     : plantillaAccesoRechazado({ academiaName: academia.name });
-  await sendMail({ to: alumno.email, subject, html });
+  await sendMail({ to: alumno.email, subject, html, ...(esCasa ? { replyTo: CORREO_ALUMNOS } : {}) });
 }
 
 /**

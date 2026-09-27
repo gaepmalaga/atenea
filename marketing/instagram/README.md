@@ -23,7 +23,7 @@ Lo que decimos que nadie más dice, y que el producto hace de verdad:
 | Lo que decimos | En qué se apoya (no es marketing: está en el código) |
 |---|---|
 | Lo que cae de verdad | `app/lib/exam-weight-data.ts`: 497 preguntas de los 5 exámenes oficiales 2021-2025 contadas por tema |
-| Sabe qué se te va a olvidar antes que tú | `question-scheduler.ts`: un reloj por pregunta y alumno, curva de olvido personal, «lo que te toca» esta semana |
+| Sabe qué se te va a olvidar antes que tú | `question-scheduler.ts`: un reloj por pregunta y alumno, curva de olvido personal, y la frase de por qué te toca cada pregunta |
 | Hoy te toca esto, y te decimos por qué | `smart-session.ts` + `razonRepaso`: cajones por pregunta, recaídas primero, ~85 % de acierto |
 | Acertar dudando no es saberlo | `answer-signals.ts`: firmeza deducida de tiempo, cambios y primer toque |
 | Si fallas siempre igual, te sabes algo mal | `distractorFijo` y «Se te resisten» |
@@ -67,6 +67,12 @@ es quien comparte, y quien comparte es quien trae a la academia.
 
 ## 4 · Reglas de honestidad (no negociables)
 
+> **Antes de publicar un post, se comprueba contra el código de `main` y la base
+> de datos**, no contra `CLAUDE.md`: la app cambia rápido. El 27 sep se
+> encontraron así dos pantallas anunciadas que ya se habían retirado
+> («¿Aprobaría?» y «Lo que te toca», 16 sep) y una explicación que solo tenía
+> la mitad del banco.
+
 En una plataforma de oposiciones la confianza es el producto. Un dato inflado en
 Instagram se descubre en el primer simulacro.
 
@@ -104,7 +110,7 @@ La cuenta (`@ateneapolicial`), la bio («Oposita a Policía Nacional como nunca
 antes.») y el enlace a `ateneapolicial.com` ya están. Las imágenes llevan el
 usuario y el dominio en la última diapositiva.
 
-Destacados sugeridos: **Cómo funciona** · **Lo que te toca** · **Academias** ·
+Destacados sugeridos: **Cómo funciona** · **Mi Evolución** · **Academias** ·
 **Pregunta del día**.
 
 ## 7 · Qué medir

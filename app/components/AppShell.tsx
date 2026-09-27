@@ -83,7 +83,19 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
       //   tratan igual: se establece la sesión con `setSession` y se le pide
       //   que ponga una antes de dejarla pasar (`SetPasswordScreen`); sin ese
       //   paso se quedaría otra vez sin forma de volver a entrar.
-      const code = new URLSearchParams(window.location.search).get('code');
+      // `?alta` abre directamente el formulario de REGISTRO. Lo usa el botón
+      // «Crear mi cuenta» de `/fundadores`: quien llega de Instagram buscando
+      // registrarse no tiene que encontrar el enlace «Regístrate aquí» al
+      // final de la pantalla de entrar.
+      const busqueda = new URLSearchParams(window.location.search);
+      if (busqueda.has('alta')) {
+        setAuthMode('signup');
+        busqueda.delete('alta');
+        const resto = busqueda.toString();
+        window.history.replaceState({}, '', window.location.pathname + (resto ? `?${resto}` : ''));
+      }
+
+      const code = busqueda.get('code');
       const hash = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = hash.get('access_token');
       const refreshToken = hash.get('refresh_token');

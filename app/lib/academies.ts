@@ -27,6 +27,8 @@ const RESERVED_ACADEMY_SLUGS = new Set([
   // tirantes para que un alta de academia con este slug no quede inalcanzable
   // en silencio.
   'academias',
+  // La página pública de opositores fundadores (`app/fundadores/`), mismo motivo.
+  'fundadores',
 ]);
 
 const SLUG_MIN = 2;

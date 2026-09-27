@@ -9,14 +9,14 @@ sale la app, es la app (con una cuenta de prueba, nunca datos de un alumno real)
 ## Reel 1 · «¿Qué estudiaste hace tres semanas?» (semana 1, martes)
 
 **Público:** opositores · **Duración:** 20-25 s · **Formato:** a cámara +
-grabación de pantalla de «Lo que te toca».
+grabación de pantalla del entrenamiento y de «Mi Evolución».
 
 | Seg. | Imagen | Voz / texto en pantalla |
 |---|---|---|
 | 0-3 | A cámara, directo | «¿Qué estudiaste hace tres semanas?» |
 | 3-7 | Cara de no acordarse | «Exacto. Se te está yendo, y no lo vas a notar hasta el examen.» |
-| 7-15 | Pantalla: la semana con lo que vence cada día | «Atenea lleva un reloj por cada pregunta. Sabe cuál se te va a olvidar y te la pone delante antes.» |
-| 15-20 | Pantalla: «Te toca porque la fallaste hace 3 días» | «Y te dice por qué te toca.» |
+| 7-15 | Pantalla: una sesión de entrenamiento, con la frase de por qué te toca cada pregunta | «Atenea lleva un reloj por cada pregunta. Sabe cuál se te va a olvidar y te la pone delante antes.» |
+| 15-20 | Pantalla: «Mi Evolución», la curva de dominadas | «Y ves cuántas tienes ya dominadas, día a día.» |
 | 20-23 | Logo + ateneapolicial.com | «Buscamos opositores fundadores. Sin coste.» |
 
 **Portada del reel:** «Se te está olvidando».

@@ -23,11 +23,17 @@ import 'server-only';
  * a un alumno tiene que quedar hecho aunque el aviso no llegue.
  */
 
-type CorreoParams = { to: string | string[]; subject: string; html: string };
+type CorreoParams = {
+  to: string | string[];
+  subject: string;
+  html: string;
+  /** A dónde van las respuestas. Sin esto, contestar llega a `notificaciones@`, que nadie lee. */
+  replyTo?: string;
+};
 
 const REMITENTE = 'Atenea Policial <notificaciones@ateneapolicial.com>';
 
-export async function sendMail({ to, subject, html }: CorreoParams): Promise<void> {
+export async function sendMail({ to, subject, html, replyTo }: CorreoParams): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.error('[correo] falta RESEND_API_KEY: no se manda', { subject, to });
@@ -41,7 +47,7 @@ export async function sendMail({ to, subject, html }: CorreoParams): Promise<voi
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: REMITENTE, to, subject, html }),
+      body: JSON.stringify({ from: REMITENTE, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
     if (!res.ok) {
       const detalle = await res.text().catch(() => '');

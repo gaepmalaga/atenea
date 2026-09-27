@@ -3,6 +3,8 @@ import {
   plantillaSolicitudAdmin,
   plantillaAccesoConcedido,
   plantillaAccesoRechazado,
+  plantillaBienvenidaFundador,
+  CORREO_ALUMNOS,
 } from '../app/lib/app-email-templates';
 
 /**
@@ -40,5 +42,20 @@ describe('plantillaAccesoRechazado', () => {
     const { subject, html } = plantillaAccesoRechazado({ academiaName: 'Alphapol' });
     expect(subject).toContain('Alphapol');
     expect(html).not.toContain('href="https://'); // sin botón de "entrar"
+  });
+});
+
+describe('plantillaBienvenidaFundador', () => {
+  it('da la bienvenida, dice por dónde empezar y cómo contestar', () => {
+    const { subject, html } = plantillaBienvenidaFundador({ appUrl: 'https://x.test' });
+    expect(subject).toMatch(/bienvenido/i);
+    expect(html).toContain('opositor fundador');
+    expect(html).toContain('https://x.test');
+    expect(html).toContain(CORREO_ALUMNOS);
+    // Solo nombra pantallas que existen en el menú del alumno.
+    for (const nombre of ['Operaciones (Test)', 'Entrenamiento', 'Simulacro', 'Repasar fallos', 'Mi Evolución']) {
+      expect(html).toContain(nombre);
+    }
+    expect(html).not.toMatch(/Aprobar[ií]a|Lo que te toca/);
   });
 });
