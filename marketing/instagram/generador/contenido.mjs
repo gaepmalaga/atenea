@@ -36,7 +36,7 @@ export const POSTS = [
         kicker: 'Lo que hay',
         titulo: 'Miles de preguntas al azar y un porcentaje.',
         cuerpo:
-          'Así funcionan casi todas las plataformas de test. Tú decides qué repasar, cuándo y cuánto. Y el porcentaje te dice que vas bien cuando la nota real diría otra cosa.',
+          'Así funcionan casi todas las plataformas de test. Qué repasar, cuándo y cuánto lo decides tú. Y nadie mira cómo has respondido: solo si has acertado.',
       },
       {
         tipo: 'lista',
@@ -45,7 +45,7 @@ export const POSTS = [
         items: [
           { h: 'Qué estudias hoy', p: 'Cada pregunta lleva su propio calendario de repaso. Hoy salen las que te tocan.' },
           { h: 'Dónde está tu nota', p: 'El banco crece donde más cae el examen real: 497 preguntas oficiales de 2021 a 2025, contadas tema a tema.' },
-          { h: 'Cuánto sacarías hoy', p: 'Simulacros con la fórmula de la convocatoria. Los fallos restan.' },
+          { h: 'Qué se te está olvidando', p: 'Lo que se te va antes de que se vaya del todo, sin que tengas que buscarlo.' },
         ],
       },
       {
@@ -59,7 +59,7 @@ export const POSTS = [
         tipo: 'cierre',
         titulo: 'Policía Nacional. Escala Básica.',
         cuerpo: '45 temas. Un sistema que aprende de cómo respondes.',
-        accion: 'Enlace en la bio',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `Estudiar más horas no es el problema. Estudiar lo que no toca, sí.
@@ -69,92 +69,81 @@ Casi todas las plataformas de test hacen lo mismo: un banco enorme, preguntas al
 Atenea lo decide por ti, y te dice por qué:
 → Cada pregunta tiene su calendario de repaso. Hoy salen las que te tocan.
 → El banco crece donde más cae el examen real (497 preguntas oficiales, 2021–2025, contadas por tema).
-→ Los simulacros se puntúan con la fórmula de la convocatoria: los fallos restan.
+→ Sabe qué se te está olvidando y te lo pone delante antes de que se vaya.
 
 ¿Tienes una academia? También es para ti: panel de alumnos, grupos, pagos y físicas, con tu nombre y tu enlace.
 
-Oposición a Policía Nacional, Escala Básica. Enlace en la bio.`,
+Oposita a Policía Nacional como nunca antes. ateneapolicial.com`,
     hashtags: ['policianacional', 'oposicionespolicia', 'escalabasica', 'opositores', 'academiadeoposiciones'],
-    alt: 'Carrusel de presentación de Atenea Policial: estudiar más horas no es el problema, estudiar lo que no toca sí. Explica que la plataforma decide qué repasar cada día, prioriza los temas que más caen en el examen real y puntúa con la fórmula oficial.',
+    alt: 'Carrusel de presentación de Atenea Policial: estudiar más horas no es el problema, estudiar lo que no toca sí. Explica que la plataforma decide qué repasar cada día, prioriza los temas que más caen en el examen real y detecta qué se le está olvidando al alumno.',
   },
   {
-    id: '02-la-nota-real',
+    id: '02-lo-que-se-te-va-a-olvidar',
     semana: 1,
     dia: 'Miércoles',
     publico: 'opositor',
     fijar: true,
-    tema: 'La fórmula del BOE: los fallos restan',
+    tema: 'Sabe qué se te va a olvidar antes que tú',
     slides: [
       {
         tipo: 'portada',
-        kicker: 'Antes de tu próximo test',
-        titulo: '60 aciertos de 100. **Tu nota: un 4.**',
-        sub: 'Tu app te habría dicho «60 %».',
-      },
-      {
-        tipo: 'formula',
-        kicker: 'La fórmula de la convocatoria',
-        formula: '[ A − E/2 ] × 10 / P',
-        leyenda: ['A · aciertos', 'E · errores', 'P · preguntas'],
-        cuerpo: 'Con tres opciones de respuesta, **cada dos fallos te quitan un acierto.**',
-      },
-      {
-        tipo: 'cuenta',
-        kicker: 'Hagamos la cuenta',
-        titulo: 'Contestándolo todo',
-        pasos: [
-          ['60 aciertos', '+60'],
-          ['40 fallos ÷ 2', '−20'],
-          ['Netos', '40'],
-          ['40 × 10 / 100', ''],
-        ],
-        resultado: '4,0',
-      },
-      {
-        tipo: 'cuenta',
-        kicker: 'Mismo alumno, otra estrategia',
-        titulo: '20 que no sabía, en blanco',
-        pasos: [
-          ['60 aciertos', '+60'],
-          ['20 fallos ÷ 2', '−10'],
-          ['20 en blanco', '0'],
-          ['50 × 10 / 100', ''],
-        ],
-        resultado: '5,0',
-        nota: 'Mismos aciertos. **Un punto más.**',
+        kicker: 'Lo que te toca hoy',
+        titulo: 'Sabe qué se te va a olvidar **antes que tú.**',
+        sub: 'Y te lo pone delante justo a tiempo.',
       },
       {
         tipo: 'texto',
         kicker: 'El problema',
-        titulo: 'Un porcentaje te enseña a contestarlo todo.',
+        titulo: 'Lo que estudiaste hace tres semanas ya se está yendo.',
         cuerpo:
-          'Si nunca ves lo que te cuesta un fallo, arriesgar siempre parece buena idea. En el examen real, no lo es.',
+          'Y no lo notas hasta el examen. Repasar por temas, en orden, llega tarde a unas preguntas y demasiado pronto a otras.',
+      },
+      {
+        tipo: 'semana',
+        kicker: 'Lo que te toca esta semana',
+        ejemplo: true,
+        dias: [['Hoy', 38], ['Mar', 21], ['Mié', 9], ['Jue', 0], ['Vie', 14], ['Sáb', 6], ['Dom', 11]],
+        cuerpo: 'Preguntas que vencen cada día. Las que se te pasan no se pierden: cuentan en hoy.',
+      },
+      {
+        tipo: 'texto',
+        kicker: 'Cómo lo sabe',
+        titulo: 'Cada pregunta tiene **su propio reloj.**',
+        cuerpo:
+          'Uno por pregunta y por alumno. Si la aciertas firme, se aleja. Si se te cae, vuelve antes. Si la aciertas dudando, no se retira.',
+      },
+      {
+        tipo: 'texto',
+        kicker: 'Sin encuestas',
+        titulo: 'No te pregunta nada.',
+        cuerpo:
+          'Lo deduce de cómo respondes: cuánto tardas comparado contigo, cuándo tocas la primera opción, si cambias de idea.',
       },
       {
         tipo: 'cierre',
-        titulo: 'En Atenea, cada simulacro se puntúa como el de verdad.',
-        cuerpo: 'Fórmula del BOE, 30 segundos por pregunta, y lo que te ha costado cada fallo dicho en palabras.',
-        accion: 'Guárdalo para tu próximo simulacro',
+        titulo: 'Tú entras. Lo que toca hoy ya está elegido.',
+        cuerpo: 'Oposita a Policía Nacional como nunca antes.',
+        accion: 'ateneapolicial.com',
       },
     ],
-    pie: `60 aciertos de 100. ¿Qué nota sacas?
+    pie: `Lo que estudiaste hace tres semanas se te está olvidando ahora mismo. Y no lo vas a notar hasta el examen.
 
-Si has dicho un 6, haz la cuenta otra vez.
+Repasar por temas, en orden, llega tarde a unas preguntas y demasiado pronto a otras.
 
-En la primera prueba de la Escala Básica los fallos restan. La fórmula de la convocatoria es [A − E/(n−1)] × 10/P, y con tres opciones queda así: cada dos fallos te quitan un acierto.
+En Atenea cada pregunta tiene su propio reloj, distinto para cada alumno:
+→ Si la aciertas firme, se aleja.
+→ Si se te cae, vuelve antes.
+→ Si la aciertas dudando, no se da por sabida.
 
-60 aciertos y 40 fallos → 60 − 20 = 40 netos → un 4,0.
-60 aciertos, 20 fallos y 20 en blanco → 60 − 10 = 50 netos → un 5,0.
+Y no te pregunta nada: lo deduce de cómo respondes. Cuánto tardas comparado contigo, cuándo tocas la primera opción, si cambias de idea.
 
-Sabes lo mismo y sacas un punto más. El blanco no resta; contestar a ciegas, sí.
+Tú entras y lo que te toca hoy ya está elegido. Ves lo que vence cada día de la semana, y lo que se te pasa no se pierde: cuenta en hoy.
 
-Por eso en Atenea los simulacros no dan un porcentaje: dan la nota con la fórmula oficial, con reloj de 30 segundos por pregunta, y te dicen lo que te ha costado cada fallo.
+(Las cifras de la imagen son un ejemplo.)
 
-Guárdalo y compártelo con quien siga contando porcentajes.
-
-Fuente: BOE-A-2026-15055, primera prueba.`,
-    hashtags: ['policianacional', 'oposicionespolicia', 'escalabasica', 'opositores', 'testoposiciones'],
-    alt: 'Carrusel que explica la fórmula de la nota de la Escala Básica de Policía Nacional. Con 60 aciertos y 40 fallos la nota es un 4; con 60 aciertos, 20 fallos y 20 en blanco, un 5. Los fallos restan y el blanco no.',
+ateneapolicial.com`,
+    hashtags: ['policianacional', 'oposicionespolicia', 'tecnicasdeestudio', 'repeticionespaciada', 'opositores'],
+    alt: 'Carrusel sobre cómo Atenea anticipa el olvido: cada pregunta tiene su propio calendario de repaso por alumno. Muestra un ejemplo de las preguntas que vencen cada día de la semana y explica que el sistema lo deduce de cómo responde el alumno, sin preguntarle.',
   },
   {
     id: '03-a-quien-llamar',
@@ -284,7 +273,7 @@ Tienes una academia de oposición a Policía Nacional y quieres verlo con tus al
         tipo: 'cierre',
         titulo: 'Guárdalo. Pásaselo a quien estudia contigo.',
         cuerpo: 'Las preguntas oficiales se usan para medir el peso, nunca como fuente: la ley cambia.',
-        accion: 'Enlace en la bio',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `Hemos contado las 497 preguntas de los cinco últimos exámenes oficiales de la Escala Básica (2021–2025), tema a tema.
@@ -361,7 +350,7 @@ Fuente: cuadernillos oficiales 2021–2025, clasificados por tema.`,
         tipo: 'cierre',
         titulo: 'Cuántas preguntas hoy, lo propone el sistema.',
         cuerpo: 'Tú lo ajustas y entrenas. Sin nota y sin reloj: aquí se aprende.',
-        accion: 'Enlace en la bio',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `¿Qué repasas hoy? Si la respuesta es «lo que me apetezca» o «el tema que toca en el calendario», estás dejando lo más importante al azar.
@@ -499,7 +488,7 @@ Demo para academias: escríbenos por DM.`,
         tipo: 'cierre',
         titulo: 'Tú contestas. Lo demás lo deducimos.',
         cuerpo: 'Sin encuestas después de cada pregunta.',
-        accion: 'Enlace en la bio',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `Dos aciertos. Uno lo marcaste al momento. El otro, después de tardar el doble de lo normal y cambiar de respuesta dos veces.
@@ -554,17 +543,10 @@ Tú contestas. Lo demás lo hace el sistema.`,
           'El que no tocaste porque no tenías ni idea. Y el que marcaste y retiraste porque no compensaba arriesgar. **El segundo es estrategia**, y lo distinguimos.',
       },
       {
-        tipo: 'numero',
-        kicker: 'Reloj de la convocatoria',
-        grande: '30 s',
-        label: 'por pregunta.',
-        cuerpo: '100 preguntas en 50 minutos. Un simulacro de 25 dura 12:30.',
-      },
-      {
         tipo: 'cierre',
-        titulo: 'Tu media de simulacros, con la nota del BOE.',
-        cuerpo: 'La mejor, la última y hacia dónde vas.',
-        accion: 'Enlace en la bio',
+        titulo: 'Dos simulacros que se pueden comparar.',
+        cuerpo: 'Tu media, la mejor y hacia dónde vas.',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `Haces un simulacro el lunes y sacas un 6. El jueves, un 4. ¿Has ido a peor o te ha tocado un examen más difícil?
@@ -576,7 +558,6 @@ En Atenea un simulacro:
 → Reparte por temas y por artículos.
 → Mantiene fija la mezcla de dificultad.
 → No repite lo que has visto en los últimos 7 días.
-→ Lleva el reloj de la convocatoria: 30 segundos por pregunta.
 
 Al terminar, una cuadrícula: verde, rojo y blanco. Cada casilla abre qué marcaste, la correcta, la explicación, el artículo y cuánto tardaste.
 
@@ -686,7 +667,7 @@ Y si un alumno reporta una pregunta de tu banco, te llega a ti. Si es del banco 
         tipo: 'cierre',
         titulo: 'Tus fallos, ordenados por lo que hay que hacer con ellos.',
         cuerpo: 'No una lista plana de todo lo que has fallado.',
-        accion: 'Enlace en la bio',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `Hay preguntas que fallas siempre igual: siempre la B, aunque la correcta sea la C.
@@ -727,7 +708,7 @@ Y cada explicación dice por qué la correcta está bien y también por qué las
           { h: 'El mapa del temario', p: 'Por tema: dominadas, en camino y sin tocar.' },
           { h: 'Las que se te resisten', p: 'Y de qué tema son la mayoría.' },
           { h: 'Las que evitas', p: 'Las que siempre dejas en blanco.' },
-          { h: '¿Aprobaría?', p: 'Tu media de simulacros con la nota del BOE, y hacia dónde va.' },
+          { h: '¿Aprobaría?', p: 'Tu media de simulacros y hacia dónde va.' },
         ],
       },
       {
@@ -740,7 +721,7 @@ Y cada explicación dice por qué la correcta está bien y también por qué las
         tipo: 'cierre',
         titulo: 'Dónde estás. No dónde te gustaría estar.',
         cuerpo: 'Solo lo que has hecho, contado bien.',
-        accion: 'Enlace en la bio',
+        accion: 'ateneapolicial.com',
       },
     ],
     pie: `¿Cuántas preguntas dominas hoy? ¿Y hace un mes?
@@ -752,7 +733,7 @@ Casi ninguna plataforma te lo puede decir, porque solo guarda aciertos y fallos 
 → El mapa del temario: por tema, qué está dominado, qué va en camino y qué no has tocado.
 → Las que se te resisten, y de qué tema son la mayoría.
 → Las que evitas: las que siempre dejas en blanco.
-→ ¿Aprobaría?: la media de tus simulacros con la nota del BOE, y la tendencia.
+→ ¿Aprobaría?: la media de tus simulacros y la tendencia.
 
 Sin predicciones de cuándo vas a aprobar. Solo lo que has hecho, contado bien.
 

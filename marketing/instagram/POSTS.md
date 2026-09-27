@@ -16,18 +16,18 @@ Las imágenes de cada post están en `png/<id>/`, numeradas en el orden en que s
    Estudiar lo que no toca, sí.
 2. Lo que hay  
    Miles de preguntas al azar y un porcentaje.  
-   Así funcionan casi todas las plataformas de test. Tú decides qué repasar, cuándo y cuánto. Y el porcentaje te dice que vas bien cuando la nota real diría otra cosa.
+   Así funcionan casi todas las plataformas de test. Qué repasar, cuándo y cuánto lo decides tú. Y nadie mira cómo has respondido: solo si has acertado.
 3. Lo que hace Atenea  
    Decide por ti. Y te dice por qué.  
    · Qué estudias hoy — Cada pregunta lleva su propio calendario de repaso. Hoy salen las que te tocan.  
    · Dónde está tu nota — El banco crece donde más cae el examen real: 497 preguntas oficiales de 2021 a 2025, contadas tema a tema.  
-   · Cuánto sacarías hoy — Simulacros con la fórmula de la convocatoria. Los fallos restan.
+   · Qué se te está olvidando — Lo que se te va antes de que se vaya del todo, sin que tengas que buscarlo.
 4. Y para academias  
    Tu método, con un motor detrás.  
    A quién llamar hoy, qué preguntas falla toda la clase, grupos, pagos y físicas. Con el nombre de tu academia y tu propio enlace.
 5. Policía Nacional. Escala Básica.  
    45 temas. Un sistema que aprende de cómo respondes.  
-   Enlace en la bio
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -39,81 +39,72 @@ Casi todas las plataformas de test hacen lo mismo: un banco enorme, preguntas al
 Atenea lo decide por ti, y te dice por qué:
 → Cada pregunta tiene su calendario de repaso. Hoy salen las que te tocan.
 → El banco crece donde más cae el examen real (497 preguntas oficiales, 2021–2025, contadas por tema).
-→ Los simulacros se puntúan con la fórmula de la convocatoria: los fallos restan.
+→ Sabe qué se te está olvidando y te lo pone delante antes de que se vaya.
 
 ¿Tienes una academia? También es para ti: panel de alumnos, grupos, pagos y físicas, con tu nombre y tu enlace.
 
-Oposición a Policía Nacional, Escala Básica. Enlace en la bio.
+Oposita a Policía Nacional como nunca antes. ateneapolicial.com
 
 #policianacional #oposicionespolicia #escalabasica #opositores #academiadeoposiciones
 ```
 
 ### Texto alternativo (accesibilidad)
 
-> Carrusel de presentación de Atenea Policial: estudiar más horas no es el problema, estudiar lo que no toca sí. Explica que la plataforma decide qué repasar cada día, prioriza los temas que más caen en el examen real y puntúa con la fórmula oficial.
+> Carrusel de presentación de Atenea Policial: estudiar más horas no es el problema, estudiar lo que no toca sí. Explica que la plataforma decide qué repasar cada día, prioriza los temas que más caen en el examen real y detecta qué se le está olvidando al alumno.
 
 ---
 
-## 02-la-nota-real · La fórmula del BOE: los fallos restan
+## 02-lo-que-se-te-va-a-olvidar · Sabe qué se te va a olvidar antes que tú
 
 **Semana 1, Miércoles** · Público: **Para opositores** · 📌 **Fijar en el perfil**
 
 ### Diapositivas
 
-1. Antes de tu próximo test  
-   60 aciertos de 100. Tu nota: un 4.  
-   Tu app te habría dicho «60 %».
-2. La fórmula de la convocatoria  
-   [ A − E/2 ] × 10 / P  
-   Con tres opciones de respuesta, cada dos fallos te quitan un acierto.
-3. Hagamos la cuenta  
-   Contestándolo todo  
-   · 60 aciertos +60  
-   · 40 fallos ÷ 2 −20  
-   · Netos 40  
-   · 40 × 10 / 100   
-   · Nota: 4,0
-4. Mismo alumno, otra estrategia  
-   20 que no sabía, en blanco  
-   Mismos aciertos. Un punto más.  
-   · 60 aciertos +60  
-   · 20 fallos ÷ 2 −10  
-   · 20 en blanco 0  
-   · 50 × 10 / 100   
-   · Nota: 5,0
-5. El problema  
-   Un porcentaje te enseña a contestarlo todo.  
-   Si nunca ves lo que te cuesta un fallo, arriesgar siempre parece buena idea. En el examen real, no lo es.
-6. En Atenea, cada simulacro se puntúa como el de verdad.  
-   Fórmula del BOE, 30 segundos por pregunta, y lo que te ha costado cada fallo dicho en palabras.  
-   Guárdalo para tu próximo simulacro
+1. Lo que te toca hoy  
+   Sabe qué se te va a olvidar antes que tú.  
+   Y te lo pone delante justo a tiempo.
+2. El problema  
+   Lo que estudiaste hace tres semanas ya se está yendo.  
+   Y no lo notas hasta el examen. Repasar por temas, en orden, llega tarde a unas preguntas y demasiado pronto a otras.
+3. Lo que te toca esta semana  
+   Preguntas que vencen cada día. Las que se te pasan no se pierden: cuentan en hoy.  
+   _(ejemplo ilustrativo)_
+4. Cómo lo sabe  
+   Cada pregunta tiene su propio reloj.  
+   Uno por pregunta y por alumno. Si la aciertas firme, se aleja. Si se te cae, vuelve antes. Si la aciertas dudando, no se retira.
+5. Sin encuestas  
+   No te pregunta nada.  
+   Lo deduce de cómo respondes: cuánto tardas comparado contigo, cuándo tocas la primera opción, si cambias de idea.
+6. Tú entras. Lo que toca hoy ya está elegido.  
+   Oposita a Policía Nacional como nunca antes.  
+   ateneapolicial.com
 
 ### Pie de foto
 
 ```text
-60 aciertos de 100. ¿Qué nota sacas?
+Lo que estudiaste hace tres semanas se te está olvidando ahora mismo. Y no lo vas a notar hasta el examen.
 
-Si has dicho un 6, haz la cuenta otra vez.
+Repasar por temas, en orden, llega tarde a unas preguntas y demasiado pronto a otras.
 
-En la primera prueba de la Escala Básica los fallos restan. La fórmula de la convocatoria es [A − E/(n−1)] × 10/P, y con tres opciones queda así: cada dos fallos te quitan un acierto.
+En Atenea cada pregunta tiene su propio reloj, distinto para cada alumno:
+→ Si la aciertas firme, se aleja.
+→ Si se te cae, vuelve antes.
+→ Si la aciertas dudando, no se da por sabida.
 
-60 aciertos y 40 fallos → 60 − 20 = 40 netos → un 4,0.
-60 aciertos, 20 fallos y 20 en blanco → 60 − 10 = 50 netos → un 5,0.
+Y no te pregunta nada: lo deduce de cómo respondes. Cuánto tardas comparado contigo, cuándo tocas la primera opción, si cambias de idea.
 
-Sabes lo mismo y sacas un punto más. El blanco no resta; contestar a ciegas, sí.
+Tú entras y lo que te toca hoy ya está elegido. Ves lo que vence cada día de la semana, y lo que se te pasa no se pierde: cuenta en hoy.
 
-Por eso en Atenea los simulacros no dan un porcentaje: dan la nota con la fórmula oficial, con reloj de 30 segundos por pregunta, y te dicen lo que te ha costado cada fallo.
+(Las cifras de la imagen son un ejemplo.)
 
-Guárdalo y compártelo con quien siga contando porcentajes.
+ateneapolicial.com
 
-Fuente: BOE-A-2026-15055, primera prueba.
-
-#policianacional #oposicionespolicia #escalabasica #opositores #testoposiciones
+#policianacional #oposicionespolicia #tecnicasdeestudio #repeticionespaciada #opositores
 ```
 
 ### Texto alternativo (accesibilidad)
 
-> Carrusel que explica la fórmula de la nota de la Escala Básica de Policía Nacional. Con 60 aciertos y 40 fallos la nota es un 4; con 60 aciertos, 20 fallos y 20 en blanco, un 5. Los fallos restan y el blanco no.
+> Carrusel sobre cómo Atenea anticipa el olvido: cada pregunta tiene su propio calendario de repaso por alumno. Muestra un ejemplo de las preguntas que vencen cada día de la semana y explica que el sistema lo deduce de cómo responde el alumno, sin preguntarle.
 
 ---
 
@@ -201,7 +192,7 @@ Tienes una academia de oposición a Policía Nacional y quieres verlo con tus al
    En los temas que más caen hay preguntas para cada artículo, no una cifra redonda por tema. Y cuando dos repasos son igual de urgentes, va primero el del tema que más cae.
 7. Guárdalo. Pásaselo a quien estudia contigo.  
    Las preguntas oficiales se usan para medir el peso, nunca como fuente: la ley cambia.  
-   Enlace en la bio
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -264,7 +255,7 @@ Fuente: cuadernillos oficiales 2021–2025, clasificados por tema.
    Cada recaída acorta su siguiente repaso. Es tu memoria con esa pregunta, no una media de todo el mundo.
 6. Cuántas preguntas hoy, lo propone el sistema.  
    Tú lo ajustas y entrenas. Sin nota y sin reloj: aquí se aprende.  
-   Enlace en la bio
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -376,7 +367,7 @@ Demo para academias: escríbenos por DM.
    · Laguna — Esto no lo sabías.
 6. Tú contestas. Lo demás lo deducimos.  
    Sin encuestas después de cada pregunta.  
-   Enlace en la bio
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -421,12 +412,9 @@ Tú contestas. Lo demás lo hace el sistema.
 4. Los blancos  
    Hay dos tipos de blanco.  
    El que no tocaste porque no tenías ni idea. Y el que marcaste y retiraste porque no compensaba arriesgar. El segundo es estrategia, y lo distinguimos.
-5. Reloj de la convocatoria  
-   30 s por pregunta.  
-   100 preguntas en 50 minutos. Un simulacro de 25 dura 12:30.
-6. Tu media de simulacros, con la nota del BOE.  
-   La mejor, la última y hacia dónde vas.  
-   Enlace en la bio
+5. Dos simulacros que se pueden comparar.  
+   Tu media, la mejor y hacia dónde vas.  
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -440,7 +428,6 @@ En Atenea un simulacro:
 → Reparte por temas y por artículos.
 → Mantiene fija la mezcla de dificultad.
 → No repite lo que has visto en los últimos 7 días.
-→ Lleva el reloj de la convocatoria: 30 segundos por pregunta.
 
 Al terminar, una cuadrícula: verde, rojo y blanco. Cada casilla abre qué marcaste, la correcta, la explicación, el artículo y cuánto tardaste.
 
@@ -526,7 +513,7 @@ Y si un alumno reporta una pregunta de tu banco, te llega a ti. Si es del banco 
    Porque el día del examen la trampa no es la correcta: es la que se le parece.
 5. Tus fallos, ordenados por lo que hay que hacer con ellos.  
    No una lista plana de todo lo que has fallado.  
-   Enlace en la bio
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -564,13 +551,13 @@ Y cada explicación dice por qué la correcta está bien y también por qué las
    · El mapa del temario — Por tema: dominadas, en camino y sin tocar.  
    · Las que se te resisten — Y de qué tema son la mayoría.  
    · Las que evitas — Las que siempre dejas en blanco.  
-   · ¿Aprobaría? — Tu media de simulacros con la nota del BOE, y hacia dónde va.
+   · ¿Aprobaría? — Tu media de simulacros y hacia dónde va.
 4. En todos tus dispositivos  
    Un día que ya pasó no cambia.  
    Tu curva se guarda en tu cuenta: la misma en el móvil y en el ordenador.
 5. Dónde estás. No dónde te gustaría estar.  
    Solo lo que has hecho, contado bien.  
-   Enlace en la bio
+   ateneapolicial.com
 
 ### Pie de foto
 
@@ -584,7 +571,7 @@ Casi ninguna plataforma te lo puede decir, porque solo guarda aciertos y fallos 
 → El mapa del temario: por tema, qué está dominado, qué va en camino y qué no has tocado.
 → Las que se te resisten, y de qué tema son la mayoría.
 → Las que evitas: las que siempre dejas en blanco.
-→ ¿Aprobaría?: la media de tus simulacros con la nota del BOE, y la tendencia.
+→ ¿Aprobaría?: la media de tus simulacros y la tendencia.
 
 Sin predicciones de cuándo vas a aprobar. Solo lo que has hecho, contado bien.
 

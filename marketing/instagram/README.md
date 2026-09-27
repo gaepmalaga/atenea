@@ -22,8 +22,8 @@ Lo que decimos que nadie más dice, y que el producto hace de verdad:
 
 | Lo que decimos | En qué se apoya (no es marketing: está en el código) |
 |---|---|
-| Tu nota real, no un porcentaje | `app/lib/scoring.ts`: la fórmula del BOE, los fallos restan, el blanco no |
 | Lo que cae de verdad | `app/lib/exam-weight-data.ts`: 497 preguntas de los 5 exámenes oficiales 2021-2025 contadas por tema |
+| Sabe qué se te va a olvidar antes que tú | `question-scheduler.ts`: un reloj por pregunta y alumno, curva de olvido personal, «lo que te toca» esta semana |
 | Hoy te toca esto, y te decimos por qué | `smart-session.ts` + `razonRepaso`: cajones por pregunta, recaídas primero, ~85 % de acierto |
 | Acertar dudando no es saberlo | `answer-signals.ts`: firmeza deducida de tiempo, cambios y primer toque |
 | Si fallas siempre igual, te sabes algo mal | `distractorFijo` y «Se te resisten» |
@@ -40,9 +40,9 @@ opositor comparte el post de la nota, el director de su academia lo ve.
 |  | Opositor individual | Academia |
 |---|---|---|
 | Qué le duele | Estudia mucho y no sabe si va bien | Pierde alumnos sin verlo venir; lleva todo en Excel y WhatsApp |
-| Qué le prometemos | Qué estudiar hoy y cuánto sacaría hoy | A quién llamar, qué explicar y la gestión en un sitio |
+| Qué le prometemos | Qué estudiar hoy, y que no se le olvide lo que ya sabe | A quién llamar, qué explicar y la gestión en un sitio |
 | Formato | Carrusel educativo que se guarda y se comparte | Carrusel con un dolor concreto y el panel como respuesta |
-| Llamada a la acción | Enlace en la bio | Pide una demo por DM |
+| Llamada a la acción | ateneapolicial.com | Pide una demo por DM |
 | Color del post | **Hueso** (fondo claro, rojo) | **Noche** (fondo oscuro, amarillo) |
 
 El color no es decoración: en la cuadrícula del perfil un director de academia
@@ -55,10 +55,13 @@ es quien comparte, y quien comparte es quien trae a la academia.
 - **Precisa, no motivacional.** Nada de «¡tú puedes!», «aprueba seguro» ni
   cuentas atrás con fuegos artificiales. El opositor está saturado de eso; lo
   que no tiene son datos.
-- **Cada post enseña algo aunque no te registres.** La fórmula de la nota o el
-  peso de cada tema sirven igual sin la app. Eso es lo que hace que se guarde y
+- **Cada post enseña algo aunque no te registres.** El peso real de cada tema o
+  por qué se olvida lo estudiado hace tres semanas sirven igual sin la app. Eso es lo que hace que se guarde y
   se comparta, y lo que da autoridad para vender después.
 - **Frases cortas. Tuteo.** Se habla al opositor de tú, y a la academia también.
+- **La fórmula del BOE no es el mensaje.** Ya la dice la página de entrada y
+  la conoce cualquier opositor. Lo que nadie más tiene es el motor: sabe qué
+  se te va a olvidar y decide por ti.
 - **El producto aparece al final**, como la consecuencia de lo que se ha
   explicado, no al principio.
 
@@ -87,7 +90,7 @@ mejor para academias.
 
 | Semana | Lunes | Miércoles | Viernes |
 |---|---|---|---|
-| 1 | 📌 01 · Manifiesto (ambos) | 📌 02 · 60 aciertos, un 4 | 📌 03 · ¿Quién lo va a dejar? (academia) |
+| 1 | 📌 01 · Manifiesto (ambos) | 📌 02 · Sabe qué se te va a olvidar | 📌 03 · ¿Quién lo va a dejar? (academia) |
 | 2 | 04 · No todos los temas valen igual | 05 · Hoy te toca esto | 06 · Excel, WhatsApp y una libreta (academia) |
 | 3 | 07 · Acertar dudando | 08 · Simulacros comparables | 09 · Lo que falla toda la clase (academia) |
 | 4 | 10 · La misma opción falsa | 11 · Mi Evolución | 12 · Más de 4.600 preguntas (academia) |
@@ -95,17 +98,14 @@ mejor para academias.
 Los martes y jueves, un **reel** (guiones en `REELS-Y-STORIES.md`); todos los
 días, stories con encuesta sobre el post de la víspera.
 
-## 6 · Bio
+## 6 · Perfil
 
-```text
-Atenea · Policía Nacional (Escala Básica)
-Decide qué estudias hoy y te dice por qué.
-Nota real del BOE · entrenamiento adaptativo
-Academias: panel + gestión → DM
-👇 Solicita acceso
-```
+La cuenta (`@ateneapolicial`), la bio («Oposita a Policía Nacional como nunca
+antes.») y el enlace a `ateneapolicial.com` ya están. Las imágenes llevan el
+usuario y el dominio en la última diapositiva.
 
-Destacados: **Cómo funciona** · **La nota** · **Academias** · **Preguntas**.
+Destacados sugeridos: **Cómo funciona** · **Lo que te toca** · **Academias** ·
+**Pregunta del día**.
 
 ## 7 · Qué medir
 
@@ -120,21 +120,15 @@ No los «me gusta». Cada semana:
 Si tras el mes un tipo de post dobla en guardados al resto, el segundo mes se
 hace más de ese.
 
-## 8 · Antes de publicar (lo decide el dueño)
+## 8 · Antes de publicar
 
-- [ ] **El usuario de Instagram.** Las imágenes llevan `@ateneapolicial` en la
-      última diapositiva. Si es otro: `IG_USUARIO=@otro node render.mjs`.
-- [ ] **El enlace de la bio.** Hoy la app vive en `atenea-eight.vercel.app`;
-      `ateneapolicial.com` ya está comprado (se usa para el correo). Conviene
-      apuntarlo a la app antes de lanzar: un dominio propio da confianza.
-- [ ] **Qué ve un opositor al pulsar el enlace.** Hoy un registro sin academia
-      entra en la academia «casa» y espera a que se le acepte (regla 70). Si hay
+- [ ] **Qué ve un opositor al registrarse.** Hoy un registro sin academia entra
+      en la academia «casa» y espera a que se le acepte (regla 70). Si hay
       precio, decidir si se dice en la bio o en la primera respuesta.
-- [ ] **Quién contesta los DMs de academias** y con qué: una demo con una cuenta
-      de prueba preparada de antemano.
+- [ ] **Quién contesta los DMs de academias**, con una cuenta de demo preparada.
 - [ ] **El peso por tema (post 04)** sale de la clasificación por tema de los
-      cuadernillos resueltos. Si el temario de la convocatoria 2026 renumera
-      algún tema respecto a esos cuadernillos, revisar los cinco títulos.
+      cuadernillos resueltos. Si la convocatoria 2026 renumera algún tema,
+      revisar los cinco títulos.
 
 ## Cómo regenerar
 

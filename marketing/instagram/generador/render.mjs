@@ -153,6 +153,23 @@ function cuerpoSlide(s, t) {
         <div class="leyenda2"><span class="V">Acertada</span><span class="R">Fallada</span><span class="B">En blanco</span></div>
         <p class="cuerpo">${md(s.cuerpo)}</p>`;
     }
+    case 'semana': {
+      const max = Math.max(...s.dias.map(([, v]) => v), 1);
+      return `
+        <div class="kicker">${md(s.kicker)}${s.ejemplo ? ' <i class="ej">Ejemplo</i>' : ''}</div>
+        <div class="semana">
+          ${s.dias
+            .map(
+              ([d, v], i) => `<div class="dia${i === 0 ? ' hoy' : ''}${v === 0 ? ' vacio' : ''}">
+                <span class="dv">${v}</span>
+                <div class="col-barra"><div style="height:${(v / max) * 100}%"></div></div>
+                <span class="dd">${esc(d)}</span>
+              </div>`,
+            )
+            .join('')}
+        </div>
+        <p class="cuerpo">${md(s.cuerpo)}</p>`;
+    }
     case 'aviso':
       return `
         <div class="kicker">${md(s.kicker)}${s.ejemplo ? ' <i class="ej">Ejemplo</i>' : ''}</div>
@@ -269,6 +286,15 @@ h2.cierre{font-size:80px;max-height:460px}
 .curva{width:100%;height:420px;margin-top:40px;border-bottom:4px solid var(--line)}
 .escudo-grande svg{width:120px;height:146px;margin-bottom:48px}
 .accion{align-self:flex-start;margin-top:56px;font-family:ArchivoBlack;font-size:38px;text-transform:uppercase;letter-spacing:.02em;background:var(--acc);color:${tema === 'hueso' ? '#fff' : '#111820'};padding:26px 36px;border:4px solid var(--line)}
+.semana{display:flex;gap:18px;align-items:flex-end;height:560px;border-bottom:4px solid var(--line)}
+.dia{flex:1;display:flex;flex-direction:column;align-items:center;height:100%}
+.dv{font-family:ArchivoBlack;font-size:46px;margin-bottom:12px}
+.col-barra{flex:1;width:100%;display:flex;align-items:flex-end}
+.col-barra div{width:100%;background:var(--ink);min-height:6px}
+.dia.hoy .col-barra div{background:var(--acc)}.dia.hoy .dv{color:var(--acc)}
+.dia.vacio .dv{color:var(--muted)}
+.dd{font-family:Mono;font-weight:800;font-size:26px;margin:18px 0 -58px;text-transform:uppercase}
+.semana+.cuerpo{margin-top:92px}
 </style></head><body><div class="lienzo">
   <div class="filete"><i></i><i></i><i></i></div>
   <header><div class="marca">${ESCUDO(t.bg, t.ink)}ATENEA</div><div class="publico">${PUBLICO[post.publico]}</div></header>

@@ -6,21 +6,20 @@ sale la app, es la app (con una cuenta de prueba, nunca datos de un alumno real)
 
 ---
 
-## Reel 1 · «Te calculo tu nota en 20 segundos» (semana 1, martes)
+## Reel 1 · «¿Qué estudiaste hace tres semanas?» (semana 1, martes)
 
-**Público:** opositores · **Duración:** 20-25 s · **Formato:** a cámara, texto
-grande encima.
+**Público:** opositores · **Duración:** 20-25 s · **Formato:** a cámara +
+grabación de pantalla de «Lo que te toca».
 
 | Seg. | Imagen | Voz / texto en pantalla |
 |---|---|---|
-| 0-2 | A cámara, directo | «60 aciertos de 100. ¿Qué nota sacas?» |
-| 2-5 | Mano con los dedos: 6 | «Si has dicho un 6… no.» |
-| 5-12 | Texto: `60 − 40/2 = 40 → 4,0` | «Los fallos restan. Cada dos fallos, un acierto menos. Es un 4.» |
-| 12-18 | Texto: `60 − 20/2 = 50 → 5,0` | «Si esas 20 que no sabías las dejas en blanco: un 5. Un punto más sabiendo lo mismo.» |
-| 18-22 | Pantalla de resultados del simulacro en la app | «En Atenea el simulacro te da la nota como el de verdad. Enlace en la bio.» |
+| 0-3 | A cámara, directo | «¿Qué estudiaste hace tres semanas?» |
+| 3-7 | Cara de no acordarse | «Exacto. Se te está yendo, y no lo vas a notar hasta el examen.» |
+| 7-15 | Pantalla: la semana con lo que vence cada día | «Atenea lleva un reloj por cada pregunta. Sabe cuál se te va a olvidar y te la pone delante antes.» |
+| 15-20 | Pantalla: «Te toca porque la fallaste hace 3 días» | «Y te dice por qué te toca.» |
+| 20-23 | Logo + ateneapolicial.com | «Oposita como nunca antes.» |
 
-**Pie:** «Guárdalo y haz la cuenta con tu último simulacro. Fórmula completa en
-el post fijado.» · Portada del reel: «60 aciertos = un 4».
+**Portada del reel:** «Se te está olvidando».
 
 ## Reel 2 · «La app sabe cuándo dudas» (semana 2, jueves)
 
@@ -57,8 +56,8 @@ Instagram (encuesta, test, pregunta): son los que más respuestas sacan.
 
 | Día | Story | Sticker |
 |---|---|---|
-| Tras el 02 | «60 aciertos, 40 fallos. ¿Qué nota?» | Test: 6 / 5 / **4** |
-| Tras el 02 | «En el último simulacro, ¿dejaste alguna en blanco?» | Encuesta: Ninguna / Alguna / Muchas |
+| Tras el 02 | «¿Cuándo repasaste por última vez el tema 1?» | Encuesta: Esta semana / Este mes / Ni me acuerdo |
+| Tras el 02 | «¿Cómo sabes qué se te está olvidando?» | Pregunta abierta |
 | Tras el 04 | «¿Cuál crees que es el tema que más cae?» | Test: Constitución II / Funcionarios / DGP |
 | Tras el 05 | «¿Cómo decides qué repasas cada día?» | Encuesta: Lo que me apetece / Un calendario / No lo decido |
 | Tras el 07 | «¿Has acertado alguna vez una pregunta sin estar seguro?» | Encuesta: Sí / Siempre |
