@@ -285,7 +285,7 @@ h2.cierre{font-size:80px;max-height:460px}
 .aviso p{font-weight:800;font-size:54px;line-height:1.18}
 .curva{width:100%;height:420px;margin-top:40px;border-bottom:4px solid var(--line)}
 .escudo-grande svg{width:120px;height:146px;margin-bottom:48px}
-.accion{align-self:flex-start;margin-top:56px;font-family:ArchivoBlack;font-size:38px;text-transform:uppercase;letter-spacing:.02em;background:var(--acc);color:${tema === 'hueso' ? '#fff' : '#111820'};padding:26px 36px;border:4px solid var(--line)}
+.accion{align-self:flex-start;margin-top:56px;font-family:ArchivoBlack;font-size:32px;white-space:nowrap;text-transform:uppercase;letter-spacing:.02em;background:var(--acc);color:${tema === 'hueso' ? '#fff' : '#111820'};padding:26px 36px;border:4px solid var(--line)}
 .semana{display:flex;gap:18px;align-items:flex-end;height:560px;border-bottom:4px solid var(--line)}
 .dia{flex:1;display:flex;flex-direction:column;align-items:center;height:100%}
 .dv{font-family:ArchivoBlack;font-size:46px;margin-bottom:12px}
@@ -310,7 +310,7 @@ document.fonts.ready.then(() => {
     // encogería el texto sin necesidad.
     const limite = parseFloat(getComputedStyle(el).maxHeight);
     let size = parseFloat(getComputedStyle(el).fontSize);
-    while (el.scrollHeight > limite && size > 30) { size -= 2; el.style.fontSize = size + 'px'; }
+    while ((el.scrollHeight > limite || el.scrollWidth > el.clientWidth) && size > 30) { size -= 2; el.style.fontSize = size + 'px'; }
   }
   const main = document.querySelector('main');
   window.__desborda = main.scrollHeight > main.clientHeight + 2;

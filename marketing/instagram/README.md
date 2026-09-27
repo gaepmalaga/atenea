@@ -42,7 +42,7 @@ opositor comparte el post de la nota, el director de su academia lo ve.
 | Qué le duele | Estudia mucho y no sabe si va bien | Pierde alumnos sin verlo venir; lleva todo en Excel y WhatsApp |
 | Qué le prometemos | Qué estudiar hoy, y que no se le olvide lo que ya sabe | A quién llamar, qué explicar y la gestión en un sitio |
 | Formato | Carrusel educativo que se guarda y se comparte | Carrusel con un dolor concreto y el panel como respuesta |
-| Llamada a la acción | ateneapolicial.com | Pide una demo por DM |
+| Llamada a la acción | **Hazte fundador**: sin coste, en ateneapolicial.com o a alumnos@ateneapolicial.com | Demo: DM o contacto@ateneapolicial.com |
 | Color del post | **Hueso** (fondo claro, rojo) | **Noche** (fondo oscuro, amarillo) |
 
 El color no es decoración: en la cuadrícula del perfil un director de academia
@@ -90,7 +90,7 @@ mejor para academias.
 
 | Semana | Lunes | Miércoles | Viernes |
 |---|---|---|---|
-| 1 | 📌 01 · Manifiesto (ambos) | 📌 02 · Sabe qué se te va a olvidar | 📌 03 · ¿Quién lo va a dejar? (academia) |
+| 1 | 📌 01 · Buscamos opositores fundadores (ambos) | 📌 02 · Sabe qué se te va a olvidar | 📌 03 · ¿Quién lo va a dejar? (academia) |
 | 2 | 04 · No todos los temas valen igual | 05 · Hoy te toca esto | 06 · Excel, WhatsApp y una libreta (academia) |
 | 3 | 07 · Acertar dudando | 08 · Simulacros comparables | 09 · Lo que falla toda la clase (academia) |
 | 4 | 10 · La misma opción falsa | 11 · Mi Evolución | 12 · Más de 4.600 preguntas (academia) |
@@ -120,15 +120,24 @@ No los «me gusta». Cada semana:
 Si tras el mes un tipo de post dobla en guardados al resto, el segundo mes se
 hace más de ese.
 
-## 8 · Antes de publicar
+## 8 · Opositores fundadores
 
-- [ ] **Qué ve un opositor al registrarse.** Hoy un registro sin academia entra
-      en la academia «casa» y espera a que se le acepte (regla 70). Si hay
-      precio, decidir si se dice en la bio o en la primera respuesta.
-- [ ] **Quién contesta los DMs de academias**, con una cuenta de demo preparada.
-- [ ] **El peso por tema (post 04)** sale de la clasificación por tema de los
-      cuadernillos resueltos. Si la convocatoria 2026 renumera algún tema,
-      revisar los cinco títulos.
+Hoy no hay precio para opositores: se buscan **fundadores** que la usen, digan
+qué falla y la abanderen. Eso es la llamada a la acción de todos los posts para
+opositores, y el post que abre la cuenta.
+
+- **Qué se promete:** entrar sin pagar y que lo que digan se tenga en cuenta.
+  **Nada más.** Ni «gratis para siempre», ni plazas limitadas, ni ventajas
+  futuras que no estén decididas.
+- **Cómo entra un fundador:** se registra en `ateneapolicial.com` y se le
+  acepta desde el panel (le llega el correo de solicitud, regla 70). O escribe
+  a `alumnos@ateneapolicial.com` o por DM.
+- **Correos:** `alumnos@` para opositores, `contacto@` para academias. Los DMs
+  y los correos los contesta el dueño.
+
+Pendiente de revisar: **el peso por tema (post 04)** sale de la clasificación
+por tema de los cuadernillos resueltos. Si la convocatoria 2026 renumera algún
+tema, revisar los cinco títulos.
 
 ## Cómo regenerar
 

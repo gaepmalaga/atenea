@@ -17,7 +17,7 @@ grabación de pantalla de «Lo que te toca».
 | 3-7 | Cara de no acordarse | «Exacto. Se te está yendo, y no lo vas a notar hasta el examen.» |
 | 7-15 | Pantalla: la semana con lo que vence cada día | «Atenea lleva un reloj por cada pregunta. Sabe cuál se te va a olvidar y te la pone delante antes.» |
 | 15-20 | Pantalla: «Te toca porque la fallaste hace 3 días» | «Y te dice por qué te toca.» |
-| 20-23 | Logo + ateneapolicial.com | «Oposita como nunca antes.» |
+| 20-23 | Logo + ateneapolicial.com | «Buscamos opositores fundadores. Sin coste.» |
 
 **Portada del reel:** «Se te está olvidando».
 
@@ -56,6 +56,8 @@ Instagram (encuesta, test, pregunta): son los que más respuestas sacan.
 
 | Día | Story | Sticker |
 |---|---|---|
+| Tras el 01 | «Buscamos opositores fundadores. ¿Te apuntas?» | Sticker de enlace → ateneapolicial.com |
+| Tras el 01 | «¿Qué le falta a la plataforma con la que estudias?» | Pregunta abierta (las respuestas son oro para construir) |
 | Tras el 02 | «¿Cuándo repasaste por última vez el tema 1?» | Encuesta: Esta semana / Este mes / Ni me acuerdo |
 | Tras el 02 | «¿Cómo sabes qué se te está olvidando?» | Pregunta abierta |
 | Tras el 04 | «¿Cuál crees que es el tema que más cae?» | Test: Constitución II / Funcionarios / DGP |

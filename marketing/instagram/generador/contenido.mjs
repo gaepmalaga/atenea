@@ -18,18 +18,18 @@
 export const POSTS = [
   // ───────────────────────────────────────────── SEMANA 1
   {
-    id: '01-manifiesto',
+    id: '01-fundadores',
     semana: 1,
     dia: 'Lunes',
     publico: 'ambos',
     fijar: true,
-    tema: 'Quiénes somos y en qué somos distintos',
+    tema: 'Presentación: buscamos opositores fundadores',
     slides: [
       {
         tipo: 'portada',
         kicker: 'Atenea Policial',
-        titulo: 'Estudiar más horas no es el problema.',
-        sub: '**Estudiar lo que no toca, sí.**',
+        titulo: 'Buscamos opositores **fundadores.**',
+        sub: 'Para una plataforma que decide qué estudias hoy. Y te dice por qué.',
       },
       {
         tipo: 'texto',
@@ -44,38 +44,52 @@ export const POSTS = [
         titulo: 'Decide por ti. **Y te dice por qué.**',
         items: [
           { h: 'Qué estudias hoy', p: 'Cada pregunta lleva su propio calendario de repaso. Hoy salen las que te tocan.' },
-          { h: 'Dónde está tu nota', p: 'El banco crece donde más cae el examen real: 497 preguntas oficiales de 2021 a 2025, contadas tema a tema.' },
-          { h: 'Qué se te está olvidando', p: 'Lo que se te va antes de que se vaya del todo, sin que tengas que buscarlo.' },
+          { h: 'Qué se te está olvidando', p: 'Te lo pone delante antes de que se vaya del todo.' },
+          { h: 'Dónde está tu nota', p: 'Más preguntas donde más cae el examen real: 497 preguntas oficiales de 2021 a 2025, contadas tema a tema.' },
+        ],
+      },
+      {
+        tipo: 'lista',
+        kicker: 'Qué es ser fundador',
+        titulo: 'Sin coste. **Con voz.**',
+        items: [
+          { h: 'Entras sin pagar', p: 'Hoy no hay precio para opositores.' },
+          { h: 'Lo que nos digas, se construye', p: 'Qué falla, qué sobra, qué echas en falta. Te contestamos nosotros, no un bot.' },
+          { h: 'La abanderas', p: 'Si te sirve, que lo sepa quien estudia contigo.' },
         ],
       },
       {
         tipo: 'texto',
-        kicker: 'Y para academias',
+        kicker: 'Y si tienes academia',
         titulo: 'Tu método, con un motor detrás.',
         cuerpo:
-          'A quién llamar hoy, qué preguntas falla toda la clase, grupos, pagos y físicas. Con el nombre de tu academia y tu propio enlace.',
+          'A quién llamar hoy, qué preguntas falla toda la clase, grupos, pagos y físicas. Con tu nombre y tu enlace. Escríbenos a contacto@ateneapolicial.com.',
       },
       {
         tipo: 'cierre',
-        titulo: 'Policía Nacional. Escala Básica.',
-        cuerpo: '45 temas. Un sistema que aprende de cómo respondes.',
-        accion: 'ateneapolicial.com',
+        titulo: 'Oposita a Policía Nacional como nunca antes.',
+        cuerpo: 'Regístrate y te damos acceso. O escríbenos: alumnos@ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
-    pie: `Estudiar más horas no es el problema. Estudiar lo que no toca, sí.
+    pie: `Buscamos opositores fundadores.
 
-Casi todas las plataformas de test hacen lo mismo: un banco enorme, preguntas al azar y un porcentaje de acierto. Lo demás lo decides tú: qué repasar, cuándo y cuánto.
+Atenea es una plataforma para preparar la Escala Básica de Policía Nacional que hace algo que las demás no hacen: decide qué estudias hoy, y te dice por qué.
 
-Atenea lo decide por ti, y te dice por qué:
-→ Cada pregunta tiene su calendario de repaso. Hoy salen las que te tocan.
-→ El banco crece donde más cae el examen real (497 preguntas oficiales, 2021–2025, contadas por tema).
+→ Cada pregunta tiene su propio calendario de repaso. Hoy salen las que te tocan.
 → Sabe qué se te está olvidando y te lo pone delante antes de que se vaya.
+→ Hay más preguntas donde más cae el examen real (497 preguntas oficiales, 2021–2025, contadas por tema).
 
-¿Tienes una academia? También es para ti: panel de alumnos, grupos, pagos y físicas, con tu nombre y tu enlace.
+Qué es ser fundador:
+· Entras sin pagar. Hoy no hay precio para opositores.
+· Lo que nos digas se construye: qué falla, qué sobra, qué echas en falta. Te contestamos nosotros.
+· Si te sirve, la abanderas con quien estudia contigo.
 
-Oposita a Policía Nacional como nunca antes. ateneapolicial.com`,
+Cómo entrar: regístrate en ateneapolicial.com y te damos acceso, o escríbenos a alumnos@ateneapolicial.com o por DM.
+
+¿Tienes una academia? contacto@ateneapolicial.com`,
     hashtags: ['policianacional', 'oposicionespolicia', 'escalabasica', 'opositores', 'academiadeoposiciones'],
-    alt: 'Carrusel de presentación de Atenea Policial: estudiar más horas no es el problema, estudiar lo que no toca sí. Explica que la plataforma decide qué repasar cada día, prioriza los temas que más caen en el examen real y detecta qué se le está olvidando al alumno.',
+    alt: 'Carrusel de presentación de Atenea Policial: buscamos opositores fundadores. La plataforma decide qué repasar cada día, detecta qué se le está olvidando al alumno y prioriza los temas que más caen en el examen real. Ser fundador es entrar sin pagar y ayudar a construirla.',
   },
   {
     id: '02-lo-que-se-te-va-a-olvidar',
@@ -123,7 +137,7 @@ Oposita a Policía Nacional como nunca antes. ateneapolicial.com`,
         tipo: 'cierre',
         titulo: 'Tú entras. Lo que toca hoy ya está elegido.',
         cuerpo: 'Oposita a Policía Nacional como nunca antes.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `Lo que estudiaste hace tres semanas se te está olvidando ahora mismo. Y no lo vas a notar hasta el examen.
@@ -141,7 +155,9 @@ Tú entras y lo que te toca hoy ya está elegido. Ves lo que vence cada día de 
 
 (Las cifras de la imagen son un ejemplo.)
 
-ateneapolicial.com`,
+ateneapolicial.com
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'tecnicasdeestudio', 'repeticionespaciada', 'opositores'],
     alt: 'Carrusel sobre cómo Atenea anticipa el olvido: cada pregunta tiene su propio calendario de repaso por alumno. Muestra un ejemplo de las preguntas que vencen cada día de la semana y explica que el sistema lo deduce de cómo responde el alumno, sin preguntarle.',
   },
@@ -195,8 +211,8 @@ ateneapolicial.com`,
       {
         tipo: 'cierre',
         titulo: 'Tu academia, con un motor detrás.',
-        cuerpo: 'Para academias de oposición a Policía Nacional.',
-        accion: 'Pide una demo por DM',
+        cuerpo: 'Pide una demo, por DM o por correo.',
+        accion: 'contacto@ateneapolicial.com',
       },
     ],
     pie: `¿Sabes qué alumnos van a dejarlo en noviembre?
@@ -209,7 +225,7 @@ Y separa dos cosas que casi todo el mundo mezcla:
 → Quien no viene: ¿sigue interesado?
 → Quien viene y no estudia: ¿se ha atascado? Son de los que más se salvan, y de los que antes se pierden.
 
-Tienes una academia de oposición a Policía Nacional y quieres verlo con tus alumnos: escríbenos por DM.`,
+Tienes una academia de oposición a Policía Nacional y quieres verlo con tus alumnos: escríbenos por DM o a contacto@ateneapolicial.com.`,
     hashtags: ['academiadeoposiciones', 'oposicionespolicia', 'policianacional', 'gestionacademia', 'formacion'],
     alt: 'Carrusel para directores de academia. Muestra un ejemplo del panel de alumnos de Atenea ordenado por urgencia: quien nunca ha entrado, quien lleva 16 días fuera, quien entra y no contesta y quien estudia. Explica que venir y estudiar son dos señales distintas.',
   },
@@ -273,7 +289,7 @@ Tienes una academia de oposición a Policía Nacional y quieres verlo con tus al
         tipo: 'cierre',
         titulo: 'Guárdalo. Pásaselo a quien estudia contigo.',
         cuerpo: 'Las preguntas oficiales se usan para medir el peso, nunca como fuente: la ley cambia.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `Hemos contado las 497 preguntas de los cinco últimos exámenes oficiales de la Escala Básica (2021–2025), tema a tema.
@@ -293,7 +309,9 @@ En Atenea este reparto decide dos cosas: dónde crece el banco (en los temas que
 
 Una aclaración: los exámenes antiguos los usamos para medir el peso, no para sacar preguntas. Un artículo citado hace cinco años puede haber cambiado.
 
-Fuente: cuadernillos oficiales 2021–2025, clasificados por tema.`,
+Fuente: cuadernillos oficiales 2021–2025, clasificados por tema.
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'escalabasica', 'temario', 'opositores'],
     alt: 'Carrusel con el peso real de cada tema en los cinco últimos exámenes de Policía Nacional. Los que más caen: Constitución II (32 preguntas), Dirección General de la Policía (27), funcionarios públicos (25), El Derecho (20) y seguridad ciudadana (20). Diez temas suman el 42 por ciento del examen.',
   },
@@ -350,7 +368,7 @@ Fuente: cuadernillos oficiales 2021–2025, clasificados por tema.`,
         tipo: 'cierre',
         titulo: 'Cuántas preguntas hoy, lo propone el sistema.',
         cuerpo: 'Tú lo ajustas y entrenas. Sin nota y sin reloj: aquí se aprende.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `¿Qué repasas hoy? Si la respuesta es «lo que me apetezca» o «el tema que toca en el calendario», estás dejando lo más importante al azar.
@@ -365,7 +383,9 @@ Con eso se arma tu sesión:
 
 Y antes de cada pregunta te dice por qué está ahí: «te toca porque la fallaste hace 3 días», «una más y se retira una temporada».
 
-Si una pregunta se te cae una y otra vez, vuelve antes. Es tu curva de olvido con esa pregunta, no una media.`,
+Si una pregunta se te cae una y otra vez, vuelve antes. Es tu curva de olvido con esa pregunta, no una media.
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'tecnicasdeestudio', 'repeticionespaciada', 'opositores'],
     alt: 'Carrusel sobre el entrenamiento adaptativo de Atenea. Cada pregunta está en uno de seis cajones: nueva, recaída, en aprendizaje, consolidando, dominada y atascada. La sesión pone primero las recaídas, limita el material nuevo, mezcla temas y apunta a un 85 por ciento de acierto.',
   },
@@ -416,7 +436,7 @@ Si una pregunta se te cae una y otra vez, vuelve antes. Es tu curva de olvido co
         tipo: 'cierre',
         titulo: 'Y el mismo motor de estudio para todos tus alumnos.',
         cuerpo: 'La gestión es lo que te ahorra tiempo. El entrenamiento adaptativo es lo que te hace distinta.',
-        accion: 'Pide una demo por DM',
+        accion: 'contacto@ateneapolicial.com',
       },
     ],
     pie: `Excel para los pagos, WhatsApp para los grupos y una libreta para las físicas. Si te suena, esto es para ti.
@@ -433,7 +453,7 @@ FÍSICAS · Tu preparador escribe el plan de cada grupo semana a semana, y queda
 
 Y encima, el mismo entrenamiento adaptativo para todos tus alumnos.
 
-Demo para academias: escríbenos por DM.`,
+Demo para academias: escríbenos por DM o a contacto@ateneapolicial.com.`,
     hashtags: ['academiadeoposiciones', 'oposicionespolicia', 'gestionacademia', 'policianacional', 'preparacionfisica'],
     alt: 'Carrusel para academias sobre la gestión en Atenea: grupos con varios profesores, alumnos en varios grupos, rejilla de pagos mes a mes con exentos y sin pasarela, enlace propio de registro, solicitudes de alta por correo y plan físico por grupo semana a semana.',
   },
@@ -488,7 +508,7 @@ Demo para academias: escríbenos por DM.`,
         tipo: 'cierre',
         titulo: 'Tú contestas. Lo demás lo deducimos.',
         cuerpo: 'Sin encuestas después de cada pregunta.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `Dos aciertos. Uno lo marcaste al momento. El otro, después de tardar el doble de lo normal y cambiar de respuesta dos veces.
@@ -501,7 +521,9 @@ Con eso:
 → Un acierto dudoso no da la pregunta por dominada. Vuelve antes.
 → Un fallo no es solo un fallo. Olvido, trampa, lectura o laguna, y cada uno vuelve en un momento distinto. Si leíste mal, no hace falta volver a empezar de cero con esa pregunta.
 
-Tú contestas. Lo demás lo hace el sistema.`,
+Tú contestas. Lo demás lo hace el sistema.
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'tecnicasdeestudio', 'opositores', 'escalabasica'],
     alt: 'Carrusel que compara un acierto firme con uno titubeante. Atenea deduce la firmeza del tiempo de respuesta comparado con el ritmo del alumno, los cambios de opción y el primer toque, y distingue cuatro tipos de fallo: olvido, trampa, lectura y laguna.',
   },
@@ -546,7 +568,7 @@ Tú contestas. Lo demás lo hace el sistema.`,
         tipo: 'cierre',
         titulo: 'Dos simulacros que se pueden comparar.',
         cuerpo: 'Tu media, la mejor y hacia dónde vas.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `Haces un simulacro el lunes y sacas un 6. El jueves, un 4. ¿Has ido a peor o te ha tocado un examen más difícil?
@@ -561,7 +583,9 @@ En Atenea un simulacro:
 
 Al terminar, una cuadrícula: verde, rojo y blanco. Cada casilla abre qué marcaste, la correcta, la explicación, el artículo y cuánto tardaste.
 
-Y una cosa que casi nadie mira: no todos los blancos son iguales. No es lo mismo no tener ni idea que marcar, dudar y retirarla porque no compensaba el riesgo. Lo segundo es estrategia, y te lo decimos.`,
+Y una cosa que casi nadie mira: no todos los blancos son iguales. No es lo mismo no tener ni idea que marcar, dudar y retirarla porque no compensaba el riesgo. Lo segundo es estrategia, y te lo decimos.
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'simulacro', 'escalabasica', 'opositores'],
     alt: 'Carrusel sobre los simulacros de Atenea: tamaños fijos de 25, 50 o 100 preguntas, reparto por temas y artículos, dificultad constante y 30 segundos por pregunta. Muestra la cuadrícula de resultados en verde, rojo y blanco, y explica los dos tipos de respuesta en blanco.',
   },
@@ -609,8 +633,8 @@ Y una cosa que casi nadie mira: no todos los blancos son iguales. No es lo mismo
       {
         tipo: 'cierre',
         titulo: 'Menos intuición. Más clase donde hace falta.',
-        cuerpo: 'Para academias de oposición a Policía Nacional.',
-        accion: 'Pide una demo por DM',
+        cuerpo: 'Pide una demo, por DM o por correo.',
+        accion: 'contacto@ateneapolicial.com',
       },
     ],
     pie: `Si casi toda tu clase falla la misma pregunta, hay dos opciones: o nadie se sabe ese punto, o la pregunta está mal.
@@ -667,7 +691,7 @@ Y si un alumno reporta una pregunta de tu banco, te llega a ti. Si es del banco 
         tipo: 'cierre',
         titulo: 'Tus fallos, ordenados por lo que hay que hacer con ellos.',
         cuerpo: 'No una lista plana de todo lo que has fallado.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `Hay preguntas que fallas siempre igual: siempre la B, aunque la correcta sea la C.
@@ -676,7 +700,9 @@ Eso no es no saberlo. Es tener un dato falso bien aprendido, y ahí hacer más t
 
 Atenea lo detecta. Cuando tus fallos en una pregunta se concentran en la misma opción equivocada, deja de repetírtela y te manda al artículo. Lo mismo con las que llevas cuatro fallos o más: aparecen aparte, arriba, en «Se te resisten».
 
-Y cada explicación dice por qué la correcta está bien y también por qué las otras dos están mal. El día del examen, la trampa es la opción que se parece a la buena.`,
+Y cada explicación dice por qué la correcta está bien y también por qué las otras dos están mal. El día del examen, la trampa es la opción que se parece a la buena.
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'tecnicasdeestudio', 'opositores', 'testoposiciones'],
     alt: 'Carrusel sobre el error sistemático: cuando un alumno falla una pregunta siempre con la misma opción equivocada tiene una creencia falsa. Atenea deja de repetir esa pregunta, remite al artículo y agrupa aparte las que se resisten. Las explicaciones justifican también las opciones incorrectas.',
   },
@@ -721,7 +747,7 @@ Y cada explicación dice por qué la correcta está bien y también por qué las
         tipo: 'cierre',
         titulo: 'Dónde estás. No dónde te gustaría estar.',
         cuerpo: 'Solo lo que has hecho, contado bien.',
-        accion: 'ateneapolicial.com',
+        accion: 'Hazte fundador · ateneapolicial.com',
       },
     ],
     pie: `¿Cuántas preguntas dominas hoy? ¿Y hace un mes?
@@ -737,7 +763,9 @@ Casi ninguna plataforma te lo puede decir, porque solo guarda aciertos y fallos 
 
 Sin predicciones de cuándo vas a aprobar. Solo lo que has hecho, contado bien.
 
-(La curva de la imagen es un ejemplo.)`,
+(La curva de la imagen es un ejemplo.)
+
+¿Quieres ser opositor fundador? Sin coste: regístrate en ateneapolicial.com o escribe a alumnos@ateneapolicial.com.`,
     hashtags: ['policianacional', 'oposicionespolicia', 'opositores', 'escalabasica', 'motivacionopositores'],
     alt: 'Carrusel sobre la pantalla Mi Evolución de Atenea. Muestra una curva de ejemplo de preguntas dominadas día a día, que llega a 1.284. Incluye el mapa del temario por tema, las preguntas que se resisten, las que se evitan y la media de simulacros con la nota oficial.',
   },
@@ -783,8 +811,8 @@ Sin predicciones de cuándo vas a aprobar. Solo lo que has hecho, contado bien.
       {
         tipo: 'cierre',
         titulo: 'Tu contenido y el nuestro, en el mismo motor.',
-        cuerpo: 'Para academias de oposición a Policía Nacional.',
-        accion: 'Pide una demo por DM',
+        cuerpo: 'Pide una demo, por DM o por correo.',
+        accion: 'contacto@ateneapolicial.com',
       },
     ],
     pie: `Montar un banco de preguntas desde cero lleva años. Tu academia empieza con más de 4.600.
@@ -801,7 +829,7 @@ TU BANCO
 
 Y todo pasa el mismo filtro, lo escriba una persona o la IA: opciones repetidas, celdas vacías o la correcta mal marcada no llegan a ningún alumno.
 
-Demo para academias: escríbenos por DM.`,
+Demo para academias: escríbenos por DM o a contacto@ateneapolicial.com.`,
     hashtags: ['academiadeoposiciones', 'oposicionespolicia', 'policianacional', 'bancodepreguntas', 'profesores'],
     alt: 'Carrusel para academias sobre el banco de preguntas de Atenea: más de 4.600 preguntas comunes que crecen según el peso real del examen, con explicación de las tres opciones, y un banco privado de cada academia con alta manual e importación desde Excel validada.',
   },
