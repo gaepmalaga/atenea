@@ -1,0 +1,13 @@
+{
+  "name": "atenea-instagram-generador",
+  "private": true,
+  "type": "module",
+  "description": "Genera los carruseles de Instagram. Independiente de la app: no toca sus dependencias.",
+  "scripts": { "render": "node render.mjs" },
+  "dependencies": {
+    "@fontsource/archivo": "^5.0.0",
+    "@fontsource/archivo-black": "^5.0.0",
+    "@fontsource/jetbrains-mono": "^5.0.0",
+    "playwright-core": "^1.55.0"
+  }
+}
