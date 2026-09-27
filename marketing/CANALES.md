@@ -59,9 +59,9 @@ Son posibles clientes. El mensaje para ellas está en `MENSAJES.md`.
 
 | Academia | Dónde | Seguidores | Lo que dicen de sí mismos |
 |---|---|---|---|
-| **OPolicial Básica** | [IG @opolicial.basica](https://www.instagram.com/opolicial.basica/) | 8,6K (verificada) | «Pioneros en preparación individualizada… No seas un número más» |
+| **OPolicial Básica** | [IG @opolicial.basica](https://www.instagram.com/opolicial.basica/) · opolicialbasica.es (plataforma de test propia en WordPress) | 8,6K (verificada) | «Pioneros en preparación individualizada… No seas un número más» |
 | **GPol Oposiciones** (Valencia) | [TikTok @gpol.oposiciones](https://www.tiktok.com/@gpol.oposiciones) · gpoloposiciones.com | 2,9K | «Academia para PN y GC. Preparación táctica y cercana» |
-| **GM Oposiciones** (Jorge Milton) | [IG @jorgemilton__](https://www.instagram.com/jorgemilton__/) · gmoposiciones.es | 3K IG; un vídeo suyo en TikTok pasa de 1,2M visitas | «Método integral personalizado» |
+| **GM Oposiciones** (Jorge Milton) | [IG @jorgemilton__](https://www.instagram.com/jorgemilton__/) · gmoposiciones.es · campus en Moodle (campusgmformacion.com) | 3K IG; un vídeo suyo en TikTok pasa de 1,2M visitas | «Método integral personalizado» |
 | **Corporepol** | Canal de Telegram (arriba) | 2.699 | «Exigencia y compromiso» |
 
 OPolicial Básica y GM Oposiciones venden justo lo que Atenea automatiza: la

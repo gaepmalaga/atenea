@@ -72,27 +72,83 @@ acuerdo. Pídele solo su opinión.
 
 ## 3 · Academias
 
-Correo desde contacto@, o mensaje directo. Corto. El enlace hace el resto.
+**Casi todas ya tienen plataforma.** No se les ofrece cambiarla: se les ofrece
+lo que su plataforma no hace. Hay que decir en la primera frase que se ha
+visto lo que usan, o el correo suena a spam.
 
-**Asunto:** Para [academia]: el repaso de cada alumno, sin hacerlo a mano
+Lo que se comprobó de cada una el 27 sep 2026:
 
-> Hola, [nombre].
+| Academia | Qué usa hoy | Correo |
+|---|---|---|
+| OPolicial Básica | Web en WordPress con cursos y tienda, y una **plataforma de test propia** (`test.opolicialbasica.es`, «test ilimitados de Teoría»). Venden **programación de estudio personalizada** hecha por preparadores | info@opolicialbasica.es |
+| GM Oposiciones (Jorge Milton) | **Campus virtual GM en Moodle** (campusgmformacion.com), con cuestionarios. Academia de varias oposiciones, también cursos SEF/SEPE. Venden «método integral personalizado» | info@gmoposiciones.es |
+
+### OPolicial Básica
+
+**Para:** info@opolicialbasica.es
+**Asunto:** La programación personalizada, pregunta por pregunta
+
+> Hola:
 >
-> He visto que en [academia] trabajáis la preparación personalizada. Es
-> justo lo que hemos automatizado en Atenea: cada alumno tiene su propio
-> calendario de repaso, pregunta por pregunta, según cómo contesta. Y tú ves
-> en un panel a quién llamar esta semana y qué preguntas falla toda la clase.
+> He visto que en OPolicial Básica trabajáis la preparación personalizada,
+> con programación de estudio a medida y vuestra plataforma de test.
 >
-> También lleva lo de la academia: grupos, pagos mes a mes (en efectivo, sin
-> pasarela) y el plan de físicas por grupo.
+> No os escribo para cambiar nada de eso. Atenea hace una cosa concreta que
+> una plataforma de test no hace: lleva esa personalización hasta cada
+> pregunta. Cada alumno tiene su propio calendario de repaso según cómo
+> contesta. Lo que falla vuelve antes, lo que acierta dudando no se da por
+> sabido, y cada día se le monta la sesión que le toca, diciéndole por qué.
 >
-> Aquí está todo, con una demo con datos de ejemplo:
-> ateneapolicial.com/academias
+> Y vosotros veis en un panel lo que hoy cuesta ver: quién lleva dos semanas
+> sin entrar, quién entra y no contesta, y qué preguntas falla casi toda la
+> clase.
 >
-> Si te encaja, te enseño el panel en 15 minutos cuando te venga bien.
+> Vuestras preguntas se pueden subir desde Excel a un banco privado que solo
+> ven vuestros alumnos, encima del banco común de más de 4.600.
+>
+> Hay una demo con datos de ejemplo en ateneapolicial.com/academias. Si os
+> interesa, os la enseño en 15 minutos.
 >
 > Un saludo,
 > [tu nombre] · Atenea Policial
+
+### GM Oposiciones
+
+**Para:** info@gmoposiciones.es
+**Asunto:** Para vuestros alumnos de Policía Nacional
+
+> Hola, Jorge:
+>
+> He visto que trabajáis con vuestro Campus virtual en Moodle. Para una
+> academia con varias oposiciones tiene todo el sentido, y no os propongo
+> cambiarlo.
+>
+> Atenea es solo para Policía Nacional (Escala Básica) y hace lo que un
+> cuestionario de Moodle no hace: decide qué repasa cada alumno cada día.
+> Cada pregunta tiene su propio calendario de repaso según cómo la contesta
+> ese alumno, y la sesión se calibra para que acierte en torno al 85 %. Es
+> vuestro método personalizado, aplicado pregunta a pregunta.
+>
+> En el panel veis a quién llamar esta semana, qué preguntas falla casi toda
+> la clase, y lleváis grupos y pagos.
+>
+> Se puede usar solo con los alumnos de Policía Nacional, junto al campus.
+> Hay una demo con datos de ejemplo en ateneapolicial.com/academias. ¿Os la
+> enseño en 15 minutos?
+>
+> Un saludo,
+> [tu nombre] · Atenea Policial
+
+### Si preguntan
+
+- **«¿Podemos pasar nuestras preguntas?»** Sí, desde Excel o CSV, al banco
+  privado. Cada fila que no vale sale con su número y el motivo. **Desde Moodle
+  no hay importación directa**: habría que pasarlas antes a una hoja de
+  cálculo.
+- **«¿Sustituye a nuestra plataforma?»** No hace falta. Se puede usar solo para
+  el entrenamiento de Policía Nacional.
+- **«¿Cuánto cuesta?»** Lo que pone en ateneapolicial.com/academias. Las
+  condiciones las decides tú.
 
 **La demo de `/demo` pide usuario y contraseña**, y a propósito no están en la
 web. Mándalos solo a quien conteste.

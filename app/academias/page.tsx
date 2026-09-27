@@ -45,7 +45,7 @@ const COMPARATIVA: FilaComparativa[] = [
   },
   {
     criterio: 'Cómo diagnostica un fallo',
-    atenea: 'Se deduce del tiempo y los cambios de opción, y explica también por qué fallan las opciones incorrectas; solo pregunta cuando de verdad cambia el repaso',
+    atenea: 'Se deduce del tiempo y los cambios de opción: olvido, trampa, lectura o laguna. Solo pregunta cuando de verdad cambia el repaso',
     bancos: 'No se distingue del acierto',
     socias: 'No publicado',
     propio: 'Lo que decidas construir',
@@ -102,15 +102,15 @@ const FEATURES = [
   },
   {
     icon: Lightbulb,
-    titulo: 'El porqué de cada fallo, no solo la respuesta correcta',
+    titulo: 'Explicaciones que enseñan, y un mismo filtro para todo',
     texto:
-      'Cuando el alumno falla, la explicación no se limita a justificar la opción correcta: dice también por qué cada opción incorrecta está mal. Mismo listón para lo que genera la IA, lo que escribe un profesor a mano o lo que sube por Excel — sin pedirle a nadie una etiqueta de más.',
+      'Las preguntas nuevas del banco común no se limitan a justificar la opción correcta: explican también por qué está mal cada opción incorrecta. Y todo lo que entra —lo que genera la IA, lo que escribe un profesor a mano o lo que sube por Excel— pasa el mismo filtro antes de llegar a un alumno: opciones repetidas, una celda vacía o la correcta mal marcada se rechazan.',
   },
   {
     icon: ListChecks,
     titulo: 'La programación, a la vista del alumno',
     texto:
-      'Antes de cada pregunta, el alumno ve por qué le toca hoy — "la fallaste hace tres días", "una más y se retira una temporada". Y en su perfil, de un vistazo, cuántas preguntas vencen cada uno de los próximos 7 días.',
+      'Antes de cada pregunta, el alumno ve por qué le toca hoy — "La fallaste hace 3 días: toca repasarla ya", "Ya la dominas — un acierto más y no la volverás a ver en semanas". Y en «Mi Evolución» ve cuántas preguntas tiene dominadas, día a día, y qué tema se le resiste.',
   },
   {
     icon: Target,
@@ -128,7 +128,7 @@ const FEATURES = [
     icon: Layers,
     titulo: 'Un panel, no tres aplicaciones',
     texto:
-      'Alta y acceso de alumnos, grupos con varios profesores, cobro en efectivo mes a mes con su histórico, y el plan de preparación física — de un preparador real o generado — conviven donde ya se modera el banco de preguntas.',
+      'Alta y acceso de alumnos, grupos con varios profesores, cobro en efectivo mes a mes con su histórico, y el plan de preparación física de cada grupo —lo escribe vuestro preparador, semana a semana— conviven donde ya se modera el banco de preguntas.',
   },
   {
     icon: BookOpenCheck,
@@ -282,7 +282,7 @@ export default function AcademiasLandingPage() {
           </div>
 
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-6">
-            {['Sin permanencia — mes a mes', 'Alta y migración de alumnos incluida', 'Actualizaciones sin coste aparte', 'Tu propio dominio de acceso'].map((t) => (
+            {['Sin permanencia — mes a mes', 'Alta y migración de alumnos incluida', 'Actualizaciones sin coste aparte', 'Tu propio enlace de acceso para tus alumnos'].map((t) => (
               <span key={t} className="text-[12px] font-bold flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 ${C.rojo} inline-block`} aria-hidden /> {t}
               </span>
