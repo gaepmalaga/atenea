@@ -40,6 +40,43 @@ antes que nadie».
 cambia es que decide qué repasas cada día. Si llevas semanas sin tocar un tema,
 te lo pone delante antes de que se te olvide».
 
+## 1b · Las 30 plazas de fundador (Telegram)
+
+Válido con la producción de hoy (11 oct): `/fundadores` todavía no está
+publicada (da 404) porque vive en la rama. Cuando se publique, cambia los
+pasos por el enlace `ateneapolicial.com/fundadores`.
+
+> Hola a todos 👋 Soy Christian.
+>
+> Llevo un tiempo construyendo Atenea, una plataforma para preparar la Escala
+> Básica de Policía Nacional, y busco 30 opositores que la prueben en serio
+> antes de abrirla.
+>
+> Qué la hace distinta de un banco de test:
+> • No te saca preguntas al azar. Cada pregunta tiene su propio calendario de
+> repaso según cómo la contestas: lo que se te está olvidando te vuelve antes
+> de que se vaya.
+> • Antes de cada pregunta te dice por qué te toca hoy («La fallaste hace 3
+> días: toca repasarla ya»).
+> • En «Repasar fallos» tienes aparte las que se te resisten, con el artículo
+> de la ley a un toque.
+> • Simulacros de 25, 50 o 100 preguntas con el tiempo del examen.
+> • Los 45 temas y más de 4.600 preguntas.
+>
+> Las condiciones:
+> • Sin coste. Hoy no hay precio para opositores.
+> • 30 plazas. Cuando se llenen, cierro.
+> • A cambio os pido una cosa: que la uséis dos semanas y me digáis qué falla.
+>
+> Cómo entrar:
+> 1. Entra en ateneapolicial.com
+> 2. Abajo del todo, pulsa «Regístrate aquí».
+> 3. Confirma el correo que te llega.
+> 4. Te activo el acceso (lo reviso cada día) y te llega un correo cuando
+> esté.
+>
+> Cualquier duda, aquí mismo o en alumnos@ateneapolicial.com
+
 ## 2 · Mensaje directo a alguien con audiencia
 
 Para las personas de `CANALES.md`, sección 3. Primero sigue su cuenta y comenta
