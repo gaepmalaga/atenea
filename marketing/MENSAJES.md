@@ -42,9 +42,7 @@ te lo pone delante antes de que se te olvide».
 
 ## 1b · Las 30 plazas de fundador (Telegram)
 
-Válido con la producción de hoy (11 oct): `/fundadores` todavía no está
-publicada (da 404) porque vive en la rama. Cuando se publique, cambia los
-pasos por el enlace `ateneapolicial.com/fundadores`.
+Texto definitivo (11 oct), con `/fundadores` ya en `main`.
 
 > Hola a todos 👋 Soy Christian.
 >
@@ -74,10 +72,9 @@ pasos por el enlace `ateneapolicial.com/fundadores`.
 > • A cambio os pido una cosa: que la uséis dos semanas y me digáis qué falla.
 >
 > Cómo entrar:
-> 1. Entra en ateneapolicial.com
-> 2. Abajo del todo, pulsa «Regístrate aquí».
-> 3. Confirma el correo que te llega.
-> 4. Te activo el acceso (lo reviso cada día) y te llega un correo cuando
+> 1. Entra en ateneapolicial.com/fundadores y pulsa «Crear mi cuenta».
+> 2. Confirma el correo que te llega.
+> 3. Te activo el acceso (lo reviso cada día) y te llega un correo cuando
 > esté.
 >
 > Cualquier duda, aquí mismo o en alumnos@ateneapolicial.com
