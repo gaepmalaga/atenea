@@ -28,7 +28,8 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
             status,
             issue: issueType || null,
             pain_location: painLocation || null,
-            rpe: sessionRPE,
+            // Una baja no tiene esfuerzo: mandar el 5 del deslizador lo metía en la media.
+            rpe: status === 'skipped' ? null : sessionRPE,
             feedback: sessionFeedback,
             timestamp: new Date().toISOString()
         };
@@ -36,8 +37,11 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
     };
 
     return (
-        // CAMBIO: Fondo adaptativo (blanco día / negro noche)
-        <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 flex flex-col animate-in slide-in-from-bottom-10 duration-300">
+        // `z-[60]`, no `z-50`: la barra de navegación del móvil (`MobileNav`)
+        // también es `z-50` y va después en el DOM, así que tapaba el pie de
+        // esta pantalla — «Completar sesión» y el aviso de molestia quedaban
+        // debajo y no se podían pulsar. Visto en un móvil de 390 px.
+        <div className="fixed inset-0 z-[60] bg-white dark:bg-slate-950 flex flex-col animate-in slide-in-from-bottom-10 duration-300">
             
             {/* HEADER */}
             {/* CAMBIO: Bordes y fondos adaptativos */}
@@ -101,9 +105,9 @@ export default function ActiveSession({ day, onExit, onComplete, startInReportMo
                             <div className="relative z-10">
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{ex.name}</h3>
                                 <div className="flex flex-wrap gap-4 text-sm text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-4 font-mono">
-                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">SETS: {ex.sets}</span>
-                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">REPS: {ex.reps}</span>
-                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">REST: {ex.rest}</span>
+                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Series: {ex.sets}</span>
+                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Reps: {ex.reps}</span>
+                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Descanso: {ex.rest}</span>
                                 </div>
                                 
                                 {ex.target && (

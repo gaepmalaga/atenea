@@ -128,7 +128,7 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
                 <FilaPrueba
                     icon={Timer}
                     titulo="Resistencia"
-                    descripcion="Test de Cooper (12 minutos)."
+                    descripcion="Test de Cooper (12 minutos). En el examen: 1.000 m."
                     hecha={isCooperDone}
                     marca={metrics.cooper_distance ? `${metrics.cooper_distance} m` : null}
                     onClick={() => onSelectTest('cooper')}

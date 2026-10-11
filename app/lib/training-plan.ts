@@ -242,6 +242,32 @@ function readLog(day: TrainingDay): TrainingDayLog | null {
   return log && typeof log === 'object' ? (log as TrainingDayLog) : null;
 }
 
+/**
+ * Las bajas de una sesión (`ActiveSession`) llegan con un código en inglés.
+ * Se traducen aquí, en un solo sitio: antes salían tal cual en la pantalla
+ * («⚠ injury») y en el prompt del plan siguiente.
+ */
+export const ETIQUETA_INCIDENCIA: Record<string, string> = {
+  injury: 'lesión',
+  sick: 'enfermedad',
+  tired: 'fatiga',
+  work: 'trabajo',
+};
+
+/**
+ * ¿Es una MOLESTIA física? `work` no lo es: saltarse un día por el trabajo no
+ * puede bajar la carga de la semana siguiente, que es lo que hace una molestia
+ * en `decideProgression`.
+ */
+export function esMolestia(issue: string | null | undefined): boolean {
+  return !!issue && issue !== 'work';
+}
+
+function describeIncidencia(issue: string | null | undefined, pain: string | null | undefined): string {
+  const etiqueta = issue ? (ETIQUETA_INCIDENCIA[issue] ?? issue) : '';
+  return [etiqueta, pain].filter(Boolean).join(': ');
+}
+
 /** Resume la semana que acaba de terminar, para alimentar la siguiente. */
 export function summarizeWeek(plan: WeeklyPlan | null | undefined): WeekSummary {
   const days = plan?.days ?? [];
@@ -256,9 +282,11 @@ export function summarizeWeek(plan: WeeklyPlan | null | undefined): WeekSummary 
     if (day.isCompleted) completed++;
     if (log?.status === 'skipped') skipped++;
 
-    if (typeof log?.rpe === 'number' && Number.isFinite(log.rpe)) rpes.push(log.rpe);
+    // Una sesión dada de baja no tiene esfuerzo: el deslizador se queda en su
+    // valor por defecto (5) y, sin esto, ese 5 entraba en la media.
+    if (log?.status !== 'skipped' && typeof log?.rpe === 'number' && Number.isFinite(log.rpe)) rpes.push(log.rpe);
 
-    const molestia = [log?.issue, log?.pain_location].filter(Boolean).join(': ');
+    const molestia = esMolestia(log?.issue) || log?.pain_location ? describeIncidencia(log?.issue, log?.pain_location) : '';
     if (molestia && !issues.includes(molestia)) issues.push(molestia);
 
     // `Object.entries('texto')` enumera los CARACTERES de la cadena. Sin
@@ -401,7 +429,7 @@ export function buildWorkoutLogRow(params: {
         )
       : {};
 
-  const molestia = [log?.issue, log?.pain_location].filter(Boolean).join(': ') || null;
+  const molestia = describeIncidencia(log?.issue, log?.pain_location) || null;
   const anotaciones = Object.entries(feedback).map(([k, v]) => `${k}: ${v}`).join(' · ') || null;
 
   return {
@@ -409,7 +437,7 @@ export function buildWorkoutLogRow(params: {
     plan_id: planId,
     date: fechaLocalISO(params.now),
     session_type: day.type || day.title || 'sesión',
-    rpe: normalizeRpe(log?.rpe),
+    rpe: status === 'skipped' ? null : normalizeRpe(log?.rpe),
     metrics: {
       dayIndex,
       status,
@@ -472,7 +500,9 @@ export function agrupaHistorialPorSemana(logs: WorkoutLogLeido[]): SemanaHistori
     porSemana.get(lunes)!.push({
       date: fecha,
       session_type: l.session_type ?? null,
-      rpe: normalizeRpe(l.rpe),
+      // Las filas anteriores a este arreglo guardaban el 5 del deslizador en
+      // una sesión dada de baja; se ignora al leer (regla 17: al releer también).
+      rpe: status === 'skipped' ? null : normalizeRpe(l.rpe),
       status,
       issue,
     });
@@ -489,7 +519,7 @@ export function agrupaHistorialPorSemana(logs: WorkoutLogLeido[]): SemanaHistori
         completadas: sesiones.filter((s) => s.status === 'completed').length,
         saltadas: sesiones.filter((s) => s.status === 'skipped').length,
         avgRpe: rpes.length ? Math.round((rpes.reduce((a, b) => a + b, 0) / rpes.length) * 10) / 10 : null,
-        molestias: [...new Set(sesiones.map((s) => s.issue).filter((i): i is string => !!i))],
+        molestias: [...new Set(sesiones.map((s) => (s.issue ? (ETIQUETA_INCIDENCIA[s.issue] ?? s.issue) : null)).filter((i): i is string => !!i))],
       };
     });
 }

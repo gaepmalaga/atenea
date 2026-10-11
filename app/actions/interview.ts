@@ -15,6 +15,7 @@ import {
   type InterviewReport,
 } from '../lib/interview';
 import { requireUser } from '../lib/auth';
+import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
@@ -89,7 +90,7 @@ export async function getPsychProfile() {
 }
 
 /** Instrucciones de presion para el inspector, a partir del perfil del aspirante. */
-async function generateInspectorReport(promptProfile: InterviewProfile, psych: PsychProfile) {
+async function generateInspectorReport(promptProfile: InterviewProfile, psych: PsychProfile, userId: string) {
     if (!hasProfileContent(promptProfile)) return "EL CANDIDATO NO TIENE DATOS. ACÚSALE DE FALTA DE INTERÉS.";
 
     const prompt = `
@@ -103,6 +104,7 @@ async function generateInspectorReport(promptProfile: InterviewProfile, psych: P
         3. Dame 3 preguntas trampa.
     `;
     const result = await smartModel.generateContent(prompt);
+    registraGasto({ ruta: 'interview', userId, uso: result.response.usageMetadata, detalle: 'estrategia' });
     return result.response.text();
 }
 
@@ -130,7 +132,7 @@ export async function processInterviewTurn(history: InterviewTurn[], userAudioTe
 
         let inspectorStrategy = "Mantén la presión.";
         if (history.length < 2 && hasProfileContent(promptProfile)) {
-             inspectorStrategy = await generateInspectorReport(promptProfile, psych);
+             inspectorStrategy = await generateInspectorReport(promptProfile, psych, auth.user.id);
         }
 
         const profileContext = hasProfileContent(promptProfile) ? JSON.stringify(promptProfile) : "SIN DATOS.";
@@ -151,6 +153,7 @@ export async function processInterviewTurn(history: InterviewTurn[], userAudioTe
             CANDIDATO DICE: "${userAudioText}"
         `;
         const result = await chatModel.generateContent(systemPrompt);
+        registraGasto({ ruta: 'interview', userId: auth.user.id, uso: result.response.usageMetadata, detalle: 'turno' });
         return { success: true as const, response: result.response.text() };
     } catch (e) {
         return { success: false as const, error: e instanceof Error ? e.message : 'Error desconocido' };
@@ -207,6 +210,7 @@ export async function evaluateInterview(history: InterviewTurn[]) {
         `;
 
         const result = await reportModel.generateContent(prompt);
+        registraGasto({ ruta: 'interview', userId: auth.user.id, uso: result.response.usageMetadata, detalle: 'informe' });
         const report = normalizeReport(parseAIJson(result.response.text()));
         if (!report) return { success: false as const, error: 'El informe no se pudo generar. Inténtalo otra vez.' };
 

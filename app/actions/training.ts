@@ -2,6 +2,7 @@
 import { planModel } from './core';
 import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
+import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
 import { requireTrainingSwitch, leeTrainingSwitches } from '../lib/training-switch-guard';
 import { checkQuota } from '../lib/rate-limit';
@@ -94,6 +95,9 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
             ESTRUCTURA: ${PLAN_SHAPE}
         `;
         const result = await planModel.generateContent(prompt);
+        // Sin esto el plan físico no aparecía en «Consumo IA», y en la academia
+        // casa es el único gasto de IA que hace un alumno (regla 75).
+        registraGasto({ ruta: 'plan', userId, uso: result.response.usageMetadata, detalle: 'semana 1' });
         // Se valida ANTES de guardar (regla 10): un dia sin ejercicios o sin
         // titulo tumbaba el panel, y ya estaba escrito en la BD.
         const plan = normalizePlan(parseAIJson(result.response.text()));
@@ -401,6 +405,7 @@ export async function generateNextWeek() {
             ESTRUCTURA: ${PLAN_SHAPE}
         `;
         const result = await planModel.generateContent(prompt);
+        registraGasto({ ruta: 'plan', userId, uso: result.response.usageMetadata, detalle: `semana ${weekNumber}` });
         const plan = normalizePlan(parseAIJson(result.response.text()));
         if (!plan) throw new Error('La IA no devolvió un plan utilizable.');
 

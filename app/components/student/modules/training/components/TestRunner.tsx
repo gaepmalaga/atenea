@@ -155,7 +155,13 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                           <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase leading-none mb-2">
                               {testId === 'force' ? 'TEST DE FUERZA' : testId === 'cooper' ? 'TEST DE COOPER' : 'TEST DE AGILIDAD'}
                           </h2>
-                          <p className="text-slate-500 font-medium text-sm">Calibración oficial CNP.</p>
+                          {/* El Cooper NO es prueba de la convocatoria: la oficial es una carrera de
+                              1.000 m (BOE-A-2026-15055, anexo II). Decir «oficial» aquí mentía. */}
+                          <p className="text-slate-500 font-medium text-sm">
+                              {testId === 'cooper'
+                                  ? 'Mide tu resistencia. En el examen la prueba es una carrera de 1.000 m.'
+                                  : 'Prueba de la convocatoria (BOE).'}
+                          </p>
                       </div>
                   </div>
 
@@ -261,7 +267,10 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
 
                         <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
                             <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Introduce {testId === 'cooper' ? 'Distancia (Metros)' : 'Tiempo (Segundos)'}</label>
-                            <input type="number" min="0" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
+                            {/* La agilidad se cronometra en segundos y DÉCIMAS (BOE): sin `step` el
+                                navegador marcaba «11.4» como no válido, y sin `inputMode` el
+                                teclado del móvil puede no traer la coma. */}
+                            <input type="number" min="0" step={testId === 'agility' ? '0.1' : '1'} inputMode={testId === 'agility' ? 'decimal' : 'numeric'} value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
                             {testId === 'cooper' && <p className="text-center text-[10px] text-slate-500 dark:text-slate-400 mt-2">Ej: Si diste 6 vueltas a una pista de 400m = 2400m</p>}
                         </div>
 

@@ -152,7 +152,23 @@ describe('summarizeWeek', () => {
     expect(s.total).toBe(3);
     expect(s.completed).toBe(3);
     expect(s.skipped).toBe(1);
-    expect(s.avgRpe).toBe(6);
+    // El RPE de una sesión dada de baja NO cuenta: es el valor por defecto del
+    // deslizador, no un esfuerzo. Antes daba 6 (6+8+4)/3; ahora (6+8)/2.
+    expect(s.avgRpe).toBe(7);
+  });
+
+  it('una baja por trabajo no es una molestia; una lesión sí, y en castellano', () => {
+    const trabajo = summarizeWeek(semana([
+      { day: 'Lunes', exercises: [], isCompleted: true, log: { status: 'skipped', issue: 'work' } },
+    ]));
+    expect(trabajo.issues).toEqual([]);
+    expect(decideProgression(trabajo)).not.toBe('bajar');
+
+    const lesion = summarizeWeek(semana([
+      { day: 'Lunes', exercises: [], isCompleted: true, log: { status: 'skipped', issue: 'injury', pain_location: 'rodilla' } },
+    ]));
+    expect(lesion.issues).toEqual(['lesión: rodilla']);
+    expect(decideProgression(lesion)).toBe('bajar');
   });
 
   it('la media solo cuenta los dias que traen RPE', () => {
@@ -371,7 +387,7 @@ describe('registro consultable (workout_logs · §2.11)', () => {
     });
     expect(fila.session_type).toBe('Carrera'); // cae al título si no hay type
     expect(fila.rpe).toBeNull();
-    expect(fila.notes).toBe('injury: hombro derecho');
+    expect(fila.notes).toBe('lesión: hombro derecho'); // en castellano: antes salía «injury»
     expect(fila.metrics.status).toBe('skipped');
   });
 
@@ -389,7 +405,7 @@ describe('registro consultable (workout_logs · §2.11)', () => {
     expect(actual.saltadas).toBe(1);
     // media SOLO de los que traen RPE: (8 + 6) / 2 = 7, el null no cuenta como 0 (regla 8)
     expect(actual.avgRpe).toBe(7);
-    expect(actual.molestias).toEqual(['tired']);
+    expect(actual.molestias).toEqual(['fatiga']); // antes «tired», en inglés
     // sin ningún RPE en la semana → null, no 0
     expect(agrupaHistorialPorSemana([{ date: '2026-09-07', rpe: null, metrics: {} }])[0].avgRpe).toBeNull();
   });
@@ -406,5 +422,27 @@ describe('el panel de entrenamiento no lee campos sin garantizar', () => {
     // campo: ambos lados compilan y el fallo solo sale en pantalla.
     expect(dashboard).not.toMatch(/:\s*any\b/);
     expect(session).not.toMatch(/:\s*any\b/);
+  });
+});
+
+describe('una sesión dada de baja', () => {
+  it('se guarda sin esfuerzo y con la incidencia en castellano', () => {
+    const row = buildWorkoutLogRow({
+      userId: 'u', planId: 'p', dayIndex: 2,
+      day: { type: 'fuerza', title: 'Pierna' },
+      log: { status: 'skipped', issue: 'injury', pain_location: 'rodilla', rpe: 5 },
+      now: new Date('2026-10-11T12:00:00'),
+    });
+    expect(row.rpe).toBeNull();
+    expect(row.notes).toBe('lesión: rodilla');
+  });
+
+  it('el historial no la mete en la media y traduce la molestia', () => {
+    const [semanaLeida] = agrupaHistorialPorSemana([
+      { date: '2026-10-06', session_type: 'a', rpe: 7, metrics: { status: 'completed' }, notes: null },
+      { date: '2026-10-07', session_type: 'b', rpe: 5, metrics: { status: 'skipped', issue: 'injury' }, notes: null },
+    ]);
+    expect(semanaLeida.avgRpe).toBe(7);
+    expect(semanaLeida.molestias).toEqual(['lesión']);
   });
 });

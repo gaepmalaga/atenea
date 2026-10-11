@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { calculaGasto, lineaDeGasto, registraGasto, PRECIO_FLASH } from '../app/lib/ai-usage';
 
@@ -83,7 +83,14 @@ describe('todas las llamadas de pago quedan registradas', () => {
     // La guarda que importa: es facil anadir una llamada nueva y olvidarse del
     // contador, y entonces el gasto se va por un sitio que nadie mira.
     const sinRegistrar: string[] = [];
-    for (const f of ['app/actions/chat.ts', 'app/actions/exams.ts', 'app/actions/flashcards.ts']) {
+    // TODAS las acciones, no una lista fija: con la lista se escaparon
+    // `training.ts` (el plan físico) e `interview.ts`, y su gasto no salía en
+    // «Consumo IA».
+    const acciones = readdirSync(join(__dirname, '..', 'app/actions'))
+      .filter((n) => n.endsWith('.ts'))
+      .map((n) => `app/actions/${n}`);
+    expect(acciones).toContain('app/actions/training.ts');
+    for (const f of acciones) {
       const src = leer(f);
       const llamadas = (src.match(/\.generateContent\(/g) ?? []).length;
       const registros = (src.match(/registraGasto\(/g) ?? []).length;

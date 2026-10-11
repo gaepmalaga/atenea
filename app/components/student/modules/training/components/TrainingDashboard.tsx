@@ -1,7 +1,18 @@
 'use client';
 
 import { Calendar, Activity, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2, History } from 'lucide-react';
-import { planProgress, type TrainingDay, type WeeklyPlan, type SemanaHistorial } from '@/app/lib/training-plan';
+import { planProgress, ETIQUETA_INCIDENCIA, type TrainingDay, type WeeklyPlan, type SemanaHistorial } from '@/app/lib/training-plan';
+
+/** ¿Se cerró este día con una baja (lesión, enfermedad…) en vez de hacerlo? */
+function sesionDadaDeBaja(day: TrainingDay): boolean {
+  const log = day.log as { status?: string } | null | undefined;
+  return !!log && typeof log === 'object' && log.status === 'skipped';
+}
+
+function etiquetaBaja(day: TrainingDay): string {
+  const issue = (day.log as { issue?: string | null } | null | undefined)?.issue;
+  return issue ? (ETIQUETA_INCIDENCIA[issue] ?? issue) : '';
+}
 
 interface TrainingDashboardProps {
     plan: WeeklyPlan | null;
@@ -69,7 +80,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                      const esDescanso = ejercicios.length === 0;
 
                      return (
-                     <div key={idx} className={`relative group overflow-hidden flex flex-col border rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition-all ${day.isCompleted ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/30' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
+                     <div key={idx} className={`relative group overflow-hidden flex flex-col border rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition-all ${day.isCompleted && !sesionDadaDeBaja(day) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/30' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
 
                          <div className="flex justify-between items-start gap-2 mb-2">
                              <h3 className="text-base font-black text-slate-900 dark:text-white leading-tight min-w-0">{day.title}</h3>
@@ -79,7 +90,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                              {day.type && (
                                  <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded shrink-0 ${day.type === 'Fuerza' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20' : 'bg-orange-50 text-orange-600 dark:bg-orange-900/20'}`}>{day.type}</span>
                              )}
-                             {day.isCompleted && <CheckCircle2 size={20} className="text-emerald-500 shrink-0"/>}
+                             {day.isCompleted && !sesionDadaDeBaja(day) && <CheckCircle2 size={20} className="text-emerald-500 shrink-0"/>}
                          </div>
 
                          {esDescanso ? (
@@ -99,7 +110,13 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                          )}
 
                          <div className="mt-auto flex gap-2">
-                            {day.isCompleted ? (
+                            {day.isCompleted && sesionDadaDeBaja(day) ? (
+                                // Una baja (lesión, enfermedad…) también cierra el día,
+                                // pero decir «Completado» mentía sobre lo que pasó.
+                                <div className="w-full min-h-[44px] bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700">
+                                    No hecha{etiquetaBaja(day) ? ` · ${etiquetaBaja(day)}` : ''}
+                                </div>
+                            ) : day.isCompleted ? (
                                 <div className="w-full min-h-[44px] bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 border border-emerald-200 dark:border-emerald-500/20">
                                     <CheckCircle2 size={16}/> Completado
                                 </div>
