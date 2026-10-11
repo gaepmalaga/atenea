@@ -61,10 +61,11 @@ pasos por el enlace `ateneapolicial.com/fundadores`.
 > • En «Repasar fallos» tienes aparte las que se te resisten, con el artículo
 > de la ley a un toque.
 > • Simulacros de 25, 50 o 100 preguntas con el tiempo del examen.
-> • Preparación física: te mides en fuerza, agilidad y resistencia (con
-> cronómetro y avisos por voz) y te genera un plan semanal con tus marcas,
-> tus días y tu material. Cada semana sube, mantiene o baja según cómo te
-> haya ido y si avisas de alguna molestia.
+> • Preparación física: haces las tres pruebas de la convocatoria (fuerza,
+> carrera de 1.000 m y circuito de agilidad), te dice cuántos puntos sacarías
+> en la carrera según la tabla del BOE, y te genera un plan semanal con tus
+> marcas, tus días y tu material. Cada semana sube, mantiene o baja según
+> cómo te haya ido y si avisas de alguna molestia.
 > • Los 45 temas y más de 4.600 preguntas.
 >
 > Las condiciones:

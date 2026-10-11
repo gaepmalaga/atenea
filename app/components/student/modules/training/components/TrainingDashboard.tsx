@@ -1,7 +1,7 @@
 'use client';
 
 import { Calendar, Activity, Play, Settings, AlertTriangle, Lock, CheckCircle2, Loader2, History } from 'lucide-react';
-import { planProgress, ETIQUETA_INCIDENCIA, type TrainingDay, type WeeklyPlan, type SemanaHistorial } from '@/app/lib/training-plan';
+import { planProgress, esDiaDeDescanso, esValorVacio, ETIQUETA_INCIDENCIA, type TrainingDay, type WeeklyPlan, type SemanaHistorial } from '@/app/lib/training-plan';
 
 /** ¿Se cerró este día con una baja (lesión, enfermedad…) en vez de hacerlo? */
 function sesionDadaDeBaja(day: TrainingDay): boolean {
@@ -77,7 +77,7 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
                  {plan.days.map((day, idx) => {
                      const ejercicios = day.exercises ?? [];
-                     const esDescanso = ejercicios.length === 0;
+                     const esDescanso = esDiaDeDescanso(day);
 
                      return (
                      <div key={idx} className={`relative group overflow-hidden flex flex-col border rounded-2xl sm:rounded-3xl p-4 sm:p-5 transition-all ${day.isCompleted && !sesionDadaDeBaja(day) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-500/30' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
@@ -93,15 +93,15 @@ export default function TrainingDashboard({ plan, onStartSession, onReportIssue,
                              {day.isCompleted && !sesionDadaDeBaja(day) && <CheckCircle2 size={20} className="text-emerald-500 shrink-0"/>}
                          </div>
 
-                         {esDescanso ? (
+                         {esDescanso && ejercicios.length === 0 ? (
                              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Descanso. No hay nada que hacer hoy.</p>
                          ) : (
                              <ul className="text-xs text-slate-500 dark:text-slate-500 dark:text-slate-400 space-y-1 mb-4 leading-snug">
                                  {ejercicios.slice(0, 4).map((e, i) => (
                                      <li key={i}>
                                          · {e.name}
-                                         {(e.sets || e.reps) && (
-                                             <span className="text-slate-500 dark:text-slate-400"> · {[e.sets, e.reps].filter(Boolean).join(' × ')}</span>
+                                         {[e.sets, e.reps].some((v) => !esValorVacio(v)) && (
+                                             <span className="text-slate-500 dark:text-slate-400"> · {[e.sets, e.reps].filter((v) => !esValorVacio(v)).join(' × ')}</span>
                                          )}
                                      </li>
                                  ))}

@@ -72,6 +72,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El panel de «Alumnos» dice si el motor adaptativo está funcionando** | ✅ **cerrada** (15 sep). `progresoSemanalAcademia` (`app/lib/academy.ts`) corre el mismo cálculo por alumno (hoy vs hace 7 días) y suma: *"Esta semana el sistema ha llevado N preguntas más a dominadas, entre M alumnos"*, sin consulta nueva (reutiliza los `intentos` que `getAcademyOverview` ya trae). Se oculta si la suma es 0. Ver **regla 76** |
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
 | — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
+| — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
 
 ## Producción
 
@@ -3151,6 +3152,43 @@ Verificado primero con un ensayo (`--ensayo`, sin gastar nada: proyectaba
 2.830 preguntas nuevas), y **ejecutado de verdad y terminado** (15-16 sep
 2026): **2.822 preguntas nuevas, 8 repetidas, 0 fallidas — banco global
 activo en 4.617**. `npm run check` (1047 tests) en verde.
+
+
+### 79 · La preparación física se prueba con el móvil en la mano, y entrena la prueba oficial
+
+Probada de punta a punta el 11-12 oct, con una cuenta de la academia casa contra
+la BD real y un navegador a 390 px: perfil, pruebas, plan con IA, cuatro sesiones
+(una dada de baja por lesión) y dos semanas siguientes. Salieron seis fallos que
+ningún test cubría:
+
+- **No se podía completar una sesión en el móvil.** `ActiveSession` era `z-50`,
+  igual que `MobileNav`, que va después en el DOM y tapaba el pie con «Completar
+  sesión». Sin completar, el plan no avanza nunca. Ahora `z-[60]`.
+- **Una baja salía como «Completado»**, con «⚠ injury» en inglés, y el 5 por
+  defecto del deslizador entraba en la media de esfuerzo. Una baja no aporta RPE
+  (`ActiveSession` manda `null`, y `summarizeWeek`/`agrupaHistorialPorSemana`
+  lo ignoran también al releer filas viejas, regla 17). Las incidencias se
+  traducen en un solo sitio (`ETIQUETA_INCIDENCIA`), y una baja por **trabajo**
+  no es una molestia (`esMolestia`): no puede bajar la carga.
+- **El gasto de IA del plan no se registraba.** `training.ts` e `interview.ts`
+  no llamaban a `registraGasto`, y la guarda de `ai-usage.test.ts` miraba una
+  lista fija de tres ficheros. Ahora recorre todas las acciones.
+- **El Cooper NO es la prueba oficial.** La convocatoria (BOE-A-2026-15055,
+  anexo II) pide una **carrera de 1.000 m** medida en minutos y segundos. La
+  prueba ahora es esa (`TestId` `'carrera'`, `run_1000_seconds`), con
+  cronómetro que canta cada minuto y apunta el tiempo al pausar, y los puntos
+  oficiales de la tabla (`puntosCarrera1000`, `TABLA_CARRERA_1000` con fuente y
+  fecha, como `CNP_SCORING`). Sin sexo no hay puntos: `null`, no 0, porque un 0
+  elimina. Había 0 perfiles con marca de Cooper en producción.
+- **Los descansos que escribe el modelo** («Descanso completo · N/A × N/A")
+  salían con «Iniciar» y contaban en el progreso: había que «completar» un
+  descanso para desbloquear la semana. `esDiaDeDescanso` los reconoce por tipo o
+  título; no cuentan en `planProgress` ni en `summarizeWeek`.
+- La agilidad se cronometra en décimas: el campo admite `step="0.1"`.
+
+**Lo que queda abierto:** si el alumno pulsa «Generar», sale y vuelve a generar,
+quedan dos planes `active` (pasó en la prueba). El que se enseña es el último,
+pero el número de semana del siguiente cuenta los dos.
 
 ---
 

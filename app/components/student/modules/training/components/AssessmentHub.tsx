@@ -2,7 +2,7 @@
 
 import type { ComponentType } from 'react';
 import { Dumbbell, Timer, Activity, CheckCircle2, Save, Loader2, Settings, ChevronRight } from 'lucide-react';
-import { isTestDone, readMaxPullups, type PhysicalProfile, type TestId } from '@/app/lib/physical';
+import { isTestDone, readMaxPullups, formatMinSeg, puntosCarrera1000, type PhysicalProfile, type TestId } from '@/app/lib/physical';
 import { Card, Button, SectionLabel, cx, TEXT } from '../../../../ui';
 
 interface AssessmentHubProps {
@@ -82,12 +82,14 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
     // existiera, asi que una cadena vacia guardada por el asistente daba la
     // prueba por superada.
     const isForceDone = isTestDone(metrics, 'force');
-    const isCooperDone = isTestDone(metrics, 'cooper');
+    const isCarreraDone = isTestDone(metrics, 'carrera');
     const isAgilityDone = isTestDone(metrics, 'agility');
     const maxPullups = readMaxPullups(profile);
 
-    const isComplete = isForceDone && isCooperDone; // Agilidad a veces es opcional, pero mejor pedir todo.
-    const hechas = [isForceDone, isCooperDone, isAgilityDone].filter(Boolean).length;
+    const isComplete = isForceDone && isCarreraDone; // Agilidad a veces es opcional, pero mejor pedir todo.
+    const hechas = [isForceDone, isCarreraDone, isAgilityDone].filter(Boolean).length;
+    const tiempoCarrera = formatMinSeg(metrics.run_1000_seconds);
+    const puntosCarrera = puntosCarrera1000(metrics.run_1000_seconds, profile?.gender);
 
     // SIN TITULO PROPIO. `Header` ya pinta "PREP. FÍSICA · PREPARACIÓN FÍSICA";
     // debajo iba un "CENTRO DE EVALUACIÓN" de `text-4xl` que era la segunda
@@ -128,10 +130,10 @@ export default function AssessmentHub({ profile, onSelectTest, onGenerate, gener
                 <FilaPrueba
                     icon={Timer}
                     titulo="Resistencia"
-                    descripcion="Test de Cooper (12 minutos). En el examen: 1.000 m."
-                    hecha={isCooperDone}
-                    marca={metrics.cooper_distance ? `${metrics.cooper_distance} m` : null}
-                    onClick={() => onSelectTest('cooper')}
+                    descripcion="Carrera de 1.000 m, como en el examen."
+                    hecha={isCarreraDone}
+                    marca={tiempoCarrera ? `${tiempoCarrera}${puntosCarrera !== null ? ` · ${puntosCarrera} pts` : ''}` : null}
+                    onClick={() => onSelectTest('carrera')}
                     tono="bg-orange-100 dark:bg-orange-900/30 text-orange-500"
                 />
                 <FilaPrueba

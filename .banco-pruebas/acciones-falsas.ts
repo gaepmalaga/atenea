@@ -258,7 +258,7 @@ export async function generateFlashcard() {
 export async function saveFlashcardProgress() { return { success: true as const }; }
 
 export async function getPhysicalProfile() {
-  return ok({ data: { height: 178, weight: 74, max_pullups: 9, cooper_meters: 2650, agility_seconds: 9.4 } });
+  return ok({ data: { height: 178, weight: 74, gender: 'male', availability: 4, equipment: 'calisthenics', baseline_metrics: { pullups_score: 9, pullups_method: 'reps', run_1000_seconds: 215, agility_time: 9.4 } } });
 }
 export async function savePhysicalProfile() { return { success: true as const }; }
 export async function getActiveTrainingPlan() { return ok({ plan: PLAN }); }

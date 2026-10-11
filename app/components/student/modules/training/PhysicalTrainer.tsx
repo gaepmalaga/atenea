@@ -250,7 +250,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // MODO MANUAL: solo el calendario. Va ANTES que cualquier otra vista para que
   // el wizard y el hub de tests no puedan aparecer nunca — sin esta guarda, un
   // alumno de plan manual al que su preparador todavía no le ha subido la
-  // semana caía en el test de Cooper, que no le sirve de nada.
+  // semana caía en las pruebas físicas, que no le sirven de nada.
   if (modoManual) {
       // El plan de GRUPO trae todas sus semanas (para mirar atrás). El
       // individual es una sola: la que haya activa.
@@ -295,6 +295,7 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             onExit={() => { setSaveError(null); setView('hub'); }} 
             saving={saving}
             error={saveError}
+            gender={profile?.gender ?? null}
           />
       );
   }

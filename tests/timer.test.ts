@@ -95,6 +95,13 @@ describe('shouldTick', () => {
 });
 
 describe('voiceCueFor', () => {
+  it('en cronómetro (la carrera de 1.000 m) canta cada minuto corrido', () => {
+    expect(voiceCueFor('stopwatch', 60)).toBe('1 minuto');
+    expect(voiceCueFor('stopwatch', 180)).toBe('3 minutos');
+    expect(voiceCueFor('stopwatch', 95)).toBeNull();
+    expect(voiceCueFor('stopwatch', 0)).toBeNull();
+  });
+
   it('avisa en los minutos clave', () => {
     expect(voiceCueFor('countdown', 11 * 60)).toContain('11 minutos');
     expect(voiceCueFor('countdown', 6 * 60)).toContain('Mitad de tiempo');
@@ -111,9 +118,9 @@ describe('voiceCueFor', () => {
     expect(voiceCueFor('countdown', 3 * 60 - 1)).toBeNull();
   });
 
-  it('no avisa al llegar a cero ni en modo cronometro', () => {
+  it('no avisa al llegar a cero', () => {
     expect(voiceCueFor('countdown', 0)).toBeNull();
-    expect(voiceCueFor('stopwatch', 180)).toBeNull();
+    // El cronómetro ya NO va callado: canta los minutos de la carrera (ver arriba).
   });
 });
 

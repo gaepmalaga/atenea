@@ -19,6 +19,12 @@ interface TacticalTimerProps {
   onFinish?: () => void;
   autoStart?: boolean;
   startInPocketMode?: boolean;
+  /**
+   * Al PARAR un cronómetro, el tiempo corrido en segundos. Lo usa la carrera de
+   * 1.000 m para rellenar la marca sola: quien acaba de correr no tiene que
+   * memorizar el número y teclearlo con la respiración cortada.
+   */
+  onPause?: (seconds: number) => void;
 }
 
 /** Cada cuánto se repinta. NO es lo que mide el tiempo: eso sale del reloj. */
@@ -30,6 +36,7 @@ export default function TacticalTimer({
   onFinish,
   autoStart = false,
   startInPocketMode = false,
+  onPause,
 }: TacticalTimerProps) {
   const [isActive, setIsActive] = useState(autoStart);
   const [pocketMode, setPocketMode] = useState(autoStart && startInPocketMode);
@@ -182,9 +189,12 @@ export default function TacticalTimer({
     }
     if (isActive) {
       // Pausa: se acumula lo corrido y se suelta la marca de arranque.
-      setAccumulated(prev => prev + (t - (startedAt ?? t)));
+      // El total se calcula AQUÍ y no dentro del actualizador (regla 14).
+      const total = accumulated + (t - (startedAt ?? t));
+      setAccumulated(total);
       setStartedAt(null);
       setIsActive(false);
+      if (mode === 'stopwatch') onPause?.(Math.floor(total / 1000));
     } else {
       setStartedAt(t);
       finishedRef.current = false;

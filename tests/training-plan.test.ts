@@ -16,6 +16,8 @@ import {
   fechaLocalISO,
   buildWorkoutLogRow,
   agrupaHistorialPorSemana,
+  esDiaDeDescanso,
+  esValorVacio,
   PLAN_SHAPE,
   RPE_EASY,
   RPE_HARD,
@@ -110,10 +112,10 @@ describe('planProgress', () => {
   it('cuenta los dias completados sobre el total del plan', () => {
     const plan = normalizePlan({
       days: [
-        { day: 'Lunes', exercises: [], isCompleted: true },
-        { day: 'Martes', exercises: [] },
-        { day: 'Jueves', exercises: [], isCompleted: true },
-        { day: 'Viernes', exercises: [] },
+        { day: 'Lunes', exercises: [EJ], isCompleted: true },
+        { day: 'Martes', exercises: [EJ] },
+        { day: 'Jueves', exercises: [EJ], isCompleted: true },
+        { day: 'Viernes', exercises: [EJ] },
       ],
     });
     expect(planProgress(plan)).toEqual({
@@ -122,7 +124,7 @@ describe('planProgress', () => {
   });
 
   it('la semana completa se marca solo al terminar todos los dias', () => {
-    const plan = normalizePlan({ days: [{ day: 'Lunes', exercises: [], isCompleted: true }] });
+    const plan = normalizePlan({ days: [{ day: 'Lunes', exercises: [EJ], isCompleted: true }] });
     expect(planProgress(plan).isWeekComplete).toBe(true);
     expect(planProgress(plan).percentage).toBe(100);
   });
@@ -140,13 +142,15 @@ describe('planProgress', () => {
 // ============================================================
 
 const semana = (dias: unknown[]) => normalizePlan({ days: dias });
+/** Un ejercicio cualquiera: un día SIN ejercicios es un descanso (`esDiaDeDescanso`). */
+const EJ = { name: 'Dominadas', sets: '3', reps: '8' };
 
 describe('summarizeWeek', () => {
   it('cuenta dias completados, abandonados y promedia el esfuerzo', () => {
     const plan = semana([
-      { day: 'Lunes', exercises: [], isCompleted: true, log: { status: 'completed', rpe: 6 } },
-      { day: 'Martes', exercises: [], isCompleted: true, log: { status: 'completed', rpe: 8 } },
-      { day: 'Jueves', exercises: [], isCompleted: true, log: { status: 'skipped', rpe: 4 } },
+      { day: 'Lunes', exercises: [EJ], isCompleted: true, log: { status: 'completed', rpe: 6 } },
+      { day: 'Martes', exercises: [EJ], isCompleted: true, log: { status: 'completed', rpe: 8 } },
+      { day: 'Jueves', exercises: [EJ], isCompleted: true, log: { status: 'skipped', rpe: 4 } },
     ]);
     const s = summarizeWeek(plan);
     expect(s.total).toBe(3);
@@ -159,13 +163,13 @@ describe('summarizeWeek', () => {
 
   it('una baja por trabajo no es una molestia; una lesión sí, y en castellano', () => {
     const trabajo = summarizeWeek(semana([
-      { day: 'Lunes', exercises: [], isCompleted: true, log: { status: 'skipped', issue: 'work' } },
+      { day: 'Lunes', exercises: [EJ], isCompleted: true, log: { status: 'skipped', issue: 'work' } },
     ]));
     expect(trabajo.issues).toEqual([]);
     expect(decideProgression(trabajo)).not.toBe('bajar');
 
     const lesion = summarizeWeek(semana([
-      { day: 'Lunes', exercises: [], isCompleted: true, log: { status: 'skipped', issue: 'injury', pain_location: 'rodilla' } },
+      { day: 'Lunes', exercises: [EJ], isCompleted: true, log: { status: 'skipped', issue: 'injury', pain_location: 'rodilla' } },
     ]));
     expect(lesion.issues).toEqual(['lesión: rodilla']);
     expect(decideProgression(lesion)).toBe('bajar');
@@ -175,38 +179,38 @@ describe('summarizeWeek', () => {
     // Meter los dias sin dato como 0 hundiria la media, y el plan siguiente
     // saldria mas facil de lo que toca (regla 8: misma muestra arriba y abajo).
     const plan = semana([
-      { day: 'Lunes', exercises: [], log: { rpe: 8 } },
-      { day: 'Martes', exercises: [] },
-      { day: 'Jueves', exercises: [], log: {} },
+      { day: 'Lunes', exercises: [EJ], log: { rpe: 8 } },
+      { day: 'Martes', exercises: [EJ] },
+      { day: 'Jueves', exercises: [EJ], log: {} },
     ]);
     expect(summarizeWeek(plan).avgRpe).toBe(8);
   });
 
   it('sin ningun RPE la media es null, no cero', () => {
-    expect(summarizeWeek(semana([{ day: 'Lunes', exercises: [] }])).avgRpe).toBeNull();
+    expect(summarizeWeek(semana([{ day: 'Lunes', exercises: [EJ] }])).avgRpe).toBeNull();
     expect(summarizeWeek(null).avgRpe).toBeNull();
   });
 
   it('recoge las molestias sin repetirlas', () => {
     const plan = semana([
-      { day: 'Lunes', exercises: [], log: { issue: 'dolor', pain_location: 'hombro' } },
-      { day: 'Martes', exercises: [], log: { issue: 'dolor', pain_location: 'hombro' } },
-      { day: 'Jueves', exercises: [], log: { issue: 'dolor', pain_location: 'rodilla' } },
+      { day: 'Lunes', exercises: [EJ], log: { issue: 'dolor', pain_location: 'hombro' } },
+      { day: 'Martes', exercises: [EJ], log: { issue: 'dolor', pain_location: 'hombro' } },
+      { day: 'Jueves', exercises: [EJ], log: { issue: 'dolor', pain_location: 'rodilla' } },
     ]);
     expect(summarizeWeek(plan).issues).toEqual(['dolor: hombro', 'dolor: rodilla']);
   });
 
   it('recoge lo que el alumno anoto en cada ejercicio', () => {
     const plan = semana([
-      { day: 'Lunes', exercises: [], log: { feedback: { Dominadas: '6 reps', Sentadilla: '  ' } } },
+      { day: 'Lunes', exercises: [EJ], log: { feedback: { Dominadas: '6 reps', Sentadilla: '  ' } } },
     ]);
     expect(summarizeWeek(plan).notes).toEqual([{ exercise: 'Dominadas', note: '6 reps' }]);
   });
 
   it('un log corrupto no tumba el resumen', () => {
     const plan = semana([
-      { day: 'Lunes', exercises: [], log: 'texto suelto' },
-      { day: 'Martes', exercises: [], log: { rpe: 'siete', feedback: 'nada' } },
+      { day: 'Lunes', exercises: [EJ], log: 'texto suelto' },
+      { day: 'Martes', exercises: [EJ], log: { rpe: 'siete', feedback: 'nada' } },
     ]);
     const s = summarizeWeek(plan);
     expect(s.avgRpe).toBeNull();
@@ -444,5 +448,36 @@ describe('una sesión dada de baja', () => {
     ]);
     expect(semanaLeida.avgRpe).toBe(7);
     expect(semanaLeida.molestias).toEqual(['lesión']);
+  });
+});
+
+describe('los días de descanso que escribe el modelo', () => {
+  const plan = semana([
+    { day: 'Lunes', title: 'Tren superior', type: 'Fuerza', exercises: [{ name: 'Dominadas', sets: '4', reps: '6' }], isCompleted: true, log: { status: 'completed', rpe: 7 } },
+    { day: 'Martes', title: 'Recuperación Total', type: 'DESCANSO', exercises: [{ name: 'Descanso completo', sets: 'N/A', reps: 'N/A' }] },
+    { day: 'Miércoles', title: 'Carrera', type: 'Cardio', exercises: [{ name: 'Carrera 1000m', sets: '1', reps: '1000m' }], isCompleted: true, log: { status: 'completed', rpe: 7 } },
+    { day: 'Jueves', title: 'Movilidad', type: 'Descanso activo', exercises: [{ name: 'Paseo', sets: '1', reps: '30 min' }] },
+  ]);
+
+  it('se reconocen aunque traigan un «ejercicio» dentro', () => {
+    expect(esDiaDeDescanso(plan!.days[1])).toBe(true);
+    expect(esDiaDeDescanso(plan!.days[3])).toBe(true);
+    expect(esDiaDeDescanso(plan!.days[0])).toBe(false);
+  });
+
+  it('no cuentan para desbloquear la semana ni para decidir la siguiente', () => {
+    const p = planProgress(plan);
+    expect(p.total).toBe(2);
+    expect(p.isWeekComplete).toBe(true);
+    expect(summarizeWeek(plan).total).toBe(2);
+    expect(decideProgression(summarizeWeek(plan))).not.toBe('repetir');
+  });
+
+  it('«N/A» no se pinta como dato', () => {
+    expect(esValorVacio('N/A')).toBe(true);
+    expect(esValorVacio('n/a')).toBe(true);
+    expect(esValorVacio('-')).toBe(true);
+    expect(esValorVacio('4')).toBe(false);
+    expect(esValorVacio(undefined)).toBe(true);
   });
 });

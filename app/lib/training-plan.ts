@@ -185,14 +185,36 @@ export function buildManualPlan(params: {
  * Progreso de la semana. Numerador y denominador de la misma muestra (regla 8),
  * y `total: 0` no es 0 %: es "sin plan".
  */
+/**
+ * ¿Es un día de descanso? El modelo no siempre los manda vacíos: a veces
+ * devuelve «Descanso completo · N/A × N/A» como si fuera un ejercicio. Con
+ * solo mirar `exercises.length === 0`, ese día salía con «Iniciar» y contaba
+ * en el progreso — había que «completar» un descanso para desbloquear la
+ * semana siguiente. Visto con un plan real de 7 días para 4 de entreno.
+ */
+export function esDiaDeDescanso(day: Pick<TrainingDay, 'exercises' | 'type' | 'title'>): boolean {
+  if (!day.exercises || day.exercises.length === 0) return true;
+  return /descanso|recuperaci[oó]n total/i.test(`${day.type ?? ''} ${day.title ?? ''}`);
+}
+
+/** Lo que el modelo escribe cuando no hay dato: «N/A», «-», «n/a». No se pinta. */
+export function esValorVacio(v: unknown): boolean {
+  return typeof v !== 'string' && typeof v !== 'number'
+    ? true
+    : /^\s*(n\/?a|-+|—)?\s*$/i.test(String(v));
+}
+
 export function planProgress(plan: WeeklyPlan | null | undefined): {
   total: number;
   completed: number;
   percentage: number;
   isWeekComplete: boolean;
 } {
-  const total = plan?.days.length ?? 0;
-  const completed = plan?.days.filter((d) => d.isCompleted).length ?? 0;
+  // Los descansos no se «completan»: ni suman al total ni hacen falta para
+  // desbloquear la semana siguiente.
+  const entreno = plan?.days.filter((d) => !esDiaDeDescanso(d)) ?? [];
+  const total = entreno.length;
+  const completed = entreno.filter((d) => d.isCompleted).length;
   return {
     total,
     completed,
@@ -270,7 +292,10 @@ function describeIncidencia(issue: string | null | undefined, pain: string | nul
 
 /** Resume la semana que acaba de terminar, para alimentar la siguiente. */
 export function summarizeWeek(plan: WeeklyPlan | null | undefined): WeekSummary {
-  const days = plan?.days ?? [];
+  // Sin los descansos: con ellos dentro, «completó menos de la mitad» podía
+  // salir verdad en una semana de 4 sesiones hechas de 4 (7 días con 3 de
+  // descanso que nadie «completa») y la siguiente se repetía sin motivo.
+  const days = (plan?.days ?? []).filter((d) => !esDiaDeDescanso(d));
   const rpes: number[] = [];
   const issues: string[] = [];
   const notes: { exercise: string; note: string }[] = [];

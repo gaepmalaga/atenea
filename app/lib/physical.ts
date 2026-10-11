@@ -13,8 +13,13 @@ export type BaselineMetrics = {
   /** Dominadas: repeticiones, o segundos si se mide en suspension. */
   pullups_score?: number | null;
   pullups_method?: 'reps' | 'suspension' | null;
-  /** Metros recorridos en el test de Cooper (12 minutos). */
-  cooper_distance?: number | null;
+  /**
+   * Segundos en la carrera de 1.000 m, la prueba de resistencia de la
+   * convocatoria. Sustituye al test de Cooper (12 minutos), que NO es la prueba
+   * oficial: la app lo presentaba como «calibración oficial CNP» y el plan
+   * entrenaba para la prueba equivocada.
+   */
+  run_1000_seconds?: number | null;
   /** Segundos en el circuito de agilidad. */
   agility_time?: number | null;
   /** Nombre antiguo de `pullups_score`. Solo lectura. */
@@ -38,12 +43,12 @@ export type PhysicalProfile = {
   baseline_test?: { pullups?: number | string | null } | null;
 };
 
-export type TestId = 'force' | 'cooper' | 'agility';
+export type TestId = 'force' | 'carrera' | 'agility';
 
 /** Campo de `baseline_metrics` que escribe cada prueba. */
 export const TEST_METRIC_FIELD: Record<TestId, keyof BaselineMetrics> = {
   force: 'pullups_score',
-  cooper: 'cooper_distance',
+  carrera: 'run_1000_seconds',
   agility: 'agility_time',
 };
 
@@ -84,7 +89,7 @@ export function normalizeMetrics(raw: Record<string, unknown>): BaselineMetrics 
   const out: BaselineMetrics = {};
 
   if ('pullups_score' in raw) out.pullups_score = toNumberOrNull(raw.pullups_score);
-  if ('cooper_distance' in raw) out.cooper_distance = toNumberOrNull(raw.cooper_distance);
+  if ('run_1000_seconds' in raw) out.run_1000_seconds = toNumberOrNull(raw.run_1000_seconds);
   if ('agility_time' in raw) out.agility_time = toNumberOrNull(raw.agility_time);
   if (raw.pullups_method === 'reps' || raw.pullups_method === 'suspension') {
     out.pullups_method = raw.pullups_method;
@@ -116,7 +121,7 @@ export function readMaxPullups(profile: PhysicalProfile | null | undefined): num
 /** ¿Se ha registrado ya el resultado de una prueba? */
 export function isTestDone(metrics: BaselineMetrics | null | undefined, testId: TestId): boolean {
   if (testId === 'force') return readMaxPullups({ baseline_metrics: metrics }) !== null;
-  if (testId === 'cooper') return toNumberOrNull(metrics?.cooper_distance) !== null;
+  if (testId === 'carrera') return toNumberOrNull(metrics?.run_1000_seconds) !== null;
   return toNumberOrNull(metrics?.agility_time) !== null;
 }
 
@@ -144,7 +149,7 @@ export type CoachProfile = {
   marcas?: {
     dominadas?: number;
     dominadas_metodo?: 'reps' | 'suspension';
-    cooper_metros?: number;
+    carrera_1000m_segundos?: number;
     agilidad_segundos?: number;
   };
 };
@@ -177,14 +182,68 @@ export function buildCoachProfile(
   }
 
   const dominadas = readMaxPullups(profile);
-  const cooper = toNumberOrNull(profile.baseline_metrics?.cooper_distance);
+  const carrera = toNumberOrNull(profile.baseline_metrics?.run_1000_seconds);
   const agilidad = toNumberOrNull(profile.baseline_metrics?.agility_time);
   const marcas: NonNullable<CoachProfile['marcas']> = {};
   if (dominadas !== null) marcas.dominadas = dominadas;
   if (profile.baseline_metrics?.pullups_method) marcas.dominadas_metodo = profile.baseline_metrics.pullups_method;
-  if (cooper !== null) marcas.cooper_metros = cooper;
+  if (carrera !== null) marcas.carrera_1000m_segundos = carrera;
   if (agilidad !== null) marcas.agilidad_segundos = agilidad;
   if (Object.keys(marcas).length) out.marcas = marcas;
 
   return out;
+}
+
+/**
+ * Puntuación OFICIAL de la carrera de 1.000 m (0 a 10).
+ *
+ * Fuente: BOE-A-2026-15055, anexo II, B) Sistema de calificación, tercer
+ * ejercicio. Cada número es el TOPE en segundos de ese tramo: con 3:35 (215 s)
+ * un hombre saca 3 puntos (tramo 3:36 a 3:31). Por encima del último tope, 0
+ * — y un 0 en cualquier ejercicio elimina.
+ *
+ * Va en un objeto con la fecha en que se comprobó, como `CNP_SCORING`: las
+ * tablas cambian entre convocatorias.
+ */
+export const TABLA_CARRERA_1000 = {
+  fuente: 'BOE-A-2026-15055, anexo II',
+  revisadoEl: '2026-10-11',
+  /** Topes (en segundos) para 10, 9, 8 … 1 puntos. */
+  male: [174, 180, 186, 192, 198, 204, 210, 216, 222, 228],
+  female: [204, 213, 222, 231, 240, 249, 258, 267, 276, 285],
+} as const;
+
+/** Puntos de la carrera de 1.000 m. `null` si falta el tiempo o el sexo (no es un 0). */
+export function puntosCarrera1000(
+  segundos: number | null | undefined,
+  sexo: 'male' | 'female' | null | undefined,
+): number | null {
+  const s = toNumberOrNull(segundos);
+  if (s === null || s <= 0 || !sexo) return null;
+  const topes = TABLA_CARRERA_1000[sexo];
+  for (let i = 0; i < topes.length; i++) {
+    if (s <= topes[i]) return 10 - i;
+  }
+  return 0;
+}
+
+/** «3:35» a partir de segundos. Para la carrera, que el BOE mide en minutos y segundos. */
+export function formatMinSeg(segundos: number | null | undefined): string | null {
+  const s = toNumberOrNull(segundos);
+  if (s === null || s < 0) return null;
+  const total = Math.round(s);
+  const m = Math.floor(total / 60);
+  const r = total % 60;
+  return `${m}:${r < 10 ? '0' : ''}${r}`;
+}
+
+/** Minutos y segundos tecleados por separado → segundos. Vacío es `null`, no 0. */
+export function minSegASegundos(min: unknown, seg: unknown): number | null {
+  const m = toNumberOrNull(min);
+  const s = toNumberOrNull(seg);
+  if (m === null && s === null) return null;
+  const mm = m ?? 0;
+  const ss = s ?? 0;
+  if (mm < 0 || ss < 0 || ss >= 60) return null;
+  return mm * 60 + ss;
 }

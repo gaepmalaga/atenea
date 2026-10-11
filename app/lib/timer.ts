@@ -53,6 +53,14 @@ const VOICE_CUES: Record<number, string> = {
 };
 
 export function voiceCueFor(mode: TimerMode, secondsLeft: number): string | null {
+  // En cronómetro (la carrera de 1.000 m) `secondsLeft` es el tiempo CORRIDO:
+  // se canta cada minuto, que es lo que sirve para llevar el ritmo con el
+  // móvil en el bolsillo.
+  if (mode === 'stopwatch') {
+    if (secondsLeft <= 0 || secondsLeft % 60 !== 0) return null;
+    const min = secondsLeft / 60;
+    return min === 1 ? '1 minuto' : `${min} minutos`;
+  }
   if (mode !== 'countdown') return null;
   if (secondsLeft <= 0 || secondsLeft % 60 !== 0) return null;
   return VOICE_CUES[secondsLeft / 60] ?? null;

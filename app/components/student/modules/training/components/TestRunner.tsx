@@ -6,6 +6,9 @@ import TacticalTimer from './TacticalTimer';
 import {
     toNumberOrNull,
     TEST_METRIC_FIELD,
+    minSegASegundos,
+    puntosCarrera1000,
+    TABLA_CARRERA_1000,
     type BaselineMetrics,
     type TestId,
 } from '@/app/lib/physical';
@@ -17,9 +20,11 @@ interface TestRunnerProps {
     onExit: () => void;
     saving?: boolean;
     error?: string | null;
+    /** Para enseñar los puntos oficiales de la carrera: la tabla es distinta por sexo. */
+    gender?: 'male' | 'female' | null;
 }
 
-export default function TestRunner({ testId, initialData, onSave, onExit, saving, error }: TestRunnerProps) {
+export default function TestRunner({ testId, initialData, onSave, onExit, saving, error, gender }: TestRunnerProps) {
     // `?? ''` y no `|| ''`: con `||`, un resultado guardado de 0 (cero
     // dominadas es un dato legitimo) volvia a salir como campo vacio.
     const getValueFromMetrics = () => {
@@ -31,6 +36,16 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
     const [startCount, setStartCount] = useState(5);
     const [result, setResult] = useState<string>(getValueFromMetrics());
     const [method, setMethod] = useState<'reps' | 'suspension'>(initialData?.pullups_method || 'reps'); 
+
+    // La carrera se mide en MINUTOS y segundos (BOE): dos campos, no un total
+    // en segundos que el alumno tendría que calcular de cabeza.
+    const carreraGuardada = toNumberOrNull(initialData?.run_1000_seconds);
+    const [minutos, setMinutos] = useState<string>(carreraGuardada !== null ? String(Math.floor(carreraGuardada / 60)) : '');
+    const [segundos, setSegundos] = useState<string>(carreraGuardada !== null ? String(carreraGuardada % 60) : '');
+    const apuntaTiempo = (total: number) => {
+        setMinutos(String(Math.floor(total / 60)));
+        setSegundos(String(total % 60));
+    };
     
     // Toggle para modo bolsillo
     const [usePocketMode, setUsePocketMode] = useState(false);
@@ -96,7 +111,8 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
     // Sin esto, confirmar con el campo en blanco guardaba `Number('') === 0`:
     // el hub daba la prueba por hecha y el plan se generaba sobre un dato
     // inventado. "Sin medir" y "cero" no son lo mismo.
-    const parsed = toNumberOrNull(result);
+    const parsed = testId === 'carrera' ? minSegASegundos(minutos, segundos) : toNumberOrNull(result);
+    const puntos = testId === 'carrera' ? puntosCarrera1000(parsed, gender) : null;
     const canConfirm = parsed !== null && parsed >= 0 && !saving;
 
     const confirmarMarca = (extra: BaselineMetrics = {}) => {
@@ -148,20 +164,14 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
             <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl">
                  {/* HEADER COMÚN */}
                  <div className="flex items-start gap-4 mb-8">
-                      <div className={`p-4 rounded-2xl flex-shrink-0 ${testId === 'force' ? 'bg-indigo-600' : testId === 'cooper' ? 'bg-orange-600' : 'bg-red-600'} text-white`}>
-                          {testId === 'force' ? <Dumbbell size={32}/> : testId === 'cooper' ? <Timer size={32}/> : <Activity size={32}/>}
+                      <div className={`p-4 rounded-2xl flex-shrink-0 ${testId === 'force' ? 'bg-indigo-600' : testId === 'carrera' ? 'bg-orange-600' : 'bg-red-600'} text-white`}>
+                          {testId === 'force' ? <Dumbbell size={32}/> : testId === 'carrera' ? <Timer size={32}/> : <Activity size={32}/>}
                       </div>
                       <div>
                           <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase leading-none mb-2">
-                              {testId === 'force' ? 'TEST DE FUERZA' : testId === 'cooper' ? 'TEST DE COOPER' : 'TEST DE AGILIDAD'}
+                              {testId === 'force' ? 'TEST DE FUERZA' : testId === 'carrera' ? 'CARRERA DE 1.000 M' : 'TEST DE AGILIDAD'}
                           </h2>
-                          {/* El Cooper NO es prueba de la convocatoria: la oficial es una carrera de
-                              1.000 m (BOE-A-2026-15055, anexo II). Decir «oficial» aquí mentía. */}
-                          <p className="text-slate-500 font-medium text-sm">
-                              {testId === 'cooper'
-                                  ? 'Mide tu resistencia. En el examen la prueba es una carrera de 1.000 m.'
-                                  : 'Prueba de la convocatoria (BOE).'}
-                          </p>
+                          <p className="text-slate-500 font-medium text-sm">Prueba de la convocatoria (BOE).</p>
                       </div>
                   </div>
 
@@ -208,14 +218,14 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                     </div>
 
                 ) : (
-                    // --- UI DE COOPER Y AGILIDAD ---
+                    // --- UI DE CARRERA Y AGILIDAD ---
                     <div className="space-y-8">
                         <div className="bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
                             <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase mb-2 tracking-wider">Instrucciones de Misión</h3>
                             <p className="text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400 leading-relaxed flex gap-2">
                                 <Info size={16} className="flex-shrink-0 mt-0.5 text-indigo-500"/>
-                                {testId === 'cooper' 
-                                    ? "Corre la máxima distancia posible en 12 minutos. Busca un terreno llano o pista de atletismo, tú deberás medir la distancia. El asistente por voz te avisará del tiempo restante."
+                                {testId === 'carrera'
+                                    ? "Corre 1.000 m lo más rápido que puedas, en superficie lisa y plana (en una pista de 400 m son dos vueltas y media). Te avisamos por voz de cada minuto. Al cruzar la meta pulsa pausa y el tiempo se apunta solo."
                                     : "Circuito de agilidad oficial (vallas y picas). Coloca el móvil en la salida. La cuenta atrás te dará 5 segundos para prepararte."
                                 }
                             </p>
@@ -227,17 +237,17 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                            ================================================================================= */}
                         {phase === 'running' && (
                             <TacticalTimer 
-                                mode={testId === 'cooper' ? 'countdown' : 'stopwatch'} 
-                                duration={720} 
+                                mode="stopwatch"
                                 autoStart={true}
                                 startInPocketMode={usePocketMode} 
+                                onPause={testId === 'carrera' ? apuntaTiempo : undefined}
                             />
                         )}
 
                         {phase === 'setup' && (
                             <div className="p-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50">
-                                {/* TOGGLE MODO BOLSILLO (SOLO COOPER) */}
-                                {testId === 'cooper' && (
+                                {/* TOGGLE MODO BOLSILLO (SOLO CARRERA) */}
+                                {testId === 'carrera' && (
                                     <button type="button" aria-pressed={usePocketMode} onClick={() => setUsePocketMode(!usePocketMode)} className={`w-full flex items-center justify-between p-4 mb-6 rounded-xl border cursor-pointer transition-all ${usePocketMode ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500'}`}>
                                         <div className="flex items-center gap-3">
                                             <Activity size={24}/>
@@ -253,7 +263,7 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                                 )}
 
                                 <p className="text-slate-500 mb-6 font-medium text-sm text-center">
-                                    {testId === 'cooper' ? 'Prepárate. Tienes 5 segundos antes de la salida.' : 'Deja el móvil en la salida. Tienes 5 segundos.'}
+                                    {testId === 'carrera' ? 'Prepárate. Tienes 5 segundos antes de la salida.' : 'Deja el móvil en la salida. Tienes 5 segundos.'}
                                 </p>
                                 {/* "INICIAR CUENTA ATRÁS" en `text-xl` parte en
                                     dos lineas en un movil y la segunda queda en
@@ -265,14 +275,41 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                             </div>
                         )}
 
-                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                            <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Introduce {testId === 'cooper' ? 'Distancia (Metros)' : 'Tiempo (Segundos)'}</label>
-                            {/* La agilidad se cronometra en segundos y DÉCIMAS (BOE): sin `step` el
-                                navegador marcaba «11.4» como no válido, y sin `inputMode` el
-                                teclado del móvil puede no traer la coma. */}
-                            <input type="number" min="0" step={testId === 'agility' ? '0.1' : '1'} inputMode={testId === 'agility' ? 'decimal' : 'numeric'} value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
-                            {testId === 'cooper' && <p className="text-center text-[10px] text-slate-500 dark:text-slate-400 mt-2">Ej: Si diste 6 vueltas a una pista de 400m = 2400m</p>}
-                        </div>
+                        {testId === 'carrera' ? (
+                            <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                                <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Tu tiempo</label>
+                                <div className="flex items-end justify-center gap-2">
+                                    <div className="flex flex-col items-center">
+                                        <input type="number" min="0" inputMode="numeric" aria-label="Minutos" value={minutos} onChange={(e) => setMinutos(e.target.value)} onKeyDown={handleKeyDown} className="w-24 text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
+                                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">min</span>
+                                    </div>
+                                    <span className="text-5xl sm:text-7xl font-black text-slate-300 pb-6">:</span>
+                                    <div className="flex flex-col items-center">
+                                        <input type="number" min="0" max="59" inputMode="numeric" aria-label="Segundos" value={segundos} onChange={(e) => setSegundos(e.target.value)} onKeyDown={handleKeyDown} className="w-24 text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="00"/>
+                                        <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">seg</span>
+                                    </div>
+                                </div>
+                                {puntos !== null && (
+                                    <p className={`mt-4 text-center text-sm font-black ${puntos === 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                                        {puntos === 0
+                                            ? 'Con este tiempo, un 0: en el examen eliminaría.'
+                                            : `${puntos} ${puntos === 1 ? 'punto' : 'puntos'} sobre 10 según la tabla del BOE.`}
+                                    </p>
+                                )}
+                                {parsed !== null && !gender && (
+                                    <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">Indica tu sexo en «Editar datos» para ver los puntos oficiales.</p>
+                                )}
+                                <p className="mt-2 text-center text-[10px] text-slate-500 dark:text-slate-400">Fuente: {TABLA_CARRERA_1000.fuente}.</p>
+                            </div>
+                        ) : (
+                            <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                                <label className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-4 block text-center">Introduce tiempo (segundos)</label>
+                                {/* La agilidad se cronometra en segundos y DÉCIMAS (BOE): sin `step` el
+                                    navegador marcaba «11.4» como no válido, y sin `inputMode` el
+                                    teclado del móvil puede no traer la coma. */}
+                                <input type="number" min="0" step="0.1" inputMode="decimal" value={result} onChange={handleInputChange} onKeyDown={handleKeyDown} className="w-full text-5xl sm:text-7xl font-black text-center bg-transparent outline-none p-2 placeholder-slate-200 focus:text-emerald-600 transition-colors" placeholder="0"/>
+                            </div>
+                        )}
 
                         {confirmHint}
                         <button onClick={() => confirmarMarca()} disabled={!canConfirm} className={confirmClass(canConfirm)}>

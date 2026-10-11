@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   toNumberOrNull,
@@ -9,6 +9,10 @@ import {
   hasBiometrics,
   isTestDone,
   TEST_METRIC_FIELD,
+  puntosCarrera1000,
+  minSegASegundos,
+  formatMinSeg,
+  buildCoachProfile,
 } from '../app/lib/physical';
 
 describe('toNumberOrNull', () => {
@@ -99,7 +103,7 @@ describe('normalizeMetrics', () => {
       pullups_score: 12,
       pullups_method: 'reps',
     });
-    expect(normalizeMetrics({ cooper_distance: '2400' }).cooper_distance).toBe(2400);
+    expect(normalizeMetrics({ run_1000_seconds: '215' }).run_1000_seconds).toBe(215);
     expect(normalizeMetrics({ agility_time: '18.4' }).agility_time).toBe(18.4);
   });
 
@@ -109,11 +113,11 @@ describe('normalizeMetrics', () => {
 
   it('conserva las marcas que ya estaban al guardar una nueva', () => {
     // `handleSaveTest` fusiona lo anterior con lo nuevo; si la normalizacion se
-    // comiera las claves ausentes, hacer el test de Cooper borraria las
+    // comiera las claves ausentes, hacer la carrera borraria las
     // dominadas y el hub volveria a pedirlas.
     const previas = { pullups_score: 12, pullups_method: 'reps' };
-    const out = normalizeMetrics({ ...previas, cooper_distance: '2400' });
-    expect(out).toEqual({ pullups_score: 12, pullups_method: 'reps', cooper_distance: 2400 });
+    const out = normalizeMetrics({ ...previas, run_1000_seconds: '215' });
+    expect(out).toEqual({ pullups_score: 12, pullups_method: 'reps', run_1000_seconds: 215 });
   });
 });
 
@@ -158,15 +162,15 @@ describe('hasBiometrics', () => {
 describe('isTestDone', () => {
   it('cada prueba mira su propio campo', () => {
     expect(isTestDone({ pullups_score: 8 }, 'force')).toBe(true);
-    expect(isTestDone({ pullups_score: 8 }, 'cooper')).toBe(false);
-    expect(isTestDone({ cooper_distance: 2400 }, 'cooper')).toBe(true);
+    expect(isTestDone({ pullups_score: 8 }, 'carrera')).toBe(false);
+    expect(isTestDone({ run_1000_seconds: 215 }, 'carrera')).toBe(true);
     expect(isTestDone({ agility_time: 18 }, 'agility')).toBe(true);
   });
 
   it('una marca vacia no da la prueba por hecha', () => {
     // El hub comprobaba `!== undefined && !== null`, asi que un `''` guardado
     // desbloqueaba el plan sobre una medida que no existia.
-    expect(isTestDone({ cooper_distance: '' as unknown as number }, 'cooper')).toBe(false);
+    expect(isTestDone({ run_1000_seconds: '' as unknown as number }, 'carrera')).toBe(false);
     expect(isTestDone(null, 'force')).toBe(false);
     expect(isTestDone({}, 'agility')).toBe(false);
   });
@@ -180,7 +184,49 @@ describe('isTestDone', () => {
     // clave y leer en otra. El bucle lo ata.
     for (const [testId, field] of Object.entries(TEST_METRIC_FIELD)) {
       const metrics = { [field]: 5 };
-      expect(isTestDone(metrics, testId as 'force' | 'cooper' | 'agility')).toBe(true);
+      expect(isTestDone(metrics, testId as 'force' | 'carrera' | 'agility')).toBe(true);
+    }
+  });
+});
+
+describe('carrera de 1.000 m (sustituye al Cooper)', () => {
+  it('puntúa con la tabla del BOE en los bordes de cada tramo', () => {
+    // Hombres: 2:54 o menos = 10; 2:55 a 3:00 = 9; … 3:43 a 3:48 = 1; 3:49 = 0.
+    expect(puntosCarrera1000(174, 'male')).toBe(10);
+    expect(puntosCarrera1000(175, 'male')).toBe(9);
+    expect(puntosCarrera1000(215, 'male')).toBe(3); // 3:35, tramo 3:36 a 3:31
+    expect(puntosCarrera1000(228, 'male')).toBe(1);
+    expect(puntosCarrera1000(229, 'male')).toBe(0);
+    // Mujeres: 3:24 o menos = 10; 4:00 a 3:52 = 6; 4:46 o más = 0.
+    expect(puntosCarrera1000(204, 'female')).toBe(10);
+    expect(puntosCarrera1000(240, 'female')).toBe(6);
+    expect(puntosCarrera1000(285, 'female')).toBe(1);
+    expect(puntosCarrera1000(286, 'female')).toBe(0);
+  });
+
+  it('sin tiempo o sin sexo es null, no 0 (un 0 elimina)', () => {
+    expect(puntosCarrera1000(null, 'male')).toBeNull();
+    expect(puntosCarrera1000(215, null)).toBeNull();
+  });
+
+  it('minutos y segundos por separado; vacío es null', () => {
+    expect(minSegASegundos('3', '35')).toBe(215);
+    expect(minSegASegundos('', '')).toBeNull();
+    expect(minSegASegundos('3', '75')).toBeNull();
+    expect(formatMinSeg(215)).toBe('3:35');
+    expect(formatMinSeg(184)).toBe('3:04');
+  });
+
+  it('el plan recibe la marca de la carrera, no metros de Cooper', () => {
+    const coach = buildCoachProfile({ baseline_metrics: { run_1000_seconds: 215 } });
+    expect(coach.marcas?.carrera_1000m_segundos).toBe(215);
+    expect(JSON.stringify(coach)).not.toMatch(/cooper/i);
+  });
+
+  it('nada en la app vuelve a llamar «oficial» al Cooper', () => {
+    const dir = join(__dirname, '..', 'app/components/student/modules/training/components');
+    for (const f of readdirSync(dir)) {
+      expect(readFileSync(join(dir, f), 'utf-8'), f).not.toMatch(/cooper/i);
     }
   });
 });
