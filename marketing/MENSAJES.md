@@ -79,6 +79,51 @@ Texto definitivo (11 oct), con `/fundadores` ya en `main`.
 >
 > Cualquier duda, aquí mismo o en alumnos@ateneapolicial.com
 
+## 1c · ASPIRANTEAPOLICIA (dueño del grupo de 7.323), 14 oct
+
+Le preguntamos el 12 oct si podíamos publicar las 30 plazas en su grupo. Contestó
+que le pasáramos la información de la app, para ver si choca con lo que
+gestiona y si aporta valor, y concretar una colaboración.
+
+Lo que tiene (aspiapolicia.es, mirado el 14 oct): tienda de merchandising
+policial (ropa, material táctico, agendas, tazas), manuales y un blog. **No
+tiene plataforma de test, academia ni preparación física**: no se solapa.
+
+Respuesta enviada en dos mensajes: la de abajo y, debajo, el texto de **1b** tal
+cual, como el que publicaríamos.
+
+> ¡Buenas tardes y gracias por contestar!
+>
+> Te cuento rápido. Atenea es una plataforma solo para la Escala Básica:
+> test y preparación física. No vende temario, ni manuales, ni material, así
+> que con tu tienda no choca. Es más bien lo que se usa a diario para
+> estudiar.
+>
+> Lo que tiene hoy:
+> • Los 45 temas y más de 4.600 preguntas.
+> • Entrenamiento que no saca preguntas al azar: cada pregunta tiene su
+> propio calendario de repaso según cómo la contesta cada uno, y antes de
+> cada una le dice por qué le toca hoy.
+> • «Repasar fallos», con las que se le resisten aparte y el artículo de la
+> ley a un toque.
+> • Simulacros de 25, 50 o 100 preguntas con el tiempo y la nota del examen
+> (los fallos restan como en el BOE).
+> • Preparación física: las tres pruebas de la convocatoria, los puntos de
+> la carrera de 1.000 m según la tabla oficial, y un plan semanal que se
+> ajusta a cómo le va.
+>
+> Aquí lo tienes explicado: ateneapolicial.com/fundadores
+>
+> Lo mejor es que la pruebes tú: pásame un correo y te doy acceso ahora
+> mismo, sin esperar. Te dejo abajo el mensaje que publicaría en el grupo
+> para que lo veas antes.
+>
+> Sobre la colaboración, estoy abierto a lo que encaje con lo que ya
+> haces. Cuando la hayas visto, lo hablamos.
+
+**Para darle acceso:** panel → «Alumnos» → invitar por correo (entra activo,
+sin solicitud).
+
 ## 2 · Mensaje directo a alguien con audiencia
 
 Para las personas de `CANALES.md`, sección 3. Primero sigue su cuenta y comenta
