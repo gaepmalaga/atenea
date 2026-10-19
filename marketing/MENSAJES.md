@@ -136,6 +136,21 @@ prueba. Se guarda el contacto y queda abierto a colaborar cuando esté lanzada
 oficialmente, fuera de beta. **No volver a pedírselo hasta entonces.** Cuando se
 vuelva, llevar algo que no tenga hoy: opositores usándola y lo que dicen.
 
+**Respuesta final (19 oct).** Agradecer y aclarar, una sola vez, que no es una
+prueba; sin volver a pedirle que la publique:
+
+> ¡Muchas gracias por mirarla con calma y por contestar!
+>
+> Solo una aclaración, porque me expliqué mal: no es una beta. Atenea ya
+> funciona entera y hay opositores usándola. Cuando hablaba de «probarla» me
+> refería a que busco gente que la exprima a diario y me diga qué mejoraría,
+> porque la quiero hacer crecer con lo que pidan los propios opositores.
+>
+> Entiendo perfectamente que cuides lo que se publica en el grupo. Si en algún
+> momento quieres verla tú con tu cuenta, o que hablemos de cualquier forma de
+> colaborar, aquí me tienes. ¡Un saludo y gracias de nuevo!
+
+
 ## 2 · Mensaje directo a alguien con audiencia
 
 Para las personas de `CANALES.md`, sección 3. Primero sigue su cuenta y comenta
@@ -165,6 +180,43 @@ acuerdo. Pídele solo su opinión.
 
 **Para darle acceso directo sin que pase por la solicitud:** desde el panel,
 «Alumnos» → invitar por correo. Entra con acceso activo, sin esperar a nadie.
+
+## 2b · The Mug Opositores (Málaga), 19 oct
+
+Centro de entrenamiento en Málaga (calle Riogordo 11, polígono La Estrella):
+preparación física para opositores en grupos reducidos, con Policía en la
+bio. 634 seguidores en Instagram (@themugopositores). Tiene destacados de
+«Horarios» y «Tarifas». No hace teoría: Atenea le da a su preparador el plan
+de grupo semana a semana y a sus alumnos el test, sin competir con él.
+
+La propuesta: una academia propia en Atenea **sin coste durante un tiempo**, a
+cambio de usarla de verdad y decir qué mejorarían. El objetivo es tener
+usuarios reales. Mejor en persona: estamos en la misma ciudad.
+
+Mensaje directo por Instagram:
+
+> Hola, soy Christian, también de Málaga. Llevo tiempo viendo cómo entrenáis a
+> los opositores en grupos reducidos y me parece justo lo que necesitan.
+>
+> He construido Atenea, una plataforma para la Escala Básica de Policía
+> Nacional que ya está funcionando, y creo que os encaja por la parte que
+> hacéis vosotros:
+> • Vuestro preparador escribe el plan de cada grupo semana a semana, y cada
+> alumno lo ve en el móvil como un calendario con sus fechas.
+> • Lleváis vuestros alumnos, grupos y cobros mes a mes en un solo panel.
+> • Y vuestros alumnos tienen además el test de teoría: 45 temas, más de 4.600
+> preguntas y un repaso que decide qué estudia cada uno cada día.
+>
+> Me gustaría ofrecéroslo sin coste durante un tiempo, a cambio de que la uséis
+> de verdad y me digáis qué mejoraríais. Como estamos cerca, si os parece me
+> paso por el centro y os la enseño en 15 minutos.
+>
+> Os dejo la información para academias: ateneapolicial.com/academias
+
+**Antes de ir:** crear su academia («Academias» → «Nueva academia») y su cuenta
+de admin, para que el día de la visita salgan con su enlace (`/<slug>`)
+funcionando. Mirar en sus destacados qué cuerpos preparan: si también hacen
+Guardia Civil u otras, decir claro que la teoría es solo de Policía Nacional.
 
 ## 3 · Academias
 
