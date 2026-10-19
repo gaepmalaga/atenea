@@ -77,7 +77,7 @@ export const CORREO_ALUMNOS = 'alumnos@ateneapolicial.com';
  * La bienvenida de un OPOSITOR FUNDADOR: sustituye a `plantillaAccesoConcedido`
  * cuando quien acepta es la academia «casa» (`atenea`), que es donde caen los
  * registros sin academia (P11j). Hoy no hay precio para el opositor: se le
- * pide que la use y que diga qué falla. Por eso el correo se contesta —
+ * pide que la exprima y diga qué mejoraría. Por eso el correo se contesta —
  * `mailer.ts` pone `replyTo: CORREO_ALUMNOS`—, y lo dice.
  *
  * Solo nombra lo que la app enseña hoy, con el nombre del menú tal cual.
@@ -95,7 +95,7 @@ export function plantillaBienvenidaFundador(params: { appUrl: string }): { subje
          <li style="margin-bottom:6px;">Cuando quieras ver cómo vas, haz un <strong>Simulacro</strong> de 25 preguntas.</li>
          <li style="margin-bottom:6px;"><strong>Repasar fallos</strong> y <strong>Mi Evolución</strong> se llenan solos a medida que contestas.</li>
        </ol>
-       <p><strong>Lo único que te pedimos:</strong> que nos digas qué falla, qué sobra y qué echas en falta. Contesta a este correo o escribe a ${CORREO_ALUMNOS}. Lo leemos nosotros.</p>`,
+       <p><strong>Lo único que te pedimos:</strong> que la uses a diario y nos digas qué mejorarías, qué sobra y qué echas en falta. Contesta a este correo o escribe a ${CORREO_ALUMNOS}. Lo leemos nosotros.</p>`,
       { texto: 'Entrar a estudiar', url: appUrl },
     ),
   };

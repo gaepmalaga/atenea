@@ -5,15 +5,17 @@ import { ArrowRight, Brain, Crosshair, Target, TrendingUp } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'Opositores fundadores | Atenea Policial',
   description:
-    'Buscamos a los primeros opositores a Policía Nacional (Escala Básica) que usen Atenea y nos digan qué falla. Sin coste.',
+    'Atenea ya funciona entera para la Escala Básica de Policía Nacional. Buscamos opositores que la expriman a diario y nos digan qué mejorarían. Sin coste.',
 };
 
 /**
  * LA PUERTA DE LOS OPOSITORES FUNDADORES.
  *
  * Es el destino de todo lo que se publica en Instagram para opositores
- * (`marketing/instagram/`). Hoy no hay precio para el opositor individual: se
- * buscan fundadores que la usen de verdad y digan qué falla.
+ * (`marketing/instagram/`). Hoy no hay precio para el opositor individual. La
+ * plataforma está terminada y en marcha: no se presenta como una prueba ni como
+ * una beta (decisión del 19 oct). Se buscan fundadores que la expriman y digan
+ * qué mejorarían.
  *
  * Sin esta página, quien llegaba desde Instagram caía en `/`, que es la
  * pantalla de ENTRAR: el enlace «Regístrate aquí» queda al final, fuera de la
@@ -73,7 +75,7 @@ const LO_QUE_HACE = [
 
 const SER_FUNDADOR = [
   { titulo: 'Entras sin pagar', texto: 'Hoy no hay precio para opositores.' },
-  { titulo: 'Lo que nos digas, se construye', texto: 'Qué falla, qué sobra, qué echas en falta. Te contesta una persona, no un bot.' },
+  { titulo: 'Lo que nos digas, se construye', texto: 'Qué mejorarías, qué sobra, qué echas en falta. Te contesta una persona, no un bot.' },
   { titulo: 'La abanderas', texto: 'Si te sirve, que lo sepa quien estudia contigo.' },
 ];
 
@@ -102,8 +104,8 @@ export default function FundadoresPage() {
           <span className={`${C.rojo} text-white px-2 inline-block`}>fundadores</span>
         </h1>
         <p className={`text-base sm:text-lg font-semibold leading-relaxed mb-8 ${C.tinta2}`}>
-          Atenea decide qué estudias hoy y te dice por qué. Buscamos a los primeros opositores que la
-          usen de verdad y nos digan qué falla.
+          Atenea ya funciona entera: decide qué estudias hoy y te dice por qué. Buscamos opositores
+          que la expriman a diario y nos digan qué mejorarían.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Link

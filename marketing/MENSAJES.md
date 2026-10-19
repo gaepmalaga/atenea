@@ -7,6 +7,11 @@ Todo lo que se dice de la app está comprobado contra el código a 27 sep 2026.
 No se promete nada que no esté decidido: ni «gratis para siempre», ni plazas
 limitadas, ni ventajas futuras.
 
+**No se presenta como una prueba ni como una beta** (decisión del 19 oct). Está
+en producción y funciona entera: se buscan opositores que la expriman y digan
+qué mejorarían. Decir «en pruebas» le dio a ASPIRANTEAPOLICIA el motivo para no
+difundirla (1c).
+
 Enlaces:
 - Opositores: **ateneapolicial.com/fundadores**
 - Academias: **ateneapolicial.com/academias**. La página tiene la demo en
@@ -18,17 +23,17 @@ Enlaces:
 
 Una sola vez por grupo, y después de leer sus normas.
 
-> Hola a todos. Llevo un tiempo montando una plataforma para preparar la
-> Escala Básica y busco opositores que la prueben en serio y me digan qué
-> falla.
+> Hola a todos. He construido Atenea, una plataforma para preparar la Escala
+> Básica que ya funciona entera, y busco opositores que la expriman a diario
+> y me digan qué mejorarían.
 >
 > La diferencia con los bancos de test normales: no te saca preguntas al azar.
 > Cada pregunta tiene su propio calendario de repaso según cómo la contestas,
 > y antes de cada una te dice por qué te toca hoy («la fallaste hace 3 días»).
 > Tiene los 45 temas y más de 4.600 preguntas.
 >
-> Para opositores no tiene coste. A cambio os pido que me digáis qué no
-> funciona. Si os interesa: ateneapolicial.com/fundadores
+> Para opositores no tiene coste. A cambio os pido que me digáis qué
+> mejoraríais. Si os interesa: ateneapolicial.com/fundadores
 >
 > Contesto aquí mismo cualquier duda.
 
@@ -46,9 +51,9 @@ Texto definitivo (11 oct), con `/fundadores` ya en `main`.
 
 > Hola a todos 👋 Soy Christian.
 >
-> Llevo un tiempo construyendo Atenea, una plataforma para preparar la Escala
-> Básica de Policía Nacional, y busco 30 opositores que la prueben en serio
-> antes de abrirla.
+> He construido Atenea, una plataforma para preparar la Escala Básica de
+> Policía Nacional. Ya funciona entera, y busco 30 opositores que la expriman
+> a diario y me digan qué mejorarían.
 >
 > Qué la hace distinta de un banco de test:
 > • No te saca preguntas al azar. Cada pregunta tiene su propio calendario de
@@ -69,7 +74,8 @@ Texto definitivo (11 oct), con `/fundadores` ya en `main`.
 > Las condiciones:
 > • Sin coste. Hoy no hay precio para opositores.
 > • 30 plazas. Cuando se llenen, cierro.
-> • A cambio os pido una cosa: que la uséis dos semanas y me digáis qué falla.
+> • A cambio os pido una cosa: que la uséis dos semanas y me digáis qué
+> mejoraríais.
 >
 > Cómo entrar:
 > 1. Entra en ateneapolicial.com/fundadores y pulsa «Crear mi cuenta».
@@ -138,10 +144,10 @@ algo suyo con sentido; el mensaje, días después.
 > Hola, [nombre]. Sigo lo que haces sobre [algo concreto suyo] y me parece de
 > lo más útil que hay para opositores a PN.
 >
-> Te escribo porque estoy lanzando Atenea, una plataforma para la Escala
-> Básica que decide qué repasa cada opositor cada día (cada pregunta tiene su
-> propio calendario según cómo la contesta). Busco a los primeros opositores
-> que la usen y me digan qué falla.
+> Te escribo porque he lanzado Atenea, una plataforma para la Escala Básica
+> que decide qué repasa cada opositor cada día (cada pregunta tiene su propio
+> calendario según cómo la contesta). Ya funciona entera, y busco opositores
+> que la expriman y me digan qué mejorarían.
 >
 > No te pido que la anuncies. Me gustaría que la probaras y me dieras tu
 > opinión sincera, aunque sea mala. Si después te parece útil para tu gente,
