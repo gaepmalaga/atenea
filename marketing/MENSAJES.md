@@ -124,6 +124,12 @@ cual, como el que publicaríamos.
 **Para darle acceso:** panel → «Alumnos» → invitar por correo (entra activo,
 sin solicitud).
 
+**Contestó el 15 oct: ahora no.** Revisó la plataforma («el concepto adaptativo
+se ve realmente bien»), pero no la difunde en el grupo mientras esté en fase de
+prueba. Se guarda el contacto y queda abierto a colaborar cuando esté lanzada
+oficialmente, fuera de beta. **No volver a pedírselo hasta entonces.** Cuando se
+vuelva, llevar algo que no tenga hoy: opositores usándola y lo que dicen.
+
 ## 2 · Mensaje directo a alguien con audiencia
 
 Para las personas de `CANALES.md`, sección 3. Primero sigue su cuenta y comenta
