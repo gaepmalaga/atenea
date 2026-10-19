@@ -142,7 +142,7 @@ prueba; sin volver a pedirle que la publique:
 > ¡Muchas gracias por mirarla con calma y por contestar!
 >
 > Solo una aclaración, porque me expliqué mal: no es una beta. Atenea ya
-> funciona entera y hay opositores usándola. Cuando hablaba de «probarla» me
+> funciona entera y está abierta. Cuando hablaba de «probarla» me
 > refería a que busco gente que la exprima a diario y me diga qué mejoraría,
 > porque la quiero hacer crecer con lo que pidan los propios opositores.
 >
