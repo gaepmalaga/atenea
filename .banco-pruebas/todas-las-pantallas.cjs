@@ -147,7 +147,7 @@ const ALUMNO = [
 // Pestañas de un `admin` normal (no `superadmin`) — regla 75, IDS_ADMIN en
 // `AdminView.tsx`. El stub de `getCurrentUser` devuelve role: 'admin'.
 const ADMIN = [
-  ['Alumnos', 'b-alumnos'], ['Grupos', 'b-grupos'], ['Prep. física', 'b-fisica'],
+  ['Alumnos', 'b-alumnos'], ['Grupos', 'b-grupos'], ['Asistencia', 'b-asistencia'], ['Prep. física', 'b-fisica'],
   ['Pagos', 'b-pagos'], ['Banco Oficial', 'b-banco'], ['Moderación', 'b-moderacion'],
   ['Ajustes', 'b-ajustes'], ['Logs & Auditoría', 'b-logs'],
 ];

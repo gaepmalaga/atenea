@@ -1,5 +1,5 @@
 {
-  "generado": "2026-09-16",
+  "generado": "2026-11-06",
   "tablas": {
     "academies": {
       "columnas": [
@@ -261,6 +261,26 @@
         "user_id": "uuid"
       }
     },
+    "class_absences": {
+      "columnas": [
+        "class_id",
+        "created_at",
+        "session_date",
+        "user_id"
+      ],
+      "obligatorias": [
+        "class_id",
+        "created_at",
+        "session_date",
+        "user_id"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "session_date": "date",
+        "user_id": "uuid"
+      }
+    },
     "class_group_staff": {
       "columnas": [
         "class_id",
@@ -277,12 +297,16 @@
     },
     "class_groups": {
       "columnas": [
+        "capacity",
         "created_at",
+        "end_time",
         "id",
         "kind",
         "name",
         "organization_id",
-        "schedule"
+        "schedule",
+        "start_time",
+        "weekdays"
       ],
       "obligatorias": [
         "created_at",
@@ -292,12 +316,16 @@
         "organization_id"
       ],
       "tipos": {
+        "capacity": "integer",
         "created_at": "timestamp with time zone",
+        "end_time": "time without time zone",
         "id": "uuid",
         "kind": "text",
         "name": "text",
         "organization_id": "uuid",
-        "schedule": "text"
+        "schedule": "text",
+        "start_time": "time without time zone",
+        "weekdays": "smallint[]"
       }
     },
     "class_members": {

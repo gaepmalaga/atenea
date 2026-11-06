@@ -671,8 +671,8 @@ export async function deleteGroupKind() { return { success: true as const }; }
 export async function getGroups() {
   return ok({
     groups: [
-      { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'L-V 9:00', staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, tienePlan: false },
-      { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: 'L,X 18:00', staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, tienePlan: true },
+      { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'Aula 2', horario: { weekdays: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '11:00', capacity: 20 }, staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, tienePlan: false },
+      { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: null, startTime: null, endTime: null, capacity: null }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, tienePlan: true },
     ],
   });
 }
@@ -680,6 +680,34 @@ export async function createGroup() { return { success: true as const, error: un
 export async function updateGroup() { return { success: true as const, error: undefined }; }
 export async function deleteGroup() { return { success: true as const }; }
 export async function setStudentGroups() { return { success: true as const, error: undefined }; }
+
+// ── ASISTENCIA (regla 82) ───────────────────────────────────────────────────
+// Fechas fijas y no «hoy»: la pantalla solo pinta lo que le llega, y unas
+// fechas fijas hacen las capturas comparables entre pasadas.
+export async function getMisClases() {
+  const sesion = (fecha: string, etiqueta: string, falta: boolean, editable = true) => ({ fecha, etiqueta, hora: '09:00', falta, editable });
+  return ok({
+    clases: [{
+      classId: 'g1', nombre: 'Teoría mañana', horario: 'L · M · X · J · V · 09:00–11:00 · 20 plazas',
+      sesiones: [sesion('2026-11-09', 'lun, 9 nov', false, false), sesion('2026-11-10', 'mar, 10 nov', true), sesion('2026-11-11', 'mié, 11 nov', false)],
+    }],
+  });
+}
+export async function setMiFalta() { return { success: true as const, error: undefined }; }
+export async function getAsistenciaAcademia() {
+  const s = (nombre: string, hora: string, aforo: number | null, inscritos: number, quienes: string[]) => {
+    const asisten = inscritos - quienes.length;
+    const libres = aforo === null ? null : aforo - asisten;
+    return { classId: nombre, nombre, hora, aforo, inscritos, faltan: quienes.length, asisten, libres, sobreaforo: libres !== null && libres < 0, quienesFaltan: quienes };
+  };
+  return ok({
+    dias: [
+      { fecha: '2026-11-10', etiqueta: 'mar, 10 nov', sesiones: [s('Teoría mañana', '09:00', 20, 20, ['alumno@atenea.com', 'alumno.flojo@ejemplo.com']), s('Teoría tarde', '17:00', 20, 21, [])] },
+      { fecha: '2026-11-11', etiqueta: 'mié, 11 nov', sesiones: [s('Teoría mañana', '09:00', 20, 20, []), s('Inglés', '19:00', null, 8, ['exento@ejemplo.com'])] },
+    ],
+    gruposSinHorario: ['Físicas L-X'],
+  });
+}
 
 export async function getGroupTrainingPlan() {
   const lunes = new Date();

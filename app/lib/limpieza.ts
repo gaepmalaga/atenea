@@ -50,6 +50,7 @@ export const TABLAS_POR_USUARIO = [
   'curva_progreso',
   'ai_quota',
   'ai_usage',
+  'class_absences',
   'class_members',
   'monthly_payments',
   'memberships',
@@ -57,7 +58,7 @@ export const TABLAS_POR_USUARIO = [
 ] as const;
 
 /** Tablas que cuelgan de un grupo (`class_id`): se borran antes que el grupo. */
-export const TABLAS_POR_GRUPO = ['class_members', 'class_group_staff', 'group_training_plans'] as const;
+export const TABLAS_POR_GRUPO = ['class_absences', 'class_members', 'class_group_staff', 'group_training_plans'] as const;
 
 /** Tablas que cuelgan de una pregunta (`question_id`): antes que la pregunta. */
 export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'question_votes', 'question_reports'] as const;

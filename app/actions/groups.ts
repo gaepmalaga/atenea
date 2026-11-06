@@ -11,6 +11,7 @@ import {
 } from '../lib/groups';
 import { normalizePlan, buildManualPlan, lunesDeSemana, semanaVigente, type Exercise, type WeeklyPlan } from '../lib/training-plan';
 import { requireTrainingSwitch } from '../lib/training-switch-guard';
+import { normalizeHorario, horarioDeFila, type HorarioGrupo } from '../lib/asistencia';
 
 /**
  * GRUPOS Y TIPOS DE GRUPO (P7 · rehecho en P8).
@@ -102,6 +103,8 @@ export type GroupRow = {
   kind: string;
   kindLabel: string;
   schedule: string | null;
+  /** El horario estructurado (regla 82): días, horas y plazas. */
+  horario: HorarioGrupo;
   staffIds: string[];
   staffNames: string[];
   memberIds: string[];
@@ -119,7 +122,7 @@ export async function getGroups(): Promise<
   const organizationId = auth.user.organizationId;
 
   const [gruposRes, miembrosRes, staffRes, staffGrupoRes, planesRes, kindsRes] = await Promise.all([
-    supabaseAdmin.from('class_groups').select('id, name, kind, schedule').eq('organization_id', organizationId).order('name'),
+    supabaseAdmin.from('class_groups').select('id, name, kind, schedule, weekdays, start_time, end_time, capacity').eq('organization_id', organizationId).order('name'),
     supabaseAdmin.from('class_members').select('class_id, user_id'),
     supabaseAdmin.from('academy_staff').select('id, name').eq('organization_id', organizationId),
     supabaseAdmin.from('class_group_staff').select('class_id, staff_id'),
@@ -159,6 +162,7 @@ export async function getGroups(): Promise<
       kind: g.kind as string,
       kindLabel: kindMap.get(g.kind as string)?.label ?? (g.kind as string),
       schedule: (g.schedule as string) ?? null,
+      horario: horarioDeFila(g as Record<string, unknown>),
       staffIds,
       staffNames: staffIds.map((id) => nombreStaff.get(id) ?? '').filter(Boolean),
       memberIds: miembrosPorGrupo.get(g.id as string) ?? [],
@@ -169,6 +173,11 @@ export async function getGroups(): Promise<
   });
 
   return { success: true as const, groups };
+}
+
+/** El horario limpio -> las columnas de `class_groups` (regla 6: la traducción, en un sitio). */
+function columnasHorario(h: HorarioGrupo) {
+  return { weekdays: h.weekdays, start_time: h.startTime, end_time: h.endTime, capacity: h.capacity };
 }
 
 /** `staffIds` -> `class_group_staff`: se calcula la diferencia, un solo camino. */
@@ -197,10 +206,12 @@ export async function createGroup(input: unknown) {
 
   const clean = normalizeGroupInput((input ?? {}) as Record<string, unknown>);
   if (!clean) return { success: false as const, error: 'El grupo necesita un nombre.' };
+  const horario = normalizeHorario((input ?? {}) as Record<string, unknown>);
+  if (!horario.ok) return { success: false as const, error: horario.error };
 
   const { data, error } = await supabaseAdmin
     .from('class_groups')
-    .insert({ organization_id: auth.user.organizationId, name: clean.name, kind: clean.kind, schedule: clean.schedule })
+    .insert({ organization_id: auth.user.organizationId, name: clean.name, kind: clean.kind, schedule: clean.schedule, ...columnasHorario(horario.horario) })
     .select('id')
     .single();
 
@@ -218,10 +229,12 @@ export async function updateGroup(groupId: string, input: unknown) {
 
   const clean = normalizeGroupInput((input ?? {}) as Record<string, unknown>);
   if (!clean) return { success: false as const, error: 'El grupo necesita un nombre.' };
+  const horario = normalizeHorario((input ?? {}) as Record<string, unknown>);
+  if (!horario.ok) return { success: false as const, error: horario.error };
 
   const { error } = await supabaseAdmin
     .from('class_groups')
-    .update({ name: clean.name, kind: clean.kind, schedule: clean.schedule })
+    .update({ name: clean.name, kind: clean.kind, schedule: clean.schedule, ...columnasHorario(horario.horario) })
     .eq('id', groupId)
     .eq('organization_id', auth.user.organizationId);
   if (error) return { success: false as const, error: error.message };

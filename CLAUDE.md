@@ -81,6 +81,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
 | — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
 | — | **La plataforma pasa a ser de Alphapol** | ✅ **en producción** (6 nov, rama `claude/alfapol-platform-requirements-3kt6w6` fusionada en `main`, comprobado en https://atenea-eight.vercel.app): marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol. **La base de datos ya está limpia** (6 nov, `npm run limpiar` contra la real): solo el superadmin, solo la academia Alphapol, banco y temario intactos; creadas `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` para los dueños; el disparador de altas ya apunta a Alphapol. **Falta**: el subdominio, el correo desde `@alphapol.es` y las plantillas de correo de Supabase Auth, que siguen diciendo «Atenea Policial». Ver **regla 81** |
+| — | **Asistencia: el alumno avisa de que falta, la academia ve los huecos** | ✅ **hecho** (6 nov), a petición de Alphapol. Horario estructurado por grupo (días, horas, plazas), «Mis clases» en «Mi perfil» y pestaña **«Asistencia»** en el panel. `docs/sql/asistencia.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 82** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 
 ## Producción
@@ -3347,13 +3348,58 @@ el valor de verdad).
    Supabase (Site URL y Redirect URLs) y en `NEXT_PUBLIC_SITE_URL`.
 3. Verificar `alphapol.es` en Resend (sus registros van en un subdominio
    `send.`, no chocan con el correo de Hostinger) y definir `MAIL_FROM`.
-4. Cambiar las tres plantillas de correo de Supabase Auth (confirmar,
-   invitar, recuperar) y el nombre del remitente: los tres asuntos y los tres
-   cuerpos dicen «Atenea Policial», con los colores de la bandera. Se pueden
-   cambiar por la API de gestión (`PATCH /v1/projects/{ref}/config/auth`,
-   campos `mailer_subjects_*`, `mailer_templates_*_content` y
-   `smtp_sender_name`), manteniendo `{{ .ConfirmationURL }}`; el intento desde
-   la sesión necesitó un permiso que no estaba dado.
+4. ~~Las tres plantillas de correo de Supabase Auth~~ — hechas (6 nov) por la
+   API de gestión (`PATCH /v1/projects/{ref}/config/auth`): asuntos, cuerpos
+   y remitente («Alphapol»), con `{{ .ConfirmationURL }}` intacto, comprobado
+   releyendo la configuración.
+
+### 82 · Asistencia: las sesiones se derivan del horario, y todo va en la hora de la academia
+
+Lo pidió Alphapol (6 nov 2026): *«que cada alumno pueda marcar las clases a las
+que vaya a faltar, para saber cuánto hueco tienen en cada clase por si alguno
+pide cambio»*. Cada grupo tiene un número de plazas fijo.
+
+- **El horario pasa a ser estructurado**: `class_groups.weekdays` (1 = lunes …
+  7 = domingo), `start_time`, `end_time` y `capacity`, todo nulable
+  ([`docs/sql/asistencia.sql`](docs/sql/asistencia.sql), **ejecutado** el 6
+  nov). `schedule` se queda como nota libre. Un grupo sin días no tiene
+  sesiones y la pestaña lo dice («sin horario puesto»).
+- **Las sesiones NO se guardan**: se derivan del horario
+  (`proximasSesiones`, `app/lib/asistencia.ts`), igual que las semanas del plan
+  de grupo (regla 54). Solo se guarda la falta: `class_absences`
+  `(class_id, user_id, session_date)`.
+- **Todo en la hora de la academia** (`MARCA.zonaHoraria`, `Europe/Madrid`):
+  Vercel corre en UTC, y «hasta que empiece la clase de las 17:00» se habría
+  corrido una o dos horas según la época del año. Las fechas viajan como
+  `YYYY-MM-DD` y se suman en calendario UTC, que no tiene cambios de hora.
+- **Se avisa hasta que EMPIEZA la clase** (`sePuedeAvisar`); la de hoy se
+  sigue enseñando hasta que TERMINA, para que la academia vea las faltas de la
+  clase en marcha. Ventana: `DIAS_VISIBLES` (21 días).
+- **Plazas libres = aforo − los que van**; sin aforo puesto es `null`, no 0
+  (regla 8), y por encima del aforo se dice («2 por encima del aforo»). La falta
+  de quien ya no está en el grupo no libera plaza.
+- **`class_absences` tiene RLS y CERO políticas**: una de propietario dejaría a
+  un alumno apuntar faltas en un grupo ajeno, porque desde la política no se
+  puede mirar `class_members` (tampoco tiene políticas). Todo va con la clave
+  de servicio: `setMiFalta` comprueba que el grupo es de su academia, que es
+  miembro y que aún se puede, y escribe siempre con `auth.user.id`. Hay guardas
+  en `asistencia.test.ts` y la tabla está en `SOLO_SERVICIO` de `rls.test.ts`.
+- **Pantallas**: el horario se pone en «Grupos» (días como botones, horas y
+  plazas); el alumno lo ve en **«Mis clases»** («Mi perfil», se oculta si no
+  tiene grupos con horario): por defecto va, y solo avisa cuando falta; la
+  academia, en la pestaña **«Asistencia»**, por DÍA y no por grupo, con las
+  plazas libres como primer dato y quién falta plegado debajo.
+
+**Un fallo real, visto contra la BD real**: el botón volvía a «Aviso: no voy»
+con la falta ya guardada. Una carga de `getMisClases` que salía ANTES del aviso
+y llegaba DESPUÉS pisaba el cambio (en desarrollo la carga inicial se lanza dos
+veces). `MisClases` lleva una versión: una carga anterior al último aviso se
+descarta, y al confirmar el servidor se vuelve a aplicar lo que ha dicho.
+
+Verificado de punta a punta (6 nov) con la app local contra la BD real: grupo
+temporal con horario → alumno de prueba dentro → aviso desde «Mis clases» →
+sigue tras recargar → «Asistencia» enseña «Van 0 de 10 · 1 falta · 10 plazas
+libres» con el correo de quien falta. Grupo borrado después.
 
 ---
 
@@ -3371,6 +3417,7 @@ tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y 
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
+tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
 tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qué documento se manda

@@ -36,6 +36,12 @@ export const MARCA = {
    * slug en la URL) cae aquí: con una sola academia no hay otra posible.
    */
   academiaSlug: 'alphapol',
+  /**
+   * La hora de la academia. El servidor (Vercel) va en UTC: sin esto, «hasta
+   * que empiece la clase de las 17:00» se correría una o dos horas según la
+   * época del año (regla 82).
+   */
+  zonaHoraria: 'Europe/Madrid',
   /** El logo de su web, servido desde `public/marca/`. */
   logo: '/marca/alphapol-logo.jpg',
   colores: {

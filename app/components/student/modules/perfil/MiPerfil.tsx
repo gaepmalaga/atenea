@@ -7,6 +7,7 @@ import type { MiPerfil as MiPerfilData } from '@/app/actions/perfil';
 import { diasHasta, fechaLarga, textoCuentaAtras } from '@/app/lib/convocatoria';
 import { leeTema, guardaTema, type Tema } from '@/app/lib/theme';
 import { Card, SectionLabel, cx, TEXT, TAP } from '../../../ui';
+import MisClases from '../../MisClases';
 
 export default function MiPerfil({ user }: { user: { id: string; email?: string } }) {
   const [data, setData] = useState<MiPerfilData | null>(null);
@@ -107,6 +108,10 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
           </div>
         </Card>
       )}
+
+      {/* ───────── MIS CLASES (regla 82) ─────────
+          Se oculta sola si ninguno de sus grupos tiene horario. */}
+      <MisClases />
 
       {/* ───────── MIS DATOS ───────── */}
       <Card>

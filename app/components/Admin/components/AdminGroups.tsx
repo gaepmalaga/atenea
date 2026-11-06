@@ -9,6 +9,7 @@ import {
 import type { GroupRow } from '@/app/actions/groups';
 import type { StaffMember } from '@/app/lib/academy-settings';
 import type { GroupKindRow } from '@/app/lib/groups';
+import { DIAS_SEMANA, horarioEnTexto } from '@/app/lib/asistencia';
 import { Card, EmptyState, SectionLabel, Button, TEXT, cx } from '../../ui';
 
 /**
@@ -122,9 +123,18 @@ function Tipos({ kinds, busy, onAccion }: { kinds: GroupKindRow[]; busy: boolean
   );
 }
 
-type GrupoInput = { name: string; kind: string; schedule: string; staffIds: string[] };
+type GrupoInput = {
+  name: string; kind: string; schedule: string; staffIds: string[];
+  // El horario estructurado (regla 82). Las plazas viajan como texto: un campo
+  // vacío es «sin poner», y lo convierte a `null` el servidor (regla 16).
+  weekdays: number[]; startTime: string; endTime: string; capacity: string;
+};
 function campos(g?: GroupRow, kinds: GroupKindRow[] = []): GrupoInput {
-  return { name: g?.name ?? '', kind: g?.kind ?? kinds[0]?.id ?? 'otro', schedule: g?.schedule ?? '', staffIds: g?.staffIds ?? [] };
+  return {
+    name: g?.name ?? '', kind: g?.kind ?? kinds[0]?.id ?? 'otro', schedule: g?.schedule ?? '', staffIds: g?.staffIds ?? [],
+    weekdays: g?.horario.weekdays ?? [], startTime: g?.horario.startTime ?? '', endTime: g?.horario.endTime ?? '',
+    capacity: g?.horario.capacity == null ? '' : String(g.horario.capacity),
+  };
 }
 
 function Formulario({ inicial, kinds, staff, busy, onSubmit, textoBoton }: {
@@ -139,7 +149,45 @@ function Formulario({ inicial, kinds, staff, busy, onSubmit, textoBoton }: {
         <select className={inp} value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value })}>
           {kinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
         </select>
-        <input className={cx(inp, 'w-36')} placeholder="Horario" value={v.schedule} onChange={(e) => setV({ ...v, schedule: e.target.value })} />
+      </div>
+      {/* EL HORARIO (regla 82). De aquí salen las sesiones en las que el
+          alumno puede avisar de que falta, y las plazas libres de cada una. */}
+      <div className="space-y-2">
+        <span className={cx(TEXT.muted, 'block')}>Días de clase:</span>
+        <div className="flex flex-wrap gap-1.5">
+          {DIAS_SEMANA.map((d) => {
+            const activo = v.weekdays.includes(d.n);
+            return (
+              <button
+                key={d.n}
+                type="button"
+                aria-pressed={activo}
+                title={d.largo}
+                onClick={() => setV({ ...v, weekdays: activo ? v.weekdays.filter((x) => x !== d.n) : [...v.weekdays, d.n].sort() })}
+                className={cx(
+                  'w-11 h-11 rounded-lg text-sm font-black border-2 transition-colors',
+                  activo
+                    ? 'bg-indigo-600 border-indigo-600 text-white'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400',
+                )}
+              >
+                {d.corto}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            De <input type="time" className={inp} value={v.startTime} onChange={(e) => setV({ ...v, startTime: e.target.value })} />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            a <input type="time" className={inp} value={v.endTime} onChange={(e) => setV({ ...v, endTime: e.target.value })} />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            Plazas <input type="number" min={1} max={500} inputMode="numeric" className={cx(inp, 'w-20')} value={v.capacity} onChange={(e) => setV({ ...v, capacity: e.target.value })} />
+          </label>
+        </div>
+        <input className={cx(inp, 'w-full')} placeholder="Nota del horario (opcional: aula, observaciones…)" value={v.schedule} onChange={(e) => setV({ ...v, schedule: e.target.value })} />
       </div>
       {staff.length > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -185,6 +233,7 @@ function FilaGrupo({ g, kinds, staff, busy, onGuardar, onBorrar }: {
             <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-600 dark:text-slate-300">{g.kindLabel}</span>
             <span>{g.miembros} {g.miembros === 1 ? 'alumno' : 'alumnos'}</span>
             {g.staffNames.length > 0 && <span>· {g.staffNames.join(', ')}</span>}
+            {horarioEnTexto(g.horario) && <span>· {horarioEnTexto(g.horario)}</span>}
             {g.schedule && <span>· {g.schedule}</span>}
             {g.llevaPlan && <span className="text-orange-700 dark:text-orange-400 font-bold">{g.tienePlan ? 'con plan' : 'sin plan'}</span>}
           </span>

@@ -89,6 +89,10 @@ const SOLO_SERVICIO = [
   'class_groups',
   'class_members',
   'group_training_plans',
+  // Regla 82: las faltas avisadas. RLS y CERO políticas — una de propietario
+  // dejaría a un alumno apuntar faltas en un grupo que no es el suyo. Las
+  // acciones del alumno filtran por su id y comprueban que es del grupo.
+  'class_absences',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */
