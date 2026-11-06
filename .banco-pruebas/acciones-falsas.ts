@@ -694,6 +694,17 @@ export async function getMisClases() {
   });
 }
 export async function setMiFalta() { return { success: true as const, error: undefined }; }
+// ── ALTA DE VARIOS ALUMNOS (regla 83) ───────────────────────────────────────
+export async function altaMasivaAlumnos() {
+  return ok({
+    resultados: [
+      { correo: 'ana.ruiz@gmail.com', estado: 'creada' as const, clave: 'Alpha-rTtt-U7LD' },
+      { correo: 'alumno@atenea.com', estado: 'ya_tenia_cuenta' as const },
+      { correo: 'mal@ejemplo.com', estado: 'error' as const, error: 'límite de peticiones' },
+    ],
+    sinProcesar: 0,
+  });
+}
 export async function getAsistenciaAcademia() {
   const s = (nombre: string, hora: string, aforo: number | null, inscritos: number, quienes: string[]) => {
     const asisten = inscritos - quienes.length;

@@ -82,6 +82,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
 | — | **La plataforma pasa a ser de Alphapol** | ✅ **en producción** (6 nov, rama `claude/alfapol-platform-requirements-3kt6w6` fusionada en `main`, comprobado en https://atenea-eight.vercel.app): marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol. **La base de datos ya está limpia** (6 nov, `npm run limpiar` contra la real): solo el superadmin, solo la academia Alphapol, banco y temario intactos; creadas `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` para los dueños; el disparador de altas ya apunta a Alphapol. **Falta**: el subdominio, el correo desde `@alphapol.es` y las plantillas de correo de Supabase Auth, que siguen diciendo «Atenea Policial». Ver **regla 81** |
 | — | **Asistencia: el alumno avisa de que falta, la academia ve los huecos** | ✅ **hecho** (6 nov), a petición de Alphapol. Horario estructurado por grupo (días, horas, plazas), «Mis clases» en «Mi perfil» y pestaña **«Asistencia»** en el panel. `docs/sql/asistencia.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 82** |
+| — | **Alta de alumnos en bloque y cambiar la contraseña** | ✅ **hecho** (6 nov). Pegar la lista de correos en «Alumnos»; las cuentas nacen con contraseña provisional (sin correo: Supabase solo deja 30 por hora) y el alumno la cambia en «Mi perfil». Verificado contra la BD real. Ver **regla 83** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 
 ## Producción
@@ -3401,6 +3402,38 @@ temporal con horario → alumno de prueba dentro → aviso desde «Mis clases» 
 sigue tras recargar → «Asistencia» enseña «Van 0 de 10 · 1 falta · 10 plazas
 libres» con el correo de quien falta. Grupo borrado después.
 
+### 83 · Dar de alta a 100 alumnos no puede depender de mandar 100 correos
+
+Alphapol tiene ~100 alumnos. Invitarlos por correo no funciona: el proyecto
+tiene `rate_limit_email_sent = 30` por hora (comprobado en la configuración
+real, 6 nov 2026) y el plan gratuito de Resend, 100 al día. El correo 31 falla.
+
+`altaMasivaAlumnos` (`actions/membership.ts`, lógica pura en
+`app/lib/alta-masiva.ts`) tiene dos modos:
+
+- **`clave` (el principal)**: la cuenta se crea YA CONFIRMADA con
+  `auth.admin.createUser` y una contraseña provisional legible
+  (`Alpha-xxxx-xxxx`, sin 0/O/1/l/I), sin mandar ningún correo y por tanto sin
+  límite (tope de 200 por pasada). Se enseña UNA vez y se descarga en un CSV
+  (punto y coma + BOM, para Excel) para repartirla en clase: no se guarda en
+  ningún sitio más.
+- **`correo`**: la invitación de siempre, como mucho 25 por pasada; lo que no
+  entra se queda en la lista para la siguiente.
+
+Quien ya tiene cuenta solo recibe acceso y grupos: su rol NO se toca (podría ser
+un admin), y los grupos se AÑADEN, no sustituyen. La lista se vuelve a leer en
+el servidor (`leeCorreos`), y una línea sin correo sale con su número en vez de
+perderse (regla 27).
+
+Para que la provisional no se quede para siempre, **«Mi perfil» tiene «Cambiar
+mi contraseña»** (`CambiarClave`, `auth.updateUser` con la sesión del propio
+alumno; el proyecto no exige volver a identificarse para esto). Sin ella, la
+única salida era «¿Olvidaste tu contraseña?», que gasta un correo del límite.
+
+Verificado contra la BD real (6 nov): dos altas nuevas y una existente, CSV
+descargado, entrar con la provisional, cambiarla desde «Mi perfil» y entrar con
+la nueva. Cuentas de prueba borradas después.
+
 ---
 
 ## Los tests
@@ -3418,6 +3451,7 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
 tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
+tests/alta-masiva.test.ts       alta en bloque (regla 83): leer la lista pegada, contraseñas legibles, el CSV para Excel, y las guardas de la acción
 tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qué documento se manda

@@ -41,7 +41,8 @@ export type AccionAuditada =
   | 'add_academy_admin'
   | 'add_exempt_email'
   | 'remove_exempt_email'
-  | 'invite_student';
+  | 'invite_student'
+  | 'bulk_add_students';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -75,4 +76,5 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   add_exempt_email: 'Añadió un correo exento de pago',
   remove_exempt_email: 'Quitó un correo de la lista de exentos',
   invite_student: 'Invitó a un alumno por correo',
+  bulk_add_students: 'Dio de alta a varios alumnos de golpe',
 };

@@ -16,6 +16,7 @@ import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno 
 import { ERROR_LABELS } from '@/app/lib/stats';
 import { formateaPeriodo } from '@/app/lib/payments';
 import { fraseDudosas, umbralEnTexto, porcentajeEnTexto, netoEnTexto } from '@/app/lib/dudosas';
+import AltaMasiva from './AltaMasiva';
 import { Card, SectionLabel, StatTile, Button, TEXT, cx } from '../../ui';
 
 /**
@@ -180,6 +181,9 @@ export default function AdminStudents() {
           </div>
         )}
       </Card>
+
+      {/* --- ALTA DE VARIOS ALUMNOS (regla 83) --- */}
+      <AltaMasiva grupos={grupos} onHecho={recargar} />
 
       {/* --- INVITAR ALUMNO POR CORREO --- */}
       <Card tone="base" pad="md" className="space-y-2">

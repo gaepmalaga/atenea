@@ -9,6 +9,8 @@ import { sendMail } from '../lib/mailer';
 import { plantillaAccesoConcedido, plantillaAccesoRechazado } from '../lib/app-email-templates';
 import { MARCA } from '../lib/marca';
 import { siteUrl } from '../lib/registration-requests';
+import { randomBytes } from 'node:crypto';
+import { leeCorreos, claveProvisional, MAX_POR_CLAVE, MAX_POR_CORREO, type ModoAlta, type ResultadoAlta } from '../lib/alta-masiva';
 
 /**
  * CONTROL DE ACCESO (P6 · rehecho en P8 · aviso por correo y exentos en P12).
@@ -354,4 +356,122 @@ export async function inviteStudent(email: string): Promise<{ success: boolean; 
     });
   }
   return { success: !error, error: error?.message, invitada };
+}
+
+
+/**
+ * ALTA DE VARIOS ALUMNOS DE GOLPE (regla 83).
+ *
+ * `texto` es lo que el admin ha pegado; se vuelve a leer AQUÍ con `leeCorreos`
+ * (una Server Action es un endpoint público, regla 1: no se fía de la lista
+ * que ya leyó la pantalla). Uno a uno y en orden, no en paralelo: son cuentas
+ * de Supabase Auth, y cien altas a la vez es la forma de chocar con su límite
+ * de peticiones.
+ *
+ * Por cada correo:
+ *   · si ya tiene cuenta -> se le da acceso a esta academia y los grupos;
+ *   · si no, en modo `clave` -> cuenta creada YA CONFIRMADA con una contraseña
+ *     provisional (sin correo: sin límite), que se devuelve UNA vez y no se
+ *     guarda en ningún sitio más;
+ *   · si no, en modo `correo` -> invitación de Supabase (cuenta como un correo
+ *     del límite de 30 por hora: por eso el tope de `MAX_POR_CORREO`).
+ *
+ * Los grupos se AÑADEN, no sustituyen: a un alumno que ya existía no se le
+ * quita ninguno de los que tuviera.
+ */
+export async function altaMasivaAlumnos(params: {
+  texto: string;
+  modo: ModoAlta;
+  classIds?: string[];
+}): Promise<{ success: true; resultados: ResultadoAlta[]; sinProcesar: number } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const organizationId = auth.user.organizationId;
+  if (!organizationId) return { success: false, error: 'No hay una academia seleccionada.' };
+
+  const modo: ModoAlta = params?.modo === 'correo' ? 'correo' : 'clave';
+  const { correos } = leeCorreos(params?.texto ?? '');
+  if (!correos.length) return { success: false, error: 'No hay ningún correo válido en la lista.' };
+  const tope = modo === 'correo' ? MAX_POR_CORREO : MAX_POR_CLAVE;
+  const lote = correos.slice(0, tope);
+
+  const { data: academia } = await supabaseAdmin.from('academies').select('slug').eq('id', organizationId).maybeSingle();
+  if (!academia) return { success: false, error: 'No se encuentra tu academia.' };
+
+  // Solo grupos DE ESTA academia (mismo motivo que `setStudentGroups`).
+  const pedidos = (Array.isArray(params?.classIds) ? params.classIds : []).filter((id) => typeof id === 'string' && id);
+  const { data: grupos } = pedidos.length
+    ? await supabaseAdmin.from('class_groups').select('id').eq('organization_id', organizationId).in('id', pedidos)
+    : { data: [] as { id: string }[] };
+  const classIds = (grupos ?? []).map((g) => g.id as string);
+
+  const resultados: ResultadoAlta[] = [];
+  for (const correo of lote) {
+    try {
+      const { data: perfil } = await supabaseAdmin.from('profiles').select('id').ilike('email', correo).maybeSingle();
+      let userId = perfil?.id as string | undefined;
+      let estado: ResultadoAlta['estado'] = 'ya_tenia_cuenta';
+      let clave: string | undefined;
+
+      if (!userId) {
+        if (modo === 'clave') {
+          clave = claveProvisional(randomBytes(8));
+          const { data, error } = await supabaseAdmin.auth.admin.createUser({
+            email: correo,
+            password: clave,
+            email_confirm: true,
+            user_metadata: { academia_slug: academia.slug },
+          });
+          if (error || !data.user) throw new Error(error?.message ?? 'no se pudo crear la cuenta');
+          userId = data.user.id;
+          estado = 'creada';
+          // El rol vive en `profiles`. Solo para cuentas RECIÉN creadas: a una
+          // que ya existía no se le toca el rol (podría ser un admin).
+          const { error: perfilErr } = await supabaseAdmin
+            .from('profiles')
+            .upsert({ id: userId, email: correo, role: 'student' }, { onConflict: 'id' });
+          if (perfilErr) throw new Error(perfilErr.message);
+        } else {
+          const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(correo, { data: { academia_slug: academia.slug } });
+          if (error || !data.user) throw new Error(error?.message ?? 'no se pudo invitar');
+          userId = data.user.id;
+          estado = 'invitada';
+        }
+      }
+
+      const escrituras = [
+        supabaseAdmin.from('academy_members').upsert({ academy_id: organizationId, user_id: userId }, { onConflict: 'academy_id,user_id', ignoreDuplicates: true }),
+        supabaseAdmin.from('memberships').upsert(
+          { organization_id: organizationId, user_id: userId, access_status: ACCESS_STATUS.ACTIVE, updated_at: new Date().toISOString() },
+          { onConflict: 'organization_id,user_id' },
+        ),
+        ...(classIds.length
+          ? [supabaseAdmin.from('class_members').upsert(classIds.map((class_id) => ({ class_id, user_id: userId })), { onConflict: 'class_id,user_id', ignoreDuplicates: true })]
+          : []),
+      ];
+      const fallo = (await Promise.all(escrituras)).find((r) => r.error)?.error;
+      if (fallo) throw new Error(fallo.message);
+
+      resultados.push({ correo, estado, ...(clave ? { clave } : {}) });
+    } catch (e) {
+      resultados.push({ correo, estado: 'error', error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  registraAccion({
+    actorId: auth.user.id,
+    action: 'bulk_add_students',
+    target: `${resultados.length} alumnos`,
+    detail: {
+      modo,
+      creadas: resultados.filter((r) => r.estado === 'creada').length,
+      invitadas: resultados.filter((r) => r.estado === 'invitada').length,
+      existentes: resultados.filter((r) => r.estado === 'ya_tenia_cuenta').length,
+      errores: resultados.filter((r) => r.estado === 'error').length,
+      grupos: classIds.length,
+    },
+    organizationId,
+  });
+
+  return { success: true, resultados, sinProcesar: correos.length - lote.length };
 }
