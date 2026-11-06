@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   ChevronRight, CheckCircle2, XCircle,
   ArrowLeft, Clock, Layers,
-  Flag, Send, Bookmark, Eraser,
+  Flag, Send, Eraser, HelpCircle,
   Scale, LayoutGrid, Sparkles
 } from 'lucide-react';
 import { Modal, Button, TextAreaField } from '../../../ui';
@@ -12,7 +12,7 @@ import { formatTime } from '@/app/lib/timer';
 import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
 import { saveTestResult, setResultErrorType, reportQuestion } from '@/actions';
-import { countChange } from '@/app/lib/exam-results';
+import { countChange, confianzaDeDuda } from '@/app/lib/exam-results';
 import { mereceLaPenaPreguntar } from '@/app/lib/answer-signals';
 import QuestionNote from '../../QuestionNote';
 
@@ -187,13 +187,24 @@ export default function ActiveTest({
   }, [metricasDe]);
 
   /**
-   * Preguntas marcadas para revisar antes de entregar.
+   * Preguntas marcadas como DUDOSAS (regla 80).
    *
-   * Es el estándar del sector y de Moodle, y sin ello dudar te obliga a decidir
-   * en el momento. Solo tiene sentido con navegación libre, así que vive junto
-   * a ella: en el simulacro.
+   * En el simulacro era «marcar para revisar» —el estándar de Moodle: dudar ya
+   * no obliga a decidir en el momento— y se tiraba al entregar. Ahora la marca
+   * se llama por lo que es, viaja con la respuesta (`question_attempts.confidence`)
+   * y de ella sale la tasa de acierto en las dudosas: si compensa contestarlas
+   * o dejarlas en blanco. En entrenamiento también se puede marcar, ANTES de
+   * contestar —el primer toque corrige, y marcar la duda después de ver la
+   * corrección sería mentirse—.
+   *
+   * Vive en la propia pregunta (`Question.dudosa`) y no en un estado aparte:
+   * así viaja al seguro del examen a medias con todo lo demás (regla 37) y
+   * llega sola a `buildExamResults`.
    */
-  const [marcadas, setMarcadas] = useState<Set<number>>(new Set());
+  const dudosas = useMemo(
+    () => new Set(localQuestions.flatMap((q, i) => (q.dudosa ? [i] : []))),
+    [localQuestions],
+  );
 
   // --- CRONOMETRO DEL TEST ---
   // El tiempo se deriva de marcas de reloj; el intervalo solo decide cada
@@ -316,6 +327,8 @@ export default function ActiveTest({
                 firstTouchMs: metricasDe(currentIndex).primerToque,
                 selectedIndex: currentQ.options.findIndex((o) => o.id === optionId),
                 answerPath: metricasDe(currentIndex).camino,
+                // La duda se marca ANTES de contestar; al guardar ya está decidida.
+                confidence: confianzaDeDuda(currentQ.dudosa, false),
             }
         );
         // Se guarda el id por si el alumno corrige el diagnóstico: se ACTUALIZA
@@ -433,15 +446,19 @@ export default function ActiveTest({
     );
   }, [aplicarRespuestas, currentIndex, localQuestions, mode]);
 
-  /** Marca o desmarca la pregunta actual para revisarla luego. */
-  const alternarMarca = useCallback(() => {
-    setMarcadas((prev) => {
-      const siguiente = new Set(prev);
-      if (siguiente.has(currentIndex)) siguiente.delete(currentIndex);
-      else siguiente.add(currentIndex);
-      return siguiente;
-    });
-  }, [currentIndex]);
+  /**
+   * Marca o desmarca la pregunta actual como dudosa.
+   *
+   * En entrenamiento solo ANTES de contestar: después ya ha visto la
+   * corrección, y marcar la duda a toro pasado falsearía justo el dato que se
+   * quiere medir (si acierta o no cuando duda).
+   */
+  const alternarDuda = useCallback(() => {
+    if (mode === 'practice' && isAnswered) return;
+    aplicarRespuestas(
+      localQuestions.map((q, i) => (i === currentIndex ? { ...q, dudosa: !q.dudosa } : q))
+    );
+  }, [aplicarRespuestas, currentIndex, isAnswered, localQuestions, mode]);
 
   const handleFinish = useCallback(() => {
     cerrarVisita(currentIndex);
@@ -536,7 +553,7 @@ export default function ActiveTest({
   // pide (se deduce), así que la única condición es haber respondido.
   const puedeAvanzar = mode === 'exam' || isAnswered;
 
-  const estaMarcada = marcadas.has(currentIndex);
+  const estaDudosa = !!currentQ.dudosa;
 
   useEffect(() => {
     function alPulsar(e: KeyboardEvent) {
@@ -550,13 +567,15 @@ export default function ActiveTest({
         return;
       }
 
+      // `M` marca la duda, en los dos modos. No colisiona con las opciones,
+      // que son A, B y C.
+      if (e.key.toLowerCase() === 'm') { e.preventDefault(); alternarDuda(); return; }
+
       if (navegacionLibre) {
         // Las flechas mueven por el examen como en cualquier formulario largo.
         if (e.key === 'ArrowLeft') { e.preventDefault(); irA(currentIndex - 1); return; }
         if (e.key === 'ArrowRight') { e.preventDefault(); irA(currentIndex + 1); return; }
-        // `M` no colisiona con las opciones, que son A, B y C.
-        if (e.key.toLowerCase() === 'm') { e.preventDefault(); alternarMarca(); return; }
-        // `0` tampoco: las opciones se numeran desde el 1.
+        // `0` no colisiona: las opciones se numeran desde el 1.
         if (e.key === '0') { e.preventDefault(); dejarEnBlanco(); return; }
       }
 
@@ -571,7 +590,7 @@ export default function ActiveTest({
 
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
-  }, [alternarMarca, currentIndex, currentQ, dejarEnBlanco, handleAnswer, handleNext, irA, isReportModalOpen, navegacionLibre, puedeAvanzar]);
+  }, [alternarDuda, currentIndex, currentQ, dejarEnBlanco, handleAnswer, handleNext, irA, isReportModalOpen, navegacionLibre, puedeAvanzar]);
 
   /**
    * PANTALLA DE REVISION — «Terminar intento».
@@ -587,7 +606,7 @@ export default function ActiveTest({
   if (revisando) {
     const enBlanco = localQuestions.reduce<number[]>((acc, q, i) => (q.userAnswer ? acc : [...acc, i]), []);
     const contestadas = localQuestions.length - enBlanco.length;
-    const pendientes = enBlanco.length + marcadas.size;
+    const pendientes = enBlanco.length + dudosas.size;
 
     return (
       <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-24">
@@ -610,10 +629,10 @@ export default function ActiveTest({
               <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">En blanco</p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
-              <p className={`text-2xl sm:text-3xl font-black ${marcadas.size > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-                {marcadas.size}
+              <p className={`text-2xl sm:text-3xl font-black ${dudosas.size > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                {dudosas.size}
               </p>
-              <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">Marcadas</p>
+              <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">Dudosas</p>
             </div>
           </div>
 
@@ -631,12 +650,12 @@ export default function ActiveTest({
           <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5 sm:gap-2 mb-6 sm:mb-10">
             {localQuestions.map((q, i) => {
               const respondida = !!q.userAnswer;
-              const marcada = marcadas.has(i);
+              const marcada = dudosas.has(i);
               return (
                 <button
                   key={i}
                   onClick={() => volverAlExamen(i)}
-                  title={`Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${respondida ? '' : ' · en blanco'}`}
+                  title={`Pregunta ${i + 1}${marcada ? ' · dudosa' : ''}${respondida ? '' : ' · en blanco'}`}
                   className={`relative aspect-square rounded-xl text-xs font-black flex items-center justify-center border-2 transition-all hover:scale-105 ${
                     respondida
                       ? 'bg-indigo-600 text-white border-indigo-600'
@@ -654,7 +673,7 @@ export default function ActiveTest({
 
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => volverAlExamen(enBlanco[0] ?? [...marcadas][0] ?? currentIndex)}
+              onClick={() => volverAlExamen(enBlanco[0] ?? [...dudosas][0] ?? currentIndex)}
               className="flex-1 px-6 py-4 rounded-xl font-black text-sm border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-400 transition-colors flex items-center justify-center gap-2"
             >
               <ArrowLeft size={16} />
@@ -708,23 +727,10 @@ export default function ActiveTest({
               </button>
 
               <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 order-2">
-                  {/* Marcar para revisar. Dudar deja de obligar a decidir en el
-                      momento: la marcas, sigues, y vuelves al final. */}
-                  {navegacionLibre && (
-                      <button
-                        onClick={alternarMarca}
-                        title={estaMarcada ? 'Quitar la marca (M)' : 'Marcar para revisarla luego (M)'}
-                        aria-label={estaMarcada ? 'Quitar la marca de esta pregunta' : 'Marcar esta pregunta para revisarla luego'}
-                        aria-pressed={estaMarcada}
-                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors ${
-                          estaMarcada
-                            ? 'text-amber-500 bg-amber-500/10'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-amber-500 hover:bg-amber-500/10'
-                        }`}
-                      >
-                          <Bookmark size={18} fill={estaMarcada ? 'currentColor' : 'none'}/>
-                      </button>
-                  )}
+                  {/* El marcador de «revisar luego» que vivía aquí, como un
+                      icono suelto, se ha bajado junto a las opciones con su
+                      nombre: «Dudosa» (regla 80). Un icono sin texto no se
+                      descubría, y ahora la marca además se mide. */}
 
                   {/* EL MAPA DE PREGUNTAS.
 
@@ -818,7 +824,7 @@ export default function ActiveTest({
               {localQuestions.map((q, i) => {
                   const respondida = !!q.userAnswer;
                   const esActual = i === currentIndex;
-                  const marcada = marcadas.has(i);
+                  const marcada = dudosas.has(i);
 
                   // `bg-slate-200` sobre la cabecera `slate-50` no se ve: la
                   // barra de progreso existe para saber de un vistazo cuantas
@@ -856,7 +862,7 @@ export default function ActiveTest({
                       </>
                   );
 
-                  const titulo = `Pregunta ${i + 1}${marcada ? ' · marcada' : ''}${
+                  const titulo = `Pregunta ${i + 1}${marcada ? ' · dudosa' : ''}${
                     respondida ? '' : ' · en blanco'
                   }`;
 
@@ -877,10 +883,10 @@ export default function ActiveTest({
                   </span>
                   <span className="text-slate-300 dark:text-slate-700">·</span>
                   <span>{localQuestions.filter((q) => !q.userAnswer).length} en blanco</span>
-                  {marcadas.size > 0 && (
+                  {dudosas.size > 0 && (
                       <>
                           <span className="text-slate-300 dark:text-slate-700">·</span>
-                          <span className="text-amber-500">{marcadas.size} marcadas</span>
+                          <span className="text-amber-500">{dudosas.size} {dudosas.size === 1 ? 'dudosa' : 'dudosas'}</span>
                       </>
                   )}
               </p>
@@ -1010,22 +1016,52 @@ export default function ActiveTest({
               })}
           </div>
 
-          {/* DEJAR EN BLANCO
+          {/* Las dos decisiones sobre la respuesta que no son elegir opción:
+              marcarla como dudosa y retirarla. */}
+          {(navegacionLibre || !isAnswered || estaDudosa) && (
+          <div className="mt-6 flex flex-wrap justify-center gap-2 relative z-10">
+              {/* DUDOSA (regla 80). Un toque, opcional, nunca bloquea. En
+                  entrenamiento solo antes de contestar: después ya ha visto la
+                  corrección. Una vez contestada, se queda a la vista lo que
+                  marcó, sin poder cambiarlo. */}
+              {(navegacionLibre || !isAnswered) ? (
+                  <button
+                    onClick={alternarDuda}
+                    aria-pressed={estaDudosa}
+                    title={estaDudosa ? 'Quitar la marca de dudosa (M)' : 'Marcar como dudosa (M)'}
+                    className={`min-h-[44px] flex items-center gap-2 px-4 rounded-xl text-[11px] font-black uppercase tracking-wider border-2 transition-colors ${
+                      estaDudosa
+                        ? 'border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                        : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-500/10'
+                    }`}
+                  >
+                      <HelpCircle size={14} />
+                      {estaDudosa ? 'Dudosa' : mode === 'practice' ? 'Dudo' : 'Marcar dudosa'}
+                      <kbd className="hidden sm:inline px-1.5 py-0.5 rounded border border-b-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-slate-500">
+                          M
+                      </kbd>
+                  </button>
+              ) : estaDudosa ? (
+                  <span className="min-h-[44px] flex items-center gap-2 px-4 text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                      <HelpCircle size={14} /> La marcaste como dudosa
+                  </span>
+              ) : null}
 
-              Con la penalizacion de la convocatoria, el blanco es una DECISION
-              estrategica: cada dos fallos se pierde un acierto, asi que hay un
-              punto en el que arriesgar sale peor que callarse. Sin este boton
-              se podia saltar una pregunta, pero no RETIRAR una respuesta ya
-              marcada — una vez pulsada la A, la unica salida era dejar la A.
+              {/* DEJAR EN BLANCO
 
-              Solo se ofrece cuando hay algo que retirar: un boton que no hace
-              nada es peor que no tenerlo. */}
-          {navegacionLibre && isAnswered && (
-              <div className="mt-6 flex justify-center relative z-10">
+                  Con la penalizacion de la convocatoria, el blanco es una DECISION
+                  estrategica: cada dos fallos se pierde un acierto, asi que hay un
+                  punto en el que arriesgar sale peor que callarse. Sin este boton
+                  se podia saltar una pregunta, pero no RETIRAR una respuesta ya
+                  marcada — una vez pulsada la A, la unica salida era dejar la A.
+
+                  Solo se ofrece cuando hay algo que retirar: un boton que no hace
+                  nada es peor que no tenerlo. */}
+              {navegacionLibre && isAnswered && (
                   <button
                     onClick={dejarEnBlanco}
                     title="Retirar la respuesta y dejarla en blanco (0)"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="min-h-[44px] flex items-center gap-2 px-4 rounded-xl text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                       <Eraser size={14} />
                       Dejar en blanco
@@ -1033,7 +1069,8 @@ export default function ActiveTest({
                           0
                       </kbd>
                   </button>
-              </div>
+              )}
+          </div>
           )}
       </div>
 

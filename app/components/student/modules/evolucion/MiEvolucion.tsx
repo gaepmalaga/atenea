@@ -8,6 +8,7 @@ import {
 import { getMiEvolucion } from '@/actions';
 import type { MiEvolucion as MiEvolucionData, PuntoCurva } from '@/app/actions/evolucion';
 import { Card, SectionLabel, EmptyState, cx, TEXT, TAP } from '../../../ui';
+import ResumenDudosas from '../../ResumenDudosas';
 
 interface MiEvolucionProps {
   user: { id: string };
@@ -233,6 +234,10 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
           <p className={cx(TEXT.muted, 'mt-1.5')}>Nunca te has atrevido a contestarlas. Por algo será.</p>
         </div>
       </div>
+
+      {/* ───────── TUS DUDOSAS (regla 80) ─────────
+          Se oculta sola si aún no ha marcado ninguna. */}
+      <ResumenDudosas resumen={data.dudosas} ambito="historico" />
 
       {/* ───────── CÓMO HAS CRECIDO ───────── */}
       <Card>

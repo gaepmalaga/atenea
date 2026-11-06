@@ -73,6 +73,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
 | — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
 | — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
+| — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 
 ## Producción
 
@@ -3190,6 +3191,66 @@ ningún test cubría:
 quedan dos planes `active` (pasó en la prueba). El que se enseña es el último,
 pero el número de semana del siguiente cuenta los dos.
 
+### 80 · Las dudosas: se marca la duda, y la plataforma dice si compensa contestarlas
+
+Lo pidió Alphapol (6 nov 2026): *«que la plataforma calcule la tasa de acierto
+en las preguntas que los alumnos responden de forma dudosa»*. Es el dato que
+decide la estrategia del examen: con la fórmula del BOE (regla 22) cada fallo
+resta `1/(n−1)` aciertos, así que contestar compensa solo si se acierta más de
+`1/n` — con tres opciones, **más de 1 de cada 3**, que es lo que daría el azar.
+
+**No contradice la regla 56.** Lo que se retiró en septiembre era una marca de
+confianza de tres niveles en CADA pregunta, que además bloqueaba. Esto es un
+toque, opcional, que nunca bloquea, y cambia una decisión real (contestar o no
+las dudosas). Es la única señal declarada que queda; todo lo demás se deduce.
+
+- **Sin SQL.** Se guarda en `question_attempts.confidence`, que existía desde
+  P10b y no escribía nadie: `1` dudosa, `2` no dudosa, `null` no se ofrecía la
+  marca (histórico). Las filas de P10b traen además un `0` («a ciegas»), que se
+  lee como duda. La traducción vive en `confianzaDeDuda` (`exam-results.ts`,
+  regla 6); la lectura y la aritmética, en `app/lib/dudosas.ts` (puro).
+- **Un blanco marcado se guarda como dudosa**; uno sin marcar, `null`.
+  `toResultRow` dejó de forzar `confidence` a `null` en un blanco: «la dudé y
+  no arriesgué» es justo lo que hay que contar.
+- **En el simulacro** el marcador de «revisar luego» (un icono suelto en la
+  cabecera, que se tiraba al entregar) pasa a ser el botón **«Dudosa»** junto a
+  «Dejar en blanco», con la tecla `M`. Sigue sirviendo para volver a ellas en la
+  revisión. **En entrenamiento** el botón **«Dudo»** solo existe ANTES de
+  contestar: el primer toque corrige, y marcar la duda después de ver la
+  corrección falsearía el dato.
+- La marca vive en la pregunta (`Question.dudosa`), no en un estado aparte: así
+  viaja con el examen a medias (regla 37) y llega sola a `buildExamResults`.
+- **El motor adaptativo la escucha:** `inferFirmeza` da TITUBEANTE a toda
+  respuesta marcada como dudosa, así que acertar dudando no pasa de la caja 3
+  (`MAX_BOX_TITUBEANTE`).
+- **Dónde se ve:** resultados del simulacro (*«contestarlas te ha compensado
+  hoy»* — un hecho de ese examen, sin muestra mínima), «Mi Evolución» (acierto en
+  dudosas frente a no dudosas, y veredicto) y la ficha del alumno en «Alumnos»
+  (**«Cuando duda»**, en tercera persona: `fraseDudosas(r, 'profesor')`). El
+  veredicto («te compensa / no te compensa») solo sale con
+  `MIN_DUDOSAS_PARA_VEREDICTO` (10) contestadas: con cuatro es ruido (regla 8).
+
+**De paso salió un fallo real de la regla 73:** las tres consultas que alimentan
+al planificador (`exams.ts`, `evolucion.ts`, `perfil.ts`) **no pedían
+`answer_path`**, así que `patronDeCambio` no recibía nunca nada y «volver al
+primer instinto» no se detectaba en producción, aunque la regla 73 lo daba por
+integrado. Ahora piden `answer_path` y `confidence`, y una guarda en
+`dudosas.test.ts` lo fija.
+
+**Y otro del banco de pruebas (regla 38):** los stubs de `getSimulacro` y
+`getAdaptiveSession` devolvían la fila cruda de `question_bank`, no la pregunta
+ya mapeada que devuelve la acción real, así que el test se pintaba **sin
+enunciado ni opciones** y nadie lo había visto (el recorrido de las 19 pantallas
+no entra en un test). Ahora pasan por `mapBankRowToQuestion`.
+
+Verificado en el banco de pruebas, a 390 px: simulacro de 25 con 9 dudosas
+(8 contestadas, 4 acertadas, 1 en blanco → «+2 netos»), entrenamiento con
+«Dudo» antes de contestar y bloqueado después, «Mi Evolución» y la ficha del
+admin. Los 43 avisos de `todas-las-pantallas.cjs` son exactamente los mismos
+antes y después del cambio. **No se ha probado contra la BD real** (no había
+credenciales en esta sesión): el primer simulacro de verdad debería dejar filas
+con `confidence` 1/2.
+
 ---
 
 ## Los tests
@@ -3205,6 +3266,7 @@ tests/render-safety.test.ts     lecturas sin proteger, aislamiento de módulos y
 tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y revisión
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
+tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qué documento se manda
 tests/interview.test.ts         transcripción, informe final y máquina de estados

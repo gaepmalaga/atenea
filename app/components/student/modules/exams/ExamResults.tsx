@@ -9,6 +9,8 @@ import {
   XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles, CheckCircle2, Scale, Clock, X,
 } from 'lucide-react';
 import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
+import { resumeDudosas, intentosDePreguntas } from '@/app/lib/dudosas';
+import ResumenDudosas from '../../ResumenDudosas';
 
 interface ExamResultsProps {
   questions: Question[];
@@ -35,6 +37,10 @@ function ResultadoEntrenamiento({
   const contestadas = questions.filter((q) => q.userAnswer);
   const acertadas = contestadas.filter((q) => q.userAnswer === q.correctOptionId).length;
   const fallos = contestadas.length - acertadas;
+
+  // Las que marcó como dudosas antes de contestar (regla 80).
+  const dudadas = contestadas.filter((q) => q.dudosa);
+  const dudadasAcertadas = dudadas.filter((q) => q.userAnswer === q.correctOptionId).length;
 
   // De qué cajón venía cada pregunta (lo pone `getAdaptiveSession`).
   const deRepaso = questions.filter((q) => q.cajon && q.cajon !== 'nueva').length;
@@ -65,6 +71,12 @@ function ResultadoEntrenamiento({
           {fallos > 0 && (
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
               Las que fallaste vuelven pronto.
+            </p>
+          )}
+          {dudadas.length > 0 && (
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+              Dudaste en {dudadas.length} y acertaste {dudadasAcertadas}. Las que aciertas dudando
+              vuelven antes que las que aciertas seguro.
             </p>
           )}
           {sesion?.atascadasTotales ? (
@@ -119,6 +131,9 @@ function ResultadoSimulacro({
   const porCalculo = questions.filter(
     (qq) => !qq.userAnswer && tipoDeBlanco({ first_touch_ms: qq.firstTouchMs }) === TIPO_BLANCO.CALCULO,
   ).length;
+
+  // Lo que le han dado las que marcó como dudosas (regla 80).
+  const dudosas = resumeDudosas(intentosDePreguntas(questions));
 
   const estadoDe = (q: Question): 'ok' | 'mal' | 'blanco' =>
     !q.userAnswer ? 'blanco' : q.userAnswer === q.correctOptionId ? 'ok' : 'mal';
@@ -186,6 +201,8 @@ function ResultadoSimulacro({
         </Card>
       </Card>
 
+      <ResumenDudosas resumen={dudosas} ambito="examen" />
+
       {/* LA CUADRÍCULA. Verde acertada · rojo fallada · blanco sin contestar.
           Cada celda abre el detalle: qué marcaste, la correcta, por qué, el
           artículo y cuánto tardaste. */}
@@ -199,9 +216,9 @@ function ResultadoSimulacro({
                 key={i}
                 onClick={() => setAbierta(abierta === i ? null : i)}
                 aria-pressed={abierta === i}
-                title={`Pregunta ${i + 1}`}
+                title={`Pregunta ${i + 1}${qq.dudosa ? ' · dudosa' : ''}`}
                 className={cx(
-                  'aspect-square rounded-lg text-[11px] font-black flex items-center justify-center border-2 transition-transform hover:scale-105 tabular-nums',
+                  'relative aspect-square rounded-lg text-[11px] font-black flex items-center justify-center border-2 transition-transform hover:scale-105 tabular-nums',
                   abierta === i && 'ring-2 ring-offset-1 ring-indigo-500 dark:ring-offset-slate-900',
                   e === 'ok' && 'bg-emerald-500 border-emerald-500 text-white',
                   e === 'mal' && 'bg-red-500 border-red-500 text-white',
@@ -209,6 +226,10 @@ function ResultadoSimulacro({
                 )}
               >
                 {i + 1}
+                {/* La muesca de «dudosa», la misma que en el examen. */}
+                {qq.dudosa && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-white dark:border-slate-900" />
+                )}
               </button>
             );
           })}
@@ -221,6 +242,7 @@ function ResultadoSimulacro({
           <div className="flex items-start justify-between gap-3 mb-3">
             <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Pregunta {abierta! + 1}
+              {q.dudosa && <span className="ml-2 text-amber-600 dark:text-amber-400">· dudosa</span>}
               {segundos(q.timeMs) && (
                 <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal font-mono text-indigo-500">
                   <Clock size={11} /> {segundos(q.timeMs)}

@@ -1,5 +1,6 @@
 'use server'
 
+import { resumeDudosas, type ResumenDudosas as ResumenDudosasT } from '../lib/dudosas';
 import { supabaseAdmin } from './core';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
@@ -50,6 +51,8 @@ export type MiEvolucion = {
   /** Cuántos días de la curva ya estaban cacheados: 0 = primer cálculo entero. */
   diasDesdeCache: number;
   actividad: DiaActividad[];
+  /** La tasa de acierto en lo que contesta dudando (regla 80). */
+  dudosas: ResumenDudosasT;
 };
 
 /** Fin del día LOCAL (`YYYY-MM-DD`) en milisegundos — construido por componentes,
@@ -162,7 +165,7 @@ export async function getMiEvolucion(): Promise<
     (desde, hasta) =>
       db
         .from('question_attempts')
-        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
+        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, answer_path, confidence, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
         .range(desde, hasta) as unknown as Promise<{ data: IntentoPregunta[] | null; error: { message: string } | null }>,
@@ -175,6 +178,7 @@ export async function getMiEvolucion(): Promise<
   const desglose = desgloseConContexto(states, preguntasPorTema);
   const inicio = fechaInicio(intentos);
   const actividad = actividadDiaria(intentos);
+  const dudosas = resumeDudosas(intentos);
 
   const diasEnOposicion = inicio
     ? Math.max(1, Math.floor((Date.now() - Date.parse(inicio)) / 86_400_000) + 1)
@@ -207,6 +211,7 @@ export async function getMiEvolucion(): Promise<
       curva,
       diasDesdeCache,
       actividad,
+      dudosas,
     },
   };
 }

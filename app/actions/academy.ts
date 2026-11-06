@@ -1,5 +1,6 @@
 'use server'
 
+import { resumeDudosas, type ResumenDudosas } from '../lib/dudosas';
 import { supabaseAdmin } from './core';
 import { requireAdmin } from '../lib/auth';
 import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
@@ -69,7 +70,7 @@ async function fetchTodosLosIntentos(
     (desde, hasta) =>
       supabaseAdmin
         .from('question_attempts')
-        .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index')
+        .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index, confidence')
         .in('user_id', userIds)
         .range(desde, hasta) as unknown as Promise<{ data: IntentoAlumno[] | null; error: { message: string } | null }>,
     { maxFilas: MAX_INTENTOS },
@@ -313,6 +314,8 @@ export type StudentDetail = {
   alumno: FilaAlumno | null;
   temas: TemaDelAlumno[];
   errores: { porTipo: { tipo: ErrorType; veces: number }[]; sinClasificar: number };
+  /** Su tasa de acierto en lo que contesta dudando (regla 80). */
+  dudosas: ResumenDudosas;
 };
 
 /**
@@ -359,6 +362,11 @@ export async function getStudentDetail(
 
   return {
     success: true as const,
-    data: { alumno, temas: temasDelAlumno(intentos), errores: erroresDelAlumno(intentos) },
+    data: {
+      alumno,
+      temas: temasDelAlumno(intentos),
+      errores: erroresDelAlumno(intentos),
+      dudosas: resumeDudosas(intentos),
+    },
   };
 }

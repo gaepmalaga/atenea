@@ -28,9 +28,10 @@ export type AnswerMetrics = {
   /** Taxonomia del fallo, si el alumno la corrigio (regla 56). */
   errorType?: string | null;
   /**
-   * Confianza CON la que contesto (P10b). RETIRADA (regla 56): ya no se pregunta.
-   * El tipo queda por el historico y el contrato con el servidor; siempre `null`
-   * en filas nuevas.
+   * La marca de DUDA (regla 80): `DUDA.DUDOSA` si el alumno marcó la pregunta
+   * como dudosa, `DUDA.NO_DUDOSA` si no. Se traduce con `confianzaDeDuda`.
+   * Reutiliza la columna de la marca de confianza de P10b, que se retiró
+   * (regla 56); las filas de entonces traen 0-2.
    */
   confidence?: number | null;
   /**
@@ -64,7 +65,7 @@ export type ResultRow = {
   error_type: string | null;
   /** Opcion marcada. Ver `BLANK_INDEX`. */
   selected_index: number | null;
-  /** 0-2, o `null`. Ver `AnswerMetrics.confidence`. */
+  /** 1 dudosa · 2 no dudosa · `null` no se ofrecía. Ver `AnswerMetrics.confidence`. */
   confidence: number | null;
   /** Ver `AnswerMetrics.answerPath`. */
   answer_path: number[] | null;
@@ -145,6 +146,27 @@ export function normalizeAnswerPath(value: unknown): number[] | null {
   return limpio.length ? limpio : null;
 }
 
+/**
+ * Valores de `question_attempts.confidence` desde que existe la marca de duda
+ * (regla 80). La lectura y la aritmética viven en `app/lib/dudosas.ts`.
+ */
+export const DUDA = { DUDOSA: 1, NO_DUDOSA: 2 } as const;
+
+/**
+ * Lo que se guarda en `confidence` para una respuesta.
+ *
+ * `dudosa` ausente cuenta como NO marcada: es el estado por defecto del botón,
+ * y un examen a medias guardado antes de existir la marca no la trae.
+ *
+ * Un blanco SIN marcar se queda en `null` —no hubo respuesta de la que decir si
+ * se dudó—; un blanco MARCADO se guarda como dudosa: «la dudé y decidí no
+ * arriesgar» es justo lo que hay que contar.
+ */
+export function confianzaDeDuda(dudosa: boolean | null | undefined, enBlanco: boolean): number | null {
+  if (dudosa === true) return DUDA.DUDOSA;
+  return enBlanco ? null : DUDA.NO_DUDOSA;
+}
+
 /** 0, 1 o 2. Cualquier otra cosa (incluida NaN o fuera de rango) cae a `null`. */
 export function normalizeConfidence(value: unknown): number | null {
   return value === 0 || value === 1 || value === 2 ? value : null;
@@ -194,8 +216,12 @@ export function toResultRow(
     // Un blanco no se diagnostica: no hubo error que clasificar.
     error_type: enBlanco ? null : input.errorType ?? null,
     selected_index: normalizeSelectedIndex(input.selectedIndex),
-    // Un blanco no lleva confianza: no hubo respuesta en la que confiar.
-    confidence: enBlanco ? null : normalizeConfidence(input.confidence),
+    // Un blanco SÍ puede llevar la marca de duda (regla 80): «la marqué como
+    // dudosa y la dejé en blanco» es la decisión que interesa contar. Antes se
+    // forzaba a null porque la marca de P10b era la confianza en una respuesta,
+    // y en un blanco no la había. Quien decide qué valor toca un blanco es
+    // `confianzaDeDuda` (sin marcar → null).
+    confidence: normalizeConfidence(input.confidence),
     // Igual que `first_touch_ms`: no se fuerza a null en un blanco. Un
     // blanco por CÁLCULO llegó a marcar una opción (y quizás cambió de
     // opción antes de retirarla) — ese camino es el dato, no ruido.
@@ -227,6 +253,8 @@ type FinishedQuestion = {
   changes?: number;
   firstTouchMs?: number | null;
   answerPath?: number[] | null;
+  /** La marcó como dudosa (regla 80). */
+  dudosa?: boolean;
   /** Las opciones, para saber QUE indice marco. Sin ellas no se puede deducir. */
   options?: { id: string }[];
 };
@@ -268,6 +296,7 @@ export function buildExamResults(
     firstTouchMs: normalizeFirstTouch(q.firstTouchMs),
     errorType: q.errorType ?? null,
     answerPath: normalizeAnswerPath(q.answerPath),
+    confidence: confianzaDeDuda(q.dudosa, !q.userAnswer),
   }));
 }
 

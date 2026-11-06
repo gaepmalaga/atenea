@@ -25,6 +25,8 @@
  * firmeza es «normal», no «titubeante».
  */
 
+import { esDudosa } from './dudosas.ts';
+
 // ============================================================
 // FIRMEZA
 // ============================================================
@@ -82,6 +84,12 @@ export type SeñalesRespuesta = {
    * `docs/sql/camino-respuesta.sql`).
    */
   answer_path?: number[] | null;
+  /**
+   * La marca de DUDA que pone el propio alumno (regla 80): 1 dudosa, 2 no.
+   * Las filas de P10b traen además un 0 («a ciegas»), que también es duda.
+   * `null`/ausente = no se ofrecía la marca.
+   */
+  confidence?: number | null;
 };
 
 /**
@@ -142,6 +150,12 @@ function cambios(v: unknown): number | null {
  * Sin dato de tiempo NO es titubeante: es normal (reglas 8 y 16).
  */
 export function inferFirmeza(s: SeñalesRespuesta, base?: PerfilTiempos): Firmeza {
+  // Lo que dice el propio alumno manda sobre lo que se deduce (regla 80): si
+  // la marcó como dudosa, acertarla no es dominarla, por rápido que contestara.
+  // Es la única señal declarada que queda, y es opcional: sin marca, se deduce
+  // como siempre.
+  if (esDudosa(s?.confidence) === true) return FIRMEZA.TITUBEANTE;
+
   // Volver a la opción inicial (B → C → B) es peor señal que un cambio
   // limpio (B → C, se queda): dudó, se lo pensó, y aun así se echó atrás a
   // su primer instinto. Manda incluso sobre el conteo de cambios normal —

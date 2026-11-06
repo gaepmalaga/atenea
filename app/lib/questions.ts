@@ -48,6 +48,12 @@ export type Question = {
    */
   answerPath?: number[] | null;
   /**
+   * El alumno la marco como DUDOSA (regla 80). Vive en la pregunta y no en un
+   * estado de la pantalla para que viaje con el examen a medias (regla 37) y
+   * llegue sola al guardado (`confianzaDeDuda`). Ausente = no marcada.
+   */
+  dudosa?: boolean;
+  /**
    * En que cajon tiene el ALUMNO esta pregunta al empezar la sesion (P10):
    * nueva / recaida / aprendiendo / consolidando / dominada / atascada.
    *

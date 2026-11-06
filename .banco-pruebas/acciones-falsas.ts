@@ -7,6 +7,8 @@
  * reanudar un examen, que el chat no se borre al cambiar de pestaña).
  */
 
+import { mapBankRowToQuestion } from '../app/lib/questions';
+
 const ok = <T,>(extra: T) => ({ success: true as const, ...extra });
 
 const TEMAS = [
@@ -61,7 +63,7 @@ const pregunta = (i: number) => ({
   explanation: 'La respuesta correcta se apoya en la redacción literal del precepto, que distingue el supuesto general de la excepción del apartado segundo.',
   difficulty_level: 2,
   status: i % 4 === 0 ? 'candidate' : 'active',
-  origin: i % 4 === 0 ? 'live_ai' : 'bank',
+  origin: i % 4 === 0 ? ('live_ai' as const) : ('bank' as const),
   legal_reference: i % 2 === 0 ? `Artículo ${i + 10}` : null,
   subject_id: 1,
   subjects: { topic_number: 1, title: TEMAS[0] },
@@ -181,7 +183,10 @@ export async function getQuestionsFromBank({ limit = 5 }: { topic: string; diffi
 export async function getSimulacro({ limit = 25 }: { topics: string[]; limit: number; difficulty: number }) {
   return ok({
     data: {
-      questions: Array.from({ length: limit }, (_, i) => ({ ...pregunta(i), topic: TEMAS[i % TEMAS.length] })),
+      // La acción real devuelve la pregunta YA MAPEADA (`mapBankRowToQuestion`),
+      // no la fila de la tabla: con la fila cruda el simulacro del banco se
+      // pintaba sin enunciado ni opciones (regla 38: un banco que miente).
+      questions: Array.from({ length: limit }, (_, i) => ({ ...mapBankRowToQuestion(pregunta(i)), topic: TEMAS[i % TEMAS.length] })),
       corto: false,
     },
   });
@@ -410,6 +415,12 @@ export async function getStudentDetail() {
       alumno: { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', contestadas: 18, blancos: 3, aciertos: 6, winRate: 31, ultimaActividad: new Date(Date.now() - 14 * 86400000).toISOString(), ultimaConexion: new Date(Date.now() - 14 * 86400000).toISOString(), diasSinEntrar: 14, diasSinEstudiar: 14, estado: 'abandonado' as const, estudiando: 'hace_tiempo' as const, grupos: [{ id: 'g1', name: 'Teoría mañana', kind: 'teoria' }], acceso: 'active' as const, exento: false, pagadoMesActual: false },
       temas: [{ topic: TEMAS[0], contestadas: 12, winRate: 25 }, { topic: TEMAS[1], contestadas: 6, winRate: 50 }],
       errores: { porTipo: [{ tipo: 'olvido' as const, veces: 5 }, { tipo: 'desconocimiento' as const, veces: 2 }], sinClasificar: 4 },
+      // Por debajo del 33 %: el caso que la academia quiere ver (regla 80).
+      dudosas: {
+        sinDatos: false, marcadas: 16, contestadas: 13, aciertos: 4, fallos: 9, enBlanco: 3,
+        acierto: 30.8, netoAciertos: -0.5, umbral: 1 / 3, compensa: false,
+        noDudosas: { contestadas: 40, aciertos: 31, acierto: 77.5 },
+      },
     },
   });
 }
@@ -567,7 +578,7 @@ export async function getInicioSesiones() {
 export async function getAdaptiveSession({ limit = 20 }: { topics: string[]; limit: number; difficulty?: number }) {
   return ok({
     data: {
-      questions: Array.from({ length: limit }, (_, i) => ({ ...pregunta(i), cajon: (['nueva', 'recaida', 'aprendiendo', 'consolidando'] as const)[i % 4], porQueHoy: i % 3 === 0 ? 'Te toca porque la fallaste hace 3 días.' : null })),
+      questions: Array.from({ length: limit }, (_, i) => ({ ...mapBankRowToQuestion(pregunta(i)), cajon: (['nueva', 'recaida', 'aprendiendo', 'consolidando'] as const)[i % 4], porQueHoy: i % 3 === 0 ? 'Te toca porque la fallaste hace 3 días.' : null })),
       adaptativo: true,
       resumen: null,
       aciertoEstimado: 82,
@@ -606,6 +617,11 @@ export async function getMiEvolucion() {
         fecha: new Date(Date.now() - i * 864e5).toISOString().slice(0, 10),
         respuestas: i % 5 === 0 ? 0 : 8 + (i % 12),
       })),
+      dudosas: {
+        sinDatos: false, marcadas: 27, contestadas: 22, aciertos: 13, fallos: 9, enBlanco: 5,
+        acierto: 59.1, netoAciertos: 8.5, umbral: 1 / 3, compensa: true,
+        noDudosas: { contestadas: 180, aciertos: 151, acierto: 83.9 },
+      },
     },
   });
 }

@@ -505,7 +505,7 @@ async function fetchIntentosDelAlumno(
     (desde, hasta) =>
       db
         .from('question_attempts')
-        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, created_at')
+        .select('question_id, is_correct, error_type, selected_index, response_time_ms, option_changes, first_touch_ms, answer_path, confidence, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
         .range(desde, hasta) as unknown as Promise<{ data: IntentoPregunta[] | null; error: { message: string } | null }>,

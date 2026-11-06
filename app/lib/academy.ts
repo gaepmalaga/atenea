@@ -74,6 +74,8 @@ export type IntentoAlumno = {
   created_at?: string | null;
   question_id?: string | null;
   selected_index?: number | null;
+  /** Marca de duda (regla 80): 1 dudosa, 2 no, `null` no se ofrecía. */
+  confidence?: number | null;
 };
 
 /** Un grupo al que pertenece un alumno (P7), tal y como lo enseña el panel. */

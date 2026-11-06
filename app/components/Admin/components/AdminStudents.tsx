@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
-  Mail, ShieldCheck, X, Send, Shuffle, Brain, Search, Archive,
+  Mail, ShieldCheck, X, Send, Shuffle, Brain, Search, Archive, HelpCircle,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
@@ -15,6 +15,7 @@ import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno } from '@/app/lib/academy';
 import { ERROR_LABELS } from '@/app/lib/stats';
 import { formateaPeriodo } from '@/app/lib/payments';
+import { fraseDudosas, umbralEnTexto, porcentajeEnTexto, netoEnTexto } from '@/app/lib/dudosas';
 import { Card, SectionLabel, StatTile, Button, TEXT, cx } from '../../ui';
 
 /**
@@ -528,6 +529,35 @@ function FilaAlumnoUI({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* LAS DUDOSAS (regla 80). Lo que pidió la academia: cuánto
+                  acierta este alumno en lo que contesta dudando, y si con la
+                  penalización le compensa contestarlas. */}
+              <div className="min-w-0 md:col-span-2">
+                <SectionLabel icon={<HelpCircle size={11} />}>Cuando duda</SectionLabel>
+                {ficha.dudosas.marcadas === 0 ? (
+                  <p className={TEXT.muted}>Todavía no ha marcado ninguna pregunta como dudosa.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-700 dark:text-slate-300">
+                      <span><b className="font-mono">{ficha.dudosas.marcadas}</b> dudosas</span>
+                      <span>
+                        acierto <b className="font-mono">{porcentajeEnTexto(ficha.dudosas.acierto)}</b>
+                        {' '}({ficha.dudosas.aciertos} de {ficha.dudosas.contestadas})
+                      </span>
+                      {ficha.dudosas.enBlanco > 0 && <span><b className="font-mono">{ficha.dudosas.enBlanco}</b> en blanco</span>}
+                      <span>
+                        sin dudar <b className="font-mono">{porcentajeEnTexto(ficha.dudosas.noDudosas.acierto)}</b>
+                      </span>
+                      <span>netos <b className="font-mono">{netoEnTexto(ficha.dudosas.netoAciertos)}</b></span>
+                    </div>
+                    <p className={cx('text-xs', ficha.dudosas.compensa === false ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400')}>
+                      {fraseDudosas(ficha.dudosas, 'profesor')}
+                      {' '}Umbral con la penalización: {umbralEnTexto(ficha.dudosas.umbral)}.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

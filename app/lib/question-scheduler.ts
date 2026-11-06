@@ -28,6 +28,10 @@ export type IntentoPregunta = {
   response_time_ms?: number | null;
   option_changes?: number | null;
   first_touch_ms?: number | null;
+  /** Camino de la respuesta (`patronDeCambio`). Sin él, «volver al primer instinto» no se detecta. */
+  answer_path?: number[] | null;
+  /** Marca de duda del alumno (regla 80). Ver `SeñalesRespuesta.confidence`. */
+  confidence?: number | null;
   created_at?: string | null;
 };
 
