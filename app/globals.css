@@ -1,6 +1,7 @@
 @import "tailwindcss";
 /* El azul de la marca (regla 81): ver `app/marca.css`. */
 @import "./marca.css";
+@import "./pantalla-carga.css";
 
 /* El `dark:` de Tailwind sigue a la CLASE `.dark` del <html>, no a
    `prefers-color-scheme`. En Tailwind 4 hay que declararlo. Sin esto, los

@@ -42,8 +42,18 @@ export const MARCA = {
    * época del año (regla 82).
    */
   zonaHoraria: 'Europe/Madrid',
+  /** Donde está la academia. Lo enseña la pantalla de carga. */
+  ciudad: 'Málaga',
   /** El logo de su web, servido desde `public/marca/`. */
   logo: '/marca/alphapol-logo.jpg',
+  /**
+   * La «A» del logo y el logotipo («ALPHAPOL · CENTRO DE FORMACIÓN»), cada uno
+   * por separado y con el fondo transparente, recortados del JPG de su web.
+   * Los usa la pantalla de carga. Son WebP a 3× y 6× del original para que no
+   * se vean borrosos a tamaño grande; un logo en vector seguiría siendo mejor.
+   */
+  isotipo: '/marca/alphapol-isotipo.webp',
+  logotipo: '/marca/alphapol-logotipo.webp',
   colores: {
     /** El azul marino del fondo del logo. */
     marino: '#14295a',

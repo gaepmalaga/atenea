@@ -87,6 +87,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **La preparación física sin herramienta externa** | ✅ **hecho** (6 nov), a petición de Alphapol, que mandaba la física con otra aplicación. El alumno marca cada día del plan de su grupo como hecho, con esfuerzo (1-10) y comentario; el preparador ve «Quién ha entrenado» por grupo y semana; cada ejercicio admite un enlace de vídeo. `docs/sql/registro-fisico.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 84** |
 | — | **Pasada de tono: la app habla como Alphapol** | ✅ **en producción** (6 nov). Fuera el reloj «ZULU» (enseñaba la hora de Greenwich), «Sistema online», «Centro de Mando», «Operaciones», «Drills», «Sistema Táctico»; los módulos se llaman Inicio, Test, Repasar fallos, Fichas, Preparación física, Mi evolución, Mi perfil; el logo de Alphapol en el menú y en el panel; menos texto en «Mi evolución». Ver **regla 85** |
 | — | **La física como en TrainingMonkeys** | ✅ **en producción** (6 nov), con un plan de ejemplo de noviembre cargado. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
+| — | **Pantalla de carga nueva** | ✅ **en producción** (6 nov). De siete propuestas en un lienzo de diseño, el dueño eligió la «G · Monumental»: la «A» del logo enorme saliéndose por la derecha y el logotipo abajo, en marino. Se guardaron la A (Emblema) y la E (Claro) en `docs/disenos/pantalla-de-carga/`. Vista en el banco de pruebas a 390, 360 y 1440 px. Ver **regla 87** |
 
 ## Producción
 
@@ -3631,6 +3632,40 @@ pone la nota de la semana, crea una sesión individual, copia la semana y
 apunta una marca; el alumno ve las dos sesiones y la nota, apunta la de grupo
 (7/10 con comentario) y una marca suya; el preparador ve «1/1» y el comentario
 y contesta; el alumno lee la respuesta. Datos de prueba borrados después.
+
+### 87 · La pantalla de carga es marina como el arranque de Android, y se ve poco
+
+`PantallaCarga` (`app/components/auth/`) sustituye al spinner suelto con
+«Cargando Alphapol…» que pintaba `AppShell` mientras se comprueba la sesión.
+Es la propuesta «G · Monumental» de un lienzo de siete
+(https://claude.ai/artifact/HoBrU9KgYJznpVXcvaNsiN), elegida por el dueño el
+6 nov. Las otras dos que quiso conservar, la A y la E, están en
+[`docs/disenos/pantalla-de-carga/`](docs/disenos/pantalla-de-carga/README.md)
+con los pasos para cambiar a cualquiera de ellas.
+
+- **El gris del móvil no era un color de la app.** Android funde su pantalla de
+  arranque (el marino del manifest con el icono) con la primera pantalla de la
+  app, y marino sobre el fondo claro de antes, a medio fundido, daba aquel gris
+  azulado. Con la pantalla de carga marina, el paso no se nota. **Si algún día
+  se pasa a una clara (la E), `background_color` del manifest tiene que pasar
+  a ser el mismo color claro.**
+- **La «A» y el logotipo son ficheros aparte**, con el fondo transparente:
+  `MARCA.isotipo` y `MARCA.logotipo` (`public/marca/*.webp`, 100 y 65 KB).
+  Salen del JPG de 400 px de la web: se quitó el fondo marino, se subió a 6× y
+  3× con los bordes afinados, y se quitaron los flecos azulados que dejaba el
+  fondo. Siguen pidiendo un logo en vector para verse nítidos a tamaño grande.
+- **Las entradas duran menos de un segundo.** La pantalla se ve lo que tarda la
+  sesión, que suele ser poco; una entrada de dos segundos se cortaría siempre a
+  la mitad. La línea dorada va y viene: no hay un porcentaje real que enseñar,
+  así que no se finge uno.
+- **Las animaciones viven en `app/pantalla-carga.css`**, importado por
+  `globals.css` y por el banco de pruebas, como `marca.css` (regla 81). La
+  máscara del destello (la forma de la «A») se pone en el componente con la
+  ruta de `MARCA.isotipo`, no en el CSS.
+- **No sale de `ui/`**: como la puerta de entrada (regla 43), es una pantalla de
+  marca, oscura pase lo que pase. Lo que sí guarda: `min-h-dvh` (la guarda de
+  `auth-messages.test.ts` la sigue ahora a ella) y `prefers-reduced-motion`.
+- Para verla quieta: el banco de pruebas, `index.html?vista=carga`.
 
 ---
 

@@ -5,5 +5,6 @@
    fuera de `app/`. Mismas dos líneas que `app/globals.css`. */
 @import "tailwindcss";
 @import "../app/marca.css";
+@import "../app/pantalla-carga.css";
 @source "../app";
 @custom-variant dark (&:where(.dark, .dark *));

@@ -1,0 +1,81 @@
+/* LA PANTALLA DE CARGA (`app/components/auth/PantallaCarga.tsx`, regla 87).
+   Sus animaciones viven aquí y no en `globals.css` por lo mismo que
+   `marca.css`: el banco de pruebas compila su propio CSS
+   (`.banco-pruebas/entrada.css`) y lo importa también. Sin eso, la pantalla
+   se vería quieta en el banco y las capturas mentirían.
+
+   Las entradas son CORTAS a propósito (menos de un segundo): la pantalla se ve
+   lo que tarda en cargar la sesión, que suele ser poco, y una entrada de dos
+   segundos se cortaría siempre a la mitad. */
+
+/* La «A» grande entra desde la derecha y después deriva muy despacio. */
+.carga-a {
+  animation:
+    carga-a-entra 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    carga-a-deriva 9s 0.9s ease-in-out infinite alternate;
+}
+
+/* El brillo que recorre la «A». El recorte con la forma de la «A» (la
+   máscara) se pone en el componente, con la ruta de `MARCA.isotipo`. */
+.carga-destello {
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 250, 230, 0) 44%,
+    rgba(255, 250, 230, 0.55) 50%,
+    rgba(255, 250, 230, 0) 56%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 100% 0;
+  animation: carga-destello 4.2s cubic-bezier(0.6, 0, 0.3, 1) 0.8s infinite;
+}
+
+.carga-sube {
+  animation: carga-sube 0.7s 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.carga-sube-2 {
+  animation: carga-sube 0.7s 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* La línea dorada que va y viene: no hay un porcentaje real de carga que
+   enseñar, así que no se finge uno. */
+.carga-barra {
+  animation: carga-barra 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes carga-a-entra {
+  from { opacity: 0; transform: translateX(40px) scale(1.06); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes carga-a-deriva {
+  from { transform: none; }
+  to { transform: translate(-10px, 6px) scale(1.02); }
+}
+@keyframes carga-destello {
+  0% { background-position: 100% 0; }
+  60%, 100% { background-position: 0% 0; }
+}
+@keyframes carga-sube {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes carga-barra {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carga-a,
+  .carga-destello,
+  .carga-sube,
+  .carga-sube-2,
+  .carga-barra {
+    animation: none;
+  }
+}
