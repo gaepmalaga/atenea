@@ -132,3 +132,88 @@ export function trozos<T>(lista: readonly T[], tam = 150): T[][] {
   for (let i = 0; i < lista.length; i += tam) out.push(lista.slice(i, i + tam));
   return out;
 }
+
+// ============================================================
+// EL BORRADO EN SQL (por la API de gestión de Supabase)
+// ============================================================
+//
+// La limpieza se ejecuta como SQL, en UNA transacción: o se borra todo o no se
+// borra nada. Con PostgREST eran decenas de peticiones sueltas, y una caída a
+// mitad dejaba la base de datos a medias. Además `auth.users` se borra igual
+// que cualquier otra tabla, sin la API de administración.
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Una lista de ids lista para meter en un `in (...)`. Solo admite UUID: es lo
+ * único que se interpola en el SQL, y un id con otra forma no puede ser de la
+ * base de datos — se rechaza antes de construir nada.
+ */
+export function listaDeIds(ids: readonly string[]): string {
+  for (const id of ids) {
+    if (!UUID.test(id)) throw new Error(`Id no válido, no se construye el SQL: ${id}`);
+  }
+  return ids.map((id) => `'${id}'`).join(', ');
+}
+
+export type PasoSql = { etiqueta: string; tabla: string; donde: string };
+
+const t = (tabla: string) => (tabla.includes('.') ? tabla : `public.${tabla}`);
+
+/**
+ * Los borrados, en orden. Cada paso es una tabla y su `WHERE`: el ensayo
+ * cuenta con el MISMO `WHERE` que luego borra, así lo que se enseña es
+ * exactamente lo que se borra.
+ */
+export function pasosLimpiezaSql(plan: PlanLimpieza): PasoSql[] {
+  if (!plan.academia || plan.error) return [];
+  const pasos: PasoSql[] = [];
+
+  for (const a of plan.borrarAcademias) {
+    const id = listaDeIds([a.id]);
+    const grupos = `class_id in (select id from public.class_groups where organization_id = ${id})`;
+    for (const tabla of TABLAS_POR_GRUPO) pasos.push({ etiqueta: `${a.slug} · grupos`, tabla: t(tabla), donde: grupos });
+    pasos.push({ etiqueta: a.slug, tabla: t('class_groups'), donde: `organization_id = ${id}` });
+
+    const preguntas = `question_id in (select id from public.question_bank where organization_id = ${id})`;
+    for (const tabla of TABLAS_POR_PREGUNTA) pasos.push({ etiqueta: `${a.slug} · banco privado`, tabla: t(tabla), donde: preguntas });
+    pasos.push({ etiqueta: `${a.slug} · banco privado`, tabla: t('question_bank'), donde: `organization_id = ${id}` });
+
+    for (const tabla of TABLAS_POR_ACADEMIA) pasos.push({ etiqueta: a.slug, tabla: t(tabla), donde: `organization_id = ${id}` });
+    // Los interruptores de físicas llevan el id de la academia dentro del
+    // `module_id` (regla 68), no siempre en `organization_id`.
+    pasos.push({ etiqueta: a.slug, tabla: t('module_settings'), donde: `module_id like '%:${a.id}'` });
+    pasos.push({ etiqueta: a.slug, tabla: t('academy_members'), donde: `academy_id = ${id}` });
+    pasos.push({ etiqueta: a.slug, tabla: t('academies'), donde: `id = ${id}` });
+  }
+
+  const alphapol = listaDeIds([plan.academia.id]);
+  for (const tabla of TABLAS_DE_PRUEBA_DE_LA_ACADEMIA) {
+    pasos.push({ etiqueta: `${plan.academia.slug} · de prueba`, tabla: t(tabla), donde: `organization_id = ${alphapol}` });
+  }
+
+  if (plan.borrarCuentas.length) {
+    const ids = listaDeIds(plan.borrarCuentas.map((c) => c.id));
+    for (const tabla of TABLAS_POR_USUARIO) pasos.push({ etiqueta: 'cuentas de prueba', tabla: t(tabla), donde: `user_id in (${ids})` });
+    // Lo que hicieron como admin, también fuera de una academia (acciones
+    // globales, `organization_id` nulo). `actor_id` es NOT NULL con la clave
+    // ajena en «set null»: sin este paso, borrar la cuenta revienta la
+    // transacción entera (pasó al ejecutarla de verdad, 6 nov 2026).
+    pasos.push({ etiqueta: 'cuentas de prueba', tabla: t('admin_audit_log'), donde: `actor_id in (${ids})` });
+    pasos.push({ etiqueta: 'cuentas de prueba', tabla: t('profiles'), donde: `id in (${ids})` });
+    pasos.push({ etiqueta: 'cuentas de prueba', tabla: 'auth.users', donde: `id in (${ids})` });
+  }
+  return pasos;
+}
+
+/** Una sola consulta que cuenta las filas de cada paso (para el ensayo y la comprobación). */
+export function sqlDeConteo(pasos: readonly PasoSql[]): string {
+  return pasos
+    .map((p, i) => `select ${i} as paso, count(*)::int as filas from ${p.tabla} where ${p.donde}`)
+    .join('\nunion all\n');
+}
+
+/** El borrado entero, en una transacción. */
+export function sqlDeBorrado(pasos: readonly PasoSql[]): string {
+  return ['begin;', ...pasos.map((p) => `delete from ${p.tabla} where ${p.donde};`), 'commit;'].join('\n');
+}

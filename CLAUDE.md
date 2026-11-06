@@ -80,7 +80,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
 | — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
 | — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
-| — | **La plataforma pasa a ser de Alphapol** | 🔶 **código hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`: marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol, y `npm run limpiar` para borrar las cuentas y academias de prueba. **Falta lo que solo se puede hacer con acceso**: ejecutar la limpieza, el SQL del disparador, el subdominio y el correo. Ver **regla 81** |
+| — | **La plataforma pasa a ser de Alphapol** | 🔶 **código hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`: marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol. **La base de datos ya está limpia** (6 nov, `npm run limpiar` contra la real): solo el superadmin, solo la academia Alphapol, banco y temario intactos; creadas `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` para los dueños; el disparador de altas ya apunta a Alphapol. **Falta**: pasarlo a `main`, el subdominio y el correo. Ver **regla 81** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 
 ## Producción
@@ -3298,10 +3298,10 @@ que Alphapol quiere, con su preparador.
 
 **Un alta sin academia en la URL entra en Alphapol**: el registro manda
 `academia_slug: MARCA.academiaSlug` cuando se entra por `/` (`AppShell.tsx`).
-El disparador de P11j sigue cayendo en `atenea` si no le llega slug (una cuenta
-creada a mano desde el panel de Supabase): lo corrige
+El disparador de P11j caía en `atenea` si no le llegaba slug (una cuenta creada
+a mano desde el panel de Supabase): lo corrige
 [`docs/sql/alphapol-academia-por-defecto.sql`](docs/sql/alphapol-academia-por-defecto.sql),
-**pendiente de ejecutar**.
+**ejecutado y verificado** (6 nov).
 
 **Los correos**: cabecera marino con el nombre en dorado y botón marino; las
 respuestas van a `info@alphapol.es`. El remitente sale de `MAIL_FROM` y, sin
@@ -3310,7 +3310,11 @@ nombre de Alphapol delante. Las plantillas de **Supabase Auth** (confirmar,
 invitar, recuperar) viven en el panel de Supabase y hay que cambiarlas a mano.
 
 **La limpieza** (`npm run limpiar`, `scripts/operacion/limpiar-para-alphapol.mjs`,
-lógica en `app/lib/limpieza.ts`): borra todas las cuentas menos las de
+lógica en `app/lib/limpieza.ts`). Va por **SQL en una sola transacción**, con la
+API de gestión de Supabase y un token de cuenta (`SUPABASE_ACCESS_TOKEN`): o se
+borra todo o nada, y `auth.users` se borra como una tabla más. Antes de borrar
+guarda en JSON una copia de todas las filas que va a eliminar. Borra todas las
+cuentas menos las de
 `superadmin` (y las que se pasen en `--conservar=`) con todo lo suyo, y todas
 las academias menos Alphapol con todo lo suyo; de Alphapol, solo los exentos y
 el registro de auditoría (cosas de las cuentas de prueba). **No toca** el
@@ -3319,20 +3323,31 @@ grupos, planes de físicas). Es un ensayo salvo `--hazlo`, pide escribir
 `ALPHAPOL`, y **se niega si no quedara ninguna cuenta con la que entrar**. Un
 test compara sus listas con `supabase/schema.json`: una tabla nueva con
 `user_id` u `organization_id` que no se añada a la lista lo hace fallar.
-**Pendiente de ejecutar** (en esta sesión no había credenciales).
+**Ejecutada de verdad el 6 nov 2026**: 20 cuentas de prueba (incluida la del
+propio dueño como alumno, a petición suya), las academias `atenea` y `demo` y
+3.060 filas. El primer intento falló y **no borró nada** (la transacción hizo
+su trabajo): `admin_audit_log.actor_id` es NOT NULL con la clave ajena en «set
+null», así que una acción global de una cuenta de prueba impedía borrar la
+cuenta. Ahora esas acciones se borran antes, y un test lo fija. Quedan: el
+superadmin, Alphapol, el banco (4.617 activas), los 56 documentos, sus 2
+grupos con sus 6 semanas de plan de físicas. Se crearon después
+`prueba.admin@alphapol.es` (admin) y `prueba.alumno@alphapol.es` (alumno,
+acceso activo y exento) con `npm run cuenta`, comprobadas entrando de verdad.
 
-**Lo que queda, y solo se puede hacer con acceso:**
+**En una sesión en la nube**, Node no pasa por el proxy por defecto y el
+token guardado como secreto de red no llega: hay que lanzar los guiones con
+`NODE_USE_ENV_PROXY=1` y `SUPABASE_ACCESS_TOKEN=proxy-injected` (el proxy pone
+el valor de verdad).
 
-1. `npm run limpiar` (ensayo), revisarlo, y `npm run limpiar -- --hazlo`.
-2. Ejecutar `docs/sql/alphapol-academia-por-defecto.sql`.
-3. Crear el admin de Alphapol desde «Academias» → «Añadir admin» (invita por
-   correo).
-4. El subdominio (p. ej. `campus.alphapol.es`): añadirlo en Vercel, crear el
+**Lo que queda:**
+
+1. Pasar la rama a `main` (cada push a `main` despliega solo).
+2. El subdominio (p. ej. `campus.alphapol.es`): añadirlo en Vercel, crear el
    CNAME en Hostinger (allí están su DNS, su web y su correo), poner la URL en
    Supabase (Site URL y Redirect URLs) y en `NEXT_PUBLIC_SITE_URL`.
-5. Verificar `alphapol.es` en Resend (sus registros van en un subdominio
+3. Verificar `alphapol.es` en Resend (sus registros van en un subdominio
    `send.`, no chocan con el correo de Hostinger) y definir `MAIL_FROM`.
-6. Cambiar las tres plantillas de correo de Supabase Auth.
+4. Cambiar las tres plantillas de correo de Supabase Auth.
 
 ---
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  planLimpieza, trozos,
+  planLimpieza, trozos, listaDeIds, pasosLimpiezaSql, sqlDeConteo, sqlDeBorrado,
   TABLAS_POR_USUARIO, TABLAS_POR_GRUPO, TABLAS_POR_PREGUNTA, TABLAS_POR_ACADEMIA, TABLAS_DE_PRUEBA_DE_LA_ACADEMIA,
 } from '../app/lib/limpieza';
 
@@ -89,6 +89,64 @@ describe('las listas de tablas cubren el esquema real', () => {
   });
 });
 
+describe('el borrado en SQL', () => {
+  const U = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
+  const ac = [
+    { id: U(1), slug: 'alphapol', name: 'Alphapol' },
+    { id: U(2), slug: 'atenea', name: 'Atenea' },
+  ];
+  const cu = [
+    { id: U(5), email: 'dueno@x.com', role: 'superadmin' },
+    { id: U(6), email: 'prueba@x.com', role: 'student' },
+  ];
+  const plan = planLimpieza({ cuentas: cu, academias: ac, academiaSlug: 'alphapol' });
+  const pasos = pasosLimpiezaSql(plan);
+  const sql = sqlDeBorrado(pasos);
+
+  it('solo interpola UUID: cualquier otra cosa no llega al SQL', () => {
+    expect(listaDeIds([U(1), U(2)])).toBe(`'${U(1)}', '${U(2)}'`);
+    expect(() => listaDeIds(["x'); drop table academies; --"])).toThrow(/no válido/);
+  });
+
+  it('la cuenta que se conserva no aparece en ningún paso, la de prueba sí (también en auth.users)', () => {
+    expect(sql).not.toContain(U(5));
+    expect(sql).toContain(`delete from auth.users where id in ('${U(6)}');`);
+  });
+
+  it('la academia que se queda solo pierde lo de prueba; la otra se borra entera', () => {
+    const deAlphapol = pasos.filter((p) => p.donde.includes(U(1))).map((p) => p.tabla);
+    expect(deAlphapol.sort()).toEqual(['public.admin_audit_log', 'public.membership_exemptions']);
+    expect(sql).toContain(`delete from public.academies where id = '${U(2)}';`);
+  });
+
+  it('el banco solo se borra por academia, nunca entero', () => {
+    for (const p of pasos.filter((x) => x.tabla === 'public.question_bank')) expect(p.donde).toMatch(/^organization_id = '/);
+  });
+
+  it('va en una transacción, y lo hijo antes que lo padre', () => {
+    expect(sql.startsWith('begin;')).toBe(true);
+    expect(sql.trim().endsWith('commit;')).toBe(true);
+    const pos = (frag: string) => sql.indexOf(frag);
+    expect(pos('delete from public.workout_logs')).toBeLessThan(pos('delete from public.training_plans'));
+    expect(pos('delete from public.chat_messages')).toBeLessThan(pos('delete from public.chat_conversations'));
+    expect(pos('delete from public.question_reports')).toBeLessThan(pos('delete from public.question_bank'));
+    expect(pos('delete from public.profiles ')).toBeLessThan(pos('delete from auth.users'));
+    // `admin_audit_log.actor_id` es NOT NULL con «set null»: si quedara una
+    // acción de una cuenta borrada, el borrado de la cuenta revienta.
+    expect(sql).toContain(`delete from public.admin_audit_log where actor_id in ('${U(6)}');`);
+    expect(pos('where actor_id in')).toBeLessThan(pos('delete from auth.users'));
+  });
+
+  it('el conteo usa los mismos WHERE que el borrado', () => {
+    const conteo = sqlDeConteo(pasos);
+    for (const p of pasos) expect(conteo).toContain(`from ${p.tabla} where ${p.donde}`);
+  });
+
+  it('un plan con error no produce ningún paso', () => {
+    expect(pasosLimpiezaSql(planLimpieza({ cuentas: cu, academias: ac, academiaSlug: 'no-existe' }))).toEqual([]);
+  });
+});
+
 describe('el guion', () => {
   const src = readFileSync(join(raiz, 'scripts/operacion/limpiar-para-alphapol.mjs'), 'utf-8');
 
@@ -102,8 +160,7 @@ describe('el guion', () => {
     expect(src).toMatch(/if \(plan\.error\)[\s\S]{0,80}process\.exit\(1\)/);
   });
 
-  it('el banco común solo se toca por academia, nunca entero', () => {
-    expect(src).not.toMatch(/from\('question_bank'\)\.delete\(\)\.not\(/);
-    expect(src).toMatch(/tabla: 'question_bank', aplica: \(q\) => q\.eq\('organization_id'/);
+  it('guarda una copia de lo que va a borrar ANTES de borrarlo', () => {
+    expect(src.indexOf('writeFileSync(rutaCopia')).toBeLessThan(src.indexOf('await sql(sqlDeBorrado(pasos))'));
   });
 });
