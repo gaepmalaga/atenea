@@ -75,6 +75,11 @@ describe('la puerta de entrada no se queda fuera del sistema de diseno', () => {
   // `AppShell`, la aplicación entera (regla 37) que renderizan tanto `/` como
   // `/[academia]`.
   const page = sinComentarios(readFileSync(join(__dirname, '..', 'app', 'components', 'AppShell.tsx'), 'utf-8'));
+  // La pantalla de carga salió de AppShell a su propio componente (regla 87):
+  // la guarda de la altura la sigue a ella, no al fichero donde vivía.
+  const carga = sinComentarios(readFileSync(
+    join(__dirname, '..', 'app', 'components', 'auth', 'PantallaCarga.tsx'), 'utf-8',
+  ));
 
   it('vive en app/components/, que es lo unico que recorre la guarda del diseno', () => {
     // ESTA es la razon de que fuera la unica pantalla sin migrar:
@@ -102,8 +107,10 @@ describe('la puerta de entrada no se queda fuera del sistema de diseno', () => {
 
   it('ninguna pantalla de entrada mide la altura en `vh`', () => {
     // `100vh` es la altura CON la barra de direcciones plegada (regla 36).
-    for (const src of [login, page]) {
+    for (const src of [login, page, carga]) {
       expect(src).not.toMatch(/(?:^|[^d])(?:h|min-h|max-h)-screen\b/);
+    }
+    for (const src of [login, carga]) {
       expect(src).toMatch(/min-h-dvh/);
     }
   });

@@ -5,9 +5,11 @@ import { MARCA } from './lib/marca';
  * El manifest de PWA. Sin esto, al «instalar» la web en el móvil Android usaba
  * el `favicon.ico` por defecto (borroso) y el nombre largo del `<title>`.
  *
- * Los iconos salen del logo de Alphapol (`public/marca/`, regla 81). El
- * «maskable» lleva el logo con margen sobre el marino: Android recorta el icono
- * en círculo y, sin margen, se comería «CENTRO DE FORMACIÓN».
+ * Los iconos son la «A» de Alphapol con «ALPHAPOL» debajo, lo más grandes que
+ * deja cada sistema (regla 88). El «maskable» los lleva más pequeños a
+ * propósito: Android puede recortar el icono en círculo y solo respeta el
+ * círculo central, el 80 % del icono; con el tamaño del de iPhone se comería
+ * la primera y la última letra del nombre.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {

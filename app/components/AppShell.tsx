@@ -5,7 +5,6 @@ import { getCurrentUser, getMisAcademias } from '@/actions';
 import { createSupabaseBrowserClient } from '@/app/lib/supabase/client';
 import { mensajeDeAuth } from '@/app/lib/auth-messages';
 import type { AuthUser } from '@/app/lib/auth';
-import { Loader2 } from 'lucide-react';
 
 import StudentDashboard from './student/StudentDashboard';
 import AdminView from './Admin/AdminView';
@@ -13,6 +12,7 @@ import LoginScreen, { type ModoAuth } from './auth/LoginScreen';
 import AccessLocked from './auth/AccessLocked';
 import SelectAcademyScreen from './auth/SelectAcademyScreen';
 import SetPasswordScreen from './auth/SetPasswordScreen';
+import PantallaCarga from './auth/PantallaCarga';
 import { MARCA } from '@/app/lib/marca';
 
 /**
@@ -275,17 +275,7 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
   }
 
   if (loadingUser) {
-    return (
-      // `min-h-dvh`, no `h-screen`: `100vh` es la altura CON la barra de
-      // direcciones plegada, asi que en un movil recien abierto esto se salia
-      // por abajo (regla 36).
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <Loader2 className="animate-spin text-indigo-500" size={40} aria-hidden />
-        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-          Cargando {MARCA.nombre}…
-        </p>
-      </div>
-    );
+    return <PantallaCarga />;
   }
 
   // Sesión de invitación sin contraseña todavía: se le pide ANTES de dejarla

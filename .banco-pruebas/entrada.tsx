@@ -3,11 +3,12 @@ import { createRoot } from 'react-dom/client';
 import StudentDashboard from '@/app/components/student/StudentDashboard';
 import AdminView from '@/app/components/Admin/AdminView';
 import LoginScreen, { type ModoAuth } from '@/app/components/auth/LoginScreen';
+import PantallaCarga from '@/app/components/auth/PantallaCarga';
 
 const usuario = { id: '11111111-2222-3333-4444-555555555555', email: 'gaepmalaga@gmail.com', role: 'admin' };
 
-// ?vista=admin para el panel, ?vista=login para la puerta de entrada;
-// por defecto, el alumno.
+// ?vista=admin para el panel, ?vista=login para la puerta de entrada,
+// ?vista=carga para la pantalla de carga; por defecto, el alumno.
 const vista = new URLSearchParams(location.search).get('vista');
 
 /**
@@ -35,5 +36,6 @@ function Entrada() {
 createRoot(document.getElementById('raiz')!).render(
   vista === 'admin' ? <AdminView user={usuario as never} onLogout={() => console.log('logout')} />
   : vista === 'login' ? <Entrada />
+  : vista === 'carga' ? <PantallaCarga />
   : <StudentDashboard user={usuario as never} onLogout={() => console.log('logout')} />,
 );

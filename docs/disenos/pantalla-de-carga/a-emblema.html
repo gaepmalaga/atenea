@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantalla de carga · A · Emblema</title>
+<!-- Propuesta A, GUARDADA y sin usar (ver README.md de esta carpeta). Se abre
+     tal cual en el navegador desde el repo: las imágenes salen de public/marca. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; }
+  .pantalla {
+    min-height: 100dvh; box-sizing: border-box; position: relative; overflow: hidden;
+    background: radial-gradient(120% 70% at 50% 42%, #1c3c76 0%, #14295a 42%, #0a1630 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: Inter, system-ui, sans-serif; color: #ffffff;
+  }
+  .emblema { position: relative; width: 232px; height: 232px; display: flex; align-items: center; justify-content: center; margin-top: -40px; }
+  .halo { position: absolute; left: 20px; top: 20px; width: 192px; height: 192px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(197,167,56,.26) 0%, rgba(197,167,56,0) 70%); }
+  .anillo { position: absolute; left: 0; top: 0; }
+  .a { position: relative; width: 112px; height: 116px; }
+  .a img { width: 112px; height: 116px; display: block; object-fit: contain; }
+  .destello { position: absolute; inset: 0;
+    -webkit-mask-image: url(../../../public/marca/alphapol-isotipo.webp); mask-image: url(../../../public/marca/alphapol-isotipo.webp);
+    -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center; mask-position: center;
+    background: linear-gradient(105deg, rgba(255,250,230,0) 42%, rgba(255,250,230,.9) 50%, rgba(255,250,230,0) 58%);
+    background-size: 300% 100%; background-repeat: no-repeat; background-position: 100% 0; }
+  .logotipo { width: 236px; height: auto; display: block; margin-top: 40px; }
+  .estado { position: absolute; left: 0; right: 0; bottom: 64px; margin: 0; text-align: center;
+    font-size: 13px; font-weight: 500; letter-spacing: .02em; color: rgba(255,255,255,.68); }
+  .punto { display: inline-block; }
+
+  .emblema { animation: entra 1s cubic-bezier(.2,.8,.2,1) both; }
+  .logotipo { animation: sube 1s .3s cubic-bezier(.2,.8,.2,1) both; }
+  .estado { animation: sube 1s .55s cubic-bezier(.2,.8,.2,1) both; }
+  .anillo { animation: gira 2.2s linear infinite; }
+  .arco { animation: arco 2.2s cubic-bezier(.45,0,.25,1) infinite; }
+  .halo { animation: halo 3.2s ease-in-out infinite; }
+  .destello { animation: destello 3.2s ease-in-out 1s infinite; }
+  .punto { animation: punto 1.4s ease-in-out infinite; }
+  .p2 { animation-delay: .2s; } .p3 { animation-delay: .4s; }
+  @keyframes entra { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+  @keyframes sube { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  @keyframes arco { 0% { stroke-dasharray: 1 100; stroke-dashoffset: 0; } 50% { stroke-dasharray: 34 100; stroke-dashoffset: -14; } 100% { stroke-dasharray: 34 100; stroke-dashoffset: -99; } }
+  @keyframes halo { 0%, 100% { opacity: .5; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
+  @keyframes destello { 0% { background-position: 100% 0; } 55%, 100% { background-position: 0% 0; } }
+  @keyframes punto { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .emblema, .logotipo, .estado, .anillo, .arco, .halo, .destello, .punto { animation: none; } }
+</style>
+</head>
+<body>
+<div class="pantalla">
+  <div class="emblema">
+    <div class="halo"></div>
+    <svg class="anillo" width="232" height="232" viewBox="0 0 232 232" aria-hidden="true">
+      <defs>
+        <linearGradient id="oro" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f4e9b3"></stop>
+          <stop offset="0.5" stop-color="#c5a738"></stop>
+          <stop offset="1" stop-color="#8a6d1a"></stop>
+        </linearGradient>
+      </defs>
+      <circle cx="116" cy="116" r="108" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"></circle>
+      <circle class="arco" cx="116" cy="116" r="108" fill="none" stroke="url(#oro)" stroke-width="2.5" stroke-linecap="round" pathLength="100" transform="rotate(-90 116 116)"></circle>
+    </svg>
+    <div class="a">
+      <img src="../../../public/marca/alphapol-isotipo.webp" alt="">
+      <div class="destello"></div>
+    </div>
+  </div>
+  <img class="logotipo" src="../../../public/marca/alphapol-logotipo.webp" alt="Alphapol, centro de formación">
+  <p class="estado" role="status">Preparando tu sesión<span class="punto">.</span><span class="punto p2">.</span><span class="punto p3">.</span></p>
+</div>
+</body>
+</html>
