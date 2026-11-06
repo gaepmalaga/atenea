@@ -25,7 +25,7 @@ import type { ErrorType } from '../lib/stats';
 import { periodoActual } from '../lib/payments';
 import { detectaConfusion, type ParConfuso } from '../lib/question-confusion';
 import { isBlankAnswer } from '../lib/exam-results';
-import { paginaCompleta } from '../lib/pagination';
+import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 /**
  * El panel de la academia (P5).
@@ -141,11 +141,19 @@ export async function getAcademyOverview(): Promise<
     // solo los primeros 1.000, sin ningún aviso.
     fetchTodosLosIntentos(idsAcademia),
     supabaseAdmin.from('subjects').select('id, title').order('topic_number', { ascending: true }),
-    supabaseAdmin
-      .from('question_bank')
-      .select('subject_id')
-      .eq('status', QUESTION_STATUS.ACTIVE)
-      .or(filtroBancoPorAcademia(organizationId)),
+    // El banco también, paginado: tiene 4.617 preguntas y PostgREST da 1.000
+    // por petición, así que la cobertura del temario salía recortada.
+    paginaCompleta<{ subject_id: number | null }>(
+      (desde, hasta) =>
+        supabaseAdmin
+          .from('question_bank')
+          .select('subject_id')
+          .eq('status', QUESTION_STATUS.ACTIVE)
+          .or(filtroBancoPorAcademia(organizationId))
+          .order('id', { ascending: true })
+          .range(desde, hasta) as unknown as Promise<ResultadoPagina<{ subject_id: number | null }>>,
+      { maxFilas: 100_000 },
+    ),
     // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
     supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', organizationId).order('name'),
@@ -224,7 +232,7 @@ export async function getAcademyOverview(): Promise<
 
   // Cuantas preguntas activas tiene cada tema.
   const preguntasPorTema = new Map<number, number>();
-  for (const fila of (bancoRes.data ?? []) as { subject_id: number | null }[]) {
+  for (const fila of bancoRes.data) {
     if (fila.subject_id === null) continue;
     preguntasPorTema.set(fila.subject_id, (preguntasPorTema.get(fila.subject_id) ?? 0) + 1);
   }

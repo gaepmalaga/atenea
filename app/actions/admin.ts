@@ -8,6 +8,7 @@ import { checkQuota } from '../lib/rate-limit';
 import { registraAccion } from '../lib/admin-audit';
 import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus, type AdminBankRow } from '../lib/questions';
 import type { ActivityRow } from '../lib/stats';
+import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 // --- TIPOS DEL TEMARIO ---
 // Reflejan la forma que devuelve el `select` anidado de Supabase.
@@ -487,18 +488,27 @@ export async function getStudentSyllabus(): Promise<
 
   const [bloquesRes, bancoRes] = await Promise.all([
     supabase.from('blocks').select('id, name, subjects(id, title, topic_number)').order('id', { ascending: true }),
-    supabase
-      .from('question_bank')
-      .select('subject_id')
-      .eq('status', QUESTION_STATUS.ACTIVE)
-      .or(filtroBancoPorAcademia(auth.user.organizationId)),
+    // Paginado (regla 74): PostgREST corta en 1.000 filas y el banco tiene
+    // 4.617; un tema que solo apareciera más allá de la fila 1.000 no saldría
+    // en el selector aunque tenga preguntas.
+    paginaCompleta<{ subject_id: number | null }>(
+      (desde, hasta) =>
+        supabase
+          .from('question_bank')
+          .select('subject_id')
+          .eq('status', QUESTION_STATUS.ACTIVE)
+          .or(filtroBancoPorAcademia(auth.user.organizationId))
+          .order('id', { ascending: true })
+          .range(desde, hasta) as unknown as Promise<ResultadoPagina<{ subject_id: number | null }>>,
+      { maxFilas: 100_000 },
+    ),
   ]);
   if (bloquesRes.error) {
     console.error('getStudentSyllabus:', bloquesRes.error.message);
     return { success: false as const, error: bloquesRes.error.message };
   }
 
-  const conBanco = new Set((bancoRes.data ?? []).map((r) => r.subject_id as number));
+  const conBanco = new Set(bancoRes.data.map((r) => r.subject_id as number));
   type FilaBloque = { id: number; name: string; subjects: { id: number; title: string; topic_number: number }[] | null };
 
   const bloques = ((bloquesRes.data as unknown as FilaBloque[]) ?? [])

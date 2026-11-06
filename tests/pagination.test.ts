@@ -81,3 +81,47 @@ describe('guarda: pagination es puro', () => {
     expect(src).not.toMatch(/from ['"]react['"]/);
   });
 });
+
+// ── El banco entero no se lee sin paginar (6 nov 2026) ─────────────────────
+//
+// El banco pasó de 1.795 a 4.617 preguntas el 16 sep (regla 78), y OCHO
+// lecturas de `question_bank` seguían sin paginar: el entrenamiento, el
+// simulacro, «hoy te tocan N», el selector de temas, el mapa de cajones, «Mi
+// evolución» y el panel de la academia veían solo 1.000, siempre las mismas.
+// Nada fallaba: PostgREST contesta bien con lo que le cabe. Esta guarda exige
+// que toda lectura del banco diga cuánto trae: una página (`.range`), un tope
+// (`.limit`), unas filas concretas (`id`), una sola fila, o solo la cuenta.
+describe('ninguna lectura del banco se queda en las primeras 1.000 filas', () => {
+  const { readdirSync, readFileSync } = require('node:fs') as typeof import('node:fs');
+  const { join } = require('node:path') as typeof import('node:path');
+  const dir = join(__dirname, '..', 'app', 'actions');
+  const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  const POR_PARTES = new Set(['bancoLigero', 'getQuestionsFromBank']);
+
+  it('cada `.from(question_bank)` con `.select` lleva range, limit, id, single o count', () => {
+    const culpables: string[] = [];
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.ts'))) {
+      const src = sinComentarios(readFileSync(join(dir, f), 'utf8'));
+      const re = /\.from\('question_bank'\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        const resto = src.slice(m.index);
+        const sentencia = resto.slice(0, resto.indexOf(';') + 1);
+        if (!/\.select\(/.test(sentencia)) continue;
+        if (/\.(update|insert|upsert|delete)\(/.test(sentencia)) continue;
+        if (/\.range\(|\.limit\(|\.(maybeSingle|single)\(|\.(eq|in)\('id'|count: '|head: true/.test(sentencia)) continue;
+        // Dos funciones montan la consulta por partes y ponen la página o el
+        // tope después: se mira la función entera, pero solo en esas dos.
+        const antes = src.slice(0, m.index);
+        const funcion = [...antes.matchAll(/function (\w+)/g)].pop()?.[1];
+        if (funcion && POR_PARTES.has(funcion)) {
+          const cuerpo = src.slice(antes.lastIndexOf('function ' + funcion), src.indexOf('\n}\n', m.index));
+          if (/\.range\(|\.limit\(/.test(cuerpo)) continue;
+        }
+        culpables.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
+      }
+    }
+    expect(culpables).toEqual([]);
+  });
+});

@@ -5,7 +5,7 @@ import { supabaseAdmin } from './core';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
-import { paginaCompleta } from '../lib/pagination';
+import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import {
   computeQuestionStates,
@@ -139,21 +139,29 @@ export async function getMiEvolucion(): Promise<
 
   // El banco disponible (global + privado de la academia) y a qué tema
   // pertenece cada pregunta — mismo patrón que `getMisCajones`.
+  // Paginado: PostgREST corta en 1.000 filas y el banco tiene 4.617 (regla 74).
+  // Sin esto «Mi evolución» decía «1000 preguntas a tu disposición».
   const [bancoRes, temasRes] = await Promise.all([
-    supabaseAdmin
-      .from('question_bank')
-      .select('id, subject_id')
-      .eq('status', QUESTION_STATUS.ACTIVE)
-      .or(filtroBancoPorAcademia(organizationId)),
+    paginaCompleta<{ id: string; subject_id: number | null }>(
+      (desde, hasta) =>
+        supabaseAdmin
+          .from('question_bank')
+          .select('id, subject_id')
+          .eq('status', QUESTION_STATUS.ACTIVE)
+          .or(filtroBancoPorAcademia(organizationId))
+          .order('id', { ascending: true })
+          .range(desde, hasta) as unknown as Promise<ResultadoPagina<{ id: string; subject_id: number | null }>>,
+      { maxFilas: 100_000 },
+    ),
     supabaseAdmin.from('subjects').select('id, title'),
   ]);
-  if (bancoRes.error) return { success: false as const, error: bancoRes.error.message };
+  if (bancoRes.error) return { success: false as const, error: bancoRes.error };
 
   const tituloPorSubject = new Map<number, string>();
   for (const s of (temasRes.data ?? []) as { id: number; title: string }[]) tituloPorSubject.set(s.id, s.title);
 
   const preguntasPorTema = new Map<string, string>();
-  for (const q of (bancoRes.data ?? []) as { id: string; subject_id: number | null }[]) {
+  for (const q of bancoRes.data) {
     preguntasPorTema.set(q.id, q.subject_id != null ? tituloPorSubject.get(q.subject_id) ?? 'Sin tema' : 'Sin tema');
   }
   const totalBanco = preguntasPorTema.size;

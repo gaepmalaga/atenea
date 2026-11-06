@@ -28,7 +28,7 @@ import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoP
 import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart-session';
 import { planExamen } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
-import { paginaCompleta } from '../lib/pagination';
+import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -514,6 +514,56 @@ async function fetchIntentosDelAlumno(
   return data;
 }
 
+/**
+ * EL BANCO ENTERO DE UNOS TEMAS, por encima del tope de PostgREST (regla 74).
+ *
+ * PostgREST no da más de 1.000 filas por petición, y estas lecturas no
+ * paginaban: mientras el banco tuvo 1.795 preguntas casi no se notaba, pero
+ * desde que creció a 4.617 (regla 78, 16 sep) el entrenamiento, el simulacro,
+ * «hoy te tocan N» y el mapa de cajones solo veían 1.000 — siempre las mismas,
+ * y sin ningún aviso. Encontrado el 6 nov porque «Mi evolución» decía «1000
+ * preguntas a tu disposición».
+ *
+ * En dos fases para no traer el texto de 4.617 preguntas en cada sesión: las
+ * columnas LIGERAS de todas (lo que necesitan el planificador y el simulacro
+ * para decidir) y el texto completo solo de las elegidas.
+ */
+type FilaLigera = {
+  id: string;
+  subject_id: number | null;
+  global_success_rate?: number | null;
+  difficulty_level?: number | null;
+  legal_reference?: string | null;
+};
+
+async function bancoLigero(subjectIds: number[] | null, organizationId: string | null): Promise<{ data: FilaLigera[]; error: string | null }> {
+  return paginaCompleta<FilaLigera>((desde, hasta) => {
+    let consulta = supabase
+      .from('question_bank')
+      .select('id, subject_id, global_success_rate, difficulty_level, legal_reference')
+      .eq('status', QUESTION_STATUS.ACTIVE)
+      .or(filtroBancoPorAcademia(organizationId));
+    if (subjectIds) consulta = consulta.in('subject_id', subjectIds);
+    // Sin un orden fijo, dos páginas podrían repetir o saltarse filas.
+    return consulta.order('id', { ascending: true }).range(desde, hasta) as unknown as Promise<ResultadoPagina<FilaLigera>>;
+  }, { maxFilas: 100_000 });
+}
+
+/** El texto completo de unas preguntas concretas, en el orden pedido. */
+async function preguntasCompletas(ids: string[]): Promise<{ data: BankRow[]; error: string | null }> {
+  const porId = new Map<string, BankRow>();
+  // De 100 en 100: un `.in()` con cientos de uuid alarga la URL de más.
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase
+      .from('question_bank')
+      .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, difficulty_level')
+      .in('id', ids.slice(i, i + 100));
+    if (error) return { data: [], error: error.message };
+    for (const f of (data ?? []) as BankRow[]) porId.set(f.id, f);
+  }
+  return { data: ids.map((id) => porId.get(id)).filter((f): f is BankRow => !!f), error: null };
+}
+
 export type AdaptiveSession = {
   questions: Question[];
   adaptativo: boolean;
@@ -563,15 +613,8 @@ export async function getAdaptiveSession(params: {
     .filter((n): n is number => Number.isFinite(n));
   if (ids.length === 0) return { success: false as const, error: 'Esos temas no existen.' };
 
-  const { data: banco, error: bancoError } = await supabase
-    .from('question_bank')
-    .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, global_success_rate, difficulty_level')
-    .in('subject_id', ids)
-    .eq('status', QUESTION_STATUS.ACTIVE)
-    .or(filtroBancoPorAcademia(auth.user.organizationId));
-
-  if (bancoError) return { success: false as const, error: bancoError.message };
-  const filas = (banco ?? []) as (BankRow & { global_success_rate?: number | null; difficulty_level?: number | null })[];
+  const { data: filas, error: bancoError } = await bancoLigero(ids, auth.user.organizationId);
+  if (bancoError) return { success: false as const, error: bancoError };
 
   if (filas.length === 0) {
     return {
@@ -580,14 +623,15 @@ export async function getAdaptiveSession(params: {
     };
   }
 
-  const filaPorId = new Map(filas.map((f) => [f.id, f]));
-  const temaDeFila = (f: BankRow) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
+  const temaDeFila = (f: { subject_id?: number | null }) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
 
   const adaptativo = await adaptativoEncendido(auth.user.organizationId);
 
   // ---- Camino ALEATORIO (interruptor apagado) ----
   if (!adaptativo) {
-    const elegidas = shuffle(filas).slice(0, limit);
+    const completas = await preguntasCompletas(shuffle(filas).slice(0, limit).map((f) => f.id));
+    if (completas.error) return { success: false as const, error: completas.error };
+    const elegidas = completas.data;
     return {
       success: true as const,
       data: {
@@ -634,9 +678,9 @@ export async function getAdaptiveSession(params: {
   // `porQueHoy` es el mismo cálculo hecho visible: el planificador ya decide
   // de qué cubo sale cada pregunta (`sesion.cuboPorPregunta`), y hasta ahora
   // esa decisión se tiraba al aplanar la sesión a una lista de ids.
-  const questions = sesion.questionIds
-    .map((id) => filaPorId.get(id))
-    .filter((f): f is BankRow => !!f)
+  const completas = await preguntasCompletas(sesion.questionIds);
+  if (completas.error) return { success: false as const, error: completas.error };
+  const questions = completas.data
     .map((f) => ({
       ...mapBankRowToQuestion(f),
       topic: temaDeFila(f),
@@ -697,31 +741,29 @@ export async function getSimulacro(params: {
   const ids = topics.map((t) => idPorTitulo.get(t.toLowerCase())).filter((n): n is number => Number.isFinite(n));
   if (!ids.length) return { success: false as const, error: 'Esos temas no existen.' };
 
-  const { data: banco, error: bancoError } = await supabase
-    .from('question_bank')
-    .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, difficulty_level')
-    .in('subject_id', ids)
-    .eq('status', QUESTION_STATUS.ACTIVE)
-    .or(filtroBancoPorAcademia(auth.user.organizationId));
-  if (bancoError) return { success: false as const, error: bancoError.message };
-
-  const filas = (banco ?? []) as (BankRow & { difficulty_level?: number | null })[];
+  const { data: filas, error: bancoError } = await bancoLigero(ids, auth.user.organizationId);
+  if (bancoError) return { success: false as const, error: bancoError };
   if (!filas.length) {
     return { success: true as const, data: { questions: [], corto: true } };
   }
-  const filaPorId = new Map(filas.map((f) => [f.id, f]));
-  const temaDeFila = (f: BankRow) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
+  const temaDeFila = (f: { subject_id?: number | null }) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
 
   // Lo contestado en los últimos días, para no repetirlo (con la sesión: son sus
   // respuestas y no hay join).
   const desde = new Date(Date.now() - DIAS_SIN_REPETIR_SIMULACRO * 86_400_000).toISOString();
   const db = await createSupabaseServerClient();
-  const { data: recientesData } = await db
-    .from('question_attempts')
-    .select('question_id')
-    .eq('user_id', auth.user.id)
-    .gte('created_at', desde);
-  const recientes = new Set(((recientesData ?? []) as { question_id: string | null }[]).map((r) => r.question_id).filter((x): x is string => !!x));
+  // Paginado también: quien entrena mucho pasa de 1.000 respuestas en una semana.
+  const { data: recientesData } = await paginaCompleta<{ question_id: string | null }>(
+    (d, h) =>
+      db
+        .from('question_attempts')
+        .select('question_id')
+        .eq('user_id', auth.user.id)
+        .gte('created_at', desde)
+        .order('created_at', { ascending: true })
+        .range(d, h) as unknown as Promise<ResultadoPagina<{ question_id: string | null }>>,
+  );
+  const recientes = new Set(recientesData.map((r) => r.question_id).filter((x): x is string => !!x));
 
   const plan = planExamen({
     disponibles: filas.map((f) => ({
@@ -735,10 +777,9 @@ export async function getSimulacro(params: {
     recientes,
   });
 
-  const questions = plan.questionIds
-    .map((id) => filaPorId.get(id))
-    .filter((f): f is BankRow => !!f)
-    .map((f) => ({ ...mapBankRowToQuestion(f), topic: temaDeFila(f) }));
+  const completas = await preguntasCompletas(plan.questionIds);
+  if (completas.error) return { success: false as const, error: completas.error };
+  const questions = completas.data.map((f) => ({ ...mapBankRowToQuestion(f), topic: temaDeFila(f) }));
 
   return { success: true as const, data: { questions, corto: plan.corto || questions.length < limit } };
 }
@@ -764,13 +805,8 @@ export async function getRecuentoEntrenamiento(topics: string[]): Promise<
   const ids = clean.map((t) => idPorTitulo.get(t.toLowerCase())).filter((n): n is number => Number.isFinite(n));
   if (!ids.length) return { success: true as const, propuestas: 0, disponibles: 0 };
 
-  const { data: banco } = await supabase
-    .from('question_bank')
-    .select('id')
-    .in('subject_id', ids)
-    .eq('status', QUESTION_STATUS.ACTIVE)
-    .or(filtroBancoPorAcademia(auth.user.organizationId));
-  const bankIds = new Set(((banco ?? []) as { id: string }[]).map((r) => r.id));
+  const { data: banco } = await bancoLigero(ids, auth.user.organizationId);
+  const bankIds = new Set(banco.map((r) => r.id));
   const disponibles = bankIds.size;
   if (!disponibles) return { success: true as const, propuestas: 0, disponibles: 0 };
 
@@ -804,20 +840,16 @@ export async function getMisCajones(): Promise<
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const [bancoRes, temasRes] = await Promise.all([
-    supabase
-      .from('question_bank')
-      .select('id, subject_id')
-      .eq('status', QUESTION_STATUS.ACTIVE)
-      .or(filtroBancoPorAcademia(auth.user.organizationId)),
+    bancoLigero(null, auth.user.organizationId),
     supabase.from('subjects').select('id, title'),
   ]);
-  if (bancoRes.error) return { success: false as const, error: bancoRes.error.message };
+  if (bancoRes.error) return { success: false as const, error: bancoRes.error };
 
   const tituloPorSubject = new Map<number, string>();
   for (const s of (temasRes.data ?? []) as { id: number; title: string }[]) tituloPorSubject.set(s.id, s.title);
 
   const preguntasPorTema = new Map<string, string>();
-  for (const q of (bancoRes.data ?? []) as { id: string; subject_id: number | null }[]) {
+  for (const q of bancoRes.data) {
     preguntasPorTema.set(q.id, q.subject_id != null ? tituloPorSubject.get(q.subject_id) ?? 'Sin tema' : 'Sin tema');
   }
 

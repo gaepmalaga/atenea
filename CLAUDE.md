@@ -2921,6 +2921,25 @@ Verificado en pantalla con sesión real de alumna: «Lo que te toca» mostró
 correctamente apagado. `npm run check` (1011 tests) y `npm run build` en
 verde.
 
+**Y el banco también (6 nov 2026).** Esta regla se arregló para las
+RESPUESTAS, pero las lecturas del BANCO seguían sin paginar, y el banco pasó
+de 1.795 a 4.617 preguntas el 16 sep (regla 78). Desde entonces el
+entrenamiento, el simulacro, «hoy te tocan N», el selector de temas, el mapa de
+cajones, «Mi evolución» y la cobertura del panel de la academia veían solo
+1.000 preguntas, siempre las mismas. Se vio porque «Mi evolución» decía «1000
+preguntas a tu disposición». Arreglado en las siete:
+
+- **`bancoLigero` / `preguntasCompletas`** (`exams.ts`): las columnas ligeras
+  de todo el banco, paginadas y con `.order('id')` (sin orden fijo dos páginas
+  pueden repetir o saltarse filas), y el texto completo solo de las elegidas,
+  de 100 en 100. Así no se trae el texto de 4.617 preguntas en cada sesión.
+- **Una guarda en `pagination.test.ts`**: toda lectura de `question_bank` con
+  `.select` tiene que decir cuánto trae (`.range`, `.limit`, unas `id`, una
+  sola fila o solo la cuenta). Probada contra el código de antes: lo señala.
+- **Verificado contra la BD real** (app local, sesión de alumno de prueba):
+  «Mi evolución» dice 4.617, el selector 45 temas, el entrenamiento y el
+  simulacro cargan, y el panel de la academia lista a los alumnos.
+
 ### 75 · Un admin de academia podía tocar el banco de OTRA academia, o el global entero
 
 El dueño preguntó, mirando el panel de un admin de academia real (14 sep
