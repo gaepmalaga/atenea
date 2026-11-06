@@ -89,8 +89,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **La física como en TrainingMonkeys** | ✅ **en producción** (6 nov), con un plan de ejemplo de noviembre cargado. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
 | — | **Pantalla de carga nueva** | ✅ **en producción** (6 nov). De siete propuestas en un lienzo de diseño, el dueño eligió la «G · Monumental»: la «A» del logo enorme saliéndose por la derecha y el logotipo abajo, en marino. Se guardaron la A (Emblema) y la E (Claro) en `docs/disenos/pantalla-de-carga/`. Vista en el banco de pruebas a 390, 360 y 1440 px. Ver **regla 87** |
 | — | **Icono de la app nuevo** | ✅ **en producción** (6 nov). De seis propuestas en el mismo lienzo, el dueño eligió la «E · Con nombre» con la «A» y el nombre lo más grandes posible: dos versiones, una para iPhone y navegador y otra (la «maskable») para Android, que tiene que caber en el círculo central. Ver **regla 88** |
-| — | **Logo nítido, pantalla de carga y puerta de entrada, segunda vuelta** | 🔶 **hecho, en la rama `claude/alfapol-platform-requirements-3kt6w6`, SIN desplegar** (6 nov), a petición del dueño («las mismas versiones pero mejor»). La «A», el logotipo y el nombre pasan a SVG con el contorno vectorial (eran el JPG de 400 px ampliado y se veían borrosos), los iconos se rehacen encima y el de Android ya no deja un recuadro en la pantalla de arranque; la pantalla de carga deja de pasar la «A» por detrás del logotipo; y las cinco pantallas de entrada (entrar, crear cuenta, poner contraseña, elegir academia, acceso no activo) comparten un marco nuevo que sigue a la de carga. Verificado en el banco de pruebas a 375, 390 y 1440 px, con contraste. Ver **reglas 87, 88 y 90** |
-| — | **1RM y cargas en % en las sesiones** | 🔶 **código hecho y guion SQL ejecutado** (6 nov), en la rama, SIN desplegar y **sin verificar aún de punta a punta contra la BD real**. Ver **regla 89** |
+| — | **Logo nítido, pantalla de carga y puerta de entrada, segunda vuelta** | ✅ **en producción** (6 nov), a petición del dueño («las mismas versiones pero mejor»). La «A», el logotipo y el nombre pasan a SVG con el contorno vectorial (eran el JPG de 400 px ampliado y se veían borrosos), los iconos se rehacen encima y el de Android ya no deja un recuadro en la pantalla de arranque; la pantalla de carga deja de pasar la «A» por detrás del logotipo; y las cinco pantallas de entrada (entrar, crear cuenta, poner contraseña, elegir academia, acceso no activo) comparten un marco nuevo que sigue a la de carga. Verificado en el banco de pruebas a 375, 390 y 1440 px, con contraste. Ver **reglas 87, 88 y 90** |
+| — | **1RM y cargas en % en las sesiones** | ✅ **en producción** (6 nov). El preparador escribe «4 × 6 al 75 %» y cada alumno lo ve en kilos con su 1RM. Verificado de punta a punta contra la BD real. Ver **regla 89** |
 
 ## Producción
 
@@ -3797,9 +3797,15 @@ saber cuánto es eso PARA ÉL.
   `app/actions/fisica.ts`; la pieza de pantalla (`SeccionRM`, `ListaCargas`) en
   `app/components/fisica/`, la misma para el alumno («Mis marcas») y para el
   preparador (la ficha de marcas y el editor de la sesión).
-- **Sin verificar todavía contra la BD real** (6 nov): tests, build y banco de
-  pruebas en verde. Falta apuntar un 1RM y una sesión con cargas con las
-  cuentas de prueba y borrarlo después.
+- **Verificado de punta a punta contra la BD real** (6 nov), con la app local
+  y las cuentas de prueba: el preparador apunta un 1RM (sentadilla 80 kg × 5
+  → 93,3 kg) desde la ficha de marcas y sale en la lista; una sesión con
+  «sentadilla 4 × 6 al 75 %» se guarda en `loads`; el alumno la ve como
+  «70 kg, de 93,3 kg»; el alumno apunta uno suyo (press banca 50 × 3 → 55 kg)
+  y lo borra, y no tiene botón de borrar en el del preparador (y el servidor
+  tampoco le deja: `deleteMiRM` filtra por `recorded_by`); y al planificar
+  para ese alumno, el editor enseña sus kilos (80 % → 75 kg). Datos de prueba
+  borrados después.
 
 ### 90 · La puerta de entrada sigue a la pantalla de carga
 
