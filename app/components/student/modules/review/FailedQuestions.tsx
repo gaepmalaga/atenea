@@ -315,7 +315,7 @@ function Fila({ q, abierta, onToggle, resiste = false }: {
       <button onClick={onToggle} className="w-full text-left px-4 py-3 flex items-start gap-3">
         <div className="flex-1 min-w-0">
           {q.topic && (
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate mb-1">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate mb-1">
               {q.topic}
             </p>
           )}

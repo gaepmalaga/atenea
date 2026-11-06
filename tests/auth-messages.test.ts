@@ -80,6 +80,11 @@ describe('la puerta de entrada no se queda fuera del sistema de diseno', () => {
   const carga = sinComentarios(readFileSync(
     join(__dirname, '..', 'app', 'components', 'auth', 'PantallaCarga.tsx'), 'utf-8',
   ));
+  // Las pantallas de entrada comparten marco desde la regla 90: la altura la
+  // pone `MarcoEntrada`, y la guarda la sigue a él.
+  const marco = sinComentarios(readFileSync(
+    join(__dirname, '..', 'app', 'components', 'auth', 'MarcoEntrada.tsx'), 'utf-8',
+  ));
 
   it('vive en app/components/, que es lo unico que recorre la guarda del diseno', () => {
     // ESTA es la razon de que fuera la unica pantalla sin migrar:
@@ -107,12 +112,14 @@ describe('la puerta de entrada no se queda fuera del sistema de diseno', () => {
 
   it('ninguna pantalla de entrada mide la altura en `vh`', () => {
     // `100vh` es la altura CON la barra de direcciones plegada (regla 36).
-    for (const src of [login, page, carga]) {
+    for (const src of [login, page, carga, marco]) {
       expect(src).not.toMatch(/(?:^|[^d])(?:h|min-h|max-h)-screen\b/);
     }
-    for (const src of [login, carga]) {
+    for (const src of [marco, carga]) {
       expect(src).toMatch(/min-h-dvh/);
     }
+    // Y el login va dentro del marco: sin él se quedaría sin altura.
+    expect(login).toMatch(/<MarcoEntrada>/);
   });
 
   it('no queda ningun `alert()` del navegador', () => {

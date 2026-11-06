@@ -9,7 +9,7 @@ import { Button, TextField, SectionLabel, TEXT, cx } from '../ui';
 type Entrada = { ejercicio: string; pesoKg: string; reps: string; fecha: string };
 
 /**
- * EL 1RM DE UN ALUMNO (regla 87): el vigente de cada ejercicio, su histórico y
+ * EL 1RM DE UN ALUMNO (regla 89): el vigente de cada ejercicio, su histórico y
  * apuntar uno nuevo. La misma pieza en «Mis marcas» y en la ficha que ve el
  * preparador; cambia quién puede borrar qué.
  */

@@ -89,6 +89,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **La física como en TrainingMonkeys** | ✅ **en producción** (6 nov), con un plan de ejemplo de noviembre cargado. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
 | — | **Pantalla de carga nueva** | ✅ **en producción** (6 nov). De siete propuestas en un lienzo de diseño, el dueño eligió la «G · Monumental»: la «A» del logo enorme saliéndose por la derecha y el logotipo abajo, en marino. Se guardaron la A (Emblema) y la E (Claro) en `docs/disenos/pantalla-de-carga/`. Vista en el banco de pruebas a 390, 360 y 1440 px. Ver **regla 87** |
 | — | **Icono de la app nuevo** | ✅ **en producción** (6 nov). De seis propuestas en el mismo lienzo, el dueño eligió la «E · Con nombre» con la «A» y el nombre lo más grandes posible: dos versiones, una para iPhone y navegador y otra (la «maskable») para Android, que tiene que caber en el círculo central. Ver **regla 88** |
+| — | **Logo nítido, pantalla de carga y puerta de entrada, segunda vuelta** | 🔶 **hecho, en la rama `claude/alfapol-platform-requirements-3kt6w6`, SIN desplegar** (6 nov), a petición del dueño («las mismas versiones pero mejor»). La «A», el logotipo y el nombre pasan a SVG con el contorno vectorial (eran el JPG de 400 px ampliado y se veían borrosos), los iconos se rehacen encima y el de Android ya no deja un recuadro en la pantalla de arranque; la pantalla de carga deja de pasar la «A» por detrás del logotipo; y las cinco pantallas de entrada (entrar, crear cuenta, poner contraseña, elegir academia, acceso no activo) comparten un marco nuevo que sigue a la de carga. Verificado en el banco de pruebas a 375, 390 y 1440 px, con contraste. Ver **reglas 87, 88 y 90** |
+| — | **1RM y cargas en % en las sesiones** | 🔶 **código hecho y guion SQL ejecutado** (6 nov), en la rama, SIN desplegar y **sin verificar aún de punta a punta contra la BD real**. Ver **regla 89** |
 
 ## Producción
 
@@ -1420,6 +1422,11 @@ como este repo acabó con `flashcard_bank` sin usar y `.vip-card` en
 `globals.css`.
 
 ### 43 · Una puerta y un escritorio no hacen el mismo trabajo
+
+> **El aspecto que se describe aquí (brutalista sobre hueso) se sustituyó el
+> 6 nov por el de la regla 90**, que sigue a la pantalla de carga. Lo que sigue
+> en pie de esta regla es lo que protege: `TAP`, `text-base` en los campos,
+> `dvh`, ningún tamaño grande sin escalón, y que la puerta no siga el tema.
 
 El login es brutalista sobre hueso: plano, bordes de 3px, mayúsculas enormes y
 el filete de la bandera en proporciones reales (1:2:1 — en tres franjas iguales
@@ -3285,7 +3292,7 @@ registrado, así que lo de prueba se borra.
 - **`app/lib/marca.ts`** — nombre, lema, web, correo de contacto, slug de la
   academia, ruta del logo y colores (marino `#14295a`, dorado `#c5a738`,
   sacados del logo de alphapol.es). Lo leen el `<title>`, el manifest, la
-  pantalla de entrada (`CintaMarca`), los correos y los avisos. Las claves
+  pantalla de entrada (`MarcoEntrada`, regla 90), los correos y los avisos. Las claves
   internas (`atenea-tema`, la cookie `atenea-academia`, `askAtenea`) NO se
   renombraron: no las ve nadie y cambiarlas borraría las preferencias guardadas.
 - **`app/marca.css`** — redefine la escala `indigo-*` de Tailwind con el azul de
@@ -3670,6 +3677,25 @@ con los pasos para cambiar a cualquiera de ellas.
 - Para verla quieta: el banco de pruebas, `index.html?vista=carga`.
 
 
+**Segunda versión (6 nov, «las mismas versiones pero mejor»).** El dueño la
+vio en su móvil y se veía a medio hacer. Tres causas, y ninguna era el diseño:
+
+- **La «A» estaba borrosa**: era el JPG de 400 px de su web ampliado a 6×. Ahora
+  es SVG con el contorno vectorial (regla 88).
+- **La «A» pasaba por detrás del logotipo**, y un velo oscuro la volvía gris por
+  abajo para que el logotipo se leyera. Ahora se mide con el ancho Y con el alto
+  (`w-[min(124%,58dvh)]`): en un iPhone SE no llega al logotipo, y el velo ya no
+  hace falta. Medido a 375×667, 390×844 y 1440×900.
+- **El efecto fantasma** de su captura era un fundido encima de otro: Android
+  funde su pantalla de arranque con la de la app, y la «A» entraba además desde
+  opacidad 0. Ahora está entera desde el primer instante y solo se asienta. El
+  icono que se veía en el centro, con «CENTRO DE FORMACIÓN» dentro de un
+  recuadro, era **el icono viejo que Android aún tenía guardado** (regla 88:
+  tarda en volver a leer el manifest, o hay que reinstalar la app).
+- **El fondo sale de `fondoMarca.ts`** (`FONDO_MARINO`), con el centro en el
+  marino EXACTO del manifest, y lo comparten la carga y la puerta de entrada
+  (regla 90): no pueden quedarse con dos marinos distintos.
+
 ### 88 · El icono: lo más grande que deja cada sistema, y por eso hay dos
 
 Hasta el 6 nov el icono era el logo entero, con «ALPHAPOL · CENTRO DE
@@ -3704,6 +3730,90 @@ es lo que recorta cada sistema:
   y volver a añadirla).
 - **No volver a añadir `app/favicon.ico`** (sigue en pie lo de la tabla de
   estado): `app/icon.png` es el favicon.
+
+**Segunda versión (6 nov): nítido, y sin recuadro en el arranque de Android.**
+
+- **La «A», el logotipo y el nombre son SVG** (`public/marca/alphapol-*.svg`,
+  65, 80 y 37 KB). El CONTORNO se redibujó en vector sobre la silueta del logo
+  (con `potrace`, sobre la máscara a 2-3×, suavizada), y el color de dentro es
+  el del original con el reborde claro quitado y un poco de desenfoque: el
+  dorado queda liso y el borde, nítido a cualquier tamaño. No es el vector de
+  Alphapol: si lo mandan, se cambian esos ficheros y se regenera todo.
+- **Los iconos salen de un guion**, `node scripts/marca/iconos.mjs`, con las
+  mismas medidas de arriba. Cada SVG lleva en el guion su caja de TINTA (las
+  medidas se refieren a la tinta, no al lienzo). Reproduce los PNG píxel a
+  píxel; después se pasan por `PIL` con `optimize=True` (140 KB el de 512).
+- **El maskable ya no deja un recuadro en la pantalla de arranque.** Android la
+  pinta con el `background_color` del manifest (`#14295a`) y el icono en el
+  centro; el degradado del icono acababa en `#133263`, así que se veía un
+  círculo verdoso sobre el marino. Ahora el degradado llega al marino exacto al
+  38 % del radio, dentro del círculo del 80 %, y el logo flota sin caja. El
+  «any» (iPhone) se queda con su degradado amplio: allí no hay arranque.
+- **`MARCA.logo`** (menú lateral, cabecera del panel) es ahora `icono-192.png`,
+  no el JPG con «CENTRO DE FORMACIÓN» ilegible a 40 px.
+
+### 89 · El 1RM: el preparador escribe la carga en %, el alumno la lee en kilos
+
+Lo pidió el dueño tras ver la física (regla 86): en fuerza, un preparador no
+escribe «60 kg» para un grupo, escribe «4×6 al 75 %», y cada alumno tiene que
+saber cuánto es eso PARA ÉL.
+
+- **`rm_marks`** ([`docs/sql/fisica-1rm.sql`](docs/sql/fisica-1rm.sql),
+  **ejecutado** el 6 nov; 48 tablas): ejercicio, peso, repeticiones (1-12),
+  fecha, nota y quién lo apuntó. RLS y CERO políticas, como el resto de la
+  física: todo con la clave de servicio detrás de `requireUser` /
+  `requireAdmin`.
+- **El 1RM se ESTIMA** con Epley, `peso × (1 + reps/30)`; con 1 repetición es
+  el propio peso. Más de 12 repeticiones no es fiable y se rechaza. El vigente
+  de cada ejercicio es el último apuntado (`rmVigentes`), no el mejor: el que
+  vuelve de una lesión no levanta lo de hace tres meses.
+- **Las cargas viven en la sesión** (`training_sessions.loads` y
+  `session_templates.loads`, `jsonb`): ejercicio, series, repeticiones y
+  porcentaje (30-110 %). El alumno las ve ya en kilos con SU 1RM, redondeadas a
+  2,5 kg (lo que se monta con discos); sin 1RM de ese ejercicio ve el
+  porcentaje y un aviso para apuntarlo, nunca un 0 (regla 8).
+- **`leeKg`** (`app/lib/rm.ts`) es la única lectura de un peso escrito a mano:
+  coma o punto, y vacío o no positivo es `null` (regla 16).
+- Lo puro en `app/lib/rm.ts` con `tests/rm.test.ts`; las acciones en
+  `app/actions/fisica.ts`; la pieza de pantalla (`SeccionRM`, `ListaCargas`) en
+  `app/components/fisica/`, la misma para el alumno («Mis marcas») y para el
+  preparador (la ficha de marcas y el editor de la sesión).
+- **Sin verificar todavía contra la BD real** (6 nov): tests, build y banco de
+  pruebas en verde. Falta apuntar un 1RM y una sesión con cargas con las
+  cuentas de prueba y borrarlo después.
+
+### 90 · La puerta de entrada sigue a la pantalla de carga
+
+Las cinco pantallas que ve quien aún no está dentro —entrar, crear cuenta,
+poner la contraseña tras una invitación, elegir academia y «tu acceso no está
+activo»— comparten **`MarcoEntrada`** (`app/components/auth/`). Antes eran
+brutalistas sobre hueso (regla 43) con una cinta pequeña arriba, y la de acceso
+no activo ni eso: seguía el tema de la aplicación. Al abrir la app se pasaba de
+una pantalla de carga marina y monumental a otra que parecía otra web.
+
+- **En el móvil**, arriba la marca (el mismo marino de `fondoMarca.ts`, la «A»
+  saliéndose por la derecha, el logotipo abajo a la izquierda) y el formulario
+  sube encima en una hoja blanca. **En el ordenador**, dos columnas: la marca
+  con el titular y lo que ofrece la academia, y el formulario.
+- **Las piezas (campos, botones, avisos, títulos) viven en `estilosEntrada.ts`**:
+  eran cuatro copias de lo mismo.
+- **Sigue sin seguir el tema** (lo de la regla 43): es una pantalla de marca.
+  Y sigue protegiendo lo que protegía: `TAP`, `text-base` en los campos, `dvh`
+  (la pone el marco, y la guarda de `auth-messages.test.ts` lo sigue a él),
+  ningún tamaño grande sin escalón, `autoComplete` y `autoCapitalize`.
+- **La «A» se coloca para no tocar nunca el texto**: en el móvil arriba a la
+  derecha; en el ordenador abajo a la derecha, con el titular arriba. Medido a
+  375, 390 y 1440 px.
+- **El banco de pruebas** tiene una vista por pantalla: `?vista=login`
+  (`&avisos=no` para verla limpia), `clave`, `academia`, `bloqueado` y `carga`.
+  `todas-las-pantallas.cjs` y `contraste.cjs` las recorren todas: 0 problemas y
+  0 textos por debajo de 3:1 en las seis.
+- De paso, `contraste.cjs` ya no se cuelga: cuando un módulo no estaba en el
+  cajón «Más» dejaba el cajón abierto y el siguiente clic no llegaba a la
+  barra. Y su lista del panel era la de antes de P8 («Usuarios», «Academia»…),
+  así que se saltaba casi todo el panel; al ponerla al día salieron cinco
+  grises por debajo de 3:1, ya corregidos. Queda uno que es un falso positivo
+  (ámbar sobre un fondo ámbar translúcido que el medidor compone mal).
 
 ---
 

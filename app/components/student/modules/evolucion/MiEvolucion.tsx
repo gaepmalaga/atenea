@@ -254,7 +254,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
           </div>
           <CurvaSVG puntos={data.curva} />
         </div>
-        <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
+        <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
           <span>{fechaCorta(data.curva[0].fecha)}</span>
           <span>Hoy</span>
         </div>
@@ -277,7 +277,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-slate-500 dark:text-slate-400">
           Menos {INTENSIDAD.map((c, i) => <span key={i} className={cx('w-2.5 h-2.5 rounded-sm', c)} />)} Más
         </div>
       </Card>

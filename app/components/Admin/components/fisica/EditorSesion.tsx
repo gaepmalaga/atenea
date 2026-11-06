@@ -33,7 +33,7 @@ export default function EditorSesion({
   hoy: string;
   /** Si la sesión es de un grupo y se está mirando desde un alumno: solo lectura. */
   nombreGrupo: string | null;
-  /** El 1RM del alumno, si se planifica para uno: para ver sus kilos (regla 87). */
+  /** El 1RM del alumno, si se planifica para uno: para ver sus kilos (regla 89). */
   rm: RMVigente | null;
   onCerrar: () => void;
   onCambio: () => void;
@@ -239,7 +239,7 @@ function FilaFeedback({ sesionId, userId, email, apunte, estado, onCambio }: {
   );
 }
 
-// ── Las cargas en % del 1RM (regla 87) ──
+// ── Las cargas en % del 1RM (regla 89) ──
 
 type FilaCarga = { ejercicio: string; porcentaje: string; series: string; reps: string };
 const aFila = (c: Carga): FilaCarga => ({

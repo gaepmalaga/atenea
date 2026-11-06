@@ -276,7 +276,7 @@ export default function AdminStudents() {
             {grupos.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             {hayAlgunSinGrupo && <option value={SIN_GRUPO}>Sin grupo</option>}
           </select>
-          <span className="text-[11px] text-slate-400">Los grupos se definen en «Grupos»; aquí se asignan.</span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">Los grupos se definen en «Grupos»; aquí se asignan.</span>
         </div>
       )}
 

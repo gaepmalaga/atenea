@@ -28,7 +28,7 @@ type Cambio = {
  */
 export default function DetalleSesion({ sesion, apunte, grupo, hoy, rm, onCerrar, onGuardar }: {
   sesion: Sesion;
-  /** Su 1RM vigente, para calcular los kilos de las cargas (regla 87). */
+  /** Su 1RM vigente, para calcular los kilos de las cargas (regla 89). */
   rm: RMVigente;
   apunte: Apunte | null;
   grupo: string | null;

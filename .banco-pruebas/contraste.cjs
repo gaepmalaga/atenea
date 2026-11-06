@@ -124,7 +124,9 @@ const anota = (t) => { problemas.push(t); console.log('  ⚠ ' + t); };
 
 const ALUMNO = [['Inicio', null], ['Chat', null], ['Test', null], ['Fallos', null],
   [null, 'Fichas'], [null, 'Preparación física'], [null, 'Mi evolución']];
-const ADMIN = ['Usuarios', 'Academia', 'Temario', 'Banco', 'Moderación', 'Módulos', 'Logs'];
+const ADMIN = ['Alumnos', 'Grupos', 'Asistencia', 'Prep. física', 'Pagos', 'Temario', 'Banco', 'Moderación', 'Ajustes', 'Logs'];
+// Las pantallas de entrada (reglas 87 y 90): cada una en su vista del banco.
+const ENTRADA = ['login&avisos=no', 'login', 'clave', 'academia', 'bloqueado', 'carga'];
 
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge' });
@@ -143,10 +145,22 @@ const ADMIN = ['Usuarios', 'Academia', 'Temario', 'Banco', 'Moderación', 'Módu
       await page.waitForTimeout(450);
       boton = page.locator('div.fixed.inset-0 button', { hasText: enCajon }).first();
     }
-    if (await boton.count() === 0) continue;
+    if (await boton.count() === 0) {
+      // Si el módulo no está en el cajón, el cajón se queda abierto y tapa la
+      // barra: el siguiente «Más» no se podría pulsar. Se vuelve a cargar.
+      if (!enBarra) await page.goto('http://localhost:8899/index.html', { waitUntil: 'networkidle' });
+      continue;
+    }
     await boton.click();
     await page.waitForTimeout(1300);
     for (const p of await page.evaluate(DETECTOR, UMBRAL)) anota(`${enBarra ?? enCajon}: ${p}`);
+  }
+
+  console.log('\n=== ENTRADA ===');
+  for (const v of ENTRADA) {
+    await page.goto('http://localhost:8899/index.html?vista=' + v, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    for (const p of await page.evaluate(DETECTOR, UMBRAL)) anota(`Entrada · ${v}: ${p}`);
   }
 
   console.log('\n=== ADMINISTRACIÓN ===');

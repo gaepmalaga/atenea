@@ -6,7 +6,7 @@ import type { RMVigente } from '@/app/actions/fisica';
 import { TEXT, cx } from '../ui';
 
 /**
- * LAS CARGAS DE UNA SESIÓN, CON LOS KILOS DE CADA UNO (regla 87).
+ * LAS CARGAS DE UNA SESIÓN, CON LOS KILOS DE CADA UNO (regla 89).
  *
  * «Sentadilla · 4 × 6 al 75 % → 82,5 kg». Los kilos salen del 1RM vigente de
  * ese alumno para ese ejercicio. Sin 1RM no se inventan: se dice que falta.

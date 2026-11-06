@@ -8,7 +8,7 @@ import {
 import { normalizaContenido, copiaSemana, type Sesion } from '../app/lib/sesiones';
 
 /**
- * EL 1RM Y LAS CARGAS EN PORCENTAJE (regla 87).
+ * EL 1RM Y LAS CARGAS EN PORCENTAJE (regla 89).
  */
 
 describe('estimar el 1RM', () => {

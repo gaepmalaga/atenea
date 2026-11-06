@@ -1,5 +1,5 @@
 /**
- * EL 1RM Y LAS CARGAS EN PORCENTAJE (regla 87).
+ * EL 1RM Y LAS CARGAS EN PORCENTAJE (regla 89).
  *
  * El 1RM («una repetición máxima») es el peso máximo que alguien levanta UNA
  * vez en un ejercicio. El preparador pauta en porcentaje —«sentadilla 4 × 6 al

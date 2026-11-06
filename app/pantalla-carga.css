@@ -49,9 +49,12 @@
   animation: carga-barra 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
+/* La «A» está entera desde el primer instante y solo se asienta: Android ya
+   funde su pantalla de arranque con esta, y un segundo fundido encima dejaba
+   la letra a medio aparecer, como un fantasma (regla 87). */
 @keyframes carga-a-entra {
-  from { opacity: 0; transform: translateX(40px) scale(1.06); }
-  to { opacity: 1; transform: none; }
+  from { transform: translate(16px, 6px) scale(1.035); }
+  to { transform: none; }
 }
 @keyframes carga-a-deriva {
   from { transform: none; }
@@ -70,12 +73,24 @@
   to { transform: translateX(260%); }
 }
 
+/* LA PUERTA DE ENTRADA (`MarcoEntrada`, regla 90): sigue a la pantalla de
+   carga. La «A» se asienta como allí y la hoja del formulario sube. Cortas por
+   lo mismo: quien abre la app quiere escribir, no mirar. */
+.puerta-a {
+  animation: carga-a-entra 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.puerta-hoja {
+  animation: carga-sube 0.5s 0.05s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .carga-a,
   .carga-destello,
   .carga-sube,
   .carga-sube-2,
-  .carga-barra {
+  .carga-barra,
+  .puerta-a,
+  .puerta-hoja {
     animation: none;
   }
 }

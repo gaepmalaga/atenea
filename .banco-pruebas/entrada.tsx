@@ -4,12 +4,19 @@ import StudentDashboard from '@/app/components/student/StudentDashboard';
 import AdminView from '@/app/components/Admin/AdminView';
 import LoginScreen, { type ModoAuth } from '@/app/components/auth/LoginScreen';
 import PantallaCarga from '@/app/components/auth/PantallaCarga';
+import SetPasswordScreen from '@/app/components/auth/SetPasswordScreen';
+import SelectAcademyScreen from '@/app/components/auth/SelectAcademyScreen';
+import AccessLocked from '@/app/components/auth/AccessLocked';
 
 const usuario = { id: '11111111-2222-3333-4444-555555555555', email: 'gaepmalaga@gmail.com', role: 'admin' };
 
 // ?vista=admin para el panel, ?vista=login para la puerta de entrada,
-// ?vista=carga para la pantalla de carga; por defecto, el alumno.
-const vista = new URLSearchParams(location.search).get('vista');
+// ?vista=carga para la pantalla de carga; por defecto, el alumno. Las otras
+// pantallas de entrada (regla 90): ?vista=clave, ?vista=academia y
+// ?vista=bloqueado. Con &avisos=no, el login sale sin el error y el aviso.
+const params = new URLSearchParams(location.search);
+const vista = params.get('vista');
+const sinAvisos = params.get('avisos') === 'no';
 
 /**
  * La pantalla de entrada, con sus dos modos y sus dos avisos a la vez.
@@ -27,8 +34,9 @@ function Entrada() {
       onModo={setModo}
       onSubmit={() => console.log('submit')}
       cargando={false}
-      error="Correo o contraseña incorrectos. Revísalos y vuelve a intentarlo."
-      aviso="Cuenta creada. Te hemos enviado un correo a alumno.prueba@atenea-test.local: pulsa el enlace para confirmarla y ya podrás entrar."
+      onOlvido={() => console.log('olvido')}
+      error={sinAvisos ? null : 'Correo o contraseña incorrectos. Revísalos y vuelve a intentarlo.'}
+      aviso={sinAvisos ? null : 'Cuenta creada. Te hemos enviado un correo a alumno.prueba@atenea-test.local: pulsa el enlace para confirmarla y ya podrás entrar.'}
     />
   );
 }
@@ -37,5 +45,8 @@ createRoot(document.getElementById('raiz')!).render(
   vista === 'admin' ? <AdminView user={usuario as never} onLogout={() => console.log('logout')} />
   : vista === 'login' ? <Entrada />
   : vista === 'carga' ? <PantallaCarga />
+  : vista === 'clave' ? <SetPasswordScreen email="preparador@alphapol.es" onSubmit={() => console.log('clave')} cargando={false} error={null} />
+  : vista === 'academia' ? <SelectAcademyScreen academias={[{ slug: 'alphapol', name: 'Alphapol' }, { slug: 'otra', name: 'Academia de prueba con un nombre largo' }]} email="alumno@correo.com" onLogout={() => console.log('logout')} />
+  : vista === 'bloqueado' ? <AccessLocked motivo="pending" email="alumno@correo.com" onLogout={() => console.log('logout')} />
   : <StudentDashboard user={usuario as never} onLogout={() => console.log('logout')} />,
 );

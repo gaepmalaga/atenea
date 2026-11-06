@@ -132,7 +132,7 @@ async function nombresDeGrupos(organizationId: string): Promise<Record<string, s
 
 export type NotaSemana = { weekStart: string; note: string; classId: string | null };
 
-/** El 1RM vigente de cada ejercicio, por clave (regla 87). */
+/** El 1RM vigente de cada ejercicio, por clave (regla 89). */
 export type RMVigente = Record<string, { ejercicio: string; rm: number }>;
 
 const COLS_RM = 'id, exercise, weight_kg, reps, measured_on, note';

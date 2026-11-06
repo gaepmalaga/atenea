@@ -1,9 +1,12 @@
 'use client'
 
 import { useId, useState } from 'react';
-import { ArrowRight, AlertTriangle, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Eye, EyeOff, Loader2, ShieldCheck, LockKeyhole } from 'lucide-react';
 import { TAP, cx } from '../ui';
-import CintaMarca from './CintaMarca';
+import MarcoEntrada from './MarcoEntrada';
+import {
+  ETIQUETA, campo, ICONO_CAMPO, BOTON_PRINCIPAL, AVISO_ERROR, TITULO, SUBTITULO,
+} from './estilosEntrada';
 
 /**
  * ELIGE TU CONTRASEÑA — el paso que faltaba tras aceptar una invitación.
@@ -14,9 +17,9 @@ import CintaMarca from './CintaMarca';
  * pantalla, esa persona entraba una vez con el enlace y se quedaba sin forma
  * de volver a entrar — `signInWithPassword` no tiene nada que comprobar.
  *
- * Mismo lenguaje visual que `LoginScreen` (regla 43: plano, sin `Card`/
- * `Button`, papel y tinta) porque es la misma familia de pantallas — quien la
- * ve viene de pulsar un enlace de correo, no de navegar la aplicación.
+ * Mismo marco que `LoginScreen` (`MarcoEntrada`, regla 90) porque es la misma
+ * familia de pantallas: quien la ve viene de pulsar un enlace de correo, no de
+ * navegar la aplicación.
  */
 
 interface Props {
@@ -25,24 +28,6 @@ interface Props {
   cargando: boolean;
   error: string | null;
 }
-
-const C = {
-  fondo: 'bg-[#f7f4ee]',
-  tinta: 'text-[#14295a]',
-  tinta2: 'text-[#3d4a5a]',
-  acento: 'bg-[#c5a738] text-[#14295a]',
-  error: 'text-[#c60b1e]',
-} as const;
-
-const CAMPO = cx(
-  'w-full bg-transparent border-[3px] border-[#14295a] px-4 outline-none',
-  'text-base sm:text-lg font-semibold text-[#14295a] placeholder:text-[#8d99a8]',
-  'focus:border-[#c5a738] transition-colors',
-  TAP,
-  'min-h-[56px]',
-);
-
-const ETIQUETA = 'block text-[11px] font-black uppercase tracking-[0.14em] text-[#3d4a5a] mb-2';
 
 export default function SetPasswordScreen({ email, onSubmit, cargando, error }: Props) {
   const [password, setPassword] = useState('');
@@ -70,97 +55,83 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
   const errorVisible = errorLocal ?? error;
 
   return (
-    <main className={cx('min-h-dvh flex flex-col', C.fondo, C.tinta)}>
-      <CintaMarca />
+    <MarcoEntrada>
+      <h1 className={TITULO}>Elige tu contraseña</h1>
+      <p className={SUBTITULO}>
+        {email
+          ? <>Ya tienes acceso como <span className="font-semibold text-slate-900">{email}</span>. Pon una contraseña para poder volver a entrar.</>
+          : 'Pon una contraseña para poder volver a entrar.'}
+      </p>
 
-      <div className="flex-1 px-5 py-8 sm:py-10 flex flex-col max-w-md w-full mx-auto">
-        <h1 className="text-5xl sm:text-6xl font-black uppercase leading-[0.88] tracking-[-0.045em]">
-          Elige<br />tu <span className={cx(C.acento, 'px-2 -ml-2 inline-block')}>clave</span>
-        </h1>
+      {errorVisible && (
+        <div role="alert" className={cx(AVISO_ERROR, 'mt-6')}>
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-600" aria-hidden />
+          <p className="text-sm font-medium leading-relaxed">{errorVisible}</p>
+        </div>
+      )}
 
-        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c5a738] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
-          {email
-            ? <>Ya tienes acceso como <span className="font-black">{email}</span>. Pon una contraseña para poder volver a entrar.</>
-            : 'Pon una contraseña para poder volver a entrar.'}
-        </p>
-
-        {errorVisible && (
-          <div role="alert" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#c60b1e] bg-[#c60b1e]/5">
-            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.error)} aria-hidden />
-            <p className="text-sm font-semibold leading-relaxed">{errorVisible}</p>
+      <form onSubmit={enviar} className="mt-6 space-y-5">
+        <div>
+          <label htmlFor={idClave} className={ETIQUETA}>Nueva contraseña</label>
+          <div className="relative">
+            <LockKeyhole size={18} className={ICONO_CAMPO} aria-hidden />
+            <input
+              id={idClave}
+              type={verClave ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Mínimo 6 caracteres"
+              className={cx(campo(true), 'pr-14')}
+              autoComplete="new-password"
+              enterKeyHint="next"
+              disabled={cargando}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setVerClave((v) => !v)}
+              className={cx('absolute inset-y-0 right-0 flex w-14 items-center justify-center rounded-r-xl text-slate-500 hover:text-slate-800', TAP)}
+              aria-label={verClave ? 'Ocultar la contraseña' : 'Ver la contraseña'}
+              aria-pressed={verClave}
+              tabIndex={-1}
+            >
+              {verClave ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
+            </button>
           </div>
-        )}
+        </div>
 
-        <form onSubmit={enviar} className="space-y-5">
-          <div>
-            <label htmlFor={idClave} className={ETIQUETA}>Nueva contraseña</label>
-            <div className="relative">
-              <input
-                id={idClave}
-                type={verClave ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className={cx(CAMPO, 'pr-14')}
-                autoComplete="new-password"
-                enterKeyHint="next"
-                disabled={cargando}
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={() => setVerClave((v) => !v)}
-                className={cx('absolute inset-y-0 right-0 flex items-center justify-center px-4', TAP, C.tinta2)}
-                aria-label={verClave ? 'Ocultar la contraseña' : 'Ver la contraseña'}
-                aria-pressed={verClave}
-                tabIndex={-1}
-              >
-                {verClave ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
-              </button>
-            </div>
-            <p className={cx('mt-2 text-xs font-semibold', C.tinta2)}>Mínimo 6 caracteres.</p>
-          </div>
-
-          <div>
-            <label htmlFor={idConfirmacion} className={ETIQUETA}>Repítela</label>
+        <div>
+          <label htmlFor={idConfirmacion} className={ETIQUETA}>Repítela</label>
+          <div className="relative">
+            <LockKeyhole size={18} className={ICONO_CAMPO} aria-hidden />
             <input
               id={idConfirmacion}
               type={verClave ? 'text' : 'password'}
               value={confirmacion}
               onChange={(e) => setConfirmacion(e.target.value)}
               required
-              placeholder="••••••••"
-              className={CAMPO}
+              placeholder="La misma otra vez"
+              className={campo(true)}
               autoComplete="new-password"
               enterKeyHint="go"
               disabled={cargando}
             />
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={cargando}
-            aria-busy={cargando}
-            className={cx(
-              'w-full min-h-[62px] bg-[#14295a] text-[#f7f4ee] px-5',
-              'flex items-center justify-between gap-3',
-              'text-[17px] font-black uppercase tracking-[0.05em]',
-              'disabled:opacity-60 disabled:cursor-not-allowed active:translate-y-px transition-transform',
-            )}
-          >
-            {cargando ? 'Un momento…' : 'Entrar'}
-            {cargando
-              ? <Loader2 size={24} className="animate-spin shrink-0" aria-hidden />
-              : <ArrowRight size={24} className="shrink-0" aria-hidden />}
-          </button>
-        </form>
+        <button type="submit" disabled={cargando} aria-busy={cargando} className={cx(BOTON_PRINCIPAL, 'mt-2')}>
+          {cargando ? 'Un momento…' : 'Guardar y entrar'}
+          {cargando
+            ? <Loader2 size={20} className="animate-spin shrink-0" aria-hidden />
+            : <ArrowRight size={20} className="shrink-0" aria-hidden />}
+        </button>
+      </form>
 
-        <p className={cx('mt-auto pt-10 flex items-start gap-2 text-[13px] font-semibold', C.tinta2)}>
-          <ShieldCheck size={16} className="shrink-0 mt-0.5" aria-hidden />
-          Esta contraseña es solo tuya: nadie de tu academia puede verla.
-        </p>
-      </div>
-    </main>
+      <p className="mt-8 flex items-start gap-2 border-t border-slate-200 pt-6 text-sm text-slate-600">
+        <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#14295a]" aria-hidden />
+        Esta contraseña es solo tuya: nadie de tu academia puede verla.
+      </p>
+    </MarcoEntrada>
   );
 }

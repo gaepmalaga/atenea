@@ -300,7 +300,7 @@ const ADMIN = [
   console.log('\n=== ENTRADA ===');
   // Los dos modos. El de alta NO es una pestaña: se llega por el enlace del
   // pie, que es como esta ahora la pantalla.
-  for (const [modo, comoLlegar] of [['Entrar', null], ['Crear cuenta', 'Regístrate aquí']]) {
+  for (const [modo, comoLlegar] of [['Entrar', null], ['Crear cuenta', 'Solicita tu acceso']]) {
     await page.goto('http://localhost:8899/index.html?vista=login', { waitUntil: 'networkidle' });
     await page.waitForTimeout(600);
     if (comoLlegar) {
@@ -312,6 +312,14 @@ const ADMIN = [
     console.log(`\n--- Entrada · ${modo} ---`);
     await page.screenshot({ path: `${TOMAS}/entrada-${modo === 'Entrar' ? 'login' : 'alta'}.png`, fullPage: true });
     await mira(page, 'Entrada · ' + modo, fallosJS);
+  }
+  // Las otras pantallas de la misma familia (regla 90) y la de carga (regla 87).
+  for (const v of ['clave', 'academia', 'bloqueado', 'carga']) {
+    await page.goto('http://localhost:8899/index.html?vista=' + v, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(900);
+    console.log(`\n--- Entrada · ${v} ---`);
+    await page.screenshot({ path: `${TOMAS}/entrada-${v}.png`, fullPage: true });
+    await mira(page, 'Entrada · ' + v, fallosJS);
   }
 
   console.log('\n=== RESUMEN ===');

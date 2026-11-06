@@ -1,7 +1,8 @@
 'use client';
 
 import { LockKeyhole, LogOut } from 'lucide-react';
-import { Button } from '../ui';
+import MarcoEntrada from './MarcoEntrada';
+import { TITULO, SUBTITULO, BOTON_SECUNDARIO } from './estilosEntrada';
 
 /**
  * La pantalla que ve un alumno cuya cuenta no está activa (P6) o cuya
@@ -15,6 +16,10 @@ import { Button } from '../ui';
  *
  * No hay ningún botón que "arregle" esto desde aquí: el acceso lo da la
  * academia en persona. Solo cerrar sesión.
+ *
+ * Va dentro del mismo marco que la puerta de entrada (`MarcoEntrada`, regla
+ * 90): quien la ve acaba de entrar, y cambiar de golpe a la paleta de la
+ * aplicación parecería otra web.
  */
 export default function AccessLocked({
   motivo,
@@ -39,20 +44,16 @@ export default function AccessLocked({
         : 'Tu cuenta no está asociada a ninguna academia, o el enlace que has usado no es el de la tuya. Habla con tu academia.';
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center gap-6 p-6 text-center bg-slate-50 dark:bg-slate-950">
-      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-        <LockKeyhole size={26} />
+    <MarcoEntrada>
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#c5a738]/15 text-[#8a6d14]">
+        <LockKeyhole size={24} aria-hidden />
       </div>
-
-      <div className="max-w-sm space-y-2">
-        <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{titulo}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{texto}</p>
-        <p className="text-xs font-mono text-slate-400 pt-1">{email}</p>
-      </div>
-
-      <Button variant="ghost" onClick={onLogout} icon={<LogOut size={16} />}>
-        Cerrar sesión
-      </Button>
-    </div>
+      <h1 className={`${TITULO} mt-5`}>{titulo}</h1>
+      <p className={SUBTITULO}>{texto}</p>
+      <p className="mt-4 text-sm text-slate-500">{email}</p>
+      <button onClick={onLogout} className={`${BOTON_SECUNDARIO} mt-8`}>
+        <LogOut size={16} aria-hidden /> Cerrar sesión
+      </button>
+    </MarcoEntrada>
   );
 }

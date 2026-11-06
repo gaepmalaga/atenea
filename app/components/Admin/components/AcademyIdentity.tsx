@@ -312,7 +312,7 @@ function ListaProfesores({ staff, onCambio }: { staff: StaffMember[]; onCambio: 
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
                 {s.name} <span className="font-normal text-slate-500 dark:text-slate-400">· {s.role}</span>
-                {!s.active && <span className="ml-2 text-[10px] uppercase font-black text-slate-400">inactivo</span>}
+                {!s.active && <span className="ml-2 text-[10px] uppercase font-black text-slate-500 dark:text-slate-400">inactivo</span>}
               </p>
               {/* Sin `truncate`: un correo largo se corta a media palabra y el
                   contacto es justo el dato que hace falta entero. Envuelve a

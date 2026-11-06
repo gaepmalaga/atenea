@@ -1,12 +1,15 @@
 'use client'
 
 import { useId, useState } from 'react';
-import { ArrowRight, AlertTriangle, MailCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertTriangle, MailCheck, Eye, EyeOff, Loader2, Mail, LockKeyhole } from 'lucide-react';
 import { TAP, cx } from '../ui';
-import CintaMarca from './CintaMarca';
+import MarcoEntrada from './MarcoEntrada';
+import {
+  ETIQUETA, campo, ICONO_CAMPO, BOTON_PRINCIPAL, ENLACE, AVISO_ERROR, AVISO_INFO, TITULO, SUBTITULO,
+} from './estilosEntrada';
 
 /**
- * LA PUERTA DE ENTRADA.
+ * LA PUERTA DE ENTRADA (reglas 43 y 90).
  *
  * POR QUÉ ESTÁ AQUÍ Y NO EN `app/page.tsx`, QUE ES DE DONDE VIENE
  * `tests/design-system.test.ts` recorre `app/components/` y nada más. El login
@@ -18,27 +21,18 @@ import CintaMarca from './CintaMarca';
  * instalado.
  *
  * POR QUÉ NO SALE DE `Card` Y `Button`, QUE ES LA REGLA 36
- * Porque esta pantalla tiene un lenguaje visual propio y deliberado —plano,
- * bordes de 3px, sin degradados, sin sombras, sobre papel— y meterla en unos
- * primitivos redondeados con sombra índigo la convertiría en otra cosa. Es la
- * misma excepción que ya se acepta en el panel de administración, que es
- * oscuro pase lo que pase.
- *
- * Lo que NO se salta, que es lo que de verdad protege la regla 36:
+ * Porque es una pantalla de marca, con su propio papel: sigue a la pantalla de
+ * carga (el marino, la «A» monumental) y no al tema de la aplicación. Lo que
+ * NO se salta, que es lo que de verdad protege la regla 36:
  *   · el área táctil sale de `TAP`, no de un número escrito aquí;
  *   · los campos llevan `text-base` en móvil (Safari hace zoom por debajo de
  *     16px y descuadra la página);
- *   · la altura se mide en `dvh`, nunca en `vh`;
+ *   · la altura se mide en `dvh` (en `MarcoEntrada`), nunca en `vh`;
  *   · ningún tamaño de letra grande se queda sin escalón de móvil.
  * Y hay un test que lo fija: `tests/auth-messages.test.ts`.
  *
- * NO SIGUE EL TEMA CLARO/OSCURO, y es una decisión, no un olvido: el diseño
- * ES el papel. Un brutalista sobre hueso invertido a negro deja de ser el
- * mismo diseño. Por eso pinta su fondo explícitamente en vez de heredar el de
- * la aplicación.
- *
  * ES PRESENTACIONAL. Las llamadas a Supabase y el establecimiento de la sesión
- * se quedan en `page.tsx`: aquí no entra nada que decida quién eres.
+ * se quedan en `AppShell`: aquí no entra nada que decida quién eres.
  */
 
 export type ModoAuth = 'login' | 'signup';
@@ -55,27 +49,6 @@ interface Props {
   aviso: string | null;
 }
 
-/** La paleta, en un solo sitio. Hueso, tinta y el rojo de la bandera. */
-const C = {
-  fondo: 'bg-[#f7f4ee]',
-  tinta: 'text-[#14295a]',
-  tinta2: 'text-[#3d4a5a]',
-  borde: 'border-[#14295a]',
-  acento: 'bg-[#c5a738] text-[#14295a]',
-  error: 'text-[#c60b1e]',
-} as const;
-
-const CAMPO = cx(
-  'w-full bg-transparent border-[3px] border-[#14295a] px-4 outline-none',
-  // 16px en móvil o Safari hace zoom al tocarlo y deja la página torcida.
-  'text-base sm:text-lg font-semibold text-[#14295a] placeholder:text-[#8d99a8]',
-  'focus:border-[#c5a738] transition-colors',
-  TAP,
-  'min-h-[56px]',
-);
-
-const ETIQUETA = 'block text-[11px] font-black uppercase tracking-[0.14em] text-[#3d4a5a] mb-2';
-
 export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando, error, aviso }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,49 +61,51 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
   const esAlta = modo === 'signup';
 
   return (
-    <main className={cx('min-h-dvh flex flex-col', C.fondo, C.tinta)}>
-      <CintaMarca />
+    <MarcoEntrada>
+      <h1 className={TITULO}>
+        {esAlta ? 'Crea tu cuenta' : (
+          <>
+            {/* En el móvil este es el titular; en el ordenador el titular
+                grande está en la columna de la marca y aquí basta con decir
+                qué se hace. */}
+            <span className="lg:hidden">
+              Entra y saca <span className="underline decoration-[#c5a738] decoration-4 underline-offset-[6px]">tu plaza</span>.
+            </span>
+            <span className="hidden lg:inline">Inicia sesión</span>
+          </>
+        )}
+      </h1>
+      <p className={SUBTITULO}>
+        {esAlta
+          ? 'Te enviaremos un correo para confirmar la cuenta. Después la academia revisa tu solicitud y te avisa por correo en cuanto tengas acceso.'
+          : 'Accede al campus de la academia con tu correo y tu contraseña.'}
+      </p>
 
-      <div className="flex-1 px-5 py-8 sm:py-10 flex flex-col max-w-md w-full mx-auto">
-
-        {/* `text-5xl sm:text-6xl`: un tamaño SIN prefijo es el de móvil, y de
-            60px hacia arriba no hay pantalla de 360px que lo aguante. */}
-        <h1 className="text-5xl sm:text-6xl font-black uppercase leading-[0.88] tracking-[-0.045em]">
-          {esAlta ? (
-            <>Crea<br />tu <span className={cx(C.acento, 'px-2 -ml-2 inline-block')}>cuenta</span></>
-          ) : (
-            <>Entra<br />y <span className={cx(C.acento, 'px-2 -ml-2 inline-block')}>saca</span><br />tu plaza</>
-          )}
-        </h1>
-
-        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c5a738] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
-          {esAlta
-            ? 'Te enviaremos un correo para confirmar la cuenta. Después revisamos tu solicitud y te avisamos por correo en cuanto tengas acceso.'
-            : 'El temario oficial completo, con tests que puntúan como la convocatoria: cada dos fallos, un acierto menos.'}
-        </p>
-
+      <div className="mt-6 space-y-3 empty:hidden">
         {error && (
-          <div role="alert" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#c60b1e] bg-[#c60b1e]/5">
+          <div role="alert" className={AVISO_ERROR}>
             {/* Antes esto era `ShieldCheck` —un escudo con un VISTO— para
                 anunciar un fallo. Decía lo contrario de lo que pasaba. */}
-            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.error)} aria-hidden />
-            <p className="text-sm font-semibold leading-relaxed">{error}</p>
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-600" aria-hidden />
+            <p className="text-sm font-medium leading-relaxed">{error}</p>
           </div>
         )}
-
         {aviso && (
-          <div role="status" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#14295a] bg-[#c5a738]/20">
-            <MailCheck size={19} className="shrink-0 mt-0.5" aria-hidden />
-            <p className="text-sm font-semibold leading-relaxed">{aviso}</p>
+          <div role="status" className={AVISO_INFO}>
+            <MailCheck size={18} className="mt-0.5 shrink-0" aria-hidden />
+            <p className="text-sm font-medium leading-relaxed">{aviso}</p>
           </div>
         )}
+      </div>
 
-        <form
-          onSubmit={(e) => { e.preventDefault(); onSubmit(email.trim(), password); }}
-          className="space-y-5"
-        >
-          <div>
-            <label htmlFor={idEmail} className={ETIQUETA}>Correo</label>
+      <form
+        onSubmit={(e) => { e.preventDefault(); onSubmit(email.trim(), password); }}
+        className="mt-6 space-y-5"
+      >
+        <div>
+          <label htmlFor={idEmail} className={ETIQUETA}>Correo electrónico</label>
+          <div className="relative">
+            <Mail size={18} className={ICONO_CAMPO} aria-hidden />
             <input
               id={idEmail}
               type="email"
@@ -138,7 +113,7 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="tu@correo.com"
-              className={CAMPO}
+              className={campo(true)}
               // Sin esto NINGÚN gestor de contraseñas ofrece rellenar el
               // formulario, que en un móvil es la diferencia entre entrar de
               // un toque y teclear una contraseña larga con el pulgar.
@@ -154,78 +129,65 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
               disabled={cargando}
             />
           </div>
+        </div>
 
-          <div>
+        <div>
+          <div className="flex items-end justify-between gap-3">
             <label htmlFor={idClave} className={ETIQUETA}>Contraseña</label>
-            <div className="relative">
-              <input
-                id={idClave}
-                type={verClave ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className={cx(CAMPO, 'pr-14')}
-                autoComplete={esAlta ? 'new-password' : 'current-password'}
-                enterKeyHint="go"
-                disabled={cargando}
-              />
-              <button
-                type="button"
-                onClick={() => setVerClave((v) => !v)}
-                // El área táctil sale del sistema: un ojo de 20px suelto se
-                // falla con el pulgar.
-                className={cx('absolute inset-y-0 right-0 flex items-center justify-center px-4', TAP, C.tinta2)}
-                aria-label={verClave ? 'Ocultar la contraseña' : 'Ver la contraseña'}
-                aria-pressed={verClave}
-                tabIndex={-1}
-              >
-                {verClave ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
-              </button>
-            </div>
-            {esAlta ? (
-              <p className={cx('mt-2 text-xs font-semibold', C.tinta2)}>Mínimo 6 caracteres.</p>
-            ) : (
+            {!esAlta && (
               <button
                 type="button"
                 onClick={() => onOlvido(email.trim())}
                 disabled={cargando}
-                className={cx('mt-2 text-xs font-bold underline', C.tinta2, TAP, 'flex items-center')}
+                className={cx(ENLACE, 'text-sm -mb-1.5')}
               >
-                ¿Olvidaste tu contraseña?
+                ¿La has olvidado?
               </button>
             )}
           </div>
+          <div className="relative">
+            <LockKeyhole size={18} className={ICONO_CAMPO} aria-hidden />
+            <input
+              id={idClave}
+              type={verClave ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder={esAlta ? 'Mínimo 6 caracteres' : 'Tu contraseña'}
+              className={cx(campo(true), 'pr-14')}
+              autoComplete={esAlta ? 'new-password' : 'current-password'}
+              enterKeyHint="go"
+              disabled={cargando}
+            />
+            <button
+              type="button"
+              onClick={() => setVerClave((v) => !v)}
+              // El área táctil sale del sistema: un ojo de 20px suelto se
+              // falla con el pulgar.
+              className={cx('absolute inset-y-0 right-0 flex w-14 items-center justify-center rounded-r-xl text-slate-500 hover:text-slate-800', TAP)}
+              aria-label={verClave ? 'Ocultar la contraseña' : 'Ver la contraseña'}
+              aria-pressed={verClave}
+              tabIndex={-1}
+            >
+              {verClave ? <Eye size={20} aria-hidden /> : <EyeOff size={20} aria-hidden />}
+            </button>
+          </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={cargando}
-            aria-busy={cargando}
-            className={cx(
-              'w-full min-h-[62px] bg-[#14295a] text-[#f7f4ee] px-5',
-              'flex items-center justify-between gap-3',
-              'text-[17px] font-black uppercase tracking-[0.05em]',
-              'disabled:opacity-60 disabled:cursor-not-allowed active:translate-y-px transition-transform',
-            )}
-          >
-            {cargando ? 'Un momento…' : esAlta ? 'Crear cuenta' : 'Entrar'}
-            {cargando
-              ? <Loader2 size={24} className="animate-spin shrink-0" aria-hidden />
-              : <ArrowRight size={24} className="shrink-0" aria-hidden />}
-          </button>
-        </form>
+        <button type="submit" disabled={cargando} aria-busy={cargando} className={cx(BOTON_PRINCIPAL, 'mt-2')}>
+          {cargando ? 'Un momento…' : esAlta ? 'Crear cuenta' : 'Entrar'}
+          {cargando
+            ? <Loader2 size={20} className="animate-spin shrink-0" aria-hidden />
+            : <ArrowRight size={20} className="shrink-0" aria-hidden />}
+        </button>
+      </form>
 
-        <p className="mt-auto pt-10 text-[13px] font-bold">
-          {esAlta ? '¿Ya tienes cuenta?' : '¿Sin cuenta?'}{' '}
-          <button
-            type="button"
-            onClick={() => onModo(esAlta ? 'login' : 'signup')}
-            className={cx(C.acento, 'px-1.5 py-0.5 font-bold', TAP, 'inline-flex items-center')}
-          >
-            {esAlta ? 'Inicia sesión' : 'Regístrate aquí'}
-          </button>
-        </p>
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-x-1.5 border-t border-slate-200 pt-6 text-sm text-slate-600">
+        {esAlta ? '¿Ya tienes cuenta?' : '¿Aún no tienes cuenta?'}
+        <button type="button" onClick={() => onModo(esAlta ? 'login' : 'signup')} className={ENLACE}>
+          {esAlta ? 'Inicia sesión' : 'Solicita tu acceso'}
+        </button>
       </div>
-    </main>
+    </MarcoEntrada>
   );
 }

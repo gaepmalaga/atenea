@@ -58,7 +58,7 @@ export type ContenidoSesion = {
   durationMin: number | null;
   distanceKm: number | null;
   video: string | null;
-  /** Las cargas en % del 1RM (regla 87). Vacío si la sesión no las lleva. */
+  /** Las cargas en % del 1RM (regla 89). Vacío si la sesión no las lleva. */
   cargas: Carga[];
 };
 

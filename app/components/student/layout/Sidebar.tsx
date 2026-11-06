@@ -19,7 +19,7 @@ export default function Sidebar({ activeTab, onTabChange, onLogout, items, hidde
   return (
     <aside className="hidden md:flex fixed top-0 left-0 h-screen w-20 flex-col items-center py-6 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-sm transition-transform duration-500">
       
-      {/* EL LOGO DE LA ACADEMIA. `<img>` y no `next/image`, como en `CintaMarca`. */}
+      {/* EL LOGO DE LA ACADEMIA. `<img>` y no `next/image`, como en `MarcoEntrada`. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={MARCA.logo} alt={MARCA.nombre} width={40} height={40} className="mb-8 w-10 h-10 rounded-xl object-cover" />
 

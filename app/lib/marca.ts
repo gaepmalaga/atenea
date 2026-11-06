@@ -44,16 +44,24 @@ export const MARCA = {
   zonaHoraria: 'Europe/Madrid',
   /** Donde está la academia. Lo enseña la pantalla de carga. */
   ciudad: 'Málaga',
-  /** El logo de su web, servido desde `public/marca/`. */
-  logo: '/marca/alphapol-logo.jpg',
   /**
-   * La «A» del logo y el logotipo («ALPHAPOL · CENTRO DE FORMACIÓN»), cada uno
-   * por separado y con el fondo transparente, recortados del JPG de su web.
-   * Los usa la pantalla de carga. Son WebP a 3× y 6× del original para que no
-   * se vean borrosos a tamaño grande; un logo en vector seguiría siendo mejor.
+   * El logo pequeño de la interfaz (menú lateral, cabecera del panel, cinta de
+   * las pantallas de entrada): el mismo icono de la app, la «A» y el nombre
+   * sobre el marino. Antes era el JPG de 400 px de su web, con «CENTRO DE
+   * FORMACIÓN» dentro, que a 40 px no se lee (`alphapol-logo.jpg` se queda en
+   * `public/marca/` como el original del que sale todo).
    */
-  isotipo: '/marca/alphapol-isotipo.webp',
-  logotipo: '/marca/alphapol-logotipo.webp',
+  logo: '/marca/icono-192.png',
+  /**
+   * La «A» del logo, el logotipo («ALPHAPOL · CENTRO DE FORMACIÓN») y el
+   * nombre solo, con el fondo transparente (regla 88). Son SVG: el CONTORNO es
+   * vectorial —redibujado sobre la silueta del logo de su web— y el color de
+   * dentro es el del original, suavizado. Se ven nítidos a cualquier tamaño;
+   * un logo en vector de verdad de Alphapol seguiría siendo mejor.
+   */
+  isotipo: '/marca/alphapol-isotipo.svg',
+  logotipo: '/marca/alphapol-logotipo.svg',
+  nombreLogo: '/marca/alphapol-nombre.svg',
   colores: {
     /** El azul marino del fondo del logo. */
     marino: '#14295a',
