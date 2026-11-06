@@ -93,6 +93,9 @@ const SOLO_SERVICIO = [
   // dejaría a un alumno apuntar faltas en un grupo que no es el suyo. Las
   // acciones del alumno filtran por su id y comprueban que es del grupo.
   'class_absences',
+  // Regla 84: el registro del entrenamiento de grupo. Mismo motivo: desde una
+  // política no se puede mirar `class_members` para saber si es del grupo.
+  'group_workout_logs',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */

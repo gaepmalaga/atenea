@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, Dumbbell, Moon, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Dumbbell, Moon, User, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import type { WeeklyPlan } from '@/app/lib/training-plan';
-import { lunesDeSemana, sumaSemanas } from '@/app/lib/training-plan';
+import { lunesDeSemana, sumaSemanas, esDiaDeDescanso } from '@/app/lib/training-plan';
+import { indiceDiaPlan, fechaDeDiaPlan, sePuedeRegistrar } from '@/app/lib/registro-fisico';
+import RegistroDia, { type RegistroGuardado } from './RegistroDia';
 
 /**
  * LA VISTA DE QUIEN TIENE PREPARADOR DE VERDAD.
@@ -19,9 +21,10 @@ import { lunesDeSemana, sumaSemanas } from '@/app/lib/training-plan';
  * Si su grupo tiene semanas anteriores, puede mirar atrás (regla 54: las
  * semanas futuras preparadas por adelantado no se le enseñan todavía).
  *
- * NO hay nada que marcar: un plan de grupo es compartido y marcarlo lo
- * reescribiría para todos (regla 53). Si la academia quiere llevar registro de
- * un alumno, le pone un plan individual.
+ * EL REGISTRO DE CADA DÍA (regla 84): en un plan de GRUPO, bajo cada día de
+ * entrenamiento que ya ha llegado, el alumno lo marca como hecho (con esfuerzo
+ * y comentario si quiere). No se escribe en el plan, que es compartido
+ * (regla 53), sino aparte, por alumno y fecha (`group_workout_logs`).
  */
 
 /** Los días como los escribe el plan, para poder ordenar y saber cuál es hoy. */
@@ -33,13 +36,12 @@ function sinTildes(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
 
-/** Normaliza «Miércoles», «miercoles», «X» → índice 0-6, o `null`. */
-function indiceDia(nombre: string | undefined | null): number | null {
-  const n = sinTildes(nombre ?? '');
-  if (!n) return null;
-  const i = DIAS.findIndex((d) => sinTildes(d).startsWith(n.slice(0, 3)));
-  return i >= 0 ? i : null;
-}
+/**
+ * «Miércoles», «miercoles», «X» → índice 0-6, o `null`. Es la misma función que
+ * usa el registro (`app/lib/registro-fisico.ts`): la fecha que se enseña y la
+ * fecha que se apunta tienen que salir del mismo cálculo.
+ */
+const indiceDia = indiceDiaPlan;
 
 /** Índice del día de hoy (0 = lunes), en horario local. */
 function hoyIndice(now: Date = new Date()): number {
@@ -65,16 +67,27 @@ function tituloUtil(title: string | undefined | null, diaIdx: number | null): st
   return t;
 }
 
-export type SemanaCalendario = { weekStart: string; plan: WeeklyPlan };
+/** `classId` solo en un plan de grupo: es lo que permite apuntar cada día (regla 84). */
+export type SemanaCalendario = { weekStart: string; plan: WeeklyPlan; classId?: string };
+
+export type RegistroCalendario = {
+  /** Hoy en la hora de la academia (`YYYY-MM-DD`). */
+  hoy: string;
+  /** Lo apuntado, por `classId|fecha`. */
+  porDia: Record<string, RegistroGuardado>;
+  onGuardar: (p: { classId: string; fecha: string; hecho: boolean; rpe: number | null; comment: string | null }) => Promise<{ success: boolean; error?: string }>;
+};
 
 interface CalendarioEntrenamientoProps {
   /** Todas las semanas visibles, de la más antigua a la vigente. */
   semanas: SemanaCalendario[];
   /** Quién lo escribe, para decirlo en una línea. */
   origen: 'grupo' | 'individual';
+  /** El registro de cada día. Sin él (la vista previa del preparador) no se apunta nada. */
+  registro?: RegistroCalendario;
 }
 
-export default function CalendarioEntrenamiento({ semanas, origen }: CalendarioEntrenamientoProps) {
+export default function CalendarioEntrenamiento({ semanas, origen, registro }: CalendarioEntrenamientoProps) {
   // Por defecto, la última: es la vigente (todas vienen con week_start <= hoy).
   const [idx, setIdx] = useState(() => Math.max(0, semanas.length - 1));
   const hoy = hoyIndice();
@@ -216,11 +229,36 @@ export default function CalendarioEntrenamiento({ semanas, origen }: CalendarioE
                         {e.target && (
                           <p className="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1 leading-snug">{e.target}</p>
                         )}
+                        {e.video && (
+                          <a
+                            href={e.video}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-0.5 inline-flex items-center gap-1 min-h-[44px] text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                          >
+                            <PlayCircle size={13} /> Ver cómo se hace
+                          </a>
+                        )}
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
+
+              {(() => {
+                if (!registro || !actual.classId || esDiaDeDescanso(day)) return null;
+                const fecha = fechaDeDiaPlan(actual.weekStart, day);
+                if (!fecha || fecha > registro.hoy) return null;
+                const classId = actual.classId;
+                return (
+                  <RegistroDia
+                    key={`${classId}|${fecha}`}
+                    registro={registro.porDia[`${classId}|${fecha}`] ?? null}
+                    editable={sePuedeRegistrar(fecha, registro.hoy)}
+                    onGuardar={(r) => registro.onGuardar({ classId, fecha, ...r })}
+                  />
+                );
+              })()}
             </div>
           );
         })}

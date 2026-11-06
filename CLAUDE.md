@@ -84,6 +84,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Asistencia: el alumno avisa de que falta, la academia ve los huecos** | ✅ **hecho** (6 nov), a petición de Alphapol. Horario estructurado por grupo (días, horas, plazas), «Mis clases» en «Mi perfil» y pestaña **«Asistencia»** en el panel. `docs/sql/asistencia.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 82** |
 | — | **Alta de alumnos en bloque y cambiar la contraseña** | ✅ **hecho** (6 nov). Pegar la lista de correos en «Alumnos»; las cuentas nacen con contraseña provisional (sin correo: Supabase solo deja 30 por hora) y el alumno la cambia en «Mi perfil». Verificado contra la BD real. Ver **regla 83** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
+| — | **La preparación física sin herramienta externa** | ✅ **hecho** (6 nov), a petición de Alphapol, que mandaba la física con otra aplicación. El alumno marca cada día del plan de su grupo como hecho, con esfuerzo (1-10) y comentario; el preparador ve «Quién ha entrenado» por grupo y semana; cada ejercicio admite un enlace de vídeo. `docs/sql/registro-fisico.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 84** |
 
 ## Producción
 
@@ -1985,8 +1986,9 @@ mano y el preparador todavía no ha subido la semana, sin esa guarda el alumno
 caía en el test de Cooper, que no le sirve para nada. Sin plan se le dice que
 aún no lo hay (regla 8), no se le manda a hacer pruebas.
 
-**No hay nada que marcar**: un plan de grupo es compartido y marcarlo lo
-reescribiría para todos (regla 53).
+**El plan no se marca, pero cada día sí se apunta** (regla 84): un plan de grupo
+es compartido y escribir en él lo reescribiría para todos (regla 53), así que el
+«hecho» de cada alumno vive aparte, en `group_workout_logs`.
 
 ### 58 · El chat sale del MVP sin borrar una línea
 
@@ -3434,6 +3436,65 @@ Verificado contra la BD real (6 nov): dos altas nuevas y una existente, CSV
 descargado, entrar con la provisional, cambiarla desde «Mi perfil» y entrar con
 la nueva. Cuentas de prueba borradas después.
 
+
+### 84 · El registro del entrenamiento va aparte del plan, por alumno y fecha
+
+Alphapol mandaba la física con una herramienta externa: el preparador publicaba
+la semana y cada alumno marcaba lo que había hecho, con el esfuerzo y un
+comentario. Aquí el plan de grupo ya existía (reglas 53, 54 y 57), pero **no se
+podía marcar nada**: el plan es compartido y escribir el «hecho» dentro de él lo
+habría reescrito para todo el grupo.
+
+- **`group_workout_logs`** ([`docs/sql/registro-fisico.sql`](docs/sql/registro-fisico.sql),
+  **ejecutado** el 6 nov): una fila por `(class_id, user_id, session_date)`, con
+  `rpe` (1-10, nulable) y `comment` (≤ 500, nulable). El plan no se toca.
+- **El día se guarda como FECHA, no como posición en el plan**: si el preparador
+  reordena o cambia un día, una posición apuntaría a otra cosa. La fecha sale del
+  lunes de la semana + el nombre del día (`fechaDeDiaPlan`,
+  `app/lib/registro-fisico.ts`). El calendario del alumno y el registro usan la
+  MISMA función (`indiceDiaPlan`): la fecha que se enseña y la que se apunta no
+  pueden divergir, y hay una guarda que lo fija.
+- **Qué se puede apuntar** (`sePuedeRegistrar`): ni el futuro —no se marca lo que
+  aún no se ha hecho— ni más atrás de `DIAS_PARA_REGISTRAR` (14 días), todo en la
+  hora de la academia (regla 82). Los descansos no se apuntan
+  (`diasEntrenables`, con `esDiaDeDescanso` de la regla 79). Y el servidor
+  comprueba que el día **existe en el plan de esa semana** antes de escribir.
+- **Lo mínimo para que lo apunte de verdad** (regla 56): un toque, «Marcar como
+  hecho»; el esfuerzo y el comentario son opcionales. Esfuerzo vacío es `null`,
+  nunca 0 (regla 16), y el medio del preparador cuenta solo a quien lo puso.
+- **No se pinta «hecho» hasta que el servidor lo confirma** (regla 4): es un
+  toque, y un «hecho» que no se guardó es la mentira de siempre. Si la lectura de
+  lo apuntado falla, el calendario no ofrece apuntar nada: un día ya marcado se
+  vería como pendiente.
+- **RLS y CERO políticas**, como `class_absences` (regla 82): desde una política
+  no se puede mirar `class_members` para saber si es del grupo. Todo va con la
+  clave de servicio; el alumno escribe siempre con `auth.user.id`, y la acción
+  comprueba academia, grupo, fecha y día del plan antes de tocar la tabla.
+- **El preparador** ve en «Prep. física», dentro de cada grupo y para la semana
+  elegida (la actual o una pasada), **«Quién ha entrenado»**
+  (`RegistroSemanaGrupo`, `resumenSemanaGrupo`): cada día con cuántos lo han
+  hecho, una rejilla alumno × día (verde = hecho, con su esfuerzo), el esfuerzo
+  medio, lo que han escrito, y **quién no ha apuntado nada de lo que ya tocaba**
+  —es a quien hay que preguntar—. Solo cuenta a quien sigue en el grupo y los
+  días que el plan sigue teniendo.
+- **Vídeo por ejercicio** (`Exercise.video`): el preparador pega un enlace en el
+  editor y el alumno ve «Ver cómo se hace». **Solo `https://`**
+  (`normalizaVideo`): se pinta como `<a href>` en el móvil de cada alumno, y un
+  `javascript:` ahí sería un agujero. Se limpia al normalizar el plan, así que
+  vale también al releer (regla 17); el editor avisa ANTES de guardar si un
+  enlace no se va a guardar.
+
+**Lo que queda para una v2**, si Alphapol lo pide al usarlo: plantillas de sesión
+reutilizables, el histórico de marcas de cada alumno en las tres pruebas
+oficiales con su baremo, y avisar al alumno cuando el preparador publica la
+semana.
+
+Verificado de punta a punta (6 nov) con la app local contra la BD real: grupo
+temporal con el plan de esta semana y un vídeo → el alumno marca el lunes (7/10,
+con comentario) y el martes → siguen tras volver a entrar → el preparador ve
+«Lun 1/1 · Mar 1/1 · Jue 0/1», esfuerzo medio 7/10 y el comentario. Grupo
+borrado después (el registro se fue con él, en cascada).
+
 ---
 
 ## Los tests
@@ -3451,6 +3512,7 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
 tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
+tests/registro-fisico.test.ts   el registro de físicas (regla 84): qué fecha es cada día del plan, qué días se apuntan, el vídeo solo https, lo que ve el preparador, y que el alumno solo toca lo suyo
 tests/alta-masiva.test.ts       alta en bloque (regla 83): leer la lista pegada, contraseñas legibles, el CSV para Excel, y las guardas de la acción
 tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo

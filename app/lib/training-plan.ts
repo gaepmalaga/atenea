@@ -15,6 +15,8 @@ export type Exercise = {
   target?: string | null;
   rest?: string | null;
   metric_type?: string | null;
+  /** Enlace a un vídeo del ejercicio (regla 84). Solo `https://`: ver `normalizaVideo`. */
+  video?: string | null;
 };
 
 export type TrainingDay = {
@@ -121,7 +123,26 @@ function normalizeExercise(raw: unknown): Exercise | null {
     target: asString(e.target) || null,
     rest: asString(e.rest) || null,
     metric_type: asString(e.metric_type) || null,
+    video: normalizaVideo(e.video),
   };
+}
+
+/**
+ * Un enlace de vídeo que se puede enseñar: solo `https://`. Cualquier otra
+ * cosa (`javascript:`, texto suelto) se descarta — lo escribe una persona y se
+ * pinta como `<a href>` en el móvil de cada alumno (regla 84). Se aplica al
+ * normalizar el plan, así que vale también al RELEER (regla 17).
+ */
+export function normalizaVideo(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:' ? u.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

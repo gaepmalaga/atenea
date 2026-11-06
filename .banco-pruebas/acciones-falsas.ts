@@ -266,15 +266,23 @@ export async function getPhysicalProfile() {
   return ok({ data: { height: 178, weight: 74, gender: 'male', availability: 4, equipment: 'calisthenics', baseline_metrics: { pullups_score: 9, pullups_method: 'reps', run_1000_seconds: 215, agility_time: 9.4 } } });
 }
 export async function savePhysicalProfile() { return { success: true as const }; }
-export async function getActiveTrainingPlan() { return ok({ plan: PLAN }); }
+// Como en Alphapol: el plan lo escribe el preparador para el grupo (`grupo:…`),
+// y el alumno apunta cada día (regla 84).
+export async function getActiveTrainingPlan() { return ok({ plan: { ...PLAN, id: 'grupo:g1', weekStart: '2026-09-07' } }); }
 export async function getStudentGroupWeeks() {
   return ok({
     semanas: [
-      { weekStart: '2026-08-31', plan: PLAN.plan_data },
-      { weekStart: '2026-09-07', plan: PLAN.plan_data },
+      { weekStart: '2026-08-31', plan: PLAN.plan_data, classId: 'g1' },
+      { weekStart: '2026-09-07', plan: PLAN.plan_data, classId: 'g1' },
     ],
   });
 }
+// «Hoy» fijo (jueves 10 sep): el lunes ya está apuntado, el martes y el jueves
+// se pueden marcar, el viernes aún no ha llegado.
+export async function getMiRegistroFisico() {
+  return ok({ hoy: '2026-09-10', registros: [{ classId: 'g1', fecha: '2026-09-07', rpe: 7, comment: 'Las negativas me cuestan mucho todavía' }] });
+}
+export async function setMiRegistroFisico() { return { success: true as const, error: undefined }; }
 export async function generateWeeklyPlan() { return ok({ data: null }); }
 export async function generateNextWeek() { return ok({ plan: PLAN }); }
 export async function completeTrainingDay() { return { success: true as const }; }
@@ -730,6 +738,25 @@ export async function getGroupTrainingPlan() {
     pasada: offset < 0,
   });
   return ok({ semanas: [semana(-1, false), semana(0, true), semana(1, false)] });
+}
+export async function getRegistroGrupo() {
+  const lunes = new Date();
+  lunes.setDate(lunes.getDate() - lunes.getDay() + 1);
+  const f = (n: number) => new Date(lunes.getTime() + n * 864e5).toISOString().slice(0, 10);
+  const dia = (n: number, titulo: string, hechos: number, vencido: boolean) => ({ fecha: f(n), titulo, hechos, vencido });
+  return ok({
+    resumen: {
+      dias: [dia(0, 'Lunes · Tracción', 2, true), dia(1, 'Martes · Rodaje suave', 1, true), dia(3, 'Jueves · Series', 0, false), dia(4, 'Viernes · Circuito', 0, false)],
+      alumnos: [
+        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', dias: { [f(0)]: null, [f(1)]: null, [f(3)]: null, [f(4)]: null }, hechos: 0 },
+        { userId: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', dias: { [f(0)]: { rpe: null, comment: null }, [f(1)]: null, [f(3)]: null, [f(4)]: null }, hechos: 1 },
+        { userId: 'u2', email: 'alumno@atenea.com', dias: { [f(0)]: { rpe: 8, comment: 'Las negativas me cuestan' }, [f(1)]: { rpe: 5, comment: null }, [f(3)]: null, [f(4)]: null }, hechos: 2 },
+      ],
+      rpeMedio: 6.5,
+      comentarios: [{ email: 'alumno@atenea.com', fecha: f(0), rpe: 8, comment: 'Las negativas me cuestan' }],
+      sinRegistrar: ['alumno.flojo@ejemplo.com'],
+    },
+  });
 }
 export async function saveGroupTrainingPlan() { return { success: true as const, error: undefined }; }
 export async function deleteGroupTrainingPlan() { return { success: true as const }; }

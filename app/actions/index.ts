@@ -19,5 +19,6 @@ export * from './ai-cost';
 export * from './membership';
 export * from './groups';
 export * from './asistencia';
+export * from './registro-fisico';
 export * from './payments';
 export * from './superadmin';

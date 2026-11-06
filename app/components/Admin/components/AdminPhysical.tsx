@@ -8,6 +8,7 @@ import { lunesDeSemana, semanasEditables, etiquetaSemana, type WeeklyPlan } from
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
 import CalendarioEntrenamiento from '@/app/components/student/modules/training/components/CalendarioEntrenamiento';
 import PlanEntrenadorEditor from './PlanEntrenadorEditor';
+import RegistroSemanaGrupo from './RegistroSemanaGrupo';
 import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
 
 /**
@@ -191,10 +192,14 @@ function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const [semanas, setSemanas] = useState<SemanaDeGrupo[] | undefined>(undefined);
   const [semanaSel, setSemanaSel] = useState<string>(lunesDeSemana());
+  // Sube cada vez que se recarga el plan: si el preparador cambia los días, el
+  // registro de la semana se vuelve a leer con los días nuevos.
+  const [version, setVersion] = useState(0);
 
   const cargarPlan = useCallback(async () => {
     const res = await getGroupTrainingPlan(g.id);
     setSemanas(res.success ? res.semanas : []);
+    setVersion((v) => v + 1);
   }, [g.id]);
 
   useEffect(() => { if (abierto) cargarPlan(); }, [abierto, cargarPlan]);
@@ -247,6 +252,11 @@ function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
               );
             })}
           </div>
+
+          {/* QUIÉN HA ENTRENADO (regla 84) — de esta semana o de una pasada. */}
+          {semanaSel <= lunesHoy && semanaActual?.plan && (
+            <RegistroSemanaGrupo key={`${semanaSel}:${version}`} groupId={g.id} weekStart={semanaSel} />
+          )}
 
           {semanaSel < lunesHoy ? (
             <SemanaSoloLectura plan={semanaActual?.plan ?? null} weekStart={semanaSel} />

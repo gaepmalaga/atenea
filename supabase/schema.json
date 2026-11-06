@@ -554,6 +554,33 @@
         "week_start": "date"
       }
     },
+    "group_workout_logs": {
+      "columnas": [
+        "class_id",
+        "comment",
+        "created_at",
+        "rpe",
+        "session_date",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "class_id",
+        "created_at",
+        "session_date",
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "comment": "text",
+        "created_at": "timestamp with time zone",
+        "rpe": "smallint",
+        "session_date": "date",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
     "interview_reports": {
       "columnas": [
         "created_at",

@@ -230,7 +230,7 @@ export async function getActiveTrainingPlan(): Promise<
  * semana, la que haya activa.
  */
 export async function getStudentGroupWeeks(): Promise<
-    | { success: true; semanas: { weekStart: string; plan: WeeklyPlan }[] }
+    | { success: true; semanas: { weekStart: string; plan: WeeklyPlan; classId: string }[] }
     | { success: false; error: string }
 > {
     const auth = await requireUser();
@@ -245,7 +245,7 @@ export async function getStudentGroupWeeks(): Promise<
     const lunesHoy = lunesDeSemana();
     const { data, error } = await supabaseAdmin
         .from('group_training_plans')
-        .select('plan_data, week_start')
+        .select('class_id, plan_data, week_start')
         .in('class_id', idsFisicas)
         .lte('week_start', lunesHoy)
         .order('week_start', { ascending: true });
@@ -255,9 +255,11 @@ export async function getStudentGroupWeeks(): Promise<
     const semanas = (data ?? [])
         .map((r) => {
             const plan = normalizePlan(r.plan_data);
-            return plan ? { weekStart: r.week_start as string, plan } : null;
+            // El grupo viaja con la semana: el registro de cada día (regla 84) va
+            // por grupo y fecha.
+            return plan ? { weekStart: r.week_start as string, plan, classId: r.class_id as string } : null;
         })
-        .filter((x): x is { weekStart: string; plan: WeeklyPlan } => x !== null);
+        .filter((x): x is { weekStart: string; plan: WeeklyPlan; classId: string } => x !== null);
 
     return { success: true as const, semanas };
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Loader2, Save, Dumbbell, Plus, Trash2, Moon, Eye, Copy, CalendarClock } from 'lucide-react';
 import { saveManualTrainingPlan } from '@/actions';
-import { normalizePlan, buildManualPlan, type WeeklyPlan, type Exercise } from '@/app/lib/training-plan';
+import { normalizePlan, buildManualPlan, normalizaVideo, type WeeklyPlan, type Exercise } from '@/app/lib/training-plan';
 import {
   BIBLIOTECA_EJERCICIOS,
   camposDeKind,
@@ -52,6 +52,8 @@ type Fila = {
   c2: string;
   c3: string;
   nota: string;
+  /** Enlace a un vídeo de cómo se hace (regla 84). Solo `https://`. */
+  video: string;
 };
 
 type DiaEstado = { entreno: boolean; filas: Fila[] };
@@ -81,6 +83,7 @@ function ejercicioAFila(e: Exercise): Fila {
     c2: e.reps ?? '',
     c3: e.rest ?? '',
     nota: e.target ?? '',
+    video: e.video ?? '',
   };
 }
 
@@ -94,6 +97,7 @@ function filaAEjercicio(f: Fila): Exercise | null {
     rest: f.c3.trim() || null,
     target: f.nota.trim() || null,
     metric_type: f.kind,
+    video: normalizaVideo(f.video),
   };
 }
 
@@ -182,7 +186,7 @@ export default function PlanEntrenadorEditor({
   function añadeFila(dia: string) {
     editaDia(dia, {
       entreno: true,
-      filas: [...dias[dia].filas, { key: nuevaKey(), name: '', kind: 'fuerza', c1: '', c2: '', c3: '', nota: '' }],
+      filas: [...dias[dia].filas, { key: nuevaKey(), name: '', kind: 'fuerza', c1: '', c2: '', c3: '', nota: '', video: '' }],
     });
   }
   function quitaFila(dia: string, key: string) {
@@ -496,6 +500,22 @@ function FilaEjercicio({
         placeholder="Nota u objetivo (opcional) — p. ej. «marca 3:45», «técnica: rodillas altas»"
         className="w-full text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 px-2.5 py-1.5 outline-none focus:border-indigo-500"
       />
+
+      <input
+        type="url"
+        inputMode="url"
+        value={fila.video}
+        onChange={(e) => onCambio({ video: e.target.value })}
+        placeholder="Vídeo de cómo se hace (opcional) — enlace de YouTube, Instagram…"
+        className="w-full text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 px-2.5 py-1.5 outline-none focus:border-indigo-500"
+      />
+      {/* Un enlace que no es https no se guarda: dicho ANTES de guardar, no
+          descubierto después por el alumno (regla 27). */}
+      {fila.video.trim() !== '' && !normalizaVideo(fila.video) && (
+        <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+          Ese enlace no se guardará: tiene que empezar por https://
+        </p>
+      )}
     </div>
   );
 }
