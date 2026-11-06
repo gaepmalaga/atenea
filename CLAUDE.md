@@ -88,6 +88,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Pasada de tono: la app habla como Alphapol** | ✅ **en producción** (6 nov). Fuera el reloj «ZULU» (enseñaba la hora de Greenwich), «Sistema online», «Centro de Mando», «Operaciones», «Drills», «Sistema Táctico»; los módulos se llaman Inicio, Test, Repasar fallos, Fichas, Preparación física, Mi evolución, Mi perfil; el logo de Alphapol en el menú y en el panel; menos texto en «Mi evolución». Ver **regla 85** |
 | — | **La física como en TrainingMonkeys** | ✅ **en producción** (6 nov), con un plan de ejemplo de noviembre cargado. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
 | — | **Pantalla de carga nueva** | ✅ **en producción** (6 nov). De siete propuestas en un lienzo de diseño, el dueño eligió la «G · Monumental»: la «A» del logo enorme saliéndose por la derecha y el logotipo abajo, en marino. Se guardaron la A (Emblema) y la E (Claro) en `docs/disenos/pantalla-de-carga/`. Vista en el banco de pruebas a 390, 360 y 1440 px. Ver **regla 87** |
+| — | **Icono de la app nuevo** | ✅ **en producción** (6 nov). De seis propuestas en el mismo lienzo, el dueño eligió la «E · Con nombre» con la «A» y el nombre lo más grandes posible: dos versiones, una para iPhone y navegador y otra (la «maskable») para Android, que tiene que caber en el círculo central. Ver **regla 88** |
 
 ## Producción
 
@@ -3298,7 +3299,8 @@ registrado, así que lo de prueba se borra.
 
 El logo es el JPG de 400 px de su web (`public/marca/`), y de él salen los
 iconos: `app/icon.png`, `app/apple-icon.png` y los del manifest, uno
-«maskable» con margen para que Android no se coma «CENTRO DE FORMACIÓN». Se
+«maskable» con margen para que Android no se coma «CENTRO DE FORMACIÓN» (rehechos
+el mismo día con la «A» y el nombre en grande: regla 88). Se
 retiraron `app/icon.tsx`, `app/apple-icon.tsx` y la égida (`app/lib/logo.tsx`).
 **Hace falta un logo en vector** para que el icono no se vea suave.
 
@@ -3666,6 +3668,42 @@ con los pasos para cambiar a cualquiera de ellas.
   marca, oscura pase lo que pase. Lo que sí guarda: `min-h-dvh` (la guarda de
   `auth-messages.test.ts` la sigue ahora a ella) y `prefers-reduced-motion`.
 - Para verla quieta: el banco de pruebas, `index.html?vista=carga`.
+
+
+### 88 · El icono: lo más grande que deja cada sistema, y por eso hay dos
+
+Hasta el 6 nov el icono era el logo entero, con «ALPHAPOL · CENTRO DE
+FORMACIÓN» dentro: a tamaño de icono no se leía nada y la «A» quedaba
+pequeña. Ahora es la «A» con «ALPHAPOL» debajo (propuesta «E · Con nombre» del
+lienzo, página «Icono de la app»), sobre el marino del logo, y el dueño pidió
+los dos lo más grandes que permita el icono. Lo que manda ahí no es el gusto,
+es lo que recorta cada sistema:
+
+| Fichero | Para qué | La «A» (ancho) | El nombre (ancho) | Lo que limita |
+|---|---|---|---|---|
+| `app/icon.png` (512), `app/apple-icon.png` (180), `public/marca/icono-192.png` y `icono-512.png` | iPhone, navegador, «any» del manifest | 62,5 % | 81 % | Las esquinas redondeadas del iPhone (radio ~22 %), con un margen fino del 6 % |
+| `public/marca/icono-maskable-512.png` | Android | 48 % | 62 % | Android puede recortar en **círculo** y solo garantiza el círculo central del **80 %** |
+
+- **No se usa el mismo dibujo en los dos.** Con el tamaño del de iPhone, el
+  recorte en círculo de Android se come la primera «A» y la última «L» del
+  nombre. Con el de Android en todas partes, el de iPhone saldría pequeño sin
+  motivo.
+- **Las medidas se calcularon, no se pusieron a ojo**: con la silueta real de
+  la «A» y de las letras, buscando el tamaño mayor que deja todos sus píxeles
+  dentro de la zona segura y centrando lo que sobra. Las posiciones, en
+  fracciones del lado (izquierda, arriba, ancho, alto): iPhone — «A»
+  `.1875 .0708 .6250 .6491`, nombre `.0938 .7588 .8125 .1094`; Android — «A»
+  `.2610 .1235 .4780 .4964`, nombre `.1893 .6497 .6214 .0836`. El fondo es el
+  degradado del logo (`#0a4e72` → `#123a6a` → `#14295a`, centrado al 50 % / 40 %).
+- La «A» y el nombre salen de `MARCA.isotipo` y `MARCA.logotipo` (regla 87),
+  recortados a su silueta. Con un logo en vector se regeneran con las mismas
+  medidas y se ganaría nitidez.
+- **En los móviles que ya tienen la app instalada el icono no cambia al
+  momento**: Android vuelve a leer el manifest cada cierto tiempo y el iPhone
+  guarda el icono de cuando se añadió a la pantalla de inicio (hay que quitarla
+  y volver a añadirla).
+- **No volver a añadir `app/favicon.ico`** (sigue en pie lo de la tabla de
+  estado): `app/icon.png` es el favicon.
 
 ---
 
