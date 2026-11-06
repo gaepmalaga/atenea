@@ -24,9 +24,9 @@
     "temario:pdf": "node scripts/temario/generar-pdf.mjs",
     "temario:comprobar": "node --experimental-strip-types scripts/temario/comprobar-tema.mjs",
     "reset": "node --experimental-strip-types scripts/operacion/reset.mjs",
+    "limpiar": "node --experimental-strip-types scripts/operacion/limpiar-para-alphapol.mjs",
     "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",
     "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs",
-    "sembrar:demo": "node --experimental-strip-types scripts/operacion/sembrar-demo.mjs",
     "sembrar:peso": "node --experimental-strip-types scripts/operacion/sembrar-por-peso.mjs"
   },
   "dependencies": {

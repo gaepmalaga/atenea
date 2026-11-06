@@ -235,7 +235,7 @@ function FichaAcademia({ inicial, error }: { inicial: AcademySettings | null; er
       <SectionLabel icon={<Building2 size={16} />}>Datos de la academia</SectionLabel>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <TextField label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Academia Atenea" />
+        <TextField label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Alphapol" />
         <TextField label="Horario" value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="L-V 10:00-14:00 y 17:00-21:00" />
       </div>
       <TextAreaField label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="Calle, número, ciudad" />

@@ -184,12 +184,12 @@ export default function TestRunner({ testId, initialData, onSave, onExit, saving
                                 <button onClick={() => { setMethod('reps'); setResult(''); }} className={`p-4 rounded-xl border-2 text-left transition-all relative ${method === 'reps' ? 'border-indigo-600 bg-white shadow-xl ring-1 ring-indigo-600' : 'border-transparent bg-white/60 hover:bg-white'}`}>
                                     <span className="font-black text-indigo-900 uppercase text-xs block mb-1">SÍ, PUEDO</span>
                                     <span className="text-[10px] text-slate-500">Dominadas estrictas</span>
-                                    {method === 'reps' && <CheckCircle2 className="text-indigo-600 absolute top-4 right-4" size={18}/>}
+                                    {method === 'reps' && <CheckCircle2 className="text-indigo-600 dark:text-indigo-400 absolute top-4 right-4" size={18}/>}
                                 </button>
                                 <button onClick={() => { setMethod('suspension'); setResult(''); }} className={`p-4 rounded-xl border-2 text-left transition-all relative ${method === 'suspension' ? 'border-indigo-600 bg-white shadow-xl ring-1 ring-indigo-600' : 'border-transparent bg-white/60 hover:bg-white'}`}>
                                     <span className="font-black text-slate-600 uppercase text-xs block mb-1">NO, AÚN NO</span>
                                     <span className="text-[10px] text-slate-500">Suspensión isométrica</span>
-                                    {method === 'suspension' && <CheckCircle2 className="text-indigo-600 absolute top-4 right-4" size={18}/>}
+                                    {method === 'suspension' && <CheckCircle2 className="text-indigo-600 dark:text-indigo-400 absolute top-4 right-4" size={18}/>}
                                 </button>
                             </div>
                         </div>

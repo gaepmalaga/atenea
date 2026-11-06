@@ -16,6 +16,7 @@ import type { ChatTurn } from '@/app/lib/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Modal, Button, useAltoDisponible } from '../../../ui';
+import { MARCA } from '@/app/lib/marca';
 
 interface IntelChatProps { user: AuthUser; }
 
@@ -35,7 +36,7 @@ type Message = {
 /** El saludo. Fuera del estado para poder volver a el al abrir una nueva. */
 const SALUDO: Message = {
   role: 'ai',
-  content: '# SISTEMA ATENEA INTEL\nConexión segura establecida. Base legislativa sincronizada. Esperando entrada de datos para análisis táctico.',
+  content: `# Asistente de ${MARCA.nombre}\nPregúntame lo que quieras del temario.`,
   isSystem: true,
   timestamp: new Date(),
 };
@@ -267,7 +268,7 @@ export default function IntelChat({ user }: IntelChatProps) {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </div>
               <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Cpu size={12} className="text-indigo-500"/> Atenea Intel v3.0
+                <Cpu size={12} className="text-indigo-500"/> Asistente del temario
               </span>
           </div>
           {/* EL HISTORIAL, donde antes solo habia un identificador de usuario

@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { ArrowRight, AlertTriangle, MailCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { TAP, cx } from '../ui';
+import CintaMarca from './CintaMarca';
 
 /**
  * LA PUERTA DE ENTRADA.
@@ -57,18 +58,18 @@ interface Props {
 /** La paleta, en un solo sitio. Hueso, tinta y el rojo de la bandera. */
 const C = {
   fondo: 'bg-[#f7f4ee]',
-  tinta: 'text-[#111820]',
+  tinta: 'text-[#14295a]',
   tinta2: 'text-[#3d4a5a]',
-  borde: 'border-[#111820]',
-  rojo: 'bg-[#c60b1e]',
-  rojoTx: 'text-[#c60b1e]',
+  borde: 'border-[#14295a]',
+  acento: 'bg-[#c5a738] text-[#14295a]',
+  error: 'text-[#c60b1e]',
 } as const;
 
 const CAMPO = cx(
-  'w-full bg-transparent border-[3px] border-[#111820] px-4 outline-none',
+  'w-full bg-transparent border-[3px] border-[#14295a] px-4 outline-none',
   // 16px en móvil o Safari hace zoom al tocarlo y deja la página torcida.
-  'text-base sm:text-lg font-semibold text-[#111820] placeholder:text-[#8d99a8]',
-  'focus:border-[#c60b1e] transition-colors',
+  'text-base sm:text-lg font-semibold text-[#14295a] placeholder:text-[#8d99a8]',
+  'focus:border-[#c5a738] transition-colors',
   TAP,
   'min-h-[56px]',
 );
@@ -88,26 +89,7 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
 
   return (
     <main className={cx('min-h-dvh flex flex-col', C.fondo, C.tinta)}>
-
-      {/* Cinta */}
-      <div className="bg-[#111820] text-[#f7f4ee] px-5 py-3 flex justify-between items-center gap-3">
-        <span className="text-[11px] font-black uppercase tracking-[0.16em]">Atenea Policial</span>
-        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ff5a68]">
-          Policía Nacional
-        </span>
-      </div>
-
-      {/* El filete de la bandera, en proporciones REALES (1:2:1). En tres
-          franjas iguales la bandera canta, y una bandera mal puesta en una
-          plataforma de oposiciones a policía se nota más que en ningún sitio. */}
-      <div
-        className="h-1.5 shrink-0"
-        style={{
-          background:
-            'linear-gradient(to right,#c60b1e 0 22%,#ffc400 22% 78%,#c60b1e 78% 100%)',
-        }}
-        aria-hidden
-      />
+      <CintaMarca />
 
       <div className="flex-1 px-5 py-8 sm:py-10 flex flex-col max-w-md w-full mx-auto">
 
@@ -115,13 +97,13 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
             60px hacia arriba no hay pantalla de 360px que lo aguante. */}
         <h1 className="text-5xl sm:text-6xl font-black uppercase leading-[0.88] tracking-[-0.045em]">
           {esAlta ? (
-            <>Crea<br />tu <span className={cx(C.rojo, 'text-white px-2 -ml-2 inline-block')}>cuenta</span></>
+            <>Crea<br />tu <span className={cx(C.acento, 'px-2 -ml-2 inline-block')}>cuenta</span></>
           ) : (
-            <>Entra<br />y <span className={cx(C.rojo, 'text-white px-2 -ml-2 inline-block')}>saca</span><br />tu plaza</>
+            <>Entra<br />y <span className={cx(C.acento, 'px-2 -ml-2 inline-block')}>saca</span><br />tu plaza</>
           )}
         </h1>
 
-        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c60b1e] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
+        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c5a738] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
           {esAlta
             ? 'Te enviaremos un correo para confirmar la cuenta. Después revisamos tu solicitud y te avisamos por correo en cuanto tengas acceso.'
             : 'El temario oficial completo, con tests que puntúan como la convocatoria: cada dos fallos, un acierto menos.'}
@@ -131,13 +113,13 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
           <div role="alert" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#c60b1e] bg-[#c60b1e]/5">
             {/* Antes esto era `ShieldCheck` —un escudo con un VISTO— para
                 anunciar un fallo. Decía lo contrario de lo que pasaba. */}
-            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.rojoTx)} aria-hidden />
+            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.error)} aria-hidden />
             <p className="text-sm font-semibold leading-relaxed">{error}</p>
           </div>
         )}
 
         {aviso && (
-          <div role="status" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#111820] bg-[#ffc400]/25">
+          <div role="status" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#14295a] bg-[#c5a738]/20">
             <MailCheck size={19} className="shrink-0 mt-0.5" aria-hidden />
             <p className="text-sm font-semibold leading-relaxed">{aviso}</p>
           </div>
@@ -220,7 +202,7 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
             disabled={cargando}
             aria-busy={cargando}
             className={cx(
-              'w-full min-h-[62px] bg-[#111820] text-[#f7f4ee] px-5',
+              'w-full min-h-[62px] bg-[#14295a] text-[#f7f4ee] px-5',
               'flex items-center justify-between gap-3',
               'text-[17px] font-black uppercase tracking-[0.05em]',
               'disabled:opacity-60 disabled:cursor-not-allowed active:translate-y-px transition-transform',
@@ -238,7 +220,7 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
           <button
             type="button"
             onClick={() => onModo(esAlta ? 'login' : 'signup')}
-            className={cx(C.rojo, 'text-white px-1.5 py-0.5 font-bold', TAP, 'inline-flex items-center')}
+            className={cx(C.acento, 'px-1.5 py-0.5 font-bold', TAP, 'inline-flex items-center')}
           >
             {esAlta ? 'Inicia sesión' : 'Regístrate aquí'}
           </button>

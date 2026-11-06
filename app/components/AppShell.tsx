@@ -13,6 +13,7 @@ import LoginScreen, { type ModoAuth } from './auth/LoginScreen';
 import AccessLocked from './auth/AccessLocked';
 import SelectAcademyScreen from './auth/SelectAcademyScreen';
 import SetPasswordScreen from './auth/SetPasswordScreen';
+import { MARCA } from '@/app/lib/marca';
 
 /**
  * LA APLICACIÓN ENTERA (regla 37), independiente de por qué ruta se entró.
@@ -83,10 +84,9 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
       //   tratan igual: se establece la sesión con `setSession` y se le pide
       //   que ponga una antes de dejarla pasar (`SetPasswordScreen`); sin ese
       //   paso se quedaría otra vez sin forma de volver a entrar.
-      // `?alta` abre directamente el formulario de REGISTRO. Lo usa el botón
-      // «Crear mi cuenta» de `/fundadores`: quien llega de Instagram buscando
-      // registrarse no tiene que encontrar el enlace «Regístrate aquí» al
-      // final de la pantalla de entrar.
+      // `?alta` abre directamente el formulario de REGISTRO: sirve para un
+      // botón «Crear mi cuenta» en la web de la academia, que así no obliga a
+      // buscar el enlace «Regístrate aquí» al final de la pantalla de entrar.
       const busqueda = new URLSearchParams(window.location.search);
       if (busqueda.has('alta')) {
         setAuthMode('signup');
@@ -250,7 +250,10 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          ...(academiaSlug ? { options: { data: { academia_slug: academiaSlug } } } : {}),
+          // Sin slug en la URL (entrar por `/`) el alta va a la academia de la
+          // marca (regla 81): con una sola academia no hay otra posible, y así
+          // no depende del destino por defecto que tenga escrito el disparador.
+          options: { data: { academia_slug: academiaSlug ?? MARCA.academiaSlug } },
         });
         if (error) throw error;
         // Antes esto era un `alert()` del navegador que decia "Revisa tu email
@@ -279,7 +282,7 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
       <div className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
         <Loader2 className="animate-spin text-indigo-500" size={40} aria-hidden />
         <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-          Cargando Atenea…
+          Cargando {MARCA.nombre}…
         </p>
       </div>
     );

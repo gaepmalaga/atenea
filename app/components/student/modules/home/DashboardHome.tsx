@@ -122,13 +122,13 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
         <button onClick={() => onNavigate('stats')} className="text-left group w-full">
           <Card className="flex items-center justify-between gap-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-colors">
             <span className="flex items-center gap-3 min-w-0">
-              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl shrink-0"><Brain size={18} /></span>
+              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0"><Brain size={18} /></span>
               <span className="min-w-0">
                 <span className="block text-sm font-black text-slate-900 dark:text-white">Mi evolución</span>
                 <span className={cx(TEXT.muted, 'block')}>Tu mapa del temario, tu curva de progreso, si aprobarías</span>
               </span>
             </span>
-            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0" />
           </Card>
         </button>
       )}
@@ -138,13 +138,13 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
         <button onClick={() => onNavigate('review')} className="text-left group">
           <Card className="flex items-center justify-between gap-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-colors">
             <span className="flex items-center gap-3 min-w-0">
-              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl shrink-0"><Target size={18} /></span>
+              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0"><Target size={18} /></span>
               <span className="min-w-0">
                 <span className="block text-sm font-black text-slate-900 dark:text-white">Repasar fallos</span>
                 <span className={cx(TEXT.muted, 'block')}>Lo que has fallado, con el porqué</span>
               </span>
             </span>
-            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0" />
           </Card>
         </button>
 

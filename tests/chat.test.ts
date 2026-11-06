@@ -136,7 +136,7 @@ describe('formatHistory', () => {
   it('etiqueta quien dice cada cosa', () => {
     const texto = formatHistory(conversacion);
     expect(texto).toContain('ASPIRANTE:');
-    expect(texto).toContain('ATENEA:');
+    expect(texto).toContain('ASISTENTE:');
   });
 
   it('sin conversacion devuelve cadena vacia', () => {

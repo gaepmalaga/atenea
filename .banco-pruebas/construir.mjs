@@ -14,3 +14,9 @@ await esbuild.build({
     '@': R,
   },
 });
+
+// Lo de `public/` que pinta la interfaz (el logo de la marca, regla 81). El
+// servidor de pruebas sirve `.banco-pruebas/`, no `public/`: sin copiarlo, el
+// logo de la pantalla de entrada salía roto y el recorrido no lo cantaba.
+import { cpSync } from 'node:fs';
+cpSync(`${R}/public/marca`, `${R}/.banco-pruebas/marca`, { recursive: true });

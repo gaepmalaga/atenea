@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { MARCA } from "./lib/marca";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,14 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ATENEA | Sistema Táctico de Oposiciones",
-  description: "Plataforma de alto rendimiento para oposiciones CNP",
-  applicationName: "Atenea",
-  appleWebApp: { capable: true, title: "Atenea", statusBarStyle: "black-translucent" },
+  title: `${MARCA.nombre} · ${MARCA.lema}`,
+  description: MARCA.descripcion,
+  applicationName: MARCA.nombre,
+  appleWebApp: { capable: true, title: MARCA.nombre, statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: MARCA.colores.marino,
 };
 
 export default function RootLayout({

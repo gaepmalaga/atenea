@@ -15,6 +15,7 @@ import { saveTestResult, setResultErrorType, reportQuestion } from '@/actions';
 import { countChange, confianzaDeDuda } from '@/app/lib/exam-results';
 import { mereceLaPenaPreguntar } from '@/app/lib/answer-signals';
 import QuestionNote from '../../QuestionNote';
+import { MARCA } from '@/app/lib/marca';
 
 interface ActiveTestProps {
   questions: Question[];
@@ -379,7 +380,7 @@ export default function ActiveTest({
       });
       setIsReportModalOpen(false);
       setReportData({ type: '', message: '' });
-      alert("Reporte enviado. Gracias por ayudar a mejorar Atenea.");
+      alert(`Aviso enviado. Gracias por ayudar a mejorar ${MARCA.nombre}.`);
     } catch {
       alert("Error enviando reporte.");
     } finally {
@@ -619,7 +620,7 @@ export default function ActiveTest({
 
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-10">
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">
-              <p className="text-2xl sm:text-3xl font-black text-indigo-600">{contestadas}</p>
+              <p className="text-2xl sm:text-3xl font-black text-indigo-600 dark:text-indigo-400">{contestadas}</p>
               <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">Contestadas</p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3 sm:p-5 border border-slate-100 dark:border-slate-800">

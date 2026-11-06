@@ -1,4 +1,5 @@
 import 'server-only';
+import { remitenteCorreo } from './marca';
 
 /**
  * CORREOS QUE MANDA LA PROPIA APP (P12), NO SUPABASE AUTH.
@@ -31,7 +32,8 @@ type CorreoParams = {
   replyTo?: string;
 };
 
-const REMITENTE = 'Atenea Policial <notificaciones@ateneapolicial.com>';
+// El remitente sale de la marca (regla 81): `MAIL_FROM` en el entorno, o el
+// dominio ya verificado con el nombre de la academia delante.
 
 export async function sendMail({ to, subject, html, replyTo }: CorreoParams): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -47,7 +49,7 @@ export async function sendMail({ to, subject, html, replyTo }: CorreoParams): Pr
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: REMITENTE, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
+      body: JSON.stringify({ from: remitenteCorreo(), to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
     if (!res.ok) {
       const detalle = await res.text().catch(() => '');

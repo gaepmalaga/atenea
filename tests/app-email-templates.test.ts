@@ -3,9 +3,8 @@ import {
   plantillaSolicitudAdmin,
   plantillaAccesoConcedido,
   plantillaAccesoRechazado,
-  plantillaBienvenidaFundador,
-  CORREO_ALUMNOS,
 } from '../app/lib/app-email-templates';
+import { MARCA } from '../app/lib/marca';
 
 /**
  * LOS CORREOS QUE MANDA LA APP (P12), NO SUPABASE AUTH.
@@ -45,17 +44,16 @@ describe('plantillaAccesoRechazado', () => {
   });
 });
 
-describe('plantillaBienvenidaFundador', () => {
-  it('da la bienvenida, dice por dónde empezar y cómo contestar', () => {
-    const { subject, html } = plantillaBienvenidaFundador({ appUrl: 'https://x.test' });
-    expect(subject).toMatch(/bienvenido/i);
-    expect(html).toContain('opositor fundador');
-    expect(html).toContain('https://x.test');
-    expect(html).toContain(CORREO_ALUMNOS);
-    // Solo nombra pantallas que existen en el menú del alumno.
-    for (const nombre of ['Operaciones (Test)', 'Entrenamiento', 'Simulacro', 'Repasar fallos', 'Mi Evolución']) {
-      expect(html).toContain(nombre);
+describe('la marca de los correos (regla 81)', () => {
+  it('llevan el nombre de la academia en la cabecera y ni rastro de Atenea', () => {
+    for (const { html } of [
+      plantillaSolicitudAdmin({ alumnoEmail: 'a@x.com', academiaName: 'Alphapol', panelUrl: 'https://x.test' }),
+      plantillaAccesoConcedido({ academiaName: 'Alphapol', appUrl: 'https://x.test' }),
+      plantillaAccesoRechazado({ academiaName: 'Alphapol' }),
+    ]) {
+      expect(html).toContain(MARCA.nombre);
+      expect(html).toContain(MARCA.colores.marino);
+      expect(html).not.toMatch(/atenea/i);
     }
-    expect(html).not.toMatch(/Aprobar[ií]a|Lo que te toca/);
   });
 });

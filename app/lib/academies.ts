@@ -22,13 +22,8 @@ const RESERVED_ACADEMY_SLUGS = new Set([
   'admin', 'superadmin', 'api', 'app', 'auth', 'login', 'logout', 'register',
   'static', 'assets', 'public', 'www', '_next', 'icon', 'apple-icon',
   'favicon', 'manifest', 'robots', 'sitemap', 'principal', 'null', 'undefined',
-  // La landing comercial (`app/academias/`) es una ruta estática y Next la
-  // sirve antes que `[academia]` de todas formas — esto es cinturón y
-  // tirantes para que un alta de academia con este slug no quede inalcanzable
-  // en silencio.
-  'academias',
-  // La página pública de opositores fundadores (`app/fundadores/`), mismo motivo.
-  'fundadores',
+  // `public/marca/` sirve el logo y los iconos (regla 81).
+  'marca',
 ]);
 
 const SLUG_MIN = 2;
@@ -45,13 +40,16 @@ const SLUG_MAX = 30;
 export const ACADEMIA_COOKIE = 'atenea-academia';
 
 /**
- * La academia «casa» (P11j, regla 65 y `docs/sql/P11j-asignar-academia-en-registro.sql`):
- * donde cae un alta sin slug, sin grupos ni cobro en persona. Vive como
- * constante porque el disparador de Postgres la tiene fija por su cuenta —
- * cambiar el slug ahí y no aquí (o al revés) dejaría los dos sitios
- * discrepando en silencio.
+ * La academia «casa» (P11j, regla 65): la academia SOLO-IA de la preparación
+ * física (regla 68). Era `atenea`, el producto para varias academias, y se
+ * retiró con él (regla 81): hoy la plataforma es de Alphapol, que lleva las
+ * físicas con su preparador. `null` = no hay casa, así que toda academia es
+ * solo-manual y la IA de físicas no se ofrece en ninguna.
+ *
+ * Un alta sin slug en la URL ya NO cae en la casa: va a `MARCA.academiaSlug`
+ * (lo manda el propio registro, `AppShell.tsx`).
  */
-export const ACADEMIA_CASA_SLUG = 'atenea';
+export const ACADEMIA_CASA_SLUG: string | null = null;
 
 /**
  * Slug a partir del nombre de una academia: «Alpha Policía» -> «alpha-policia».

@@ -16,6 +16,8 @@
  * la aplicación ni hablar con Supabase.
  */
 
+import { MARCA } from './marca';
+
 /**
  * Cada entrada es un trozo de lo que manda Supabase (en minúsculas) y lo que
  * se le enseña al usuario. Se compara por `includes` y no por igualdad: los
@@ -29,7 +31,7 @@ const TRADUCCIONES: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     'email not confirmed',
-    'Tu cuenta existe, pero el correo aún no está confirmado. Busca el mensaje de Atenea en tu bandeja (mira también en spam) y pulsa el enlace.',
+    `Tu cuenta existe, pero el correo aún no está confirmado. Busca el mensaje de ${MARCA.nombre} en tu bandeja (mira también en spam) y pulsa el enlace.`,
   ],
   [
     'user already registered',

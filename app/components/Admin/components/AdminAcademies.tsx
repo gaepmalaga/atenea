@@ -208,7 +208,7 @@ function NuevaAcademiaModal({ onClose, onCreada }: { onClose: () => void; onCrea
           placeholder={previsualizaSlug(name) || 'depol-granada'}
           value={slugVisible}
           onChange={(e) => { setTocoSlug(true); setSlug(e.target.value); }}
-          hint={`Entrarán por atenea.app/${slugVisible || '…'} — se deriva del nombre, pero se puede cambiar.`}
+          hint={`Entrarán por ${typeof window === 'undefined' ? '' : window.location.host}/${slugVisible || '…'} — se deriva del nombre, pero se puede cambiar.`}
         />
         {error && <p className="text-xs font-semibold text-red-600 dark:text-red-400">{error}</p>}
       </div>

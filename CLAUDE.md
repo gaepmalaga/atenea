@@ -3,6 +3,13 @@
 Plataforma de preparación de oposiciones a Policía Nacional (CNP).
 Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 
+> **Desde el 6 nov 2026 la plataforma es de Alphapol** (academia de Málaga,
+> https://alphapol.es), con su marca y la misma base de datos. «Atenea» como
+> producto para varias academias se retiró: fuera la marca, las páginas
+> `/academias` y `/fundadores`, `marketing/` y la academia «casa». El repo se
+> sigue llamando `atenea`. La marca vive en **`app/lib/marca.ts`** y
+> **`app/marca.css`** — ver **regla 81**.
+
 > **Si retomas después de un tiempo, empieza por
 > [`docs/TRASPASO.md`](docs/TRASPASO.md).** Es el estado del 30 ago 2026: qué se
 > hizo, qué está sin ver funcionando y qué está bloqueado esperando SQL.
@@ -73,6 +80,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
 | — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
 | — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
+| — | **La plataforma pasa a ser de Alphapol** | 🔶 **código hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`: marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol, y `npm run limpiar` para borrar las cuentas y academias de prueba. **Falta lo que solo se puede hacer con acceso**: ejecutar la limpieza, el SQL del disparador, el subdominio y el correo. Ver **regla 81** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 
 ## Producción
@@ -277,6 +285,7 @@ npm run lint                   # ~13 errores, todos el mismo falso positivo (ver
 
 npm run sembrar -- --comprobar-pdfs # lee los 51 PDF y los trocea, SIN red ni gasto
 npm run reset                      # ensayo: qué se borraría. `-- --hazlo` borra
+npm run limpiar                    # ensayo: qué cuentas y academias de prueba se borrarían (regla 81). `-- --hazlo` borra
 npm run cuenta -- correo 'clave' student   # una cuenta con el correo ya confirmado
 npm run sembrar                    # indexa los 51 PDF y llena el banco (de pago)
 npm run sembrar -- --solo-fichas --fichas=15   # el BANCO DE FICHAS (de pago)
@@ -3251,6 +3260,80 @@ antes y después del cambio. **No se ha probado contra la BD real** (no había
 credenciales en esta sesión): el primer simulacro de verdad debería dejar filas
 con `confidence` 1/2.
 
+### 81 · La plataforma es de Alphapol: la marca sale de un sitio, y lo de Atenea se fue entero
+
+Decisión del dueño (6 nov 2026): la plataforma deja de ser «Atenea», un
+producto para varias academias, y pasa a ser la de **Alphapol** —su nombre, su
+logo, sus colores—, con **la misma base de datos**. Nadie real estaba
+registrado, así que lo de prueba se borra.
+
+**La marca vive en dos ficheros, y nada más la escribe:**
+
+- **`app/lib/marca.ts`** — nombre, lema, web, correo de contacto, slug de la
+  academia, ruta del logo y colores (marino `#14295a`, dorado `#c5a738`,
+  sacados del logo de alphapol.es). Lo leen el `<title>`, el manifest, la
+  pantalla de entrada (`CintaMarca`), los correos y los avisos. Las claves
+  internas (`atenea-tema`, la cookie `atenea-academia`, `askAtenea`) NO se
+  renombraron: no las ve nadie y cambiarlas borraría las preferencias guardadas.
+- **`app/marca.css`** — redefine la escala `indigo-*` de Tailwind con el azul de
+  Alphapol. La interfaz pinta su color principal con `indigo-*` en ~200 sitios;
+  cambiar la escala es cambiar once líneas. **Cada tono tiene el mismo
+  contraste que el índigo al que sustituye** (±0,4 contra blanco y contra
+  slate-900, medido). Va en un fichero aparte porque el banco de pruebas compila
+  su propio CSS (`.banco-pruebas/entrada.css`) y lo importa también: con el
+  bloque dentro de `globals.css`, el banco seguía pintando el índigo y las
+  capturas mentían.
+
+El logo es el JPG de 400 px de su web (`public/marca/`), y de él salen los
+iconos: `app/icon.png`, `app/apple-icon.png` y los del manifest, uno
+«maskable» con margen para que Android no se coma «CENTRO DE FORMACIÓN». Se
+retiraron `app/icon.tsx`, `app/apple-icon.tsx` y la égida (`app/lib/logo.tsx`).
+**Hace falta un logo en vector** para que el icono no se vea suave.
+
+**Lo que se fue con Atenea:** `/academias` (la página de venta a academias),
+`/fundadores`, `marketing/`, `sembrar-demo.mjs` y la bienvenida de «opositor
+fundador» (`plantillaBienvenidaFundador`). `ACADEMIA_CASA_SLUG` es `null`: sin
+academia casa, toda academia es solo-manual en físicas (regla 68) — que es lo
+que Alphapol quiere, con su preparador.
+
+**Un alta sin academia en la URL entra en Alphapol**: el registro manda
+`academia_slug: MARCA.academiaSlug` cuando se entra por `/` (`AppShell.tsx`).
+El disparador de P11j sigue cayendo en `atenea` si no le llega slug (una cuenta
+creada a mano desde el panel de Supabase): lo corrige
+[`docs/sql/alphapol-academia-por-defecto.sql`](docs/sql/alphapol-academia-por-defecto.sql),
+**pendiente de ejecutar**.
+
+**Los correos**: cabecera marino con el nombre en dorado y botón marino; las
+respuestas van a `info@alphapol.es`. El remitente sale de `MAIL_FROM` y, sin
+él, de `ateneapolicial.com` (el único dominio verificado en Resend) con el
+nombre de Alphapol delante. Las plantillas de **Supabase Auth** (confirmar,
+invitar, recuperar) viven en el panel de Supabase y hay que cambiarlas a mano.
+
+**La limpieza** (`npm run limpiar`, `scripts/operacion/limpiar-para-alphapol.mjs`,
+lógica en `app/lib/limpieza.ts`): borra todas las cuentas menos las de
+`superadmin` (y las que se pasen en `--conservar=`) con todo lo suyo, y todas
+las academias menos Alphapol con todo lo suyo; de Alphapol, solo los exentos y
+el registro de auditoría (cosas de las cuentas de prueba). **No toca** el
+temario, el banco común ni la configuración de Alphapol (ajustes, convocatoria,
+grupos, planes de físicas). Es un ensayo salvo `--hazlo`, pide escribir
+`ALPHAPOL`, y **se niega si no quedara ninguna cuenta con la que entrar**. Un
+test compara sus listas con `supabase/schema.json`: una tabla nueva con
+`user_id` u `organization_id` que no se añada a la lista lo hace fallar.
+**Pendiente de ejecutar** (en esta sesión no había credenciales).
+
+**Lo que queda, y solo se puede hacer con acceso:**
+
+1. `npm run limpiar` (ensayo), revisarlo, y `npm run limpiar -- --hazlo`.
+2. Ejecutar `docs/sql/alphapol-academia-por-defecto.sql`.
+3. Crear el admin de Alphapol desde «Academias» → «Añadir admin» (invita por
+   correo).
+4. El subdominio (p. ej. `campus.alphapol.es`): añadirlo en Vercel, crear el
+   CNAME en Hostinger (allí están su DNS, su web y su correo), poner la URL en
+   Supabase (Site URL y Redirect URLs) y en `NEXT_PUBLIC_SITE_URL`.
+5. Verificar `alphapol.es` en Resend (sus registros van en un subdominio
+   `send.`, no chocan con el correo de Hostinger) y definir `MAIL_FROM`.
+6. Cambiar las tres plantillas de correo de Supabase Auth.
+
 ---
 
 ## Los tests
@@ -3267,6 +3350,7 @@ tests/exam-results.test.ts      contrato cliente↔servidor, el blanco, reloj y 
 tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
+tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
 tests/chat.test.ts              memoria, prompt, índice, artículo exacto y qué documento se manda
 tests/interview.test.ts         transcripción, informe final y máquina de estados

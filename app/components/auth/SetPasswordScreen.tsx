@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { ArrowRight, AlertTriangle, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
 import { TAP, cx } from '../ui';
+import CintaMarca from './CintaMarca';
 
 /**
  * ELIGE TU CONTRASEÑA — el paso que faltaba tras aceptar una invitación.
@@ -27,16 +28,16 @@ interface Props {
 
 const C = {
   fondo: 'bg-[#f7f4ee]',
-  tinta: 'text-[#111820]',
+  tinta: 'text-[#14295a]',
   tinta2: 'text-[#3d4a5a]',
-  rojo: 'bg-[#c60b1e]',
-  rojoTx: 'text-[#c60b1e]',
+  acento: 'bg-[#c5a738] text-[#14295a]',
+  error: 'text-[#c60b1e]',
 } as const;
 
 const CAMPO = cx(
-  'w-full bg-transparent border-[3px] border-[#111820] px-4 outline-none',
-  'text-base sm:text-lg font-semibold text-[#111820] placeholder:text-[#8d99a8]',
-  'focus:border-[#c60b1e] transition-colors',
+  'w-full bg-transparent border-[3px] border-[#14295a] px-4 outline-none',
+  'text-base sm:text-lg font-semibold text-[#14295a] placeholder:text-[#8d99a8]',
+  'focus:border-[#c5a738] transition-colors',
   TAP,
   'min-h-[56px]',
 );
@@ -70,28 +71,14 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
 
   return (
     <main className={cx('min-h-dvh flex flex-col', C.fondo, C.tinta)}>
-      <div className="bg-[#111820] text-[#f7f4ee] px-5 py-3 flex justify-between items-center gap-3">
-        <span className="text-[11px] font-black uppercase tracking-[0.16em]">Atenea Policial</span>
-        <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ff5a68]">
-          Policía Nacional
-        </span>
-      </div>
-
-      <div
-        className="h-1.5 shrink-0"
-        style={{
-          background:
-            'linear-gradient(to right,#c60b1e 0 22%,#ffc400 22% 78%,#c60b1e 78% 100%)',
-        }}
-        aria-hidden
-      />
+      <CintaMarca />
 
       <div className="flex-1 px-5 py-8 sm:py-10 flex flex-col max-w-md w-full mx-auto">
         <h1 className="text-5xl sm:text-6xl font-black uppercase leading-[0.88] tracking-[-0.045em]">
-          Elige<br />tu <span className={cx(C.rojo, 'text-white px-2 -ml-2 inline-block')}>clave</span>
+          Elige<br />tu <span className={cx(C.acento, 'px-2 -ml-2 inline-block')}>clave</span>
         </h1>
 
-        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c60b1e] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
+        <p className={cx('mt-6 mb-8 pl-3.5 border-l-[5px] border-[#c5a738] text-[15px] font-semibold leading-relaxed', C.tinta2)}>
           {email
             ? <>Ya tienes acceso como <span className="font-black">{email}</span>. Pon una contraseña para poder volver a entrar.</>
             : 'Pon una contraseña para poder volver a entrar.'}
@@ -99,7 +86,7 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
 
         {errorVisible && (
           <div role="alert" className="flex items-start gap-3 p-3 mb-5 border-[3px] border-[#c60b1e] bg-[#c60b1e]/5">
-            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.rojoTx)} aria-hidden />
+            <AlertTriangle size={19} className={cx('shrink-0 mt-0.5', C.error)} aria-hidden />
             <p className="text-sm font-semibold leading-relaxed">{errorVisible}</p>
           </div>
         )}
@@ -156,7 +143,7 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
             disabled={cargando}
             aria-busy={cargando}
             className={cx(
-              'w-full min-h-[62px] bg-[#111820] text-[#f7f4ee] px-5',
+              'w-full min-h-[62px] bg-[#14295a] text-[#f7f4ee] px-5',
               'flex items-center justify-between gap-3',
               'text-[17px] font-black uppercase tracking-[0.05em]',
               'disabled:opacity-60 disabled:cursor-not-allowed active:translate-y-px transition-transform',

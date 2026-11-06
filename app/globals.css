@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* El azul de la marca (regla 81): ver `app/marca.css`. */
+@import "./marca.css";
 
 /* El `dark:` de Tailwind sigue a la CLASE `.dark` del <html>, no a
    `prefers-color-scheme`. En Tailwind 4 hay que declararlo. Sin esto, los
@@ -6,6 +8,7 @@
    operativo y el interruptor de tema de «Mi perfil» no hacía nada. La clase la
    pone un script en <head> antes de pintar (ver `app/layout.tsx`). */
 @custom-variant dark (&:where(.dark, .dark *));
+
 
 /* =========================================
    FASE 1: EL NÚCLEO (FÍSICA Y MATERIALES)

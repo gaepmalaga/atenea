@@ -42,6 +42,8 @@ export function olvidaTrainingSwitches(organizationId?: string | null): void {
  * academia no cambia nunca en la práctica.
  */
 export async function esAcademiaCasa(organizationId: string): Promise<boolean> {
+  // Sin academia casa (regla 81) no hay nada que preguntar a la base de datos.
+  if (!ACADEMIA_CASA_SLUG) return false;
   const cacheado = casaCache.get(organizationId);
   if (cacheado && cacheado.hasta > Date.now()) return cacheado.valor;
 

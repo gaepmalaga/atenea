@@ -1,0 +1,26 @@
+/* EL AZUL DE LA MARCA (regla 81). Toda la interfaz pinta su color principal
+   con la escala `indigo-*` de Tailwind —botones, enlaces, el tema, el
+   entrenamiento—, unos 200 sitios. En vez de cambiarlos uno a uno, se
+   redefine la escala con el azul marino del logo de Alphapol (#14295a en el
+   900). Cada tono tiene el MISMO contraste que el índigo al que sustituye
+   (medido contra blanco y contra slate-900: ±0,4), así que lo que se leía bien
+   se sigue leyendo bien. Cambiar de marca otra vez es cambiar estas once
+   líneas.
+
+   Vive en su propio fichero para que lo importen `globals.css` Y el banco de
+   pruebas (`.banco-pruebas/entrada.css`), que compila su propio CSS: con el
+   bloque dentro de `globals.css`, el banco seguía pintando el índigo viejo y
+   las capturas mentían. */
+@theme {
+  --color-indigo-50: #eef3fb;
+  --color-indigo-100: #dce6f7;
+  --color-indigo-200: #bccdee;
+  --color-indigo-300: #8fabe0;
+  --color-indigo-400: #7194d8;
+  --color-indigo-500: #4a72c4;
+  --color-indigo-600: #2a51a0;
+  --color-indigo-700: #213f82;
+  --color-indigo-800: #1b3366;
+  --color-indigo-900: #14295a;
+  --color-indigo-950: #0c1a3d;
+}

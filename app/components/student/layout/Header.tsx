@@ -12,7 +12,7 @@ interface HeaderProps {
 const SUBTITULO: Record<string, string> = {
   interview: 'Sala de interrogatorios',
   test: 'Operaciones tácticas',
-  chat: 'IA central · Atenea',
+  chat: 'IA central',
   stats: 'Tu progreso',
   cards: 'Memorización activa',
   review: 'Análisis de fallos',

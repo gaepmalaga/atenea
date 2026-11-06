@@ -7,6 +7,8 @@
  * suelta no recupera nada: hay que reconstruir de que se estaba hablando.
  */
 
+import { MARCA } from './marca.ts';
+
 export type ChatRole = 'user' | 'ai';
 
 export type ChatTurn = {
@@ -120,7 +122,7 @@ export function formatHistory(history: ChatTurn[]): string {
   const turns = trimHistory(history);
   if (!turns.length) return '';
   return turns
-    .map((t) => `${t.role === 'user' ? 'ASPIRANTE' : 'ATENEA'}: ${t.content}`)
+    .map((t) => `${t.role === 'user' ? 'ASPIRANTE' : 'ASISTENTE'}: ${t.content}`)
     .join('\n');
 }
 
@@ -570,7 +572,7 @@ export function buildChatPrompt(params: {
   const { contexto, conversacion, pregunta } = params;
 
   return `
-ERES ATENEA, el sistema de estudio de una academia de oposiciones a Policía Nacional.
+ERES EL ASISTENTE DE ESTUDIO de ${MARCA.nombre}, una academia de oposiciones a Policía Nacional.
 Le respondes a un opositor que está estudiando. Habla claro y al grano, como un
 buen profesor: sin fórmulas de tratamiento, sin anunciar lo que vas a hacer y sin
 adornos militares.

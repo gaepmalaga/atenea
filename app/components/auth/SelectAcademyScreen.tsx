@@ -2,6 +2,7 @@
 
 import { Building2, LogOut, ArrowRight } from 'lucide-react';
 import { TAP, cx } from '../ui';
+import CintaMarca from './CintaMarca';
 
 /**
  * ELIGE TU ACADEMIA — P11h.
@@ -29,22 +30,15 @@ interface Props {
 
 const C = {
   fondo: 'bg-[#f7f4ee]',
-  tinta: 'text-[#111820]',
+  tinta: 'text-[#14295a]',
   tinta2: 'text-[#3d4a5a]',
-  rojo: 'bg-[#c60b1e]',
+  acento: 'bg-[#c5a738] text-[#14295a]',
 } as const;
 
 export default function SelectAcademyScreen({ academias, email, onLogout }: Props) {
   return (
     <div className={cx('min-h-dvh flex flex-col', C.fondo)}>
-      <header className="border-b-[3px] border-[#111820]">
-        <div className="max-w-lg mx-auto px-6 py-3 flex items-center justify-between">
-          <span className={cx('text-xs font-black uppercase tracking-[0.14em]', C.tinta)}>Atenea Policial</span>
-          <span className="flex h-2 w-8">
-            <span className="flex-1 bg-[#c60b1e]" /><span className="flex-1 bg-[#ffc400]" /><span className="flex-1 bg-[#c60b1e]" />
-          </span>
-        </div>
-      </header>
+      <CintaMarca />
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-lg space-y-6">
@@ -63,8 +57,8 @@ export default function SelectAcademyScreen({ academias, email, onLogout }: Prop
                 key={a.slug}
                 href={`/${a.slug}`}
                 className={cx(
-                  'flex items-center justify-between gap-3 w-full border-[3px] border-[#111820] px-4 py-4 min-h-[56px]',
-                  'font-semibold text-[#111820] hover:bg-[#111820] hover:text-white transition-colors',
+                  'flex items-center justify-between gap-3 w-full border-[3px] border-[#14295a] px-4 py-4 min-h-[56px]',
+                  'font-semibold text-[#14295a] hover:bg-[#14295a] hover:text-white transition-colors',
                   TAP,
                 )}
               >
