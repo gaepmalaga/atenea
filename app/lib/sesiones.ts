@@ -17,6 +17,7 @@
  */
 
 import { normalizaVideo } from './training-plan.ts';
+import { normalizaCargas, type Carga } from './rm.ts';
 import { sumaDias, diaSemanaDe, esFecha } from './asistencia.ts';
 
 export const TIPOS_SESION = ['fuerza', 'carrera', 'agilidad', 'circuito', 'movilidad', 'descanso', 'otro'] as const;
@@ -57,6 +58,8 @@ export type ContenidoSesion = {
   durationMin: number | null;
   distanceKm: number | null;
   video: string | null;
+  /** Las cargas en % del 1RM (regla 87). Vacío si la sesión no las lleva. */
+  cargas: Carga[];
 };
 
 export type Sesion = ContenidoSesion & {
@@ -126,9 +129,11 @@ export function normalizaContenido(raw: Record<string, unknown> | null | undefin
     video = normalizaVideo(r.video);
     if (!video) return { ok: false, error: 'El enlace del vídeo tiene que empezar por https://' };
   }
+  const cargas = normalizaCargas(r.cargas);
+  if (!cargas.ok) return cargas;
   return {
     ok: true,
-    valor: { kind: r.kind, title, description: descripcion || null, durationMin: min.valor, distanceKm: km.valor, video },
+    valor: { kind: r.kind, title, description: descripcion || null, durationMin: min.valor, distanceKm: km.valor, video, cargas: cargas.valor },
   };
 }
 
@@ -296,7 +301,7 @@ export function copiaSemana<T extends ContenidoSesion & Pick<Sesion, 'fecha' | '
   return ordenaSesiones(sesiones.filter((s) => s.fecha >= desdeLunes && s.fecha <= fin).map((s) => ({ ...s, title: s.title })))
     .map((s) => ({
       kind: s.kind, title: s.title, description: s.description, durationMin: s.durationMin,
-      distanceKm: s.distanceKm, video: s.video, fecha: sumaDias(s.fecha, salto), position: s.position,
+      distanceKm: s.distanceKm, video: s.video, cargas: s.cargas ?? [], fecha: sumaDias(s.fecha, salto), position: s.position,
     }));
 }
 

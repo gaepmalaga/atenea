@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Save, Trash2, Copy, BookmarkPlus, Check, X, MessageSquare } from 'lucide-react';
+import { Loader2, Save, Trash2, Copy, BookmarkPlus, Check, X, MessageSquare, Plus, Weight } from 'lucide-react';
 import { saveSesion, deleteSesion, moverSesion, savePlantilla, responderApunte } from '@/actions';
 import {
   TIPOS_SESION, ETIQUETA_TIPO, estadoSesion, etiquetaDia, formateaMinutos, formateaKm,
   type Destino, type Sesion, type Plantilla, type TipoSesion,
 } from '@/app/lib/sesiones';
-import type { ApunteConCorreo } from '@/app/actions/fisica';
+import type { ApunteConCorreo, RMVigente } from '@/app/actions/fisica';
+import { EJERCICIOS_FUERZA, claveEjercicio, kgDeCarga, formateaKg, type Carga } from '@/app/lib/rm';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
 import { Modal, Button, TextField, TextAreaField, SelectField, TEXT, cx } from '../../../ui';
 
@@ -21,7 +22,7 @@ import { Modal, Button, TextField, TextAreaField, SelectField, TEXT, cx } from '
  * que ha apuntado cada alumno y le contesta.
  */
 export default function EditorSesion({
-  destino, fecha: fechaInicial, sesion, plantillas, apuntes, miembros, hoy, nombreGrupo, onCerrar, onCambio,
+  destino, fecha: fechaInicial, sesion, plantillas, apuntes, miembros, hoy, nombreGrupo, rm, onCerrar, onCambio,
 }: {
   destino: Destino;
   fecha: string;
@@ -32,6 +33,8 @@ export default function EditorSesion({
   hoy: string;
   /** Si la sesión es de un grupo y se está mirando desde un alumno: solo lectura. */
   nombreGrupo: string | null;
+  /** El 1RM del alumno, si se planifica para uno: para ver sus kilos (regla 87). */
+  rm: RMVigente | null;
   onCerrar: () => void;
   onCambio: () => void;
 }) {
@@ -44,11 +47,12 @@ export default function EditorSesion({
   const [durationMin, setDurationMin] = useState(sesion?.durationMin != null ? String(sesion.durationMin) : '');
   const [distanceKm, setDistanceKm] = useState(sesion?.distanceKm != null ? String(sesion.distanceKm).replace('.', ',') : '');
   const [video, setVideo] = useState(sesion?.video ?? '');
+  const [cargas, setCargas] = useState<FilaCarga[]>(() => (sesion?.cargas ?? []).map(aFila));
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const contenido = { kind, title, description, durationMin, distanceKm, video };
+  const contenido = { kind, title, description, durationMin, distanceKm, video, cargas };
 
   function desdePlantilla(id: string) {
     const p = plantillas.find((x) => x.id === id);
@@ -59,6 +63,7 @@ export default function EditorSesion({
     setDurationMin(p.durationMin != null ? String(p.durationMin) : '');
     setDistanceKm(p.distanceKm != null ? String(p.distanceKm).replace('.', ',') : '');
     setVideo(p.video ?? '');
+    setCargas(p.cargas.map(aFila));
   }
 
   async function haz(que: string, fn: () => Promise<{ success: boolean; error?: string }>, cerrar = true) {
@@ -175,6 +180,7 @@ export default function EditorSesion({
             <TextField label="Distancia (km)" inputMode="decimal" value={distanceKm} onChange={(e) => setDistanceKm(e.target.value)} placeholder="—" />
           </div>
           <TextField label="Vídeo (opcional)" type="url" inputMode="url" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="https://youtube.com/…" />
+          <EditorCargas cargas={cargas} onChange={setCargas} rm={rm} />
           {aviso && <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{aviso}</p>}
           {error && <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
         </div>
@@ -229,6 +235,56 @@ function FilaFeedback({ sesionId, userId, email, apunte, estado, onCambio }: {
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Las cargas en % del 1RM (regla 87) ──
+
+type FilaCarga = { ejercicio: string; porcentaje: string; series: string; reps: string };
+const aFila = (c: Carga): FilaCarga => ({
+  ejercicio: c.ejercicio, porcentaje: String(c.porcentaje), series: c.series ? String(c.series) : '', reps: c.reps ? String(c.reps) : '',
+});
+
+function EditorCargas({ cargas, onChange, rm }: { cargas: FilaCarga[]; onChange: (c: FilaCarga[]) => void; rm: RMVigente | null }) {
+  const cambia = (i: number, patch: Partial<FilaCarga>) => onChange(cargas.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const nueva = () => onChange([...cargas, { ejercicio: '', porcentaje: '75', series: '', reps: '' }]);
+  if (!cargas.length) {
+    return (
+      <Button variant="ghost" size="sm" onClick={nueva}>
+        <Weight size={15} /> Añadir cargas en % del 1RM (opcional)
+      </Button>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3 space-y-2">
+      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"><Weight size={14} /> Cargas en % del 1RM</p>
+      <p className={TEXT.muted}>{rm ? 'Al lado, los kilos de este alumno.' : 'Cada alumno verá sus kilos según su 1RM.'}</p>
+      <datalist id="ejercicios-cargas">{EJERCICIOS_FUERZA.map((x) => <option key={x} value={x} />)}</datalist>
+      {cargas.map((c, i) => {
+        const suyo = rm?.[claveEjercicio(c.ejercicio || ' ')];
+        const kg = suyo ? kgDeCarga(suyo.rm, Number(c.porcentaje)) : null;
+        return (
+          <div key={i} className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-end">
+            <div className="col-span-2 sm:col-span-1">
+              <TextField label="Ejercicio" list="ejercicios-cargas" value={c.ejercicio} onChange={(e) => cambia(i, { ejercicio: e.target.value })} placeholder="Sentadilla" />
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:contents">
+              <TextField label="Series" inputMode="numeric" value={c.series} onChange={(e) => cambia(i, { series: e.target.value })} placeholder="4" />
+              <TextField label="Reps" inputMode="numeric" value={c.reps} onChange={(e) => cambia(i, { reps: e.target.value })} placeholder="6" />
+              <TextField label="% 1RM" inputMode="numeric" value={c.porcentaje} onChange={(e) => cambia(i, { porcentaje: e.target.value })} placeholder="75" />
+            </div>
+            <div className="flex items-center gap-1 pb-0.5 col-start-2 row-start-2 sm:col-start-auto sm:row-start-auto">
+              {rm && <span className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap">{kg !== null ? formateaKg(kg) : '— kg'}</span>}
+              <button aria-label="Quitar la carga" onClick={() => onChange(cargas.filter((_, j) => j !== i))}
+                className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      <Button variant="ghost" size="sm" onClick={nueva}><Plus size={14} /> Otra carga</Button>
     </div>
   );
 }

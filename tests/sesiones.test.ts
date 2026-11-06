@@ -19,13 +19,13 @@ import { normalizePlan, normalizaVideo } from '../app/lib/training-plan';
 
 const ses = (id: string, fecha: string, extra: Partial<Sesion> = {}): Sesion => ({
   id, fecha, kind: 'fuerza', title: `Sesión ${id}`, description: null, durationMin: null, distanceKm: null,
-  video: null, classId: 'g1', userId: null, position: 0, ...extra,
+  video: null, classId: 'g1', userId: null, position: 0, cargas: [], ...extra,
 });
 
 describe('lo que escribe el preparador', () => {
   it('pide tipo y título; lo demás es opcional y vacío es null (regla 16)', () => {
     expect(normalizaContenido({ kind: 'carrera', title: '  Series  ', description: '  ', durationMin: '', distanceKm: '' }))
-      .toEqual({ ok: true, valor: { kind: 'carrera', title: 'Series', description: null, durationMin: null, distanceKm: null, video: null } });
+      .toEqual({ ok: true, valor: { kind: 'carrera', title: 'Series', description: null, durationMin: null, distanceKm: null, video: null, cargas: [] } });
     expect(normalizaContenido({ kind: 'nadar', title: 'X' }).ok).toBe(false);
     expect(normalizaContenido({ kind: 'fuerza', title: '   ' }).ok).toBe(false);
     expect(normalizaContenido({ kind: 'fuerza', title: 'x'.repeat(121) }).ok).toBe(false);

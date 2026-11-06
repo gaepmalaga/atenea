@@ -8,7 +8,7 @@ import {
   getDestinosFisica, getPlanificador, getPlantillas, moverSesion, saveSesion, copiarSemanaFisica, setNotaSemana,
   deletePlantilla,
 } from '@/actions';
-import type { DestinoGrupo, DestinoAlumno, ApunteConCorreo, NotaSemana } from '@/app/actions/fisica';
+import type { DestinoGrupo, DestinoAlumno, ApunteConCorreo, NotaSemana, RMVigente } from '@/app/actions/fisica';
 import {
   TIPOS_SESION, ETIQUETA_TIPO, diasDeSemana, semanasDelMes, sumaMeses, mesDe, etiquetaMes, etiquetaSemana,
   etiquetaDia, porDia, resumenSemana, estadoSesion, formateaMinutos, formateaKm, lunesDe,
@@ -39,6 +39,7 @@ type Datos = {
   miembros: { id: string; email: string }[];
   notas: NotaSemana[];
   nombresGrupo: Record<string, string>;
+  rm: RMVigente;
   hoy: string;
 };
 
@@ -309,6 +310,7 @@ export default function Planificador() {
           apuntes={datos.apuntes}
           miembros={datos.miembros}
           hoy={hoy}
+          rm={destino.tipo === 'alumno' ? datos.rm : null}
           nombreGrupo={editor.sesion?.classId ? datos.nombresGrupo[editor.sesion.classId] ?? null : destino.tipo === 'grupo' ? nombreDestino ?? null : null}
           onCerrar={() => setEditor(null)}
           onCambio={tras}
@@ -370,6 +372,11 @@ function TarjetaCoach({ s, destino, apuntes, miembros, hoy, nombreGrupo, onAbrir
           <Icono size={12} className={cx('shrink-0 rounded', E.chip)} />
           <span className="text-xs font-black text-slate-900 dark:text-white leading-snug line-clamp-2">{s.title}</span>
         </span>
+        {s.cargas.length > 0 && (
+          <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+            {s.cargas.length} {s.cargas.length === 1 ? 'carga' : 'cargas'} en % 1RM
+          </span>
+        )}
         {(meta || deGrupoEnAlumno) && (
           <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
             {meta}{meta && deGrupoEnAlumno ? ' · ' : ''}{deGrupoEnAlumno ? nombreGrupo : ''}

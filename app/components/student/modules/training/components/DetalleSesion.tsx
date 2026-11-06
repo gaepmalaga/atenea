@@ -6,6 +6,8 @@ import {
   ETIQUETA_TIPO, sePuedeApuntar, formateaMinutos, formateaKm, etiquetaDia, type Sesion, type Apunte,
 } from '@/app/lib/sesiones';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
+import ListaCargas from '@/app/components/fisica/ListaCargas';
+import type { RMVigente } from '@/app/actions/fisica';
 import { Modal, Button, TextAreaField, TextField, TEXT, cx } from '../../../../ui';
 
 type Cambio = {
@@ -24,8 +26,10 @@ type Cambio = {
  * si quiere el tiempo y la distancia reales. Todo menos «hecha / no hecha» es
  * opcional (regla 56): se pide lo mínimo para que lo apunte de verdad.
  */
-export default function DetalleSesion({ sesion, apunte, grupo, hoy, onCerrar, onGuardar }: {
+export default function DetalleSesion({ sesion, apunte, grupo, hoy, rm, onCerrar, onGuardar }: {
   sesion: Sesion;
+  /** Su 1RM vigente, para calcular los kilos de las cargas (regla 87). */
+  rm: RMVigente;
   apunte: Apunte | null;
   grupo: string | null;
   hoy: string;
@@ -86,6 +90,8 @@ export default function DetalleSesion({ sesion, apunte, grupo, hoy, onCerrar, on
         ) : (
           <p className={TEXT.muted}>El preparador no ha escrito más detalle.</p>
         )}
+
+        <ListaCargas cargas={sesion.cargas} rm={rm} quien="alumno" />
 
         {sesion.video && (
           <a href={sesion.video} target="_blank" rel="noopener noreferrer"

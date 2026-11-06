@@ -103,6 +103,8 @@ const SOLO_SERVICIO = [
   'session_templates',
   'training_week_notes',
   'physical_marks',
+  // Regla 87: el 1RM.
+  'rm_marks',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */

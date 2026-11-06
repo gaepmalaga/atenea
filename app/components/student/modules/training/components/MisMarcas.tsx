@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Trophy, Trash2, Loader2, Plus } from 'lucide-react';
-import { getMisMarcas, addMiMarca, deleteMiMarca, setMiSexo } from '@/actions';
+import { getMisMarcas, addMiMarca, deleteMiMarca, setMiSexo, addMiRM, deleteMiRM } from '@/actions';
 import {
   INFO_PRUEBA, BAREMO_CNP, pruebasDe, puntosPrueba, notaFisica, formateaMarca, ultimaMarca, mejorMarca,
   type Prueba, type Sexo,
 } from '@/app/lib/baremo-fisico';
-import type { MarcaGuardada } from '@/app/actions/fisica';
+import type { MarcaGuardada, MarcaRMGuardada } from '@/app/actions/fisica';
+import SeccionRM from '@/app/components/fisica/SeccionRM';
 import { etiquetaDia } from '@/app/lib/sesiones';
 import { colorPuntos } from '@/app/components/fisica/estiloTipo';
 import { Card, Button, TextField, SectionLabel, TEXT, cx } from '../../../../ui';
@@ -24,14 +25,14 @@ import { Card, Button, TextField, SectionLabel, TEXT, cx } from '../../../../ui'
 const numES = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
 
 export default function MisMarcas() {
-  const [datos, setDatos] = useState<{ sexo: Sexo | null; marcas: MarcaGuardada[]; hoy: string } | null>(null);
+  const [datos, setDatos] = useState<{ sexo: Sexo | null; marcas: MarcaGuardada[]; rms: MarcaRMGuardada[]; hoy: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const res = await getMisMarcas();
     if (!res.success) { setError(res.error); return; }
     setError(null);
-    setDatos({ sexo: res.sexo, marcas: res.marcas, hoy: res.hoy });
+    setDatos({ sexo: res.sexo, marcas: res.marcas, rms: res.rms, hoy: res.hoy });
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -88,6 +89,17 @@ export default function MisMarcas() {
           onCambio={cargar}
         />
       ))}
+
+      <Card>
+        <SeccionRM
+          marcas={datos.rms}
+          hoy={datos.hoy}
+          quien="alumno"
+          puedeBorrar={(m) => datos.rms.find((x) => x.id === m.id)?.porMi ?? false}
+          onApuntar={async (e) => { const r = await addMiRM(e); if (r.success) cargar(); return r; }}
+          onBorrar={async (id) => { const r = await deleteMiRM({ id }); if (r.success) cargar(); return r; }}
+        />
+      </Card>
     </div>
   );
 }

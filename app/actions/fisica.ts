@@ -29,15 +29,16 @@ import {
   type Destino, type Sesion, type Plantilla, type Apunte, type TipoSesion,
 } from '../lib/sesiones';
 import { esPrueba, leeMarca, type Marca, type Prueba, type Sexo } from '../lib/baremo-fisico';
+import { leeCargas, leeKg, normalizaEjercicio, rmVigentes, MAX_REPS_ESTIMACION, type MarcaRM } from '../lib/rm';
 
 const hoyAcademia = () => ahoraEnZona(Date.now()).fecha;
 const MAX_RANGO_DIAS = 62;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
 
-const COLS_SESION = 'id, class_id, user_id, session_date, kind, title, description, duration_min, distance_km, video, position';
+const COLS_SESION = 'id, class_id, user_id, session_date, kind, title, description, duration_min, distance_km, video, position, loads';
 const COLS_APUNTE = 'session_id, user_id, status, rpe, comment, duration_min, distance_km, coach_reply';
-const COLS_PLANTILLA = 'id, kind, title, description, duration_min, distance_km, video';
+const COLS_PLANTILLA = 'id, kind, title, description, duration_min, distance_km, video, loads';
 
 type Fila = Record<string, unknown>;
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
@@ -56,6 +57,7 @@ function aSesion(r: Fila): Sesion {
     distanceKm: num(r.distance_km),
     video: (r.video as string | null) ?? null,
     position: Number(r.position ?? 0),
+    cargas: leeCargas(r.loads),
   };
 }
 
@@ -81,6 +83,7 @@ function aPlantilla(r: Fila): Plantilla {
     durationMin: num(r.duration_min),
     distanceKm: num(r.distance_km),
     video: (r.video as string | null) ?? null,
+    cargas: leeCargas(r.loads),
   };
 }
 
@@ -128,6 +131,42 @@ async function nombresDeGrupos(organizationId: string): Promise<Record<string, s
 }
 
 export type NotaSemana = { weekStart: string; note: string; classId: string | null };
+
+/** El 1RM vigente de cada ejercicio, por clave (regla 87). */
+export type RMVigente = Record<string, { ejercicio: string; rm: number }>;
+
+const COLS_RM = 'id, exercise, weight_kg, reps, measured_on, note';
+function aMarcaRM(r: Fila): MarcaRM {
+  return {
+    id: r.id as string,
+    ejercicio: r.exercise as string,
+    pesoKg: Number(r.weight_kg),
+    reps: Number(r.reps ?? 1),
+    fecha: r.measured_on as string,
+    nota: (r.note as string | null) ?? null,
+  };
+}
+
+async function rmDelAlumno(userId: string, organizationId: string): Promise<RMVigente> {
+  const { data } = await supabaseAdmin.from('rm_marks').select(COLS_RM).eq('user_id', userId).eq('organization_id', organizationId);
+  return Object.fromEntries([...rmVigentes((data ?? []).map(aMarcaRM))].map(([k, v]) => [k, { ejercicio: v.ejercicio, rm: v.rm }]));
+}
+
+function leeEntradaRM(params: { ejercicio?: unknown; pesoKg?: unknown; reps?: unknown; fecha?: unknown; nota?: unknown }, hoy: string):
+  { ok: true; ejercicio: string; peso: number; reps: number; fecha: string; nota: string | null } | { ok: false; error: string } {
+  const ejercicio = normalizaEjercicio(params.ejercicio);
+  if (!ejercicio) return { ok: false, error: 'Escribe el ejercicio.' };
+  const peso = leeKg(params.pesoKg);
+  if (peso === null || peso >= 1000) return { ok: false, error: 'El peso va en kilos (por ejemplo, 80 o 82,5).' };
+  const reps = params.reps === null || params.reps === undefined || String(params.reps).trim() === '' ? 1 : Number(params.reps);
+  if (!Number.isInteger(reps) || reps < 1 || reps > MAX_REPS_ESTIMACION) {
+    return { ok: false, error: `Las repeticiones van de 1 a ${MAX_REPS_ESTIMACION}: con más, la estimación del 1RM no es fiable.` };
+  }
+  const fecha = typeof params.fecha === 'string' ? params.fecha : '';
+  if (!esFecha(fecha) || fecha > hoy) return { ok: false, error: 'La fecha no puede ser futura.' };
+  const nota = typeof params.nota === 'string' ? params.nota.trim().slice(0, 300) : '';
+  return { ok: true, ejercicio, peso: Math.round(peso * 100) / 100, reps, fecha, nota: nota || null };
+}
 
 // ═════════════════════════════════════════════════════════════════════════
 // EL PREPARADOR
@@ -196,6 +235,8 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
       miembros: { id: string; email: string }[];
       notas: NotaSemana[];
       nombresGrupo: Record<string, string>;
+      /** El 1RM del alumno (solo en la vista de un alumno): para ver sus kilos al planificar. */
+      rm: RMVigente;
       hoy: string;
     }
   | { success: false; error: string }
@@ -225,8 +266,9 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
     idsMiembros = [destino.id];
   }
 
-  const [{ data: filas, error }, { data: notas }, mapaCorreos, nombresGrupo] = await Promise.all([
+  const [{ data: filas, error }, { data: notas }, mapaCorreos, nombresGrupo, rm] = await Promise.all([
     sesionesQ, notasQ, correos(idsMiembros), nombresDeGrupos(org),
+    destino.tipo === 'alumno' ? rmDelAlumno(destino.id, org) : Promise.resolve({} as RMVigente),
   ]);
   if (error) return { success: false as const, error: error.message };
   const sesiones = (filas ?? []).map(aSesion);
@@ -243,6 +285,7 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
     miembros: idsMiembros.map((id) => ({ id, email: mapaCorreos.get(id) ?? '—' })).sort((a, b) => a.email.localeCompare(b.email)),
     notas: (notas ?? []).map((n) => ({ weekStart: n.week_start as string, note: n.note as string, classId: (n.class_id as string | null) ?? null })),
     nombresGrupo,
+    rm,
     hoy: hoyAcademia(),
   };
 }
@@ -274,6 +317,7 @@ export async function saveSesion(params: {
     duration_min: c.valor.durationMin,
     distance_km: c.valor.distanceKm,
     video: c.valor.video,
+    loads: c.valor.cargas.length ? c.valor.cargas : null,
     updated_at: new Date().toISOString(),
   };
 
@@ -324,7 +368,7 @@ export async function moverSesion(params: { id: string; fecha: string; copiar?: 
   const { error } = await supabaseAdmin.from('training_sessions').insert({
     organization_id: org, class_id: s.class_id, user_id: s.user_id, session_date: fecha, kind: s.kind, title: s.title,
     description: s.description, duration_min: s.duration_min, distance_km: s.distance_km, video: s.video,
-    position: 99, created_by: auth.user.id,
+    loads: s.loads ?? null, position: 99, created_by: auth.user.id,
   });
   return { success: !error, error: error?.message };
 }
@@ -355,7 +399,7 @@ export async function copiarSemanaFisica(params: { destino: Destino; desde: stri
     user_id: destino.tipo === 'alumno' ? destino.id : null,
     session_date: c.fecha, kind: c.kind, title: c.title, description: c.description,
     duration_min: c.durationMin, distance_km: c.distanceKm, video: c.video, position: c.position,
-    created_by: auth.user.id,
+    loads: c.cargas.length ? c.cargas : null, created_by: auth.user.id,
   })));
   if (e2) return { success: false as const, error: e2.message };
   return { success: true as const, creadas: copias.length };
@@ -422,7 +466,8 @@ export async function savePlantilla(params: { id?: string | null; contenido: Rec
   if (!c.ok) return { success: false as const, error: c.error };
   const fila = {
     kind: c.valor.kind, title: c.valor.title, description: c.valor.description, duration_min: c.valor.durationMin,
-    distance_km: c.valor.distanceKm, video: c.valor.video, updated_at: new Date().toISOString(),
+    distance_km: c.valor.distanceKm, video: c.valor.video, loads: c.valor.cargas.length ? c.valor.cargas : null,
+    updated_at: new Date().toISOString(),
   };
   if (params.id) {
     if (!esUuid(params.id)) return { success: false as const, error: 'Datos no válidos.' };
@@ -447,7 +492,7 @@ export async function deletePlantilla(params: { id: string }): Promise<{ success
 // ── Las marcas de la academia ────────────────────────────────────────────
 
 export type MarcaGuardada = Marca & { porMi: boolean };
-export type AlumnoConMarcas = { id: string; email: string; sexo: Sexo | null; marcas: Marca[] };
+export type AlumnoConMarcas = { id: string; email: string; sexo: Sexo | null; marcas: Marca[]; rms: MarcaRM[] };
 
 const aSexo = (v: unknown): Sexo | null => (v === 'male' || v === 'female' ? v : null);
 
@@ -466,12 +511,13 @@ export async function getMarcasAcademia(): Promise<{ success: true; alumnos: Alu
   const ids = (socios ?? []).map((s) => s.user_id as string);
   if (!ids.length) return { success: true as const, alumnos: [], hoy: hoyAcademia() };
 
-  const [{ data: perfiles }, { data: fisicos }, { data: marcas, error }] = await Promise.all([
+  const [{ data: perfiles }, { data: fisicos }, { data: marcas, error }, { data: rms }] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role').in('id', ids),
     // Un admin leyendo el sexo de OTRO alumno: la sesión del alumno no sirve aquí
     // (regla 48). Detrás de `requireAdmin`.
     supabaseAdmin.from('profiles_physical').select('user_id, gender').in('user_id', ids),
     supabaseAdmin.from('physical_marks').select('id, user_id, test, value, measured_on, note').eq('organization_id', org).order('measured_on'),
+    supabaseAdmin.from('rm_marks').select(`${COLS_RM}, user_id`).eq('organization_id', org).order('measured_on'),
   ]);
   if (error) return { success: false as const, error: error.message };
   const sexo = new Map((fisicos ?? []).map((f) => [f.user_id as string, aSexo(f.gender)]));
@@ -486,6 +532,7 @@ export async function getMarcasAcademia(): Promise<{ success: true; alumnos: Alu
         email: (p.email as string | null) ?? '—',
         sexo: sexo.get(p.id as string) ?? null,
         marcas: (marcas ?? []).filter((m) => m.user_id === p.id).map(aMarca),
+        rms: (rms ?? []).filter((m) => m.user_id === p.id).map(aMarcaRM),
       }))
       .sort((a, b) => a.email.localeCompare(b.email)),
   };
@@ -530,6 +577,30 @@ export async function deleteMarca(params: { id: string }): Promise<{ success: bo
   return { success: !error, error: error?.message };
 }
 
+/** Apunta un 1RM de un alumno: el peso y cuántas repeticiones (1 = medido; 2-12, estimado). */
+export async function addRM(params: { alumnoId: string; ejercicio: string; pesoKg: string; reps?: string; fecha: string; nota?: string }): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org || !(await esAlumnoDe(params?.alumnoId, org))) return { success: false, error: 'Ese alumno no es de tu academia.' };
+  const m = leeEntradaRM(params, hoyAcademia());
+  if (!m.ok) return { success: false, error: m.error };
+  const { error } = await supabaseAdmin.from('rm_marks').insert({
+    organization_id: org, user_id: params.alumnoId, exercise: m.ejercicio, weight_kg: m.peso, reps: m.reps,
+    measured_on: m.fecha, note: m.nota, recorded_by: auth.user.id,
+  });
+  return { success: !error, error: error?.message };
+}
+
+export async function deleteRM(params: { id: string }): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org || !esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
+  const { error } = await supabaseAdmin.from('rm_marks').delete().eq('id', params.id).eq('organization_id', org);
+  return { success: !error, error: error?.message };
+}
+
 /** El sexo de un alumno, que decide su prueba de fuerza y su baremo. */
 export async function setSexoAlumno(params: { alumnoId: string; sexo: string }): Promise<{ success: boolean; error?: string }> {
   const auth = await requireAdmin();
@@ -547,7 +618,7 @@ export async function setSexoAlumno(params: { alumnoId: string; sexo: string }):
 
 /** Su calendario: sus sesiones y las de sus grupos, con lo que ha apuntado. */
 export async function getMiFisica(params: { desde: string; hasta: string }): Promise<
-  | { success: true; sesiones: Sesion[]; apuntes: Apunte[]; notas: NotaSemana[]; nombresGrupo: Record<string, string>; hoy: string }
+  | { success: true; sesiones: Sesion[]; apuntes: Apunte[]; notas: NotaSemana[]; nombresGrupo: Record<string, string>; rm: RMVigente; hoy: string }
   | { success: false; error: string }
 > {
   const auth = await requireUser();
@@ -556,20 +627,21 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
   if (!modulo.ok) return { success: false as const, error: modulo.error };
   const org = auth.user.organizationId;
   const hoy = hoyAcademia();
-  if (!org) return { success: true as const, sesiones: [], apuntes: [], notas: [], nombresGrupo: {}, hoy };
+  if (!org) return { success: true as const, sesiones: [], apuntes: [], notas: [], nombresGrupo: {}, rm: {}, hoy };
   const { desde, hasta } = params ?? ({} as typeof params);
   if (!rangoValido(desde, hasta)) return { success: false as const, error: 'Datos no válidos.' };
 
   // Con el plan manual apagado por la academia, no hay calendario (regla 54).
   const switches = await leeTrainingSwitches(org);
-  if (!switches.group) return { success: true as const, sesiones: [], apuntes: [], notas: [], nombresGrupo: {}, hoy };
+  if (!switches.group) return { success: true as const, sesiones: [], apuntes: [], notas: [], nombresGrupo: {}, rm: {}, hoy };
 
   const grupos = await gruposDelAlumno(auth.user.id, org);
   const filtro = filtroAlumno(auth.user.id, grupos);
-  const [{ data: filas, error }, { data: notas }, nombresGrupo] = await Promise.all([
+  const [{ data: filas, error }, { data: notas }, nombresGrupo, rm] = await Promise.all([
     supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('organization_id', org).or(filtro).gte('session_date', desde).lte('session_date', hasta),
     supabaseAdmin.from('training_week_notes').select('week_start, note, class_id').eq('organization_id', org).or(filtro).gte('week_start', lunesDe(desde)).lte('week_start', hasta),
     nombresDeGrupos(org),
+    rmDelAlumno(auth.user.id, org),
   ]);
   if (error) return { success: false as const, error: error.message };
   const sesiones = (filas ?? []).map(aSesion);
@@ -584,6 +656,7 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
     apuntes: (logs ?? []).map(aApunte),
     notas: (notas ?? []).map((n) => ({ weekStart: n.week_start as string, note: n.note as string, classId: (n.class_id as string | null) ?? null })),
     nombresGrupo: Object.fromEntries(Object.entries(nombresGrupo).filter(([id]) => grupos.includes(id))),
+    rm,
     hoy,
   };
 }
@@ -631,22 +704,54 @@ export async function setMiApunte(params: {
 }
 
 /** Sus marcas, y su sexo (para el baremo). */
-export async function getMisMarcas(): Promise<{ success: true; sexo: Sexo | null; marcas: MarcaGuardada[]; hoy: string } | { success: false; error: string }> {
+export type MarcaRMGuardada = MarcaRM & { porMi: boolean };
+
+export async function getMisMarcas(): Promise<{ success: true; sexo: Sexo | null; marcas: MarcaGuardada[]; rms: MarcaRMGuardada[]; hoy: string } | { success: false; error: string }> {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const org = auth.user.organizationId;
   const db = await createSupabaseServerClient();
   const { data: fisico } = await db.from('profiles_physical').select('gender').eq('user_id', auth.user.id).maybeSingle();
-  if (!org) return { success: true as const, sexo: aSexo(fisico?.gender), marcas: [], hoy: hoyAcademia() };
-  const { data, error } = await supabaseAdmin.from('physical_marks').select('id, test, value, measured_on, note, recorded_by')
-    .eq('user_id', auth.user.id).eq('organization_id', org).order('measured_on');
+  if (!org) return { success: true as const, sexo: aSexo(fisico?.gender), marcas: [], rms: [], hoy: hoyAcademia() };
+  const [{ data, error }, { data: rms }] = await Promise.all([
+    supabaseAdmin.from('physical_marks').select('id, test, value, measured_on, note, recorded_by')
+      .eq('user_id', auth.user.id).eq('organization_id', org).order('measured_on'),
+    supabaseAdmin.from('rm_marks').select(`${COLS_RM}, recorded_by`).eq('user_id', auth.user.id).eq('organization_id', org).order('measured_on'),
+  ]);
   if (error) return { success: false as const, error: error.message };
   return {
     success: true as const,
     sexo: aSexo(fisico?.gender),
     hoy: hoyAcademia(),
     marcas: (data ?? []).map((r) => ({ ...aMarca(r), porMi: r.recorded_by === auth.user.id })),
+    rms: (rms ?? []).map((r) => ({ ...aMarcaRM(r), porMi: r.recorded_by === auth.user.id })),
   };
+}
+
+/** Apunta un 1RM suyo (peso y repeticiones). */
+export async function addMiRM(params: { ejercicio: string; pesoKg: string; reps?: string; fecha: string; nota?: string }): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false, error: 'No hemos encontrado tu academia.' };
+  const m = leeEntradaRM(params ?? {}, hoyAcademia());
+  if (!m.ok) return { success: false, error: m.error };
+  const { error } = await supabaseAdmin.from('rm_marks').insert({
+    organization_id: org, user_id: auth.user.id, exercise: m.ejercicio, weight_kg: m.peso, reps: m.reps,
+    measured_on: m.fecha, note: m.nota, recorded_by: auth.user.id,
+  });
+  return { success: !error, error: error?.message };
+}
+
+/** Borra un 1RM SUYO, que haya apuntado él. Los del preparador no. */
+export async function deleteMiRM(params: { id: string }): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false, error: auth.error };
+  if (!esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
+  const { data, error } = await supabaseAdmin.from('rm_marks').delete()
+    .eq('id', params.id).eq('user_id', auth.user.id).eq('recorded_by', auth.user.id).select('id');
+  if (error) return { success: false, error: error.message };
+  return data?.length ? { success: true } : { success: false, error: 'Ese 1RM lo apuntó tu preparador: solo él puede borrarlo.' };
 }
 
 export async function addMiMarca(params: { prueba: string; valor: string; fecha: string; nota?: string }): Promise<{ success: boolean; error?: string }> {

@@ -792,6 +792,7 @@ const sesionFis = (id: string, dia: number, kind: 'fuerza' | 'carrera' | 'agilid
   id, fecha: lunesFis(dia), kind, title, description: extra.description ?? null, durationMin: extra.durationMin ?? null,
   distanceKm: extra.distanceKm ?? null, video: extra.video ?? null, classId: extra.classId === undefined ? 'g1' : extra.classId,
   userId: extra.userId ?? null, position: 0,
+  cargas: id === 's4' ? [{ ejercicio: 'Sentadilla', porcentaje: 75, series: 4, reps: 6 }, { ejercicio: 'Press de banca', porcentaje: 70, series: 4, reps: 8 }] : [],
 });
 const SESIONES_FIS = [
   sesionFis('s1', -7, 'fuerza', 'Tren superior y core', { description: 'Calentamiento: 10′ movilidad de hombro\nDominadas: 5 × máximas · R 2′\nFlexiones: 4 × 15\nPlancha: 3 × 45″', durationMin: 60 }),
@@ -813,10 +814,16 @@ const APUNTES_FIS = [
 ];
 const NOTAS_FIS = [{ weekStart: lunesFis(0), note: 'Semana de test: llegad descansados al viernes', classId: 'g1' }];
 const PLANTILLAS_FIS = [
-  { id: 'p1', kind: 'carrera' as const, title: 'Series de 400 m', description: '6 × 400 m · R 1′30″', durationMin: 50, distanceKm: 6, video: null },
-  { id: 'p2', kind: 'carrera' as const, title: 'Rodaje suave 30′', description: null, durationMin: 30, distanceKm: 5, video: null },
-  { id: 'p3', kind: 'fuerza' as const, title: 'Dominadas: pirámide', description: '1-2-3-4-3-2-1', durationMin: 30, distanceKm: null, video: null },
-  { id: 'p4', kind: 'agilidad' as const, title: 'Técnica de agilidad', description: null, durationMin: 30, distanceKm: null, video: null },
+  { id: 'p1', kind: 'carrera' as const, title: 'Series de 400 m', description: '6 × 400 m · R 1′30″', durationMin: 50, distanceKm: 6, video: null, cargas: [] },
+  { id: 'p2', kind: 'carrera' as const, title: 'Rodaje suave 30′', description: null, durationMin: 30, distanceKm: 5, video: null, cargas: [] },
+  { id: 'p3', kind: 'fuerza' as const, title: 'Dominadas: pirámide', description: '1-2-3-4-3-2-1', durationMin: 30, distanceKm: null, video: null, cargas: [] },
+  { id: 'p4', kind: 'agilidad' as const, title: 'Técnica de agilidad', description: null, durationMin: 30, distanceKm: null, video: null, cargas: [] },
+];
+const RM_FIS = (dias: number) => { const d = new Date(); d.setDate(d.getDate() - dias); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const RMS_FIS = [
+  { id: 'r1', ejercicio: 'Sentadilla', pesoKg: 100, reps: 1, fecha: RM_FIS(40), nota: null },
+  { id: 'r2', ejercicio: 'Sentadilla', pesoKg: 95, reps: 5, fecha: RM_FIS(5), nota: null },
+  { id: 'r3', ejercicio: 'Press de banca', pesoKg: 70, reps: 3, fecha: RM_FIS(5), nota: 'Con ayuda en la última' },
 ];
 
 export async function getDestinosFisica() {
@@ -833,7 +840,7 @@ export async function getPlanificador() {
   return ok({
     sesiones: SESIONES_FIS, apuntes: APUNTES_FIS,
     miembros: [{ id: 'u3', email: 'alumno.flojo@ejemplo.com' }, { id: 'u2', email: 'alumno@atenea.com' }, { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com' }],
-    notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, hoy: fFis(0),
+    notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, rm: {}, hoy: fFis(0),
   });
 }
 export async function getPlantillas() { return ok({ plantillas: PLANTILLAS_FIS }); }
@@ -850,10 +857,10 @@ export async function getMarcasAcademia() {
   return ok({
     hoy: fFis(0),
     alumnos: [
-      { id: 'u2', email: 'alumno@atenea.com', sexo: 'male' as const, marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)] },
-      { id: 'u3', email: 'alumno.flojo@ejemplo.com', sexo: 'male' as const, marcas: [m('m5', 'agilidad', 11.9, 5), m('m6', 'dominadas', 6, 5)] },
-      { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', sexo: 'female' as const, marcas: [m('m7', 'agilidad', 10.6, 2), m('m8', 'suspension', 64, 2), m('m9', 'carrera_1000', 238, 2)] },
-      { id: 'u5', email: 'sin.sexo@ejemplo.com', sexo: null, marcas: [] },
+      { id: 'u2', email: 'alumno@atenea.com', sexo: 'male' as const, marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)], rms: RMS_FIS },
+      { id: 'u3', email: 'alumno.flojo@ejemplo.com', sexo: 'male' as const, marcas: [m('m5', 'agilidad', 11.9, 5), m('m6', 'dominadas', 6, 5)], rms: [] },
+      { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', sexo: 'female' as const, marcas: [m('m7', 'agilidad', 10.6, 2), m('m8', 'suspension', 64, 2), m('m9', 'carrera_1000', 238, 2)], rms: [] },
+      { id: 'u5', email: 'sin.sexo@ejemplo.com', sexo: null, marcas: [], rms: [] },
     ],
   });
 }
@@ -864,6 +871,7 @@ export async function getMiFisica() {
   return ok({
     sesiones: SESIONES_FIS, apuntes: APUNTES_FIS.filter((a) => a.userId === 'u2').map(({ email: _e, ...a }) => a),
     notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, hoy: fFis(0),
+    rm: { sentadilla: { ejercicio: 'Sentadilla', rm: 110.8 }, 'press de banca': { ejercicio: 'Press de banca', rm: 77 } },
   });
 }
 export async function setMiApunte() {
@@ -871,8 +879,13 @@ export async function setMiApunte() {
 }
 export async function getMisMarcas() {
   const m = (id: string, prueba: 'agilidad' | 'dominadas' | 'carrera_1000', valor: number, dias: number, porMi = true) => ({ id, prueba, valor, fecha: fFis(-dias), nota: null, porMi });
-  return ok({ sexo: 'male' as const, hoy: fFis(0), marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3, false), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)] });
+  return ok({ sexo: 'male' as const, hoy: fFis(0), marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3, false), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)],
+    rms: RMS_FIS.map((r, i) => ({ ...r, porMi: i > 0 })) });
 }
+export async function addMiRM() { return { success: true as const }; }
+export async function deleteMiRM() { return { success: true as const }; }
+export async function addRM() { return { success: true as const }; }
+export async function deleteRM() { return { success: true as const }; }
 export async function addMiMarca() { return { success: true as const }; }
 export async function deleteMiMarca() { return { success: true as const }; }
 export async function setMiSexo() { return { success: true as const }; }

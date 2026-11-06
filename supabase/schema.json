@@ -1015,6 +1015,42 @@
         "vote": "integer"
       }
     },
+    "rm_marks": {
+      "columnas": [
+        "created_at",
+        "exercise",
+        "id",
+        "measured_on",
+        "note",
+        "organization_id",
+        "recorded_by",
+        "reps",
+        "user_id",
+        "weight_kg"
+      ],
+      "obligatorias": [
+        "created_at",
+        "exercise",
+        "id",
+        "measured_on",
+        "organization_id",
+        "reps",
+        "user_id",
+        "weight_kg"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "exercise": "text",
+        "id": "uuid",
+        "measured_on": "date",
+        "note": "text",
+        "organization_id": "uuid",
+        "recorded_by": "uuid",
+        "reps": "smallint",
+        "user_id": "uuid",
+        "weight_kg": "numeric"
+      }
+    },
     "session_templates": {
       "columnas": [
         "created_at",
@@ -1024,6 +1060,7 @@
         "duration_min",
         "id",
         "kind",
+        "loads",
         "organization_id",
         "title",
         "updated_at",
@@ -1045,6 +1082,7 @@
         "duration_min": "integer",
         "id": "uuid",
         "kind": "text",
+        "loads": "jsonb",
         "organization_id": "uuid",
         "title": "text",
         "updated_at": "timestamp with time zone",
@@ -1138,6 +1176,7 @@
         "duration_min",
         "id",
         "kind",
+        "loads",
         "organization_id",
         "position",
         "session_date",
@@ -1165,6 +1204,7 @@
         "duration_min": "integer",
         "id": "uuid",
         "kind": "text",
+        "loads": "jsonb",
         "organization_id": "uuid",
         "position": "smallint",
         "session_date": "date",

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2, Plus, ChevronRight } from 'lucide-react';
-import { getMarcasAcademia, addMarca, deleteMarca, setSexoAlumno } from '@/actions';
+import { getMarcasAcademia, addMarca, deleteMarca, setSexoAlumno, addRM, deleteRM } from '@/actions';
 import type { AlumnoConMarcas } from '@/app/actions/fisica';
 import {
   INFO_PRUEBA, BAREMO_CNP, pruebasDe, puntosPrueba, notaFisica, formateaMarca, ultimaMarca,
@@ -10,6 +10,8 @@ import {
 } from '@/app/lib/baremo-fisico';
 import { etiquetaDia } from '@/app/lib/sesiones';
 import { colorPuntos } from '@/app/components/fisica/estiloTipo';
+import SeccionRM from '@/app/components/fisica/SeccionRM';
+import { rmVigentes, formateaKg } from '@/app/lib/rm';
 import { Button, EmptyState, Modal, SelectField, TextField, TEXT, cx } from '../../../ui';
 
 /**
@@ -71,6 +73,11 @@ export default function MarcasAcademia() {
                 <span className="block text-sm font-bold text-slate-900 dark:text-white truncate">{a.email}</span>
                 <span className="flex flex-wrap gap-1 mt-1">
                   {!a.sexo && <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">Falta el sexo para puntuar</span>}
+                  {[...rmVigentes(a.rms).values()].slice(0, 3).map((v) => (
+                    <span key={v.ejercicio} className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      1RM {v.ejercicio} {formateaKg(v.rm)}
+                    </span>
+                  ))}
                   {a.sexo && pruebas.map((p, i) => {
                     const u = ultimaMarca(a.marcas, p);
                     return (
@@ -157,8 +164,19 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
           );
         })}
 
+        <div className="border-t border-slate-200 dark:border-slate-800 pt-3">
+          <SeccionRM
+            marcas={alumno.rms}
+            hoy={hoy}
+            quien="preparador"
+            puedeBorrar={() => true}
+            onApuntar={async (e) => { const r = await addRM({ alumnoId: alumno.id, ...e }); if (r.success) onCambio(); return r; }}
+            onBorrar={async (id) => { const r = await deleteRM({ id }); if (r.success) onCambio(); return r; }}
+          />
+        </div>
+
         <div className="border-t border-slate-200 dark:border-slate-800 pt-3 space-y-2">
-          <p className="text-xs font-black text-slate-700 dark:text-slate-200">Apuntar una marca</p>
+          <p className="text-xs font-black text-slate-700 dark:text-slate-200">Apuntar una marca de las pruebas</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <SelectField label="Prueba" value={prueba} onChange={(e) => setPrueba(e.target.value as Prueba)}>
               {pruebas.map((p) => <option key={p} value={p}>{INFO_PRUEBA[p].corto}</option>)}

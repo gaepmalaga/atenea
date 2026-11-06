@@ -11,6 +11,7 @@ import { sumaDias } from '@/app/lib/asistencia';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
 import { Card, EmptyState, TEXT, cx } from '../../../../ui';
 import DetalleSesion from './DetalleSesion';
+import type { RMVigente } from '@/app/actions/fisica';
 
 /**
  * EL CALENDARIO DE FÍSICA DEL ALUMNO (regla 86).
@@ -41,7 +42,7 @@ export default function CalendarioFisica() {
   const [hoy, setHoy] = useState(hoyLocal);
   const [diaSel, setDiaSel] = useState<string>(hoyLocal);
   const [datos, setDatos] = useState<{
-    sesiones: Sesion[]; apuntes: Apunte[]; notas: { weekStart: string; note: string }[]; nombresGrupo: Record<string, string>;
+    sesiones: Sesion[]; apuntes: Apunte[]; notas: { weekStart: string; note: string }[]; nombresGrupo: Record<string, string>; rm: RMVigente;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [abierta, setAbierta] = useState<Sesion | null>(null);
@@ -55,7 +56,7 @@ export default function CalendarioFisica() {
     if (!res.success) { setError(res.error); return; }
     setError(null);
     setHoy(res.hoy);
-    setDatos({ sesiones: res.sesiones, apuntes: res.apuntes, notas: res.notas, nombresGrupo: res.nombresGrupo });
+    setDatos({ sesiones: res.sesiones, apuntes: res.apuntes, notas: res.notas, nombresGrupo: res.nombresGrupo, rm: res.rm });
   }, [desde, hasta]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -228,6 +229,7 @@ export default function CalendarioFisica() {
           apunte={apuntePorSesion.get(abierta.id) ?? null}
           grupo={abierta.classId ? datos.nombresGrupo[abierta.classId] ?? 'Tu grupo' : null}
           hoy={hoy}
+          rm={datos.rm}
           onCerrar={() => setAbierta(null)}
           onGuardar={async (cambio) => {
             const res = await setMiApunte({ sessionId: abierta.id, ...cambio });
