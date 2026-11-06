@@ -85,8 +85,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Alta de alumnos en bloque y cambiar la contraseña** | ✅ **hecho** (6 nov). Pegar la lista de correos en «Alumnos»; las cuentas nacen con contraseña provisional (sin correo: Supabase solo deja 30 por hora) y el alumno la cambia en «Mi perfil». Verificado contra la BD real. Ver **regla 83** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 | — | **La preparación física sin herramienta externa** | ✅ **hecho** (6 nov), a petición de Alphapol, que mandaba la física con otra aplicación. El alumno marca cada día del plan de su grupo como hecho, con esfuerzo (1-10) y comentario; el preparador ve «Quién ha entrenado» por grupo y semana; cada ejercicio admite un enlace de vídeo. `docs/sql/registro-fisico.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 84** |
-| — | **Pasada de tono: la app habla como Alphapol** | ✅ **hecho** (6 nov). Fuera el reloj «ZULU» (enseñaba la hora de Greenwich), «Sistema online», «Centro de Mando», «Operaciones», «Drills», «Sistema Táctico»; los módulos se llaman Inicio, Test, Repasar fallos, Fichas, Preparación física, Mi evolución, Mi perfil; el logo de Alphapol en el menú y en el panel; menos texto en «Mi evolución». Ver **regla 85** |
-| — | **La física como en TrainingMonkeys** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
+| — | **Pasada de tono: la app habla como Alphapol** | ✅ **en producción** (6 nov). Fuera el reloj «ZULU» (enseñaba la hora de Greenwich), «Sistema online», «Centro de Mando», «Operaciones», «Drills», «Sistema Táctico»; los módulos se llaman Inicio, Test, Repasar fallos, Fichas, Preparación física, Mi evolución, Mi perfil; el logo de Alphapol en el menú y en el panel; menos texto en «Mi evolución». Ver **regla 85** |
+| — | **La física como en TrainingMonkeys** | ✅ **en producción** (6 nov), con un plan de ejemplo de noviembre cargado. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
 
 ## Producción
 
@@ -3613,6 +3613,17 @@ a hecho» más finos (pulsaciones, vatios), sincronizar con Strava o Garmin,
 avisar al alumno cuando se publica la semana, y retirar del todo las acciones
 del plan de semana viejo (`getGroupTrainingPlan` y compañía, en `groups.ts`),
 que ya no usa ninguna pantalla.
+
+**Los datos de ejemplo que hay en producción (6 nov), a petición del dueño**,
+para que el preparador de Alphapol vea un mes entero al entrar: el grupo
+«Promo 43 · Físicas» (el de antes lo borró el dueño sin querer desde el panel,
+con sus 6 semanas de septiembre, y la base de datos del plan Free no tiene
+copias para recuperarlo) con `prueba.alumno@alphapol.es` dentro; 29 sesiones
+del 2 al 30 de noviembre en cuatro semanas de base, carga, carga alta y
+descarga con simulacro; 2 sesiones individuales para ese alumno; 5 notas de
+semana; 5 plantillas; 4 sesiones ya apuntadas por el alumno (una con respuesta
+del preparador); y 6 marcas con su sexo puesto. Son de ejemplo: se pueden
+cambiar o borrar desde el panel.
 
 **Verificado de punta a punta (6 nov)** con la app local contra la BD real: el
 preparador crea una sesión para un grupo temporal, la guarda como plantilla,
