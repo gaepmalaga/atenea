@@ -85,6 +85,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Alta de alumnos en bloque y cambiar la contraseña** | ✅ **hecho** (6 nov). Pegar la lista de correos en «Alumnos»; las cuentas nacen con contraseña provisional (sin correo: Supabase solo deja 30 por hora) y el alumno la cambia en «Mi perfil». Verificado contra la BD real. Ver **regla 83** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 | — | **La preparación física sin herramienta externa** | ✅ **hecho** (6 nov), a petición de Alphapol, que mandaba la física con otra aplicación. El alumno marca cada día del plan de su grupo como hecho, con esfuerzo (1-10) y comentario; el preparador ve «Quién ha entrenado» por grupo y semana; cada ejercicio admite un enlace de vídeo. `docs/sql/registro-fisico.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 84** |
+| — | **Pasada de tono: la app habla como Alphapol** | ✅ **hecho** (6 nov). Fuera el reloj «ZULU» (enseñaba la hora de Greenwich), «Sistema online», «Centro de Mando», «Operaciones», «Drills», «Sistema Táctico»; los módulos se llaman Inicio, Test, Repasar fallos, Fichas, Preparación física, Mi evolución, Mi perfil; el logo de Alphapol en el menú y en el panel; menos texto en «Mi evolución». Ver **regla 85** |
 
 ## Producción
 
@@ -3494,6 +3495,32 @@ temporal con el plan de esta semana y un vídeo → el alumno marca el lunes (7/
 con comentario) y el martes → siguen tras volver a entrar → el preparador ve
 «Lun 1/1 · Mar 1/1 · Jue 0/1», esfuerzo medio 7/10 y el comentario. Grupo
 borrado después (el registro se fue con él, en cascada).
+
+
+### 85 · La app habla como Alphapol, no como un videojuego de policías
+
+Atenea nació con un tono de cuartel: «CENTRO DE MANDO», «OPERACIONES TÁCTICAS»,
+«Drills (Memoria)», «Cargando Sistema Táctico…», un «Sistema online»
+parpadeando y un reloj «ZULU» en cada cabecera. El reloj era lo peor: «Zulu» es
+la hora de Greenwich en jerga militar, así que en Málaga enseñaba **una hora
+menos** que la del móvil y parecía un fallo.
+
+- **Los nombres de los módulos** son los mismos en el menú del alumno
+  (`StudentDashboard`), en los interruptores del panel (`MODULE_LABEL`,
+  `lib/modules.ts`) y en la cabecera: Inicio, Test, Repasar fallos, Fichas,
+  Preparación física, Mi evolución, Mi perfil (y, fuera del MVP, Pregunta al
+  temario y Entrevista). Si se cambia uno, se cambia en los dos sitios.
+- **La cabecera** (`Header.tsx`) dice la fecha de hoy —en el navegador, nunca la
+  del servidor— y el nombre de la academia (`MARCA.nombre`), y debajo el nombre
+  de la pantalla en minúsculas normales, no en mayúsculas.
+- **El logo de Alphapol** sustituye al escudo genérico en el menú lateral del
+  alumno y en la barra del panel.
+- **Menos texto.** Una frase que explica lo que el número ya dice se lee una vez
+  y luego se salta. «Mi evolución» y la configuración del test se recortaron sin
+  quitar ninguna sección.
+
+Los recorridos del banco de pruebas (`todas-las-pantallas.cjs`, `contraste.cjs`)
+buscan los módulos por su nombre: al renombrar uno, hay que cambiarlo ahí también.
 
 ---
 

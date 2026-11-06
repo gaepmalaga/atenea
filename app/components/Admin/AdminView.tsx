@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Shield, LogOut, RefreshCw, Users, Book, Building2,
+  LogOut, RefreshCw, Users, Book, Building2,
   Activity, AlertTriangle, Database, Power, Coins, KeyRound, Users2, Dumbbell,
   ArrowLeftRight, ChevronLeft, ChevronRight, Check, CalendarCheck,
 } from 'lucide-react';
@@ -22,6 +22,7 @@ import AdminPhysical from './components/AdminPhysical';
 import AdminAcademies from './components/AdminAcademies';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
+import { MARCA } from '@/app/lib/marca';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
 type AdminTab = 'students' | 'groups' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
@@ -217,12 +218,12 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
       <header className="flex items-center justify-between gap-3 pb-4 md:pb-6">
 
         <div className="flex items-center gap-3 min-w-0">
-          <div className="bg-indigo-600/20 p-2.5 md:p-3 rounded-2xl border border-indigo-500/30 shrink-0">
-            <Shield className="text-indigo-400 w-5 h-5 md:w-7 md:h-7" />
-          </div>
+          {/* El logo de la academia, como en la entrada y el menú del alumno. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={MARCA.logo} alt="" width={48} height={48} className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover shrink-0" />
           <div className="min-w-0">
             <h1 className="text-lg md:text-2xl font-black text-white tracking-tight leading-none truncate">
-              Centro de Mando
+              {MARCA.nombre} · Panel
             </h1>
             <div className="flex items-center gap-2 mt-1 min-w-0">
               <span className="text-[9px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">

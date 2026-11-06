@@ -10,6 +10,7 @@ import {
 import Sidebar from './layout/Sidebar';
 import MobileNav from './layout/MobileNav';
 import Header from './layout/Header';
+import { MARCA } from '@/app/lib/marca';
 
 // --- MODULES ---
 import DashboardHome from './modules/home/DashboardHome';
@@ -51,16 +52,16 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
   // CONFIGURACIÓN DEL MENÚ DE NAVEGACIÓN
   const todosLosItems = [
-    { id: 'home', label: 'Centro de Mando', icon: LayoutGrid },
-    { id: 'chat', label: 'Inteligencia (RAG)', icon: MessageSquareText },
-    { id: 'test', label: 'Operaciones (Test)', icon: Crosshair },
+    { id: 'home', label: 'Inicio', icon: LayoutGrid },
+    { id: 'chat', label: 'Pregunta al temario', icon: MessageSquareText },
+    { id: 'test', label: 'Test', icon: Crosshair },
     // Justo despues del test, no al final: el repaso del fallo es el paso
     // siguiente de hacer el test, no un apartado de consulta.
     { id: 'review', label: 'Repasar fallos', icon: Target },
-    { id: 'cards', label: 'Drills (Memoria)', icon: Zap },
-    { id: 'training', label: 'Prep. Física', icon: Dumbbell }, // NUEVO
-    { id: 'interview', label: 'Perfilado & Voz', icon: Fingerprint },
-    { id: 'stats', label: 'Mi Evolución', icon: TrendingUp },
+    { id: 'cards', label: 'Fichas', icon: Zap },
+    { id: 'training', label: 'Preparación física', icon: Dumbbell },
+    { id: 'interview', label: 'Entrevista', icon: Fingerprint },
+    { id: 'stats', label: 'Mi evolución', icon: TrendingUp },
     { id: 'profile', label: 'Mi perfil', icon: UserRound },
   ];
 
@@ -247,7 +248,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
         {/* CABECERA (Header) */}
         {!zenMode && (
             <Header 
-                title={navItems.find(i => i.id === activeTab)?.label || 'Sistema'} 
+                title={navItems.find(i => i.id === activeTab)?.label || MARCA.nombre} 
                 activeTab={activeTab}
             />
         )}
@@ -272,7 +273,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             {/* Cada modulo va aislado: un fallo de render en uno no debe dejar
                 el dashboard entero en blanco (pasaba con 'home' y 'stats'). */}
             {activeTab === 'home' && (
-                <ModuleErrorBoundary moduleName="El centro de mando">
+                <ModuleErrorBoundary moduleName="Inicio">
                     <DashboardHome user={user} onNavigate={irAPestana} />
                 </ModuleErrorBoundary>
             )}
@@ -284,7 +285,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             )}
 
             {activeTab === 'test' && (
-                <ModuleErrorBoundary moduleName="Operaciones">
+                <ModuleErrorBoundary moduleName="El test">
                     <ExamManager
                         onZenToggle={setZenMode}
                         onRepasarFallos={modules.review ? () => irAPestana('review') : undefined}
@@ -299,7 +300,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             )}
 
             {activeTab === 'cards' && (
-                <ModuleErrorBoundary moduleName="Drills">
+                <ModuleErrorBoundary moduleName="Las fichas">
                     <FlashcardDeck />
                 </ModuleErrorBoundary>
             )}
@@ -331,7 +332,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                         hueco de la barra se reserva una vez en `<main>`, pero
                         este boton solo existe en esta pestaña, asi que su hueco
                         es cosa de esta pestaña. */}
-                    <ModuleErrorBoundary moduleName="Perfilado">
+                    <ModuleErrorBoundary moduleName="La entrevista">
                         <div className="pb-28 sm:pb-0">
                             <BiodataManager user={user} />
                         </div>

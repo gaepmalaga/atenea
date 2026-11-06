@@ -144,7 +144,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
             Empezaste el {fechaCorta(data.fechaInicio)}
           </h2>
           <p className="text-indigo-100 text-sm font-medium mb-5">
-            {data.diasEnOposicion} {data.diasEnOposicion === 1 ? 'día' : 'días'} en la oposición. El sistema ha registrado cada respuesta desde el primer día para construir esto.
+            {data.diasEnOposicion} {data.diasEnOposicion === 1 ? 'día' : 'días'} preparándote.
           </p>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <div className="bg-white/10 rounded-2xl px-3 py-2.5">
@@ -167,7 +167,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
       <Card>
         <SectionLabel icon={<MapIcon size={14} />}>El mapa de tu temario</SectionLabel>
         <p className={cx(TEXT.muted, 'mb-3')}>
-          {data.resumenBanco.total} preguntas en total. Verde es tuyo, ámbar es donde tienes que meter horas.
+          {data.resumenBanco.total} preguntas. En verde, lo que ya dominas; en ámbar, lo que más te falta.
         </p>
         <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
           {resumenSegmentos.map((s, i) => (
@@ -212,26 +212,26 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-emerald-50 dark:bg-emerald-900/15 p-4">
           <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{data.desglose.dominadas}</p>
           <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mt-1.5">Dominadas</p>
-          <p className={cx(TEXT.muted, 'mt-1.5')}>Te las puedes saltar en un examen real, hoy mismo.</p>
+          <p className={cx(TEXT.muted, 'mt-1.5')}>Las tienes aprendidas.</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/15 p-4">
           <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{data.desglose.enCamino}</p>
           <p className="text-[11px] font-black uppercase tracking-wide text-indigo-700 dark:text-indigo-400 mt-1.5">En camino</p>
-          <p className={cx(TEXT.muted, 'mt-1.5')}>A 1-2 aciertos seguidos de darlas por aprendidas.</p>
+          <p className={cx(TEXT.muted, 'mt-1.5')}>A uno o dos aciertos de tenerlas.</p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-amber-50 dark:bg-amber-900/15 p-4">
           <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{data.desglose.seResisten}</p>
           <p className="text-[11px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-400 mt-1.5">Se te resisten</p>
           <p className={cx(TEXT.muted, 'mt-1.5')}>
             {data.desglose.temaQueMasResiste
-              ? <>{data.desglose.temaQueMasResiste.veces} son del mismo tema: <b className="text-slate-700 dark:text-slate-200">{data.desglose.temaQueMasResiste.topic}</b>. Ahí está tu techo.</>
-              : 'Ninguna todavía — no hay ninguna que se resista de verdad.'}
+              ? <>{data.desglose.temaQueMasResiste.veces} son de <b className="text-slate-700 dark:text-slate-200">{data.desglose.temaQueMasResiste.topic}</b>.</>
+              : 'Ninguna, de momento.'}
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-rose-50 dark:bg-rose-900/15 p-4">
           <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{data.desglose.evitas}</p>
           <p className="text-[11px] font-black uppercase tracking-wide text-rose-700 dark:text-rose-400 mt-1.5">Las evitas</p>
-          <p className={cx(TEXT.muted, 'mt-1.5')}>Nunca te has atrevido a contestarlas. Por algo será.</p>
+          <p className={cx(TEXT.muted, 'mt-1.5')}>Siempre las dejas en blanco.</p>
         </div>
       </div>
 
@@ -242,7 +242,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
       {/* ───────── CÓMO HAS CRECIDO ───────── */}
       <Card>
         <SectionLabel icon={<TrendingUp size={14} />}>Cómo has crecido</SectionLabel>
-        <p className={cx(TEXT.muted, 'mb-3')}>Preguntas dominadas de verdad, día a día, desde que empezaste.</p>
+        <p className={cx(TEXT.muted, 'mb-3')}>Preguntas dominadas, día a día.</p>
         <div className="relative">
           <div className="absolute top-0 right-0 text-right">
             <p className="text-2xl font-black text-slate-900 dark:text-white leading-none tabular-nums">{ultimoPunto}</p>
@@ -264,7 +264,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
       <Card>
         <SectionLabel icon={<Activity size={14} />}>Cada día que has entrado</SectionLabel>
         <p className={cx(TEXT.muted, 'mb-3')}>
-          {data.diasEnOposicion} {data.diasEnOposicion === 1 ? 'día' : 'días'} desde tu primer test. Esto es constancia, no suerte.
+          {data.diasEnOposicion} {data.diasEnOposicion === 1 ? 'día' : 'días'} desde tu primer test.
         </p>
         <div className="overflow-x-auto pb-1">
           <div className="grid grid-flow-col grid-rows-7 gap-[3px] w-max">
@@ -288,7 +288,7 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
           <Layers size={18} className="text-indigo-600 dark:text-indigo-400" />
         </div>
         <p className={cx(TEXT.muted, 'leading-relaxed')}>
-          <strong className="text-slate-900 dark:text-white">El sistema sabe exactamente dónde estás</strong> y qué te falta para llegar. Cada sesión de hoy se elige pensando en {data.desglose.seResisten > 0 ? `las ${data.desglose.seResisten} que se te resisten y en ` : ''}las {data.desglose.enCamino} que están a un paso — no en repetir lo que ya dominas.
+          Cada entrenamiento se elige pensando en {data.desglose.seResisten > 0 ? `las ${data.desglose.seResisten} que se te resisten y ` : ''}las {data.desglose.enCamino} que tienes a un paso, no en repetir lo que ya dominas.
         </p>
       </div>
     </div>

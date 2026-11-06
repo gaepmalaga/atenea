@@ -2,63 +2,50 @@
 
 import { useState, useEffect } from 'react';
 import { cx, TEXT } from '../../ui';
+import { MARCA } from '@/app/lib/marca';
 
 interface HeaderProps {
   title: string;
   activeTab: string;
 }
 
-/** El descriptor de cada zona. Es lo que le da a la aplicación su tono. */
-const SUBTITULO: Record<string, string> = {
-  interview: 'Sala de interrogatorios',
-  test: 'Operaciones tácticas',
-  chat: 'IA central',
-  stats: 'Tu progreso',
-  cards: 'Memorización activa',
-  review: 'Análisis de fallos',
-  training: 'Preparación física',
-};
+/**
+ * LA CABECERA DE CADA PANTALLA.
+ *
+ * Arriba, la fecha de hoy y el nombre de la academia; debajo, el nombre de la
+ * pantalla, igual que en el menú. Nada más.
+ *
+ * Aquí hubo un reloj «ZULU» —la hora de Greenwich, en jerga militar— y un
+ * «Sistema online» parpadeando: tono heredado de Atenea. En Málaga enseñaba una
+ * hora menos que la del móvil y parecía un fallo (regla 85).
+ */
+export default function Header({ title }: HeaderProps) {
+  const [fecha, setFecha] = useState<string>('');
 
-export default function Header({ title, activeTab }: HeaderProps) {
-  const [hora, setHora] = useState<string>('');
-
-  // El reloj se pinta solo en el cliente: renderizarlo en el servidor daría una
-  // hora distinta a la del navegador y React avisaría de desajuste de hidratación.
+  // La fecha se pinta solo en el cliente: la del servidor (UTC) podría ser otra
+  // cerca de medianoche, y React avisaría de desajuste de hidratación.
   useEffect(() => {
-    const actualiza = () =>
-      setHora(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
-    actualiza();
-    const t = setInterval(actualiza, 1000);
-    return () => clearInterval(t);
+    setFecha(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }));
   }, []);
 
   return (
-    <header className="flex items-end justify-between gap-3 mb-5 sm:mb-8 select-none">
-      <div className="min-w-0">
-        <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-1')}>
-          <span className="font-mono tabular-nums">{hora} ZULU</span>
-          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" />
-          <span className="truncate">{SUBTITULO[activeTab] ?? 'Panel de control'}</span>
-        </p>
+    <header className="mb-5 sm:mb-8 select-none min-w-0">
+      <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-1 min-w-0')}>
+        {fecha && (
+          <>
+            <span className="truncate">{fecha}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" />
+          </>
+        )}
+        <span className="shrink-0">{MARCA.nombre}</span>
+      </p>
 
-        {/* Este es el título de la pantalla. Los módulos NO repiten otro debajo:
-            en el examen había dos cabeceras seguidas ("OPERACIONES (TEST)" y
-            "CONFIGURACIÓN DE MISIÓN", con su icono grande), y entre las dos se
-            comían media pantalla de móvil antes del primer control. */}
-        <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tighter uppercase truncate">
-          {title}
-        </h1>
-      </div>
-
-      <div className="hidden sm:flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 shrink-0">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 animate-ping opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-        </span>
-        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">
-          Sistema online
-        </span>
-      </div>
+      {/* Este es el título de la pantalla. Los módulos NO repiten otro debajo:
+          en el examen había dos cabeceras seguidas, y entre las dos se comían
+          media pantalla de móvil antes del primer control. */}
+      <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+        {title}
+      </h1>
     </header>
   );
 }

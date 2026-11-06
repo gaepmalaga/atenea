@@ -244,7 +244,7 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
         {alcance === 'todo' && (
           <p className={cx(TEXT.muted)}>
             {todosLosTemas.length} temas del temario. {esEntreno
-              ? 'Así es como más se aprovecha el sistema: compara la urgencia real entre TODOS tus temas y te trae primero lo que de verdad toca, adaptado a ti.'
+              ? 'Lo recomendable: se elige lo que más te toca de entre todos.'
               : 'El simulacro reparte las preguntas como la convocatoria.'}
           </p>
         )}

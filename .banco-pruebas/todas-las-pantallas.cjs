@@ -140,8 +140,8 @@ const ALUMNO = [
   ['Test', null, 'a-test'],
   ['Fallos', null, 'a-fallos'],
   ['Fichas', null, 'a-fichas'],
-  [null, 'Prep. Física', 'a-fisica'],
-  [null, 'Mi Evolución', 'a-evolucion'],
+  [null, 'Preparación física', 'a-fisica'],
+  [null, 'Mi evolución', 'a-evolucion'],
   [null, 'Mi perfil', 'a-perfil'],
 ];
 // Pestañas de un `admin` normal (no `superadmin`) — regla 75, IDS_ADMIN en
@@ -228,7 +228,7 @@ const ADMIN = [
   // Prueba fisica: hub -> corredor de la prueba (cronometro incluido)
   await page.locator('nav.fixed').locator('button', { hasText: 'Más' }).first().click();
   await page.waitForTimeout(450);
-  await page.locator('div.fixed.inset-0 button', { hasText: 'Prep. Física' }).first().click();
+  await page.locator('div.fixed.inset-0 button', { hasText: 'Preparación física' }).first().click();
   await page.waitForTimeout(1300);
   // Con un plan activo se entra al panel del plan, no al hub de pruebas. El
   // engranaje de la cabecera vuelve a reconfigurar.

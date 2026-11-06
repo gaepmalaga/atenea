@@ -148,7 +148,7 @@ export default function CalendarioEntrenamiento({ semanas, origen, registro }: C
           <button
             onClick={() => setIdx((i) => Math.max(0, i - 1))}
             disabled={idx <= 0}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             aria-label="Semana anterior"
           >
             <ChevronLeft size={18} />
@@ -160,7 +160,7 @@ export default function CalendarioEntrenamiento({ semanas, origen, registro }: C
           <button
             onClick={() => setIdx((i) => Math.min(semanas.length - 1, i + 1))}
             disabled={idx >= semanas.length - 1}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
             aria-label="Semana siguiente"
           >
             <ChevronRight size={18} />

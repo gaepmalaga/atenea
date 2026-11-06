@@ -239,7 +239,7 @@ export default function IntelChat({ user }: IntelChatProps) {
           recargarHistorial();
         });
       } else {
-        setMessages(prev => [...prev, { role: 'ai', content: `⚠️ ERROR DE PROTOCOLO: ${res.error}`, isError: true, timestamp: new Date() }]);
+        setMessages(prev => [...prev, { role: 'ai', content: `No he podido responder: ${res.error}`, isError: true, timestamp: new Date() }]);
       }
     } catch (error) {
       console.error('askAtenea:', error);

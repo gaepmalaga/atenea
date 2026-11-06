@@ -34,14 +34,14 @@ export type ModuleId = (typeof MODULE_IDS)[number];
 
 /** Como se llama cada uno delante del administrador. Igual que en el menu. */
 export const MODULE_LABEL: Record<ModuleId, string> = {
-  home: 'Centro de Mando',
-  chat: 'Inteligencia (RAG)',
-  test: 'Operaciones (Test)',
+  home: 'Inicio',
+  chat: 'Pregunta al temario',
+  test: 'Test',
   review: 'Repasar fallos',
-  cards: 'Drills (Memoria)',
-  training: 'Prep. Física',
-  interview: 'Perfilado & Voz',
-  stats: 'Estadísticas',
+  cards: 'Fichas',
+  training: 'Preparación física',
+  interview: 'Entrevista',
+  stats: 'Mi evolución',
   profile: 'Mi perfil',
 };
 

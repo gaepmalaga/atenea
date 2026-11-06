@@ -123,7 +123,7 @@ const problemas = [];
 const anota = (t) => { problemas.push(t); console.log('  ⚠ ' + t); };
 
 const ALUMNO = [['Inicio', null], ['Chat', null], ['Test', null], ['Fallos', null],
-  [null, 'Drills'], [null, 'Prep. Física'], [null, 'Perfilado'], [null, 'Rango']];
+  [null, 'Fichas'], [null, 'Preparación física'], [null, 'Mi evolución']];
 const ADMIN = ['Usuarios', 'Academia', 'Temario', 'Banco', 'Moderación', 'Módulos', 'Logs'];
 
 (async () => {
