@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { cx, TEXT } from '../../ui';
 import { MARCA } from '@/app/lib/marca';
 
@@ -19,14 +19,14 @@ interface HeaderProps {
  * «Sistema online» parpadeando: tono heredado de Atenea. En Málaga enseñaba una
  * hora menos que la del móvil y parecía un fallo (regla 85).
  */
-export default function Header({ title }: HeaderProps) {
-  const [fecha, setFecha] = useState<string>('');
+const sinSuscripcion = () => () => {};
+const fechaDeHoy = () => new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // La fecha se pinta solo en el cliente: la del servidor (UTC) podría ser otra
-  // cerca de medianoche, y React avisaría de desajuste de hidratación.
-  useEffect(() => {
-    setFecha(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }));
-  }, []);
+export default function Header({ title }: HeaderProps) {
+  // La fecha se lee del navegador, no del servidor (UTC, que cerca de
+  // medianoche es otro día), y sin efecto: es una capacidad del navegador, no
+  // estado de React (regla 13). En el servidor no se pinta nada.
+  const fecha = useSyncExternalStore(sinSuscripcion, fechaDeHoy, () => '');
 
   return (
     <header className="mb-5 sm:mb-8 select-none min-w-0">

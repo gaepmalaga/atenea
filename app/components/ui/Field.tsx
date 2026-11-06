@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, ReactNode } from 'react';
+import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes, type SelectHTMLAttributes, type ReactNode } from 'react';
 import { RADIUS, TEXT, TAP, cx } from './tokens';
 
 /**
@@ -10,6 +10,10 @@ import { RADIUS, TEXT, TAP, cx } from './tokens';
  * (14px), así que cada vez que el alumno escribía en el chat o rellenaba su
  * perfil, la pantalla daba un salto. A partir de `sm` (ya no es un móvil) se
  * vuelve a 14px, que es lo que pide el diseño.
+ *
+ * Cada etiqueta va LIGADA a su campo: sin `id`, se genera uno con `useId`.
+ * Sin eso, un lector de pantalla no dice qué campo es, y tocar la etiqueta no
+ * lleva al campo.
  */
 const CONTROL = cx(
   'w-full bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800',
@@ -64,6 +68,8 @@ export function TextField({
   trailing,
   ...rest
 }: FieldWrap & { trailing?: ReactNode } & InputHTMLAttributes<HTMLInputElement>) {
+  const auto = useId();
+  id = id ?? auto;
   return (
     <div>
       {label && <Label htmlFor={id}>{label}</Label>}
@@ -82,6 +88,8 @@ export function TextAreaField({
   className,
   ...rest
 }: FieldWrap & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const auto = useId();
+  id = id ?? auto;
   return (
     <div>
       {label && <Label htmlFor={id}>{label}</Label>}
@@ -103,6 +111,8 @@ export function SelectField({
   children,
   ...rest
 }: FieldWrap & SelectHTMLAttributes<HTMLSelectElement>) {
+  const auto = useId();
+  id = id ?? auto;
   return (
     <div>
       {label && <Label htmlFor={id}>{label}</Label>}

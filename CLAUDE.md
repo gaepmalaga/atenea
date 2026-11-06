@@ -86,6 +86,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 | — | **La preparación física sin herramienta externa** | ✅ **hecho** (6 nov), a petición de Alphapol, que mandaba la física con otra aplicación. El alumno marca cada día del plan de su grupo como hecho, con esfuerzo (1-10) y comentario; el preparador ve «Quién ha entrenado» por grupo y semana; cada ejercicio admite un enlace de vídeo. `docs/sql/registro-fisico.sql` **ejecutado**. Verificado de punta a punta contra la BD real con un grupo temporal (borrado después). Ver **regla 84** |
 | — | **Pasada de tono: la app habla como Alphapol** | ✅ **hecho** (6 nov). Fuera el reloj «ZULU» (enseñaba la hora de Greenwich), «Sistema online», «Centro de Mando», «Operaciones», «Drills», «Sistema Táctico»; los módulos se llaman Inicio, Test, Repasar fallos, Fichas, Preparación física, Mi evolución, Mi perfil; el logo de Alphapol en el menú y en el panel; menos texto en «Mi evolución». Ver **regla 85** |
+| — | **La física como en TrainingMonkeys** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`. El modelo pasa a ser el de la herramienta que usaba Alphapol: SESIONES sueltas en el calendario (tipo, título, descripción libre, duración, distancia, vídeo), de un grupo o de un alumno; el alumno las apunta (hecha o no, esfuerzo, sensaciones, tiempo y distancia reales) y el preparador contesta. Planificador de semana / 2 semanas / mes con arrastrar y soltar, biblioteca de plantillas, copiar semana, nota de la semana; histórico de marcas con el baremo del BOE. `docs/sql/fisica-sesiones.sql` **ejecutado**. Verificado de punta a punta contra la BD real (datos de prueba borrados después). Sustituye a la regla 84. Ver **regla 86** |
 
 ## Producción
 
@@ -1564,6 +1565,11 @@ política es `auth.uid() = user_id` y quien actúa es el admin, no él.
 Lo que entra a mano se valida IGUAL que lo que escribe la IA (regla 27):
 `buildManualPlan` construye la entrada y pasa por el mismo `normalizePlan` —
 un preparador se equivoca con un campo vacío igual que Gemini.
+
+> **El editor por filas y la biblioteca de ejercicios se retiraron el 6 nov**
+> (`PlanEntrenadorEditor`, `exercise-library.ts`): el preparador escribe ahora
+> SESIONES con descripción libre, como en la herramienta que usaba Alphapol.
+> Ver la regla 86.
 
 **El editor se rehízo el 9 sep** (`PlanEntrenadorEditor`, feedback del dueño:
 «más intuitivo, visual»). Ya no son siete `<textarea>` con la sintaxis
@@ -3440,6 +3446,11 @@ la nueva. Cuentas de prueba borradas después.
 
 ### 84 · El registro del entrenamiento va aparte del plan, por alumno y fecha
 
+> **Sustituida el mismo día por la regla 86.** El registro por grupo y fecha
+> (`group_workout_logs`, `RegistroDia`, `RegistroSemanaGrupo`) se retiró del
+> código al pasar a sesiones sueltas; la tabla se queda en la base de datos,
+> vacía. Lo que sigue vale como historia de por qué el registro va aparte.
+
 Alphapol mandaba la física con una herramienta externa: el preparador publicaba
 la semana y cada alumno marcaba lo que había hecho, con el esfuerzo y un
 comentario. Aquí el plan de grupo ya existía (reglas 53, 54 y 57), pero **no se
@@ -3522,6 +3533,94 @@ menos** que la del móvil y parecía un fallo.
 Los recorridos del banco de pruebas (`todas-las-pantallas.cjs`, `contraste.cjs`)
 buscan los módulos por su nombre: al renombrar uno, hay que cambiarlo ahí también.
 
+
+### 86 · La física como la lleva un preparador: sesiones sueltas, de un grupo o de un alumno
+
+Alphapol mandaba la física con TrainingMonkeys, y el preparador va a seguir
+trabajando igual: lo que no se parezca a lo que ya sabe hacer, no lo usará. Se
+miró cómo es por dentro (las dos capturas reales de su web y las miniaturas de
+su canal de YouTube; los vídeos no se pueden bajar desde este servidor) y el
+modelo de datos pasó a ser el suyo. **El plan ya no es «una semana con
+ejercicios por día»**, son SESIONES sueltas en el calendario.
+
+**Las tablas** ([`docs/sql/fisica-sesiones.sql`](docs/sql/fisica-sesiones.sql),
+**ejecutado** el 6 nov; volcado del esquema en 47 tablas):
+
+| Tabla | Qué guarda |
+|---|---|
+| `training_sessions` | una sesión en una fecha, de un GRUPO (`class_id`) **o** de UN alumno (`user_id`), nunca de los dos (un `CHECK`). Tipo, título, descripción libre, duración, distancia, vídeo |
+| `training_session_logs` | lo que apunta cada alumno: hecha / no hecha, esfuerzo (1-10), sensaciones, tiempo y distancia reales, y la respuesta del preparador |
+| `session_templates` | la biblioteca de plantillas de la academia |
+| `training_week_notes` | la nota de cada semana, por grupo o por alumno (dos índices únicos parciales: dos `NULL` no chocan, regla 31) |
+| `physical_marks` | el histórico de marcas en las pruebas oficiales, apuntadas por el alumno o por el preparador (`recorded_by`) |
+
+Las cinco con **RLS y CERO políticas**, como `class_absences` (regla 82): todo va
+con la clave de servicio, detrás de `requireUser` (filtrando siempre por el id
+del alumno y comprobando que la sesión es suya o de un grupo suyo) o de
+`requireAdmin` (acotado a su academia dentro de cada consulta). Los planes de
+semana de antes (`group_training_plans`) se migraron a sesiones en el mismo
+guion; no se borró nada de lo viejo.
+
+**El alumno** («Preparación física», `FisicaAlumno`): pestaña **Calendario** —el
+mes entero, cada día con sus sesiones como recuadros del COLOR de su tipo
+(`app/components/fisica/estiloTipo.ts`, el mismo mapa para alumno y
+preparador), la nota de la semana encima y «N/M hechas · tiempo · km» debajo—
+y al tocar una sesión, la ficha para leerla y apuntarla (`DetalleSesion`: un
+toque para «hecha / no hecha», lo demás opcional, regla 56). Junta las de sus
+grupos y las suyas: para él es un solo calendario. Pestaña **Mis marcas**:
+última marca y puntos de cada prueba, histórico, y «si el examen fuera hoy».
+
+**El preparador** («Prep. física» → Planificar, `Planificador`): elige para
+quién —un grupo entero o un alumno— y ve una semana, dos o el mes. Un «+» en
+cada día; las tarjetas dicen cuántos la han hecho (grupo) o su estado
+(alumno), y si hay comentarios. En el ORDENADOR se arrastran tarjetas y
+plantillas a otro día (con Alt o Ctrl, se copian); en el MÓVIL los días se
+apilan y todo va con toques. Biblioteca de plantillas, «Copiar semana», nota de
+la semana editable, y en cada sesión la pestaña **Feedback** con lo que ha
+apuntado cada alumno y un recuadro para contestar. En la vista de un alumno,
+las sesiones de sus grupos salen con borde de puntos y **no se editan ahí**:
+cambiarlas cambiaría las de todo el grupo. Pestaña **Marcas**: una fila por
+alumno con sus puntos y su nota, los peores arriba.
+
+**El baremo** (`app/lib/baremo-fisico.ts`, `BAREMO_CNP` con su fuente y fecha,
+como `CNP_SCORING`): BOE-A-2026-15055, base 6.1.2 y anexo II. Agilidad
+(segundos y décimas, por sexo), dominadas (hombres), suspensión en barra
+(mujeres) y carrera de 1.000 m (la `TABLA_CARRERA_1000` de la regla 79,
+comprobada contra el mismo anexo). La nota es la MEDIA de los tres; **un 0 en
+cualquiera elimina** y hace falta un 5. Sin marca o sin sexo cuando hace
+falta, los puntos son `null`, nunca 0 (regla 8): un 0 elimina. El sexo vive en
+`profiles_physical.gender`; el preparador lo puede fijar (`setSexoAlumno`),
+que es la excepción admitida en `rls.test.ts` junto a `getMarcasAcademia`.
+`tests/sesiones.test.ts` comprueba **cada frontera de las cuatro tablas**,
+copiada del BOE tramo a tramo: un test que solo mira tres puntos no se entera
+de un tramo mal copiado (se probó rompiéndolo).
+
+**Tres cosas que salieron al hacerlo:**
+
+- **Los campos no estaban ligados a su etiqueta.** `TextField`, `TextAreaField`
+  y `SelectField` solo ponían `htmlFor` si quien los usaba pasaba un `id`, y
+  casi nadie lo hacía: un lector de pantalla no decía qué campo era y tocar la
+  etiqueta no llevaba al campo. Ahora generan uno con `useId`.
+- **`className` en esos campos va al CONTROL, no al envoltorio.** Para que un
+  campo crezca dentro de una fila (`flex-1`) hay que envolverlo en un `div`.
+- **El ayudante `sinFuncion` de `rls.test.ts`** tomaba la primera `{` tras los
+  parámetros como el cuerpo de la función, y en `Promise<{ … }>` esa llave es la
+  del tipo de retorno: las excepciones admitidas no se quitaban. Ahora salta los
+  `<…>`.
+
+**Lo que queda, si Alphapol lo pide al usarlo:** campos de «planificado frente
+a hecho» más finos (pulsaciones, vatios), sincronizar con Strava o Garmin,
+avisar al alumno cuando se publica la semana, y retirar del todo las acciones
+del plan de semana viejo (`getGroupTrainingPlan` y compañía, en `groups.ts`),
+que ya no usa ninguna pantalla.
+
+**Verificado de punta a punta (6 nov)** con la app local contra la BD real: el
+preparador crea una sesión para un grupo temporal, la guarda como plantilla,
+pone la nota de la semana, crea una sesión individual, copia la semana y
+apunta una marca; el alumno ve las dos sesiones y la nota, apunta la de grupo
+(7/10 con comentario) y una marca suya; el preparador ve «1/1» y el comentario
+y contesta; el alumno lee la respuesta. Datos de prueba borrados después.
+
 ---
 
 ## Los tests
@@ -3539,7 +3638,7 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
 tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
-tests/registro-fisico.test.ts   el registro de físicas (regla 84): qué fecha es cada día del plan, qué días se apuntan, el vídeo solo https, lo que ve el preparador, y que el alumno solo toca lo suyo
+tests/sesiones.test.ts          la física como la lleva un preparador (regla 86): sesiones, lo que apunta el alumno, el calendario, copiar semana, cada frontera del baremo del BOE y las guardas de las acciones
 tests/alta-masiva.test.ts       alta en bloque (regla 83): leer la lista pegada, contraseñas legibles, el CSV para Excel, y las guardas de la acción
 tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista
 tests/ai-output.test.ts         parseo y validación de lo que devuelve el modelo
@@ -3548,7 +3647,6 @@ tests/interview.test.ts         transcripción, informe final y máquina de esta
 tests/timer.test.ts             cronómetro de las pruebas físicas
 tests/physical.test.ts          perfil físico: normalización y guardas del entrenador
 tests/training-plan.test.ts     forma del plan semanal, progreso, progresión, y el registro consultable (workout_logs, §2.11)
-tests/exercise-library.test.ts  biblioteca de ejercicios del plan del preparador: tipo por nombre, campos por tipo, «sin datos» ≠ 0
 tests/rate-limit.test.ts        cuota de IA por usuario y ruta, y sus guardas estáticas
 tests/documents.test.ts         visor de fragmentos: agrupación por artículo y resumen
 tests/scoring.test.ts           la nota del examen (BOE) y el reloj del simulacro

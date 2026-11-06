@@ -721,6 +721,39 @@
         "user_id": "uuid"
       }
     },
+    "physical_marks": {
+      "columnas": [
+        "created_at",
+        "id",
+        "measured_on",
+        "note",
+        "organization_id",
+        "recorded_by",
+        "test",
+        "user_id",
+        "value"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "measured_on",
+        "organization_id",
+        "test",
+        "user_id",
+        "value"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "measured_on": "date",
+        "note": "text",
+        "organization_id": "uuid",
+        "recorded_by": "uuid",
+        "test": "text",
+        "user_id": "uuid",
+        "value": "numeric"
+      }
+    },
     "profiles": {
       "columnas": [
         "created_at",
@@ -982,6 +1015,42 @@
         "vote": "integer"
       }
     },
+    "session_templates": {
+      "columnas": [
+        "created_at",
+        "created_by",
+        "description",
+        "distance_km",
+        "duration_min",
+        "id",
+        "kind",
+        "organization_id",
+        "title",
+        "updated_at",
+        "video"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "kind",
+        "organization_id",
+        "title",
+        "updated_at"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "description": "text",
+        "distance_km": "numeric",
+        "duration_min": "integer",
+        "id": "uuid",
+        "kind": "text",
+        "organization_id": "uuid",
+        "title": "text",
+        "updated_at": "timestamp with time zone",
+        "video": "text"
+      }
+    },
     "subjects": {
       "columnas": [
         "block_id",
@@ -1020,6 +1089,114 @@
         "id": "uuid",
         "plan_data": "jsonb",
         "status": "text",
+        "user_id": "uuid",
+        "week_start": "date"
+      }
+    },
+    "training_session_logs": {
+      "columnas": [
+        "coach_reply",
+        "coach_reply_at",
+        "comment",
+        "created_at",
+        "distance_km",
+        "duration_min",
+        "rpe",
+        "session_id",
+        "status",
+        "updated_at",
+        "user_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "session_id",
+        "status",
+        "updated_at",
+        "user_id"
+      ],
+      "tipos": {
+        "coach_reply": "text",
+        "coach_reply_at": "timestamp with time zone",
+        "comment": "text",
+        "created_at": "timestamp with time zone",
+        "distance_km": "numeric",
+        "duration_min": "integer",
+        "rpe": "smallint",
+        "session_id": "uuid",
+        "status": "text",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid"
+      }
+    },
+    "training_sessions": {
+      "columnas": [
+        "class_id",
+        "created_at",
+        "created_by",
+        "description",
+        "distance_km",
+        "duration_min",
+        "id",
+        "kind",
+        "organization_id",
+        "position",
+        "session_date",
+        "title",
+        "updated_at",
+        "user_id",
+        "video"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "kind",
+        "organization_id",
+        "position",
+        "session_date",
+        "title",
+        "updated_at"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "description": "text",
+        "distance_km": "numeric",
+        "duration_min": "integer",
+        "id": "uuid",
+        "kind": "text",
+        "organization_id": "uuid",
+        "position": "smallint",
+        "session_date": "date",
+        "title": "text",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid",
+        "video": "text"
+      }
+    },
+    "training_week_notes": {
+      "columnas": [
+        "class_id",
+        "id",
+        "note",
+        "organization_id",
+        "updated_at",
+        "user_id",
+        "week_start"
+      ],
+      "obligatorias": [
+        "id",
+        "note",
+        "organization_id",
+        "updated_at",
+        "week_start"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "id": "uuid",
+        "note": "text",
+        "organization_id": "uuid",
+        "updated_at": "timestamp with time zone",
         "user_id": "uuid",
         "week_start": "date"
       }

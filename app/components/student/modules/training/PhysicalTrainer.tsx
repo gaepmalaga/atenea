@@ -11,9 +11,7 @@ import {
     generateNextWeek,
     completeTrainingDay,
     getTrainingHistory,
-    getTrainingSwitches,
-    getMiRegistroFisico,
-    setMiRegistroFisico
+    getTrainingSwitches
 } from '@/actions';
 
 // IMPORTACIÓN DE COMPONENTES
@@ -21,8 +19,7 @@ import SetupWizard from './components/SetupWizard';
 import AssessmentHub from './components/AssessmentHub';
 import TestRunner from './components/TestRunner';
 import TrainingDashboard from './components/TrainingDashboard';
-import CalendarioEntrenamiento, { type SemanaCalendario, type RegistroCalendario } from './components/CalendarioEntrenamiento';
-import type { RegistroGuardado } from './components/RegistroDia';
+import FisicaAlumno from './components/FisicaAlumno';
 import ActiveSession from './components/ActiveSession';
 import { hasBiometrics, type BaselineMetrics, type PhysicalProfile, type TestId } from '@/app/lib/physical';
 import type { TrainingDay, WeeklyPlan, SemanaHistorial } from '@/app/lib/training-plan';
@@ -45,17 +42,6 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // ESTADOS DEL PLAN
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null); // ID real de la base de datos para guardar progresos
-  // El lunes de la semana del plan activo, para pintar las fechas en el
-  // calendario de quien tiene preparador. `null` en filas antiguas.
-  const [planWeekStart, setPlanWeekStart] = useState<string | null>(null);
-  // Todas las semanas del plan de GRUPO (past + vigente), para poder mirar atrás
-  // en el calendario. Vacío si no está en un grupo de físicas.
-  const [semanasGrupo, setSemanasGrupo] = useState<SemanaCalendario[]>([]);
-  // Lo que el alumno ha apuntado de cada día del plan de grupo (regla 84),
-  // por `classId|fecha`, y qué día es hoy en la academia. `null` = aún no se
-  // ha leído o no se ha podido: entonces no se ofrece apuntar nada.
-  const [registroHoy, setRegistroHoy] = useState<string | null>(null);
-  const [registroPorDia, setRegistroPorDia] = useState<Record<string, RegistroGuardado>>({});
   // Interruptores de la academia: si la IA está apagada, no se ofrece «generar».
   const [aiOn, setAiOn] = useState(true);
   // Historial de sesiones (§2.11), semana a semana. Sin datos = no se pinta.
@@ -85,25 +71,16 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   useEffect(() => {
     async function init() {
         try {
-            const [profileRes, planRes, switchesRes, histRes, semanasRes, registroRes] = await Promise.all([
+            const [profileRes, planRes, switchesRes, histRes, semanasRes] = await Promise.all([
                  getPhysicalProfile(),
                  getActiveTrainingPlan(),
                  getTrainingSwitches(),
                  getTrainingHistory(),
-                 getStudentGroupWeeks(),
-                 getMiRegistroFisico()
+                 getStudentGroupWeeks()
             ]);
-
-            if (registroRes.success) {
-                setRegistroHoy(registroRes.hoy);
-                setRegistroPorDia(Object.fromEntries(
-                    registroRes.registros.map((r) => [`${r.classId}|${r.fecha}`, { rpe: r.rpe, comment: r.comment }]),
-                ));
-            }
 
             if (switchesRes.success) setAiOn(switchesRes.switches.ai);
             if (histRes.success) setHistorial(histRes.semanas);
-            if (semanasRes.success) setSemanasGrupo(semanasRes.semanas);
 
             const profileData = profileRes.data;
             const activePlanRow = planRes.plan; // El objeto completo de la BD (con id, plan_data, etc.)
@@ -116,12 +93,11 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             if (activePlanRow) {
                 setWeeklyPlan(activePlanRow.plan_data);
                 setActivePlanId(activePlanRow.id); // ¡CRÍTICO! Guardamos el ID para poder actualizarlo luego
-                setPlanWeekStart(activePlanRow.weekStart);
                 setView('dashboard');
             } else if (semanasRes.success && semanasRes.semanas.length > 0) {
                 // Está en un grupo de físicas pero getActiveTrainingPlan no
                 // devolvió nada (p. ej. group_training un plan de grupo con el
-                // interruptor recién encendido): el calendario tira de semanasGrupo.
+                // interruptor recién encendido).
                 setView('dashboard');
             } else if (!hasBiometrics(profileData)) {
                 setView('setup');
@@ -246,22 +222,6 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
       setActiveDay(null);
   };
 
-  // --- 5b. REGISTRO DEL PLAN DE GRUPO (regla 84) ---
-  // Se espera a que el servidor lo confirme antes de pintarlo como hecho: es un
-  // toque, y un «hecho» que no se ha guardado es la mentira de siempre (regla 4).
-  const guardarRegistro: RegistroCalendario['onGuardar'] = async ({ classId, fecha, hecho, rpe, comment }) => {
-      const res = await setMiRegistroFisico({ classId, fecha, hecho, rpe, comment });
-      if (!res.success) return { success: false, error: res.error ?? 'No se ha podido guardar.' };
-      setRegistroPorDia((prev) => {
-          const next = { ...prev };
-          const clave = `${classId}|${fecha}`;
-          if (hecho) next[clave] = { rpe, comment };
-          else delete next[clave];
-          return next;
-      });
-      return { success: true };
-  };
-
   // --- 6. ROUTER DE VISTAS ---
 
   // El tipo saca a la luz un camino real: sin dia activo, `ActiveSession` leia
@@ -284,29 +244,10 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   // alumno de plan manual al que su preparador todavía no le ha subido la
   // semana caía en las pruebas físicas, que no le sirven de nada.
   if (modoManual) {
-      // El plan de GRUPO trae todas sus semanas (para mirar atrás). El
-      // individual es una sola: la que haya activa. Si no hay individual pero sí
-      // semanas de grupo, se enseñan esas.
-      const deGrupo = semanasGrupo.length > 0 && (esPlanDeGrupo || !weeklyPlan);
-      const semanas: SemanaCalendario[] =
-          deGrupo
-              ? semanasGrupo
-              : weeklyPlan
-                  ? [{ weekStart: planWeekStart ?? new Date().toISOString(), plan: weeklyPlan }]
-                  : [];
-      // Apuntar cada día solo en el plan de grupo (el individual de un
-      // preparador no tiene `classId`) y solo si se ha podido leer lo apuntado:
-      // sin eso, un día ya marcado se vería como pendiente.
-      const registro: RegistroCalendario | undefined = deGrupo && registroHoy
-          ? { hoy: registroHoy, porDia: registroPorDia, onGuardar: guardarRegistro }
-          : undefined;
-      return (
-          <CalendarioEntrenamiento
-            semanas={semanas}
-            origen={deGrupo ? 'grupo' : 'individual'}
-            registro={registro}
-          />
-      );
+      // Las sesiones que escribe su preparador —de su grupo o solo para él— y
+      // sus marcas (regla 86). Va ANTES que cualquier otra vista: el wizard y
+      // las pruebas para la IA no le sirven de nada.
+      return <FisicaAlumno />;
   }
 
   if (currentView === 'setup') {

@@ -52,6 +52,10 @@ export const TABLAS_POR_USUARIO = [
   'ai_usage',
   'class_absences',
   'group_workout_logs',
+  'training_session_logs',
+  'training_sessions',
+  'training_week_notes',
+  'physical_marks',
   'class_members',
   'monthly_payments',
   'memberships',
@@ -59,7 +63,7 @@ export const TABLAS_POR_USUARIO = [
 ] as const;
 
 /** Tablas que cuelgan de un grupo (`class_id`): se borran antes que el grupo. */
-export const TABLAS_POR_GRUPO = ['class_absences', 'group_workout_logs', 'class_members', 'class_group_staff', 'group_training_plans'] as const;
+export const TABLAS_POR_GRUPO = ['class_absences', 'group_workout_logs', 'training_sessions', 'training_week_notes', 'class_members', 'class_group_staff', 'group_training_plans'] as const;
 
 /** Tablas que cuelgan de una pregunta (`question_id`): antes que la pregunta. */
 export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'question_votes', 'question_reports'] as const;
@@ -73,6 +77,10 @@ export const TABLAS_POR_ACADEMIA = [
   'monthly_payments',
   'membership_exemptions',
   'academy_staff',
+  'training_sessions',
+  'training_week_notes',
+  'session_templates',
+  'physical_marks',
   'group_kinds',
   'module_settings',
   'admin_audit_log',

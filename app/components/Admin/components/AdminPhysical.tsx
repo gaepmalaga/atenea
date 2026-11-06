@@ -1,14 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { Dumbbell, RefreshCw, ChevronDown, Trash2, Users2, CalendarDays, Sparkles } from 'lucide-react';
-import { getGroups, getGroupTrainingPlan, saveGroupTrainingPlan, deleteGroupTrainingPlan, getTrainingSwitches, setTrainingSwitch } from '@/actions';
-import type { GroupRow, SemanaDeGrupo } from '@/app/actions/groups';
-import { lunesDeSemana, semanasEditables, etiquetaSemana, type WeeklyPlan } from '@/app/lib/training-plan';
+import { Dumbbell, RefreshCw, Users2, CalendarDays, Sparkles, Trophy } from 'lucide-react';
+import { getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
-import CalendarioEntrenamiento from '@/app/components/student/modules/training/components/CalendarioEntrenamiento';
-import PlanEntrenadorEditor from './PlanEntrenadorEditor';
-import RegistroSemanaGrupo from './RegistroSemanaGrupo';
+import Planificador from './fisica/Planificador';
+import MarcasAcademia from './fisica/MarcasAcademia';
 import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
 
 /**
@@ -23,17 +20,15 @@ import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
  * interruptores se ofrece; el otro ni aparece, no solo se apaga.
  */
 export default function AdminPhysical() {
-  const [grupos, setGrupos] = useState<GroupRow[]>([]);
   const [switches, setSwitches] = useState<TrainingSwitches | null>(null);
   const [esCasa, setEsCasa] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [vista, setVista] = useState<'planificar' | 'marcas'>('planificar');
 
   const cargar = useCallback(async () => {
-    const [gruposRes, switchesRes] = await Promise.all([getGroups(), getTrainingSwitches()]);
-    if (gruposRes.success) setGrupos(gruposRes.groups.filter((g) => g.llevaPlan));
-    else setError(gruposRes.error);
+    const switchesRes = await getTrainingSwitches();
     if (switchesRes.success) { setSwitches(switchesRes.switches); setEsCasa(switchesRes.esCasa); }
     else setError(switchesRes.error);
     setLoading(false);
@@ -62,7 +57,7 @@ export default function AdminPhysical() {
           <div>
             <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Preparación física</h3>
             <p className={cx(TEXT.muted, 'mt-0.5')}>
-              {esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'Un plan por grupo de físicas. Sus miembros lo heredan.'}
+              {esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'Sesiones para un grupo o para un alumno, y las marcas de las pruebas oficiales.'}
             </p>
           </div>
         </div>
@@ -117,22 +112,21 @@ export default function AdminPhysical() {
         <EmptyState
           icon={<Users2 size={40} />}
           title="El plan por grupo está apagado"
-          hint="Enciéndelo arriba para escribir un plan que hereden los miembros de cada grupo de físicas."
+          hint="Enciéndelo arriba para planificar las sesiones de tus grupos y alumnos."
           bordered
         />
       ) : (
         <>
-          {!loading && grupos.length === 0 && (
-            <EmptyState
-              icon={<Dumbbell size={40} />}
-              title="No hay ningún grupo de físicas"
-              hint="Crea un grupo de un tipo que «lleve plan» en la pestaña Grupos y aquí podrás ponerle el entrenamiento."
-              bordered
-            />
-          )}
-          <div className="space-y-2">
-            {grupos.map((g) => <GrupoFisicas key={g.id} g={g} onCambio={cargar} />)}
+          <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 max-w-md">
+            {([['planificar', 'Planificar', CalendarDays], ['marcas', 'Marcas', Trophy]] as const).map(([id, texto, Icono]) => (
+              <button key={id} onClick={() => setVista(id)} aria-pressed={vista === id}
+                className={cx('flex-1 min-h-[44px] rounded-xl text-sm font-black flex items-center justify-center gap-2',
+                  vista === id ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
+                <Icono size={16} /> {texto}
+              </button>
+            ))}
           </div>
+          {vista === 'planificar' ? <Planificador /> : <MarcasAcademia />}
         </>
       )}
     </div>
@@ -165,153 +159,5 @@ function SwitchCard({
         {on ? 'Encendido' : 'Apagado'}
       </span>
     </Card>
-  );
-}
-
-function SemanaSoloLectura({ plan, weekStart }: { plan: WeeklyPlan | null; weekStart: string }) {
-  if (!plan || plan.days.length === 0) return <p className={TEXT.muted}>Esa semana no tuvo plan.</p>;
-  return (
-    <div className="space-y-2">
-      <p className={cx(TEXT.muted, 'italic')}>Semana pasada — solo lectura.</p>
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50/60 dark:bg-slate-900/40">
-        <CalendarioEntrenamiento semanas={[{ weekStart, plan }]} origen="grupo" />
-      </div>
-    </div>
-  );
-}
-
-/** El plan de la semana con contenido más reciente ANTERIOR a `weekStart`. */
-function planSemanaPrevia(semanas: SemanaDeGrupo[] | undefined, weekStart: string): SemanaDeGrupo | null {
-  const previas = (semanas ?? [])
-    .filter((s) => s.weekStart < weekStart && s.plan && s.plan.days.length > 0)
-    .sort((a, b) => (a.weekStart < b.weekStart ? 1 : -1));
-  return previas[0] ?? null;
-}
-
-function GrupoFisicas({ g, onCambio }: { g: GroupRow; onCambio: () => void }) {
-  const [abierto, setAbierto] = useState(false);
-  const [semanas, setSemanas] = useState<SemanaDeGrupo[] | undefined>(undefined);
-  const [semanaSel, setSemanaSel] = useState<string>(lunesDeSemana());
-  // Sube cada vez que se recarga el plan: si el preparador cambia los días, el
-  // registro de la semana se vuelve a leer con los días nuevos.
-  const [version, setVersion] = useState(0);
-
-  const cargarPlan = useCallback(async () => {
-    const res = await getGroupTrainingPlan(g.id);
-    setSemanas(res.success ? res.semanas : []);
-    setVersion((v) => v + 1);
-  }, [g.id]);
-
-  useEffect(() => { if (abierto) cargarPlan(); }, [abierto, cargarPlan]);
-
-  const opciones = semanasEditables(); // esta semana + 4 por venir
-  const semanaActual = semanas?.find((s) => s.weekStart === semanaSel);
-  const planSel: WeeklyPlan | null | undefined =
-    semanas === undefined ? undefined : (semanaActual?.plan ?? null);
-  const pasadas = (semanas ?? []).filter((s) => s.pasada);
-  const lunesHoy = lunesDeSemana();
-
-  return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-800">
-      <button onClick={() => setAbierto((x) => !x)} className="w-full flex items-center justify-between gap-3 p-3 text-left">
-        <span className="min-w-0">
-          <span className="block font-bold text-slate-900 dark:text-white truncate">{g.name}</span>
-          <span className={cx(TEXT.muted, 'flex items-center gap-2')}>
-            {g.miembros} {g.miembros === 1 ? 'alumno' : 'alumnos'}
-            {g.staffNames.length > 0 && ` · ${g.staffNames.join(", ")}`}
-            {' · '}
-            <span className={g.tienePlan ? 'text-emerald-700 dark:text-emerald-400 font-bold' : ''}>
-              {g.tienePlan ? 'con plan' : 'sin plan'}
-            </span>
-          </span>
-        </span>
-        <ChevronDown size={16} className={cx('shrink-0 text-slate-400 transition-transform', abierto && 'rotate-180')} />
-      </button>
-
-      {abierto && (
-        <div className="px-3 pb-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
-
-          {/* SELECTOR DE SEMANA */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <CalendarDays size={13} className="text-slate-500 dark:text-slate-400 shrink-0" />
-            {opciones.map((o) => {
-              const tiene = (semanas ?? []).some((s) => s.weekStart === o.weekStart && s.plan);
-              const activo = o.weekStart === semanaSel;
-              return (
-                <button
-                  key={o.weekStart}
-                  onClick={() => setSemanaSel(o.weekStart)}
-                  className={cx('min-h-[32px] px-2.5 rounded-lg text-xs font-bold border',
-                    activo
-                      ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}
-                >
-                  {o.offset === 0 ? 'Esta semana' : etiquetaSemana(o.weekStart)}
-                  {tiene && <span className={cx('ml-1', activo ? '' : 'text-emerald-600 dark:text-emerald-400')}>●</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* QUIÉN HA ENTRENADO (regla 84) — de esta semana o de una pasada. */}
-          {semanaSel <= lunesHoy && semanaActual?.plan && (
-            <RegistroSemanaGrupo key={`${semanaSel}:${version}`} groupId={g.id} weekStart={semanaSel} />
-          )}
-
-          {semanaSel < lunesHoy ? (
-            <SemanaSoloLectura plan={semanaActual?.plan ?? null} weekStart={semanaSel} />
-          ) : (
-            <>
-              {(() => {
-                const previa = planSemanaPrevia(semanas, semanaSel);
-                return (
-                  <PlanEntrenadorEditor
-                    key={semanaSel}
-                    planActual={planSel === undefined ? undefined : planSel ? { id: `grupo:${g.id}`, weekStart: semanaSel, plan: planSel } : null}
-                    etiquetaGuardado={semanaSel === lunesHoy ? 'Guardado. Es el plan de esta semana para el grupo.' : 'Guardado. Preparado para esa semana.'}
-                    onSave={(params) => saveGroupTrainingPlan({ groupId: g.id, weekStart: semanaSel, weekFocus: params.weekFocus, days: params.days })}
-                    onGuardado={() => { cargarPlan(); onCambio(); }}
-                    semanaAnteriorPlan={previa?.plan ?? null}
-                    etiquetaSemanaAnterior={previa ? etiquetaSemana(previa.weekStart) : null}
-                  />
-                );
-              })()}
-
-              {semanaActual?.plan && (
-                <button
-                  onClick={async () => { await deleteGroupTrainingPlan(g.id, semanaSel); cargarPlan(); onCambio(); }}
-                  className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 hover:underline"
-                >
-                  <Trash2 size={13} /> Borrar el plan de esta semana
-                </button>
-              )}
-            </>
-          )}
-
-          {/* HISTÓRICO */}
-          {pasadas.length > 0 && (
-            <details className="pt-2 border-t border-slate-200 dark:border-slate-800">
-              <summary className={cx(TEXT.muted, 'cursor-pointer')}>Semanas anteriores ({pasadas.length})</summary>
-              <div className="mt-2 space-y-1">
-                {pasadas.map((s) => (
-                  <div key={s.weekStart} className="flex items-center justify-between gap-2 text-xs">
-                    <span className="text-slate-600 dark:text-slate-300">
-                      Semana del {etiquetaSemana(s.weekStart)} · {s.plan?.days.length ?? 0} días
-                    </span>
-                    <button
-                      onClick={() => { setSemanaSel(s.weekStart); }}
-                      className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                      title="Ver (solo lectura al ser una semana pasada)"
-                    >
-                      ver
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-        </div>
-      )}
-    </div>
   );
 }

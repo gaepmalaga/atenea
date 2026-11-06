@@ -96,6 +96,13 @@ const SOLO_SERVICIO = [
   // Regla 84: el registro del entrenamiento de grupo. Mismo motivo: desde una
   // política no se puede mirar `class_members` para saber si es del grupo.
   'group_workout_logs',
+  // Regla 86: la física como la lleva un preparador. Mismo motivo: desde una
+  // política no se puede mirar `class_members` para saber si es de su grupo.
+  'training_sessions',
+  'training_session_logs',
+  'session_templates',
+  'training_week_notes',
+  'physical_marks',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */
@@ -135,7 +142,17 @@ function sinFuncion(src: string, nombre: string): string {
   }
   if (cierreParams < 0) return src;
 
-  const llave = src.indexOf('{', cierreParams);
+  // El cuerpo es la primera `{` FUERA del tipo de retorno: `Promise<{ … }>`
+  // también lleva llaves, y saltárselas es contar los `<` y `>` (sin el `=>`).
+  let llave = -1;
+  let angulos = 0;
+  for (let pos = cierreParams + 1; pos < src.length; pos++) {
+    const c = src[pos];
+    if (c === '<') angulos++;
+    else if (c === '>' && src[pos - 1] !== '=') angulos--;
+    else if (c === '{' && angulos === 0) { llave = pos; break; }
+  }
+  if (llave < 0) return src;
   let profundidad = 0;
   for (let pos = llave; pos < src.length; pos++) {
     if (src[pos] === '{') profundidad++;
@@ -155,6 +172,9 @@ function sinFuncion(src: string, nombre: string): string {
  */
 const EXCEPCIONES_ADMIN: Record<string, string[]> = {
   training_plans: ['getStudentActivePlan', 'saveManualTrainingPlan'],
+  // Regla 86: el preparador lee y fija el SEXO de sus alumnos, que decide su
+  // prueba de fuerza y su baremo.
+  profiles_physical: ['getMarcasAcademia', 'setSexoAlumno'],
 };
 
 describe('lo del alumno va con su sesion, no con la clave de servicio', () => {
@@ -177,15 +197,12 @@ describe('lo del alumno va con su sesion, no con la clave de servicio', () => {
   }
 
   it('las excepciones de admin SI exigen requireAdmin, no requireUser', () => {
-    // La excepcion no puede quedarse sin guarda: si alguna de estas funciones
-    // perdiera su `requireAdmin`, cualquier alumno podria escribir el plan de
-    // otro con solo conocer su id.
-    const training = fuentes.find((f) => f.nombre === 'training.ts')!;
-    for (const funcion of EXCEPCIONES_ADMIN.training_plans) {
-      const i = training.src.indexOf(`function ${funcion}(`);
-      expect(i).toBeGreaterThan(-1);
-      const cabecera = training.src.slice(i, i + 300);
-      expect(cabecera).toMatch(/requireAdmin\(\)/);
+    for (const funcion of Object.values(EXCEPCIONES_ADMIN).flat()) {
+      const f = fuentes.find((x) => x.src.includes(`function ${funcion}(`));
+      expect(f, funcion).toBeDefined();
+      const i = f!.src.indexOf(`function ${funcion}(`);
+      const cabecera = f!.src.slice(i, i + 400);
+      expect(cabecera, funcion).toMatch(/requireAdmin\(\)/);
     }
   });
 

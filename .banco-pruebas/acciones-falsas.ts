@@ -277,12 +277,7 @@ export async function getStudentGroupWeeks() {
     ],
   });
 }
-// «Hoy» fijo (jueves 10 sep): el lunes ya está apuntado, el martes y el jueves
-// se pueden marcar, el viernes aún no ha llegado.
-export async function getMiRegistroFisico() {
-  return ok({ hoy: '2026-09-10', registros: [{ classId: 'g1', fecha: '2026-09-07', rpe: 7, comment: 'Las negativas me cuestan mucho todavía' }] });
-}
-export async function setMiRegistroFisico() { return { success: true as const, error: undefined }; }
+
 export async function generateWeeklyPlan() { return ok({ data: null }); }
 export async function generateNextWeek() { return ok({ plan: PLAN }); }
 export async function completeTrainingDay() { return { success: true as const }; }
@@ -739,25 +734,6 @@ export async function getGroupTrainingPlan() {
   });
   return ok({ semanas: [semana(-1, false), semana(0, true), semana(1, false)] });
 }
-export async function getRegistroGrupo() {
-  const lunes = new Date();
-  lunes.setDate(lunes.getDate() - lunes.getDay() + 1);
-  const f = (n: number) => new Date(lunes.getTime() + n * 864e5).toISOString().slice(0, 10);
-  const dia = (n: number, titulo: string, hechos: number, vencido: boolean) => ({ fecha: f(n), titulo, hechos, vencido });
-  return ok({
-    resumen: {
-      dias: [dia(0, 'Lunes · Tracción', 2, true), dia(1, 'Martes · Rodaje suave', 1, true), dia(3, 'Jueves · Series', 0, false), dia(4, 'Viernes · Circuito', 0, false)],
-      alumnos: [
-        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', dias: { [f(0)]: null, [f(1)]: null, [f(3)]: null, [f(4)]: null }, hechos: 0 },
-        { userId: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', dias: { [f(0)]: { rpe: null, comment: null }, [f(1)]: null, [f(3)]: null, [f(4)]: null }, hechos: 1 },
-        { userId: 'u2', email: 'alumno@atenea.com', dias: { [f(0)]: { rpe: 8, comment: 'Las negativas me cuestan' }, [f(1)]: { rpe: 5, comment: null }, [f(3)]: null, [f(4)]: null }, hechos: 2 },
-      ],
-      rpeMedio: 6.5,
-      comentarios: [{ email: 'alumno@atenea.com', fecha: f(0), rpe: 8, comment: 'Las negativas me cuestan' }],
-      sinRegistrar: ['alumno.flojo@ejemplo.com'],
-    },
-  });
-}
 export async function saveGroupTrainingPlan() { return { success: true as const, error: undefined }; }
 export async function deleteGroupTrainingPlan() { return { success: true as const }; }
 
@@ -807,3 +783,96 @@ export async function getPaymentsHistory() {
   });
 }
 export async function setPayment() { return { success: true as const }; }
+
+// ── LA FÍSICA COMO LA LLEVA UN PREPARADOR (regla 86) ─────────────────────────
+// Fechas relativas a hoy: el calendario tiene que salir lleno al abrirlo.
+const fFis = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const lunesFis = (n: number) => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const sesionFis = (id: string, dia: number, kind: 'fuerza' | 'carrera' | 'agilidad' | 'circuito' | 'movilidad' | 'descanso' | 'otro', title: string, extra: Partial<{ description: string; durationMin: number; distanceKm: number; video: string; classId: string | null; userId: string | null }> = {}) => ({
+  id, fecha: lunesFis(dia), kind, title, description: extra.description ?? null, durationMin: extra.durationMin ?? null,
+  distanceKm: extra.distanceKm ?? null, video: extra.video ?? null, classId: extra.classId === undefined ? 'g1' : extra.classId,
+  userId: extra.userId ?? null, position: 0,
+});
+const SESIONES_FIS = [
+  sesionFis('s1', -7, 'fuerza', 'Tren superior y core', { description: 'Calentamiento: 10′ movilidad de hombro\nDominadas: 5 × máximas · R 2′\nFlexiones: 4 × 15\nPlancha: 3 × 45″', durationMin: 60 }),
+  sesionFis('s2', -6, 'carrera', 'Series de 400 m', { description: '15′ trote suave\n6 × 400 m a ritmo de prueba · R 1′30″\n5′ vuelta a la calma', durationMin: 50, distanceKm: 6 }),
+  sesionFis('s3', -4, 'agilidad', 'Circuito de agilidad', { durationMin: 40, video: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }),
+  sesionFis('s4', 0, 'fuerza', 'Fuerza: dominadas lastradas', { description: 'Dominadas lastradas 4 × 5\nRemo invertido 3 × 12', durationMin: 55 }),
+  sesionFis('s5', 1, 'carrera', 'Rodaje continuo', { description: '40′ a ritmo cómodo, sin mirar el reloj.', durationMin: 40, distanceKm: 8 }),
+  sesionFis('s6', 2, 'movilidad', 'Movilidad y estiramientos', { durationMin: 25 }),
+  sesionFis('s7', 3, 'agilidad', 'Simulacro de agilidad', { description: '3 intentos con 5′ de descanso. Cronometra cada uno.', durationMin: 45 }),
+  sesionFis('s8', 4, 'carrera', 'Test de 1.000 m', { description: 'Calentamiento 15′ + 1.000 m a tope.', durationMin: 35, distanceKm: 4 }),
+  sesionFis('s9', 5, 'circuito', 'Circuito de fuerza-resistencia', { durationMin: 45, classId: null, userId: 'u2' }),
+  sesionFis('s10', 6, 'descanso', 'Descanso', {}),
+];
+const APUNTES_FIS = [
+  { sessionId: 's1', userId: 'u2', status: 'hecha' as const, rpe: 8, comment: 'Las dominadas me cuestan mucho todavía', durationMin: 65, distanceKm: null, coachReply: 'Normal. El jueves bajamos el volumen.', email: 'alumno@atenea.com' },
+  { sessionId: 's2', userId: 'u2', status: 'hecha' as const, rpe: 6, comment: null, durationMin: null, distanceKm: 6.2, coachReply: null, email: 'alumno@atenea.com' },
+  { sessionId: 's3', userId: 'u2', status: 'no_hecha' as const, rpe: null, comment: 'Molestia en el tobillo', durationMin: null, distanceKm: null, coachReply: null, email: 'alumno@atenea.com' },
+  { sessionId: 's1', userId: 'u3', status: 'hecha' as const, rpe: 7, comment: null, durationMin: null, distanceKm: null, coachReply: null, email: 'alumno.flojo@ejemplo.com' },
+];
+const NOTAS_FIS = [{ weekStart: lunesFis(0), note: 'Semana de test: llegad descansados al viernes', classId: 'g1' }];
+const PLANTILLAS_FIS = [
+  { id: 'p1', kind: 'carrera' as const, title: 'Series de 400 m', description: '6 × 400 m · R 1′30″', durationMin: 50, distanceKm: 6, video: null },
+  { id: 'p2', kind: 'carrera' as const, title: 'Rodaje suave 30′', description: null, durationMin: 30, distanceKm: 5, video: null },
+  { id: 'p3', kind: 'fuerza' as const, title: 'Dominadas: pirámide', description: '1-2-3-4-3-2-1', durationMin: 30, distanceKm: null, video: null },
+  { id: 'p4', kind: 'agilidad' as const, title: 'Técnica de agilidad', description: null, durationMin: 30, distanceKm: null, video: null },
+];
+
+export async function getDestinosFisica() {
+  return ok({
+    grupos: [{ id: 'g1', name: 'Promo 43 · Físicas', kind: 'fisicas', miembros: 3 }, { id: 'g2', name: 'Teoría mañana', kind: 'teoria', miembros: 20 }],
+    alumnos: [
+      { id: 'u2', email: 'alumno@atenea.com', grupos: ['g1'] },
+      { id: 'u3', email: 'alumno.flojo@ejemplo.com', grupos: ['g1'] },
+      { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', grupos: ['g1'] },
+    ],
+  });
+}
+export async function getPlanificador() {
+  return ok({
+    sesiones: SESIONES_FIS, apuntes: APUNTES_FIS,
+    miembros: [{ id: 'u3', email: 'alumno.flojo@ejemplo.com' }, { id: 'u2', email: 'alumno@atenea.com' }, { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com' }],
+    notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, hoy: fFis(0),
+  });
+}
+export async function getPlantillas() { return ok({ plantillas: PLANTILLAS_FIS }); }
+export async function saveSesion() { return { success: true as const, id: 'nueva' }; }
+export async function deleteSesion() { return { success: true as const }; }
+export async function moverSesion() { return { success: true as const }; }
+export async function copiarSemanaFisica() { return { success: true as const, creadas: 5 }; }
+export async function setNotaSemana() { return { success: true as const }; }
+export async function responderApunte() { return { success: true as const }; }
+export async function savePlantilla() { return { success: true as const, id: 'p9' }; }
+export async function deletePlantilla() { return { success: true as const }; }
+export async function getMarcasAcademia() {
+  const m = (id: string, prueba: 'agilidad' | 'dominadas' | 'suspension' | 'carrera_1000', valor: number, dias: number) => ({ id, prueba, valor, fecha: fFis(-dias), nota: null });
+  return ok({
+    hoy: fFis(0),
+    alumnos: [
+      { id: 'u2', email: 'alumno@atenea.com', sexo: 'male' as const, marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)] },
+      { id: 'u3', email: 'alumno.flojo@ejemplo.com', sexo: 'male' as const, marcas: [m('m5', 'agilidad', 11.9, 5), m('m6', 'dominadas', 6, 5)] },
+      { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', sexo: 'female' as const, marcas: [m('m7', 'agilidad', 10.6, 2), m('m8', 'suspension', 64, 2), m('m9', 'carrera_1000', 238, 2)] },
+      { id: 'u5', email: 'sin.sexo@ejemplo.com', sexo: null, marcas: [] },
+    ],
+  });
+}
+export async function addMarca() { return { success: true as const }; }
+export async function deleteMarca() { return { success: true as const }; }
+export async function setSexoAlumno() { return { success: true as const }; }
+export async function getMiFisica() {
+  return ok({
+    sesiones: SESIONES_FIS, apuntes: APUNTES_FIS.filter((a) => a.userId === 'u2').map(({ email: _e, ...a }) => a),
+    notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, hoy: fFis(0),
+  });
+}
+export async function setMiApunte() {
+  return ok({ apunte: { sessionId: 's4', userId: 'u2', status: 'hecha' as const, rpe: 7, comment: null, durationMin: null, distanceKm: null, coachReply: null } });
+}
+export async function getMisMarcas() {
+  const m = (id: string, prueba: 'agilidad' | 'dominadas' | 'carrera_1000', valor: number, dias: number, porMi = true) => ({ id, prueba, valor, fecha: fFis(-dias), nota: null, porMi });
+  return ok({ sexo: 'male' as const, hoy: fFis(0), marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3, false), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)] });
+}
+export async function addMiMarca() { return { success: true as const }; }
+export async function deleteMiMarca() { return { success: true as const }; }
+export async function setMiSexo() { return { success: true as const }; }
