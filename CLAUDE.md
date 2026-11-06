@@ -80,7 +80,7 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | **P13** | **«Mi Evolución» sustituye a Estadísticas: una sola pantalla, no datos sueltos** | ✅ **cerrada** (15 sep). El dueño lo pidió directo: *"quiero que explotemos la aplicación... que quien la vea diga la aplicación lo sabe todo de mí"*. Consolida Inicio/Fallos/Estadísticas/Mi Perfil en una historia: fecha de inicio, mapa del temario, desglose con contexto (dominadas / en camino / se resisten —con el tema que más resiste— / evitas), ¿Aprobaría?, curva diaria de dominadas (SVG a mano) y racha en calendario. `dominadasHasta` (`question-scheduler.ts`) es la pieza nueva: un día YA PASADO da siempre el mismo número, así que la curva se cachea de verdad —nunca en `localStorage`, decisión explícita del dueño, tiene que servir entre dispositivos—. Ver **regla 77**. `npm run check` (1047 tests) y `npm run build` en verde. Verificado en el preview con datos reales de `alumno@atenea.com`, incluido un fallo real de fecha encontrado y corregido contra la BD real (la curva empezaba un día tarde) |
 | — | **El banco crece donde pesa el examen real, no a cifra plana** | ✅ **cerrada y sembrada de verdad** (15-16 sep), a preguntas del dueño comparando con la competencia. Tres franjas por `PESO_EXAMEN_REAL`: "paja" sin tocar, "normal" a 55, "importante" con un SUELO POR ARTÍCULO (no por tema) — medido contra la BD real, un tema con 149 artículos y uno con 20 no pueden pedir la misma cifra plana. Los 5 exámenes oficiales indexados quedan vetados como FUENTE de preguntas nuevas (un artículo citado hace años puede haber cambiado), y el prompt incorpora su ESTILO real sin su contenido. **2.822 preguntas nuevas, banco global activo en 4.617.** Ver **regla 78**. `npm run check` (1047 tests) en verde |
 | — | **Prep. física probada de punta a punta, y la carrera de 1.000 m en vez del Cooper** | ✅ **hecho** (11-12 oct), en la rama `claude/instagram-content-opositores-academias-qj5k0q`. Probado con cuentas temporales de la academia casa contra la BD real (borradas después). Ver **regla 79** |
-| — | **La plataforma pasa a ser de Alphapol** | 🔶 **código hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`: marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol. **La base de datos ya está limpia** (6 nov, `npm run limpiar` contra la real): solo el superadmin, solo la academia Alphapol, banco y temario intactos; creadas `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` para los dueños; el disparador de altas ya apunta a Alphapol. **Falta**: pasarlo a `main`, el subdominio y el correo. Ver **regla 81** |
+| — | **La plataforma pasa a ser de Alphapol** | ✅ **en producción** (6 nov, rama `claude/alfapol-platform-requirements-3kt6w6` fusionada en `main`, comprobado en https://atenea-eight.vercel.app): marca, logo e iconos de alphapol.es, azul marino en vez del índigo, fuera todo lo propio de Atenea, el registro por `/` entra en Alphapol. **La base de datos ya está limpia** (6 nov, `npm run limpiar` contra la real): solo el superadmin, solo la academia Alphapol, banco y temario intactos; creadas `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` para los dueños; el disparador de altas ya apunta a Alphapol. **Falta**: el subdominio, el correo desde `@alphapol.es` y las plantillas de correo de Supabase Auth, que siguen diciendo «Atenea Policial». Ver **regla 81** |
 | — | **Las dudosas: tasa de acierto en lo que se contesta dudando** | ✅ **hecho** (6 nov), en la rama `claude/alfapol-platform-requirements-3kt6w6`, a petición de Alphapol. Marca «Dudosa» opcional en simulacro y entrenamiento, guardada en `question_attempts.confidence` (**sin SQL**), con su resumen en resultados, «Mi Evolución» y la ficha del alumno. Verificado en el banco de pruebas, no con la BD real. Ver **regla 80** |
 
 ## Producción
@@ -3341,13 +3341,19 @@ el valor de verdad).
 
 **Lo que queda:**
 
-1. Pasar la rama a `main` (cada push a `main` despliega solo).
+1. ~~Pasar la rama a `main`~~ — hecho (6 nov), comprobado en producción.
 2. El subdominio (p. ej. `campus.alphapol.es`): añadirlo en Vercel, crear el
    CNAME en Hostinger (allí están su DNS, su web y su correo), poner la URL en
    Supabase (Site URL y Redirect URLs) y en `NEXT_PUBLIC_SITE_URL`.
 3. Verificar `alphapol.es` en Resend (sus registros van en un subdominio
    `send.`, no chocan con el correo de Hostinger) y definir `MAIL_FROM`.
-4. Cambiar las tres plantillas de correo de Supabase Auth.
+4. Cambiar las tres plantillas de correo de Supabase Auth (confirmar,
+   invitar, recuperar) y el nombre del remitente: los tres asuntos y los tres
+   cuerpos dicen «Atenea Policial», con los colores de la bandera. Se pueden
+   cambiar por la API de gestión (`PATCH /v1/projects/{ref}/config/auth`,
+   campos `mailer_subjects_*`, `mailer_templates_*_content` y
+   `smtp_sender_name`), manteniendo `{{ .ConfirmationURL }}`; el intento desde
+   la sesión necesitó un permiso que no estaba dado.
 
 ---
 
