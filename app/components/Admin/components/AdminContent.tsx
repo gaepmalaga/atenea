@@ -636,7 +636,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
   const [fichasPorTema, setFichasPorTema] = useState<Record<string, number> | null>(null);
 
   type Resultado =
-    | { success: true; inserted: number; duplicated: number; failed: number; requested: number }
+    | { success: true; inserted: number; duplicated: number; failed: number; requested: number; motivoFallo?: string | null }
     | { success: false; error?: string };
   const [resultado, setResultado] = useState<Resultado | null>(null);
 
@@ -787,6 +787,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
         )}>
           {resultado.success
             ? `${resultado.inserted} nuevas · ${resultado.duplicated} repetidas · ${resultado.failed} fallidas (de ${resultado.requested} pedidas)`
+              + (resultado.failed > 0 && resultado.motivoFallo ? ` · Motivo: ${resultado.motivoFallo}` : '')
             : `No se pudo: ${resultado.error ?? 'error desconocido'}`}
         </div>
       )}

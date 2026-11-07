@@ -416,12 +416,14 @@ export async function seedQuestionBank(params: {
   const nivel = toDifficultyLevel(params.difficulty);
 
   const worker = async () => {
+    let motivo: string | null = null;
     for (let i = 0; i < 3; i++) {
         const res = await generateTestQuestion(subjectId, nivel, auth.user.id);
         if (res.success && res.data) return { ok: true, data: res.data };
+        motivo = res.error ?? motivo;
         await new Promise(r => setTimeout(r, 500));
     }
-    return { ok: false };
+    return { ok: false, motivo };
   };
 
   const tasks = Array.from({ length: count }, (_, i) => i);
@@ -430,9 +432,17 @@ export async function seedQuestionBank(params: {
   let inserted = 0;
   let duplicated = 0;
   let failed = 0;
+  // El motivo de los fallos viaja a la pantalla (regla 92): un «1 fallida» sin
+  // decir por qué obliga a ir a buscarlo a los registros del servidor, y así
+  // es como un cambio de modelo que Google rechazaba pasó sin explicación.
+  const motivos = new Map<string, number>();
+  const anotaMotivo = (m: string | null | undefined) => {
+    const texto = (m ?? 'sin detalle').slice(0, 300);
+    motivos.set(texto, (motivos.get(texto) ?? 0) + 1);
+  };
 
   for (const r of results) {
-    if (!r.ok || !r.data) { failed++; continue; }
+    if (!r.ok || !r.data) { failed++; anotaMotivo('motivo' in r ? r.motivo : null); continue; }
 
     const d = r.data as GeneratedQuestion;
     const qHash = questionHash(subjectId, d.question, d.correctIndex);
@@ -458,14 +468,18 @@ export async function seedQuestionBank(params: {
       }, { onConflict: 'question_hash', ignoreDuplicates: true })
       .select('id');
 
-    if (error) failed++;
+    if (error) { failed++; anotaMotivo(error.message); }
     else if (data && data.length > 0) inserted++;
     else duplicated++;
   }
 
+  // El motivo más repetido, si algo falló.
+  const motivoFallo = [...motivos.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  if (motivoFallo) console.error(`seedQuestionBank: ${failed} fallidas. Motivo: ${motivoFallo}`);
+
   // Se devuelve el desglose completo: antes solo se informaba de `inserted` y
   // un lote que fallara entero se veia igual que uno duplicado.
-  return { success: true as const, inserted, duplicated, failed, requested: count, status };
+  return { success: true as const, inserted, duplicated, failed, requested: count, status, motivoFallo };
 }
 
 // ==========================================
