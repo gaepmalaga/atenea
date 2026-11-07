@@ -166,16 +166,24 @@ function fecha(valor: unknown): number | null {
  * es una decision, no un fallo, y contarlo como respuesta castiga al alumno que
  * no arriesga — al reves de lo que ensena la formula del BOE (reglas 22 y 24).
  */
-export function resumeAlumnos(
-  perfiles: PerfilAlumno[],
-  intentos: IntentoAlumno[],
-  ahora: number = Date.now()
-): FilaAlumno[] {
-  const acumulado = new Map<
-    string,
-    { contestadas: number; blancos: number; aciertos: number; ultima: number | null }
-  >();
+/**
+ * Los totales de un alumno, ya sumados. Es lo que devuelve la base de datos
+ * (`panel_academia_resumen`, regla 91) y lo que calcula `resumeAlumnos` a
+ * partir de las respuestas sueltas: las dos vías acaban en
+ * `resumeAlumnosDesdeConteos`, así que no pueden contar distinto.
+ */
+export type ConteoAlumno = {
+  user_id: string;
+  contestadas: number;
+  blancos: number;
+  aciertos: number;
+  /** La respuesta más reciente, blancos incluidos. `null` si no hay ninguna. */
+  ultima: string | null;
+};
 
+/** Suma las respuestas sueltas por alumno, con la misma regla que la base de datos. */
+export function conteosPorAlumno(intentos: IntentoAlumno[]): ConteoAlumno[] {
+  const acumulado = new Map<string, { contestadas: number; blancos: number; aciertos: number; ultima: number | null }>();
   for (const intento of intentos ?? []) {
     const id = intento?.user_id;
     if (!id) continue;
@@ -194,6 +202,38 @@ export function resumeAlumnos(
     if (cuando !== null && (acc.ultima === null || cuando > acc.ultima)) acc.ultima = cuando;
 
     acumulado.set(id, acc);
+  }
+  return [...acumulado.entries()].map(([user_id, a]) => ({
+    user_id,
+    contestadas: a.contestadas,
+    blancos: a.blancos,
+    aciertos: a.aciertos,
+    ultima: a.ultima === null ? null : new Date(a.ultima).toISOString(),
+  }));
+}
+
+export function resumeAlumnos(
+  perfiles: PerfilAlumno[],
+  intentos: IntentoAlumno[],
+  ahora: number = Date.now()
+): FilaAlumno[] {
+  return resumeAlumnosDesdeConteos(perfiles, conteosPorAlumno(intentos), ahora);
+}
+
+export function resumeAlumnosDesdeConteos(
+  perfiles: PerfilAlumno[],
+  conteos: ConteoAlumno[],
+  ahora: number = Date.now()
+): FilaAlumno[] {
+  const acumulado = new Map<string, { contestadas: number; blancos: number; aciertos: number; ultima: number | null }>();
+  for (const c of conteos ?? []) {
+    if (!c?.user_id) continue;
+    acumulado.set(c.user_id, {
+      contestadas: Number(c.contestadas) || 0,
+      blancos: Number(c.blancos) || 0,
+      aciertos: Number(c.aciertos) || 0,
+      ultima: fecha(c.ultima),
+    });
   }
 
   const filas: FilaAlumno[] = (perfiles ?? []).map((p) => {
@@ -374,13 +414,30 @@ export function preguntasSospechosas(
     porPregunta.set(id, acc);
   }
 
-  return [...porPregunta.entries()]
-    .filter(([, a]) => a.veces >= minIntentos)
-    .map(([questionId, a]) => ({
-      questionId,
-      veces: a.veces,
-      aciertos: a.aciertos,
-      winRate: Math.round((a.aciertos / a.veces) * 100),
+  return sospechosasDesdeConteos(
+    [...porPregunta.entries()].map(([questionId, a]) => ({ question_id: questionId, veces: a.veces, aciertos: a.aciertos })),
+    minIntentos,
+    maxWinRate,
+  );
+}
+
+/**
+ * Lo mismo, a partir de los totales por pregunta (`panel_academia_resumen`,
+ * regla 91). La base de datos ya filtra con los mismos umbrales; aquí se
+ * vuelven a aplicar para que la regla viva en un solo sitio.
+ */
+export function sospechosasDesdeConteos(
+  conteos: { question_id: string; veces: number; aciertos: number }[],
+  minIntentos = 5,
+  maxWinRate = 25
+): PreguntaSospechosa[] {
+  return (conteos ?? [])
+    .filter((c) => c?.question_id && Number(c.veces) >= minIntentos)
+    .map((c) => ({
+      questionId: c.question_id,
+      veces: Number(c.veces),
+      aciertos: Number(c.aciertos) || 0,
+      winRate: Math.round(((Number(c.aciertos) || 0) / Number(c.veces)) * 100),
     }))
     .filter((p) => p.winRate <= maxWinRate)
     .sort((a, b) => a.winRate - b.winRate || b.veces - a.veces);
@@ -419,12 +476,23 @@ export function coberturaTemario(
     alumnosPorTitulo.set(topic, set);
   }
 
+  const alumnosPorTema = new Map<string, number>();
+  for (const [topic, set] of alumnosPorTitulo) alumnosPorTema.set(topic, set.size);
+  return coberturaDesdeConteos(temas, preguntasPorTema, alumnosPorTema);
+}
+
+/** Lo mismo, con los alumnos por tema ya contados (`panel_academia_resumen`, regla 91). */
+export function coberturaDesdeConteos(
+  temas: { id: number; title: string }[],
+  preguntasPorTema: Map<number, number>,
+  alumnosPorTema: Map<string, number>
+): CoberturaTema[] {
   return (temas ?? [])
     .map((t) => ({
       subjectId: t.id,
       title: t.title,
       preguntas: preguntasPorTema.get(t.id) ?? 0,
-      alumnos: alumnosPorTitulo.get(t.title.trim())?.size ?? 0,
+      alumnos: alumnosPorTema.get(t.title.trim()) ?? 0,
     }))
     .sort((a, b) => a.preguntas - b.preguntas || a.title.localeCompare(b.title));
 }

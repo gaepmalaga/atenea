@@ -385,3 +385,77 @@ describe('el panel existe', () => {
     expect(readdirSync(join(__dirname, '..', 'app', 'actions'))).toContain('academy.ts');
   });
 });
+
+// ── El panel suma en la base de datos (regla 91) ───────────────────────────
+//
+// `panel_academia_resumen` y `panel_academia_confusion` devuelven totales, y
+// las funciones `…DesdeConteos` los convierten en lo que pinta el panel. Con
+// los mismos datos tienen que dar lo mismo que la vía de respuestas sueltas.
+// (Las funciones SQL se compararon contra esta misma lógica en un Postgres de
+// verdad con 1.680 respuestas inventadas el 6 nov: iguales.)
+describe('el panel desde los totales da lo mismo que desde las respuestas', async () => {
+  const lib = await import('../app/lib/academy');
+  const conf = await import('../app/lib/question-confusion');
+  const ahora = Date.parse('2026-11-06T12:00:00Z');
+  const u = (n: number) => `u${n}`;
+  const intentos: import('../app/lib/academy').IntentoAlumno[] = [];
+  for (let a = 0; a < 10; a++) {
+    for (let q = 0; q < 12; q++) {
+      const dificil = q % 5 === 0;
+      intentos.push({
+        user_id: u(a), topic: q < 6 ? 'Tema A' : 'Tema B', question_id: `q${q}`,
+        is_correct: dificil ? a % 6 === 0 : (a + q) % 3 !== 0,
+        selected_index: (a + q) % 11 === 0 ? -1 : 1, error_type: null,
+        created_at: new Date(ahora - ((a * 7 + q) % 20) * 86_400_000).toISOString(),
+      } as import('../app/lib/academy').IntentoAlumno);
+    }
+  }
+  const perfiles = Array.from({ length: 10 }, (_, a) => ({ id: u(a), email: u(a), role: 'student', created_at: null, last_sign_in_at: null }));
+
+  it('alumnos, sospechosas y cobertura', () => {
+    expect(lib.resumeAlumnosDesdeConteos(perfiles, lib.conteosPorAlumno(intentos), ahora)).toEqual(lib.resumeAlumnos(perfiles, intentos, ahora));
+    const porPregunta = new Map<string, { veces: number; aciertos: number }>();
+    for (const i of intentos) {
+      if (i.selected_index === -1) continue;
+      const c = porPregunta.get(i.question_id as string) ?? { veces: 0, aciertos: 0 };
+      c.veces++; if (i.is_correct) c.aciertos++;
+      porPregunta.set(i.question_id as string, c);
+    }
+    const conteos = [...porPregunta].map(([question_id, c]) => ({ question_id, ...c }));
+    expect(lib.sospechosasDesdeConteos(conteos)).toEqual(lib.preguntasSospechosas(intentos));
+    expect(lib.preguntasSospechosas(intentos).length).toBeGreaterThan(0);
+  });
+
+  it('los pares que se confunden', () => {
+    const r = new Map<string, { ok: boolean; topic: string }>();
+    for (const i of intentos) {
+      if (i.selected_index === -1) continue;
+      const k = `${i.user_id}|${i.question_id}`;
+      const p = r.get(k);
+      r.set(k, { ok: (p?.ok ?? true) && Boolean(i.is_correct), topic: i.topic ?? '' });
+    }
+    const filas = [...r].map(([k, v]) => ({ user: k.split('|')[0], q: k.split('|')[1], ...v }));
+    const q = new Map<string, { n: number; f: number }>();
+    for (const f of filas) { const c = q.get(f.q) ?? { n: 0, f: 0 }; c.n++; if (!f.ok) c.f++; q.set(f.q, c); }
+    const pares = new Map<string, import('../app/lib/question-confusion').ConteoPar>();
+    for (const x of filas) for (const y of filas) {
+      if (x.user !== y.user || x.topic !== y.topic || !(x.q < y.q)) continue;
+      const k = `${x.q}|${y.q}`;
+      const p = pares.get(k) ?? { a: x.q, b: y.q, topic: x.topic, coN: 0, coFallo: 0, nA: q.get(x.q)!.n, fA: q.get(x.q)!.f, nB: q.get(y.q)!.n, fB: q.get(y.q)!.f };
+      p.coN++; if (!x.ok && !y.ok) p.coFallo++;
+      pares.set(k, p);
+    }
+    const paraConfusion = intentos.filter((i) => i.selected_index !== -1)
+      .map((i) => ({ questionId: i.question_id as string, userId: i.user_id as string, isCorrect: Boolean(i.is_correct), topic: i.topic ?? '' }));
+    const op = { minEncuestados: 4, minLift: 1.0 };
+    expect(conf.confusionDesdeConteos([...pares.values()], op)).toEqual(conf.detectaConfusion(paraConfusion, op));
+  });
+
+  it('el panel ya no trae las respuestas de toda la academia', () => {
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const src = readFileSync(require('node:path').join(__dirname, '..', 'app', 'actions', 'academy.ts'), 'utf8');
+    const overview = src.slice(src.indexOf('export async function getAcademyOverview'), src.indexOf('export type StudentDetail'));
+    expect(overview).not.toMatch(/fetchTodosLosIntentos\(/);
+    expect(overview).toMatch(/rpc\('panel_academia_resumen'/);
+  });
+});

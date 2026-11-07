@@ -6,12 +6,14 @@ import { requireAdmin } from '../lib/auth';
 import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import {
   resumeAlumnos,
+  resumeAlumnosDesdeConteos,
   contarPorEstado,
   temasDelAlumno,
   erroresDelAlumno,
-  preguntasSospechosas,
-  coberturaTemario,
+  sospechosasDesdeConteos,
+  coberturaDesdeConteos,
   progresoSemanalAcademia,
+  type ConteoAlumno,
   type IntentoAlumno,
   type FilaAlumno,
   type EstadoAlumno,
@@ -23,8 +25,7 @@ import {
 } from '../lib/academy';
 import type { ErrorType } from '../lib/stats';
 import { periodoActual } from '../lib/payments';
-import { detectaConfusion, type ParConfuso } from '../lib/question-confusion';
-import { isBlankAnswer } from '../lib/exam-results';
+import { confusionDesdeConteos, type ConteoPar, type ParConfuso } from '../lib/question-confusion';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 /**
@@ -52,7 +53,11 @@ import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
  * que crece. El dia que se pase de aqui, esto se convierte en una vista
  * agregada en SQL, no en un tope mas grande.
  */
-const MAX_INTENTOS = 20_000;
+/**
+ * Tope de respuestas de UN alumno para su ficha. El panel de toda la academia
+ * ya no trae respuestas sueltas (regla 91): las suma la base de datos.
+ */
+const MAX_INTENTOS_ALUMNO = 100_000;
 
 /**
  * Trae TODOS los intentos de estos alumnos, paginando por encima del tope de
@@ -73,7 +78,7 @@ async function fetchTodosLosIntentos(
         .select('user_id, topic, is_correct, error_type, created_at, question_id, selected_index, confidence')
         .in('user_id', userIds)
         .range(desde, hasta) as unknown as Promise<{ data: IntentoAlumno[] | null; error: { message: string } | null }>,
-    { maxFilas: MAX_INTENTOS },
+    { maxFilas: MAX_INTENTOS_ALUMNO },
   );
 }
 
@@ -132,14 +137,20 @@ export async function getAcademyOverview(): Promise<
   // lista de a quien llamar. El profesor actua sobre esa lista: el dato falso
   // no era un numero feo, era una llamada de telefono equivocada.
   const periodo = periodoActual();
-  const [perfilesRes, intentosRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosGrupoRes, membresiasRes, pagosRes, ajustesRes] = await Promise.all([
+  //
+  // LAS CUENTAS LAS HACE LA BASE DE DATOS (regla 91). Antes se traían aquí
+  // TODAS las respuestas de la academia, con un tope de 20.000: con 100
+  // alumnos estudiando a diario se pasa en semanas, y a partir de ahí el panel
+  // contaba sobre una parte del histórico sin avisar y cada vez tardaba más.
+  // Ahora llegan los totales (`panel_academia_resumen`), los pares candidatos
+  // a confusión (`panel_academia_confusion`) y, para el progreso semanal, solo
+  // el histórico de las preguntas tocadas en los últimos 7 días
+  // (`panel_academia_semana`), que da el mismo resultado (ver el guion).
+  const [perfilesRes, resumenRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosGrupoRes, membresiasRes, pagosRes, ajustesRes, confusionRes, semanaRes] = await Promise.all([
     idsAcademia.length
       ? supabaseAdmin.from('profiles').select('id, email, role, created_at').in('id', idsAcademia)
       : Promise.resolve({ data: [], error: null }),
-    // Paginado por encima del tope de PostgREST (ver `fetchTodosLosIntentos`):
-    // sin esto, una academia con más de 1.000 intentos reales se quedaba con
-    // solo los primeros 1.000, sin ningún aviso.
-    fetchTodosLosIntentos(idsAcademia),
+    supabaseAdmin.rpc('panel_academia_resumen', { p_user_ids: idsAcademia }),
     supabaseAdmin.from('subjects').select('id, title').order('topic_number', { ascending: true }),
     // El banco también, paginado: tiene 4.617 preguntas y PostgREST da 1.000
     // por petición, así que la cobertura del temario salía recortada.
@@ -161,17 +172,31 @@ export async function getAcademyOverview(): Promise<
     supabaseAdmin.from('memberships').select('user_id, access_status, exempt').eq('organization_id', organizationId),
     supabaseAdmin.from('monthly_payments').select('user_id, paid').eq('organization_id', organizationId).eq('period', periodo).eq('paid', true),
     supabaseAdmin.from('membership_settings').select('required').eq('organization_id', organizationId).maybeSingle(),
+    supabaseAdmin.rpc('panel_academia_confusion', { p_user_ids: idsAcademia }),
+    paginaCompleta<IntentoAlumno>(
+      (desde, hasta) =>
+        supabaseAdmin
+          .rpc('panel_academia_semana', { p_user_ids: idsAcademia })
+          .order('created_at', { ascending: true })
+          .range(desde, hasta) as unknown as Promise<ResultadoPagina<IntentoAlumno>>,
+      { maxFilas: 200_000 },
+    ),
   ]);
 
-  if (perfilesRes.error || intentosRes.error) {
+  if (perfilesRes.error || resumenRes.error || confusionRes.error || semanaRes.error) {
     // No se traga: sin esto el panel diria que no hay alumnos, que es la
     // mentira mas tranquilizadora posible (regla 4).
-    const mensaje = perfilesRes.error?.message ?? intentosRes.error ?? 'error';
+    const mensaje = perfilesRes.error?.message ?? resumenRes.error?.message ?? confusionRes.error?.message ?? semanaRes.error ?? 'error';
     console.error('getAcademyOverview:', mensaje);
     return { success: false as const, error: mensaje };
   }
 
-  const intentos = (intentosRes.data ?? []) as IntentoAlumno[];
+  type Resumen = {
+    alumnos: ConteoAlumno[] | null;
+    temas: { topic: string; alumnos: number }[] | null;
+    preguntas: { question_id: string; veces: number; aciertos: number }[] | null;
+  };
+  const resumen = (resumenRes.data ?? {}) as Resumen;
 
   const conexiones = new Map<string, string | null>();
   for (const u of sesionesRes?.data?.users ?? []) {
@@ -187,14 +212,14 @@ export async function getAcademyOverview(): Promise<
       last_sign_in_at: conexiones.get(p.id) ?? null,
     }));
 
-  const alumnos = resumeAlumnos(perfilesConConexion, intentos);
+  const alumnos = resumeAlumnosDesdeConteos(perfilesConConexion, resumen.alumnos ?? []);
 
   // Solo los ALUMNOS cuentan para el progreso de la academia (regla 54: los
   // admin no son alumnos) — sin este filtro, la generación de contenido de
   // un admin en Temario & IA podría colarse en la cuenta.
   const idsAlumnos = new Set(perfilesConConexion.map((p) => p.id));
   const progresoSemanalDeLaAcademia = progresoSemanalAcademia(
-    intentos.filter((i) => i.user_id && idsAlumnos.has(i.user_id)),
+    semanaRes.data.filter((i) => i.user_id && idsAlumnos.has(i.user_id)),
   );
 
   // Los grupos de cada alumno (P7). El grupo es de administración: se resuelve
@@ -237,16 +262,16 @@ export async function getAcademyOverview(): Promise<
     preguntasPorTema.set(fila.subject_id, (preguntasPorTema.get(fila.subject_id) ?? 0) + 1);
   }
 
-  const cobertura = coberturaTemario(
+  const cobertura = coberturaDesdeConteos(
     ((temasRes.data ?? []) as { id: number; title: string }[]),
     preguntasPorTema,
-    intentos
+    new Map((resumen.temas ?? []).map((t) => [t.topic, Number(t.alumnos) || 0])),
   );
 
   // Las sospechosas se enriquecen con su enunciado: una lista de UUID no le
   // dice nada a nadie. El texto viene por consulta aparte y no desnormalizado
   // (regla 5): si un admin corrige la pregunta, aqui se ve la corregida.
-  const sospechosas = preguntasSospechosas(intentos);
+  const sospechosas = sospechosasDesdeConteos(resumen.preguntas ?? []);
   let conTexto: AcademyOverview['sospechosas'] = sospechosas.map((p) => ({ ...p, texto: null, tema: null }));
 
   if (sospechosas.length) {
@@ -266,21 +291,11 @@ export async function getAcademyOverview(): Promise<
     });
   }
 
-  // PARES QUE SE CONFUNDEN (regla 73, `detectaConfusion`) — mismo patrón que
-  // las sospechosas: se calcula de los intentos ya en memoria (sin consulta
-  // nueva) y se enriquece con el enunciado de las dos preguntas después. Los
-  // blancos se descartan antes: dejar una pregunta sin contestar no es una
-  // creencia falsa, es no arriesgar (regla 24), y contarlo aquí ensuciaría la
-  // señal con abstenciones.
-  const paraConfusion = intentos
-    .filter((i) => i.question_id && i.user_id && !isBlankAnswer(i.selected_index))
-    .map((i) => ({
-      questionId: i.question_id as string,
-      userId: i.user_id as string,
-      isCorrect: Boolean(i.is_correct),
-      topic: i.topic ?? '',
-    }));
-  const confusasCrudas = detectaConfusion(paraConfusion).slice(0, 10);
+  // PARES QUE SE CONFUNDEN (regla 73): los candidatos y sus conteos salen de
+  // la base de datos (`panel_academia_confusion`, regla 91) y aquí se aplican
+  // los umbrales y el `lift`. Los blancos ya vienen descartados: dejar una
+  // pregunta sin contestar no es una creencia falsa, es no arriesgar (regla 24).
+  const confusasCrudas = confusionDesdeConteos((confusionRes.data ?? []) as ConteoPar[]).slice(0, 10);
 
   let confusas: AcademyOverview['confusas'] = confusasCrudas.map((p) => ({ ...p, textoA: null, textoB: null }));
   if (confusasCrudas.length) {

@@ -166,6 +166,62 @@ export function detectaConfusion(
     });
   }
 
-  // Los más llamativos primero.
-  return pares.sort((x, y) => y.lift - x.lift || y.n - x.n);
+  // Los más llamativos primero; a igualdad, por id, para que el orden no
+  // dependa de cómo llegaron los datos (la base de datos o la memoria).
+  return pares.sort((x, y) => y.lift - x.lift || y.n - x.n || (x.a + x.b).localeCompare(y.a + y.b));
+}
+
+/**
+ * LOS MISMOS PARES, A PARTIR DE LOS CONTEOS DE LA BASE DE DATOS (regla 91).
+ *
+ * `panel_academia_confusion` (docs/sql/panel-academia.sql) devuelve, para cada
+ * par candidato, cuántos alumnos contestaron las dos (`coN`), cuántos fallaron
+ * las dos (`coFallo`) y, de cada pregunta suelta, cuántos la contestaron y
+ * cuántos la fallaron. Aquí se aplican los MISMOS umbrales y el mismo `lift`
+ * que en `detectaConfusion`; `tests/question-confusion.test.ts` comprueba que
+ * las dos vías dan lo mismo con los mismos datos.
+ */
+export type ConteoPar = {
+  a: string;
+  b: string;
+  topic: string | null;
+  coN: number;
+  coFallo: number;
+  nA: number;
+  fA: number;
+  nB: number;
+  fB: number;
+};
+
+export function confusionDesdeConteos(
+  filas: ConteoPar[],
+  opciones?: { minEncuestados?: number; minLift?: number; minCofallos?: number },
+): ParConfuso[] {
+  const minN = opciones?.minEncuestados ?? MIN_ENCUESTADOS;
+  const minLift = opciones?.minLift ?? MIN_LIFT;
+  const minCofallos = opciones?.minCofallos ?? MIN_COFALLOS;
+
+  const pares: ParConfuso[] = [];
+  for (const f of filas ?? []) {
+    const n = Number(f?.coN) || 0;
+    const fallanAmbas = Number(f?.coFallo) || 0;
+    if (n < minN || fallanAmbas < minCofallos) continue;
+    const tasaA = Number(f.nA) > 0 ? Number(f.fA) / Number(f.nA) : 0;
+    const tasaB = Number(f.nB) > 0 ? Number(f.fB) / Number(f.nB) : 0;
+    const esperado = tasaA * tasaB;
+    if (esperado <= 0) continue;
+    const tasaCoFallo = fallanAmbas / n;
+    const lift = tasaCoFallo / esperado;
+    if (lift < minLift) continue;
+    pares.push({
+      a: f.a,
+      b: f.b,
+      topic: f.topic ?? '',
+      n,
+      fallanAmbas,
+      tasaCoFallo: Math.round(tasaCoFallo * 100) / 100,
+      lift: Math.round(lift * 100) / 100,
+    });
+  }
+  return pares.sort((x, y) => y.lift - x.lift || y.n - x.n || (x.a + x.b).localeCompare(y.a + y.b));
 }
