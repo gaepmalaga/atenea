@@ -64,6 +64,7 @@ Todo en producción y apuntado en `REGLAS.md`:
 | El banco paginado (antes solo se veían 1.000 de 4.617) | 74 |
 | Gemini al modelo nuevo, y el panel dice por qué falla una generación | 92 |
 | Las dudosas (marcar «dudo» y si compensa contestar) | 80 |
+| Imagen al compartir el enlace (WhatsApp) | 93 |
 
 ---
 

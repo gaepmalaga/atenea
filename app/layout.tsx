@@ -14,6 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Para que la imagen de «compartir enlace» (app/opengraph-image.jpg) salga
+  // con URL absoluta: WhatsApp ignora las relativas.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://atenea-eight.vercel.app"),
+  openGraph: { title: `${MARCA.nombre} · ${MARCA.lema}`, description: MARCA.descripcion, siteName: MARCA.nombre, locale: "es_ES", type: "website" },
   title: `${MARCA.nombre} · ${MARCA.lema}`,
   description: MARCA.descripcion,
   applicationName: MARCA.nombre,

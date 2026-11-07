@@ -3586,6 +3586,20 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   (el error más repetido) y «Temario & IA» lo enseña. **Si algún día toda la
   IA falla a la vez, mira primero el saldo de Gemini.**
 
+### 93 · Un enlace sin imagen de vista previa parece un enlace roto
+
+- **Qué pasó (7 nov):** el dueño pegó el enlace de la plataforma en WhatsApp y
+  salía la tarjeta con título y descripción, pero sin imagen. El layout no
+  declaraba `og:image` ni `metadataBase`.
+- **Regla:** la imagen de compartir es `app/opengraph-image.jpg` (1200×630, ~30
+  KB, la genera `node scripts/marca/iconos.mjs` desde los SVG de la marca) y
+  `metadataBase` sale de `NEXT_PUBLIC_SITE_URL`. WhatsApp ignora las URL
+  relativas, así que sin `metadataBase` la etiqueta sale mal.
+- **Trampa:** WhatsApp guarda la vista previa en caché. Un enlace ya compartido
+  puede seguir sin imagen; se prueba con `?v=2` al final de la URL.
+- **Pendiente:** al configurar el subdominio propio (`TRASPASO.md` §3a), definir
+  `NEXT_PUBLIC_SITE_URL` para que la imagen cuelgue de ese dominio.
+
 ---
 
 ## Los tests

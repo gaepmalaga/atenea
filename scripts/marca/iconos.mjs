@@ -71,5 +71,18 @@ const SALIDAS = [
     await pagina.close();
     console.log('  ✓', salida);
   }
+  // Imagen al compartir el enlace (WhatsApp, etc.): 1200x630, JPG ligero.
+  {
+    const [W, H] = [1200, 630];
+    const pagina = await navegador.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+    const hA = 340, wA = (hA * 1061) / 1102, wN = 720, hN = (wN * 145) / 1092;
+    await pagina.setContent(`<body style="margin:0;width:${W}px;height:${H}px;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 40%, #0b4a6e 0%, #123a6a 38%, #14295a 80%)">
+      <img src="${urls.a}" style="position:absolute;left:${(W - wA) / 2}px;top:70px;width:${wA}px;height:${hA}px">
+      <img src="${urls.n}" style="position:absolute;left:${(W - wN) / 2}px;top:455px;width:${wN}px;height:${hN}px"></body>`);
+    await pagina.waitForTimeout(300);
+    await pagina.screenshot({ path: path.join(RAIZ, 'app/opengraph-image.jpg'), type: 'jpeg', quality: 80 });
+    await pagina.close();
+    console.log('  ✓ app/opengraph-image.jpg');
+  }
   await navegador.close();
 }

@@ -210,6 +210,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 90 | La puerta de entrada sigue a la pantalla de carga |
 | 91 | El panel «Alumnos» no trae las respuestas: le llegan los totales |
 | 92 | El modelo de Gemini se cambia antes de que lo apague Google |
+| 93 | Un enlace sin imagen de vista previa parece un enlace roto |
 
 ## Trampas conocidas
 
