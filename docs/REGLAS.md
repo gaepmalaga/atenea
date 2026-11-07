@@ -3639,6 +3639,9 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   `TEXT.title`/`TEXT.display` (tipografía de marca) y `SURFACE.brand` (marino con
   filete dorado, ya no el azul vivo). Como son compartidas, Fichas y el panel de
   administración las heredan; su maquetación sigue siendo la anterior.
+- **Fichas (7 nov):** el morado de las fichas pasa al marino y el oro: tarjeta
+  con filete dorado, dorso marino y botón `variant="oro"`. Fallo, Duda y Bien
+  conservan rojo, naranja y verde: son semántica, no marca.
 - **Trampa del banco:** `Mi perfil` no se podía abrir en él (el módulo no estaba
   encendido en los datos de prueba y el cliente de Supabase pedía `process`, que
   el navegador no tiene). Arreglado en `acciones-falsas.ts` e `index.html`.

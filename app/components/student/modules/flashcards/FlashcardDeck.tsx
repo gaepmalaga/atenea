@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { generateFlashcard, saveFlashcardProgress, getStudentTopics } from '@/actions';
 import SelectorTema from '../../SelectorTema';
+import { Button, Kicker } from '../../../ui';
 
 type CardData = {
   db_id?: string | null;
@@ -193,9 +194,9 @@ export default function FlashcardDeck() {
       <div className="relative w-full min-h-[20rem] sm:min-h-[22rem]" style={{ perspective: '1000px' }}>
 
         {!enJuego ? (
-          <div className="w-full h-full bg-slate-100 dark:bg-slate-900/50 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl flex flex-col items-center justify-center text-center p-8">
-            <Brain size={48} className="text-slate-300 mb-4" />
-            <h3 className="text-lg font-bold text-slate-500 mb-2">
+          <div className="w-full h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-b-[3px] border-b-oro rounded-t-sm rounded-b-2xl flex flex-col items-center justify-center text-center p-8">
+            <Brain size={48} className="text-oro mb-4" />
+            <h3 className="font-titulo uppercase tracking-wide text-2xl font-bold text-marino dark:text-white mb-2">
               {aviso ? 'Nada que repasar ahora' : 'Listo para entrenar'}
             </h3>
             {aviso && (
@@ -203,14 +204,14 @@ export default function FlashcardDeck() {
                 {aviso}
               </p>
             )}
-            <button onClick={empezar} disabled={!selectedTopic} className="min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-wider shadow-lg transition-all hover:scale-105 disabled:opacity-50">
+            <Button variant="oro" size="lg" onClick={empezar} disabled={!selectedTopic}>
               Empezar a repasar
-            </button>
+            </Button>
           </div>
         ) : !currentCard ? (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800">
-            <Loader2 size={32} className="text-purple-600 animate-spin mb-3" />
-            <p className="text-[11px] font-bold text-purple-600 uppercase tracking-widest">Cargando…</p>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <Loader2 size={32} className="text-oro-oscuro dark:text-oro-claro animate-spin mb-3" />
+            <Kicker>Cargando…</Kicker>
           </div>
         ) : (
           <div
@@ -223,7 +224,7 @@ export default function FlashcardDeck() {
           >
             {/* CARA FRONTAL (PREGUNTA) */}
             <div
-              className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl p-5 pt-14 sm:p-8 sm:pt-16 flex flex-col items-center justify-center text-center shadow-xl"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-b-[3px] border-b-oro rounded-t-sm rounded-b-2xl p-5 pt-14 sm:p-8 sm:pt-16 flex flex-col items-center justify-center text-center shadow-xl"
               style={{
                 gridArea: '1 / 1',
                 backfaceVisibility: 'hidden',
@@ -231,8 +232,8 @@ export default function FlashcardDeck() {
               }}
             >
               <div className="absolute top-6 left-6 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
-                <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">
+                <span className="w-2 h-2 rounded-full bg-oro animate-pulse"></span>
+                <span className="font-titulo text-sm font-bold text-oro-oscuro dark:text-oro-claro uppercase tracking-[0.2em]">
                   {currentCard.isReview ? 'REPASO' : 'NUEVO'}
                 </span>
               </div>
@@ -251,13 +252,13 @@ export default function FlashcardDeck() {
 
             {/* CARA TRASERA (RESPUESTA) */}
             <div
-              className="w-full bg-slate-900 text-white rounded-3xl p-5 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl"
+              className="w-full bg-marino text-white border-b-[3px] border-oro rounded-t-sm rounded-b-2xl p-5 sm:p-8 flex flex-col items-center justify-center text-center shadow-2xl"
               style={{
                 gridArea: '1 / 1',
                 backfaceVisibility: 'hidden',
                 WebkitBackfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
-                background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+                background: 'linear-gradient(145deg, #1b3366, #0c1a3d)',
               }}
             >
               <div className="flex-1 w-full flex items-center justify-center overflow-y-auto max-h-[50dvh] py-2">
@@ -269,15 +270,15 @@ export default function FlashcardDeck() {
               <div className="w-full grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-white/10" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => puntuar('fail')} className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-red-500/10 hover:bg-red-600 border border-red-500/30 hover:border-red-500 transition-all group/btn">
                   <AlertTriangle size={20} className="text-red-500 group-hover/btn:text-white mb-1" />
-                  <span className="text-[10px] font-black text-red-400 group-hover/btn:text-white uppercase">Fallo</span>
+                  <span className="font-black text-red-400 group-hover/btn:text-white uppercase font-titulo tracking-widest text-sm">Fallo</span>
                 </button>
                 <button onClick={() => puntuar('hard')} className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-orange-500/10 hover:bg-orange-600 border border-orange-500/30 hover:border-orange-500 transition-all group/btn">
                   <HelpCircle size={20} className="text-orange-500 group-hover/btn:text-white mb-1" />
-                  <span className="text-[10px] font-black text-orange-400 group-hover/btn:text-white uppercase">Duda</span>
+                  <span className="font-black text-orange-400 group-hover/btn:text-white uppercase font-titulo tracking-widest text-sm">Duda</span>
                 </button>
                 <button onClick={() => puntuar('easy')} className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 border border-emerald-500/30 hover:border-emerald-500 transition-all group/btn">
                   <CheckCircle2 size={20} className="text-emerald-500 group-hover/btn:text-white mb-1" />
-                  <span className="text-[10px] font-black text-emerald-400 group-hover/btn:text-white uppercase">Bien</span>
+                  <span className="font-black text-emerald-400 group-hover/btn:text-white uppercase font-titulo tracking-widest text-sm">Bien</span>
                 </button>
               </div>
             </div>
