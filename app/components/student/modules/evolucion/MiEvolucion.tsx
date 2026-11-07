@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { getMiEvolucion } from '@/actions';
 import type { MiEvolucion as MiEvolucionData, PuntoCurva } from '@/app/actions/evolucion';
-import { Card, SectionLabel, EmptyState, cx, TEXT, TAP } from '../../../ui';
+import { Card, SectionLabel, EmptyState, HeroMarino, Kicker, cx, TEXT, TAP } from '../../../ui';
 import ResumenDudosas from '../../ResumenDudosas';
 
 interface MiEvolucionProps {
@@ -129,39 +129,38 @@ export default function MiEvolucion({ user }: MiEvolucionProps) {
     <div className="max-w-3xl mx-auto space-y-4 pb-4 animate-in fade-in duration-150">
 
       {/* ───────── LA HISTORIA, DE UN VISTAZO ───────── */}
-      <Card tone="brand" pad="lg" elevation="raised" className="relative overflow-hidden">
-        <div className="absolute -top-24 -right-16 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
+      <HeroMarino>
+        <div>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-            <p className={cx(TEXT.label, 'text-indigo-200')}>Tu evolución</p>
+            <Kicker onMarino>Tu evolución</Kicker>
             {data.racha > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider bg-white/15 px-2 py-0.5 rounded-full">
                 <Flame size={12} /> {data.racha} {data.racha === 1 ? 'día' : 'días'} seguidos
               </span>
             )}
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight mb-1">
+          <h2 className="font-titulo font-bold uppercase text-3xl sm:text-4xl leading-tight mb-1">
             Empezaste el {fechaCorta(data.fechaInicio)}
           </h2>
           <p className="text-indigo-100 text-sm font-medium mb-5">
             {data.diasEnOposicion} {data.diasEnOposicion === 1 ? 'día' : 'días'} preparándote.
           </p>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            <div className="bg-white/10 rounded-2xl px-3 py-2.5">
-              <p className="text-xl sm:text-2xl font-black leading-none tabular-nums">{data.resumenBanco.total}</p>
+            <div className="border-t border-oro/60 pt-2">
+              <p className="font-titulo font-bold text-3xl sm:text-4xl leading-none tabular-nums text-oro-claro">{data.resumenBanco.total}</p>
               <p className="text-[10px] sm:text-[11px] text-indigo-100 font-semibold mt-1 leading-tight">a tu disposición</p>
             </div>
-            <div className="bg-white/10 rounded-2xl px-3 py-2.5">
-              <p className="text-xl sm:text-2xl font-black leading-none tabular-nums">{data.resumenBanco.total - data.resumenBanco.sinTocar}</p>
+            <div className="border-t border-oro/60 pt-2">
+              <p className="font-titulo font-bold text-3xl sm:text-4xl leading-none tabular-nums text-oro-claro">{data.resumenBanco.total - data.resumenBanco.sinTocar}</p>
               <p className="text-[10px] sm:text-[11px] text-indigo-100 font-semibold mt-1 leading-tight">ya las has visto</p>
             </div>
-            <div className="bg-white/10 rounded-2xl px-3 py-2.5">
-              <p className="text-xl sm:text-2xl font-black leading-none tabular-nums">{data.resumenBanco.dominadas}</p>
+            <div className="border-t border-oro/60 pt-2">
+              <p className="font-titulo font-bold text-3xl sm:text-4xl leading-none tabular-nums text-oro-claro">{data.resumenBanco.dominadas}</p>
               <p className="text-[10px] sm:text-[11px] text-indigo-100 font-semibold mt-1 leading-tight">las tienes dominadas</p>
             </div>
           </div>
         </div>
-      </Card>
+      </HeroMarino>
 
       {/* ───────── EL MAPA DE TU TEMARIO ───────── */}
       <Card>

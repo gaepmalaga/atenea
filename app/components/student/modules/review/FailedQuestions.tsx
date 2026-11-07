@@ -163,7 +163,7 @@ export default function FailedQuestions({ onHacerTest }: FailedQuestionsProps) {
       <Card>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="min-w-0">
-            <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{lista.length}</p>
+            <p className="font-titulo font-bold text-5xl text-marino dark:text-white leading-none tabular-nums">{lista.length}</p>
             <p className={cx(TEXT.muted, 'mt-1')}>
               {lista.length === 1 ? 'pregunta por repasar' : 'preguntas por repasar'}
             </p>

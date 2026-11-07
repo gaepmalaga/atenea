@@ -212,6 +212,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 92 | El modelo de Gemini se cambia antes de que lo apague Google |
 | 93 | Un enlace sin imagen de vista previa parece un enlace roto |
 | 94 | Inicio dice «qué hago hoy», y la identidad de Alphapol vive en `ui/` |
+| 95 | El calendario de física arranca por la semana, y el mes está siempre a un botón |
 
 ## Trampas conocidas
 

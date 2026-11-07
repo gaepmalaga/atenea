@@ -3,4 +3,4 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Banco de pruebas · Atenea</title>
 <link rel="stylesheet" href="estilos.css">
-</head><body><div id="raiz"></div><script src="app.js"></script></body></html>
+<script>/* El navegador no tiene `process`: sin esto, «Mi perfil» (que crea el cliente de Supabase) se caía en el banco. Valores inventados. */window.process=window.process||{env:{NEXT_PUBLIC_SUPABASE_URL:"https://banco.invalid",NEXT_PUBLIC_SUPABASE_ANON_KEY:"banco"}};</script></head><body><div id="raiz"></div><script src="app.js"></script></body></html>

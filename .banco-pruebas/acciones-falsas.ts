@@ -87,7 +87,7 @@ export async function getPsychProfile() {
 }
 
 export async function getModuleSettings() {
-  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, training: true, interview: true, stats: true } });
+  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, training: true, interview: true, stats: true, profile: true } });
 }
 
 export async function getUserStats() {

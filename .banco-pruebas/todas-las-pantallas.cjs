@@ -242,7 +242,10 @@ const ADMIN = [
   for (const prueba of ['Fuerza', 'Resistencia']) {
     const b = page.locator('button', { hasText: prueba }).first();
     if (await b.count() === 0) { anota(`${prueba}: no se puede abrir`); continue; }
-    await b.click();
+    // Desde la regla 86 estos botones son tarjetas de sesión que abren un
+    // diálogo: se cierra con Escape y, si algo tapa el botón, no se espera 30 s.
+    await page.keyboard.press('Escape');
+    try { await b.click({ timeout: 4000 }); } catch { anota(`${prueba}: no se puede abrir`); continue; }
     await page.waitForTimeout(1100);
     console.log(`\n--- Prueba: ${prueba} ---`);
     await page.screenshot({ path: `${TOMAS}/a-prueba-${prueba.toLowerCase()}.png`, fullPage: true });
@@ -250,6 +253,11 @@ const ADMIN = [
     const volver = page.locator('button', { hasText: /Volver a las pruebas/ }).first();
     if (await volver.count()) { await volver.click(); await page.waitForTimeout(1000); }
     else anota(`${prueba}: no hay forma de volver a las pruebas`);
+    // El diálogo de la sesión sigue abierto: si no se cierra, tapa la barra.
+    const cerrarDialogo = page.locator('button[aria-label="Cerrar"]').first();
+    if (await cerrarDialogo.count()) await cerrarDialogo.click().catch(() => {});
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
   }
 
   // La sala de voz: es una capa a pantalla completa, no una pestaña.

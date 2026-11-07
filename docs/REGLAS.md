@@ -3634,8 +3634,28 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   Condensed y poner la clase `dark` a mano; y para ver las filas de clase y de
   física hoy, fijar el reloj (`page.clock.install`) en un lunes, que es cuando
   casan los datos de prueba.
-- **Pendiente:** las demás pantallas (Fallos, Física, Evolución, Perfil, Fichas
-  y el panel de administración) siguen con el estilo anterior.
+- **Segunda tanda (7 nov):** Fallos, Física, Evolución y Perfil, y las piezas
+  compartidas: `SectionLabel` (etiqueta dorada en `font-titulo`), `StatTile`,
+  `TEXT.title`/`TEXT.display` (tipografía de marca) y `SURFACE.brand` (marino con
+  filete dorado, ya no el azul vivo). Como son compartidas, Fichas y el panel de
+  administración las heredan; su maquetación sigue siendo la anterior.
+- **Trampa del banco:** `Mi perfil` no se podía abrir en él (el módulo no estaba
+  encendido en los datos de prueba y el cliente de Supabase pedía `process`, que
+  el navegador no tiene). Arreglado en `acciones-falsas.ts` e `index.html`.
+
+### 95 · El calendario de física arranca por la semana, y el mes está siempre a un botón
+
+- **Qué pasó (7 nov):** al maquetar la física con la identidad nueva, el dueño
+  aprobó la vista de semana (el día de hoy y lo que viene) pero pidió que **la
+  vista mensual exista siempre**.
+- **Regla:** `CalendarioFisica` tiene dos vistas, **Semana** (por defecto) y
+  **Mes** (la de antes, entera), con un `Interruptor`. Se carga siempre el mes
+  del día elegido, que cubre la semana (`semanasDelMes` incluye las semanas que
+  tocan el mes); al cambiar de semana se mueve también el mes. No se quita la
+  vista mensual al rediseñar: es una petición expresa.
+- **Trampa:** `todas-las-pantallas.cjs` buscaba botones «Fuerza» y «Resistencia»
+  de un menú que ya no existe (anterior a la regla 86) y, con la semana, esos
+  textos son tarjetas que abren un diálogo. El guion cierra el diálogo y sigue.
 
 ---
 

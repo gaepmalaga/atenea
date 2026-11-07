@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Check, X, StickyNote, Loader2, CalendarDays } from 'lucide-react';
 import { getMiFisica, setMiApunte } from '@/actions';
 import {
-  ETIQUETA_TIPO, diasDeSemana, semanasDelMes, sumaMeses, mesDe, etiquetaMes, porDia, resumenSemana,
+  ETIQUETA_TIPO, diasDeSemana, lunesDe, semanasDelMes, sumaMeses, mesDe, etiquetaMes, porDia, resumenSemana,
   estadoSesion, formateaMinutos, formateaKm, type Sesion, type Apunte,
 } from '@/app/lib/sesiones';
 import { sumaDias } from '@/app/lib/asistencia';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
-import { Card, EmptyState, TEXT, cx } from '../../../../ui';
+import { Card, EmptyState, Interruptor, Kicker, TEXT, cx } from '../../../../ui';
 import DetalleSesion from './DetalleSesion';
 import type { RMVigente } from '@/app/actions/fisica';
 
@@ -46,6 +46,8 @@ export default function CalendarioFisica() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [abierta, setAbierta] = useState<Sesion | null>(null);
+  // Por defecto la semana (lo que toca esta semana); el mes entero, a un botón.
+  const [vista, setVista] = useState<'semana' | 'mes'>('semana');
 
   const semanas = useMemo(() => semanasDelMes(mes), [mes]);
   const desde = semanas[0];
@@ -75,6 +77,13 @@ export default function CalendarioFisica() {
     setDiaSel(hoy);
   }
 
+  /** Moverse una semana: el día elegido salta 7 y el mes cargado le sigue. */
+  function cambiaSemana(n: number) {
+    const nuevo = sumaDias(diaSel, 7 * n);
+    setDiaSel(nuevo);
+    setMes(mesDe(nuevo));
+  }
+
   function apunteGuardado(sessionId: string, apunte: Apunte | null) {
     setDatos((d) => d && {
       ...d,
@@ -85,19 +94,84 @@ export default function CalendarioFisica() {
   const delDia = sesionesPorDia.get(diaSel) ?? [];
   const nadaEnElMes = datos && datos.sesiones.length === 0;
 
+  const lunesSel = lunesDe(diaSel);
+  const diasSemana = diasDeSemana(lunesSel);
+  const restoSemana = diasSemana.filter((d) => d !== diaSel && (sesionesPorDia.get(d) ?? []).length > 0);
+  const rangoSemana = `${Number(diasSemana[0].slice(8))} – ${Number(diasSemana[6].slice(8))} ${etiquetaMes(mesDe(diasSemana[6])).split(' ')[0]}`;
+
   return (
     <div className="max-w-3xl mx-auto space-y-4 pb-4 animate-in fade-in duration-150">
+      <Interruptor
+        etiqueta="Vista del calendario"
+        valor={vista}
+        onChange={setVista}
+        opciones={[{ valor: 'semana', etiqueta: 'Semana' }, { valor: 'mes', etiqueta: 'Mes' }]}
+      />
+
+      {/* LA SEMANA: la que toca ahora, con el día elegido y lo que viene. */}
+      {vista === 'semana' && (
+        <Card pad="sm">
+          <div className="flex items-center gap-1 mb-2">
+            <button onClick={() => cambiaSemana(-1)} aria-label="Semana anterior" className="w-11 h-11 flex items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 text-marino dark:text-white">
+              <ChevronLeft size={18} />
+            </button>
+            <div className="flex-1 text-center">
+              <h2 className="font-titulo font-bold uppercase text-xl sm:text-2xl text-marino dark:text-white tracking-wide">{rangoSemana}</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{lunesSel === lunesDe(hoy) ? 'Semana en curso' : 'Otra semana'}</p>
+            </div>
+            <button onClick={() => cambiaSemana(1)} aria-label="Semana siguiente" className="w-11 h-11 flex items-center justify-center rounded-sm border border-slate-200 dark:border-slate-700 text-marino dark:text-white">
+              <ChevronRight size={18} />
+            </button>
+            <button onClick={irAHoy} className="min-h-[44px] px-3 text-xs font-black text-marino dark:text-oro-claro">Hoy</button>
+          </div>
+          {!datos && !error && <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-slate-400" /></div>}
+          {error && <p className="text-sm font-semibold text-red-600 dark:text-red-400 py-4 text-center">{error}</p>}
+          {datos && datos.notas.find((n) => n.weekStart === lunesSel) && (
+            <p className="mb-2 px-2 py-1 rounded-sm bg-oro/15 text-[11px] font-semibold text-oro-oscuro dark:text-oro-claro flex items-center gap-1.5 min-w-0">
+              <StickyNote size={12} className="shrink-0" /> <span className="truncate">{datos.notas.find((n) => n.weekStart === lunesSel)?.note}</span>
+            </p>
+          )}
+          {datos && (
+            <div className="grid grid-cols-7 gap-1">
+              {diasSemana.map((d, i) => {
+                const ses = sesionesPorDia.get(d) ?? [];
+                const sel = d === diaSel;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setDiaSel(d)}
+                    aria-pressed={sel}
+                    aria-label={`${fechaLarga(d)}: ${ses.length} ${ses.length === 1 ? 'sesión' : 'sesiones'}`}
+                    className={cx(
+                      'min-h-[64px] py-1.5 flex flex-col items-center justify-between rounded-sm border transition-colors min-w-0',
+                      sel ? 'bg-marino text-white border-marino' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200',
+                    )}
+                  >
+                    <span className={cx('text-[10px] font-bold tracking-widest', sel ? 'text-oro-claro' : 'text-slate-500 dark:text-slate-400')}>{DIAS[i]}</span>
+                    <span className={cx('font-titulo font-bold text-xl leading-none', d === hoy && !sel && 'text-oro-oscuro dark:text-oro-claro')}>{Number(d.slice(8))}</span>
+                    <span className="flex gap-0.5 h-2" aria-hidden="true">
+                      {ses.slice(0, 3).map((s) => <span key={s.id} className={cx('w-1.5 h-1.5 rounded-full', ESTILO_TIPO[s.kind].barra)} />)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {vista === 'mes' && (
       <Card pad="sm">
         {/* El mes y cómo moverse por él. */}
         <div className="flex items-center gap-1 mb-2">
           <button onClick={() => cambiaMes(-1)} aria-label="Mes anterior" className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
             <ChevronLeft size={18} />
           </button>
-          <h2 className="flex-1 text-center text-lg font-black text-slate-900 dark:text-white capitalize">{etiquetaMes(mes)}</h2>
+          <h2 className="flex-1 text-center font-titulo font-bold uppercase text-xl sm:text-2xl text-marino dark:text-white tracking-wide">{etiquetaMes(mes)}</h2>
           <button onClick={() => cambiaMes(1)} aria-label="Mes siguiente" className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
             <ChevronRight size={18} />
           </button>
-          <button onClick={irAHoy} className="min-h-[44px] px-3 rounded-xl text-xs font-black text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
+          <button onClick={irAHoy} className="min-h-[44px] px-3 rounded-xl text-xs font-black text-marino dark:text-oro-claro hover:bg-oro/10">
             Hoy
           </button>
         </div>
@@ -138,13 +212,13 @@ export default function CalendarioFisica() {
                           aria-label={`${fechaLarga(d)}: ${ses.length} ${ses.length === 1 ? 'sesión' : 'sesiones'}`}
                           className={cx(
                             'min-h-[64px] rounded-xl p-0.5 flex flex-col items-stretch gap-0.5 border transition-colors min-w-0',
-                            sel ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-900/20' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50',
+                            sel ? 'border-marino dark:border-oro-claro bg-oro/10' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50',
                             fuera && 'opacity-40',
                           )}
                         >
                           <span className={cx(
                             'self-center text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-full tabular-nums',
-                            d === hoy ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300',
+                            d === hoy ? 'bg-marino text-oro-claro' : 'text-slate-600 dark:text-slate-300',
                           )}>
                             {Number(d.slice(8))}
                           </span>
@@ -191,13 +265,12 @@ export default function CalendarioFisica() {
           </div>
         )}
       </Card>
+      )}
 
       {/* El día elegido. */}
       {datos && (
         <section>
-          <h3 className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 mb-2 capitalize')}>
-            {d0(diaSel, hoy)}
-          </h3>
+          <Kicker className="mb-2 first-letter:uppercase">{d0(diaSel, hoy)}</Kicker>
           {nadaEnElMes ? (
             <EmptyState
               icon={<CalendarDays size={28} />}
@@ -220,6 +293,31 @@ export default function CalendarioFisica() {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {vista === 'semana' && datos && restoSemana.length > 0 && (
+        <section>
+          <Kicker className="mb-2">El resto de la semana</Kicker>
+          <div className="space-y-3">
+            {restoSemana.map((d) => (
+              <div key={d}>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 first-letter:uppercase">{fechaLarga(d)}</p>
+                <div className="space-y-2">
+                  {(sesionesPorDia.get(d) ?? []).map((s) => (
+                    <TarjetaSesion
+                      key={s.id}
+                      s={s}
+                      estado={estadoSesion(s.fecha, apuntePorSesion.get(s.id), hoy)}
+                      apunte={apuntePorSesion.get(s.id) ?? null}
+                      grupo={s.classId ? datos.nombresGrupo[s.classId] ?? 'Tu grupo' : null}
+                      onAbrir={() => setAbierta(s)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -279,7 +377,7 @@ export function TarjetaSesion({ s, estado, apunte, grupo, onAbrir }: {
         </span>
         <span className="flex-1 min-w-0">
           <span className="block text-sm font-black text-slate-900 dark:text-white leading-snug">{s.title}</span>
-          <span className="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+          <span className="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             {ETIQUETA_TIPO[s.kind]}{meta && ` · ${meta}`} · {grupo ?? 'Solo para ti'}
           </span>
           {apunte?.coachReply && (

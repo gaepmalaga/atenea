@@ -43,8 +43,8 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
         ) : conv?.fechaExamen && cuenta ? (
           <>
             <p className={cx(
-              'text-3xl sm:text-4xl font-black tracking-tighter leading-none',
-              dias !== null && dias < 0 ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400',
+              'font-titulo uppercase font-bold text-4xl sm:text-5xl leading-none',
+              dias !== null && dias < 0 ? 'text-slate-400' : 'text-marino dark:text-oro-claro',
             )}>
               {cuenta}
             </p>
@@ -102,7 +102,7 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
           <SectionLabel icon={<Users size={14} />}>Mis grupos</SectionLabel>
           <div className="flex flex-wrap gap-2">
             {data.grupos.map((g, i) => (
-              <span key={i} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300">
+              <span key={i} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-oro/15 text-oro-oscuro dark:bg-oro/10 dark:text-oro-claro">
                 {g.nombre} <span className="opacity-60 font-medium">· {g.tipo}</span>
               </span>
             ))}
@@ -140,7 +140,7 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
               className={cx(
                 'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5',
                 TAP,
-                tema === id ? 'bg-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                tema === id ? 'bg-marino text-white dark:ring-1 dark:ring-oro-claro' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400',
               )}
             >
               {icon} {label}

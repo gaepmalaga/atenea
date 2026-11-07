@@ -86,7 +86,7 @@ export const SURFACE = {
   /** Un escalón por debajo: cajas dentro de una tarjeta. */
   sunken: 'bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800',
   /** Con la marca: lo que hay que mirar primero. */
-  brand: 'bg-indigo-600 text-white border border-indigo-600',
+  brand: 'bg-marino text-white border border-marino border-b-[3px] border-b-oro',
   /** Oscura siempre, en claro y en oscuro: paneles de datos. */
   contrast: 'bg-slate-900 text-white border border-slate-800',
 } as const;
@@ -100,13 +100,13 @@ export const SURFACE = {
  */
 export const TEXT = {
   /** El número o la palabra que da sentido a la pantalla. */
-  display: 'text-4xl sm:text-6xl font-black tracking-tighter',
+  display: 'font-titulo uppercase text-5xl sm:text-7xl font-bold',
   /** Título de pantalla. */
-  title: 'text-xl sm:text-3xl font-black tracking-tight',
+  title: 'font-titulo uppercase text-2xl sm:text-4xl font-bold tracking-wide',
   /** Título de una tarjeta o sección. */
   heading: 'text-base sm:text-lg font-black',
   /** La etiqueta en mayúsculas que encabeza cada bloque. */
-  label: 'text-[10px] sm:text-xs font-black uppercase tracking-widest',
+  label: 'text-[11px] sm:text-xs font-black uppercase tracking-widest',
   /** Texto corriente. */
   body: 'text-sm leading-relaxed',
   /** Apoyo, pies, ayudas. */

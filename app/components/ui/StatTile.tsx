@@ -25,9 +25,9 @@ const TONE: Record<Tone, { box: string; value: string; label: string }> = {
     label: 'text-amber-700 dark:text-amber-400/80',
   },
   brand: {
-    box: 'bg-indigo-50 dark:bg-indigo-900/20',
-    value: 'text-indigo-600 dark:text-indigo-400',
-    label: 'text-indigo-700 dark:text-indigo-400/80',
+    box: 'bg-oro/15 dark:bg-oro/10',
+    value: 'text-marino dark:text-oro-claro',
+    label: 'text-oro-oscuro dark:text-oro-claro',
   },
 };
 
@@ -72,7 +72,7 @@ export default function StatTile({ label, value, suffix, tone = 'neutral', icon 
       </div>
       <p
         className={cx(
-          'text-xl sm:text-2xl font-black mt-1 tabular-nums',
+          'font-titulo text-3xl sm:text-4xl font-bold mt-1 tabular-nums leading-none',
           sinDato ? 'text-slate-300 dark:text-slate-600' : style.value,
         )}
       >
