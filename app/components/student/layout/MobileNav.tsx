@@ -124,7 +124,7 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
       )}
 
       {/* LA BARRA */}
-      <nav data-nav-inferior className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-1 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
+      <nav data-nav-inferior className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t-2 border-oro px-1 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)]">
         <div className="flex items-stretch justify-around">
           {principales.map((item) => {
             const Icon = item.icon;
@@ -140,13 +140,13 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
                   // nada y "INTELIGENCIA" y "OPERACIONES" se pisaban entre si.
                   'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
                   TAP,
-                  activa ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400',
+                  activa ? 'text-marino dark:text-oro-claro' : 'text-slate-500 dark:text-slate-400',
                 )}
               >
                 <Icon size={21} strokeWidth={activa ? 2.6 : 2} />
                 {/* La etiqueta es la mitad del arreglo: ocho iconos sin nombre
                     obligaban a entrar en cada uno para saber qué era. */}
-                <span className="w-full text-[9px] font-black uppercase tracking-tight leading-none truncate px-0.5 text-center">
+                <span className="w-full font-titulo text-xs font-bold uppercase tracking-wider leading-none truncate px-0.5 text-center">
                   {ETIQUETA_CORTA[item.id] ?? item.label.split(' ')[0]}
                 </span>
               </button>
@@ -159,11 +159,11 @@ export default function MobileNav({ activeTab, onTabChange, onLogout, items }: M
               className={cx(
                 'flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl transition-colors',
                 TAP,
-                activaEnElResto ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400',
+                activaEnElResto ? 'text-marino dark:text-oro-claro' : 'text-slate-500 dark:text-slate-400',
               )}
             >
               <MoreHorizontal size={21} strokeWidth={activaEnElResto ? 2.6 : 2} />
-              <span className="text-[9px] font-black uppercase tracking-wide leading-none">Más</span>
+              <span className="font-titulo text-xs font-bold uppercase tracking-wider leading-none">Más</span>
             </button>
           )}
         </div>

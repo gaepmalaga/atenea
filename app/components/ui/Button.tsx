@@ -1,12 +1,16 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { RADIUS, TAP, cx } from './tokens';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'oro' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 
 const VARIANT: Record<Variant, string> = {
   primary:
     'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 disabled:shadow-none',
+  // El botón de la marca: oro con texto marino hondo. Para LA acción de la
+  // pantalla («Entrenar», «Empezar»), una por pantalla.
+  oro:
+    'bg-oro hover:bg-oro-claro text-marino-hondo font-titulo tracking-[0.16em] text-lg! disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400',
   secondary:
     'bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500',
   ghost:

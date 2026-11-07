@@ -23,4 +23,23 @@
   --color-indigo-800: #1b3366;
   --color-indigo-900: #14295a;
   --color-indigo-950: #0c1a3d;
+
+  /* El resto de la paleta de Alphapol (regla 94): el crema del fondo, el oro
+     del logo y el marino hondo. El marino de la marca ya es `indigo-900`. El
+     oro claro es para texto dorado sobre marino; el oscuro, para texto dorado
+     sobre crema o blanco, donde el oro del logo no se lee (unos 2:1; el oscuro
+     pasa de 4,5:1). */
+  --color-crema: #f7f4ec;
+  --color-oro: #c5a738;
+  --color-oro-claro: #e2c977;
+  --color-oro-oscuro: #8a6d12;
+  --color-marino: #14295a;
+  --color-marino-hondo: #0c1a3d;
+}
+
+/* La tipografía de los títulos (regla 94): condensada y en mayúsculas. `inline`
+   porque `--font-barlow-condensed` la define `next/font` en el <body>, no en
+   :root: sin `inline`, la variable se resolvería donde aún no existe. */
+@theme inline {
+  --font-titulo: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
 }

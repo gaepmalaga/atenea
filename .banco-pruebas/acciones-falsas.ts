@@ -177,6 +177,11 @@ export async function getRecuentoEntrenamiento() {
   return ok({ propuestas: 14, disponibles: 60 });
 }
 
+// Lo que toca hoy (regla 94): el Inicio pinta una fila por cada cosa que haya.
+export async function getEntrenoDeHoy() {
+  return ok({ hoy: { propuestas: 18, disponibles: 60, porRepasar: 8, temaConMasFallos: { tema: TEMAS[1], fallos: 5 } } });
+}
+
 export async function getQuestionsFromBank({ limit = 5 }: { topic: string; difficulty: number; limit: number }) {
   return ok({ data: Array.from({ length: limit }, (_, i) => pregunta(i)) });
 }

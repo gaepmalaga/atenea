@@ -276,8 +276,10 @@ describe('la pantalla del test no le pide nada mas al alumno', () => {
   it('la configuracion solo ofrece los dos modos, sin ajustes de fricción', () => {
     expect(config).not.toContain('marcarConfianza');
     expect(config).not.toContain('confidence');
-    expect(config).toContain("setModo('practice')");
-    expect(config).toContain("setModo('exam')");
+    // El modo se elige con `Interruptor` (regla 94), que solo tiene dos caras:
+    // entrenamiento y simulacro, y nada más en la lista.
+    expect(config).toContain('onChange={setModo}');
+    expect(config).toMatch(/<Interruptor[\s\S]{0,200}opciones=\{\[\{ valor: 'practice'[^}]*\}, \{ valor: 'exam'[^}]*\}\]\}/);
   });
 
   it('la dificultad solo se elige en el simulacro: en entrenamiento decide el sistema', () => {

@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { getStudentSyllabus, getRecuentoEntrenamiento } from '@/actions';
 import type { TemaAlcance } from '@/app/actions/admin';
 import { ExamSettings } from './ExamManager';
-import { Crosshair, BookOpen, Clock, AlertTriangle, Layers, Check } from 'lucide-react';
-import { Card, Button, SectionLabel, OptionCard, OptionGroup, EmptyState, cx, TEXT, TAP } from '../../../ui';
+import { Crosshair, Check } from 'lucide-react';
+import { Button, Kicker, HeroMarino, Fichas, Interruptor, EmptyState, cx, TEXT, TAP } from '../../../ui';
 import SelectorTema from '../../SelectorTema';
 
 interface ExamConfigProps {
@@ -142,214 +142,177 @@ export default function ExamConfig({ initialSettings, onStart }: ExamConfigProps
     );
   }
 
+  const nMin = Math.round((settings.questionCount * 30) / 60);
+
   return (
-    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 animate-in fade-in duration-150">
+    <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6 animate-in fade-in duration-150">
 
       {/* MODO */}
-      <Card>
-        <SectionLabel icon={<Layers size={14} />}>Modo</SectionLabel>
-        <OptionGroup cols={2}>
-          <OptionCard
-            title="Entrenamiento"
-            description="El sistema te da lo que toca repasar y lo nuevo con medida. Corrección al momento, sin reloj ni nota."
-            selected={esEntreno}
-            onClick={() => setModo('practice')}
-          />
-          <OptionCard
-            title="Simulacro"
-            description="Fiel al examen: reloj, sin correcciones, y la nota con penalización de la convocatoria."
-            selected={settings.mode === 'exam'}
-            onClick={() => setModo('exam')}
-          />
-        </OptionGroup>
-      </Card>
+      <Interruptor
+        etiqueta="Modo"
+        valor={settings.mode}
+        onChange={setModo}
+        opciones={[{ valor: 'practice', etiqueta: 'Entrenamiento' }, { valor: 'exam', etiqueta: 'Simulacro' }]}
+      />
 
-      {/* ALCANCE */}
-      <Card>
-        <SectionLabel icon={<BookOpen size={14} />}>Alcance</SectionLabel>
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {([
-            ['uno', 'Un tema'],
-            ['bloques', 'Por bloques'],
-            ['todo', 'Todo'],
-          ] as [Alcance, string][]).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setAlcance(id)}
-              aria-pressed={alcance === id}
-              className={cx(
-                'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
-                TAP,
-                alcance === id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {alcance === 'uno' && (
+      {/* LO QUE VAS A HACER, en grande. */}
+      <HeroMarino>
+        {esEntreno ? (
           <>
-            <SelectorTema
-              value={temaUnico}
-              onChange={setTemaUnico}
-              grupos={gruposSelector}
-              ayuda="El número es el del temario oficial"
-            />
-            {esEntreno && (
-              <p className={cx(TEXT.muted, 'mt-3')}>
-                Solo vas a ver preguntas de este tema — el sistema sigue priorizando por urgencia, pero solo dentro de él. Lo que toque en otros temas espera hasta que elijas «Todo».
-              </p>
-            )}
-          </>
-        )}
-
-        {alcance === 'bloques' && (
-          <div className="space-y-1.5">
-            {bloques.map((b) => {
-              const on = bloquesElegidos.has(b.id);
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => toggleBloque(b.id)}
-                  aria-pressed={on}
-                  className={cx(
-                    'w-full text-left px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-colors',
-                    TAP,
-                    on
-                      ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
-                  )}
-                >
-                  <span
-                    className={cx(
-                      'w-4 h-4 shrink-0 rounded border flex items-center justify-center',
-                      on ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600',
-                    )}
-                  >
-                    {on && <Check size={12} strokeWidth={3} />}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-xs font-black text-slate-900 dark:text-white">{b.nombre}</span>
-                    <span className={cx(TEXT.muted, 'block')}>{b.temas.length} {b.temas.length === 1 ? 'tema' : 'temas'}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {alcance === 'todo' && (
-          <p className={cx(TEXT.muted)}>
-            {todosLosTemas.length} temas del temario. {esEntreno
-              ? 'Lo recomendable: se elige lo que más te toca de entre todos.'
-              : 'El simulacro reparte las preguntas como la convocatoria.'}
-          </p>
-        )}
-      </Card>
-
-      {/* DIFICULTAD — solo simulacro (en entrenamiento la decide el método). */}
-      {settings.mode === 'exam' && (
-        <Card>
-          <SectionLabel icon={<AlertTriangle size={14} />}>Dificultad</SectionLabel>
-          <div className="grid grid-cols-3 gap-2">
-            {DIFICULTADES.map((d) => {
-              const activa = settings.difficulty === d.id;
-              const color =
-                d.id === 'hard'
-                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                  : d.id === 'medium'
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => setSettings({ ...settings, difficulty: d.id })}
-                  aria-pressed={activa}
-                  className={cx(
-                    'rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors',
-                    TAP,
-                    activa ? color : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
-                  )}
-                >
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-      )}
-
-      {/* PREGUNTAS */}
-      <Card>
-        <SectionLabel
-          icon={<Clock size={14} />}
-          aside={
-            <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">
-              {settings.questionCount}
-            </span>
-          }
-        >
-          Preguntas
-        </SectionLabel>
-
-        {settings.mode === 'exam' ? (
-          <>
-            <div className="grid grid-cols-3 gap-2">
-              {PRESETS_SIMULACRO.map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setSettings({ ...settings, questionCount: n })}
-                  aria-pressed={settings.questionCount === n}
-                  className={cx(
-                    'rounded-xl text-sm font-black tabular-nums transition-colors',
-                    TAP,
-                    settings.questionCount === n
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
+            <Kicker onMarino>Hoy te tocan</Kicker>
+            <div className="flex items-baseline gap-3">
+              <span className="font-titulo font-bold text-5xl sm:text-7xl leading-none tabular-nums">{propuesta ?? '—'}</span>
+              <span className="font-titulo font-semibold text-xl sm:text-2xl uppercase">{propuesta === 1 ? 'pregunta' : 'preguntas'}</span>
             </div>
-            <p className={cx(TEXT.muted, 'mt-3')}>
-              {Math.round((settings.questionCount * 30) / 60)} min de reloj: 30 s por pregunta, el ritmo del BOE.
-              El de 100 es el examen real.
+            <p className="mt-2 text-sm sm:text-base text-indigo-100 leading-relaxed">
+              El sistema te da lo que toca repasar y lo nuevo con medida. Corrección al momento, sin reloj ni nota.
             </p>
           </>
         ) : (
           <>
-            <input
-              type="range"
-              min={3}
-              max={40}
-              value={settings.questionCount}
-              onChange={(e) => setSettings({ ...settings, questionCount: parseInt(e.target.value) })}
-              aria-label="Número de preguntas"
-              style={{ touchAction: 'none' }}
-              className="w-full h-2 box-content py-4 bg-slate-200 dark:bg-slate-800 bg-clip-content rounded-lg appearance-none cursor-pointer accent-indigo-600"
-            />
-            {propuesta !== null && (
-              <p className={cx(TEXT.muted, 'mt-1')}>
-                Hoy te tocan <strong className="text-slate-900 dark:text-white">{propuesta}</strong>.
-                {propuesta !== settings.questionCount && (
-                  <button
-                    onClick={() => setSettings({ ...settings, questionCount: propuesta })}
-                    className="ml-2 text-indigo-600 dark:text-indigo-400 font-bold underline"
-                  >
-                    usar {propuesta}
-                  </button>
-                )}
-              </p>
-            )}
+            <Kicker onMarino>Como el examen</Kicker>
+            <div className="flex items-baseline gap-x-4 gap-y-1 flex-wrap">
+              <span className="font-titulo font-bold text-5xl sm:text-7xl leading-none tabular-nums">{nMin}<span className="text-2xl sm:text-3xl text-oro-claro"> min</span></span>
+              <span className="font-titulo font-semibold text-xl sm:text-2xl uppercase text-indigo-100">{settings.questionCount} preguntas</span>
+            </div>
+            <p className="mt-2 text-sm sm:text-base text-indigo-100 leading-relaxed">
+              Con reloj y sin correcciones. La nota es la de la convocatoria: cada dos fallos, un acierto menos.
+            </p>
           </>
         )}
-      </Card>
+      </HeroMarino>
+
+      {/* TAMAÑO — solo simulacro; en entrenamiento va más abajo, con el deslizador. */}
+      {settings.mode === 'exam' && (
+        <section>
+          <Kicker className="mb-2">Tamaño</Kicker>
+          <Fichas
+            etiqueta="Número de preguntas del simulacro"
+            valor={String(settings.questionCount)}
+            onChange={(v) => setSettings({ ...settings, questionCount: Number(v) })}
+            opciones={PRESETS_SIMULACRO.map((n) => ({ valor: String(n), etiqueta: String(n), nota: n === 100 ? 'examen real' : undefined }))}
+          />
+        </section>
+      )}
+
+      {/* DIFICULTAD — solo simulacro (en entrenamiento la decide el método). */}
+      {settings.mode === 'exam' && (
+        <section>
+          <Kicker className="mb-2">Dificultad</Kicker>
+          <Fichas
+            etiqueta="Dificultad"
+            valor={settings.difficulty}
+            onChange={(v) => setSettings({ ...settings, difficulty: v })}
+            opciones={DIFICULTADES.map((d) => ({ valor: d.id, etiqueta: d.label }))}
+          />
+        </section>
+      )}
+
+      {/* ALCANCE */}
+      <section>
+        <Kicker className="mb-2">Qué estudiar</Kicker>
+        <Fichas
+          etiqueta="Alcance"
+          valor={alcance}
+          onChange={setAlcance}
+          opciones={[{ valor: 'uno', etiqueta: 'Un tema' }, { valor: 'bloques', etiqueta: 'Por bloques' }, { valor: 'todo', etiqueta: 'Todo' }]}
+        />
+
+        <div className="mt-3">
+          {alcance === 'uno' && (
+            <>
+              <SelectorTema
+                value={temaUnico}
+                onChange={setTemaUnico}
+                grupos={gruposSelector}
+                ayuda="El número es el del temario oficial"
+              />
+              {esEntreno && (
+                <p className={cx(TEXT.muted, 'mt-3')}>
+                  Solo vas a ver preguntas de este tema — el sistema sigue priorizando por urgencia, pero solo dentro de él. Lo que toque en otros temas espera hasta que elijas «Todo».
+                </p>
+              )}
+            </>
+          )}
+
+          {alcance === 'bloques' && (
+            <div className="space-y-1.5">
+              {bloques.map((b) => {
+                const on = bloquesElegidos.has(b.id);
+                return (
+                  <button
+                    key={b.id}
+                    onClick={() => toggleBloque(b.id)}
+                    aria-pressed={on}
+                    className={cx(
+                      'w-full text-left px-3 py-2.5 rounded-sm border flex items-center gap-3 transition-colors bg-white dark:bg-slate-900',
+                      TAP,
+                      on
+                        ? 'border-marino dark:border-oro-claro border-2'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
+                    )}
+                  >
+                    <span
+                      className={cx(
+                        'w-4 h-4 shrink-0 rounded-sm border flex items-center justify-center',
+                        on ? 'border-marino bg-marino text-oro-claro' : 'border-slate-300 dark:border-slate-600',
+                      )}
+                    >
+                      {on && <Check size={12} strokeWidth={3} />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-slate-900 dark:text-white">{b.nombre}</span>
+                      <span className={cx(TEXT.muted, 'block')}>{b.temas.length} {b.temas.length === 1 ? 'tema' : 'temas'}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {alcance === 'todo' && (
+            <p className={cx(TEXT.muted)}>
+              {todosLosTemas.length} temas del temario. {esEntreno
+                ? 'Lo recomendable: se elige lo que más te toca de entre todos.'
+                : 'El simulacro reparte las preguntas como la convocatoria.'}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* CUÁNTAS — entrenamiento. */}
+      {esEntreno && (
+        <section>
+          <div className="flex items-baseline justify-between mb-1">
+            <Kicker>Cuántas</Kicker>
+            <span className="font-titulo font-bold text-3xl text-marino dark:text-white tabular-nums leading-none">{settings.questionCount}</span>
+          </div>
+          <input
+            type="range"
+            min={3}
+            max={40}
+            value={settings.questionCount}
+            onChange={(e) => setSettings({ ...settings, questionCount: parseInt(e.target.value) })}
+            aria-label="Número de preguntas"
+            style={{ touchAction: 'none' }}
+            className="w-full h-2 box-content py-4 bg-slate-200 dark:bg-slate-800 bg-clip-content rounded-lg appearance-none cursor-pointer accent-marino dark:accent-oro"
+          />
+          {propuesta !== null && propuesta !== settings.questionCount && (
+            <p className={cx(TEXT.muted, 'mt-1')}>
+              Hoy te tocan <strong className="text-slate-900 dark:text-white">{propuesta}</strong>.
+              <button
+                onClick={() => setSettings({ ...settings, questionCount: propuesta })}
+                className="ml-2 text-marino dark:text-oro-claro font-bold underline"
+              >
+                usar {propuesta}
+              </button>
+            </p>
+          )}
+        </section>
+      )}
 
       <Button
+        variant="oro"
         block
         size="lg"
         disabled={sinTema}

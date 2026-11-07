@@ -3600,6 +3600,43 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
 - **Pendiente:** al configurar el subdominio propio (`TRASPASO.md` §3a), definir
   `NEXT_PUBLIC_SITE_URL` para que la imagen cuelgue de ese dominio.
 
+### 94 · Inicio dice «qué hago hoy», y la identidad de Alphapol vive en `ui/`
+
+- **Qué pasó (7 nov):** el dueño veía la app «muy genérica» y el hero del Inicio
+  repetía las cifras de las tarjetas de debajo (53 %, racha, en blanco). Se
+  hicieron 14 maquetas (lienzo de diseño) y eligió «Insignia» (marino + oro) en
+  su versión clara, el Inicio «Tu día» y el Test A.
+- **Regla (Inicio):** una línea de tiempo con lo que toca HOY. Cada fila sale de
+  su acción y **solo se pinta si hay algo**: `getEntrenoDeHoy` (entrenamiento,
+  fallos con repaso vencido, tema con más fallos), `getMisClases` (clase de hoy)
+  y `getMiFisica` (sesión de hoy). Sin clase no hay fila de clase; una academia
+  que no lleva la física aquí no ve fila de física. Las cifras de «cómo voy»
+  siguen en «Mi evolución» (regla 63). La lógica pura vive en `app/lib/dia.ts`.
+- **«Fallos por repasar» no es «alguna vez fallada».** `getFailedQuestions`
+  cuenta toda pregunta que se falló alguna vez, aunque ya se acertara después.
+  Para el Inicio son las que están en `recaida` o `atascada` **y** con el repaso
+  vencido. «Tema donde más fallas» exige 3 fallos como mínimo: con menos es ruido.
+- **Regla (identidad):** los colores son tokens (`crema`, `oro`, `oro-claro`,
+  `oro-oscuro`, `marino`, `marino-hondo`, en `app/marca.css`), la tipografía de
+  títulos es `font-titulo` (Barlow Condensed) y las piezas son `Kicker`,
+  `HeroMarino`, `Fichas`, `Interruptor` y `Button variant="oro"` en
+  `app/components/ui/Marca.tsx`. Ninguna pantalla escribe su propio dorado.
+- **El oro del logo (#c5a738) no se lee como texto sobre crema ni blanco** (unos
+  2:1). Para texto dorado sobre claro: `oro-oscuro`; sobre marino u oscuro:
+  `oro-claro`.
+- **Trampa:** `--font-titulo` va en `@theme inline`. La variable de la fuente
+  (`--font-barlow-condensed`) la define `next/font` en el `<body>`, no en
+  `:root`; sin `inline` se resuelve donde aún no existe y cae a la fuente de
+  respaldo sin avisar. Va en `marca.css` (no en `globals.css`) porque el banco
+  de pruebas solo compila aquel.
+- **Trampa del banco de pruebas:** no carga Google Fonts ni ejecuta el script
+  del tema. Para ver la marca de verdad hay que añadir la hoja de Barlow
+  Condensed y poner la clase `dark` a mano; y para ver las filas de clase y de
+  física hoy, fijar el reloj (`page.clock.install`) en un lunes, que es cuando
+  casan los datos de prueba.
+- **Pendiente:** las demás pantallas (Fallos, Física, Evolución, Perfil, Fichas
+  y el panel de administración) siguen con el estilo anterior.
+
 ---
 
 ## Los tests

@@ -1,196 +1,212 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Play, Target, Zap, ArrowRight, Activity, Crosshair, Flame, Brain } from 'lucide-react';
-import { getUserStats } from '@/actions';
+import { useState, useEffect, type ReactNode } from 'react';
+import { Play, Target, Clock, Dumbbell, Crosshair, Flame, ChevronRight, Check, Brain, Zap } from 'lucide-react';
+import { getUserStats, getEntrenoDeHoy, getMisClases, getMiFisica } from '@/actions';
 import { TabId } from '../../StudentDashboard';
-import { ERROR_LABELS, type StatsSummary, type TestResultRow, type ErrorType } from '@/app/lib/stats';
-import { Card, Button, StatTile, SectionLabel, EmptyState, cx, TEXT, TAP } from '../../../ui';
-
-type RecentItem = TestResultRow & { created_at?: string | null };
-type UserStats = StatsSummary & { lastItems: RecentItem[] };
+import { ahoraEnZona } from '@/app/lib/asistencia';
+import { claseDeHoy, fisicaDeHoy, type EntrenoDeHoy, type ClaseDeHoy, type FisicaDeHoy } from '@/app/lib/dia';
+import { ETIQUETA_TIPO, type TipoSesion } from '@/app/lib/sesiones';
+import { Card, Button, HeroMarino, Kicker, EmptyState, cx, TAP } from '../../../ui';
 
 interface DashboardHomeProps {
   user: { id: string; email?: string };
   onNavigate: (tab: TabId) => void;
 }
 
-/**
- * El fallo que más se repite, de los que el alumno ha etiquetado. `null` si no
- * hay ninguno etiquetado — que no es no tener fallos (regla 8).
- */
-function falloDominante(breakdown: Record<ErrorType, number>, taggedErrors: number): ErrorType | null {
-  if (taggedErrors === 0) return null;
-  const entradas = Object.entries(breakdown) as Array<[ErrorType, number]>;
-  const mejor = entradas.reduce((a, b) => (b[1] > a[1] ? b : a));
-  return mejor[1] > 0 ? mejor[0] : null;
-}
+/** Lo que el Inicio sabe de hoy. `null` = no se pudo leer, que no es «no hay» (regla 8). */
+type Hoy = {
+  /** Cuántas respuestas lleva en total, y su racha. */
+  answered: number | null;
+  racha: number;
+  entreno: EntrenoDeHoy | null;
+  clase: ClaseDeHoy | null;
+  fisica: FisicaDeHoy | null;
+};
 
+/**
+ * INICIO = «QUÉ HAGO HOY» (reglas 63 y 94).
+ *
+ * Una línea de tiempo con lo que toca hoy: el entrenamiento, los fallos por
+ * repasar, la clase y la física. Cada fila sale de su propia acción y SOLO se
+ * pinta si hay algo que decir: sin clase hoy no hay fila de clase, y una
+ * academia que no lleva la física aquí no ve fila de física. Las cifras de
+ * «cómo voy» (acierto, en blanco) viven en «Mi evolución» y no se repiten.
+ *
+ * Cada lectura es independiente: si falla una, las demás se pintan igual.
+ */
 export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) {
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [hoy, setHoy] = useState<Hoy | null>(null);
   const [saludo, setSaludo] = useState('');
 
   useEffect(() => {
     const hora = new Date().getHours();
     setSaludo(hora < 12 ? 'Buenos días' : hora < 20 ? 'Buenas tardes' : 'Buenas noches');
 
-    getUserStats()
-      .then((res) => setStats(res.success ? res.stats : null))
-      .catch((e) => console.error('Error cargando el centro de mando:', e))
-      .finally(() => setLoading(false));
+    let vivo = true;
+    // La fecha de hoy es la de la academia, no la del servidor (regla 82).
+    const fecha = ahoraEnZona(Date.now()).fecha;
+
+    Promise.allSettled([getUserStats(), getEntrenoDeHoy(), getMisClases(), getMiFisica({ desde: fecha, hasta: fecha })])
+      .then(([stats, entreno, clases, fisica]) => {
+        if (!vivo) return;
+        const s = stats.status === 'fulfilled' && stats.value.success ? stats.value.stats : null;
+        const e = entreno.status === 'fulfilled' && entreno.value.success ? entreno.value.hoy : null;
+        const c = clases.status === 'fulfilled' && clases.value.success ? claseDeHoy(clases.value.clases, fecha) : null;
+        const f = fisica.status === 'fulfilled' && fisica.value.success ? fisicaDeHoy(fisica.value.sesiones, fisica.value.apuntes, fecha) : null;
+        setHoy({ answered: s ? s.answered : null, racha: s?.racha ?? 0, entreno: e, clase: c, fisica: f });
+      });
+    return () => { vivo = false; };
   }, [user.id]);
 
-  if (loading) {
+  if (!hoy) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
-        <div className="grid grid-cols-3 gap-3">
-          <div className="h-24 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
-          <div className="h-24 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
-          <div className="h-24 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
-        </div>
+      <div className="space-y-4 animate-pulse" aria-busy="true">
+        <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+        <div className="h-16 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+        <div className="h-16 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
       </div>
     );
   }
 
-  const sinActividad = !stats || stats.answered === 0;
-  const fallo = stats ? falloDominante(stats.errorBreakdown, stats.taggedErrors) : null;
-  const racha = stats?.racha ?? 0;
+  const sinActividad = hoy.answered === 0;
+  const { entreno } = hoy;
+  const sinBanco = entreno !== null && entreno.disponibles === 0;
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-4">
+    <div className="max-w-3xl space-y-4 sm:space-y-5 pb-4">
 
-      {/* CTA DEL DÍA */}
-      <Card tone="brand" pad="lg" elevation="raised" className="relative overflow-hidden">
-        <div className="absolute -top-24 -right-16 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <p className={cx(TEXT.label, 'text-indigo-200')}>Hoy</p>
-            {racha > 0 && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider bg-white/15 px-2 py-0.5 rounded-full">
-                <Flame size={12} /> {racha} {racha === 1 ? 'día' : 'días'} seguidos
-              </span>
-            )}
-          </div>
-
-          <h2 className="text-2xl sm:text-4xl font-black mb-3 leading-tight tracking-tight">
-            {sinActividad ? `${saludo}.` : 'A entrenar.'}
-          </h2>
-
-          <p className="text-indigo-100 text-sm sm:text-base font-medium max-w-xl mb-6 leading-relaxed">
-            {sinActividad ? (
-              <>Aún no has contestado ninguna pregunta. Empieza un entrenamiento y el sistema aprende de ti desde la primera.</>
-            ) : (
-              <>
-                Vas con un <strong className="text-white">{stats.winRate} %</strong> de acierto en{' '}
-                <strong className="text-white">{stats.answered}</strong>{' '}
-                {stats.answered === 1 ? 'pregunta' : 'preguntas'}.
-                {fallo && <> Tu fallo más frecuente es <strong className="text-white">{ERROR_LABELS[fallo].toLowerCase()}</strong>.</>}
-              </>
-            )}
-          </p>
-
-          <button
-            onClick={() => onNavigate('test')}
-            className={cx(
-              'bg-white text-indigo-600 px-6 py-4 rounded-xl font-black uppercase text-xs tracking-widest',
-              'flex items-center gap-3 active:scale-[0.98] transition-transform',
-              TAP,
-            )}
-          >
-            <Play size={18} fill="currentColor" />
-            Entrenar
-          </button>
-        </div>
-      </Card>
-
-      {/* LOS DATOS, TODOS REALES. `null` = sin muestra (regla 8). */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <StatTile label="Acierto" value={sinActividad ? null : stats.winRate} suffix="%" tone="brand" icon={<Target size={12} />} />
-        <StatTile label="Racha" value={racha === 0 ? null : racha} suffix={racha === 1 ? ' día' : ' días'} tone="neutral" icon={<Flame size={12} />} />
-        <StatTile label="En blanco" value={stats ? stats.blank : null} tone="warning" />
-      </div>
-
-      {/* MI EVOLUCIÓN — regla 77: el motor adaptativo trabaja en silencio; sin
-          esto, nada en la pantalla que se abre a diario decía que el sistema
-          está aprendiendo de cada respuesta. La historia completa (mapa del
-          temario, curva diaria, ¿aprobaría?) vive en su propia pantalla —
-          cara de traer entera aquí, en la más visitada—; esto solo enlaza. */}
-      {!sinActividad && (
-        <button onClick={() => onNavigate('stats')} className="text-left group w-full">
-          <Card className="flex items-center justify-between gap-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-colors">
-            <span className="flex items-center gap-3 min-w-0">
-              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0"><Brain size={18} /></span>
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-slate-900 dark:text-white">Mi evolución</span>
-                <span className={cx(TEXT.muted, 'block')}>Tu mapa del temario, tu curva de progreso, si aprobarías</span>
-              </span>
-            </span>
-            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0" />
-          </Card>
-        </button>
+      {/* LA RACHA: ánimo, no un dato más. */}
+      {hoy.racha > 0 && (
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-oro/15 text-oro-oscuro dark:text-oro-claro px-3 py-1.5 rounded-full">
+          <Flame size={14} /> {hoy.racha} {hoy.racha === 1 ? 'día seguido' : 'días seguidos'}
+        </span>
       )}
 
-      {/* ACCESOS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button onClick={() => onNavigate('review')} className="text-left group">
-          <Card className="flex items-center justify-between gap-3 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-colors">
-            <span className="flex items-center gap-3 min-w-0">
-              <span className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0"><Target size={18} /></span>
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-slate-900 dark:text-white">Repasar fallos</span>
-                <span className={cx(TEXT.muted, 'block')}>Lo que has fallado, con el porqué</span>
-              </span>
-            </span>
-            <ArrowRight size={16} className="text-slate-400 group-hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors shrink-0" />
-          </Card>
-        </button>
+      <div className="relative space-y-3">
+        {/* El hilo de la línea de tiempo, detrás de los nodos. */}
+        <div className="absolute left-5 top-6 bottom-6 w-0.5 bg-slate-200 dark:bg-slate-800" aria-hidden="true" />
 
-        <button onClick={() => onNavigate('cards')} className="text-left group">
-          <Card className="flex items-center justify-between gap-3 hover:border-purple-400 dark:hover:border-purple-500/50 transition-colors">
-            <span className="flex items-center gap-3 min-w-0">
-              <span className="p-2.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-xl shrink-0"><Zap size={18} /></span>
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-slate-900 dark:text-white">Repaso rápido</span>
-                <span className={cx(TEXT.muted, 'block')}>Tarjetas de memoria por temas</span>
-              </span>
-            </span>
-            <ArrowRight size={16} className="text-slate-400 group-hover:text-purple-600 transition-colors shrink-0" />
-          </Card>
+        {/* 1 · EL ENTRENAMIENTO DEL DÍA */}
+        <Hito icono={<Crosshair size={18} />} principal>
+          <HeroMarino className="rounded-tl-none">
+            <Kicker onMarino>{sinActividad ? saludo : 'Entrenamiento del día'}</Kicker>
+            {sinBanco ? (
+              <p className="mt-2 text-sm text-indigo-100 leading-relaxed">Todavía no hay preguntas en el banco. Habla con tu academia.</p>
+            ) : (
+              <>
+                <h2 className="mt-1 font-titulo font-bold uppercase text-3xl sm:text-4xl leading-tight">
+                  {sinActividad
+                    ? 'Empieza hoy'
+                    : entreno
+                      ? `${entreno.propuestas} ${entreno.propuestas === 1 ? 'pregunta' : 'preguntas'}`
+                      : 'A entrenar'}
+                </h2>
+                <p className="mt-2 text-sm sm:text-base text-indigo-100 leading-relaxed">
+                  {sinActividad
+                    ? 'Aún no has contestado ninguna pregunta. Empieza un entrenamiento y el sistema aprende de ti desde la primera.'
+                    : entreno?.temaConMasFallos
+                      ? <>Lo que toca repasar y lo nuevo. Donde más fallas ahora: <strong className="text-white">{(entreno.temaConMasFallos.tema ?? '').replace(/\.$/, '')}</strong></>
+                      : 'Lo que toca repasar y lo nuevo, con medida.'}
+                </p>
+                <Button variant="oro" size="lg" className="mt-5" onClick={() => onNavigate('test')} icon={<Play size={18} fill="currentColor" />}>
+                  Entrenar
+                </Button>
+              </>
+            )}
+          </HeroMarino>
+        </Hito>
+
+        {/* 2 · LOS FALLOS CON EL REPASO VENCIDO — solo si hay alguno. */}
+        {entreno && entreno.porRepasar > 0 && (
+          <Hito icono={<Target size={18} />}>
+            <FilaDelDia
+              onClick={() => onNavigate('review')}
+              titulo="Repasar fallos"
+              detalle={`${entreno.porRepasar} ${entreno.porRepasar === 1 ? 'pendiente' : 'pendientes'}, los urgentes primero`}
+              aparte={<span className="font-titulo font-bold text-2xl text-marino dark:text-white">{entreno.porRepasar}</span>}
+            />
+          </Hito>
+        )}
+
+        {/* 3 · LA CLASE DE HOY — solo si tiene clase. */}
+        {hoy.clase && (
+          <Hito icono={<Clock size={18} />}>
+            <FilaDelDia
+              onClick={() => onNavigate('profile')}
+              titulo="Clase en la academia"
+              detalle={hoy.clase.falta ? `${hoy.clase.nombre} · has avisado de que faltas` : hoy.clase.nombre}
+              aparte={hoy.clase.hora ? <span className="font-titulo font-bold text-xl text-marino dark:text-white">{hoy.clase.hora}</span> : undefined}
+            />
+          </Hito>
+        )}
+
+        {/* 4 · LA FÍSICA DE HOY — solo si el preparador ha puesto una sesión.
+            Hay academias que aún no la llevan aquí: entonces no hay fila. */}
+        {hoy.fisica && (
+          <Hito icono={<Dumbbell size={18} />}>
+            <FilaDelDia
+              onClick={() => onNavigate('training')}
+              titulo={hoy.fisica.titulo}
+              detalle={[ETIQUETA_TIPO[hoy.fisica.tipo as TipoSesion] ?? hoy.fisica.tipo, hoy.fisica.minutos ? `${hoy.fisica.minutos} min` : null].filter(Boolean).join(' · ')}
+              aparte={hoy.fisica.hecha ? <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"><Check size={14} /> Hecha</span> : undefined}
+            />
+          </Hito>
+        )}
+      </div>
+
+      {/* LO DE «CÓMO VOY» Y LO SUELTO: enlaces, no cifras. */}
+      <div className="flex flex-wrap gap-x-5">
+        {!sinActividad && (
+          <button onClick={() => onNavigate('stats')} className={cx('inline-flex items-center gap-1.5 text-sm font-semibold text-marino dark:text-white', TAP)}>
+            <Brain size={16} className="text-oro-oscuro dark:text-oro-claro" /> Ver mi evolución <ChevronRight size={16} className="text-oro-oscuro dark:text-oro-claro" />
+          </button>
+        )}
+        <button onClick={() => onNavigate('cards')} className={cx('inline-flex items-center gap-1.5 text-sm font-semibold text-marino dark:text-white', TAP)}>
+          <Zap size={16} className="text-oro-oscuro dark:text-oro-claro" /> Repaso rápido con fichas <ChevronRight size={16} className="text-oro-oscuro dark:text-oro-claro" />
         </button>
       </div>
 
-      {/* ACTIVIDAD RECIENTE — solo un vistazo; el historial completo está en Estadísticas. */}
-      <Card pad="none">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-          <SectionLabel icon={<Activity size={14} />} className="mb-0">Lo último</SectionLabel>
-        </div>
-
-        {stats && stats.lastItems.length > 0 ? (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {stats.lastItems.slice(0, 4).map((item, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 sm:p-4">
-                <span className={cx('w-2 h-2 rounded-full shrink-0', item.is_correct ? 'bg-emerald-500' : 'bg-red-500')} />
-                <p className="flex-1 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 line-clamp-1">
-                  {(item.question_text ?? 'Pregunta no disponible').replace('[FLASHCARD] ', '')}
-                </p>
-                <span className={cx(TEXT.hud, 'text-slate-500 dark:text-slate-400 shrink-0')}>
-                  {item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) : '—'}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title="Sin actividad todavía"
-            hint="Lo que contestes aparecerá aquí, con el tema y si acertaste."
-            icon={<Crosshair size={32} />}
-            action={<Button size="sm" onClick={() => onNavigate('test')}>Empezar</Button>}
-          />
-        )}
-      </Card>
+      {/* Si no se pudo leer NADA de hoy, no se deja la pantalla muda. */}
+      {entreno === null && hoy.answered === null && (
+        <Card>
+          <EmptyState title="No se ha podido cargar tu día" hint="Comprueba la conexión e inténtalo de nuevo." icon={<Crosshair size={32} />} />
+        </Card>
+      )}
     </div>
+  );
+}
+
+/** Un punto de la línea de tiempo: el nodo a la izquierda y la fila a la derecha. */
+function Hito({ icono, children, principal = false }: { icono: ReactNode; children: ReactNode; principal?: boolean }) {
+  return (
+    <div className="relative flex items-start gap-3">
+      <span
+        className={cx(
+          'relative z-10 shrink-0 w-10 h-10 rounded-full flex items-center justify-center border-4 border-crema dark:border-slate-950',
+          principal ? 'bg-marino text-oro-claro' : 'bg-white dark:bg-slate-900 text-marino dark:text-oro-claro ring-2 ring-oro',
+        )}
+        aria-hidden="true"
+      >
+        {icono}
+      </span>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/** Una fila clicable de la línea de tiempo. */
+function FilaDelDia({ titulo, detalle, aparte, onClick }: { titulo: string; detalle: string; aparte?: ReactNode; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={cx('w-full text-left group', TAP)}>
+      <Card className="flex items-center gap-3 hover:border-oro transition-colors" pad="sm">
+        <span className="flex-1 min-w-0">
+          <span className="block font-bold text-base text-slate-900 dark:text-white truncate">{titulo}</span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{detalle}</span>
+        </span>
+        {aparte}
+        <ChevronRight size={18} className="shrink-0 text-oro-oscuro dark:text-oro-claro" />
+      </Card>
+    </button>
   );
 }

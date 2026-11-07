@@ -65,6 +65,7 @@ Todo en producción y apuntado en `REGLAS.md`:
 | Gemini al modelo nuevo, y el panel dice por qué falla una generación | 92 |
 | Las dudosas (marcar «dudo» y si compensa contestar) | 80 |
 | Imagen al compartir el enlace (WhatsApp) | 93 |
+| Identidad de marca (marino y oro), Inicio «Tu día» y Test rediseñados | 94 |
 
 ---
 
@@ -97,6 +98,10 @@ Todo en producción y apuntado en `REGLAS.md`:
 6. **Vigilar el saldo de prepago de Gemini.**
 
 ### 3b · Código, cuando se pida
+
+- **Identidad de Alphapol en el resto de pantallas** (regla 94): Fallos, Física,
+  Evolución, Perfil, Fichas y el panel de administración siguen con el estilo
+  anterior. Inicio, Test, la cabecera y la barra inferior ya están.
 
 - **Strava / Garmin** (aplazado por el dueño, «más adelante»). La API es
   gratis y son 2-3 días de trabajo. Strava deja conectar un solo atleta hasta

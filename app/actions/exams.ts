@@ -25,6 +25,7 @@ import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/
 import { buildQuestionPrompt } from '../lib/question-prompt';
 import { adaptativoEncendido } from '../lib/training-switch-guard';
 import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
+import { entrenoDeHoy, type EntrenoDeHoy } from '../lib/dia';
 import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart-session';
 import { planExamen } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
@@ -838,6 +839,40 @@ export async function getRecuentoEntrenamiento(topics: string[]): Promise<
   // Si no toca nada (todo en su intervalo de descanso), se propone un repaso corto.
   const propuestas = Math.max(1, Math.min(25, Math.min(tocan || 8, disponibles)));
   return { success: true as const, propuestas, disponibles };
+}
+
+/**
+ * LO QUE TOCA HOY (regla 94): el entrenamiento del día, los fallos con el
+ * repaso vencido y el tema donde más se falla. Alimenta el Inicio.
+ *
+ * Una sola lectura del histórico para las tres cifras. Sin módulo `test`
+ * encendido no hay entrenamiento que proponer.
+ */
+export async function getEntrenoDeHoy(): Promise<
+  { success: true; hoy: EntrenoDeHoy } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const modulo = await requireModule('test');
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const [bancoRes, temasRes] = await Promise.all([
+    bancoLigero(null, auth.user.organizationId),
+    supabase.from('subjects').select('id, title'),
+  ]);
+  if (bancoRes.error) return { success: false as const, error: bancoRes.error };
+
+  const tituloPorSubject = new Map<number, string>();
+  for (const s of (temasRes.data ?? []) as { id: number; title: string }[]) tituloPorSubject.set(s.id, s.title);
+  const temaPorPregunta = new Map<string, string>();
+  for (const q of bancoRes.data) {
+    temaPorPregunta.set(q.id, q.subject_id != null ? tituloPorSubject.get(q.subject_id) ?? 'Sin tema' : 'Sin tema');
+  }
+
+  const db = await createSupabaseServerClient();
+  const intentos = await fetchIntentosDelAlumno(db, auth.user.id);
+  const states = computeQuestionStates(intentos);
+  return { success: true as const, hoy: entrenoDeHoy(states, temaPorPregunta) };
 }
 
 /**

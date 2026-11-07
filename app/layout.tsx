@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 import { MARCA } from "./lib/marca";
 
@@ -11,6 +11,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// La tipografía de los títulos de Alphapol (regla 94).
+const barlowCondensed = Barlow_Condensed({
+  variable: "--font-barlow-condensed",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -48,7 +55,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-app text-primary min-h-screen overflow-x-hidden selection:bg-brand-primary selection:text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} ${barlowCondensed.variable} bg-app text-primary min-h-screen overflow-x-hidden selection:bg-brand-primary selection:text-white`}
       >
         {children}
       </body>

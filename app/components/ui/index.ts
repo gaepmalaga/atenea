@@ -18,5 +18,6 @@ export { default as Modal } from './Modal';
 export { default as EmptyState } from './EmptyState';
 export { default as OptionCard, OptionGroup } from './OptionCard';
 export { TextField, TextAreaField, SelectField } from './Field';
+export { Kicker, HeroMarino, Fichas, Interruptor } from './Marca';
 export { default as useAltoDisponible } from './useAltoDisponible';
 export { RADIUS, PAD, GAP, ELEVATION, SURFACE, TEXT, TAP, cx } from './tokens';

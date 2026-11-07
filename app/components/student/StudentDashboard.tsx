@@ -211,7 +211,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
   }, [zenMode]);
 
   return (
-    <div className={`relative min-h-screen flex bg-slate-50 dark:bg-slate-950 transition-colors duration-500 font-sans text-slate-900 dark:text-slate-100 ${zenMode ? 'zen-active' : ''}`}>
+    <div className={`relative min-h-screen flex bg-crema dark:bg-slate-950 transition-colors duration-500 font-sans text-slate-900 dark:text-slate-100 ${zenMode ? 'zen-active' : ''}`}>
       
       {/* 1. OVERLAY DE SALA DE VOZ (PRIORIDAD MÁXIMA) */}
       {/* Se monta sobre toda la interfaz cuando se activa el modo entrevista */}
@@ -248,7 +248,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
         {/* CABECERA (Header) */}
         {!zenMode && (
             <Header 
-                title={navItems.find(i => i.id === activeTab)?.label || MARCA.nombre} 
+                title={activeTab === 'home' ? 'Tu día' : navItems.find(i => i.id === activeTab)?.label || MARCA.nombre} 
                 activeTab={activeTab}
             />
         )}
