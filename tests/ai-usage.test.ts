@@ -69,7 +69,7 @@ describe('el gasto de una llamada', () => {
   it('el precio lleva anotado cuando se comprobo', () => {
     // Un precio sin fecha es un precio que nadie sabe si sigue vigente.
     expect(PRECIO_FLASH.revisadoEl).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(PRECIO_FLASH.modelo).toBe('gemini-2.5-flash');
+    expect(PRECIO_FLASH.modelo).toBe('gemini-3.5-flash-lite');
   });
 });
 
@@ -104,5 +104,40 @@ describe('todas las llamadas de pago quedan registradas', () => {
     // alumno concreto se ha disparado — que es lo que hay que poder ver.
     const src = leer('app/actions/chat.ts');
     expect(src).toMatch(/registraGasto\(\{[\s\S]{0,200}userId:/);
+  });
+});
+
+// ── El modelo de texto (6 nov 2026) ────────────────────────────────────────
+//
+// `gemini-2.5-flash` se apaga el 1 dic 2026 y los modelos Gemini 3 rechazan,
+// o rechazarán, `temperature`, `topP`, `topK` y `candidateCount`. Si alguien
+// vuelve a poner el modelo viejo o uno de esos ajustes, falla aquí y no en
+// producción el día que Google lo apague.
+describe('el modelo de texto es el que Google mantiene', () => {
+  const { readdirSync, readFileSync, statSync } = require('node:fs') as typeof import('node:fs');
+  const { join } = require('node:path') as typeof import('node:path');
+  const raiz = join(__dirname, '..');
+  const ficheros: string[] = [];
+  const recorre = (dir: string) => {
+    for (const n of readdirSync(dir)) {
+      if (n === 'node_modules' || n.startsWith('.')) continue;
+      const ruta = join(dir, n);
+      if (statSync(ruta).isDirectory()) recorre(ruta);
+      else if (/\.(ts|tsx|mjs|js)$/.test(n)) ficheros.push(ruta);
+    }
+  };
+  recorre(join(raiz, 'app'));
+  recorre(join(raiz, 'scripts'));
+
+  it('nadie usa gemini-2.5-flash', () => {
+    // Solo el código: los comentarios pueden contar de dónde se vino.
+    const sinComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const culpables = ficheros.filter((f) => /['"`]gemini-2\.5-flash['"`]/.test(sinComentarios(readFileSync(f, 'utf8'))));
+    expect(culpables).toEqual([]);
+  });
+
+  it('nadie pasa los ajustes que Gemini 3 ya no admite', () => {
+    const culpables = ficheros.filter((f) => /\b(temperature|topP|topK|candidateCount)\s*:/.test(readFileSync(f, 'utf8')));
+    expect(culpables).toEqual([]);
   });
 });

@@ -14,7 +14,7 @@ const K = env.SUPABASE_SERVICE_ROLE_KEY;
 const h = { apikey: K, Authorization: 'Bearer ' + K };
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash-lite' });
 
 const docs = await (await fetch(U + '/rest/v1/documents?select=id,filename,full_text,subject_id,subjects(title)', { headers: h })).json();
 
@@ -27,7 +27,7 @@ for (const d of docs) {
   console.log(`${String(totalTokens).padStart(7)} tokens  ${String(txt.length).padStart(7)} car.  ${d.filename.slice(0, 55)}`);
 }
 console.log(`${String(total).padStart(7)} tokens  EL TEMARIO ENTERO`);
-console.log(`\nVentana de gemini-2.5-flash: 1.048.576 tokens de entrada.`);
+console.log(`\nVentana de gemini-3.5-flash-lite: 1.048.576 tokens de entrada.`);
 console.log(`El temario entero ocupa el ${((total / 1048576) * 100).toFixed(1)}% de la ventana.`);
 
 // --- Responder con el DOCUMENTO ENTERO --------------------------------------

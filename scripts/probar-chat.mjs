@@ -50,7 +50,7 @@ const KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 const cabeceras = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-const chatModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const chatModel = genAI.getGenerativeModel({ model: 'gemini-3.5-flash-lite' });
 const embeddingModel = genAI.getGenerativeModel({ model: 'models/gemini-embedding-001' });
 
 const get = async (ruta) => (await fetch(`${URL_BASE}/rest/v1/${ruta}`, { headers: cabeceras })).json();

@@ -91,6 +91,8 @@ Next.js 16 (App Router) · React 19 · Supabase · Google Gemini · Tailwind 4.
 | — | **Icono de la app nuevo** | ✅ **en producción** (6 nov). De seis propuestas en el mismo lienzo, el dueño eligió la «E · Con nombre» con la «A» y el nombre lo más grandes posible: dos versiones, una para iPhone y navegador y otra (la «maskable») para Android, que tiene que caber en el círculo central. Ver **regla 88** |
 | — | **Logo nítido, pantalla de carga y puerta de entrada, segunda vuelta** | ✅ **en producción** (6 nov), a petición del dueño («las mismas versiones pero mejor»). La «A», el logotipo y el nombre pasan a SVG con el contorno vectorial (eran el JPG de 400 px ampliado y se veían borrosos), los iconos se rehacen encima y el de Android ya no deja un recuadro en la pantalla de arranque; la pantalla de carga deja de pasar la «A» por detrás del logotipo; y las cinco pantallas de entrada (entrar, crear cuenta, poner contraseña, elegir academia, acceso no activo) comparten un marco nuevo que sigue a la de carga. Verificado en el banco de pruebas a 375, 390 y 1440 px, con contraste. Ver **reglas 87, 88 y 90** |
 | — | **1RM y cargas en % en las sesiones** | ✅ **en producción** (6 nov). El preparador escribe «4 × 6 al 75 %» y cada alumno lo ve en kilos con su 1RM. Verificado de punta a punta contra la BD real. Ver **regla 89** |
+| — | **El panel «Alumnos» hace las cuentas en la base de datos** | ✅ **en producción** (7 nov). Antes traía a memoria TODAS las respuestas de la academia con un tope de 20.000 (con 100 alumnos se pasa en semanas y contaba en silencio sobre una parte). Ahora tres funciones SQL devuelven los totales. Comparadas contra la lógica de antes en un Postgres de verdad con 1.680 respuestas inventadas: iguales. Ver **regla 91** |
+| — | **Gemini: de `gemini-2.5-flash` a `gemini-3.5-flash-lite`** | ✅ **en producción** (7 nov). Google apaga el modelo viejo el 1 dic; el nuevo cuesta lo mismo. Ver **regla 92** |
 
 ## Producción
 
@@ -3840,6 +3842,70 @@ una pantalla de carga marina y monumental a otra que parecía otra web.
   grises por debajo de 3:1, ya corregidos. Queda uno que es un falso positivo
   (ámbar sobre un fondo ámbar translúcido que el medidor compone mal).
 
+### 91 · El panel «Alumnos» no trae las respuestas: le llegan los totales
+
+Para pintar «Alumnos», `getAcademyOverview` traía a memoria TODAS las
+respuestas de TODOS los alumnos de la academia (`fetchTodosLosIntentos`, tope
+`MAX_INTENTOS = 20.000`) y las sumaba en JavaScript. Con ~100 alumnos
+estudiando a diario ese tope se pasa en pocas semanas, y a partir de ahí el
+panel contaba sobre una parte del histórico **sin avisar** (el mismo fallo de
+la regla 74, con otro número) y cada vez tardaba más en abrir.
+
+Ahora las cuentas las hace Postgres, con tres funciones
+([`docs/sql/panel-academia.sql`](docs/sql/panel-academia.sql), **ejecutado** el
+6 nov; solo las puede llamar la clave de servicio):
+
+| Función | Qué devuelve | Lo usa |
+|---|---|---|
+| `panel_academia_resumen` | por alumno (contestadas, blancos, aciertos, última), alumnos por tema y las preguntas que falla casi todo el mundo | `resumeAlumnosDesdeConteos`, `coberturaDesdeConteos`, `sospechosasDesdeConteos` |
+| `panel_academia_confusion` | los pares candidatos con sus conteos (co-contestadas, co-falladas, y de cada pregunta cuántos la contestaron y fallaron) | `confusionDesdeConteos`, que aplica los mismos umbrales y el mismo `lift` que `detectaConfusion` |
+| `panel_academia_semana` | el histórico de las preguntas que cada alumno tocó en los últimos 7 días (filas, paginadas) | `progresoSemanalAcademia`, igual que antes |
+
+- **Una sola lógica, dos entradas.** Las funciones puras de `app/lib/academy.ts`
+  y `question-confusion.ts` tienen ahora una versión `…DesdeConteos`, y la
+  versión de siempre suma las respuestas y llama a esa: no pueden contar
+  distinto. Los blancos (`selected_index = -1`) y los `null` (contestada, sin
+  saber qué, regla 24) se tratan igual en el SQL que en `isBlankAnswer`.
+- **El progreso semanal sale exacto con mucho menos**: el cajón de una pregunta
+  solo cambia cuando se contesta (`cajonDe` depende de la caja y las recaídas),
+  así que lo que pasó a dominada en 7 días sale igual con el histórico de las
+  preguntas tocadas esa semana. Medido: 1.331 filas de 1.680, mismo resultado.
+- **La confusión parte de los fallos**: los candidatos son pares de preguntas
+  del mismo tema que el mismo alumno falló; cruzar todo con todo crece con el
+  cuadrado de lo contestado. Solo para esos candidatos se cuenta cuántos
+  contestaron las dos.
+- **Comprobado contra un Postgres de verdad** (PGlite, en memoria, con el mismo
+  guion SQL y 1.680 respuestas inventadas de 14 alumnos): alumnos, temas,
+  sospechosas, los 81 pares que se confunden y el progreso semanal salen
+  IGUALES por las dos vías. La única diferencia era el orden de los pares
+  empatados, y ahora el orden desempata por id en las dos. Esa comprobación no
+  se quedó en el repo (PGlite pesa); `tests/academy.test.ts` fija la parte de
+  JavaScript con los mismos datos, y una guarda impide que `getAcademyOverview`
+  vuelva a traer todas las respuestas.
+- **La ficha de UN alumno sigue trayendo sus respuestas** (`getStudentDetail`),
+  con el tope subido a 100.000: un solo alumno no llega ahí.
+- Verificado con la app local contra la BD real (sesión de `prueba.admin`): el
+  panel carga, y la fila del alumno de prueba dice «53 % de acierto en 36»,
+  que es lo que tiene.
+
+### 92 · El modelo de Gemini se cambia antes de que lo apague Google
+
+Aviso de Google del 6 nov 2026: `gemini-2.5-flash` se apaga el **1 dic 2026**
+y desde ese día sus llamadas pasan solas a `gemini-3.5-flash-lite`, al mismo
+precio ($0,30 por millón de tokens de entrada, $2,50 de salida, comprobado en
+su página de precios). Se cambió el 7 nov para no depender de esa redirección.
+
+- **Solo cambia el nombre** (`TEXT_MODEL` en `app/actions/core.ts`, el precio en
+  `PRECIO_FLASH` de `app/lib/ai-usage.ts` y los guiones de `scripts/`). Los
+  modelos Gemini 3 dejan de admitir `temperature`, `top_p`, `top_k`,
+  `candidate_count` y los turnos de modelo rellenados; el código no usaba
+  ninguno (todas las llamadas son `generateContent` con un texto, con o sin
+  esquema JSON).
+- **Hay una guarda** en `ai-usage.test.ts`: falla si vuelve el nombre del
+  modelo viejo al código o alguno de esos ajustes.
+- Los embeddings (`gemini-embedding-001`) no cambian: Google no los apaga
+  hasta 2028.
+
 ---
 
 ## Los tests
@@ -3873,7 +3939,7 @@ tests/question-import.test.ts   alta manual e importación CSV (columna `tema` m
 tests/notes.test.ts             notas privadas del alumno y sus guardas
 tests/modules.test.ts           módulos encendidos/apagados y la guarda del servidor
 tests/rls.test.ts               quién entra con la clave de servicio y quién con la sesión
-tests/academy.test.ts           panel de academia: abandono, fichas, cobertura del temario y el progreso semanal agregado (regla 76)
+tests/academy.test.ts           panel de academia: abandono, fichas, cobertura del temario, el progreso semanal agregado (regla 76) y que los totales de la base de datos den lo mismo (regla 91)
 tests/moderation.test.ts        regla 75: candidatas solo para superadmin, y editar/desactivar/descartar/resolver acotado a la propia academia
 tests/pagination.test.ts        paginar por encima del tope de PostgREST (regla 74), sin perder lo ya traído si falla a media página
 tests/question-confusion.test.ts grafo de confusión descubierto de los datos (regla 73): lift, mínimo de muestra, solo dentro del mismo tema
@@ -3897,7 +3963,7 @@ tests/exam-session.test.ts      el examen a medias sobrevive a una recarga
 tests/operacion.test.ts         los guiones de reset y siembra usan la lógica de la app
 tests/auth-messages.test.ts     la pantalla de entrada: errores en cristiano y sus guardas
 tests/generacion-solo-admin.test.ts  quién puede gastar en IA y quién no
-tests/ai-usage.test.ts          el coste de cada llamada, y que ninguna se queda sin contar
+tests/ai-usage.test.ts          el coste de cada llamada, que ninguna se queda sin contar, y el modelo que Google mantiene (regla 92)
 ```
 
 **`schema-drift` es el guardián más importante de la lista.** Compara contra

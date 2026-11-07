@@ -70,7 +70,7 @@ if (!URL || !KEY || !GEMINI) {
 const db = createClient(URL, KEY, { auth: { persistSession: false } });
 const genAI = new GoogleGenerativeAI(GEMINI);
 const questionModel = genAI.getGenerativeModel({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.5-flash-lite',
   generationConfig: { responseMimeType: 'application/json', responseSchema: QUESTION_SCHEMA },
 });
 

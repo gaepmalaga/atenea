@@ -638,7 +638,7 @@ PREGUNTA:
 //
 //   Constitucion completa .................  35.009 tokens
 //   El temario entero (3 documentos) ......  72.355 tokens
-//   Lo que admite gemini-2.5-flash ........ 1.048.576 tokens
+//   Lo que admite gemini-3.5-flash-lite ... 1.048.576 tokens
 //
 // El temario ENTERO ocupa el 6,9 % de la ventana. Y casi todo lo que se ha ido
 // arreglando a mano —el recuento de articulos, la busqueda del articulo exacto,

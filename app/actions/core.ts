@@ -18,7 +18,13 @@ if (!API_KEY || !SB_URL || !SB_SERVICE_KEY || !SB_ANON_KEY) {
 // --- CLIENTES IA ---
 export const genAI = new GoogleGenerativeAI(API_KEY);
 
-const TEXT_MODEL = "gemini-2.5-flash";
+// `gemini-2.5-flash` se apaga el 1 dic 2026 (aviso de Google del 6 nov): desde
+// esa fecha sus llamadas pasan solas a `gemini-3.5-flash-lite`, al mismo
+// precio. Se cambia antes para no depender de esa redirección. El código no usa
+// nada de lo que el modelo nuevo deja de admitir (temperature, top_p, top_k,
+// candidate_count ni turnos de modelo rellenados): solo cambia el nombre.
+// Si se cambia, se cambia también `PRECIO_FLASH` en `lib/ai-usage.ts`.
+const TEXT_MODEL = "gemini-3.5-flash-lite";
 
 export const chatModel = genAI.getGenerativeModel({ model: TEXT_MODEL });
 export const smartModel = genAI.getGenerativeModel({ model: TEXT_MODEL });

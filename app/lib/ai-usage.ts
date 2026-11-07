@@ -16,9 +16,10 @@
  */
 
 /**
- * Precio de `gemini-2.5-flash`, en dólares por millón de tokens.
+ * Precio de `gemini-3.5-flash-lite`, en dólares por millón de tokens.
  *
- * Consultado en la página de precios de Google el 4 sep 2026. Va en un OBJETO
+ * Consultado en la página de precios de Google el 6 nov 2026, al cambiar de
+ * `gemini-2.5-flash` (que se apaga el 1 dic): el mismo precio que aquel. Va en un OBJETO
  * y no en dos constantes sueltas por lo mismo que las reglas del examen
  * (`CNP_SCORING`): el precio cambia, y poder pasar otro es lo único que evita
  * reescribir esto el día que cambie.
@@ -27,11 +28,11 @@
  * `TEXT_MODEL` en `actions/core.ts`, esto miente hasta que se actualice.
  */
 export const PRECIO_FLASH = {
-  modelo: 'gemini-2.5-flash',
+  modelo: 'gemini-3.5-flash-lite',
   entradaPorMillon: 0.30,
   salidaPorMillon: 2.50,
   /** Consultado el mismo día, en la misma página. */
-  revisadoEl: '2026-09-04',
+  revisadoEl: '2026-11-06',
 } as const;
 
 export type PrecioModelo = typeof PRECIO_FLASH;

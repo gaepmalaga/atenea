@@ -10,7 +10,7 @@
  * LO QUE CUESTA, MEDIDO
  * Los 51 PDF dan **4.970 fragmentos** (4.540 con referencia de artículo), o sea
  * 4.970 embeddings. Con 20 preguntas por tema son 900 llamadas más a
- * `gemini-2.5-flash`. En dinero es poco —del orden de un par de euros— pero en
+ * `gemini-3.5-flash-lite`. En dinero es poco —del orden de un par de euros— pero en
  * TIEMPO no: entre los límites de tasa y las pausas, cuenta con una hora larga.
  * Déjalo corriendo; si se corta, se relanza y sigue por donde iba.
  *
@@ -71,7 +71,7 @@ const db = SOLO_PDFS ? null : createClient(URL, KEY, { auth: { persistSession: f
 const genAI = SOLO_PDFS ? null : new GoogleGenerativeAI(GEMINI);
 const embeddingModel = genAI?.getGenerativeModel({ model: 'models/gemini-embedding-001' });
 const questionModel = genAI?.getGenerativeModel({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.5-flash-lite',
   generationConfig: { responseMimeType: 'application/json', responseSchema: QUESTION_SCHEMA },
 });
 
@@ -561,7 +561,7 @@ async function faseFichas(temas) {
       let ficha;
       try {
         const modelo = genAI.getGenerativeModel({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.5-flash-lite',
           generationConfig: { responseMimeType: 'application/json', responseSchema: FLASHCARD_SCHEMA },
         });
         const r = await modelo.generateContent(buildFlashcardPrompt(fragmento, anversos));
