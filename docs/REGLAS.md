@@ -3915,6 +3915,56 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   había reordenado las suyas: «Profesores» sale tras «Grupos» solo con el
   orden de fábrica.
 
+### 100 · Cada clase tiene su profesor habitual, y cada tema el suyo; el imprevisto, a mano
+
+- **Qué pasó (9 nov):** con el cuadrante real delante, el dueño: «prácticamente
+  el 100 % de las veces el boxeo lo da el mismo, el jiujitsu el mismo… si pongo
+  boxeo, que se ponga solo Juan». Y en teoría, «asignar a un profesor los temas
+  del 1 al 10, 14, 17, 18», para saber quién da cada tema y cómo van sus
+  alumnos en ellos. «Pero siempre hay que dejar la puerta abierta a un
+  imprevisto.»
+- **Física** (`staff_activities`: clase, profesor, orden;
+  [`docs/sql/profesores-clases-y-temas.sql`](sql/profesores-clases-y-temas.sql),
+  **ejecutado** con la lista de partida que aprobó el dueño: Boxeo → Juan,
+  Jiujitsu → Lucas, F.M + RDL → Lucio y luego José, FLK → José y luego
+  Olivares, sacada de su cuadrante de esa semana):
+  - Al cambiar el TÍTULO de una celda, el profesor se rellena con el primer
+    habitual que esté LIBRE a esa hora (`profesorSugerido`,
+    `profesoresOcupados`), y lo dice: «Habitual de Boxeo» o «Lucio ya tiene
+    clase a esa hora: te propongo a José». Si todos están ocupados, el
+    primero, y avisa el choque de siempre.
+  - **El imprevisto manda:** el desplegable sigue ahí; si en esa edición se
+    elige un profesor a mano, cambiar el título ya no lo toca. Las celdas ya
+    escritas, copiadas o de la semana anterior no cambian solas.
+  - La clase se reconoce por el PRINCIPIO del título, sin mayúsculas, acentos
+    ni signos (`claveActividad`): «FLK» vale para FLK 5.0 y 5.1, «f.m+rdl» es
+    «F.M + RDL». Si encajan dos, la más larga.
+  - Se edita en «Profesores» → «Clases de física y su profesor habitual»: cada
+    clase con sus profesores en orden. Y cada profesor dice de qué es
+    habitual.
+  - **Se descartó deducirlo solo del historial**: no había historial, y una
+    regla que no se ve no se corrige.
+- **Teoría** (`staff_subjects`: profesor y tema del temario común):
+  - Los temas se escriben como se dicen, «1-10, 14, 17, 18» (`leeListaTemas`),
+    y se enseñan cortos, «1–10, 14, 17–18» (`formateaTemas`).
+  - «Profesores» dice, de cada uno, cómo van los alumnos de la academia en
+    sus temas: acierto medio (ponderado por respuestas, sin los blancos, regla
+    24), el tema más flojo y el detalle tema a tema. Sin respuestas es «sin
+    datos», no un 0 % (regla 8); con menos de `MIN_RESPUESTAS_TEMA` (20) no se
+    señala un tema como el más flojo: sería ruido.
+  - Los recuentos los hace la base de datos (`panel_academia_por_tema`, solo
+    para la clave de servicio, como el resto del panel: regla 91), y solo de
+    los alumnos: los admin no estudian.
+  - «Temas sin profesor: 23–24», sin contar los exámenes oficiales (46-50),
+    que no los da nadie.
+- **El cuadrante de la semana del 9 al 12** se pasó desde la imagen que se
+  mandó por WhatsApp
+  ([`docs/sql/cuadrante-semana-9-noviembre.sql`](sql/cuadrante-semana-9-noviembre.sql),
+  **ejecutado**): 16 celdas, ya publicadas.
+- **Pendiente, si Alphapol lo pide:** que el alumno vea en sus fallos «Tema 7 ·
+  lo da Morato»; un cuadrante de teoría (qué tema se da cada día y con quién)
+  con el mismo relleno automático del profesor.
+
 ---
 
 ## Los tests
@@ -3934,6 +3984,7 @@ tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el 
 tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
 tests/cuadrante.test.ts         el cuadrante semanal (reglas 96 y 97): la semana real de Alphapol, que un grupo sin horario no sale ni crea días, días sin clase, el tipo sacado del título, la hora escrita a mano, choques de profesor, texto de WhatsApp, plazas con multis, el profesor con cuenta y guardas de las acciones
 tests/clases-fisica.test.ts     las clases de grupo en el calendario del alumno (reglas 97 y 98): del horario aunque no estén escritas, «sin clase», faltas, el multi, la fila de Inicio, que los entrenos no traigan las clases y que una semana sin publicar sea un borrador
+tests/profesores.test.ts        lo que da cada profesor (regla 100): reconocer la clase por el título, proponer al habitual libre, quién está ocupado a una hora, leer «1-10, 14», el acierto de sus alumnos en sus temas y las guardas
 tests/planificar.test.ts        «Planificar» por alumno (regla 97): el resumen de cada semana, la lista por grupos, y copiar a varios con una copia independiente para cada uno
 tests/sesiones.test.ts          la física como la lleva un preparador (regla 86): sesiones, lo que apunta el alumno, el calendario, copiar semana, cada frontera del baremo del BOE y las guardas de las acciones
 tests/alta-masiva.test.ts       alta en bloque (regla 83): leer la lista pegada, contraseñas legibles, el CSV para Excel, y las guardas de la acción

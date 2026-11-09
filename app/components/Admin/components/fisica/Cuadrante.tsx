@@ -15,11 +15,12 @@ import { lunesDe, ETIQUETA_TIPO, type Sesion, type Plantilla } from '@/app/lib/s
 import { sumaDias } from '@/app/lib/asistencia';
 import {
   armaCuadrante, textoCuadrante, colorDeGrupo, nombrePila, etiquetaRango, tipoDeTitulo, leeHora, plazasSesion,
-  fechasDelGrupo, tituloDia, horaCortaGrupo,
+  fechasDelGrupo, tituloDia, horaCortaGrupo, profesoresOcupados,
   type FilaCuadrante, type DiaCuadrante, type Cuadrante as CuadranteArmado, type GrupoCuadrante,
 } from '@/app/lib/cuadrante';
 import { entregaImagenCuadrante } from '@/app/components/fisica/cuadranteImagen';
 import { MARCA } from '@/app/lib/marca';
+import { profesorSugerido } from '@/app/lib/profesores';
 import { Button, Card, EmptyState, Modal, SelectField, TextField, TEXT, cx } from '../../../ui';
 import EditorSesion from './EditorSesion';
 
@@ -374,11 +375,32 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
   const conHora = esMulti || esExtra;
   const [titulo, setTitulo] = useState(s?.titulo ?? '');
   const [profesorId, setProfesorId] = useState(s?.profesorId ?? '');
+  // El profesor habitual (regla 100) se propone al cambiar el título, salvo
+  // que en esta edición ya se haya elegido uno a mano: eso manda siempre.
+  const [profesorTocado, setProfesorTocado] = useState(false);
+  const [notaProfesor, setNotaProfesor] = useState<string | null>(null);
   const [hora, setHora] = useState(s?.horaPropia ?? '');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sinClase, setSinClaseAbierto] = useState(false);
   const [motivo, setMotivo] = useState('');
+
+  const activos = useMemo(() => new Set(datos.profesores.map((p) => p.id)), [datos.profesores]);
+  const nombreDe = (id: string) => datos.profesores.find((p) => p.id === id)?.nombre ?? 'Ese profesor';
+
+  /** Cambia el título y, si no se ha tocado el profesor, propone al habitual libre a esa hora. */
+  function cambiaTitulo(t: string) {
+    setTitulo(t);
+    if (profesorTocado) return;
+    const horaCelda = conHora ? leeHora(hora) ?? horaCortaGrupo(fila.grupo) : s?.horaPropia ?? horaCortaGrupo(fila.grupo);
+    const ocupados = profesoresOcupados({ sesiones: datos.sesiones, grupos: datos.grupos, fecha, hora: horaCelda, excluirSesion: s?.id, sinClase: datos.sinClase });
+    const sug = profesorSugerido({ titulo: t, habituales: datos.habituales, ocupados, activos });
+    if (!sug) { setNotaProfesor(null); return; }
+    setProfesorId(sug.profesorId);
+    setNotaProfesor(sug.ocupados.length
+      ? `${sug.ocupados.map(nombreDe).join(' y ')} ya ${sug.ocupados.length === 1 ? 'tiene' : 'tienen'} clase a esa hora: te propongo a ${nombreDe(sug.profesorId)}.`
+      : `Habitual de ${sug.actividad}. Si hoy lo da otro, cámbialo.`);
+  }
 
   const q = titulo.trim().toLowerCase();
   const sugeridos = useMemo(
@@ -433,11 +455,11 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
       }>
       <div className="space-y-4">
         <div className="space-y-2">
-          <TextField label="Qué toca" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={120} placeholder="FLK 5.0, Boxeo, F.M + RDL…" />
+          <TextField label="Qué toca" value={titulo} onChange={(e) => cambiaTitulo(e.target.value)} maxLength={120} placeholder="FLK 5.0, Boxeo, F.M + RDL…" />
           {sugeridos.length > 0 && (
             <div className="flex flex-wrap gap-1.5" aria-label="Títulos ya usados">
               {sugeridos.map((t) => (
-                <button key={t} type="button" onClick={() => setTitulo(t)}
+                <button key={t} type="button" onClick={() => cambiaTitulo(t)}
                   className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-400">
                   {t}
                 </button>
@@ -453,10 +475,14 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
           )}
         </div>
 
-        <SelectField label="Profesor" value={profesorId} onChange={(e) => setProfesorId(e.target.value)}>
-          <option value="">Sin asignar</option>
-          {datos.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-        </SelectField>
+        <div className="space-y-1">
+          <SelectField label="Profesor" value={profesorId}
+            onChange={(e) => { setProfesorId(e.target.value); setProfesorTocado(true); setNotaProfesor(null); }}>
+            <option value="">Sin asignar</option>
+            {datos.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </SelectField>
+          {notaProfesor && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{notaProfesor}</p>}
+        </div>
 
         {conHora && (
           <div className="space-y-2">

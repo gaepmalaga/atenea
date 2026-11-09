@@ -85,6 +85,9 @@ export const TABLAS_POR_ACADEMIA = [
   'memberships',
   'monthly_payments',
   'membership_exemptions',
+  // Apuntan a `academy_staff` (regla 100): antes que él.
+  'staff_activities',
+  'staff_subjects',
   'academy_staff',
   'training_sessions',
   'training_week_notes',
