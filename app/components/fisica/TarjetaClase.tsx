@@ -46,10 +46,16 @@ export default function TarjetaClase({ clase, onAbrir, soloLectura = false, comp
           </span>
         )}
         <span className="flex-1 min-w-0">
+          {compacta && (
+            <span className="flex items-center gap-1 text-[10px] font-black text-slate-500 dark:text-slate-400">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: col.fondo }} />
+              <span className="tabular-nums">{clase.hora ?? ''}</span> · <span className="truncate">{clase.grupo}</span>
+              {soloLectura && <Lock size={10} className="shrink-0" aria-label="Solo lectura" />}
+            </span>
+          )}
           <span className={cx('flex items-center gap-1.5 font-black text-slate-900 dark:text-white leading-snug', compacta ? 'text-xs' : 'text-sm', clase.sinClase && 'text-slate-500 dark:text-slate-400')}>
-            {compacta && <span className="tabular-nums">{clase.hora ?? ''}</span>}
-            <span className="truncate">{compacta ? `${clase.grupo} · ${titulo}` : titulo}</span>
-            {soloLectura && <Lock size={11} className="shrink-0 text-slate-400" aria-label="Solo lectura" />}
+            <span className={compacta ? 'line-clamp-2' : 'truncate'}>{titulo}</span>
+            {soloLectura && !compacta && <Lock size={11} className="shrink-0 text-slate-400" aria-label="Solo lectura" />}
           </span>
           {detalle && <span className={cx('block text-slate-500 dark:text-slate-400 mt-0.5 break-words', compacta ? 'text-[10px]' : 'text-[11px]')}>{detalle}</span>}
           {!compacta && (

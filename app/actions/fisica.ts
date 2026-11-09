@@ -31,6 +31,11 @@ import {
 } from '../lib/sesiones';
 import { esPrueba, leeMarca, type Marca, type Prueba, type Sexo } from '../lib/baremo-fisico';
 import { leeCargas, leeKg, normalizaEjercicio, rmVigentes, MAX_REPS_ESTIMACION, type MarcaRM } from '../lib/rm';
+import { paginaCompleta } from '../lib/pagination';
+import {
+  resumenSemanasAlumno, copiasParaAlumnos, diasEntre,
+  type GrupoPlan, type AlumnoPlan, type ResumenSemanaAlumno,
+} from '../lib/planificar';
 
 const hoyAcademia = () => ahoraEnZona(Date.now()).fecha;
 const MAX_RANGO_DIAS = 62;
@@ -280,6 +285,138 @@ export async function getDestinosFisica(): Promise<
     })),
     alumnos,
   };
+}
+
+// ── «Planificar» por alumno (regla 97) ───────────────────────────────────
+
+export type AlumnoFisica = AlumnoPlan & { semanas: ResumenSemanaAlumno[] };
+
+/** Cuántos alumnos se copian de una vez, como mucho. */
+const MAX_DESTINOS = 200;
+
+const trozos = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+
+/**
+ * Los alumnos de física (los que están en algún grupo de física), con lo que
+ * tienen planificado esta semana y la siguiente y si han apuntado lo hecho:
+ * la lista de «Planificar». Los grupos van en el orden del cuadrante.
+ */
+export async function getAlumnosFisica(params: { lunes: string }): Promise<
+  { success: true; lunes: string; hoy: string; grupos: GrupoPlan[]; alumnos: AlumnoFisica[] } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const lunes = params?.lunes;
+  if (!org) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  if (!esFecha(lunes) || lunesDe(lunes) !== lunes) return { success: false as const, error: 'Datos no válidos.' };
+  const hoy = hoyAcademia();
+  const semanas = [lunes, sumaDias(lunes, 7)];
+
+  const { data: filas, error } = await supabaseAdmin.from('class_groups').select('id, name, weekdays, is_multi')
+    .eq('organization_id', org).eq('kind', 'fisicas').order('created_at').order('name');
+  if (error) return { success: false as const, error: error.message };
+  const grupos: GrupoPlan[] = (filas ?? []).map((g) => ({
+    id: g.id as string, nombre: g.name as string, esMulti: g.is_multi === true,
+    conHorario: ((g.weekdays as number[] | null)?.length ?? 0) > 0,
+  }));
+  if (!grupos.length) return { success: true as const, lunes, hoy, grupos, alumnos: [] };
+
+  const miembros = await paginaCompleta<Fila>(async (desde, hasta) => supabaseAdmin.from('class_members')
+    .select('class_id, user_id').in('class_id', grupos.map((g) => g.id)).order('user_id').order('class_id').range(desde, hasta));
+  if (miembros.error) return { success: false as const, error: miembros.error };
+  const gruposDe = new Map<string, string[]>();
+  for (const m of miembros.data) gruposDe.set(m.user_id as string, [...(gruposDe.get(m.user_id as string) ?? []), m.class_id as string]);
+  const ids = [...gruposDe.keys()];
+  if (!ids.length) return { success: true as const, lunes, hoy, grupos, alumnos: [] };
+
+  const [{ data: perfiles }, sesiones] = await Promise.all([
+    supabaseAdmin.from('profiles').select('id, email, role').in('id', ids),
+    paginaCompleta<Fila>(async (desde, hasta) => supabaseAdmin.from('training_sessions').select('id, user_id, session_date, kind')
+      .eq('organization_id', org).in('user_id', ids).gte('session_date', lunes).lte('session_date', sumaDias(lunes, 13))
+      .order('id').range(desde, hasta)),
+  ]);
+  if (sesiones.error) return { success: false as const, error: sesiones.error };
+  const apuntadas = new Set<string>();
+  for (const t of trozos(sesiones.data.map((x) => x.id as string), 150)) {
+    const { data: logs, error: e } = await supabaseAdmin.from('training_session_logs').select('session_id, user_id').in('session_id', t);
+    if (e) return { success: false as const, error: e.message };
+    for (const l of logs ?? []) apuntadas.add(`${l.session_id}|${l.user_id}`);
+  }
+
+  const alumnos: AlumnoFisica[] = (perfiles ?? [])
+    .filter((p) => p.role !== 'admin' && p.role !== 'superadmin')
+    .map((p) => {
+      const id = p.id as string;
+      const suyas = sesiones.data.filter((x) => x.user_id === id)
+        .map((x) => ({ id: x.id as string, fecha: x.session_date as string, kind: x.kind as TipoSesion }));
+      return {
+        id,
+        email: (p.email as string | null) ?? '—',
+        grupos: gruposDe.get(id) ?? [],
+        semanas: resumenSemanasAlumno({
+          sesiones: suyas,
+          apuntadas: new Set(suyas.filter((x) => apuntadas.has(`${x.id}|${id}`)).map((x) => x.id)),
+          lunes: semanas,
+          hoy,
+        }),
+      };
+    });
+  return { success: true as const, lunes, hoy, grupos, alumnos };
+}
+
+/**
+ * Copia los ENTRENOS de un alumno (una semana o un día) a VARIOS alumnos a la
+ * vez (regla 97). Cada uno recibe SU copia —una fila nueva por alumno y
+ * sesión—, así que cambiar la de uno no cambia las demás. Lo que ya tuvieran
+ * esos días se queda; las copiadas se añaden. Las clases de grupo no se copian:
+ * son del cuadrante.
+ */
+export async function copiarAAlumnos(params: {
+  origenId: string;
+  /** Lo que se copia: de `desde` a `hasta`, como mucho una semana. */
+  desde: string;
+  hasta: string;
+  /** El primer día de destino: las copias se mueven lo que va de `desde` a `a`. */
+  a: string;
+  destinos: string[];
+}): Promise<{ success: true; creadas: number; alumnos: number } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { origenId, desde, hasta, a, destinos } = params ?? ({} as typeof params);
+  if (!org || !esUuid(origenId) || !esFecha(desde) || !esFecha(hasta) || !esFecha(a)) return { success: false as const, error: 'Datos no válidos.' };
+  if (hasta < desde || diasEntre(desde, hasta) > 6) return { success: false as const, error: 'Se copia una semana o un día, no más.' };
+  if (!Array.isArray(destinos) || !destinos.length || !destinos.every(esUuid)) return { success: false as const, error: 'Elige a qué alumnos.' };
+  const unicos = [...new Set(destinos)];
+  if (unicos.length > MAX_DESTINOS) return { success: false as const, error: `Como mucho ${MAX_DESTINOS} alumnos de una vez.` };
+
+  // Todos, el de origen y los de destino, tienen que ser de esta academia.
+  const todos = [...new Set([origenId, ...unicos])];
+  const { data: socios, error: e0 } = await supabaseAdmin.from('academy_members').select('user_id')
+    .eq('academy_id', org).in('user_id', todos);
+  if (e0) return { success: false as const, error: e0.message };
+  if ((socios ?? []).length !== todos.length) return { success: false as const, error: 'Algún alumno no es de tu academia.' };
+
+  const { data, error } = await supabaseAdmin.from('training_sessions').select(COLS_SESION)
+    .eq('organization_id', org).eq('user_id', origenId).gte('session_date', desde).lte('session_date', hasta);
+  if (error) return { success: false as const, error: error.message };
+  const copias = copiasParaAlumnos((data ?? []).map(aSesion), unicos, diasEntre(desde, a), origenId);
+  if (!(data ?? []).length) return { success: false as const, error: 'Ese alumno no tiene entrenos esos días.' };
+  if (!copias.length) return { success: false as const, error: 'No hay nada que copiar: es el mismo alumno y los mismos días.' };
+
+  for (const t of trozos(copias, 500)) {
+    const { error: e } = await supabaseAdmin.from('training_sessions').insert(t.map((c) => ({
+      organization_id: org,
+      class_id: null,
+      user_id: c.alumnoId,
+      session_date: c.fecha, kind: c.kind, title: c.title, description: c.description,
+      duration_min: c.durationMin, distance_km: c.distanceKm, video: c.video, position: c.position,
+      loads: c.cargas.length ? c.cargas : null, created_by: auth.user.id,
+    })));
+    if (e) return { success: false as const, error: e.message };
+  }
+  return { success: true as const, creadas: copias.length, alumnos: new Set(copias.map((c) => c.alumnoId)).size };
 }
 
 export type ApunteConCorreo = Apunte & { email: string };

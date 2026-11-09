@@ -869,6 +869,30 @@ export async function getPlanificador() {
   });
 }
 export async function getPlantillas() { return ok({ plantillas: PLANTILLAS_FIS }); }
+// «Planificar» por alumno (regla 97): unos con la semana hecha, otros sin.
+export async function getAlumnosFisica(params?: { lunes?: string }) {
+  const lunes = params?.lunes ?? lunesFis(0);
+  const sem = (l: string, sesiones: number, vencidas: number, apuntadas: number) => ({ lunes: l, sesiones, vencidas, apuntadas });
+  const sig = (() => { const [y, m, d] = lunes.split('-').map(Number); const x = new Date(Date.UTC(y, m - 1, d + 7)); return x.toISOString().slice(0, 10); })();
+  const al = (id: string, email: string, grupos: string[], a: [number, number, number], b: number) => ({ id, email, grupos, semanas: [sem(lunes, ...a), sem(sig, b, 0, 0)] });
+  return ok({
+    lunes, hoy: fFis(0),
+    grupos: [
+      { id: 'g-kappa', nombre: 'Promo 44 · Kappa', esMulti: false, conHorario: true },
+      { id: 'g-alpha', nombre: 'Promo 44 · Alpha', esMulti: false, conHorario: true },
+      { id: 'g-multi', nombre: 'Promo 44 · Multi', esMulti: true, conHorario: false },
+      { id: 'g1', nombre: 'Promo 43 · Físicas', esMulti: false, conHorario: false },
+    ],
+    alumnos: [
+      al('u2', 'alumno@atenea.com', ['g-kappa', 'g1'], [5, 1, 0], 3),
+      al('u3', 'alumno.flojo@ejemplo.com', ['g-kappa'], [0, 0, 0], 0),
+      al('u4', 'maria.lopez.garcia.larguisimo@gmail.com', ['g-alpha'], [4, 1, 1], 0),
+      al('u5', 'sin.sexo@ejemplo.com', ['g-alpha'], [3, 0, 0], 3),
+      al('u8', 'pablo.multi@gmail.com', ['g-multi'], [0, 0, 0], 2),
+    ],
+  });
+}
+export async function copiarAAlumnos() { return { success: true as const, creadas: 10, alumnos: 2 }; }
 export async function saveSesion() { return { success: true as const, id: 'nueva' }; }
 export async function deleteSesion() { return { success: true as const }; }
 export async function moverSesion() { return { success: true as const }; }
