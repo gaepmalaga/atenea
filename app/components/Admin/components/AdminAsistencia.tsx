@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CalendarCheck, RefreshCw, ChevronDown, UserX } from 'lucide-react';
+import { CalendarCheck, RefreshCw } from 'lucide-react';
 import { getAsistenciaAcademia } from '@/actions';
 import type { DiaAcademia, SesionAcademia } from '@/app/actions/asistencia';
-import { Card, EmptyState, TEXT, cx } from '../../ui';
+import {
+  PanelTitulo, Pulso, Filtros, FiltroChip, Hoja, Etiqueta, Dato, Boton, Aviso, EmptyState, cx,
+} from '../../ui';
 
 /**
  * ASISTENCIA (regla 82): los próximos días con clase, sesión a sesión.
@@ -14,11 +16,18 @@ import { Card, EmptyState, TEXT, cx } from '../../ui';
  * primero que se lee de cada sesión son las plazas libres. Quién falta está
  * debajo, plegado: es el segundo dato, no el primero.
  */
+type Filtro = 'todas' | 'hueco' | 'completas' | 'faltas';
+
+const hayHueco = (s: SesionAcademia) => s.libres !== null && s.libres > 0;
+// Sin aforo puesto no hay «completa» ni «hueco»: no es cero (regla 8).
+const estaLlena = (s: SesionAcademia) => s.libres !== null && s.libres <= 0;
+
 export default function AdminAsistencia() {
   const [dias, setDias] = useState<DiaAcademia[]>([]);
   const [sinHorario, setSinHorario] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<Filtro>('todas');
 
   const cargar = useCallback(async () => {
     const res = await getAsistenciaAcademia();
@@ -29,34 +38,29 @@ export default function AdminAsistencia() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  return (
-    <div className="space-y-4 animate-in fade-in pb-24">
-      <Card tone="sunken" pad="md" className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-slate-700/10 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
-            <CalendarCheck size={20} />
-          </div>
-          <div>
-            <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Asistencia</h3>
-            <p className={cx(TEXT.muted, 'mt-0.5')}>Las próximas clases, con quién ha avisado de que falta y las plazas libres.</p>
-          </div>
-        </div>
-        <button onClick={() => { setLoading(true); cargar(); }} className="w-11 h-11 shrink-0 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400" aria-label="Recargar">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </Card>
+  const todas = dias.flatMap((d) => d.sesiones);
+  const cuenta = {
+    todas: todas.length,
+    hueco: todas.filter(hayHueco).length,
+    completas: todas.filter(estaLlena).length,
+    faltas: todas.filter((s) => s.faltan > 0).length,
+  };
+  const pasa = (s: SesionAcademia) => filtro === 'todas' || (filtro === 'hueco' ? hayHueco(s) : filtro === 'completas' ? estaLlena(s) : s.faltan > 0);
 
-      {error && (
-        <Card tone="base" pad="md" className="border-red-500/30 text-red-700 dark:text-red-300">
-          <p className="text-xs font-medium">{error}</p>
-        </Card>
-      )}
+  return (
+    <div className="space-y-5 animate-in fade-in pb-24">
+      <PanelTitulo
+        titulo="Asistencia"
+        sub="Las próximas clases, con quién ha avisado de que falta y las plazas libres."
+        acciones={<Boton variant="secondary" onClick={() => { setLoading(true); cargar(); }} icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}>Recargar</Boton>}
+      />
+
+      {error && <Aviso tono="malo">{error}</Aviso>}
 
       {sinHorario.length > 0 && (
-        <p className={cx(TEXT.muted, 'px-1')}>
-          Sin horario puesto, y por eso no salen aquí: <strong className="text-slate-700 dark:text-slate-200">{sinHorario.join(', ')}</strong>.
-          Se pone en «Grupos».
-        </p>
+        <Aviso tono="info">
+          <span>Sin horario puesto, y por eso no salen aquí: <strong>{sinHorario.join(', ')}</strong>. Se pone en «Grupos».</span>
+        </Aviso>
       )}
 
       {!loading && !error && dias.length === 0 && (
@@ -68,12 +72,38 @@ export default function AdminAsistencia() {
         />
       )}
 
-      {dias.map((d) => (
-        <section key={d.fecha} className="space-y-2">
-          <h4 className="px-1 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{d.etiqueta}</h4>
-          {d.sesiones.map((s) => <Sesion key={`${s.classId}|${d.fecha}`} s={s} />)}
-        </section>
-      ))}
+      {dias.length > 0 && (
+        <>
+          <Pulso
+            cifras={[
+              { valor: cuenta.todas, etiqueta: 'clases en las próximas semanas' },
+              { valor: cuenta.faltas, etiqueta: 'con faltas avisadas', tono: cuenta.faltas ? 'aviso' : 'neutro' },
+              { valor: todas.reduce((n, s) => n + Math.max(0, s.libres ?? 0), 0), etiqueta: 'plazas libres en total', tono: 'ok' },
+              { valor: cuenta.completas, etiqueta: 'clases completas', tono: cuenta.completas ? 'malo' : 'neutro' },
+            ]}
+          />
+
+          <Filtros etiqueta="Qué clases ver">
+            <FiltroChip activo={filtro === 'todas'} onClick={() => setFiltro('todas')} cuenta={cuenta.todas}>Todas</FiltroChip>
+            <FiltroChip activo={filtro === 'hueco'} onClick={() => setFiltro('hueco')} cuenta={cuenta.hueco}>Con hueco</FiltroChip>
+            <FiltroChip activo={filtro === 'completas'} onClick={() => setFiltro('completas')} cuenta={cuenta.completas}>Completas</FiltroChip>
+            <FiltroChip activo={filtro === 'faltas'} onClick={() => setFiltro('faltas')} cuenta={cuenta.faltas}>Con faltas</FiltroChip>
+          </Filtros>
+        </>
+      )}
+
+      {dias.map((d) => {
+        const visibles = d.sesiones.filter(pasa);
+        if (!visibles.length) return null;
+        return (
+          <section key={d.fecha} className="space-y-2">
+            <h3 className="font-titulo text-xl font-bold uppercase leading-none tracking-wider text-slate-900 dark:text-white">{d.etiqueta}</h3>
+            <Hoja className="overflow-hidden">
+              {visibles.map((s) => <Sesion key={`${s.classId}|${d.fecha}`} s={s} />)}
+            </Hoja>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -85,44 +115,46 @@ function Sesion({ s }: { s: SesionAcademia }) {
   // «libres» (no es cero, regla 8): se dice cuántos faltan y ya.
   const libres =
     s.libres === null
-      ? { texto: 'sin plazas puestas', clase: 'text-slate-500 dark:text-slate-400' }
+      ? <Etiqueta tono="apagado">Sin plazas puestas</Etiqueta>
       : s.sobreaforo
-        ? { texto: `${-s.libres} por encima del aforo`, clase: 'text-red-700 dark:text-red-400' }
+        ? <Etiqueta tono="malo">{-s.libres} por encima del aforo</Etiqueta>
         : s.libres === 0
-          ? { texto: 'completa', clase: 'text-slate-700 dark:text-slate-200' }
-          : { texto: `${s.libres} ${s.libres === 1 ? 'plaza libre' : 'plazas libres'}`, clase: 'text-emerald-700 dark:text-emerald-400' };
+          ? <Etiqueta tono="apagado">Completa</Etiqueta>
+          : <Etiqueta tono={s.libres <= 2 ? 'aviso' : 'ok'}>{s.libres} {s.libres === 1 ? 'plaza libre' : 'plazas libres'}</Etiqueta>;
+
+  const porcentaje = s.aforo ? Math.min(100, (s.asisten / s.aforo) * 100) : 0;
 
   return (
-    <Card tone="base" pad="sm">
+    <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-x-4 gap-y-2.5 border-b border-linea px-4 py-3 last:border-b-0 dark:border-noche-linea sm:grid-cols-[4.5rem_minmax(0,1.4fr)_minmax(8rem,1fr)_auto_7.5rem]">
+      <div className="font-titulo text-xl font-bold leading-none tabular-nums text-slate-900 dark:text-white">{s.hora ?? '—'}</div>
+      <p className="min-w-0 truncate font-semibold text-slate-900 dark:text-white">{s.nombre}</p>
+
+      <div className="col-span-2 grid gap-1 text-xs text-slate-600 dark:text-slate-400 sm:col-span-1">
+        {s.aforo !== null && (
+          <div className="h-1.5 overflow-hidden rounded-full border border-linea bg-hundido dark:border-noche-linea dark:bg-noche-hondo">
+            <div className={cx('h-full', s.sobreaforo ? 'bg-red-600 dark:bg-red-400' : 'bg-indigo-900 dark:bg-indigo-300')} style={{ width: `${porcentaje}%` }} />
+          </div>
+        )}
+        <span className="tabular-nums">Van {s.asisten}{s.aforo !== null && ` de ${s.aforo}`}</span>
+      </div>
+
+      <div className="col-span-2 sm:col-span-1">{libres}</div>
+
       <button
+        type="button"
         onClick={() => setAbierta((x) => !x)}
         disabled={s.faltan === 0}
-        className="w-full min-h-[44px] flex items-center justify-between gap-3 text-left disabled:cursor-default"
+        aria-expanded={abierta}
+        className="col-span-2 min-h-[44px] rounded-lg border border-linea text-[12.5px] font-medium text-slate-800 hover:border-indigo-700 disabled:cursor-default disabled:border-transparent disabled:text-slate-600 dark:border-noche-linea dark:text-slate-200 dark:disabled:text-slate-400 sm:col-span-1"
       >
-        <span className="min-w-0">
-          <span className="block font-bold text-slate-900 dark:text-white truncate">
-            {s.hora && <span className="font-mono text-slate-500 dark:text-slate-400 mr-2">{s.hora}</span>}
-            {s.nombre}
-          </span>
-          <span className={cx(TEXT.muted, 'block')}>
-            Van {s.asisten}{s.aforo !== null && ` de ${s.aforo}`}
-            {s.faltan > 0 && ` · ${s.faltan} ${s.faltan === 1 ? 'falta' : 'faltan'}`}
-          </span>
-        </span>
-        <span className="flex items-center gap-2 shrink-0">
-          <span className={cx('text-xs font-black', libres.clase)}>{libres.texto}</span>
-          {s.faltan > 0 && <ChevronDown size={14} className={cx('text-slate-400 transition-transform', abierta && 'rotate-180')} />}
-        </span>
+        {s.faltan === 0 ? 'Nadie falta' : `${s.faltan} ${s.faltan === 1 ? 'falta' : 'faltan'} ${abierta ? '▴' : '▾'}`}
       </button>
+
       {abierta && s.faltan > 0 && (
-        <ul className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1">
-          {s.quienesFaltan.map((q) => (
-            <li key={q} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <UserX size={12} className="text-slate-400 shrink-0" /> <span className="truncate">{q}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="col-span-2 flex flex-wrap gap-1.5 pb-1 sm:col-span-5 sm:pl-[5.5rem]">
+          {s.quienesFaltan.map((q) => <Dato key={q}>{q}</Dato>)}
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
