@@ -89,32 +89,34 @@ Todo en producción y apuntado en `REGLAS.md`:
 
 ---
 
-## 2b · El rediseño del panel de administración (9 nov, sin desplegar)
+## 2b · El panel nuevo y las cuotas (9 nov, en la rama de la sesión, sin desplegar)
 
-Hecho en la rama `claude/gifted-brahmagupta-3gzmoh`, **sin pasar a `main`**:
-el dueño pidió verlo entero antes de desplegar. Las reglas 101 y 102 lo cuentan.
+El rediseño del panel se hizo en la rama `claude/gifted-brahmagupta-3gzmoh` y
+se UNIÓ en `ccr-ef0cf392-7w3piz` con las cuotas. Reglas 101 a 104.
 
 - **Rediseñado** (esquinas pequeñas, barra lateral, tablas que pasan a tarjetas
-  en móvil, todo a 44 px): Alumnos (lista y ficha), Grupos (cuadrante y editor),
-  Profesores (carga semanal y ficha), Asistencia, Pagos (con contabilidad),
-  Temario & IA, Banco oficial, Moderación, Ajustes, Consumo IA y Logs.
-- **NO se tocó**, a petición del dueño: **Prep. física**. Tampoco «Academias»
-  (superadmin) ni el compositor de preguntas.
+  en móvil, todo a 44 px): Alumnos, Grupos, Profesores, Asistencia, **Prep.
+  física**, Pagos, Temario & IA, Banco oficial, Moderación, Ajustes, Consumo IA
+  y Logs. Sin tocar: «Academias» (superadmin) y el compositor de preguntas.
+- **Pagos** (regla 104): la cuota sale de los grupos (precios por tipo y packs
+  en «Grupos»), cada cobro es un recibo del libro con su método, y la caja sale
+  del libro. El de la otra sesión (`pagos-contabilidad.sql`, método y recibo
+  por mes) se retiró sin ejecutarse.
 - **Antes de desplegar:**
-  1. **Ejecutar [`docs/sql/pagos-contabilidad.sql`](sql/pagos-contabilidad.sql)**
-     en el editor SQL de Supabase y regenerar el esquema
-     (`node scripts/schema-snapshot.mjs`). Sin él, el código funciona, pero
-     Pagos no ofrece método ni recibo.
-  2. Mirar el panel en el móvil de verdad (`npm run build` + la app local contra
-     la BD real, §4), sobre todo Alumnos, Grupos y Pagos.
-  3. Decidir si se echa de menos lo que se quitó: reordenar las pestañas
-     (`localStorage`) y la «evolución del acierto» de la ficha del alumno, que
-     estaba en las maquetas pero no tiene de dónde salir (no hay serie semanal
-     en la base de datos).
-- **Cambios de comportamiento a propósito:** «Descartar del banco» solo se
-  ofrece dentro del editor de la pregunta; apagar un módulo de Ajustes pide
-  confirmación; los filtros de Alumnos y Logs llevan su contador; «Banco
-  Maestro» y «Banco Oficial» pasan a llamarse solo «Banco oficial».
+  1. **Ejecutar [`docs/sql/pagos-cuotas.sql`](sql/pagos-cuotas.sql)** (con el
+     visto bueno del dueño). SIN ÉL, «Pagos» y «Grupos» fallan: piden columnas
+     y tablas que no existen. `schema.json` ya las trae (escritas a mano;
+     regenerarlo después con `node scripts/schema-snapshot.mjs`).
+  2. Poner los precios en «Grupos» → «Tipos de grupo y precios».
+  3. Mirar el panel en el móvil de verdad, sobre todo Pagos, Grupos y Prep.
+     física.
+- **Lo que se quitó y puede echarse de menos:** reordenar las pestañas, y la
+  «evolución del acierto» de la ficha del alumno (no hay serie semanal en la
+  base de datos de donde sacarla).
+- **Cambios de comportamiento a propósito:** «Descartar del banco» solo dentro
+  del editor de la pregunta; apagar un módulo, suspender a un alumno o borrar
+  un tipo de grupo piden confirmación; la barra del móvil lleva Alumnos,
+  Asistencia, Prep. física y Pagos.
 
 ## 3 · Lo que falta
 

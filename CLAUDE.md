@@ -222,6 +222,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 101 | El panel de administración tiene una sola forma, y vive en `ui/panel` |
 | 102 | Pagos: la contabilidad se añade sin romper el cobro de siempre |
 | 103 | Lo que no se toca a diario no ocupa la pantalla |
+| 104 | La cuota sale de los grupos, y cada cobro es un recibo del libro |
 
 ## Trampas conocidas
 

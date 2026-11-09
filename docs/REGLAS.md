@@ -4111,9 +4111,21 @@ el segundo necesita el proyecto real.
   ordenador del dueño. Se comprobó a 390, 768 y 1.360 px, en claro y oscuro,
   sin desbordes y con todo lo que se toca a 44 px. `design-system.test.ts`
   sigue mordiendo: no se inventan radios a mano en las pantallas.
-- **Quedó fuera, a propósito:** «Prep. física» (el dueño pidió no tocarla; sus
-  tres vistas siguen con el estilo anterior dentro de la cáscara nueva),
-  «Academias» y el compositor de preguntas.
+- **Quedó fuera, a propósito:** «Academias» y el compositor de preguntas.
+  «Prep. física» se dejó al principio con el estilo anterior y se pasó
+  después a la forma del panel (cabecera, pestañas, hojas, botones y campos
+  del kit; los colores de cada grupo se quedan, son los de la academia).
+- **Lo que se corrigió al revisarlo con los datos de Alphapol:**
+  - En el cuadrante de «Grupos», dos grupos a la misma hora (Alpha y Kappa,
+    L-X de 8 a 9) se pintaban uno ENCIMA del otro: solo se veía uno. Ahora van
+    en carriles (`enCarriles`) y las horas sin clase se pliegan en un salto
+    (`tramosDeHoras`): de 9 a 20 no hay nada que enseñar. El banco de pruebas
+    tenía dos grupos que no se pisaban; ahora tiene los que se pisan.
+  - La barra inferior del móvil llevaba Grupos y Profesores, que se montan una
+    vez: lleva lo de cada día (Alumnos, Asistencia, Prep. física, Pagos), y
+    «Más» dice en qué pantalla estás cuando no es una de esas.
+  - «Suspender» y «Rechazar solicitud» piden confirmación; un fallo de una
+    pantalla ya no se queda puesto al cambiar de pestaña.
 - **Se quitó:** el reordenar las pestañas del panel (`localStorage`): con una
   barra lateral agrupada por secciones ya no hacía falta.
 
@@ -4154,6 +4166,10 @@ el segundo necesita el proyecto real.
   pendiente se estima con la media hasta entonces), y el cobro de conceptos
   sueltos (matrícula, material). No se hizo: pedía una tabla más y nadie lo ha
   necesitado todavía.
+- **Sustituida en parte por la 104** (el mismo día, al unir las dos ramas):
+  el método y el recibo no van en la fila del MES sino en cada COBRO, y el
+  pendiente ya no se estima con la media: sale de la cuota de cada alumno.
+  `pagos-contabilidad.sql` no llegó a ejecutarse y se retiró.
 
 ### 103 · Lo que no se toca a diario no ocupa la pantalla
 
@@ -4170,3 +4186,58 @@ el segundo necesita el proyecto real.
     golpe.
   - Si la física estuviera apagada, el aviso que sale en su lugar trae su
     botón «Encender»: quitar el interruptor no puede dejar sin salida.
+
+### 104 · La cuota sale de los grupos, y cada cobro es un recibo del libro
+
+- **Qué pasó (9 nov):** el dueño pidió «un lugar, en Grupos, donde poner el
+  precio de cada grupo: físicas 50, teoría 60, inglés 20, las tres 100… y
+  según los grupos de un alumno, lo que debe al mes; y así tener previsión de
+  ingresos, lo cobrado y lo pendiente». Eligió precio por TIPO de grupo, que
+  quien entra a mitad de mes pague el mes entero, y avisó: «si cambio la cuota
+  algún día, no debe afectar a las anteriores». A la vez, otra sesión (102)
+  había puesto el método y el recibo en la fila del mes, con el pendiente
+  estimado por la media de los que ya pagaron.
+- **La cuota** (`app/lib/cuotas.ts`, puro y probado):
+  - El precio de cada tipo (`group_kinds.price_eur`) y los packs
+    (`fee_packs`) se ponen en «Grupos». A cada alumno se le aplica la
+    combinación MÁS BARATA de packs sin solaparse y precios sueltos que cubre
+    los tipos de sus grupos: un pack nunca cobra más que ir suelto, y dos
+    grupos del mismo tipo cuentan una vez.
+  - Un tipo **sin precio no es 0 €** (reglas 8 y 16): la cuota queda «sin
+    calcular» y «Pagos» avisa de cuál falta. Un alumno sin grupos, igual.
+  - La cuota PROPIA de un alumno (`memberships.custom_fee_eur`) manda sobre
+    la tarifa. Un exento no entra en la lista.
+- **Lo que se debía cada mes, congelado** (`monthly_payments.due_eur`):
+  al abrir «Pagos», el mes en curso tiene una fila por alumno activo con su
+  cuota (`cambiosParaAbrirMes`). Solo se pone al día con la tarifa la fila que
+  nadie ha tocado (ni cobrada ni puesta a mano, `due_manual`); los meses
+  pasados no se tocan NUNCA. Cambiar un precio vale desde este mes para quien
+  aún no ha pagado, y no reescribe lo que se debía antes.
+- **El libro de cobros** (`payment_entries`): cada cobro es un apunte con su
+  número de recibo (correlativo por academia), su método, su fecha y quién lo
+  anotó. Un mes puede cobrarse en dos veces (30 € en efectivo el día 3 y 20 €
+  por bizum el 15): son dos recibos y dos días de caja. El número lo da la base
+  de datos (`registra_cobro`), en la misma transacción que el apunte, con la
+  fila del mes bloqueada: dos cobros a la vez no comparten número y uno fallido
+  no lo gasta. Deshacer es ANULAR (`anula_cobros`): el recibo se queda con su
+  número, como en un talonario. `amount_eur` y `paid` de la fila del mes son
+  un RESUMEN que rehace `recalcula_mes` (lo leen Alumnos y el perfil del
+  alumno); en «Pagos» manda el libro (`filaSegunLibro`).
+- **La pantalla** (`AdminPayments`): «Cobrar» (un toque cobra lo que falta
+  con el método que se recuerda en ese navegador, y se puede deshacer), la
+  ficha de cada alumno a pantalla completa (otra cantidad, sus recibos,
+  anular, la cuota de un mes a mano o «no cobrar este mes», su cuota propia y
+  sus meses), «Histórico» (cobrado y pendiente apilados con rayas, para no
+  depender del color, la previsión del mes que viene y la rejilla alumnos ×
+  meses) y «Caja» (lo que ENTRÓ en un mes por la fecha del cobro, por método y
+  por día, recibo a recibo, el CSV para el gestor y el recibo para imprimir).
+- **El CSV no puede ejecutar nada:** una celda que empieza por `=`, `+`, `-`
+  o `@` lleva una comilla delante (`celdaCsv`), y el recibo escapa el HTML de
+  lo que viene de la base de datos.
+- **Seguridad:** el alumno que llega de la pantalla se comprueba que es de la
+  academia antes de escribir (`alumnoDeLaAcademia`), y cada consulta va
+  acotada por `organization_id` dentro (lo vigila `payments.test.ts`).
+- **El esquema:** [`docs/sql/pagos-cuotas.sql`](sql/pagos-cuotas.sql). Solo
+  añade: columnas, `fee_packs`, `payment_entries`, `receipt_counters` y las
+  tres funciones (solo para la clave de servicio).
+
