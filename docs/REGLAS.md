@@ -3873,6 +3873,48 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   salida por «×», un test roto así pasa desapercibido: mira también el
   número total de tests, o `tsc`.
 
+### 99 · Lo que no se encuentra no existe: grupos, días añadidos y profesores
+
+- **Qué pasó (9 nov):** al usar el cuadrante, el dueño preguntó dónde se crean
+  los grupos y sus plazas, dónde se cambian los horarios, cómo quitar Alpha de
+  un día concreto, y dijo que no había ningún sitio para los profesores. Casi
+  todo existía («Grupos», «Este día Alpha no tiene clase», «Ajustes →
+  Profesores»), pero no se encontraba. Y dos cosas faltaban de verdad: añadir
+  un día que no es del horario (un sábado) y marcar un grupo como Multi sin SQL.
+- **Regla: cada cosa se hace donde se busca, y desde donde se mira se llega.**
+  - **«Grupos»** crea, cambia y borra grupos: nombre, tipo, días, horas,
+    plazas, profesores y, ahora, **«Multidisciplinar (Multi)»** (`is_multi`,
+    solo en tipos de física; al marcarlo se vacía el horario: Multi no tiene).
+    Borrar un grupo **pregunta antes**, diciendo lo que se pierde: el 6 nov se
+    perdió así un grupo entero y el plan gratuito no tiene copias. Las horas
+    se escriben (`leeHora`, que pasó a `asistencia.ts`: «8», «0800»,
+    «20.30»); el `type="time"` salía vacío en Android.
+  - **El cuadrante enlaza a «Grupos»** («Grupos, días de clase, horas y
+    plazas: en la pestaña Grupos»). Una pantalla pide otra pestaña con un
+    evento del navegador, `admin:pestana`, que escucha `AdminView`: sin pasar
+    funciones por todo el árbol.
+  - **«Añadir un día»**: se elige cualquier día de la semana y un grupo, y se
+    abre su celda; al guardarla, el día sale. Por eso una sesión de CUALQUIER
+    grupo del cuadrante (con horario o Multi) crea su día, no solo las de
+    Multi (regla 97); las de un grupo sin horario siguen sin entrar. La celda
+    de un día que no es de su horario lleva su propia hora y no tiene
+    «quién va» ni «no tiene clase» (es una clase suelta: se quita con
+    «Quitar»).
+  - **«Quitar…»** de cada día empieza SIN nada marcado, con «Todo el día»
+    aparte y el botón diciendo lo que hará («Quitar Sigma», «Quitar el día
+    entero»): con todo marcado de entrada no se veía que se podía quitar un
+    solo grupo.
+  - **Pestaña «Profesores»** (`AdminProfesores`): el equipo de teoría y de
+    física, con sus datos, la cuenta con la que entra, los GRUPOS que lleva
+    (de «Grupos») y sus CLASES DE FÍSICA de la semana (del cuadrante, sin los
+    días quitados; `getAgendaProfesores`). Lo que lleva se deduce, no se
+    escribe dos veces. Borrar a un profesor pregunta y propone desmarcarlo
+    como activo. En «Ajustes» queda un enlace.
+- **La semana del 9 al 15 se publicó** a petición del dueño (regla 98).
+- **Trampa:** `aplicaOrden` pone al final una pestaña nueva para quien ya
+  había reordenado las suyas: «Profesores» sale tras «Grupos» solo con el
+  orden de fábrica.
+
 ---
 
 ## Los tests

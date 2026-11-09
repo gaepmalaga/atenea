@@ -208,7 +208,7 @@ export async function createGroup(input: unknown) {
 
   const { data, error } = await supabaseAdmin
     .from('class_groups')
-    .insert({ organization_id: auth.user.organizationId, name: clean.name, kind: clean.kind, schedule: clean.schedule, ...columnasHorario(horario.horario) })
+    .insert({ organization_id: auth.user.organizationId, name: clean.name, kind: clean.kind, schedule: clean.schedule, is_multi: clean.isMulti, ...columnasHorario(horario.horario) })
     .select('id')
     .single();
 
@@ -231,7 +231,7 @@ export async function updateGroup(groupId: string, input: unknown) {
 
   const { error } = await supabaseAdmin
     .from('class_groups')
-    .update({ name: clean.name, kind: clean.kind, schedule: clean.schedule, ...columnasHorario(horario.horario) })
+    .update({ name: clean.name, kind: clean.kind, schedule: clean.schedule, is_multi: clean.isMulti, ...columnasHorario(horario.horario) })
     .eq('id', groupId)
     .eq('organization_id', auth.user.organizationId);
   if (error) return { success: false as const, error: error.message };

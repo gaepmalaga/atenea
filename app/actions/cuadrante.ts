@@ -508,6 +508,80 @@ export async function copiarCuadrante(params: { desde: string; a: string }): Pro
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// LOS PROFESORES (regla 99)
+// ═════════════════════════════════════════════════════════════════════════
+
+export type ClaseProfesor = { fecha: string; grupo: string; titulo: string; hora: string | null };
+export type AgendaProfesor = {
+  profesorId: string;
+  /** Los grupos que lleva (asignados en «Grupos»), de teoría o de física. */
+  grupos: { id: string; nombre: string; tipo: string }[];
+  /** Sus clases de física de la semana, del cuadrante (sin los días quitados). */
+  clases: ClaseProfesor[];
+};
+
+/** Qué lleva cada profesor: sus grupos y sus clases de física de una semana. */
+export async function getAgendaProfesores(params: { lunes: string }): Promise<
+  { success: true; lunes: string; agenda: AgendaProfesor[] } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const lunes = params?.lunes;
+  if (!org) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  if (!esLunes(lunes)) return { success: false as const, error: 'Datos no válidos.' };
+  const domingo = sumaDias(lunes, 6);
+
+  const [staffRes, gruposRes, kindsRes, sesRes] = await Promise.all([
+    supabaseAdmin.from('academy_staff').select('id').eq('organization_id', org),
+    supabaseAdmin.from('class_groups').select(COLS_GRUPO + ', kind').eq('organization_id', org).order('created_at'),
+    supabaseAdmin.from('group_kinds').select('id, label').eq('organization_id', org),
+    supabaseAdmin.from('training_sessions').select('class_id, session_date, title, teacher_id, start_time')
+      .eq('organization_id', org).not('teacher_id', 'is', null).not('class_id', 'is', null)
+      .gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
+  ]);
+  if (staffRes.error) return { success: false as const, error: staffRes.error.message };
+  if (gruposRes.error) return { success: false as const, error: gruposRes.error.message };
+  if (sesRes.error) return { success: false as const, error: sesRes.error.message };
+
+  const grupos = (gruposRes.data ?? []) as unknown as Fila[];
+  const ids = grupos.map((g) => g.id as string);
+  const [asignados, quitados] = await Promise.all([
+    ids.length ? supabaseAdmin.from('class_group_staff').select('class_id, staff_id').in('class_id', ids) : Promise.resolve({ data: [] as Fila[] }),
+    diasSinClase(org, ids, lunes, domingo),
+  ]);
+  const off = new Set(quitados.map((d) => `${d.classId}|${d.fecha}`));
+  const porId = new Map(grupos.map((g) => [g.id as string, g]));
+  const tipo = new Map((kindsRes.data ?? []).map((k) => [k.id as string, k.label as string]));
+
+  const agenda: AgendaProfesor[] = (staffRes.data ?? []).map((p) => {
+    const id = p.id as string;
+    return {
+      profesorId: id,
+      grupos: (asignados.data ?? []).filter((a) => a.staff_id === id).flatMap((a) => {
+        const g = porId.get(a.class_id as string);
+        return g ? [{ id: g.id as string, nombre: g.name as string, tipo: tipo.get(g.kind as string) ?? (g.kind as string) }] : [];
+      }),
+      clases: (sesRes.data ?? [])
+        .filter((x) => x.teacher_id === id && porId.has(x.class_id as string) && conHorarioOMulti(porId.get(x.class_id as string)!)
+          && !off.has(`${x.class_id}|${x.session_date}`))
+        .map((x) => {
+          const g = porId.get(x.class_id as string)!;
+          const propia = typeof x.start_time === 'string' ? x.start_time.slice(0, 5) : null;
+          return {
+            fecha: x.session_date as string,
+            grupo: nombreCorto(g.name as string),
+            titulo: x.title as string,
+            hora: propia ?? horarioDeFila(g).startTime,
+          };
+        })
+        .sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? '99').localeCompare(b.hora ?? '99')),
+    };
+  });
+  return { success: true as const, lunes, agenda };
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // EL ALUMNO MULTIDISCIPLINAR
 // ═════════════════════════════════════════════════════════════════════════
 

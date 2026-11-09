@@ -216,6 +216,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 96 | El cuadrante semanal: un profesor por sesión, y los multis ocupan plaza |
 | 97 | Clases de grupo y entreno de cada alumno: dos capas que no se mezclan |
 | 98 | Publicar el cuadrante, y el ejemplo de física es el entreno de un alumno |
+| 99 | Lo que no se encuentra no existe: grupos, días añadidos y profesores |
 
 ## Trampas conocidas
 

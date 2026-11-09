@@ -22,7 +22,7 @@
  * la academia (regla 82).
  */
 
-import { DIAS_SEMANA, diaSemanaDe, horaCorta, sumaDias, cuentaSesion, type HorarioGrupo, type CuentaSesion } from './asistencia.ts';
+import { DIAS_SEMANA, diaSemanaDe, horaCorta, sumaDias, cuentaSesion, leeHora, type HorarioGrupo, type CuentaSesion } from './asistencia.ts';
 import { MAX_TITULO, diasDeSemana, type TipoSesion } from './sesiones.ts';
 
 /** Lo que dura una sesión si no se dice otra cosa (la física de Alphapol es de una hora). */
@@ -87,7 +87,7 @@ export type DiaCuadrante = {
   fecha: string;
   titulo: string;
   filas: FilaCuadrante[];
-  /** Ningún grupo tiene ese día en su horario: existe solo por una sesión de Multi. */
+  /** Ningún grupo tiene ese día en su horario: existe solo por sesiones sueltas (Multi, un día añadido). */
   suelto: boolean;
 };
 
@@ -180,6 +180,9 @@ export function tituloDia(fecha: string): string {
   return `${DIAS_SEMANA[diaSemanaDe(fecha) - 1].largo.toUpperCase()} ${dia(fecha)}`;
 }
 
+/** La hora de clase de un grupo, `HH:MM`, o `null` si no tiene (Multi). */
+export const horaCortaGrupo = (g: Pick<GrupoCuadrante, 'horario'>) => horaCorta(g.horario.startTime);
+
 /** Los días de la semana en que un grupo tiene clase, como fechas. */
 export function fechasDelGrupo(grupo: GrupoCuadrante, lunes: string): string[] {
   return (grupo.horario.weekdays ?? []).map((n) => sumaDias(lunes, n - 1));
@@ -214,10 +217,11 @@ const claveDia = (classId: string, fecha: string) => `${classId}|${fecha}`;
 
 /**
  * Los días que salen en el cuadrante: los días de clase de los grupos con
- * horario y los días con sesión de Multi (su clase suelta de las 18:30). La
- * fila de Multi NO crea días por sí sola, ni una sesión de un grupo sin
- * horario. Lo marcado «sin clase» no cuenta: un día con todos sus grupos
- * quitados desaparece.
+ * horario y los días con alguna sesión de un grupo del cuadrante (la de Multi
+ * de las 18:30, o un día añadido a mano, como un sábado: regla 99). La fila de
+ * Multi NO crea días por sí sola, ni una sesión de un grupo sin horario (no
+ * entra en el cuadrante). Lo marcado «sin clase» no cuenta: un día con todos
+ * sus grupos quitados desaparece.
  */
 export function fechasDelCuadrante(
   grupos: GrupoCuadrante[],
@@ -232,9 +236,9 @@ export function fechasDelCuadrante(
     if (g.esMulti || !entraEnCuadrante(g)) continue;
     for (const f of fechasDelGrupo(g, lunes)) if (!off.has(claveDia(g.id, f))) set.add(f);
   }
-  const multis = new Set(grupos.filter((g) => g.esMulti).map((g) => g.id));
+  const delCuadrante = new Set(grupos.filter(entraEnCuadrante).map((g) => g.id));
   for (const s of sesiones) {
-    if (multis.has(s.classId) && s.fecha >= lunes && s.fecha <= fin && !off.has(claveDia(s.classId, s.fecha))) set.add(s.fecha);
+    if (delCuadrante.has(s.classId) && s.fecha >= lunes && s.fecha <= fin && !off.has(claveDia(s.classId, s.fecha))) set.add(s.fecha);
   }
   return [...set].sort();
 }
@@ -398,25 +402,9 @@ export type CeldaEntrada = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Una hora escrita a mano, como se escribe en un móvil: «18:30», «18.30»,
- * «18,30», «18h30», «18 30», «1830», «830» o «18» → `HH:MM`. `null` si no es una
- * hora. Existe porque el `type="time"` del navegador, en el Android del dueño,
- * salía vacío con una flecha y no se sabía qué hacer con él (regla 97).
- */
-export function leeHora(valor: unknown): string | null {
-  if (typeof valor !== 'string') return null;
-  const t = valor.trim().toLowerCase().replace(/\s*h$/, '');
-  let h: string;
-  let m: string;
-  const conSeparador = t.match(/^(\d{1,2})\s*[h:.,\s]\s*(\d{2})$/);
-  if (conSeparador) [, h, m] = conSeparador;
-  else if (/^\d{3,4}$/.test(t)) { h = t.slice(0, -2); m = t.slice(-2); }
-  else if (/^\d{1,2}$/.test(t)) { h = t; m = '00'; }
-  else return null;
-  if (Number(h) > 23 || Number(m) > 59) return null;
-  return `${h.padStart(2, '0')}:${m}`;
-}
+// `leeHora` vive en `asistencia.ts` (la usan también los horarios de los
+// grupos, regla 99); se reexporta aquí, donde nació.
+export { leeHora } from './asistencia.ts';
 
 /** Valida lo que llega de una celda del cuadrante (regla 27: igual que lo que escribe la IA). */
 export function normalizaCelda(raw: Record<string, unknown> | null | undefined):

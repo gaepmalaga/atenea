@@ -29,8 +29,8 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
   - **Datos de ejemplo de física:** las 31 sesiones de noviembre son el
     entreno individual de `prueba.entreno` (regla 98). El grupo de ejemplo
     «Promo 43 · Físicas» se retiró.
-  - **Ninguna semana del cuadrante está publicada todavía** (regla 98): los
-    alumnos ven el horario de su grupo hasta que el preparador la publique.
+  - **La semana del 9 al 15 de noviembre está publicada** (regla 98); las
+    demás, no: de ellas los alumnos ven solo el horario de su grupo.
   - **Los grupos reales de física (9 nov, regla 96):** «Promo 44 · Kappa, Alpha,
     Zetta, Omega, Sigma, Betta, Delta» y «Promo 44 · Multi», con su horario
     (lunes y miércoles / martes y jueves; 08:00 o 20:00), aforo 30, y los
@@ -49,7 +49,7 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
 | Quién | Pestañas / módulos |
 |---|---|
 | **Alumno** | Inicio · Test (entrenamiento adaptativo / simulacro con nota del BOE) · Repasar fallos · Fichas · Preparación física (un calendario con sus clases de grupo —hora, profesor, «sin clase», «no voy»— y sus entrenos; apuntar lo hecho, marcas con baremo, 1RM; los multis eligen con qué grupo van) · Mi evolución · Mi perfil (convocatoria, clases que no son de física y avisos de falta, acceso y pago, cambiar contraseña) |
-| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (horario, plazas, profesores) · Asistencia · Prep. física (cuadrante semanal con días sin clase y multis; Planificar el entreno de cada alumno, con copiar a varios; plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes (profesores, con su cuenta si la tienen) · Logs & Auditoría |
+| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (crear, cambiar y borrar; días, horas, plazas, profesores, Multi) · Profesores (el equipo, sus grupos y sus clases de física) · Asistencia · Prep. física (cuadrante semanal con días sin clase y multis; Planificar el entreno de cada alumno, con copiar a varios; plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes · Logs & Auditoría |
 | **Superadmin** | Temario & IA (generar preguntas) · Banco Oficial · Moderación · Consumo IA · Academias |
 
 El chat («Pregunta al temario») y la entrevista están **fuera del MVP** (regla
@@ -80,6 +80,7 @@ Todo en producción y apuntado en `REGLAS.md`:
 | Cuadrante semanal de física: rejilla grupo × día con profesor por sesión, copiar semana, imagen y texto para WhatsApp; los multis se apuntan a las clases | 96 |
 | Clases de grupo y entreno individual, separados: el cuadrante solo con grupos con horario, días «sin clase» (`class_days_off`), editor de celda sin «Tipo» y con sugerencias, copiar celda, multis desde el preparador; «Planificar» por alumno con copiar a varios; el calendario del alumno con clases (profesor, sin clase) y entrenos; profesor con cuenta | 97 |
 | Publicar el cuadrante por semanas; el ejemplo de física, entreno de `prueba.entreno`; fuera el grupo de ejemplo, «Jdjd» y las dos tablas del plan viejo | 98 |
+| Pestaña «Profesores»; «Grupos» con Multi, horas escritas y borrar con confirmación; el cuadrante añade cualquier día (un sábado), quita un solo grupo y enlaza a «Grupos» | 99 |
 
 ---
 

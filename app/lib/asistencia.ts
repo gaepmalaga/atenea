@@ -69,6 +69,29 @@ export function horaCorta(valor: unknown): string | null {
 const minutosDe = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
 /**
+ * Una hora escrita a mano, como se escribe en un móvil: «18:30», «18.30»,
+ * «18,30», «18h30», «18 30», «1830», «830» o «18» → `HH:MM`. `null` si no es una
+ * hora. Existe porque el `type="time"` del navegador, en el Android del dueño,
+ * salía vacío con una flecha y no se sabía qué hacer con él (reglas 97 y 99).
+ */
+export function leeHora(valor: unknown): string | null {
+  if (typeof valor !== 'string') return null;
+  const t = valor.trim().toLowerCase().replace(/\s*h$/, '');
+  let h: string;
+  let m: string;
+  const conSeparador = t.match(/^(\d{1,2})\s*[h:.,\s]\s*(\d{2})$/);
+  if (conSeparador) [, h, m] = conSeparador;
+  else if (/^\d{3,4}$/.test(t)) { h = t.slice(0, -2); m = t.slice(-2); }
+  else if (/^\d{1,2}$/.test(t)) { h = t; m = '00'; }
+  else return null;
+  if (Number(h) > 23 || Number(m) > 59) return null;
+  return `${h.padStart(2, '0')}:${m}`;
+}
+
+/** Una hora del formulario: como la escribe una persona, o como la devuelve Postgres. */
+const leeHoraFormulario = (v: unknown) => leeHora(v) ?? horaCorta(v);
+
+/**
  * Lo que llega del formulario del grupo -> horario limpio, o el motivo por el
  * que no vale. Se usa también en el servidor: una Server Action es un endpoint
  * público (regla 1).
@@ -84,8 +107,8 @@ export function normalizeHorario(
     : [];
 
   const vacio = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
-  const startTime = vacio(raw.startTime) ? null : horaCorta(raw.startTime);
-  const endTime = vacio(raw.endTime) ? null : horaCorta(raw.endTime);
+  const startTime = vacio(raw.startTime) ? null : leeHoraFormulario(raw.startTime);
+  const endTime = vacio(raw.endTime) ? null : leeHoraFormulario(raw.endTime);
   if (!vacio(raw.startTime) && !startTime) return { ok: false, error: 'La hora de inicio no es válida.' };
   if (!vacio(raw.endTime) && !endTime) return { ok: false, error: 'La hora de fin no es válida.' };
   if (startTime && endTime && minutosDe(endTime) <= minutosDe(startTime)) {

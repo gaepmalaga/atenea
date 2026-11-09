@@ -63,6 +63,11 @@ export type GroupInput = {
   kind: string;
   schedule: string | null;
   staffIds: string[];
+  /**
+   * El grupo de los multidisciplinares (reglas 96 y 99): no tiene días
+   * propios; sus alumnos se apuntan a las clases de otros grupos.
+   */
+  isMulti: boolean;
 };
 
 /**
@@ -82,7 +87,7 @@ export function normalizeGroupInput(raw: Record<string, unknown>): GroupInput | 
     ? [...new Set(raw.staffIds.filter((s): s is string => typeof s === 'string' && !!s))]
     : [];
 
-  return { name, kind, schedule, staffIds };
+  return { name, kind, schedule, staffIds, isMulti: raw.isMulti === true };
 }
 
 // ============================================================
