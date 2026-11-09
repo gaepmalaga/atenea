@@ -4241,3 +4241,36 @@ el segundo necesita el proyecto real.
   añade: columnas, `fee_packs`, `payment_entries`, `receipt_counters` y las
   tres funciones (solo para la clave de servicio).
 
+### 105 · El calendario no guarda nada: enseña lo que ya está programado
+
+- **Qué pasó (9 nov):** el dueño pidió «un calendario con todos los eventos
+  que existan, con vista diaria, semanal y mensual, y filtros para quitar y
+  poner por grupo, por profesor… que de un vistazo se vea toda la
+  programación».
+- **Regla:** el calendario NO tiene tabla propia. Cada evento se DERIVA
+  (`armaCalendario`, en `app/lib/calendario.ts`) de lo que ya existe, así que
+  no puede contradecir al cuadrante, a Asistencia ni a lo que ve el alumno:
+  - las clases de cada grupo, de su horario (días, hora y profesores del
+    grupo), menos sus días «sin clase», que salen tachados con su motivo;
+  - en física, la sesión del cuadrante de ese día, con su título y SU
+    profesor; un día de clase sin sesión sale «Sin planificar», no vacío; las
+    de un día añadido y las sueltas de Multi también;
+  - el entreno de cada alumno (su filtro empieza apagado: son muchos);
+  - la fecha del examen.
+  - Cada evento lleva quién va (inscritos, faltas avisadas, multis y plazas),
+    contado como en Asistencia (`cuentaSesion`).
+- **La pantalla** (`AdminCalendario`, la primera de «Día a día» y de la barra
+  del móvil): día, semana (rejilla con horas en escritorio, con las clases que
+  se pisan en carriles y las horas vacías plegadas; agenda en el móvil) y mes
+  (tres eventos y «+N más» en escritorio; puntos de color en el móvil). Los
+  filtros esconden por qué es (tipo de grupo, entrenos, días sin clase,
+  examen), por grupo y por profesor («Sin profesor» incluido), y hay
+  búsqueda. Se guarda lo que se ESCONDE, no lo que se ve: un grupo o un
+  profesor nuevo sale sin marcarlo. La vista y los filtros se recuerdan en
+  cada navegador. Un evento abre su ficha con el camino a donde se cambia
+  (cuadrante, Asistencia, el horario del grupo).
+- **Seguridad y volumen:** `getCalendario` va detrás de `requireAdmin`, todo
+  acotado a la academia (lo que no lleva `organization_id`, por los grupos de
+  la academia), y paginado (un mes de entrenos de cien alumnos pasa de las
+  1.000 filas). Como mucho 62 días por petición.
+

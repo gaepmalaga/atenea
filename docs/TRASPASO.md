@@ -118,6 +118,13 @@ se UNIÓ en `ccr-ef0cf392-7w3piz` con las cuotas. Reglas 101 a 104.
   un tipo de grupo piden confirmación; la barra del móvil lleva Alumnos,
   Asistencia, Prep. física y Pagos.
 
+## 2c · El calendario de la academia (9 nov, regla 105)
+
+Pestaña «Calendario» del panel (la primera): todo lo programado en día, semana
+y mes, con filtros por qué, grupo y profesor. No tiene tabla propia: sale del
+horario de los grupos, el cuadrante de física, los entrenos, los días sin
+clase y el examen.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

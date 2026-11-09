@@ -23,4 +23,5 @@ export * from './fisica';
 export * from './cuadrante';
 export * from './profesores';
 export * from './payments';
+export * from './calendario';
 export * from './superadmin';

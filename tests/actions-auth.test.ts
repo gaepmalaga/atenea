@@ -106,6 +106,8 @@ describe('superficie de las Server Actions', () => {
       'setMembershipRequired',
       'setMemberAccess',
       'activateAllCurrentStudents',
+      // Regla 105: el calendario de la academia.
+      'getCalendario',
       // P8 y regla 102: pagos, cuotas y la tarifa.
       'getPagos',
       'registraCobro',

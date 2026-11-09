@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Users, Book, Building2, Activity, AlertTriangle, Database, Power, Coins,
-  BadgeEuro, Users2, Dumbbell, CalendarCheck, GraduationCap,
+  BadgeEuro, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays,
 } from 'lucide-react';
 
 import AdminStudents from './components/AdminStudents';
@@ -19,13 +19,14 @@ import AdminAsistencia from './components/AdminAsistencia';
 import AdminPhysical from './components/AdminPhysical';
 import AdminAcademies from './components/AdminAcademies';
 import AdminProfesores from './components/AdminProfesores';
+import AdminCalendario from './components/AdminCalendario';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { MARCA } from '@/app/lib/marca';
 import { PanelShell, type PestanaPanel } from '../ui';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
+type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
 
 /**
  * La pestaña abierta también se recuerda en ESTE navegador: el panel es una
@@ -34,7 +35,7 @@ type AdminTab = 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'p
  */
 const TAB_KEY = 'atenea-admin-pestana';
 const TABS_VALIDAS: AdminTab[] = [
-  'students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies',
+  'calendar', 'students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies',
 ];
 
 function leeTabGuardada(): AdminTab | null {
@@ -60,6 +61,8 @@ function leeTabGuardada(): AdminTab | null {
  * física»: eso es de quien administra UNA academia.
  */
 const PESTANAS_ADMIN: (PestanaPanel & { id: AdminTab })[] = [
+  // Toda la programación de un vistazo (regla 105).
+  { id: 'calendar', etiqueta: 'Calendario', icono: CalendarDays, seccion: 'Día a día' },
   { id: 'students', etiqueta: 'Alumnos', icono: Users, seccion: 'Día a día' },
   { id: 'groups', etiqueta: 'Grupos', icono: Users2, seccion: 'Día a día' },
   { id: 'staff', etiqueta: 'Profesores', icono: GraduationCap, seccion: 'Día a día' },
@@ -82,7 +85,7 @@ const PESTANAS_SUPERADMIN: (PestanaPanel & { id: AdminTab })[] = [
  * Las cuatro de la barra inferior del móvil: las que se tocan CADA DÍA (regla
  * 103). Grupos y Profesores se montan una vez al empezar el curso: van en «Más».
  */
-const PRINCIPALES_ADMIN = ['students', 'attendance', 'physical', 'payments'];
+const PRINCIPALES_ADMIN = ['calendar', 'students', 'physical', 'payments'];
 const PRINCIPALES_SUPERADMIN = ['content', 'bank', 'moderation', 'cost'];
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
@@ -149,6 +152,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
       <div key={refreshKey} className="animate-in fade-in duration-300">
         {/* Con `key`, un fallo en una pantalla no se queda puesto al cambiar a otra. */}
         <ModuleErrorBoundary key={activeTab} moduleName={tabs.find((t) => t.id === activeTab)?.etiqueta ?? 'La sección'}>
+          {activeTab === 'calendar' && <AdminCalendario />}
           {activeTab === 'students' && <AdminStudents />}
           {activeTab === 'groups' && <AdminGroups />}
           {activeTab === 'staff' && <AdminProfesores />}
