@@ -1,10 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import {
-  CheckCircle2, XCircle, Pencil, Save,
-  AlertTriangle, Loader2, ShieldAlert
-} from 'lucide-react';
-import { Modal, Button, TextAreaField } from '../../ui';
+import { CheckCircle2, Pencil, Save, Loader2, ShieldAlert } from 'lucide-react';
+import { PanelTitulo, Pestanas, Hoja, Etiqueta, Boton, PanelLateral, Aviso, EmptyState, cx, type Tono } from '../../ui';
+import EditorPregunta from './EditorPregunta';
 
 import { 
   getModerationQueue, 
@@ -15,15 +13,16 @@ import {
 } from '@/actions';
 import type { ModerationCandidate, ModerationQueue, ModerationReport } from '@/app/lib/questions';
 
-// Mapeo de colores y textos para los tipos de reporte
-const REPORT_BADGES: Record<string, { label: string, color: string, bg: string }> = {
-  wrong_correct_answer: { label: 'Respuesta Errónea', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-400/10 border-red-400/20' },
-  ambiguous_question: { label: 'Ambigua', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
-  bad_explanation: { label: 'Mala Explicación', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },
-  out_of_syllabus: { label: 'Fuera de Temario', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
-  typo_or_format: { label: 'Errata / Formato', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
-  source_mismatch: { label: 'Fuente Incorrecta', color: 'text-pink-700 dark:text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
-  other: { label: 'Otro', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-400/10 border-slate-400/20' },
+// Cómo se pinta cada tipo de queja. El color es el del estado: rojo la que
+// invalida la pregunta, ámbar la que la deja dudosa, gris lo menor.
+const REPORT_BADGES: Record<string, { label: string; tono: Tono }> = {
+  wrong_correct_answer: { label: 'Respuesta errónea', tono: 'malo' },
+  ambiguous_question: { label: 'Ambigua', tono: 'aviso' },
+  bad_explanation: { label: 'Mala explicación', tono: 'aviso' },
+  out_of_syllabus: { label: 'Fuera de temario', tono: 'oro' },
+  typo_or_format: { label: 'Errata o formato', tono: 'apagado' },
+  source_mismatch: { label: 'Fuente incorrecta', tono: 'oro' },
+  other: { label: 'Otro', tono: 'apagado' },
 };
 
 export default function AdminModeration() {
@@ -42,6 +41,7 @@ export default function AdminModeration() {
     explanation: ''
   });
   const [saving, setSaving] = useState(false);
+  const [pestana, setPestana] = useState<'quejas' | 'aprobar' | null>(null);
 
   // Sin `setLoading(true)` dentro: `loading` ya arranca en true y un setState
   // sincrono en un efecto dispara un render en cascada. El de abajo va
@@ -124,248 +124,131 @@ export default function AdminModeration() {
     setSaving(false);
   }
 
-  if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500 mb-4"/> <p className="text-slate-500 dark:text-slate-400 text-sm font-mono">Cargando cola de moderación...</p></div>;
+  if (loading) return <div className="p-20 text-center"><Loader2 className="mx-auto mb-4 animate-spin text-indigo-700 dark:text-indigo-300" /> <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Cargando cola de moderación…</p></div>;
+
+  // Se abre en la cola que tenga algo: las quejas primero, que son lo urgente.
+  const activa = pestana ?? (queue.reports.length > 0 || queue.candidates.length === 0 ? 'quejas' : 'aprobar');
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-20">
-        
-        {/* === COLUMNA 1: CANDIDATOS (Nuevos Ingresos) === */}
-        <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></span>
-                    Candidatos ({queue.candidates.length})
-                </h3>
-                {queue.candidates.length > 0 && <span className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 px-2 py-1 rounded border border-blue-500/20">Pendientes de aprobación</span>}
-            </div>
-            
-            {queue.candidates.length === 0 && (
-                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
-                    <CheckCircle2 className="mx-auto text-slate-700 mb-2" size={32}/>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Bandeja de entrada limpia.</p>
-                </div>
-            )}
+    <div className="space-y-5 pb-20">
+      <PanelTitulo titulo="Moderación" sub="Quejas de los alumnos y preguntas candidatas." />
 
-            {queue.candidates.map((q) => (
-                <div key={q.id} className="bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-slate-300 dark:border-slate-700 group hover:border-blue-500/30 transition-all shadow-lg hover:shadow-blue-900/10">
-                    <div className="flex justify-between items-start mb-3">
-                        {/* Sin tema, sin insignia. `topic` es `subject?.title ??
-                            null`: una pregunta puede no tener tema resuelto, y
-                            entonces se pintaba una pastilla azul VACIA, que es
-                            peor que no pintar nada — parece un dato que no se ha
-                            cargado (regla 8). */}
-                        {q.topic
-                          ? <span className="text-[10px] font-black tracking-wider text-blue-700 dark:text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{q.topic}</span>
-                          : <span className="text-[10px] font-black tracking-wider text-slate-500 dark:text-slate-400">Sin tema</span>}
-                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
-                    </div>
-                    
-                    <p className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-4 leading-relaxed">{q.question_text}</p>
-                    
-                    <div className="space-y-1.5 mb-5">
-                        {/* `options` es jsonb: puede no ser un array. Sin esta
-                            guarda, una fila corrupta tumba el panel entero. */}
-                        {(Array.isArray(q.options) ? q.options : []).map((opt: string, i: number) => (
-                            <div key={i} className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${
-                                i === q.correct_index 
-                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' 
-                                : 'bg-slate-100/30 dark:bg-slate-900/30 text-slate-500 dark:text-slate-400 border-transparent'
-                            }`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${i === q.correct_index ? 'bg-emerald-400' : 'bg-slate-600'}`}></div>
-                                {opt}
-                            </div>
-                        ))}
-                    </div>
+      <Pestanas
+        etiqueta="Colas de moderación"
+        activa={activa}
+        onCambia={setPestana}
+        items={[
+          { id: 'quejas', etiqueta: 'Requieren atención', cuenta: queue.reports.length },
+          { id: 'aprobar', etiqueta: 'Pendientes de aprobación', cuenta: queue.candidates.length },
+        ]}
+      />
 
-                    {/* Botones de 32px de alto y en tres columnas fijas: en un
-                        móvil eran ~100px de ancho por 32 de alto, por debajo del
-                        mínimo táctil de 44. Y el tercero era un icono sin
-                        etiqueta, así que descartar una pregunta —lo único
-                        irreversible de la fila— era el botón que menos se
-                        entendía. */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-white/5 pt-4">
-                        <button onClick={()=>handleApprove(q.id)} className="min-h-[44px] bg-emerald-600/20 hover:bg-emerald-500 text-emerald-700 dark:text-emerald-400 hover:text-white border border-emerald-500/20 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
-                            <CheckCircle2 size={14}/> Aprobar
-                        </button>
-                        <button onClick={()=>openEditor(q)} className="min-h-[44px] bg-slate-300 dark:bg-slate-700 hover:bg-indigo-600 text-slate-700 dark:text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
-                            <Pencil size={14}/> Editar
-                        </button>
-                        <button onClick={()=>handleDisable(q.id)} className="min-h-[44px] col-span-2 sm:col-span-1 bg-slate-100 dark:bg-slate-800 hover:bg-red-500/20 text-slate-500 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-400 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-all">
-                            <XCircle size={14}/> Descartar
-                        </button>
-                    </div>
-                </div>
-            ))}
-        </div>
-
-        {/* === COLUMNA 2: REPORTES (Quejas de usuarios) === */}
-        <div className="space-y-4">
-             <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-xs flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_10px_#f59e0b]"></span>
-                    Reportes ({queue.reports.length})
-                </h3>
-                {queue.reports.length > 0 && <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-1 rounded border border-amber-500/20 animate-pulse">Requieren atención</span>}
-            </div>
-
-            {queue.reports.length === 0 && (
-                 <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
-                    <ShieldAlert className="mx-auto text-slate-700 mb-2" size={32}/>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Todo tranquilo. Sin quejas.</p>
-                </div>
-            )}
-
+      {/* === QUEJAS DE LOS ALUMNOS === */}
+      {activa === 'quejas' && (
+        queue.reports.length === 0 ? (
+          <EmptyState icon={<ShieldAlert size={36} />} title="Todo tranquilo. Sin quejas." bordered />
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
             {queue.reports.map((r) => {
-                // `report_type` puede llegar nulo o con un valor que ya no
-                // esta en el mapa: sin el respaldo, `badge` seria undefined
-                // y la tarjeta reventaria al leer `badge.label`.
-                const badge = REPORT_BADGES[r.report_type ?? ''] ?? REPORT_BADGES.other;
-                return (
-                    <div key={r.id} className="bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-sm p-5 rounded-2xl border border-amber-500/20 relative group hover:border-amber-500/40 transition-all shadow-lg hover:shadow-amber-900/10">
-                        
-                        {/* Header Reporte */}
-                        <div className="flex justify-between items-start mb-3">
-                             <div className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1.5 ${badge.bg} ${badge.color}`}>
-                                <AlertTriangle size={10} /> {badge.label}
-                             </div>
-                             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">ID: {r.id.split('-')[0]}</span>
-                        </div>
-                        
-                        {/* Pregunta Contexto */}
-                        <div className="mb-4 pl-3 border-l-2 border-slate-300 dark:border-slate-700">
-                             <p className="font-bold text-slate-700 dark:text-slate-300 text-sm line-clamp-2 italic">“{r.question?.question_text || 'Pregunta no encontrada'}”</p>
-                        </div>
-                        
-                        {/* Mensaje Usuario */}
-                        <div className="bg-amber-500/5 p-3 rounded-xl border border-amber-500/10 mb-4">
-                            <p className="text-[10px] text-amber-700 dark:text-amber-500 uppercase font-black mb-1">Comentario del alumno:</p>
-                            <p className="text-amber-900 dark:text-amber-100 text-xs italic">“{r.message}”</p>
-                        </div>
+              // `report_type` puede llegar nulo o con un valor que ya no está en
+              // el mapa: sin el respaldo, `badge` sería undefined y la tarjeta
+              // reventaría al leer `badge.label`.
+              const badge = REPORT_BADGES[r.report_type ?? ''] ?? REPORT_BADGES.other;
+              return (
+                <Hoja key={r.id} pad="md" className="space-y-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <Etiqueta tono={badge.tono}>{badge.label}</Etiqueta>
+                    <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">ID: {r.id.split('-')[0]}</span>
+                  </div>
 
-                        {/* Tres acciones en tres columnas fijas de 32px de alto.
-                            Además de no llegar al mínimo táctil, las etiquetas
-                            no decían lo que hacían: "MATAR" para descartar la
-                            pregunta y "OK" para archivar la queja sin tocarla
-                            son dos cosas muy distintas y ahí parecían gemelas. */}
-                        <div className="grid grid-cols-2 gap-2">
-                             <button
-                                onClick={() => openEditor(r.question, r)}
-                                className="min-h-[44px] bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 shadow-lg shadow-indigo-500/20 transition-all"
-                                title="Editar y corregir la pregunta"
-                            >
-                                <Pencil size={14}/> Corregir
-                            </button>
+                  <p className="line-clamp-3 text-sm font-medium leading-relaxed text-slate-900 dark:text-slate-100">“{r.question?.question_text || 'Pregunta no encontrada'}”</p>
 
-                            <button
-                                onClick={()=>handleResolveReport(r.id)}
-                                className="min-h-[44px] bg-slate-300 dark:bg-slate-700 hover:bg-emerald-600 text-slate-700 dark:text-slate-300 hover:text-white rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all"
-                                title="Archivar la queja sin tocar la pregunta"
-                            >
-                                <CheckCircle2 size={14}/> Archivar queja
-                            </button>
+                  {/* El comentario del alumno es lo primero que hay que leer: va con la línea dorada. */}
+                  <div className="border-l-[3px] border-oro py-1 pl-3 text-[13.5px]">
+                    <small className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">Lo que dijo el alumno</small>
+                    <p className="text-slate-900 dark:text-slate-100">{r.message}</p>
+                  </div>
 
-                             <button
-                                onClick={() => r.question_id && handleDisable(r.question_id, true)}
-                                disabled={!r.question_id}
-                                className="min-h-[44px] col-span-2 bg-slate-100 dark:bg-slate-800 hover:bg-red-900/30 text-red-700 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-transparent hover:border-red-500/30 rounded-lg text-xs font-bold flex justify-center items-center gap-1.5 transition-all disabled:opacity-40"
-                                title="Descartar la pregunta del banco"
-                            >
-                                <XCircle size={14}/> Descartar la pregunta
-                            </button>
-                        </div>
-                    </div>
-                );
+                  {/* Las tres acciones, siempre en el mismo orden: corregir,
+                      archivar, descartar. Las etiquetas dicen lo que hacen:
+                      archivar la queja no toca la pregunta; descartar sí, y
+                      es lo único irreversible de la fila. */}
+                  <div className="flex flex-wrap gap-2">
+                    <Boton size="sm" icon={<Pencil size={14} />} onClick={() => openEditor(r.question, r)} title="Editar y corregir la pregunta">Editar y corregir</Boton>
+                    <Boton size="sm" variant="secondary" icon={<CheckCircle2 size={14} />} onClick={() => handleResolveReport(r.id)} title="Archivar la queja sin tocar la pregunta">Archivar la queja</Boton>
+                    <Boton size="sm" variant="danger" disabled={!r.question_id} onClick={() => r.question_id && handleDisable(r.question_id, true)} title="Descartar la pregunta del banco">Descartar la pregunta</Boton>
+                  </div>
+                </Hoja>
+              );
             })}
-        </div>
+          </div>
+        )
+      )}
 
-        {/* === EDITOR DE LA PREGUNTA === */}
-        {/* Escrito a mano y con `max-h-[95vh]`, como los otros tres modales de
-            la aplicacion: en un movil el pie —donde esta "Guardar cambios"— se
-            quedaba fuera de la pantalla al abrirlo. El primitivo usa `dvh`. */}
-        {editingQ && (
-            <Modal
-                title="Editar la pregunta"
-                subtitle={reportContext ? 'Vienes de una queja de un alumno' : undefined}
-                onClose={() => setEditingQ(null)}
-                footer={
-                    <>
-                        <Button variant="ghost" onClick={() => setEditingQ(null)}>Cancelar</Button>
-                        <Button
-                            onClick={saveChanges}
-                            disabled={saving}
-                            icon={saving ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
-                        >
-                            {saving ? 'Guardando…' : 'Guardar cambios'}
-                        </Button>
-                    </>
-                }
-            >
-                <div className="space-y-5">
-                    {reportContext && (
-                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex gap-3 items-start">
-                            <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
-                            <div className="min-w-0">
-                                <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-0.5">Lo que dijo el alumno</p>
-                                <p className="text-amber-800 dark:text-amber-200 text-sm break-words">“{reportContext.message}”</p>
-                            </div>
-                        </div>
-                    )}
-
-                    <TextAreaField
-                        label="Enunciado de la pregunta"
-                        rows={3}
-                        value={editForm.question_text}
-                        onChange={(e) => setEditForm({...editForm, question_text: e.target.value})}
-                    />
-
-                    <div>
-                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
-                            Opciones · marca la correcta
-                        </p>
-                        <div className="space-y-2">
-                            {editForm.options.map((opt, idx) => (
-                                <div key={idx} className={`flex gap-2 items-center p-2 rounded-xl border transition-all ${
-                                     editForm.correct_index === idx ? 'bg-emerald-500/5 border-emerald-500/40' : 'border-slate-200 dark:border-slate-800'
-                                }`}>
-                                    <button
-                                        onClick={() => setEditForm({...editForm, correct_index: idx})}
-                                        aria-label={`Marcar la opcion ${idx === 0 ? 'A' : idx === 1 ? 'B' : 'C'} como correcta`}
-                                        className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border font-black text-sm transition-all ${
-                                            editForm.correct_index === idx
-                                            ? 'bg-emerald-500 border-emerald-500 text-white'
-                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                                        }`}
-                                    >
-                                        {idx === 0 ? 'A' : idx === 1 ? 'B' : 'C'}
-                                    </button>
-                                    <input
-                                        type="text"
-                                        className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-3 text-base sm:text-sm text-slate-900 dark:text-white outline-none transition-colors"
-                                        value={opt}
-                                        onChange={(e) => {
-                                            const newOpts = [...editForm.options];
-                                            newOpts[idx] = e.target.value;
-                                            setEditForm({...editForm, options: newOpts});
-                                        }}
-                                    />
-                                    {editForm.correct_index === idx && (
-                                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mr-1" />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <TextAreaField
-                        label="Explicación"
-                        rows={4}
-                        value={editForm.explanation}
-                        onChange={(e) => setEditForm({...editForm, explanation: e.target.value})}
-                    />
+      {/* === CANDIDATAS POR APROBAR === */}
+      {activa === 'aprobar' && (
+        queue.candidates.length === 0 ? (
+          <EmptyState icon={<CheckCircle2 size={36} />} title="Bandeja de entrada limpia." bordered />
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {queue.candidates.map((q) => (
+              <Hoja key={q.id} pad="md" className="space-y-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  {/* Sin tema, sin insignia. `topic` es `subject?.title ?? null`:
+                      una pregunta puede no tener tema resuelto, y entonces se
+                      pintaba una pastilla VACÍA, que es peor que no pintar
+                      nada — parece un dato que no se ha cargado (regla 8). */}
+                  {q.topic ? <Etiqueta tono="neutro">{q.topic}</Etiqueta> : <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Sin tema</span>}
+                  <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400">{q.created_at ? new Date(q.created_at).toLocaleDateString() : '—'}</span>
                 </div>
-            </Modal>
-        )}
 
+                <p className="text-sm font-medium leading-relaxed text-slate-900 dark:text-slate-100">{q.question_text}</p>
+
+                {/* `options` es jsonb: puede no ser un array. Sin esta guarda,
+                    una fila corrupta tumba el panel entero. */}
+                <div className="space-y-1.5">
+                  {(Array.isArray(q.options) ? q.options : []).map((opt: string, i: number) => (
+                    <div
+                      key={i}
+                      className={cx(
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-[13px]',
+                        i === q.correct_index
+                          ? 'bg-emerald-100 font-medium text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
+                          : 'bg-hundido text-slate-700 dark:bg-noche-hondo dark:text-slate-300',
+                      )}
+                    >
+                      <b className="font-titulo text-base">{'ABC'[i]}</b> {opt}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2 border-t border-linea dark:border-noche-linea pt-3.5">
+                  <Boton size="sm" icon={<CheckCircle2 size={14} />} onClick={() => handleApprove(q.id)}>Aprobar</Boton>
+                  <Boton size="sm" variant="secondary" icon={<Pencil size={14} />} onClick={() => openEditor(q)}>Editar</Boton>
+                  <Boton size="sm" variant="danger" onClick={() => handleDisable(q.id)}>Descartar</Boton>
+                </div>
+              </Hoja>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* === EDITOR DE LA PREGUNTA: un panel lateral, no un diálogo === */}
+      {editingQ && (
+        <PanelLateral
+          titulo="Editar la pregunta"
+          sub={reportContext ? 'Vienes de una queja de un alumno' : editingQ.topic ?? undefined}
+          onCerrar={() => { setEditingQ(null); setReportContext(null); }}
+        >
+          <EditorPregunta form={editForm} onChange={setEditForm} quejaDelAlumno={reportContext?.message ?? null} />
+          <div className="flex flex-wrap gap-2">
+            <Boton onClick={saveChanges} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </Boton>
+            <Boton variant="ghost" onClick={() => { setEditingQ(null); setReportContext(null); }}>Cancelar</Boton>
+          </div>
+        </PanelLateral>
+      )}
     </div>
   );
 }

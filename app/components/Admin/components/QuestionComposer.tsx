@@ -229,10 +229,10 @@ export default function QuestionComposer({
             <button
               key={t.id}
               onClick={() => { setPestania(t.id); setResultado(null); }}
-              className={`min-h-[44px] px-4 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
+              className={`min-h-[44px] px-4 rounded-lg text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
                 pestania === t.id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                  : 'bg-slate-100 dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-slate-200 dark:border-slate-800'
+                  ? 'bg-indigo-600 text-white  '
+                  : 'bg-slate-100 dark:bg-slate-900 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-linea dark:border-noche-linea'
               }`}
             >
               {t.icono}{t.texto}
@@ -281,17 +281,17 @@ export default function QuestionComposer({
                 {options.map((opt, i) => (
                   <div
                     key={i}
-                    className={`flex items-center gap-3 p-2 rounded-2xl border transition-all ${
+                    className={`flex items-center gap-3 p-2 rounded-lg border transition-all ${
                       i === correctIndex
                         ? 'bg-emerald-50 dark:bg-emerald-500/5 border-emerald-500/40'
-                        : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
+                        : 'bg-hundido dark:bg-slate-900/30 border-linea dark:border-noche-linea'
                     }`}
                   >
                     <button
                       onClick={() => setCorrectIndex(i)}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all ${
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm transition-all ${
                         i === correctIndex
-                          ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20 scale-105'
+                          ? 'bg-emerald-500 text-slate-900   scale-105'
                           : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
                       }`}
                     >
@@ -328,10 +328,10 @@ export default function QuestionComposer({
                     <button
                       key={n.valor}
                       onClick={() => setDifficulty(n.valor)}
-                      className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                      className={`px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
                         difficulty === n.valor
                           ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800 hover:text-slate-700 dark:hover:text-slate-300'
+                          : 'bg-slate-100 dark:bg-slate-900 text-slate-500 border border-linea dark:border-noche-linea hover:text-slate-700 dark:hover:text-slate-300'
                       }`}
                     >
                       {n.nombre}
@@ -345,13 +345,13 @@ export default function QuestionComposer({
               <div className="flex flex-wrap gap-3 items-center">
                 <button
                   onClick={() => inputFichero.current?.click()}
-                  className="min-h-[44px] px-5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 text-slate-900 dark:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                  className="min-h-[44px] px-5 bg-slate-100 dark:bg-slate-900 border border-linea dark:border-noche-linea hover:border-indigo-500/50 text-slate-900 dark:text-white rounded-lg text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                 >
                   <Upload size={14} /> Elegir fichero
                 </button>
                 <button
                   onClick={descargaPlantilla}
-                  className="min-h-[44px] px-5 bg-transparent border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                  className="min-h-[44px] px-5 bg-transparent border border-linea dark:border-noche-linea text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
                 >
                   <Download size={14} /> Plantilla
                 </button>
@@ -367,7 +367,7 @@ export default function QuestionComposer({
                 )}
               </div>
 
-              <div className="text-xs text-slate-500 leading-relaxed bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-1">
+              <div className="text-xs text-slate-500 leading-relaxed bg-hundido dark:bg-slate-900/40 border border-linea dark:border-noche-linea rounded-lg p-4 space-y-1">
                 <p>
                   Columnas: <span className="font-mono text-slate-500 dark:text-slate-300">enunciado · A · B · C · correcta</span>
                   {' '}(obligatorias) y <span className="font-mono text-slate-500 dark:text-slate-300">explicacion · dificultad</span> (opcionales).
@@ -379,15 +379,15 @@ export default function QuestionComposer({
               {(leidas.length > 0 || rechazadas.length > 0) && (
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-3">
-                    <div className="flex-1 min-w-[120px] bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-3">
+                    <div className="flex-1 min-w-[120px] bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-4 py-3">
                       <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{leidas.length}</p>
                       <p className="text-[10px] uppercase tracking-widest text-emerald-200/60 font-bold">listas</p>
                     </div>
-                    <div className="flex-1 min-w-[120px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
+                    <div className="flex-1 min-w-[120px] bg-hundido dark:bg-slate-900 border border-linea dark:border-noche-linea rounded-lg px-4 py-3">
                       <p className="text-2xl font-black text-slate-500 dark:text-slate-400">{repetidas}</p>
                       <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 font-bold">repetidas</p>
                     </div>
-                    <div className="flex-1 min-w-[120px] bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
+                    <div className="flex-1 min-w-[120px] bg-amber-500/5 border border-amber-500/20 rounded-lg px-4 py-3">
                       <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{rechazadas.length}</p>
                       <p className="text-[10px] uppercase tracking-widest text-amber-200/60 font-bold">rechazadas</p>
                     </div>
@@ -396,7 +396,7 @@ export default function QuestionComposer({
                   {/* Ninguna fila desaparece en silencio: la que no sirve sale
                       aquí con su línea, la misma que se ve en Excel. */}
                   {rechazadas.length > 0 && (
-                    <div className="border border-amber-500/20 rounded-2xl overflow-hidden">
+                    <div className="border border-amber-500/20 rounded-lg overflow-hidden">
                       <div className="px-4 py-2 bg-amber-500/5 flex items-center gap-2">
                         <AlertTriangle size={12} className="text-amber-700 dark:text-amber-400" />
                         <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
@@ -415,8 +415,8 @@ export default function QuestionComposer({
                   )}
 
                   {leidas.length > 0 && (
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-                      <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
+                    <div className="border border-linea dark:border-noche-linea rounded-lg overflow-hidden">
+                      <div className="px-4 py-2 bg-hundido dark:bg-slate-900/60 flex items-center justify-between">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                           Vista previa
                         </p>
@@ -462,7 +462,7 @@ export default function QuestionComposer({
 
           {resultado && (
             <div
-              className={`rounded-2xl px-4 py-3 text-xs font-medium border flex items-start gap-2 ${
+              className={`rounded-lg px-4 py-3 text-xs font-medium border flex items-start gap-2 ${
                 resultado.tipo === 'ok'
                   ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                   : 'bg-red-500/5 border-red-500/20 text-red-700 dark:text-red-300'
