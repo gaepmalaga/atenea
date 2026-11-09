@@ -3965,6 +3965,22 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   lo da Morato»; un cuadrante de teoría (qué tema se da cada día y con quién)
   con el mismo relleno automático del profesor.
 
+### 101 · Lo que no se toca a diario no ocupa la pantalla
+
+- **Qué pasó (9 nov):** el dueño pidió quitar de «Alumnos» el interruptor del
+  control de acceso y la lista de correos exentos de pago, y de «Prep. física»
+  el interruptor de la física con preparador. Son decisiones que se toman una
+  vez y se quedaban ahí, cada día, ocupando lo primero de la pantalla.
+- **Regla:** se quitan de la VISTA, no del funcionamiento. El control de
+  acceso sigue encendido (quien se registra solo espera a que se le dé acceso),
+  los alumnos exentos siguen exentos y la física sigue encendida. Las acciones
+  (`setMembershipRequired`, `addExemptEmail`…) siguen existiendo.
+  - Se queda, suelto, el aviso «Hay N sin activar · Activar a todos»: solo sale
+    cuando hay alguien esperando, y sin él no habría forma de dar acceso de
+    golpe.
+  - Si la física estuviera apagada, el aviso que sale en su lugar trae su
+    botón «Encender»: quitar el interruptor no puede dejar sin salida.
+
 ---
 
 ## Los tests

@@ -73,31 +73,19 @@ export default function AdminPhysical() {
         </Card>
       )}
 
-      {/* --- INTERRUPTOR, UNO SOLO: `ai` en la academia casa, `group` en
-          cualquier otra (regla de la academia casa). El que no toca no se
-          ofrece — no es solo que esté apagado, es que aquí no es una opción. */}
-      {switches && (
-        <div className="grid gap-2 sm:gap-3">
-          {esCasa ? (
-            <SwitchCard
-              icon={<Sparkles size={16} />}
-              label={TRAINING_SWITCH_LABEL.ai}
-              desc={TRAINING_SWITCH_DESC.ai}
-              on={switches.ai}
-              busy={busy}
-              onToggle={(v) => cambiaSwitch('ai', v)}
-            />
-          ) : (
-            <SwitchCard
-              icon={<Users2 size={16} />}
-              label={TRAINING_SWITCH_LABEL.group}
-              desc={TRAINING_SWITCH_DESC.group}
-              on={switches.group}
-              busy={busy}
-              onToggle={(v) => cambiaSwitch('group', v)}
-            />
-          )}
-        </div>
+      {/* En Alphapol (no es la academia casa) el interruptor de la física con
+          preparador se quitó de la vista a petición del dueño (regla 101): está
+          encendido y no se toca. Si alguna vez estuviera apagado, el aviso de
+          abajo trae su botón para encenderlo. */}
+      {switches && esCasa && (
+        <SwitchCard
+          icon={<Sparkles size={16} />}
+          label={TRAINING_SWITCH_LABEL.ai}
+          desc={TRAINING_SWITCH_DESC.ai}
+          on={switches.ai}
+          busy={busy}
+          onToggle={(v) => cambiaSwitch('ai', v)}
+        />
       )}
 
       {esCasa ? (
@@ -112,8 +100,9 @@ export default function AdminPhysical() {
       ) : !grupoOn ? (
         <EmptyState
           icon={<Users2 size={40} />}
-          title="El plan por grupo está apagado"
-          hint="Enciéndelo arriba para planificar las sesiones de tus grupos y alumnos."
+          title="La física con preparador está apagada"
+          hint="Los alumnos no ven su calendario de física ni tú el cuadrante. Enciéndela para volver a usarla."
+          action={<Button disabled={busy} onClick={() => cambiaSwitch('group', true)}>Encender</Button>}
           bordered
         />
       ) : (

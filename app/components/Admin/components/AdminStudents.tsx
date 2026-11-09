@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
-  BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
-  Mail, ShieldCheck, X, Send, Shuffle, Brain, Search, Archive, HelpCircle,
+  BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro,
+  Mail, ShieldCheck, Send, Shuffle, Brain, Search, Archive, HelpCircle,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
-  setMemberAccess, setMembershipRequired, activateAllCurrentStudents, setStudentGroups,
-  listExemptEmails, addExemptEmail, removeExemptEmail, inviteStudent,
+  setMemberAccess, activateAllCurrentStudents, setStudentGroups, inviteStudent,
 } from '@/actions';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno } from '@/app/lib/academy';
@@ -62,16 +61,13 @@ export default function AdminStudents() {
   // recoge aparte por defecto, no se pierde ni se borra.
   const [verSuspendidos, setVerSuspendidos] = useState(false);
 
-  const [exentos, setExentos] = useState<string[]>([]);
-  const [nuevoExento, setNuevoExento] = useState('');
   const [correoInvitar, setCorreoInvitar] = useState('');
   const [avisoInvitar, setAvisoInvitar] = useState<string | null>(null);
 
   const recargar = useCallback(async () => {
-    const [res, exentosRes] = await Promise.all([getAcademyOverview(), listExemptEmails()]);
+    const res = await getAcademyOverview();
     if (res.success) setDatos(res.data);
     else setError(res.error);
-    if (exentosRes.success) setExentos(exentosRes.emails);
     setCargando(false);
   }, []);
 
@@ -153,34 +149,17 @@ export default function AdminStudents() {
   return (
     <div className="space-y-4 animate-in fade-in pb-24">
 
-      {/* --- CONTROL DE ACCESO GLOBAL --- */}
-      <Card tone={membershipRequired ? 'brand' : 'sunken'} pad="md" className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <KeyRound size={18} className={cx('shrink-0', membershipRequired ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400')} />
-            <div>
-              <p className={cx('font-black text-sm', membershipRequired ? 'text-white' : 'text-slate-900 dark:text-white')}>
-                {membershipRequired ? 'Control de acceso ENCENDIDO' : 'Control de acceso apagado'}
-              </p>
-              <p className={cx('text-xs leading-relaxed mt-0.5 max-w-md', membershipRequired ? 'text-indigo-100' : 'text-slate-500 dark:text-slate-400')}>
-                {membershipRequired
-                  ? 'Solo entran los alumnos con acceso. Un alumno nuevo se registra y espera a que le des acceso.'
-                  : 'La plataforma está abierta para todos. Enciéndelo cuando quieras que solo entren los que pagan.'}
-              </p>
-            </div>
-          </div>
-          <Button size="sm" variant={membershipRequired ? 'secondary' : 'primary'} disabled={busy}
-            onClick={() => accion(() => setMembershipRequired(!membershipRequired))}>
-            {membershipRequired ? 'Apagar' : 'Encender'}
-          </Button>
-        </div>
-        {membershipRequired && pendientes > 0 && (
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-            <p className="text-xs text-amber-800 dark:text-amber-200">Hay {pendientes} sin activar. Si son alumnos que ya tenías, dales acceso de golpe.</p>
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => accion(async () => activateAllCurrentStudents())}>Activar a todos</Button>
-          </div>
-        )}
-      </Card>
+      {/* El interruptor del control de acceso y la lista de correos exentos
+          se quitaron de aquí a petición del dueño (regla 101): el acceso sigue
+          como está (encendido), y sin ellos solo queda lo que se usa a diario.
+          Sí se queda el aviso de los que esperan acceso: sin él no habría
+          forma de darlo de golpe. */}
+      {membershipRequired && pendientes > 0 && (
+        <Card tone="base" pad="md" className="flex flex-wrap items-center justify-between gap-3 border-amber-500/30">
+          <p className="text-xs text-amber-800 dark:text-amber-200">Hay {pendientes} sin activar. Si son alumnos que ya tenías, dales acceso de golpe.</p>
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => accion(async () => activateAllCurrentStudents())}>Activar a todos</Button>
+        </Card>
+      )}
 
       {/* --- ALTA DE VARIOS ALUMNOS (regla 83) --- */}
       <AltaMasiva grupos={grupos} onHecho={recargar} />
@@ -200,34 +179,6 @@ export default function AdminStudents() {
           <Button size="sm" disabled={busy || !correoInvitar.trim()} onClick={invitar} icon={<Mail size={14} />}>Invitar</Button>
         </div>
         {avisoInvitar && <p className="text-xs text-emerald-700 dark:text-emerald-400">{avisoInvitar}</p>}
-      </Card>
-
-      {/* --- EXENTOS DE PAGO --- */}
-      <Card tone="base" pad="md" className="space-y-2">
-        <SectionLabel icon={<ShieldCheck size={12} />}>Correos exentos de pago</SectionLabel>
-        <p className={cx(TEXT.muted)}>Un correo de esta lista entra directo, con acceso ilimitado, sin solicitud ni pago.</p>
-        <div className="flex flex-wrap gap-2">
-          <input
-            type="email"
-            value={nuevoExento}
-            onChange={(e) => setNuevoExento(e.target.value)}
-            placeholder="correo@ejemplo.com"
-            className="flex-1 min-w-[200px] text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2"
-          />
-          <Button size="sm" variant="secondary" disabled={busy || !nuevoExento.trim()} onClick={() => { const c = nuevoExento.trim(); setNuevoExento(''); accion(() => addExemptEmail(c)); }}>Añadir</Button>
-        </div>
-        {exentos.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {exentos.map((e) => (
-              <span key={e} className="text-[11px] font-semibold px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-                {e}
-                <button onClick={() => accion(() => removeExemptEmail(e))} disabled={busy} aria-label={`Quitar ${e} de exentos`} className="hover:text-red-600">
-                  <X size={11} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
       </Card>
 
       {/* --- EL MOTOR ADAPTATIVO, DE UN VISTAZO (regla 76) ---
