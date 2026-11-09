@@ -28,6 +28,13 @@ export type AccionAuditada =
   | 'set_member_access'
   | 'activate_all_students'
   | 'set_payment'
+  | 'registra_cobro'
+  | 'anula_cobro'
+  | 'set_cuota_mes'
+  | 'set_cuota_propia'
+  | 'set_precio_tipo'
+  | 'save_pack'
+  | 'delete_pack'
   | 'create_group'
   | 'update_group'
   | 'delete_group'
@@ -62,6 +69,13 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   set_member_access: 'Cambió el acceso de un alumno',
   activate_all_students: 'Dio acceso a todos los alumnos actuales',
   set_payment: 'Marcó un pago mensual',
+  registra_cobro: 'Cobró una cuota',
+  anula_cobro: 'Deshizo un cobro',
+  set_cuota_mes: 'Cambió la cuota de un mes',
+  set_cuota_propia: 'Puso la cuota propia de un alumno',
+  set_precio_tipo: 'Cambió el precio de un tipo de grupo',
+  save_pack: 'Guardó un pack de precios',
+  delete_pack: 'Borró un pack de precios',
   create_group: 'Creó un grupo',
   update_group: 'Editó un grupo',
   delete_group: 'Borró un grupo',

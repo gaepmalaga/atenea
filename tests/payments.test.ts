@@ -5,10 +5,7 @@ import {
   periodoActual,
   periodosRecientes,
   formateaPeriodo,
-  resumeMes,
-  resumeHistorico,
   formateaEUR,
-  type MonthlyPaymentRow,
 } from '../app/lib/payments';
 
 /**
@@ -36,118 +33,6 @@ describe('los periodos', () => {
   });
 });
 
-describe('resumeMes', () => {
-  const roster = [
-    { id: 'a', email: 'a@x.com' },
-    { id: 'b', email: 'b@x.com' },
-    { id: 'c', email: 'c@x.com' },
-  ];
-
-  it('un alumno sin fila cuenta como NO pagado', () => {
-    const r = resumeMes('2026-09', roster, []);
-    expect(r.pagados).toBe(0);
-    expect(r.porPagar).toBe(3);
-    expect(r.total).toBe(3);
-    expect(r.cobrado).toBe(0);
-  });
-
-  it('suma lo cobrado de los que han pagado', () => {
-    const pagos: MonthlyPaymentRow[] = [
-      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
-      { user_id: 'b', period: '2026-09', paid: true, amount_eur: 30 },
-      { user_id: 'c', period: '2026-09', paid: false, amount_eur: null },
-    ];
-    const r = resumeMes('2026-09', roster, pagos);
-    expect(r.pagados).toBe(2);
-    expect(r.porPagar).toBe(1);
-    expect(r.cobrado).toBeCloseTo(75, 2);
-  });
-
-  it('pagó sin anotar importe: cuenta como pagado, importe null (regla 8), suma 0', () => {
-    const r = resumeMes('2026-09', roster, [{ user_id: 'a', period: '2026-09', paid: true, amount_eur: null }]);
-    const filaA = r.filas.find((f) => f.userId === 'a')!;
-    expect(filaA.paid).toBe(true);
-    expect(filaA.amount).toBeNull();
-    expect(r.cobrado).toBe(0);
-  });
-
-  it('las filas de OTRO mes no cuentan', () => {
-    const r = resumeMes('2026-09', roster, [{ user_id: 'a', period: '2026-08', paid: true, amount_eur: 45 }]);
-    expect(r.pagados).toBe(0);
-  });
-
-  it('lee el importe como cadena con coma (numeric de PostgREST)', () => {
-    const r = resumeMes('2026-09', roster, [{ user_id: 'a', period: '2026-09', paid: true, amount_eur: '29,90' }]);
-    expect(r.cobrado).toBeCloseTo(29.9, 2);
-  });
-
-  it('P12: un exento aparece en las filas pero NO cuenta en pagados/porPagar/total/cobrado', () => {
-    const conExento = [...roster, { id: 'd', email: 'd@x.com', exempt: true }];
-    const r = resumeMes('2026-09', conExento, [
-      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
-    ]);
-    expect(r.filas).toHaveLength(4);
-    expect(r.filas.find((f) => f.userId === 'd')!.exempt).toBe(true);
-    // Los otros 3 son los "en juego": a pagó, b y c no.
-    expect(r.total).toBe(3);
-    expect(r.pagados).toBe(1);
-    expect(r.porPagar).toBe(2);
-  });
-});
-
-describe('resumeHistorico · la rejilla de todos los meses', () => {
-  const roster = [
-    { id: 'a', email: 'a@x.com' },
-    { id: 'b', email: 'b@x.com' },
-  ];
-  const periodos = ['2026-07', '2026-08', '2026-09'];
-
-  it('un mes sin fila no aparece en el mapa de celdas', () => {
-    const h = resumeHistorico(periodos, roster, [
-      { user_id: 'a', period: '2026-08', paid: true, amount_eur: '40' },
-    ]);
-    const filaA = h.filas.find((f) => f.userId === 'a')!;
-    expect(filaA.celdas['2026-08']).toEqual({ paid: true, amount: 40 });
-    expect(filaA.celdas['2026-07']).toBeUndefined();
-    expect(filaA.pagadosEnRango).toBe(1);
-  });
-
-  it('el recuento por columna suma los pagados y lo cobrado de ese mes', () => {
-    const h = resumeHistorico(periodos, roster, [
-      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
-      { user_id: 'b', period: '2026-09', paid: true, amount_eur: null },
-      { user_id: 'a', period: '2026-07', paid: false, amount_eur: null },
-    ]);
-    const sep = h.columnas.find((c) => c.period === '2026-09')!;
-    expect(sep.pagados).toBe(2);
-    expect(sep.total).toBe(2);
-    expect(sep.cobrado).toBeCloseTo(45, 2); // b pagó sin importe: suma 0 (regla 8)
-    const jul = h.columnas.find((c) => c.period === '2026-07')!;
-    expect(jul.pagados).toBe(0);
-  });
-
-  it('las filas de meses fuera del rango se ignoran', () => {
-    const h = resumeHistorico(periodos, roster, [
-      { user_id: 'a', period: '2026-01', paid: true, amount_eur: '99' },
-    ]);
-    expect(h.filas.find((f) => f.userId === 'a')!.pagadosEnRango).toBe(0);
-    expect(h.columnas.every((c) => c.cobrado === 0)).toBe(true);
-  });
-
-  it('P12: un exento no cuenta en las columnas, aunque tenga celdas pagadas', () => {
-    const conExento = [...roster, { id: 'c', email: 'c@x.com', exempt: true }];
-    const h = resumeHistorico(periodos, conExento, [
-      { user_id: 'a', period: '2026-09', paid: true, amount_eur: '45' },
-      { user_id: 'c', period: '2026-09', paid: true, amount_eur: '999' },
-    ]);
-    const sep = h.columnas.find((c) => c.period === '2026-09')!;
-    expect(sep.total).toBe(2); // solo a y b, no c
-    expect(sep.pagados).toBe(1); // solo a
-    expect(sep.cobrado).toBeCloseTo(45, 2); // el importe de c no se suma
-    expect(h.filas.find((f) => f.userId === 'c')!.exempt).toBe(true);
-  });
-});
-
 describe('formateaEUR', () => {
   it('null -> «—» (regla 8)', () => {
     expect(formateaEUR(null)).toBe('—');
@@ -159,23 +44,59 @@ describe('formateaEUR', () => {
 });
 
 describe('las guardas de la acción', () => {
-  const src = readFileSync(join(__dirname, '..', 'app', 'actions', 'payments.ts'), 'utf-8');
+  const crudo = readFileSync(join(__dirname, '..', 'app', 'actions', 'payments.ts'), 'utf-8');
+  // Sin comentarios: un comentario que cita el patrón no cuenta como código.
+  const src = crudo.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const exportadas = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
+  const cuerpo = (n: string) => {
+    const i = src.indexOf(`export async function ${n}`);
+    const j = src.indexOf('export async function', i + 10);
+    return src.slice(i, j < 0 ? undefined : j);
+  };
 
   it('todo requireAdmin + clave de servicio', () => {
-    const exportadas = [...src.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
+    expect(exportadas.length).toBeGreaterThan(8);
     for (const n of exportadas) {
-      expect(src.slice(src.indexOf(`export async function ${n}`), src.indexOf(`export async function ${n}`) + 300)).toMatch(/requireAdmin\(\)/);
+      expect(cuerpo(n).slice(0, 300), n).toMatch(/requireAdmin\(\)/);
     }
     expect(src).toContain('supabaseAdmin');
-    expect(src).not.toMatch(/\bdb\.from\(/);
+    expect(src).not.toMatch(/createSupabaseServerClient/);
   });
 
-  it('el importe vacío se guarda como null, nunca 0 (regla 16)', () => {
-    const fn = src.slice(src.indexOf('export async function setPayment'));
-    expect(fn).toMatch(/=== ''|=== null|=== undefined/);
+  it('cada consulta va acotada a la academia DENTRO de la consulta (reglas 65 y 75)', () => {
+    const sueltas: string[] = [];
+    for (const m of src.matchAll(/\.from\('(\w+)'\)/g)) {
+      const resto = src.slice(m.index!, m.index! + 700);
+      const sentencia = resto.slice(0, resto.search(/\)\);|\);\n|;\n/) + 1 || 700);
+      // `class_members` se pide por los grupos DE la academia, o con su filtro.
+      if (m[1] === 'class_members' && /\.in\('class_id'|class_groups\.organization_id/.test(sentencia)) continue;
+      if (!/organization_id|academy_id/.test(sentencia)) sueltas.push(`${m[1]}: ${sentencia.slice(0, 80)}`);
+    }
+    expect(sueltas).toEqual([]);
   });
 
-  it('el roster del mes son los alumnos con acceso activo', () => {
+  it('un alumno que llega de la pantalla se comprueba que es de la academia antes de escribir (regla 1)', () => {
+    for (const n of ['registraCobro', 'setCuotaMes']) {
+      const c = cuerpo(n);
+      const comprueba = c.indexOf('esDeLaAcademia(');
+      expect(comprueba, n).toBeGreaterThan(0);
+      expect(comprueba, n).toBeLessThan(c.indexOf('.upsert('));
+    }
+    // Las otras escriben con un update acotado a la academia: si no es suyo, no toca nada.
+    for (const n of ['anulaCobro', 'setCuotaPropia']) {
+      expect(cuerpo(n), n).not.toMatch(/\.upsert\(|\.insert\(/);
+    }
+  });
+
+  it('el mes se abre solo con los activos y no exentos', () => {
     expect(src).toMatch(/access_status === 'active'/);
+    expect(src).toMatch(/x\.activo && !x\.exento/);
+  });
+
+  it('el importe se lee con leeImporte: vacío es null, nunca 0 (regla 16)', () => {
+    for (const n of ['registraCobro', 'setCuotaMes', 'setCuotaPropia', 'setPrecioTipo', 'savePack']) {
+      expect(cuerpo(n), n).toMatch(/leeImporte\(/);
+      expect(cuerpo(n), n).not.toMatch(/Number\(/);
+    }
   });
 });

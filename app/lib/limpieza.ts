@@ -96,6 +96,8 @@ export const TABLAS_POR_ACADEMIA = [
   'session_templates',
   'physical_marks',
   'rm_marks',
+  // Los packs de precios (regla 102) nombran tipos de grupo: antes que ellos.
+  'fee_packs',
   'group_kinds',
   'module_settings',
   'admin_audit_log',

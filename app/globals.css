@@ -312,3 +312,8 @@ body::before {
     pointer-events: none;
     transition: opacity 1s ease;
 }
+/* Las rayas de lo «pendiente» en el gráfico de Pagos (regla 102): una segunda
+   marca además del color, para quien no distingue el ámbar del verde. */
+.rayas {
+  background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.4) 0 2px, transparent 2px 6px);
+}

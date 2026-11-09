@@ -477,6 +477,32 @@
         "uploaded_at": "timestamp with time zone"
       }
     },
+    "fee_packs": {
+      "columnas": [
+        "created_at",
+        "id",
+        "kinds",
+        "name",
+        "organization_id",
+        "price_eur"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "kinds",
+        "name",
+        "organization_id",
+        "price_eur"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "kinds": "ARRAY",
+        "name": "text",
+        "organization_id": "uuid",
+        "price_eur": "numeric"
+      }
+    },
     "flashcard_bank": {
       "columnas": [
         "back",
@@ -583,6 +609,7 @@
         "label",
         "lleva_plan",
         "organization_id",
+        "price_eur",
         "sort_order"
       ],
       "obligatorias": [
@@ -599,6 +626,7 @@
         "label": "text",
         "lleva_plan": "boolean",
         "organization_id": "uuid",
+        "price_eur": "numeric",
         "sort_order": "integer"
       }
     },
@@ -666,6 +694,8 @@
     "memberships": {
       "columnas": [
         "access_status",
+        "custom_fee_eur",
+        "custom_fee_note",
         "exempt",
         "note",
         "organization_id",
@@ -683,6 +713,8 @@
       ],
       "tipos": {
         "access_status": "text",
+        "custom_fee_eur": "numeric",
+        "custom_fee_note": "text",
         "exempt": "boolean",
         "note": "text",
         "organization_id": "uuid",
@@ -714,6 +746,8 @@
     "monthly_payments": {
       "columnas": [
         "amount_eur",
+        "due_eur",
+        "due_manual",
         "note",
         "organization_id",
         "paid",
@@ -724,6 +758,7 @@
         "user_id"
       ],
       "obligatorias": [
+        "due_manual",
         "organization_id",
         "paid",
         "period",
@@ -732,6 +767,8 @@
       ],
       "tipos": {
         "amount_eur": "numeric",
+        "due_eur": "numeric",
+        "due_manual": "boolean",
         "note": "text",
         "organization_id": "uuid",
         "paid": "boolean",

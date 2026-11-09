@@ -98,6 +98,11 @@ const SOLO_SERVICIO = [
   'physical_marks',
   // Regla 87: el 1RM.
   'rm_marks',
+  // Regla 102: las cuotas. Lo que debe y paga cada alumno, los precios y los
+  // packs son de administración: RLS y cero políticas.
+  'monthly_payments',
+  'fee_packs',
+  'group_kinds',
 ];
 
 /** El receptor de un `.from('tabla')`, aguantando el salto de linea del medio. */
