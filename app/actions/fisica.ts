@@ -22,7 +22,8 @@ import { requireUser, requireAdmin } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { leeTrainingSwitches } from '../lib/training-switch-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
-import { ahoraEnZona, esFecha, sumaDias } from '../lib/asistencia';
+import { ahoraEnZona, esFecha, sumaDias, horarioDeFila } from '../lib/asistencia';
+import { armaClasesAlumno, daClases, type ClaseFisica, type GrupoClase, type SesionDeClase } from '../lib/clases-fisica';
 import {
   normalizaContenido, normalizaApunte, sePuedeApuntar, esDestino, lunesDe, copiaSemana,
   MAX_COMENTARIO, MAX_NOTA_SEMANA,
@@ -117,6 +118,67 @@ async function destinoDeLaAcademia(destino: Destino, organizationId: string): Pr
 function filtroAlumno(userId: string, grupos: string[]): string {
   const g = grupos.filter(esUuid);
   return g.length ? `user_id.eq.${userId},class_id.in.(${g.join(',')})` : `user_id.eq.${userId}`;
+}
+
+const COLS_GRUPO_CLASE = 'id, name, kind, weekdays, start_time, end_time, capacity, is_multi';
+const aGrupoClase = (g: Fila): GrupoClase => ({ id: g.id as string, nombre: g.name as string, esMulti: g.is_multi === true, horario: horarioDeFila(g) });
+
+/**
+ * LAS DOS CAPAS DE LA FÍSICA DE UN ALUMNO (regla 97): sus CLASES de grupo
+ * (grupos de física con horario, Multi y las clases a las que se ha apuntado
+ * como multi) y los grupos de PLAN COMÚN (de física sin horario, como el
+ * «Promo 43 · Físicas» de ejemplo), cuyas sesiones son entrenos, no clases.
+ */
+async function clasesDelAlumno(userId: string, org: string, desde: string, hasta: string): Promise<{
+  clases: ClaseFisica[];
+  /** Los grupos del alumno que NO dan clases: sus sesiones van con los entrenos. */
+  gruposPlan: string[];
+}> {
+  const [{ data: mios }, { data: uniones }] = await Promise.all([
+    supabaseAdmin.from('class_members').select(`class_id, class_groups!inner(${COLS_GRUPO_CLASE}, organization_id)`)
+      .eq('user_id', userId).eq('class_groups.organization_id', org),
+    supabaseAdmin.from('class_session_joins').select('class_id, session_date')
+      .eq('user_id', userId).gte('session_date', desde).lte('session_date', hasta),
+  ]);
+  const filas = (mios ?? []).map((m) => m.class_groups as unknown as Fila).filter(Boolean);
+  const fisicas = filas.filter((g) => g.kind === 'fisicas');
+  const grupos = fisicas.map(aGrupoClase).filter(daClases);
+  const deClase = new Set(grupos.map((g) => g.id));
+  // De física sin horario: un plan común. Los de teoría no tienen sesiones.
+  const gruposPlan = filas.map((g) => g.id as string).filter((id) => !deClase.has(id));
+
+  const idsAjenos = [...new Set((uniones ?? []).map((u) => u.class_id as string))].filter((id) => !deClase.has(id));
+  const { data: ajenos } = idsAjenos.length
+    ? await supabaseAdmin.from('class_groups').select(COLS_GRUPO_CLASE).eq('organization_id', org).in('id', idsAjenos)
+    : { data: [] as Fila[] };
+  const gruposAjenos = (ajenos ?? []).map(aGrupoClase);
+  const ids = [...deClase, ...gruposAjenos.map((g) => g.id)];
+  if (!ids.length) return { clases: [], gruposPlan };
+
+  const [{ data: ses }, { data: off }, { data: faltas }, { data: profes }] = await Promise.all([
+    supabaseAdmin.from('training_sessions').select(`${COLS_SESION}, teacher_id, start_time`).eq('organization_id', org)
+      .in('class_id', ids).gte('session_date', desde).lte('session_date', hasta),
+    supabaseAdmin.from('class_days_off').select('class_id, session_date, reason').eq('organization_id', org)
+      .in('class_id', ids).gte('session_date', desde).lte('session_date', hasta),
+    supabaseAdmin.from('class_absences').select('class_id, session_date').eq('user_id', userId)
+      .in('class_id', ids).gte('session_date', desde).lte('session_date', hasta),
+    supabaseAdmin.from('academy_staff').select('id, name').eq('organization_id', org),
+  ]);
+  const sesiones: SesionDeClase[] = (ses ?? []).map((r) => ({
+    ...aSesion(r),
+    profesorId: (r.teacher_id as string | null) ?? null,
+    horaPropia: typeof r.start_time === 'string' ? r.start_time.slice(0, 5) : null,
+  }));
+  const clases = armaClasesAlumno({
+    desde, hasta, grupos, gruposAjenos,
+    uniones: (uniones ?? []).map((u) => ({ classId: u.class_id as string, fecha: u.session_date as string })),
+    sesiones,
+    sinClase: (off ?? []).map((d) => ({ classId: d.class_id as string, fecha: d.session_date as string, motivo: (d.reason as string | null) ?? null })),
+    faltas: (faltas ?? []).map((f) => ({ classId: f.class_id as string, fecha: f.session_date as string })),
+    profesores: Object.fromEntries((profes ?? []).map((x) => [x.id as string, x.name as string])),
+    ahora: ahoraEnZona(Date.now()),
+  });
+  return { clases, gruposPlan };
 }
 
 async function correos(ids: string[]): Promise<Map<string, string>> {
@@ -237,6 +299,8 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
       nombresGrupo: Record<string, string>;
       /** El 1RM del alumno (solo en la vista de un alumno): para ver sus kilos al planificar. */
       rm: RMVigente;
+      /** Sus clases de grupo (solo en la vista de un alumno): se ven aparte y no se editan ahí (regla 97). */
+      clases: ClaseFisica[];
       hoy: string;
     }
   | { success: false; error: string }
@@ -253,6 +317,7 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
   let notasQ = supabaseAdmin.from('training_week_notes').select('week_start, note, class_id').eq('organization_id', org)
     .gte('week_start', lunesDe(desde)).lte('week_start', hasta);
   let idsMiembros: string[];
+  let clases: ClaseFisica[] = [];
 
   if (destino.tipo === 'grupo') {
     sesionesQ = sesionesQ.eq('class_id', destino.id);
@@ -260,9 +325,12 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
     const { data: m } = await supabaseAdmin.from('class_members').select('user_id').eq('class_id', destino.id);
     idsMiembros = (m ?? []).map((x) => x.user_id as string);
   } else {
-    const grupos = await gruposDelAlumno(destino.id, org);
-    sesionesQ = sesionesQ.or(filtroAlumno(destino.id, grupos));
-    notasQ = notasQ.or(filtroAlumno(destino.id, grupos));
+    // Las clases de su grupo van aparte; con los entrenos, solo lo suyo y lo
+    // de un plan común (un grupo sin horario).
+    const c = await clasesDelAlumno(destino.id, org, desde, hasta);
+    clases = c.clases;
+    sesionesQ = sesionesQ.or(filtroAlumno(destino.id, c.gruposPlan));
+    notasQ = notasQ.or(filtroAlumno(destino.id, c.gruposPlan));
     idsMiembros = [destino.id];
   }
 
@@ -286,6 +354,7 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
     notas: (notas ?? []).map((n) => ({ weekStart: n.week_start as string, note: n.note as string, classId: (n.class_id as string | null) ?? null })),
     nombresGrupo,
     rm,
+    clases,
     hoy: hoyAcademia(),
   };
 }
@@ -618,7 +687,18 @@ export async function setSexoAlumno(params: { alumnoId: string; sexo: string }):
 
 /** Su calendario: sus sesiones y las de sus grupos, con lo que ha apuntado. */
 export async function getMiFisica(params: { desde: string; hasta: string }): Promise<
-  | { success: true; sesiones: Sesion[]; apuntes: Apunte[]; notas: NotaSemana[]; nombresGrupo: Record<string, string>; rm: RMVigente; hoy: string }
+  | {
+      success: true;
+      /** Sus ENTRENOS: lo individual y lo de un plan común. Las clases de grupo van en `clases`. */
+      sesiones: Sesion[];
+      /** Sus CLASES de grupo, del horario aunque no estén escritas, con profesor y «sin clase» (regla 97). */
+      clases: ClaseFisica[];
+      apuntes: Apunte[];
+      notas: NotaSemana[];
+      nombresGrupo: Record<string, string>;
+      rm: RMVigente;
+      hoy: string;
+    }
   | { success: false; error: string }
 > {
   const auth = await requireUser();
@@ -627,25 +707,29 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
   if (!modulo.ok) return { success: false as const, error: modulo.error };
   const org = auth.user.organizationId;
   const hoy = hoyAcademia();
-  if (!org) return { success: true as const, sesiones: [], apuntes: [], notas: [], nombresGrupo: {}, rm: {}, hoy };
+  const vacio = { success: true as const, sesiones: [], clases: [], apuntes: [], notas: [], nombresGrupo: {}, rm: {}, hoy };
+  if (!org) return vacio;
   const { desde, hasta } = params ?? ({} as typeof params);
   if (!rangoValido(desde, hasta)) return { success: false as const, error: 'Datos no válidos.' };
 
   // Con el plan manual apagado por la academia, no hay calendario (regla 54).
   const switches = await leeTrainingSwitches(org);
-  if (!switches.group) return { success: true as const, sesiones: [], apuntes: [], notas: [], nombresGrupo: {}, rm: {}, hoy };
+  if (!switches.group) return vacio;
 
   const grupos = await gruposDelAlumno(auth.user.id, org);
-  const filtro = filtroAlumno(auth.user.id, grupos);
+  // Las clases de grupo, aparte; con los entrenos, lo suyo y lo de un plan común.
+  const { clases, gruposPlan } = await clasesDelAlumno(auth.user.id, org, desde, hasta);
+  const filtro = filtroAlumno(auth.user.id, gruposPlan);
   const [{ data: filas, error }, { data: notas }, nombresGrupo, rm] = await Promise.all([
     supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('organization_id', org).or(filtro).gte('session_date', desde).lte('session_date', hasta),
-    supabaseAdmin.from('training_week_notes').select('week_start, note, class_id').eq('organization_id', org).or(filtro).gte('week_start', lunesDe(desde)).lte('week_start', hasta),
+    supabaseAdmin.from('training_week_notes').select('week_start, note, class_id').eq('organization_id', org).or(filtroAlumno(auth.user.id, grupos)).gte('week_start', lunesDe(desde)).lte('week_start', hasta),
     nombresDeGrupos(org),
     rmDelAlumno(auth.user.id, org),
   ]);
   if (error) return { success: false as const, error: error.message };
   const sesiones = (filas ?? []).map(aSesion);
-  const ids = sesiones.map((s) => s.id);
+  // Lo apuntado: de sus entrenos y de las clases que tienen sesión.
+  const ids = [...sesiones.map((s) => s.id), ...clases.flatMap((c) => (c.sesion ? [c.sesion.id] : []))];
   const { data: logs } = ids.length
     ? await supabaseAdmin.from('training_session_logs').select(COLS_APUNTE).eq('user_id', auth.user.id).in('session_id', ids)
     : { data: [] as Fila[] };
@@ -653,9 +737,10 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
   return {
     success: true as const,
     sesiones,
+    clases,
     apuntes: (logs ?? []).map(aApunte),
     notas: (notas ?? []).map((n) => ({ weekStart: n.week_start as string, note: n.note as string, classId: (n.class_id as string | null) ?? null })),
-    nombresGrupo: Object.fromEntries(Object.entries(nombresGrupo).filter(([id]) => grupos.includes(id))),
+    nombresGrupo: Object.fromEntries(Object.entries(nombresGrupo).filter(([id]) => grupos.includes(id) || clases.some((c) => c.classId === id))),
     rm,
     hoy,
   };
@@ -682,7 +767,11 @@ export async function setMiApunte(params: {
   const { data: s } = await supabaseAdmin.from('training_sessions').select('id, class_id, user_id, session_date')
     .eq('id', sessionId).eq('organization_id', org).maybeSingle();
   if (!s) return { success: false as const, error: 'No se ha encontrado la sesión.' };
-  const esMia = s.user_id === auth.user.id || (s.class_id && (await gruposDelAlumno(auth.user.id, org)).includes(s.class_id as string));
+  const esMia = s.user_id === auth.user.id
+    || (s.class_id && (await gruposDelAlumno(auth.user.id, org)).includes(s.class_id as string))
+    // La clase de otro grupo a la que se ha apuntado como multi (regla 97).
+    || (s.class_id && !!(await supabaseAdmin.from('class_session_joins').select('user_id')
+      .eq('class_id', s.class_id as string).eq('user_id', auth.user.id).eq('session_date', s.session_date as string).maybeSingle()).data);
   if (!esMia) return { success: false as const, error: 'Esa sesión no es tuya.' };
   if (!sePuedeApuntar(s.session_date as string, hoyAcademia())) {
     return { success: false as const, error: 'Esa sesión no se puede apuntar: aún no ha llegado o queda muy atrás.' };

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { CalendarCheck, Loader2, Check } from 'lucide-react';
+import { CalendarCheck, Loader2, Check, ChevronDown } from 'lucide-react';
 import { getMiMulti, setMiUnion, setMiUnionSemana } from '@/actions';
 import type { DiaMulti, SemanaGrupoMulti } from '@/app/actions/cuadrante';
 import { etiquetaRango } from '@/app/lib/cuadrante';
@@ -17,6 +17,10 @@ import { Card, SectionLabel, TEXT, cx } from '../../../../ui';
  * y cuántas plazas quedan. Un toque apunta a TODA la semana de un grupo; debajo
  * se puede ajustar sesión a sesión.
  *
+ * Las clases a las que va salen en su calendario, con su profesor (regla 97):
+ * aquí solo se ELIGE. Por eso la lista sesión a sesión va plegada, para no
+ * repetir lo que el calendario ya enseña.
+ *
  * No se pinta si el alumno no es multi: no le diría nada.
  */
 export default function MultiSemana() {
@@ -26,6 +30,7 @@ export default function MultiSemana() {
   const [enVuelo, setEnVuelo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [detalle, setDetalle] = useState(false);
   // Cada cambio sube la versión: una carga que salió antes y llega después
   // traería el estado viejo y lo pisaría (el mismo fallo de «Mis clases»).
   const versionRef = useRef(0);
@@ -67,7 +72,7 @@ export default function MultiSemana() {
     <Card className="max-w-3xl mx-auto w-full">
       <SectionLabel icon={<CalendarCheck size={14} />}>Con qué grupo entreno</SectionLabel>
       <p className={cx(TEXT.muted, 'mb-3')}>
-        Eres multidisciplinar: elige con qué grupo vas cada semana y tu preparador lo sabrá. Puedes cambiarlo hasta que empiece la clase.
+        Eres multidisciplinar: elige con qué grupo vas cada semana y tu preparador lo sabrá. Las clases a las que vas salen en tu calendario. Puedes cambiarlo hasta que empiece la clase.
       </p>
       {error && <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">{error}</p>}
       {aviso && <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">{aviso}</p>}
@@ -101,7 +106,14 @@ export default function MultiSemana() {
         </div>
       )}
 
-      <ul className="space-y-3">
+      {dias.length > 0 && (
+        <button type="button" onClick={() => setDetalle((v) => !v)} aria-expanded={detalle}
+          className="min-h-[44px] w-full flex items-center justify-between gap-2 text-xs font-black text-slate-700 dark:text-slate-200 border-t border-slate-100 dark:border-slate-800 pt-2">
+          Elegir sesión a sesión
+          <ChevronDown size={16} className={cx('transition-transform', detalle && 'rotate-180')} />
+        </button>
+      )}
+      {detalle && <ul className="space-y-3 mt-2">
         {dias.map((d) => (
           <li key={d.fecha}>
             <p className="text-xs font-black text-slate-900 dark:text-white capitalize mb-1">{d.etiqueta}</p>
@@ -137,7 +149,7 @@ export default function MultiSemana() {
             </ul>
           </li>
         ))}
-      </ul>
+      </ul>}
     </Card>
   );
 }

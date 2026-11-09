@@ -72,7 +72,7 @@ export function entrenoDeHoy(
 // ============================================================
 
 /** Lo mínimo que hace falta de una clase (`ClaseAlumno` de `getMisClases`). */
-type ClaseMin = { classId: string; nombre: string; sesiones: { fecha: string; hora: string | null; falta: boolean }[] };
+type ClaseMin = { classId: string; nombre: string; sesiones: { fecha: string; hora: string | null; falta: boolean; sinClase?: boolean }[] };
 
 export type ClaseDeHoy = { classId: string; nombre: string; hora: string | null; falta: boolean };
 
@@ -83,7 +83,7 @@ export type ClaseDeHoy = { classId: string; nombre: string; hora: string | null;
  */
 export function claseDeHoy(clases: ClaseMin[], hoy: string): ClaseDeHoy | null {
   const deHoy = clases.flatMap((c) =>
-    c.sesiones.filter((s) => s.fecha === hoy).map((s) => ({ classId: c.classId, nombre: c.nombre, hora: s.hora, falta: s.falta })),
+    c.sesiones.filter((s) => s.fecha === hoy && !s.sinClase).map((s) => ({ classId: c.classId, nombre: c.nombre, hora: s.hora, falta: s.falta })),
   );
   if (deHoy.length === 0) return null;
   return deHoy.sort((a, b) => (a.hora ?? '99:99').localeCompare(b.hora ?? '99:99'))[0];
@@ -111,4 +111,28 @@ export function fisicaDeHoy(sesiones: SesionMin[], apuntes: ApunteMin[], hoy: st
     minutos: s.durationMin,
     hecha: apuntes.some((a) => a.sessionId === s.id && a.status === 'hecha'),
   };
+}
+
+/** Lo mínimo de una clase de física (`ClaseFisica`, regla 97). */
+type ClaseFisicaMin = {
+  grupo: string; fecha: string; hora: string | null; sinClase: boolean; motivo: string | null; falta: boolean;
+  profesor: string | null; sesion: { title: string } | null;
+};
+
+export type ClaseFisicaDeHoy = {
+  grupo: string; hora: string | null; titulo: string | null; profesor: string | null;
+  sinClase: boolean; motivo: string | null; falta: boolean;
+};
+
+/**
+ * La clase de física de HOY (la de su grupo, o a la que se apuntó como
+ * multi), o `null`. La que hay va antes que una quitada; entre varias, la más
+ * temprana. Un día «sin clase» también se dice: el alumno iba a ir.
+ */
+export function claseFisicaDeHoy(clases: ClaseFisicaMin[], hoy: string): ClaseFisicaDeHoy | null {
+  const c = clases
+    .filter((x) => x.fecha === hoy)
+    .sort((a, b) => Number(a.sinClase) - Number(b.sinClase) || (a.hora ?? '99:99').localeCompare(b.hora ?? '99:99'))[0];
+  if (!c) return null;
+  return { grupo: c.grupo, hora: c.hora, titulo: c.sesion?.title ?? null, profesor: c.profesor, sinClase: c.sinClase, motivo: c.motivo, falta: c.falta };
 }

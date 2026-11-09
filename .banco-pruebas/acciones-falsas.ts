@@ -693,8 +693,9 @@ export async function setStudentGroups() { return { success: true as const, erro
 // Fechas fijas y no «hoy»: la pantalla solo pinta lo que le llega, y unas
 // fechas fijas hacen las capturas comparables entre pasadas.
 export async function getMisClases() {
-  const sesion = (fecha: string, etiqueta: string, falta: boolean, editable = true) => ({ fecha, etiqueta, hora: '09:00', falta, editable });
+  const sesion = (fecha: string, etiqueta: string, falta: boolean, editable = true) => ({ fecha, etiqueta, hora: '09:00', falta, editable, sinClase: false });
   return ok({
+    fisicaAparte: true,
     clases: [{
       classId: 'g1', nombre: 'Teoría mañana', horario: 'L · M · X · J · V · 09:00–11:00 · 20 plazas',
       sesiones: [sesion('2026-11-09', 'lun, 9 nov', false, false), sesion('2026-11-10', 'mar, 10 nov', true), sesion('2026-11-11', 'mié, 11 nov', false)],
@@ -795,13 +796,14 @@ const fFis = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); 
 const lunesFis = (n: number) => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const sesionFis = (id: string, dia: number, kind: 'fuerza' | 'carrera' | 'agilidad' | 'circuito' | 'movilidad' | 'descanso' | 'otro', title: string, extra: Partial<{ description: string; durationMin: number; distanceKm: number; video: string; classId: string | null; userId: string | null }> = {}) => ({
   id, fecha: lunesFis(dia), kind, title, description: extra.description ?? null, durationMin: extra.durationMin ?? null,
-  distanceKm: extra.distanceKm ?? null, video: extra.video ?? null, classId: extra.classId === undefined ? 'g1' : extra.classId,
-  userId: extra.userId ?? null, position: 0,
+  // Los entrenos son del alumno (regla 97); `classId` solo en uno de plan común.
+  distanceKm: extra.distanceKm ?? null, video: extra.video ?? null, classId: extra.classId ?? null,
+  userId: extra.classId ? null : extra.userId ?? 'u2', position: 0,
   cargas: id === 's4' ? [{ ejercicio: 'Sentadilla', porcentaje: 75, series: 4, reps: 6 }, { ejercicio: 'Press de banca', porcentaje: 70, series: 4, reps: 8 }] : [],
 });
 const SESIONES_FIS = [
   sesionFis('s1', -7, 'fuerza', 'Tren superior y core', { description: 'Calentamiento: 10′ movilidad de hombro\nDominadas: 5 × máximas · R 2′\nFlexiones: 4 × 15\nPlancha: 3 × 45″', durationMin: 60 }),
-  sesionFis('s2', -6, 'carrera', 'Series de 400 m', { description: '15′ trote suave\n6 × 400 m a ritmo de prueba · R 1′30″\n5′ vuelta a la calma', durationMin: 50, distanceKm: 6 }),
+  sesionFis('s2', -6, 'carrera', 'Series de 400 m', { description: '15′ trote suave\n6 × 400 m a ritmo de prueba · R 1′30″\n5′ vuelta a la calma', durationMin: 50, distanceKm: 6, classId: 'g1' }),
   sesionFis('s3', -4, 'agilidad', 'Circuito de agilidad', { durationMin: 40, video: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }),
   sesionFis('s4', 0, 'fuerza', 'Fuerza: dominadas lastradas', { description: 'Dominadas lastradas 4 × 5\nRemo invertido 3 × 12', durationMin: 55 }),
   sesionFis('s5', 1, 'carrera', 'Rodaje continuo', { description: '40′ a ritmo cómodo, sin mirar el reloj.', durationMin: 40, distanceKm: 8 }),
@@ -816,6 +818,24 @@ const APUNTES_FIS = [
   { sessionId: 's2', userId: 'u2', status: 'hecha' as const, rpe: 6, comment: null, durationMin: null, distanceKm: 6.2, coachReply: null, email: 'alumno@atenea.com' },
   { sessionId: 's3', userId: 'u2', status: 'no_hecha' as const, rpe: null, comment: 'Molestia en el tobillo', durationMin: null, distanceKm: null, coachReply: null, email: 'alumno@atenea.com' },
   { sessionId: 's1', userId: 'u3', status: 'hecha' as const, rpe: 7, comment: null, durationMin: null, distanceKm: null, coachReply: null, email: 'alumno.flojo@ejemplo.com' },
+];
+// Las clases de grupo del alumno (regla 97): Kappa lunes y miércoles a las
+// 08:00, con su profesor; el miércoles, festivo; la semana que viene, aún sin
+// escribir; y el jueves, la de Omega, a la que se apuntó como multi.
+const claseFis = (dia: number, grupo: string, hora: string, extra: Partial<{ titulo: string; profesor: string; sinClase: boolean; motivo: string; origen: 'grupo' | 'multi'; falta: boolean; editable: boolean }> = {}) => ({
+  classId: `g-${grupo.toLowerCase()}`, grupo, fecha: lunesFis(dia), hora,
+  sesion: extra.titulo ? { ...sesionFis(`c-${grupo}-${dia}`, dia, 'otro', extra.titulo, { classId: `g-${grupo.toLowerCase()}` }), profesorId: 'p', horaPropia: null } : null,
+  profesor: extra.profesor ?? null, sinClase: extra.sinClase ?? false, motivo: extra.motivo ?? null,
+  origen: extra.origen ?? 'grupo' as const, falta: extra.falta ?? false, editable: extra.editable ?? true,
+});
+const CLASES_FIS = [
+  claseFis(-7, 'Kappa', '08:00', { titulo: 'FLK 5.0', profesor: 'José Morato', editable: false }),
+  claseFis(-5, 'Kappa', '08:00', { titulo: 'F.M + RDL', profesor: 'Lucio', editable: false }),
+  claseFis(0, 'Kappa', '08:00', { titulo: 'FLK 5.0', profesor: 'José Morato', editable: false }),
+  claseFis(2, 'Kappa', '08:00', { sinClase: true, motivo: 'Festivo', editable: false }),
+  claseFis(3, 'Omega', '08:00', { titulo: 'FLK 5.1', profesor: 'Olivares', origen: 'multi' }),
+  claseFis(7, 'Kappa', '08:00', {}),
+  claseFis(9, 'Kappa', '08:00', { falta: true }),
 ];
 const NOTAS_FIS = [{ weekStart: lunesFis(0), note: 'Semana de test: llegad descansados al viernes', classId: 'g1' }];
 const PLANTILLAS_FIS = [
@@ -845,7 +865,7 @@ export async function getPlanificador() {
   return ok({
     sesiones: SESIONES_FIS, apuntes: APUNTES_FIS,
     miembros: [{ id: 'u3', email: 'alumno.flojo@ejemplo.com' }, { id: 'u2', email: 'alumno@atenea.com' }, { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com' }],
-    notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, rm: {}, hoy: fFis(0),
+    notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, rm: {}, hoy: fFis(0), clases: CLASES_FIS,
   });
 }
 export async function getPlantillas() { return ok({ plantillas: PLANTILLAS_FIS }); }
@@ -874,7 +894,7 @@ export async function deleteMarca() { return { success: true as const }; }
 export async function setSexoAlumno() { return { success: true as const }; }
 export async function getMiFisica() {
   return ok({
-    sesiones: SESIONES_FIS, apuntes: APUNTES_FIS.filter((a) => a.userId === 'u2').map(({ email: _e, ...a }) => a),
+    sesiones: SESIONES_FIS, clases: CLASES_FIS, apuntes: APUNTES_FIS.filter((a) => a.userId === 'u2').map(({ email: _e, ...a }) => a),
     notas: NOTAS_FIS, nombresGrupo: { g1: 'Promo 43 · Físicas' }, hoy: fFis(0),
     rm: { sentadilla: { ejercicio: 'Sentadilla', rm: 110.8 }, 'press de banca': { ejercicio: 'Press de banca', rm: 77 } },
   });
@@ -926,16 +946,34 @@ export async function getCuadrante(params?: { lunes?: string }) {
   const lunes = params?.lunes ?? '2026-11-09';
   const sesiones = lunes === '2026-11-09' ? CUAD_SESIONES : [];
   const plaza = (aforo: number, asisten: number) => ({ aforo, inscritos: 20, faltan: 0, asisten, libres: aforo - asisten, sobreaforo: false });
+  // `?sinclase=no` quita la marca del miércoles, para ver la semana entera.
+  const conMarca = typeof location === 'undefined' || !/sinclase=no/.test(location.search);
   return ok({
     datos: {
       lunes, hoy: '2026-11-10', grupos: CUAD_GRUPOS, profesores: CUAD_PROFES, sesiones,
-      plazas: { 'g-kappa|2026-11-09': plaza(30, 28), 'g-omega|2026-11-10': plaza(30, 30), 'g-sigma|2026-11-10': plaza(30, 24) },
+      // Zetta no tiene clase el miércoles: sale abajo, en «Sin clase esta semana».
+      sinClase: lunes === '2026-11-09' && conMarca ? [{ classId: 'g-zetta', fecha: '2026-11-11', motivo: 'Sin profesor' }] : [],
+      plazas: {
+        'g-kappa|2026-11-09': { aforo: 30, inscritos: 20, faltan: 1, asisten: 21, libres: 9, sobreaforo: false },
+        'g-omega|2026-11-10': plaza(30, 30), 'g-sigma|2026-11-10': plaza(30, 24),
+      },
       multis: { 'g-kappa|2026-11-09': [{ userId: 'u2', email: 'alumno@atenea.com' }, { userId: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com' }] },
+      faltan: { 'g-kappa|2026-11-09': [{ userId: 'u7', email: 'lucia.fernandez@gmail.com' }] },
+      alumnosMulti: [
+        { userId: 'u2', email: 'alumno@atenea.com' }, { userId: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com' },
+        { userId: 'u8', email: 'pablo.multi@gmail.com' },
+      ],
       totalMultis: 14,
+      titulos: ['FLK 5.0', 'F.M + RDL', 'FLK 5.1', 'Boxeo', 'Jiujitsu', 'Rodaje 40′', 'Circuito de agilidad'],
     },
   });
 }
 export async function saveCelda() { return { success: true as const, id: 'cs-nueva' }; }
+export async function copiarCelda() { return { success: true as const, copiadas: 2 }; }
+export async function setSinClase() { return { success: true as const }; }
+export async function borrarSesionesDia() { return { success: true as const, borradas: 1 }; }
+export async function setMultiEnClase() { return { success: true as const }; }
+export async function moverMulti() { return { success: true as const }; }
 export async function copiarCuadrante() { return { success: true as const, creadas: 12, omitidas: 0 }; }
 export async function getMiMulti() {
   const s = (classId: string, grupo: string, fecha: string, etiqueta: string, hora: string, titulo: string | null, profesor: string | null, libres: number | null, unido: boolean, editable = true) =>

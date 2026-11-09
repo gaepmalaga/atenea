@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   nombreCorto, nombrePila, turnoDe, etiquetaRango, tituloDia, armaCuadrante, textoCuadrante, choquesDeProfesor,
-  normalizaCelda, colorDeGrupo, plazasSesion, quedaPlaza,
-  type GrupoCuadrante, type SesionCuadrante, type Profesor,
+  normalizaCelda, colorDeGrupo, plazasSesion, quedaPlaza, entraEnCuadrante, fechasDelCuadrante, leeHora, tipoDeTitulo,
+  titulosFrecuentes, normalizaMotivo,
+  type GrupoCuadrante, type SesionCuadrante, type Profesor, type DiaSinClase,
 } from '../app/lib/cuadrante';
 import { cuentaSesion } from '../app/lib/asistencia';
 
@@ -122,11 +123,24 @@ describe('armaCuadrante: la semana real', () => {
     expect(c.dias.flatMap((d) => d.filas.flatMap((f) => f.avisos))).toEqual([]);
   });
 
-  it('una sesión en un día que no es de clase del grupo se ve y se marca', () => {
+  it('una clase extra de un grupo en un día de clase de otros se ve como extra', () => {
+    const extra = [...SEMANA, ses('Kappa', '2026-11-10', 'Carrera larga', JOSE)];
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: extra, profesores: PROFES });
+    const kappa = x.dias[1].filas.find((f) => f.grupo.corto === 'Kappa');
+    expect(kappa?.extra).toBe(true);
+    expect(kappa?.sesion?.titulo).toBe('Carrera larga');
+    expect(x.dias[1].filas.find((f) => f.grupo.corto === 'Omega')?.extra).toBe(false);
+  });
+
+  it('una sesión de un grupo en un día en que nadie tiene clase NO crea el día (regla 97)', () => {
     const extra = [...SEMANA, ses('Kappa', '2026-11-13', 'Carrera larga', JOSE)];
     const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: extra, profesores: PROFES });
-    const viernes = x.dias.find((d) => d.fecha === '2026-11-13')!;
-    expect(viernes.filas.find((f) => f.grupo.corto === 'Kappa')?.fueraDeHorario).toBe(true);
+    expect(x.dias.map((d) => d.fecha)).not.toContain('2026-11-13');
+  });
+
+  it('ningún día de la semana real es suelto: todos son de algún horario fijo', () => {
+    expect(c.dias.every((d) => !d.suelto)).toBe(true);
+    expect(c.quitados).toEqual([]);
   });
 
   it('una sesión de otra semana no entra', () => {
@@ -140,6 +154,159 @@ describe('armaCuadrante: la semana real', () => {
     const kappa = x.dias[0].filas[0];
     expect(kappa.sesion?.titulo).toBe('FLK 5.0');
     expect(kappa.extras).toBe(1);
+  });
+});
+
+/**
+ * REGLA 97: el cuadrante solo lleva CLASES DE GRUPO. Lo que se vio en
+ * producción el 9 nov: el grupo genérico «Promo 43 · Físicas» (sin horario, con
+ * 31 sesiones de ejemplo) salía como una fila más, con «Sin profesor · Día sin
+ * clase en su horario», y hasta creaba columnas como «DOMINGO 15 · FÍSICAS ·
+ * Descanso», con Multi colgando debajo.
+ */
+describe('el cuadrante solo lleva clases de grupo (regla 97)', () => {
+  const SIN_HORARIO = grupo('Físicas', [], '', {
+    id: 'g-promo43', nombre: 'Promo 43 · Físicas',
+    horario: { weekdays: null, startTime: null, endTime: null, capacity: null },
+  });
+  const CON_PROMO43 = [...GRUPOS, SIN_HORARIO];
+  const DEL_43 = (fecha: string, titulo: string): SesionCuadrante => ({ ...ses('Kappa', fecha, titulo, null), classId: 'g-promo43' });
+  // La semana real (lunes a jueves) + lo del grupo sin horario: una sesión en
+  // un día de clase y el descanso del domingo.
+  const conPromo43 = [...SEMANA, DEL_43('2026-11-09', 'Dominadas: pirámide'), DEL_43('2026-11-15', 'Descanso')];
+  const c = armaCuadrante({ lunes: LUNES, grupos: CON_PROMO43, sesiones: conPromo43, profesores: PROFES });
+
+  it('un grupo sin horario no entra; Multi y los grupos con horario, sí', () => {
+    expect(entraEnCuadrante(SIN_HORARIO)).toBe(false);
+    expect(entraEnCuadrante(GRUPOS[0])).toBe(true);
+    expect(entraEnCuadrante(GRUPOS.at(-1)!)).toBe(true);
+  });
+
+  it('la semana sigue siendo de lunes a jueves: el domingo del grupo sin horario no aparece', () => {
+    expect(c.dias.map((d) => d.titulo)).toEqual(['LUNES 9', 'MARTES 10', 'MIÉRCOLES 11', 'JUEVES 12']);
+    expect(c.rango).toBe('del 9 al 12 de noviembre');
+  });
+
+  it('ni su fila ni sus sesiones salen en ningún día', () => {
+    const corto = c.dias.flatMap((d) => d.filas.map((f) => f.grupo.id));
+    expect(corto).not.toContain('g-promo43');
+    expect(c.dias[0].filas.map((f) => f.grupo.corto)).toEqual(['Kappa', 'Alpha', 'Zetta', 'Multi']);
+  });
+
+  it('ni en el texto de WhatsApp', () => {
+    const t = textoCuadrante(c);
+    expect(t).not.toMatch(/FÍSICAS|Dominadas: pirámide|DOMINGO/);
+  });
+
+  it('la fila de Multi no crea días: un sábado sin nada no existe', () => {
+    expect(fechasDelCuadrante(GRUPOS, [], LUNES)).toEqual(['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12']);
+  });
+
+  it('una sesión de Multi sí crea su día, y ese día es suelto', () => {
+    const sabado = ses('Multi', '2026-11-14', 'Carrera en la playa', LUCAS, '10:00');
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: [...SEMANA, sabado], profesores: PROFES });
+    const dia = x.dias.find((d) => d.fecha === '2026-11-14')!;
+    expect(dia.suelto).toBe(true);
+    expect(dia.filas.map((f) => f.grupo.corto)).toEqual(['Multi']);
+  });
+});
+
+describe('quitar un día o un grupo: «sin clase» (regla 97)', () => {
+  const off = (corto: string, fecha: string, motivo: string | null = null): DiaSinClase => ({ classId: `g-${corto.toLowerCase()}`, fecha, motivo });
+
+  it('un grupo sin clase un día desaparece de ese día, y se apunta para poder devolverlo', () => {
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: SEMANA, profesores: PROFES, sinClase: [off('Kappa', '2026-11-09', 'Sin profesor')] });
+    expect(x.dias[0].filas.map((f) => f.grupo.corto)).toEqual(['Alpha', 'Zetta', 'Multi']);
+    expect(x.quitados).toEqual([{ fecha: '2026-11-09', titulo: 'LUNES 9', grupos: [GRUPOS[0]], motivos: ['Sin profesor'], todos: false }]);
+    // El miércoles Kappa sigue: la marca es por FECHA, el horario fijo no se toca.
+    expect(x.dias[2].filas[0].grupo.corto).toBe('Kappa');
+  });
+
+  it('el martes festivo para todos: con la sesión de Multi también quitada, el día desaparece entero', () => {
+    const festivo = ['Omega', 'Sigma', 'Betta', 'Delta', 'Multi'].map((g) => off(g, '2026-11-10', 'Festivo'));
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: SEMANA, profesores: PROFES, sinClase: festivo });
+    expect(x.dias.map((d) => d.titulo)).toEqual(['LUNES 9', 'MIÉRCOLES 11', 'JUEVES 12']);
+    expect(x.quitados[0]).toMatchObject({ fecha: '2026-11-10', motivos: ['Festivo'], todos: true });
+    const t = textoCuadrante(x);
+    expect(t).not.toContain('MARTES 10');
+    expect(t).not.toContain('Jiujitsu · 18:30');
+  });
+
+  it('si solo se quitan los grupos fijos y Multi conserva su clase, el día queda solo con Multi', () => {
+    const x = armaCuadrante({
+      lunes: LUNES, grupos: GRUPOS, sesiones: SEMANA, profesores: PROFES,
+      sinClase: ['Omega', 'Sigma', 'Betta', 'Delta'].map((g) => off(g, '2026-11-10')),
+    });
+    const martes = x.dias.find((d) => d.fecha === '2026-11-10')!;
+    expect(martes.filas.map((f) => f.grupo.corto)).toEqual(['Multi']);
+    expect(martes.suelto).toBe(false);
+  });
+
+  it('el último día quitado se lleva también el rango', () => {
+    const jueves = ['Omega', 'Sigma', 'Betta', 'Delta', 'Multi'].map((g) => off(g, '2026-11-12'));
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: SEMANA, profesores: PROFES, sinClase: jueves });
+    expect(x.rango).toBe('del 9 al 11 de noviembre');
+  });
+
+  it('una sesión de un día quitado no avisa de choques', () => {
+    const malas = [ses('Omega', '2026-11-10', 'A', LUCAS), ses('Sigma', '2026-11-10', 'B', LUCAS)];
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: malas, profesores: PROFES, sinClase: [off('Sigma', '2026-11-10')] });
+    expect(x.dias.flatMap((d) => d.filas.flatMap((f) => f.avisos))).toEqual([]);
+  });
+
+  it('una marca de otra semana, o de un grupo que no sale, no hace nada', () => {
+    const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: SEMANA, profesores: PROFES, sinClase: [off('Kappa', '2026-11-16'), { classId: 'g-otro', fecha: '2026-11-09', motivo: null }] });
+    expect(x.quitados).toEqual([]);
+    expect(x.dias).toHaveLength(4);
+  });
+
+  it('el motivo: corto, sin NUL, y vacío es null (regla 16)', () => {
+    expect(normalizaMotivo('  Festivo local ')).toBe('Festivo local');
+    expect(normalizaMotivo('   ')).toBeNull();
+    expect(normalizaMotivo(undefined)).toBeNull();
+    expect(normalizaMotivo('a\0b')).toBe('ab');
+    expect(normalizaMotivo('x'.repeat(200))).toHaveLength(120);
+  });
+});
+
+describe('el tipo sale del título (regla 97)', () => {
+  it('lo evidente', () => {
+    expect(tipoDeTitulo('Rodaje 40′')).toBe('carrera');
+    expect(tipoDeTitulo('Series: 6 × 400 m')).toBe('carrera');
+    expect(tipoDeTitulo('Ritmo de prueba: 2 × 1.000 m')).toBe('carrera');
+    expect(tipoDeTitulo('Circuito de fuerza-resistencia')).toBe('circuito');
+    expect(tipoDeTitulo('Circuito de agilidad: velocidad')).toBe('agilidad');
+    expect(tipoDeTitulo('Movilidad y recuperación activa')).toBe('movilidad');
+    expect(tipoDeTitulo('Estiramientos')).toBe('movilidad');
+    expect(tipoDeTitulo('F.M + RDL')).toBe('fuerza');
+    expect(tipoDeTitulo('Dominadas: pirámide')).toBe('fuerza');
+    expect(tipoDeTitulo('Descanso')).toBe('descanso');
+  });
+
+  it('lo que no se reconoce es «otro», no un color equivocado', () => {
+    for (const t of ['FLK 5.0', 'Boxeo', 'Jiujitsu', 'Clase libre', '5 min de charla']) expect(tipoDeTitulo(t), t).toBe('otro');
+  });
+});
+
+describe('la hora escrita a mano (regla 97)', () => {
+  it('entiende lo que se escribe en un móvil', () => {
+    for (const [entra, sale] of [
+      ['18:30', '18:30'], ['18.30', '18:30'], ['18,30', '18:30'], ['18h30', '18:30'], ['18 30', '18:30'],
+      ['1830', '18:30'], ['830', '08:30'], ['8:30', '08:30'], ['18', '18:00'], ['18h', '18:00'], [' 9 ', '09:00'],
+    ]) expect(leeHora(entra), entra).toBe(sale);
+  });
+
+  it('rechaza lo que no es una hora', () => {
+    for (const v of ['25:00', '18:60', '18:3', 'tarde', '', '12345', null, 1830]) expect(leeHora(v), String(v)).toBeNull();
+  });
+});
+
+describe('las sugerencias de título', () => {
+  it('del más usado al menos, sin repetir mayúsculas', () => {
+    expect(titulosFrecuentes(['FLK 5.0', 'Boxeo', 'flk 5.0', 'F.M + RDL', 'FLK 5.0', 'Boxeo', ' '])).toEqual(['FLK 5.0', 'Boxeo', 'F.M + RDL']);
+  });
+  it('con tope', () => {
+    expect(titulosFrecuentes(['a', 'b', 'c'], 2)).toHaveLength(2);
   });
 });
 
@@ -189,21 +356,21 @@ describe('el texto para WhatsApp', () => {
 });
 
 describe('normalizaCelda', () => {
-  const ok = { titulo: ' FLK 5.0 ', tipo: 'fuerza', profesorId: PROFES[0].id, horaPropia: '8:05' };
+  const ok = { titulo: ' FLK 5.0 ', profesorId: PROFES[0].id, horaPropia: '8:05' };
 
   it('limpia el título y la hora', () => {
-    expect(normalizaCelda(ok)).toEqual({ ok: true, valor: { titulo: 'FLK 5.0', tipo: 'fuerza', profesorId: PROFES[0].id, horaPropia: '08:05' } });
+    expect(normalizaCelda(ok)).toEqual({ ok: true, valor: { titulo: 'FLK 5.0', profesorId: PROFES[0].id, horaPropia: '08:05' } });
+    expect(normalizaCelda({ ...ok, horaPropia: '1830' })).toMatchObject({ ok: true, valor: { horaPropia: '18:30' } });
   });
 
-  it('lo que viene vacío es null y el tipo por defecto es «otro» (regla 16)', () => {
-    expect(normalizaCelda({ titulo: 'Boxeo', tipo: '', profesorId: '', horaPropia: '' }))
-      .toEqual({ ok: true, valor: { titulo: 'Boxeo', tipo: 'otro', profesorId: null, horaPropia: null } });
+  it('lo que viene vacío es null (regla 16), y un tipo que llegue no se usa: sale del título', () => {
+    expect(normalizaCelda({ titulo: 'Boxeo', tipo: 'yoga', profesorId: '', horaPropia: ' ' }))
+      .toEqual({ ok: true, valor: { titulo: 'Boxeo', profesorId: null, horaPropia: null } });
   });
 
   it('rechaza lo que no vale, diciendo por qué', () => {
     expect(normalizaCelda({ ...ok, titulo: '  ' })).toMatchObject({ ok: false, error: /qué toca/ });
     expect(normalizaCelda({ ...ok, titulo: 'x'.repeat(121) })).toMatchObject({ ok: false, error: /120/ });
-    expect(normalizaCelda({ ...ok, tipo: 'yoga' })).toMatchObject({ ok: false, error: /tipo/ });
     expect(normalizaCelda({ ...ok, profesorId: 'no-es-uuid' })).toMatchObject({ ok: false, error: /profesor/ });
     expect(normalizaCelda({ ...ok, horaPropia: '25:00' })).toMatchObject({ ok: false, error: /hora/ });
   });
@@ -247,7 +414,7 @@ describe('las acciones del cuadrante (guardas estáticas)', () => {
   };
 
   it('lo del preparador va detrás de requireAdmin y acotado a su academia dentro de la consulta (regla 65)', () => {
-    for (const f of ['getCuadrante', 'saveCelda', 'copiarCuadrante']) {
+    for (const f of ['getCuadrante', 'saveCelda', 'copiarCuadrante', 'copiarCelda', 'setSinClase', 'borrarSesionesDia']) {
       const c = cuerpo(f);
       expect(c, f).toContain('requireAdmin()');
       expect(c, f).toMatch(/\.eq\('organization_id', org\)/);
@@ -272,5 +439,39 @@ describe('las acciones del cuadrante (guardas estáticas)', () => {
   it('el alumno solo se apunta si es de un grupo multi de su academia', () => {
     expect(src).toMatch(/is_multi', true\)/);
     expect(src).toContain("'class_groups.organization_id', org");
+  });
+
+  it('el cuadrante y copiar la semana solo cargan grupos con horario o de Multi (regla 97)', () => {
+    expect(cuerpo('getCuadrante')).toContain('filter(conHorarioOMulti)');
+    expect(cuerpo('copiarCuadrante')).toContain('filter(conHorarioOMulti)');
+    expect(src).toMatch(/const conHorarioOMulti = \(g: Fila\) => g\.is_multi === true \|\| \(\(g\.weekdays/);
+  });
+
+  it('el tipo de la sesión sale del título al poner una celda', () => {
+    expect(src).toContain('tipoDeTitulo(valor.titulo)');
+  });
+
+  it('un día quitado no admite multis: ni el alumno ni el preparador lo apuntan ahí', () => {
+    expect(cuerpo('setMiUnion')).toContain('diasSinClase(');
+    expect(cuerpo('setMiUnionSemana')).toContain('diasSinClase(');
+    expect(cuerpo('getMiMulti')).toContain('diasSinClase(');
+    expect(src.slice(src.indexOf('async function claseParaMulti'), src.indexOf('type ResultadoMulti'))).toContain('diasSinClase(');
+  });
+
+  it('el preparador maneja multis detrás de requireAdmin, solo alumnos de Multi y grupos de su academia', () => {
+    for (const f of ['setMultiEnClase', 'moverMulti']) {
+      const c = cuerpo(f);
+      expect(c, f).toContain('requireAdmin()');
+      expect(c, f).toContain('esMulti(alumnoId, org)');
+      expect(c, f).toMatch(/\.eq\('organization_id', org\)/);
+    }
+    // Sin `forzar`, una clase completa no admite a nadie más.
+    expect(src.slice(src.indexOf('async function uneMulti'), src.indexOf('export async function setMultiEnClase'))).toContain('quedaPlaza');
+  });
+
+  it('marcar «sin clase» escribe la academia de la sesión, no la que llegue', () => {
+    const c = cuerpo('setSinClase');
+    expect(c).toContain('organization_id: org');
+    expect(c).not.toMatch(/params\.organization/);
   });
 });

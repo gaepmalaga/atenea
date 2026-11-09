@@ -16,11 +16,16 @@ import { Card, SectionLabel, TEXT, cx } from '../ui';
  * sin botón. La pantalla cambia al momento y, si el servidor lo rechaza, lo
  * deshace y lo dice.
  *
+ * Las clases de FÍSICA no están aquí cuando la academia lleva la física en la
+ * app: se ven y se avisan en el calendario de «Preparación física» (regla 97),
+ * y aquí solo se dice dónde están, para que no haya dos sitios con lo mismo.
+ *
  * No se pinta si el alumno no tiene ningún grupo con horario: un recuadro
  * vacío en «Mi perfil» no le dice nada.
  */
 export default function MisClases() {
   const [clases, setClases] = useState<ClaseAlumno[] | null>(null);
+  const [fisicaAparte, setFisicaAparte] = useState(false);
   const [enVuelo, setEnVuelo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +42,7 @@ export default function MisClases() {
     const res = await getMisClases();
     if (version !== versionRef.current) return;
     setClases(res.success ? res.clases : []);
+    setFisicaAparte(res.success && res.fisicaAparte);
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -61,7 +67,21 @@ export default function MisClases() {
     setEnVuelo(null);
   }
 
-  if (!clases || clases.length === 0) return null;
+  if (!clases || (clases.length === 0 && !fisicaAparte)) return null;
+  const notaFisica = fisicaAparte && (
+    <p className={cx(TEXT.muted, clases.length ? 'mt-3' : '')}>
+      Tus clases de física, y el aviso de que faltas, están en tu calendario de <b>Preparación física</b>.
+    </p>
+  );
+
+  if (clases.length === 0) {
+    return (
+      <Card>
+        <SectionLabel icon={<CalendarCheck size={14} />}>Mis clases</SectionLabel>
+        {notaFisica}
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -80,7 +100,7 @@ export default function MisClases() {
                 const clave = `${c.classId}|${s.fecha}`;
                 return (
                   <li key={s.fecha} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className={cx('text-sm', s.falta ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200')}>
+                    <span className={cx('text-sm', s.falta || s.sinClase ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200')}>
                       <span className="capitalize">{s.etiqueta}</span>
                       {s.hora && <span className="font-mono text-slate-500 dark:text-slate-400"> · {s.hora}</span>}
                     </span>
@@ -101,7 +121,7 @@ export default function MisClases() {
                       </button>
                     ) : (
                       <span className={cx('text-xs font-bold', s.falta ? 'text-red-700 dark:text-red-400' : 'text-slate-500 dark:text-slate-400')}>
-                        {s.falta ? 'Avisaste que no ibas' : 'En curso'}
+                        {s.sinClase ? 'Sin clase' : s.falta ? 'Avisaste que no ibas' : 'En curso'}
                       </span>
                     )}
                   </li>
@@ -111,6 +131,7 @@ export default function MisClases() {
           </div>
         ))}
       </div>
+      {notaFisica}
     </Card>
   );
 }

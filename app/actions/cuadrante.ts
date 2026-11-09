@@ -15,6 +15,12 @@
  * grupo es de su academia, que es un día de clase y que no ha empezado — con
  * la clave de servicio nada más que este código lo impide (regla 34).
  *
+ * SOLO CLASES DE GRUPO (regla 97): entran los grupos con horario semanal y
+ * los de Multi; un grupo sin horario no sale nunca. Un grupo (o el día entero)
+ * se puede marcar «sin clase» en una fecha (`class_days_off`), sin tocar el
+ * horario fijo: no sale en el cuadrante, el alumno lo ve como «sin clase» y un
+ * multi no se puede apuntar.
+ *
  * La lógica (rejilla, choques de profesor, plazas, texto) vive en
  * `app/lib/cuadrante.ts`, pura y con tests (regla 21).
  */
@@ -24,13 +30,14 @@ import { requireUser, requireAdmin } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { leeTrainingSwitches } from '../lib/training-switch-guard';
 import {
-  ahoraEnZona, esFecha, sumaDias, horarioDeFila, proximasSesiones, sePuedeAvisar, etiquetaFecha,
+  ahoraEnZona, esFecha, sumaDias, horarioDeFila, proximasSesiones, sePuedeAvisar, etiquetaFecha, diaSemanaDe,
   type HorarioGrupo, type CuentaSesion,
 } from '../lib/asistencia';
 import { lunesDe } from '../lib/sesiones';
+import { paginaCompleta } from '../lib/pagination';
 import {
-  nombreCorto, normalizaCelda, plazasSesion, quedaPlaza, nombrePila,
-  type GrupoCuadrante, type Profesor, type SesionCuadrante,
+  nombreCorto, normalizaCelda, plazasSesion, quedaPlaza, nombrePila, tipoDeTitulo, titulosFrecuentes, normalizaMotivo,
+  type GrupoCuadrante, type Profesor, type SesionCuadrante, type DiaSinClase,
 } from '../lib/cuadrante';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -68,7 +75,15 @@ async function profesoresDe(org: string): Promise<Profesor[]> {
 
 /** Cuántos van a cada sesión de unos grupos entre dos fechas: propios, faltas y multis. */
 type Cuentas = Map<string, { inscritos: number; faltan: number; multis: number }>;
-async function cuentasDeSesiones(grupos: { id: string }[], desde: string, hasta: string): Promise<{ cuentas: Cuentas; miembros: Map<string, Set<string>> }> {
+type Asistencia = {
+  cuentas: Cuentas;
+  miembros: Map<string, Set<string>>;
+  /** Por `classId|fecha`: quién de los propios ha avisado de que falta. */
+  quienFalta: Map<string, string[]>;
+  /** Por `classId|fecha`: los multis apuntados. */
+  quienSeUne: Map<string, string[]>;
+};
+async function cuentasDeSesiones(grupos: { id: string }[], desde: string, hasta: string): Promise<Asistencia> {
   const ids = grupos.map((g) => g.id);
   const vacio = { data: [] as Fila[] };
   const [m, f, j] = ids.length
@@ -86,22 +101,53 @@ async function cuentasDeSesiones(grupos: { id: string }[], desde: string, hasta:
     miembros.set(x.class_id as string, set);
   }
   const cuentas: Cuentas = new Map();
-  const toca = (classId: string, fecha: string) => {
-    const k = `${classId}|${fecha}`;
+  const quienFalta = new Map<string, string[]>();
+  const quienSeUne = new Map<string, string[]>();
+  const toca = (k: string, classId: string) => {
     const c = cuentas.get(k) ?? { inscritos: miembros.get(classId)?.size ?? 0, faltan: 0, multis: 0 };
     cuentas.set(k, c);
     return c;
   };
   // Solo cuenta la falta de quien SIGUE en el grupo (regla 82).
-  for (const x of f.data ?? []) if (miembros.get(x.class_id as string)?.has(x.user_id as string)) toca(x.class_id as string, x.session_date as string).faltan += 1;
-  for (const x of j.data ?? []) toca(x.class_id as string, x.session_date as string).multis += 1;
-  return { cuentas, miembros };
+  for (const x of f.data ?? []) {
+    if (!miembros.get(x.class_id as string)?.has(x.user_id as string)) continue;
+    const k = `${x.class_id}|${x.session_date}`;
+    toca(k, x.class_id as string).faltan += 1;
+    quienFalta.set(k, [...(quienFalta.get(k) ?? []), x.user_id as string]);
+  }
+  for (const x of j.data ?? []) {
+    const k = `${x.class_id}|${x.session_date}`;
+    toca(k, x.class_id as string).multis += 1;
+    quienSeUne.set(k, [...(quienSeUne.get(k) ?? []), x.user_id as string]);
+  }
+  return { cuentas, miembros, quienFalta, quienSeUne };
 }
 
 const cuentaDe = (cuentas: Cuentas, miembros: Map<string, Set<string>>, classId: string, fecha: string, aforo: number | null): CuentaSesion => {
   const c = cuentas.get(`${classId}|${fecha}`) ?? { inscritos: miembros.get(classId)?.size ?? 0, faltan: 0, multis: 0 };
   return plazasSesion(aforo, c.inscritos, c.faltan, c.multis);
 };
+
+/** Los días «sin clase» de unos grupos entre dos fechas (regla 97). */
+async function diasSinClase(org: string, ids: string[], desde: string, hasta: string): Promise<DiaSinClase[]> {
+  if (!ids.length) return [];
+  const { data } = await supabaseAdmin.from('class_days_off').select('class_id, session_date, reason')
+    .eq('organization_id', org).in('class_id', ids).gte('session_date', desde).lte('session_date', hasta);
+  return (data ?? []).map((d) => ({ classId: d.class_id as string, fecha: d.session_date as string, motivo: (d.reason as string | null) ?? null }));
+}
+
+/** ¿Es una fecha de clase del horario fijo del grupo? */
+const esDiaDeClase = (h: HorarioGrupo, fecha: string) => esFecha(fecha) && !!h.weekdays?.includes(diaSemanaDe(fecha));
+
+/** Solo las clases de grupo: grupos con horario semanal o de Multi (regla 97). */
+const conHorarioOMulti = (g: Fila) => g.is_multi === true || ((g.weekdays as number[] | null)?.length ?? 0) > 0;
+
+async function correosDe(ids: string[]): Promise<Map<string, string>> {
+  const unicos = [...new Set(ids)];
+  if (!unicos.length) return new Map();
+  const { data } = await supabaseAdmin.from('profiles').select('id, email').in('id', unicos);
+  return new Map((data ?? []).map((p) => [p.id as string, (p.email as string | null) ?? '—']));
+}
 
 const esLunes = (f: unknown): f is string => esFecha(f) && lunesDe(f) === f;
 
@@ -114,16 +160,28 @@ export type ApuntadoMulti = { userId: string; email: string };
 export type DatosCuadrante = {
   lunes: string;
   hoy: string;
+  /** Solo los grupos con horario semanal y los de Multi (regla 97). */
   grupos: GrupoCuadrante[];
   profesores: Profesor[];
   sesiones: SesionCuadrante[];
+  /** Lo marcado «sin clase» esa semana. */
+  sinClase: DiaSinClase[];
   /** Por `classId|fecha`: las plazas de esa sesión, con los multis dentro. */
   plazas: Record<string, CuentaSesion>;
   /** Por `classId|fecha`: los multis apuntados. */
   multis: Record<string, ApuntadoMulti[]>;
+  /** Por `classId|fecha`: quién del grupo ha avisado de que falta. */
+  faltan: Record<string, ApuntadoMulti[]>;
+  /** Los alumnos de Multi, para que el preparador los apunte a una clase. */
+  alumnosMulti: ApuntadoMulti[];
   /** Cuántos alumnos hay en el grupo Multi. */
   totalMultis: number;
+  /** Los títulos que ya se han usado, del más repetido al menos: las sugerencias. */
+  titulos: string[];
 };
+
+/** Hasta dónde se miran los títulos usados para sugerirlos. */
+const DIAS_TITULOS = 120;
 
 /** El cuadrante de una semana (`lunes` = su lunes). */
 export async function getCuadrante(params: { lunes: string }): Promise<
@@ -140,41 +198,43 @@ export async function getCuadrante(params: { lunes: string }): Promise<
   const { data: filas, error } = await supabaseAdmin
     .from('class_groups').select(COLS_GRUPO).eq('organization_id', org).eq('kind', 'fisicas').order('created_at').order('name');
   if (error) return { success: false as const, error: error.message };
-  const grupos0 = filas ?? [];
+  // Un grupo sin horario (un plan común) no es una clase: no sale (regla 97).
+  const grupos0 = (filas ?? []).filter(conHorarioOMulti);
   const ids = grupos0.map((g) => g.id as string);
 
-  const [{ cuentas, miembros }, profesores, sesionesRes, joinsRes] = await Promise.all([
+  const [asistencia, profesores, sesionesRes, sinClase, titulosRes] = await Promise.all([
     cuentasDeSesiones(grupos0.map((g) => ({ id: g.id as string })), lunes, domingo),
     profesoresDe(org),
     ids.length
       ? supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('organization_id', org).in('class_id', ids).gte('session_date', lunes).lte('session_date', domingo)
       : Promise.resolve({ data: [] as Fila[], error: null }),
+    diasSinClase(org, ids, lunes, domingo),
     ids.length
-      ? supabaseAdmin.from('class_session_joins').select('class_id, user_id, session_date').in('class_id', ids).gte('session_date', lunes).lte('session_date', domingo)
+      ? paginaCompleta<Fila>(async (desde, hasta) => supabaseAdmin.from('training_sessions').select('id, title')
+          .eq('organization_id', org).in('class_id', ids).gte('session_date', sumaDias(lunes, -DIAS_TITULOS))
+          .order('id').range(desde, hasta), { maxFilas: 5_000 })
       : Promise.resolve({ data: [] as Fila[], error: null }),
   ]);
   if (sesionesRes.error) return { success: false as const, error: sesionesRes.error.message };
-  if (joinsRes.error) return { success: false as const, error: joinsRes.error.message };
+  const { cuentas, miembros, quienFalta, quienSeUne } = asistencia;
 
-  const usuarios = [...new Set((joinsRes.data ?? []).map((j) => j.user_id as string))];
-  const { data: perfiles } = usuarios.length
-    ? await supabaseAdmin.from('profiles').select('id, email').in('id', usuarios)
-    : { data: [] as Fila[] };
-  const correo = new Map((perfiles ?? []).map((p) => [p.id as string, (p.email as string | null) ?? '—']));
+  const idsMulti = grupos0.filter((g) => g.is_multi === true).map((g) => g.id as string);
+  const alumnosMultiIds = idsMulti.flatMap((id) => [...(miembros.get(id) ?? [])]);
+  const correo = await correosDe([
+    ...[...quienFalta.values()].flat(), ...[...quienSeUne.values()].flat(), ...alumnosMultiIds,
+  ]);
+  const apuntado = (userId: string): ApuntadoMulti => ({ userId, email: correo.get(userId) ?? '—' });
+  const porCorreo = (a: ApuntadoMulti, b: ApuntadoMulti) => a.email.localeCompare(b.email);
 
   const grupos = grupos0.map((g) => aGrupo(g, miembros.get(g.id as string)?.size ?? 0));
   const porId = new Map(grupos.map((g) => [g.id, g]));
   const plazas: Record<string, CuentaSesion> = {};
-  const multis: Record<string, ApuntadoMulti[]> = {};
   for (const [k] of cuentas) {
     const [classId, fecha] = k.split('|');
     plazas[k] = cuentaDe(cuentas, miembros, classId, fecha, porId.get(classId)?.horario.capacity ?? null);
   }
-  for (const j of joinsRes.data ?? []) {
-    const k = `${j.class_id}|${j.session_date}`;
-    (multis[k] ??= []).push({ userId: j.user_id as string, email: correo.get(j.user_id as string) ?? '—' });
-  }
-  for (const k of Object.keys(multis)) multis[k].sort((a, b) => a.email.localeCompare(b.email));
+  const multis = Object.fromEntries([...quienSeUne].map(([k, us]) => [k, us.map(apuntado).sort(porCorreo)]));
+  const faltan = Object.fromEntries([...quienFalta].map(([k, us]) => [k, us.map(apuntado).sort(porCorreo)]));
 
   return {
     success: true as const,
@@ -184,18 +244,52 @@ export async function getCuadrante(params: { lunes: string }): Promise<
       grupos,
       profesores,
       sesiones: (sesionesRes.data ?? []).map(aSesion),
+      sinClase,
       plazas,
       multis,
+      faltan,
+      alumnosMulti: [...new Set(alumnosMultiIds)].map(apuntado).sort(porCorreo),
       totalMultis: grupos.filter((g) => g.esMulti).reduce((n, g) => n + g.inscritos, 0),
+      titulos: titulosFrecuentes((titulosRes.data ?? []).map((t) => t.title as string)),
     },
   };
 }
 
 /**
- * Pone lo que toca a un grupo un día (una celda del cuadrante): la crea o, si
- * el grupo ya tiene sesión ese día, cambia la primera. Quedan intactos la
- * descripción, las cargas y lo demás que la sesión tuviera del planificador.
+ * Lo común a poner una celda y a copiarla: la primera sesión del grupo ese día
+ * se cambia, o se crea si no hay. Quedan intactos la descripción, las cargas y
+ * lo demás que la sesión tuviera del planificador.
+ *
+ * El TIPO (el color en el calendario del alumno) sale del título (regla 97);
+ * si el título no cambia, se respeta el que ya tenía, que pudo ponerse a mano
+ * en el detalle de la sesión.
  */
+async function ponCelda(org: string, autor: string, classId: string, fecha: string, valor: {
+  titulo: string; profesorId: string | null; horaPropia: string | null;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const { data: previa, error: e0 } = await supabaseAdmin.from('training_sessions').select('id, title, kind')
+    .eq('organization_id', org).eq('class_id', classId).eq('session_date', fecha)
+    .order('position').order('created_at').limit(1).maybeSingle();
+  if (e0) return { ok: false, error: e0.message };
+
+  const cambios = {
+    kind: previa && previa.title === valor.titulo ? (previa.kind as string) : tipoDeTitulo(valor.titulo),
+    title: valor.titulo,
+    teacher_id: valor.profesorId,
+    start_time: valor.horaPropia,
+    updated_at: new Date().toISOString(),
+  };
+  if (previa) {
+    const { error } = await supabaseAdmin.from('training_sessions').update(cambios).eq('id', previa.id as string).eq('organization_id', org);
+    return error ? { ok: false, error: error.message } : { ok: true, id: previa.id as string };
+  }
+  const { data, error } = await supabaseAdmin.from('training_sessions')
+    .insert({ ...cambios, organization_id: org, class_id: classId, session_date: fecha, position: 0, created_by: autor })
+    .select('id').single();
+  return error ? { ok: false, error: error.message } : { ok: true, id: data.id as string };
+}
+
+/** Pone lo que toca a un grupo un día (una celda del cuadrante): la crea o cambia la primera. */
 export async function saveCelda(params: {
   classId: string;
   fecha: string;
@@ -215,29 +309,107 @@ export async function saveCelda(params: {
     const { data: prof } = await supabaseAdmin.from('academy_staff').select('id').eq('id', c.valor.profesorId).eq('organization_id', org).maybeSingle();
     if (!prof) return { success: false as const, error: 'Ese profesor no es de tu academia.' };
   }
+  const r = await ponCelda(org, auth.user.id, classId, fecha, c.valor);
+  return r.ok ? { success: true as const, id: r.id } : { success: false as const, error: r.error };
+}
 
-  const cambios = {
-    kind: c.valor.tipo,
-    title: c.valor.titulo,
-    teacher_id: c.valor.profesorId,
-    start_time: c.valor.horaPropia,
-    updated_at: new Date().toISOString(),
-  };
-  const { data: previa, error: e0 } = await supabaseAdmin.from('training_sessions').select('id')
-    .eq('organization_id', org).eq('class_id', classId).eq('session_date', fecha)
-    .order('position').order('created_at').limit(1).maybeSingle();
-  if (e0) return { success: false as const, error: e0.message };
-
-  if (previa) {
-    const { error } = await supabaseAdmin.from('training_sessions').update(cambios).eq('id', previa.id as string).eq('organization_id', org);
-    if (error) return { success: false as const, error: error.message };
-    return { success: true as const, id: previa.id as string };
+/**
+ * Copia una celda a otras: a otro día del mismo grupo o a otro grupo
+ * (regla 97). Lo que haya en la celda de destino se cambia, como al
+ * escribirla; la descripción y las cargas de la de destino no se tocan. La
+ * hora propia solo viaja dentro del mismo grupo: la de Multi (18:30) no es la
+ * de Kappa.
+ */
+export async function copiarCelda(params: {
+  origenId: string;
+  destinos: { classId: string; fecha: string }[];
+  conProfesor: boolean;
+}): Promise<{ success: true; copiadas: number } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { origenId, destinos, conProfesor } = params ?? ({} as typeof params);
+  if (!org || !esUuid(origenId) || !Array.isArray(destinos) || !destinos.length || destinos.length > 40) {
+    return { success: false as const, error: 'Datos no válidos.' };
   }
-  const { data, error } = await supabaseAdmin.from('training_sessions')
-    .insert({ ...cambios, organization_id: org, class_id: classId, session_date: fecha, position: 0, created_by: auth.user.id })
-    .select('id').single();
+  if (!destinos.every((d) => d && esUuid(d.classId) && esFecha(d.fecha))) return { success: false as const, error: 'Datos no válidos.' };
+
+  const { data: o } = await supabaseAdmin.from('training_sessions').select('id, class_id, session_date, title, teacher_id, start_time')
+    .eq('id', origenId).eq('organization_id', org).not('class_id', 'is', null).maybeSingle();
+  if (!o) return { success: false as const, error: 'No se ha encontrado la celda que copiar.' };
+  const idsGrupo = [...new Set(destinos.map((d) => d.classId))];
+  const { data: grupos } = await supabaseAdmin.from('class_groups').select('id').eq('organization_id', org).in('id', idsGrupo);
+  if ((grupos ?? []).length !== idsGrupo.length) return { success: false as const, error: 'Algún grupo no es de tu academia.' };
+
+  let copiadas = 0;
+  for (const d of destinos) {
+    if (d.classId === o.class_id && d.fecha === o.session_date) continue;
+    const r = await ponCelda(org, auth.user.id, d.classId, d.fecha, {
+      titulo: o.title as string,
+      profesorId: conProfesor ? (o.teacher_id as string | null) ?? null : null,
+      horaPropia: d.classId === o.class_id ? (typeof o.start_time === 'string' ? o.start_time.slice(0, 5) : null) : null,
+    });
+    if (!r.ok) return { success: false as const, error: r.error };
+    copiadas += 1;
+  }
+  return { success: true as const, copiadas };
+}
+
+/**
+ * Marca (o devuelve) «sin clase» a unos grupos en una fecha: festivo, no hay
+ * profesor… (regla 97). El horario fijo del grupo no se toca, y las sesiones
+ * que tuviera ese día tampoco: se esconden, y vuelven al devolver el día.
+ */
+export async function setSinClase(params: {
+  fecha: string;
+  classIds: string[];
+  sinClase: boolean;
+  motivo?: string | null;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { fecha, classIds, sinClase } = params ?? ({} as typeof params);
+  if (!org || !esFecha(fecha) || !Array.isArray(classIds) || !classIds.length || classIds.length > 30 || !classIds.every(esUuid)) {
+    return { success: false as const, error: 'Datos no válidos.' };
+  }
+  const ids = [...new Set(classIds)];
+  const { data: grupos } = await supabaseAdmin.from('class_groups').select('id').eq('organization_id', org).in('id', ids);
+  if ((grupos ?? []).length !== ids.length) return { success: false as const, error: 'Algún grupo no es de tu academia.' };
+
+  if (!sinClase) {
+    const { error } = await supabaseAdmin.from('class_days_off').delete()
+      .eq('organization_id', org).eq('session_date', fecha).in('class_id', ids);
+    return error ? { success: false as const, error: error.message } : { success: true as const };
+  }
+  const motivo = normalizaMotivo(params.motivo);
+  const { error } = await supabaseAdmin.from('class_days_off').upsert(
+    ids.map((id) => ({ class_id: id, session_date: fecha, organization_id: org, reason: motivo, created_by: auth.user.id })),
+    { onConflict: 'class_id,session_date' },
+  );
+  return error ? { success: false as const, error: error.message } : { success: true as const };
+}
+
+/**
+ * Quita un día SUELTO del cuadrante (uno que no es de ningún horario fijo,
+ * como una sesión de Multi en sábado): borra esas sesiones de grupo. Se pide
+ * confirmación en la pantalla, porque se pierde también lo que hayan apuntado
+ * los alumnos.
+ */
+export async function borrarSesionesDia(params: { fecha: string; ids: string[] }): Promise<
+  { success: true; borradas: number } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { fecha, ids } = params ?? ({} as typeof params);
+  if (!org || !esFecha(fecha) || !Array.isArray(ids) || !ids.length || ids.length > 30 || !ids.every(esUuid)) {
+    return { success: false as const, error: 'Datos no válidos.' };
+  }
+  const { data, error } = await supabaseAdmin.from('training_sessions').delete()
+    .eq('organization_id', org).eq('session_date', fecha).in('id', ids).not('class_id', 'is', null).select('id');
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const, id: data.id as string };
+  return { success: true as const, borradas: (data ?? []).length };
 }
 
 /**
@@ -254,9 +426,11 @@ export async function copiarCuadrante(params: { desde: string; a: string }): Pro
   const { desde, a } = params ?? ({} as typeof params);
   if (!org || !esLunes(desde) || !esLunes(a) || desde === a) return { success: false as const, error: 'Datos no válidos.' };
 
-  const { data: grupos } = await supabaseAdmin.from('class_groups').select('id').eq('organization_id', org).eq('kind', 'fisicas');
-  const ids = (grupos ?? []).map((g) => g.id as string);
-  if (!ids.length) return { success: false as const, error: 'No hay grupos de física.' };
+  const { data: grupos } = await supabaseAdmin.from('class_groups').select('id, weekdays, is_multi').eq('organization_id', org).eq('kind', 'fisicas');
+  const ids = (grupos ?? []).filter(conHorarioOMulti).map((g) => g.id as string);
+  if (!ids.length) return { success: false as const, error: 'No hay grupos de física con horario.' };
+  // Lo de un día quitado (festivo) no estaba en el cuadrante: no se copia.
+  const quitados = new Set((await diasSinClase(org, ids, desde, sumaDias(desde, 6))).map((d) => `${d.classId}|${d.fecha}`));
 
   const [orig, dest] = await Promise.all([
     supabaseAdmin.from('training_sessions')
@@ -271,10 +445,12 @@ export async function copiarCuadrante(params: { desde: string; a: string }): Pro
 
   const ocupadas = new Set((dest.data ?? []).map((s) => `${s.class_id}|${s.session_date}`));
   const dias = (f: string) => Math.round((Date.parse(`${f}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000);
-  const nuevas = (orig.data ?? [])
-    .map((s) => ({ ...s, nueva: sumaDias(a, dias(s.session_date as string)) }))
-    .filter((s) => !ocupadas.has(`${s.class_id}|${s.nueva}`));
-  const omitidas = (orig.data ?? []).length - nuevas.length;
+  const copiables = (orig.data ?? [])
+    .filter((s) => !quitados.has(`${s.class_id}|${s.session_date}`))
+    .map((s) => ({ ...s, nueva: sumaDias(a, dias(s.session_date as string)) }));
+  if (!copiables.length) return { success: false as const, error: 'Esa semana no tiene sesiones que copiar.' };
+  const nuevas = copiables.filter((s) => !ocupadas.has(`${s.class_id}|${s.nueva}`));
+  const omitidas = copiables.length - nuevas.length;
   if (!nuevas.length) return { success: false as const, error: 'La semana de destino ya tiene todas esas sesiones.' };
 
   const { error } = await supabaseAdmin.from('training_sessions').insert(nuevas.map((s) => ({
@@ -360,15 +536,18 @@ export async function getMiMulti(): Promise<
   const ids = grupos.map((g) => g.id as string);
   if (!ids.length) return { success: true as const, esMulti: true as const, dias: [], semanas: [] };
 
-  const [{ cuentas, miembros }, sesionesRes, mias, profesores] = await Promise.all([
+  const [{ cuentas, miembros }, sesionesRes, mias, profesores, sinClase] = await Promise.all([
     cuentasDeSesiones(grupos.map((g) => ({ id: g.id as string })), ahora.fecha, hasta),
     supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('organization_id', org).in('class_id', ids)
       .gte('session_date', ahora.fecha).lte('session_date', hasta),
     supabaseAdmin.from('class_session_joins').select('class_id, session_date').eq('user_id', auth.user.id).in('class_id', ids)
       .gte('session_date', ahora.fecha).lte('session_date', hasta),
     profesoresDe(org),
+    diasSinClase(org, ids, ahora.fecha, hasta),
   ]);
   const unidas = new Set((mias.data ?? []).map((j) => `${j.class_id}|${j.session_date}`));
+  // Un día quitado (festivo, sin profesor) no tiene clase a la que apuntarse (regla 97).
+  const quitados = new Set(sinClase.map((d) => `${d.classId}|${d.fecha}`));
   const sesiones = (sesionesRes.data ?? []).map(aSesion);
   const nomProf = new Map(profesores.map((p) => [p.id, nombrePila(p.nombre)]));
 
@@ -378,7 +557,7 @@ export async function getMiMulti(): Promise<
     const h: HorarioGrupo = horarioDeFila(g);
     const corto = nombreCorto(g.name as string);
     for (const fecha of proximasSesiones(h, ahora, 14)) {
-      if (fecha > hasta) continue;
+      if (fecha > hasta || quitados.has(`${g.id}|${fecha}`)) continue;
       const delDia = sesiones.filter((s) => s.classId === g.id && s.fecha === fecha).sort((x, y) => x.position - y.position)[0];
       const c = cuentaDe(cuentas, miembros, g.id as string, fecha, h.capacity);
       const unido = unidas.has(`${g.id}|${fecha}`);
@@ -448,6 +627,9 @@ export async function setMiUnion(params: { classId: string; fecha: string; unir:
       .eq('class_id', classId).eq('user_id', auth.user.id).eq('session_date', fecha);
     return error ? { success: false as const, error: error.message } : { success: true as const };
   }
+  if ((await diasSinClase(auth.user.organizationId, [classId], fecha, fecha)).length) {
+    return { success: false as const, error: 'Ese día ese grupo no tiene clase.' };
+  }
   const { cuentas, miembros } = await cuentasDeSesiones([{ id: classId }], fecha, fecha);
   if (!quedaPlaza(cuentaDe(cuentas, miembros, classId, fecha, ctx.horario.capacity))) {
     return { success: false as const, error: 'Esa sesión está completa.' };
@@ -481,8 +663,9 @@ export async function setMiUnionSemana(params: { classId: string; lunes: string;
     return error ? { success: false as const, error: error.message } : { success: true as const, cambiadas: fechas.length, completas: 0 };
   }
 
+  const quitados = new Set((await diasSinClase(auth.user.organizationId, [classId], fechas[0], fechas[fechas.length - 1])).map((d) => d.fecha));
   const { cuentas, miembros } = await cuentasDeSesiones([{ id: classId }], fechas[0], fechas[fechas.length - 1]);
-  const conPlaza = fechas.filter((f) => quedaPlaza(cuentaDe(cuentas, miembros, classId, f, ctx.horario.capacity)));
+  const conPlaza = fechas.filter((f) => !quitados.has(f) && quedaPlaza(cuentaDe(cuentas, miembros, classId, f, ctx.horario.capacity)));
   if (conPlaza.length) {
     const { error } = await supabaseAdmin.from('class_session_joins').upsert(
       conPlaza.map((f) => ({ class_id: classId, user_id: auth.user.id, session_date: f })),
@@ -490,5 +673,96 @@ export async function setMiUnionSemana(params: { classId: string; lunes: string;
     );
     if (error) return { success: false as const, error: error.message };
   }
-  return { success: true as const, cambiadas: conPlaza.length, completas: fechas.length - conPlaza.length };
+  return { success: true as const, cambiadas: conPlaza.length, completas: fechas.filter((f) => !quitados.has(f)).length - conPlaza.length };
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// EL PREPARADOR Y LOS MULTIS (regla 97)
+// ═════════════════════════════════════════════════════════════════════════
+
+/** La clase de un grupo (no Multi) de la academia, si esa fecha es día de clase y no está quitada. */
+async function claseParaMulti(org: string, classId: string, fecha: string): Promise<
+  { ok: true; horario: HorarioGrupo } | { ok: false; error: string }
+> {
+  if (!esUuid(classId) || !esFecha(fecha)) return { ok: false, error: 'Datos no válidos.' };
+  const { data: grupo } = await supabaseAdmin.from('class_groups').select(COLS_GRUPO)
+    .eq('id', classId).eq('organization_id', org).eq('kind', 'fisicas').eq('is_multi', false).maybeSingle();
+  if (!grupo) return { ok: false, error: 'Ese grupo no es de tu academia.' };
+  const horario = horarioDeFila(grupo);
+  if (!esDiaDeClase(horario, fecha)) return { ok: false, error: 'Ese día no es de clase de ese grupo.' };
+  if ((await diasSinClase(org, [classId], fecha, fecha)).length) return { ok: false, error: 'Ese día ese grupo no tiene clase.' };
+  return { ok: true, horario };
+}
+
+type ResultadoMulti = { success: true } | { success: false; error: string; completa?: boolean };
+
+/**
+ * Apunta a un multi a una clase (lo hacía solo él). El preparador puede
+ * hacerlo también con la clase empezada o ya pasada, para dejar bien la
+ * asistencia; lo que no hace sin preguntar es pasarse del aforo: sin `forzar`,
+ * una clase completa devuelve `completa` y la pantalla le pregunta.
+ */
+async function uneMulti(org: string, alumnoId: string, classId: string, fecha: string, forzar: boolean): Promise<ResultadoMulti> {
+  const c = await claseParaMulti(org, classId, fecha);
+  if (!c.ok) return { success: false, error: c.error };
+  if (!forzar) {
+    const { cuentas, miembros, quienSeUne } = await cuentasDeSesiones([{ id: classId }], fecha, fecha);
+    const yaVa = (quienSeUne.get(`${classId}|${fecha}`) ?? []).includes(alumnoId);
+    if (!yaVa && !quedaPlaza(cuentaDe(cuentas, miembros, classId, fecha, c.horario.capacity))) {
+      return { success: false, error: 'Esa clase está completa.', completa: true };
+    }
+  }
+  const { error } = await supabaseAdmin.from('class_session_joins')
+    .upsert({ class_id: classId, user_id: alumnoId, session_date: fecha }, { onConflict: 'class_id,user_id,session_date', ignoreDuplicates: true });
+  return error ? { success: false, error: error.message } : { success: true };
+}
+
+/** El preparador apunta (`unir`) o quita a un alumno de Multi de la clase de un grupo. */
+export async function setMultiEnClase(params: {
+  alumnoId: string;
+  classId: string;
+  fecha: string;
+  unir: boolean;
+  forzar?: boolean;
+}): Promise<ResultadoMulti> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { alumnoId, classId, fecha, unir } = params ?? ({} as typeof params);
+  if (!org || !esUuid(alumnoId) || !esUuid(classId) || !esFecha(fecha)) return { success: false as const, error: 'Datos no válidos.' };
+  if (!(await esMulti(alumnoId, org))) return { success: false as const, error: 'Ese alumno no es de Multi.' };
+
+  if (!unir) {
+    const { data: grupo } = await supabaseAdmin.from('class_groups').select('id').eq('id', classId).eq('organization_id', org).maybeSingle();
+    if (!grupo) return { success: false as const, error: 'Ese grupo no es de tu academia.' };
+    const { error } = await supabaseAdmin.from('class_session_joins').delete()
+      .eq('class_id', classId).eq('user_id', alumnoId).eq('session_date', fecha);
+    return error ? { success: false as const, error: error.message } : { success: true as const };
+  }
+  return uneMulti(org, alumnoId, classId, fecha, params.forzar === true);
+}
+
+/** Cambia a un multi de una clase a otra (de Omega el martes a Delta el jueves, por ejemplo). */
+export async function moverMulti(params: {
+  alumnoId: string;
+  de: { classId: string; fecha: string };
+  a: { classId: string; fecha: string };
+  forzar?: boolean;
+}): Promise<ResultadoMulti> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { alumnoId, de, a } = params ?? ({} as typeof params);
+  if (!org || !esUuid(alumnoId) || !de || !a || !esUuid(de.classId) || !esFecha(de.fecha)) return { success: false as const, error: 'Datos no válidos.' };
+  if (de.classId === a?.classId && de.fecha === a?.fecha) return { success: true as const };
+  if (!(await esMulti(alumnoId, org))) return { success: false as const, error: 'Ese alumno no es de Multi.' };
+  const { data: origen } = await supabaseAdmin.from('class_groups').select('id').eq('id', de.classId).eq('organization_id', org).maybeSingle();
+  if (!origen) return { success: false as const, error: 'Ese grupo no es de tu academia.' };
+
+  // Primero se le apunta a la nueva: si no cabe, no se queda sin ninguna.
+  const r = await uneMulti(org, alumnoId, a.classId, a.fecha, params.forzar === true);
+  if (!r.success) return r;
+  const { error } = await supabaseAdmin.from('class_session_joins').delete()
+    .eq('class_id', de.classId).eq('user_id', alumnoId).eq('session_date', de.fecha);
+  return error ? { success: false as const, error: error.message } : { success: true as const };
 }
