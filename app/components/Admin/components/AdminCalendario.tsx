@@ -5,15 +5,14 @@ import { ChevronLeft, ChevronRight, SlidersHorizontal, Search, CalendarDays, Use
 import { getCalendario } from '@/actions';
 import type { DatosCalendario } from '@/app/actions/calendario';
 import {
-  filtraEventos, rangoDeVista, mueveVista, fechasEntre, lunesDeFecha, horaLegible, aHoras, queEs,
+  filtraEventos, rangoDeVista, mueveVista, fechasEntre, lunesDeFecha, horaLegible, queEs,
   FILTRO_INICIAL, ETIQUETA_TIPO_EVENTO,
   type EventoCalendario, type FiltroCalendario, type VistaCalendario,
 } from '@/app/lib/calendario';
 import { ahoraEnZona, diaSemanaDe, DIAS_SEMANA } from '@/app/lib/asistencia';
 import { etiquetaRango, nombreCorto } from '@/app/lib/cuadrante';
-import { enCarriles, tramosDeHoras } from '@/app/lib/groups';
 import {
-  PanelTitulo, Hoja, Rotulo, Aviso, Boton, Campo, Etiqueta, Estado, EmptyState, PanelLateral, cx,
+  PanelTitulo, Hoja, Rotulo, Aviso, Boton, Campo, Estado, EmptyState, PanelLateral, cx,
 } from '../../ui';
 
 /**
@@ -105,7 +104,7 @@ export default function AdminCalendario() {
     <div className="space-y-5 animate-in fade-in pb-24">
       <PanelTitulo
         titulo="Calendario"
-        sub="Toda la programación: clases, física, sesiones sueltas, entrenos, días sin clase y el examen."
+        sub={<span className="max-sm:hidden">Toda la programación: clases, física, sesiones sueltas, entrenos, días sin clase y el examen.</span>}
         acciones={
           <Boton variant="secondary" className="lg:hidden" icon={<SlidersHorizontal size={15} />} onClick={() => setVerFiltros((x) => !x)} aria-expanded={verFiltros}>
             Filtros{nFiltros ? ` (${nFiltros})` : ''}
@@ -260,10 +259,29 @@ function textoCorto(e: EventoCalendario): string {
   return e.titulo;
 }
 
-function Pildora({ e, onClick, conHora = true }: { e: EventoCalendario; onClick: () => void; conHora?: boolean }) {
+/**
+ * Un evento en una línea: «8:00 Boxeo · Alpha». `ajustada`: del ancho de su
+ * texto (en el móvil van una tras otra) y más alta, para el dedo.
+ */
+function Pildora({ e, onClick, conHora = true, ajustada = false, doble = false }: { e: EventoCalendario; onClick: () => void; conHora?: boolean; ajustada?: boolean; doble?: boolean }) {
+  // En la semana hay alto de sobra: dos líneas, «8:00 Boxeo» y «Alpha · Juan».
+  if (doble) {
+    const segunda = [e.grupo && e.tipo !== 'clase' ? nombreCorto(e.grupo) : null, e.tipo === 'entreno' ? e.alumno?.split('@')[0] : e.profesores.map((x) => x.split(' ')[0]).join(', ') || null]
+      .filter(Boolean).join(' · ');
+    return (
+      <button type="button" onClick={(ev) => { ev.stopPropagation(); onClick(); }} title={`${horaLegible(e.inicio)} · ${textoCorto(e)}`}
+        className={cx('block w-full min-w-0 overflow-hidden rounded px-1.5 py-1 text-left text-[11px] leading-tight', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300')}
+        style={estiloDe(e)}>
+        <span className={cx('block truncate', e.sinPlanificar && 'italic opacity-80', e.tipo === 'sin_clase' && 'line-through')}>
+          {e.inicio && <b className="tabular-nums">{horaLegible(e.inicio)} </b>}{e.tipo === 'sin_clase' ? 'Sin clase' : e.titulo}
+        </span>
+        {(segunda || e.tipo === 'sin_clase') && <span className="block truncate opacity-85">{e.tipo === 'sin_clase' ? [e.grupo && nombreCorto(e.grupo), e.motivo].filter(Boolean).join(' · ') : segunda}</span>}
+      </button>
+    );
+  }
   return (
     <button type="button" onClick={(ev) => { ev.stopPropagation(); onClick(); }}
-      className={cx('flex w-full min-w-0 items-center gap-1 overflow-hidden rounded px-1.5 py-0.5 text-left text-[11px] leading-tight', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300')}
+      className={cx('flex min-w-0 items-center gap-1 overflow-hidden rounded text-left leading-tight', ajustada ? 'min-h-[32px] max-w-full px-2 text-xs' : 'w-full px-1.5 py-0.5 text-[11px]', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300')}
       style={estiloDe(e)} title={`${horaLegible(e.inicio)} · ${textoCorto(e)}`}>
       {conHora && e.inicio && <b className="shrink-0 tabular-nums">{horaLegible(e.inicio)}</b>}
       <span className={cx('truncate', e.sinPlanificar && 'italic opacity-80', e.tipo === 'sin_clase' && 'line-through')}>{textoCorto(e)}</span>
@@ -325,134 +343,145 @@ function VistaMes({ fecha, desde, hasta, hoy, eventos, onDia, onEvento }: {
 }
 
 // ============================================================
-// LA VISTA DE LA SEMANA
+// LA VISTA DE LA SEMANA: como el mes, una casilla por día
 // ============================================================
 
-const PX_HORA = 52;
-const SALTO = 24;
-
+/**
+ * La semana se lee como una fila del mes: siete casillas con TODO lo de cada
+ * día en una línea por evento, sin rejilla de horas que obligue a bajar. El
+ * dueño lo pidió así: «que se vea claro de un vistazo qué hay esa semana».
+ * En el móvil, una fila por día con sus eventos uno tras otro.
+ */
 function VistaSemana({ desde, hasta, hoy, eventos, onDia, onEvento }: {
   desde: string; hasta: string; hoy: string; eventos: EventoCalendario[]; onDia: (f: string) => void; onEvento: (e: EventoCalendario) => void;
 }) {
   const dias = fechasEntre(desde, hasta);
-  const conHora = eventos.filter((e) => e.inicio);
-  const sinHora = eventos.filter((e) => !e.inicio);
-  const tramos = conHora.length ? tramosDeHoras(conHora.map((e) => ({ ini: aHoras(e.inicio!), fin: aHoras(e.fin ?? e.inicio!) || aHoras(e.inicio!) + 1 }))) : [];
-  const yDe = (h: number) => {
-    let y = 4;
-    for (const t of tramos) {
-      if (h <= t.hasta) return y + (Math.max(h, t.desde) - t.desde) * PX_HORA;
-      y += (t.hasta - t.desde) * PX_HORA + SALTO;
-    }
-    return y - SALTO;
-  };
-  const alto = tramos.length ? yDe(tramos[tramos.length - 1].hasta) + 4 : 0;
+  const porDia = new Map<string, EventoCalendario[]>();
+  for (const e of eventos) porDia.set(e.fecha, [...(porDia.get(e.fecha) ?? []), e]);
 
   return (
     <>
-      {/* ESCRITORIO: la rejilla de la semana, con las horas. */}
-      <Hoja className="hidden overflow-hidden lg:block">
-        <div className="grid" style={{ gridTemplateColumns: `3.25rem repeat(7, minmax(0, 1fr))` }}>
-          <div className="border-b border-linea bg-hundido dark:border-noche-linea dark:bg-noche-hondo" />
-          {dias.map((f, i) => (
-            <button key={f} onClick={() => onDia(f)} className={cx('border-b border-l border-linea bg-hundido py-2 text-center dark:border-noche-linea dark:bg-noche-hondo', f === hoy && 'bg-oro/25 dark:bg-oro/15')}>
-              <span className="block text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">{DIAS_SEMANA[i].largo.slice(0, 3)}</span>
-              <span className="font-titulo text-xl font-bold leading-none text-slate-900 dark:text-white">{Number(f.slice(8, 10))}</span>
-            </button>
-          ))}
-          {sinHora.length > 0 && (
-            <>
-              <div className="border-b border-linea px-1 py-1 text-right text-[10px] text-slate-500 dark:border-noche-linea">Día</div>
-              {dias.map((f) => (
-                <div key={f} className="space-y-0.5 border-b border-l border-linea p-1 dark:border-noche-linea">
-                  {sinHora.filter((e) => e.fecha === f).map((e) => <Pildora key={e.id} e={e} onClick={() => onEvento(e)} />)}
+      {/* TABLET Y ESCRITORIO: siete casillas. */}
+      <Hoja className="hidden overflow-hidden md:block">
+        <div className="grid grid-cols-7">
+          {dias.map((f, i) => {
+            const es = porDia.get(f) ?? [];
+            return (
+              <div key={f} className={cx('min-h-[14rem] min-w-0 border-r border-linea last:border-r-0 dark:border-noche-linea', f === hoy && 'bg-oro/5')}>
+                <button onClick={() => onDia(f)} aria-label={`Abrir el ${fechaLarga(f).toLowerCase()}`}
+                  className={cx('flex w-full items-center justify-between gap-1 border-b border-linea bg-hundido px-2 py-1.5 text-left dark:border-noche-linea dark:bg-noche-hondo', f === hoy && 'bg-oro/25 dark:bg-oro/15')}>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">{DIAS_SEMANA[i].largo.slice(0, 3)}</span>
+                  <span className={cx('grid h-7 min-w-7 place-items-center rounded-full px-1 font-titulo text-lg font-bold leading-none', f === hoy ? 'bg-oro text-marino-hondo' : 'text-slate-900 dark:text-white')}>{Number(f.slice(8, 10))}</span>
+                </button>
+                <div className="space-y-0.5 p-1">
+                  {es.map((e) => <Pildora key={e.id} e={e} onClick={() => onEvento(e)} doble />)}
+                  {!es.length && <p className="py-3 text-center text-[11px] text-slate-400 dark:text-slate-600">Nada</p>}
                 </div>
-              ))}
-            </>
-          )}
-          {tramos.length === 0 ? (
-            <div className="col-span-8 p-8 text-center text-sm text-slate-600 dark:text-slate-400">Nada con hora esta semana.</div>
-          ) : (
-            <>
-              <div className="relative" style={{ height: alto }}>
-                {tramos.flatMap((t) => Array.from({ length: t.hasta - t.desde + 1 }, (_, i) => t.desde + i)).map((h, i) => (
-                  <span key={`${h}-${i}`} className="absolute right-1.5 -translate-y-1/2 text-[11px] tabular-nums text-slate-600 dark:text-slate-400" style={{ top: yDe(h) }}>{String(h).padStart(2, '0')}:00</span>
-                ))}
               </div>
-              {dias.map((f) => (
-                <div key={f} className={cx('relative border-l border-linea dark:border-noche-linea', f === hoy && 'bg-oro/5')} style={{ height: alto }}>
-                  {tramos.slice(0, -1).map((t) => (
-                    <div key={t.hasta} className="absolute inset-x-0 border-y border-dashed border-linea bg-hundido/60 dark:border-noche-linea dark:bg-noche-hondo/60" style={{ top: yDe(t.hasta) + 2, height: SALTO - 4 }} aria-hidden />
-                  ))}
-                  {enCarriles(conHora.filter((e) => e.fecha === f).map((e) => ({ e, ini: aHoras(e.inicio!), fin: Math.max(aHoras(e.fin ?? e.inicio!), aHoras(e.inicio!) + 0.5) }))).map(({ e, ini, fin, carril, carriles }) => (
-                    <button key={e.id} type="button" onClick={() => onEvento(e)} title={`${horaLegible(e.inicio)} · ${textoCorto(e)}`}
-                      className={cx('absolute overflow-hidden rounded-md px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300')}
-                      style={{ ...estiloDe(e), top: yDe(ini) + 1, height: Math.max(yDe(fin) - yDe(ini) - 2, 22), left: `calc(${(carril / carriles) * 100}% + 2px)`, width: `calc(${100 / carriles}% - 4px)` }}>
-                      {/* En un carril estrecho, solo lo que toca («Boxeo»): el grupo lo dice el color, y la ficha lo dice entero. */}
-                      <b className={cx('block truncate', e.tipo === 'sin_clase' && 'line-through')}>{carriles > 1 ? (e.tipo === 'clase' || !e.grupo ? e.titulo : e.tipo === 'sin_clase' ? nombreCorto(e.grupo) : e.titulo) : textoCorto(e)}</b>
-                      <span className="block truncate tabular-nums opacity-90">{horaLegible(e.inicio)}{e.fin ? `–${horaLegible(e.fin)}` : ''}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </>
-          )}
+            );
+          })}
         </div>
       </Hoja>
 
-      {/* MÓVIL Y TABLET: la semana como agenda, día a día. */}
-      <div className="space-y-4 lg:hidden">
-        {dias.map((f) => {
-          const es = eventos.filter((e) => e.fecha === f);
+      {/* MÓVIL: una fila por día. */}
+      <Hoja className="divide-y divide-linea dark:divide-noche-linea md:hidden">
+        {dias.map((f, i) => {
+          const es = porDia.get(f) ?? [];
           return (
-            <section key={f} className="space-y-2">
-              <button onClick={() => onDia(f)} className={cx('flex min-h-[40px] w-full items-center justify-between gap-2 border-b border-linea text-left dark:border-noche-linea', f === hoy && 'border-oro')}>
-                <span className="font-titulo text-lg font-bold uppercase tracking-wide text-slate-900 dark:text-white">{fechaLarga(f)}{f === hoy && <Etiqueta tono="oro" className="ml-2 align-middle">Hoy</Etiqueta>}</span>
-                <span className="text-xs text-slate-600 dark:text-slate-400">{es.length || 'Nada'}</span>
+            <div key={f} className={cx('grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 px-2 py-2', f === hoy && 'bg-oro/10')}>
+              <button onClick={() => onDia(f)} aria-label={`Abrir el ${fechaLarga(f).toLowerCase()}`} className="flex min-h-[44px] flex-col items-center justify-start">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">{DIAS_SEMANA[i].corto}</span>
+                <span className={cx('grid h-8 w-8 place-items-center rounded-full font-titulo text-lg font-bold leading-none', f === hoy ? 'bg-oro text-marino-hondo' : 'text-slate-900 dark:text-white')}>{Number(f.slice(8, 10))}</span>
               </button>
-              {es.map((e) => <TarjetaEvento key={e.id} e={e} onClick={() => onEvento(e)} />)}
-            </section>
+              <div className="flex min-w-0 flex-wrap content-start gap-1 py-0.5">
+                {es.length
+                  ? es.map((e) => <Pildora key={e.id} e={e} onClick={() => onEvento(e)} ajustada />)
+                  : <span className="self-center text-xs text-slate-400 dark:text-slate-600">Nada</span>}
+              </div>
+            </div>
           );
         })}
-      </div>
+      </Hoja>
     </>
   );
 }
 
 // ============================================================
-// LA VISTA DEL DÍA
+// LA VISTA DEL DÍA: el día entero en una pantalla
 // ============================================================
 
+type Franja = 'dia' | 'manana' | 'tarde' | 'noche';
+const FRANJAS: [Franja, string][] = [['dia', 'Todo el día'], ['manana', 'Mañana'], ['tarde', 'Tarde'], ['noche', 'Noche']];
+const franjaDe = (e: EventoCalendario): Franja => (!e.inicio ? 'dia' : e.inicio < '14:00' ? 'manana' : e.inicio < '20:00' ? 'tarde' : 'noche');
+
+/** «29/30 · 2 faltan»: lo que hay que saber de las plazas, corto. */
+function plazasCortas(e: EventoCalendario): string | null {
+  const p = e.plazas;
+  if (!p) return null;
+  const base = p.aforo !== null ? `${p.asisten}/${p.aforo}` : `${p.asisten} van`;
+  return `${base}${p.faltan ? ` · ${p.faltan} ${p.faltan === 1 ? 'falta' : 'faltan'}` : ''}${p.sobreaforo ? ' · ¡sobre aforo!' : ''}`;
+}
+
+/**
+ * El día en tres columnas (mañana, tarde, noche) y una línea por evento: la
+ * hora, el color del grupo, qué es, quién lo da y cuántos van. Lo de todo el
+ * día (el examen, un entreno sin hora) va arriba. Cabe en una pantalla.
+ */
 function ListaDia({ fecha, eventos, onEvento }: { fecha: string; eventos: EventoCalendario[]; onEvento: (e: EventoCalendario) => void }) {
   const es = eventos.filter((e) => e.fecha === fecha);
   if (!es.length) return <EmptyState bordered icon={<CalendarDays size={36} />} title="Nada programado este día" hint="O lo esconden los filtros: mira cuántos hay arriba." />;
-  return <div className="space-y-2">{es.map((e) => <TarjetaEvento key={e.id} e={e} onClick={() => onEvento(e)} grande />)}</div>;
+  const de = (f: Franja) => es.filter((e) => franjaDe(e) === f);
+  const sinPlan = es.filter((e) => e.sinPlanificar).length;
+  const faltas = es.reduce((n, e) => n + (e.plazas?.faltan ?? 0), 0);
+  const conHora = FRANJAS.filter(([f]) => f !== 'dia' && de(f).length);
+
+  return (
+    <div className="space-y-3">
+      {(sinPlan > 0 || faltas > 0) && (
+        <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+          {sinPlan > 0 && <span className="font-semibold text-amber-700 dark:text-amber-300">{sinPlan} sin planificar</span>}
+          {faltas > 0 && <span>{faltas} {faltas === 1 ? 'falta avisada' : 'faltas avisadas'}</span>}
+        </p>
+      )}
+      {de('dia').length > 0 && (
+        <Hoja pad="sm" className="space-y-1">
+          <Rotulo>Todo el día</Rotulo>
+          <div className="flex flex-wrap gap-1">{de('dia').map((e) => <Pildora key={e.id} e={e} onClick={() => onEvento(e)} ajustada />)}</div>
+        </Hoja>
+      )}
+      <div className={cx('grid gap-3', conHora.length >= 3 ? 'md:grid-cols-3' : conHora.length === 2 ? 'md:grid-cols-2' : '')}>
+        {conHora.map(([f, etiqueta]) => (
+          <Hoja key={f} pad="sm" className="min-w-0">
+            <Rotulo>{etiqueta} · {de(f).length}</Rotulo>
+            <ul className="mt-1 divide-y divide-linea dark:divide-noche-linea">
+              {de(f).map((e) => <LineaEvento key={e.id} e={e} onClick={() => onEvento(e)} />)}
+            </ul>
+          </Hoja>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function TarjetaEvento({ e, onClick, grande }: { e: EventoCalendario; onClick: () => void; grande?: boolean }) {
-  const plazas = lineaPlazas(e);
+function LineaEvento({ e, onClick }: { e: EventoCalendario; onClick: () => void }) {
+  const plazas = plazasCortas(e);
+  const quien = e.tipo === 'entreno' ? e.alumno?.split('@')[0] : e.profesores.join(', ');
   return (
-    <button type="button" onClick={onClick}
-      className="grid w-full grid-cols-[4rem_minmax(0,1fr)] gap-3 rounded-lg border border-linea bg-white p-3 text-left hover:border-indigo-700 dark:border-noche-linea dark:bg-noche-2 dark:hover:border-indigo-300"
-      style={{ borderLeft: `5px solid ${e.tipo === 'sin_clase' ? '#94a3b8' : e.color.fondo}` }}>
-      <span className="font-titulo text-lg font-bold leading-none tabular-nums text-slate-900 dark:text-white">
-        {e.inicio ? horaLegible(e.inicio) : 'Día'}
-        {e.fin && <small className="mt-1 block font-sans text-xs font-normal text-slate-600 dark:text-slate-400">{horaLegible(e.fin)}</small>}
-      </span>
-      <span className="min-w-0 space-y-1">
-        <span className={cx('block font-semibold text-slate-900 dark:text-white', grande ? 'text-base' : 'text-sm', e.tipo === 'sin_clase' && 'line-through', e.sinPlanificar && 'italic')}>
-          {e.tipo === 'sin_clase' ? `Sin clase · ${e.grupo}` : e.tipo === 'entreno' ? `${e.titulo} · ${e.alumno ?? 'alumno'}` : e.titulo}
+    <li>
+      <button type="button" onClick={onClick} className="flex min-h-[44px] w-full items-center gap-2 py-1 text-left hover:bg-hundido dark:hover:bg-noche-hondo">
+        <span className="w-10 shrink-0 text-[13px] font-semibold tabular-nums text-slate-900 dark:text-white">{e.inicio ? horaLegible(e.inicio) : ''}</span>
+        <i className="h-8 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: e.tipo === 'sin_clase' ? '#94a3b8' : e.color.fondo }} aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className={cx('block truncate text-[13px] font-semibold text-slate-900 dark:text-white', e.tipo === 'sin_clase' && 'line-through', e.sinPlanificar && 'italic text-amber-800 dark:text-amber-300')}>
+            {e.tipo === 'sin_clase' ? 'Sin clase' : e.titulo}
+            {e.grupo && e.titulo !== e.grupo && <span className="font-normal text-slate-600 dark:text-slate-400"> · {nombreCorto(e.grupo)}</span>}
+          </span>
+          <span className="block truncate text-[11px] text-slate-600 dark:text-slate-400">
+            {[quien || (e.tipo !== 'sin_clase' && e.tipo !== 'examen' ? 'Sin profesor' : ''), e.motivo, plazas].filter(Boolean).join(' · ')}
+          </span>
         </span>
-        <span className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-          {e.grupo && e.tipo !== 'sin_clase' && e.titulo !== e.grupo && <Etiqueta>{e.grupo}</Etiqueta>}
-          <span>{e.tipo === 'clase' ? e.kindLabel : ETIQUETA_TIPO_EVENTO[e.tipo]}</span>
-          {e.profesores.length > 0 && <span className="inline-flex items-center gap-1"><UserRound size={12} /> {e.profesores.join(', ')}</span>}
-          {e.sinPlanificar && <Etiqueta tono="aviso">Sin planificar</Etiqueta>}
-          {e.motivo && <span>{e.motivo}</span>}
-        </span>
-        {plazas && <span className={cx('block text-xs', e.plazas?.sobreaforo ? 'font-semibold text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-400')}>{plazas}</span>}
-      </span>
-    </button>
+      </button>
+    </li>
   );
 }
 

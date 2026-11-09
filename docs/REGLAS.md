@@ -4260,9 +4260,18 @@ el segundo necesita el proyecto real.
   - Cada evento lleva quién va (inscritos, faltas avisadas, multis y plazas),
     contado como en Asistencia (`cuentaSesion`).
 - **La pantalla** (`AdminCalendario`, la primera de «Día a día» y de la barra
-  del móvil): día, semana (rejilla con horas en escritorio, con las clases que
-  se pisan en carriles y las horas vacías plegadas; agenda en el móvil) y mes
-  (tres eventos y «+N más» en escritorio; puntos de color en el móvil). Los
+  del móvil): día, semana y mes, las tres con la misma forma COMPACTA. El
+  dueño lo pidió al verla: «que el día y la semana se parezcan al mes, que no
+  tenga que hacer tanto scroll». La primera versión de la semana era una
+  rejilla de horas y el día, tarjetas grandes: se veía bonito y había que
+  bajar para enterarse de nada.
+  - Semana: siete casillas como una fila del mes, cada evento en dos líneas
+    («8:00 Boxeo» / «Alpha · Juan»); en el móvil, una fila por día con sus
+    eventos uno tras otro.
+  - Día: tres columnas (mañana, tarde, noche) y una línea por evento con la
+    hora, el color, qué es, quién lo da y cuántos van; lo de todo el día,
+    arriba.
+  - Mes: tres eventos y «+N más» en escritorio; puntos de color en el móvil. Los
   filtros esconden por qué es (tipo de grupo, entrenos, días sin clase,
   examen), por grupo y por profesor («Sin profesor» incluido), y hay
   búsqueda. Se guarda lo que se ESCONDE, no lo que se ve: un grupo o un
@@ -4273,4 +4282,3 @@ el segundo necesita el proyecto real.
   acotado a la academia (lo que no lleva `organization_id`, por los grupos de
   la academia), y paginado (un mes de entrenos de cien alumnos pasa de las
   1.000 filas). Como mucho 62 días por petición.
-
