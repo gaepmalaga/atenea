@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { GraduationCap, Loader2, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Users2, ArrowUp, Dumbbell, BookOpen, ChevronDown } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowUp, Dumbbell, BookOpen, ChevronDown } from 'lucide-react';
 import {
   listStaff, saveStaff, deleteStaff, listCuentasAcademia, getAgendaProfesores,
-  getClasesHabituales, setClaseHabitual, getTemasProfesores, setTemasProfesor,
+  getClasesHabituales, setClaseHabitual, getTemasProfesores, setTemasProfesor, getGroups,
 } from '@/actions';
+import type { GroupRow } from '@/app/actions/groups';
 import type { StaffMember } from '@/app/lib/academy-settings';
 import type { AgendaProfesor } from '@/app/actions/cuadrante';
 import type { TemaDeProfesores } from '@/app/actions/profesores';
@@ -13,8 +14,8 @@ import {
   claveActividad, formateaTemas, resumenTemas, aciertoDe, MIN_RESPUESTAS_TEMA, type ClaseHabitual,
 } from '@/app/lib/profesores';
 import { lunesDe, etiquetaSemana } from '@/app/lib/sesiones';
-import { sumaDias, etiquetaFecha } from '@/app/lib/asistencia';
-import { Card, Button, Modal, TextField, SelectField, SectionLabel, EmptyState, TEXT, cx } from '../../ui';
+import { sumaDias, etiquetaFecha, DIAS_SEMANA } from '@/app/lib/asistencia';
+import { Hoja, Boton, Modal, Campo, CampoSelect, BloqueTitulo, EmptyState, TEXT, cx, PanelTitulo, Pulso, Rotulo, Aviso, Atras, Dato, Etiqueta, Avatar, inicialesDeNombre, TablaDual } from '../../ui';
 
 /**
  * PROFESORES (regla 99): el equipo de la academia, de teoría y de física.
@@ -54,12 +55,16 @@ export default function AdminProfesores() {
   const [vuelta, setVuelta] = useState(0);
   const [habituales, setHabituales] = useState<ClaseHabitual[]>([]);
   const [temas, setTemas] = useState<TemaDeProfesores[]>([]);
+  const [grupos, setGrupos] = useState<GroupRow[]>([]);
+  // `null` es la carga semanal; `'nuevo'`, la ficha en blanco; un id, ese profesor.
+  const [fichaId, setFichaId] = useState<string | 'nuevo' | null>(null);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const [st, cu, ha, te] = await Promise.all([listStaff(), listCuentasAcademia(), getClasesHabituales(), getTemasProfesores()]);
+      const [st, cu, ha, te, gr] = await Promise.all([listStaff(), listCuentasAcademia(), getClasesHabituales(), getTemasProfesores(), getGroups()]);
       if (!vivo) return;
+      if (gr.success) setGrupos(gr.groups);
       if (ha.success) setHabituales(ha.clases);
       if (te.success) setTemas(te.temas);
       if (st.success) setStaff(st.staff);
@@ -92,7 +97,7 @@ export default function AdminProfesores() {
     const res = await saveStaff(editando);
     setGuardando(false);
     if (!res.success) { setError(res.error ?? 'No se pudo guardar.'); return; }
-    setEditando(null);
+    if (fichaId === 'nuevo') { setEditando(null); setFichaId(null); }
     setVuelta((n) => n + 1);
   }
 
@@ -105,151 +110,205 @@ export default function AdminProfesores() {
     setBorrando(s.id);
     const res = await deleteStaff(s.id);
     setBorrando(null);
-    if (res.success) setVuelta((n) => n + 1);
+    if (res.success) { setVuelta((n) => n + 1); setFichaId(null); setEditando(null); }
     else setError(res.error ?? 'No se pudo borrar.');
   }
 
-  return (
-    <div className="space-y-4 animate-in fade-in pb-24">
-      <Card tone="sunken" pad="md" className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-slate-700/10 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
-          <GraduationCap size={20} />
+  // ── La carga semanal: de los horarios de los grupos ──
+  const diasSemana = DIAS_SEMANA.slice(0, 5);
+  const horas = (t: string | null) => {
+    const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(t ?? '');
+    return m ? Number(m[1]) + (m[2] ? Number(m[2]) / 60 : 0) : null;
+  };
+  const clasesDeProfe = (id: string) => grupos
+    .filter((g) => g.staffIds.includes(id) && !g.esMulti && g.horario.weekdays?.length)
+    .flatMap((g) => (g.horario.weekdays ?? []).map((d) => ({ d, g })));
+  const horasDe = (id: string) => clasesDeProfe(id).reduce((n, c) => {
+    const i = horas(c.g.horario.startTime), f = horas(c.g.horario.endTime);
+    return i !== null && f !== null && f > i ? n + (f - i) : n;
+  }, 0);
+  const fmtH = (x: number) => `${Math.round(x * 10) / 10}`.replace('.', ',');
+  const activos = (staff ?? []).filter((s) => s.active);
+  const pill = (g: GroupRow) => (
+    <span key={g.id} className={cx('mb-1 block rounded px-2 py-1 text-[11.5px] leading-tight', g.llevaPlan ? 'border border-oro bg-oro/20 text-oro-oscuro dark:bg-oro/15 dark:text-oro-claro' : 'bg-indigo-900 text-white dark:bg-indigo-300 dark:text-marino-hondo')}>
+      <b className="tabular-nums">{g.horario.startTime}</b> {g.name}
+    </span>
+  );
+
+  const abreFicha = (s: StaffMember | null) => {
+    setError(null);
+    setEditando(s ? { id: s.id, name: s.name, role: s.role, email: s.email ?? '', phone: s.phone ?? '', active: s.active, userId: s.userId ?? '' } : PROFESOR_VACIO);
+    setFichaId(s ? s.id : 'nuevo');
+    window.scrollTo({ top: 0 });
+  };
+  const volver = () => { setFichaId(null); setEditando(null); setError(null); };
+
+  // ── LA FICHA DE UN PROFESOR: aquí se editan sus datos ──
+  const sFicha = fichaId && fichaId !== 'nuevo' ? staff?.find((x) => x.id === fichaId) : undefined;
+  if (fichaId && editando) {
+    const a = sFicha ? agendaDe.get(sFicha.id) : undefined;
+    const original = sFicha ? { id: sFicha.id, name: sFicha.name, role: sFicha.role, email: sFicha.email ?? '', phone: sFicha.phone ?? '', active: sFicha.active, userId: sFicha.userId ?? '' } : PROFESOR_VACIO;
+    const sucio = JSON.stringify(editando) !== JSON.stringify(original);
+    return (
+      <div className="space-y-5 animate-in fade-in pb-24">
+        <Atras onClick={volver}>Profesores</Atras>
+        <div className="flex flex-wrap items-center gap-4">
+          <Avatar size="lg" iniciales={inicialesDeNombre(editando.name || '?')} />
+          <div className="min-w-0 flex-1">
+            <h2 className="font-titulo text-3xl font-bold uppercase leading-none tracking-wide">{editando.name || 'Nuevo profesor'}</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{editando.role || 'Sin puesto'}{!editando.active && ' · inactivo'}</p>
+          </div>
+          <Etiqueta tono={sucio ? 'aviso' : 'ok'}>{sucio ? 'Cambios sin guardar' : 'Guardado'}</Etiqueta>
         </div>
-        <div className="min-w-0">
-          <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Profesores</h3>
-          <p className={cx(TEXT.muted, 'mt-0.5')}>
-            El equipo de teoría y de física. Los grupos de cada uno se asignan en «Grupos»; quién da cada clase de física, en el cuadrante.
-          </p>
-        </div>
-      </Card>
+        {error && <Aviso tono="malo">{error}</Aviso>}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" icon={<Plus size={14} />} onClick={() => setEditando(PROFESOR_VACIO)}>Añadir profesor</Button>
-        <Button size="sm" variant="ghost" icon={<Users2 size={14} />} onClick={() => irAPestana('groups')}>Ir a «Grupos»</Button>
-        <div className="flex items-center gap-1 sm:ml-auto">
-          <button onClick={() => setLunes(sumaDias(lunes, -7))} aria-label="Semana anterior" className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"><ChevronLeft size={18} /></button>
-          <span className="px-2 text-sm font-black text-slate-900 dark:text-white text-center min-w-[120px]">Física · {etiquetaSemana(lunes)}</span>
-          <button onClick={() => setLunes(sumaDias(lunes, 7))} aria-label="Semana siguiente" className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"><ChevronRight size={18} /></button>
-        </div>
-      </div>
-
-      {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
-      {staff === null && <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-slate-400" /></div>}
-      {staff && staff.length > 0 && (
-        <ClasesHabituales habituales={habituales} staff={staff} onCambio={() => setVuelta((n) => n + 1)} />
-      )}
-      {staff && staff.length > 0 && temas.length > 0 && (
-        <p className={cx(TEXT.muted, 'px-1')}>
-          {sinProfesor.length
-            ? <>Temas sin profesor: <b className="text-slate-800 dark:text-slate-100">{formateaTemas(sinProfesor)}</b>.</>
-            : 'Todos los temas tienen profesor.'}
-        </p>
-      )}
-
-      {staff && staff.length === 0 && (
-        <EmptyState icon={<GraduationCap size={36} />} title="Todavía no hay profesores" hint="Añádelos arriba: luego se asignan a sus grupos y a las clases del cuadrante." bordered />
-      )}
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {staff?.map((s) => {
-          const a = agendaDe.get(s.id);
-          return (
-            <Card key={s.id} pad="md" className={cx('space-y-3', !s.active && 'opacity-60')}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-slate-900 dark:text-white leading-snug">
-                    {s.name} <span className="font-normal text-slate-500 dark:text-slate-400">· {s.role}</span>
-                    {!s.active && <span className="ml-2 text-[10px] uppercase font-black text-slate-500 dark:text-slate-400">inactivo</span>}
-                  </p>
-                  {/* Sin `truncate`: el contacto es justo el dato que hace falta entero. */}
-                  <p className={cx(TEXT.muted, 'break-words')}>{[s.email, s.phone].filter(Boolean).join(' · ') || 'Sin contacto'}</p>
-                  {s.userId && <p className={cx(TEXT.muted, 'break-words')}>Entra con {correoDe(s.userId)}</p>}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => setEditando({ id: s.id, name: s.name, role: s.role, email: s.email ?? '', phone: s.phone ?? '', active: s.active, userId: s.userId ?? '' })}
-                    className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-                    aria-label={`Editar a ${s.name}`}>
-                    <Pencil size={15} />
-                  </button>
-                  <button onClick={() => borrar(s)} disabled={borrando === s.id}
-                    className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40"
-                    aria-label={`Borrar a ${s.name}`}>
-                    {borrando === s.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                  </button>
-                </div>
+        <div className="grid items-start gap-5 xl:grid-cols-2">
+          <Hoja pad="lg" className="space-y-5">
+            <BloqueTitulo>Datos</BloqueTitulo>
+            <Campo label="Nombre" value={editando.name} onChange={(e) => setEditando({ ...editando, name: e.target.value })} />
+            <Campo label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })} placeholder="profesor de teoría, preparador físico…" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Campo label="Correo" type="email" inputMode="email" value={editando.email} onChange={(e) => setEditando({ ...editando, email: e.target.value })} />
+              <Campo label="Teléfono" type="tel" inputMode="tel" value={editando.phone} onChange={(e) => setEditando({ ...editando, phone: e.target.value })} />
+            </div>
+            <CampoSelect label="Cuenta con la que entra (opcional)" value={editando.userId} onChange={(e) => setEditando({ ...editando, userId: e.target.value })}
+              hint="Si da clase y tiene cuenta en la plataforma. Sin cuenta, sigue saliendo por su nombre en el cuadrante.">
+              <option value="">Sin cuenta</option>
+              {cuentas.map((c) => <option key={c.id} value={c.id}>{c.email}{c.role === 'student' ? ' (alumno)' : ''}</option>)}
+            </CampoSelect>
+            <label className="flex min-h-[44px] items-center gap-3 text-[13.5px]">
+              <input type="checkbox" checked={editando.active} onChange={(e) => setEditando({ ...editando, active: e.target.checked })} className="h-5 w-5 accent-indigo-900" />
+              Activo (los inactivos no salen al elegir profesor en el cuadrante)
+            </label>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-linea pt-5 dark:border-noche-linea">
+              <div className="max-w-xs">
+                {sFicha && (
+                  <>
+                    <p className={TEXT.muted}>Borrar a un profesor lo quita de sus grupos, de sus clases y de sus temas. Si solo ha dejado de dar clase, mejor desmárcalo como activo.</p>
+                    <Boton variant="danger" className="mt-2" disabled={borrando === sFicha.id} onClick={() => borrar(sFicha)} icon={borrando === sFicha.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}>Borrar profesor</Boton>
+                  </>
+                )}
               </div>
+              <div className="flex flex-wrap gap-2 max-sm:w-full max-sm:[&>*]:flex-1">
+                <Boton variant="secondary" onClick={() => (sucio ? setEditando(original) : volver())}>{sucio ? 'Descartar' : 'Volver'}</Boton>
+                <Boton onClick={guardar} disabled={guardando || !sucio || !editando.name.trim()} icon={guardando ? <Loader2 size={14} className="animate-spin" /> : undefined}>Guardar cambios</Boton>
+              </div>
+            </div>
+          </Hoja>
 
-              <TemasDelProfesor profesorId={s.id} temas={temasDe(s.id)} onCambio={() => setVuelta((n) => n + 1)} />
-
-              {clasesDe(s.id).length > 0 && (
-                <p className="text-xs text-slate-600 dark:text-slate-300 flex items-start gap-1.5">
-                  <Dumbbell size={13} className="mt-0.5 shrink-0" />
-                  <span>Profesor habitual de <b>{clasesDe(s.id).join(', ')}</b></span>
-                </p>
-              )}
-
-              <div>
-                <SectionLabel>Sus grupos</SectionLabel>
+          {sFicha && (
+            <div className="space-y-4">
+              <Hoja pad="md" className="grid grid-cols-3 gap-2 text-center">
+                <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{fmtH(horasDe(sFicha.id))} h</strong><span className="text-xs text-slate-600 dark:text-slate-400">a la semana</span></div>
+                <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{a?.grupos.length ?? 0}</strong><span className="text-xs text-slate-600 dark:text-slate-400">grupos</span></div>
+                <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{temasDe(sFicha.id).length}</strong><span className="text-xs text-slate-600 dark:text-slate-400">temas</span></div>
+              </Hoja>
+              <Hoja pad="md" className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2"><BloqueTitulo>Sus grupos</BloqueTitulo>
+                  <Boton size="sm" variant="secondary" onClick={() => irAPestana('groups')}>Ir a Grupos</Boton></div>
                 {a?.grupos.length ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {a.grupos.map((g) => (
-                      <span key={g.id} className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        {g.nombre} <span className="font-medium text-slate-500 dark:text-slate-400">· {g.tipo}</span>
-                      </span>
-                    ))}
-                  </div>
+                  <div className="flex flex-wrap gap-1.5">{a.grupos.map((g) => <Dato key={g.id}>{g.nombre} · {g.tipo}</Dato>)}</div>
                 ) : <p className={TEXT.muted}>No lleva ningún grupo. Se asignan en «Grupos».</p>}
-              </div>
-
-              <div>
-                <SectionLabel>Física · semana del {etiquetaSemana(lunes)}</SectionLabel>
+              </Hoja>
+              <Hoja pad="md"><TemasDelProfesor profesorId={sFicha.id} temas={temasDe(sFicha.id)} onCambio={() => setVuelta((n) => n + 1)} /></Hoja>
+              {clasesDe(sFicha.id).length > 0 && (
+                <Hoja pad="md" className="space-y-2"><BloqueTitulo icon={<Dumbbell size={15} />}>Habitual de</BloqueTitulo>
+                  <div className="flex flex-wrap gap-1.5">{clasesDe(sFicha.id).map((c) => <Etiqueta key={c} tono="oro">{c}</Etiqueta>)}</div></Hoja>
+              )}
+              <Hoja pad="md" className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <BloqueTitulo>Física · semana del {etiquetaSemana(lunes)}</BloqueTitulo>
+                  <div className="flex items-center gap-1">
+                    <Boton size="sm" variant="secondary" aria-label="Semana anterior" onClick={() => setLunes(sumaDias(lunes, -7))} icon={<ChevronLeft size={15} />} />
+                    <Boton size="sm" variant="secondary" aria-label="Semana siguiente" onClick={() => setLunes(sumaDias(lunes, 7))} icon={<ChevronRight size={15} />} />
+                  </div>
+                </div>
                 {a?.clases.length ? (
-                  <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <ul className="divide-y divide-linea dark:divide-noche-linea">
                     {a.clases.map((c, i) => (
-                      <li key={`${c.fecha}-${c.grupo}-${i}`} className="py-1.5 flex items-center gap-2 text-sm min-w-0">
-                        <span className="w-24 shrink-0 capitalize text-slate-500 dark:text-slate-400 text-xs">{etiquetaFecha(c.fecha)}</span>
-                        <span className="w-12 shrink-0 font-mono text-xs text-slate-600 dark:text-slate-300">{c.hora ?? '—'}</span>
-                        <span className="min-w-0 truncate text-slate-800 dark:text-slate-100"><b>{c.grupo}</b> · {c.titulo}</span>
+                      <li key={`${c.fecha}-${c.grupo}-${i}`} className="flex min-w-0 items-center gap-3 py-2 text-sm">
+                        <span className="w-24 shrink-0 text-xs capitalize text-slate-600 dark:text-slate-400">{etiquetaFecha(c.fecha)}</span>
+                        <span className="w-12 shrink-0 text-xs font-semibold tabular-nums">{c.hora ?? '—'}</span>
+                        <span className="min-w-0 truncate"><b>{c.grupo}</b> · {c.titulo}</span>
                       </li>
                     ))}
                   </ul>
                 ) : <p className={TEXT.muted}>Sin clases de física esa semana en el cuadrante.</p>}
-              </div>
-            </Card>
-          );
-        })}
+              </Hoja>
+            </div>
+          )}
+        </div>
       </div>
+    );
+  }
 
-      {editando && (
-        <Modal
-          title={editando.id ? 'Editar profesor' : 'Nuevo profesor'}
-          onClose={() => setEditando(null)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
-              <Button onClick={guardar} disabled={guardando || !editando.name.trim()}>
-                {guardando ? <Loader2 size={14} className="animate-spin" /> : 'Guardar'}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <TextField label="Nombre" value={editando.name} onChange={(e) => setEditando({ ...editando, name: e.target.value })} autoFocus />
-            <TextField label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })} placeholder="profesor de teoría, preparador físico…" />
-            <TextField label="Correo" type="email" value={editando.email} onChange={(e) => setEditando({ ...editando, email: e.target.value })} />
-            <TextField label="Teléfono" value={editando.phone} onChange={(e) => setEditando({ ...editando, phone: e.target.value })} />
-            <SelectField label="Cuenta con la que entra (opcional)" value={editando.userId} onChange={(e) => setEditando({ ...editando, userId: e.target.value })}
-              hint="Si da clase y tiene cuenta en la plataforma. Sin cuenta, sigue saliendo por su nombre en el cuadrante.">
-              <option value="">Sin cuenta</option>
-              {cuentas.map((c) => <option key={c.id} value={c.id}>{c.email}{c.role === 'student' ? ' (alumno)' : ''}</option>)}
-            </SelectField>
-            <label className="flex items-center gap-2 min-h-[44px] text-sm text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={editando.active} onChange={(e) => setEditando({ ...editando, active: e.target.checked })} className="w-5 h-5" />
-              Activo (los inactivos no salen al elegir profesor en el cuadrante)
-            </label>
-            {error && <p className="text-xs text-red-600 dark:text-red-400 font-medium">{error}</p>}
-          </div>
-        </Modal>
+  // ── LA CARGA SEMANAL: la vista principal ──
+  const filas = staff ?? [];
+  return (
+    <div className="space-y-5 animate-in fade-in pb-24">
+      <PanelTitulo
+        titulo="Profesores"
+        sub="Quién da clase cuándo. Toca «+» para ver y editar a cada profesor."
+        acciones={
+          <>
+            <Boton variant="secondary" onClick={() => irAPestana('groups')}>Ir a Grupos</Boton>
+            <Boton icon={<Plus size={15} />} onClick={() => abreFicha(null)}>Añadir profesor</Boton>
+          </>
+        }
+      />
+
+      {error && <Aviso tono="malo">{error}</Aviso>}
+      {staff === null && <div className="flex justify-center py-16"><Loader2 className="animate-spin text-slate-500" /></div>}
+
+      {staff && staff.length === 0 && (
+        <EmptyState icon={<Plus size={36} />} title="Todavía no hay profesores" hint="Añádelos arriba: luego se asignan a sus grupos y a las clases del cuadrante." bordered />
+      )}
+
+      {staff && staff.length > 0 && (
+        <>
+          <Pulso
+            cifras={[
+              { valor: activos.length, etiqueta: activos.length === 1 ? 'profesor activo' : 'profesores activos' },
+              { valor: `${fmtH(activos.reduce((n, s) => n + horasDe(s.id), 0))} h`, etiqueta: 'de clase a la semana' },
+              { valor: temas.length ? sinProfesor.length : null, etiqueta: 'temas sin profesor', tono: sinProfesor.length ? 'aviso' : 'ok' },
+              { valor: activos.filter((s) => s.userId).length, etiqueta: 'con cuenta en la plataforma' },
+            ]}
+          />
+
+          {temas.length > 0 && sinProfesor.length > 0 && (
+            <Aviso>
+              <span>Temas sin profesor: <b>{formateaTemas(sinProfesor)}</b>. Se asignan desde la ficha de cada profesor.</span>
+            </Aviso>
+          )}
+
+          <TablaDual
+            soloLectura
+            clave={(s) => s.id}
+            filas={filas}
+            columnas={[
+              { id: 'profe', titulo: 'Profesor', celda: (s) => (
+                <div className={cx('flex min-w-0 items-center gap-3', !s.active && 'opacity-60')}>
+                  <Avatar iniciales={inicialesDeNombre(s.name)} />
+                  <div className="min-w-0"><p className="truncate font-semibold">{s.name}</p><p className={cx(TEXT.muted, 'truncate')}>{s.role}{!s.active && ' · inactivo'}</p></div>
+                </div>
+              ) },
+              ...diasSemana.map((d) => ({
+                id: `d${d.n}`, titulo: d.largo.slice(0, 3), sinTarjeta: true,
+                celda: (s: StaffMember) => <div className="min-w-[7.5rem] align-top">{clasesDeProfe(s.id).filter((c) => c.d === d.n).map((c) => pill(c.g))}{!clasesDeProfe(s.id).some((c) => c.d === d.n) && <span className="text-slate-500">—</span>}</div>,
+              })),
+              { id: 'semana', titulo: 'Semana', soloTarjeta: true, celda: (s) => (
+                <div className="text-left">{clasesDeProfe(s.id).length === 0 && <span className="text-slate-500">Sin clases</span>}{clasesDeProfe(s.id).sort((a, b) => a.d - b.d).map((c) => <p key={`${c.g.id}-${c.d}`} className="mb-1 flex gap-2 text-[13px]"><span className="w-8 shrink-0 text-slate-600 dark:text-slate-400">{DIAS_SEMANA[c.d - 1].largo.slice(0, 3)}</span>{pill(c.g)}</p>)}</div>
+              ) },
+              { id: 'total', titulo: 'Total', celda: (s) => <span className="whitespace-nowrap font-titulo text-xl font-bold tabular-nums">{fmtH(horasDe(s.id))} h</span> },
+              { id: 'ficha', titulo: '', acciones: true, derecha: true, celda: (s) => (
+                <button type="button" onClick={() => abreFicha(s)} aria-label={`Abrir la ficha de ${s.name}`} title="Ficha del profesor"
+                  className="grid h-11 w-11 place-items-center rounded-lg border border-linea bg-white text-2xl leading-none text-indigo-900 hover:border-indigo-700 dark:border-noche-linea dark:bg-noche-2 dark:text-indigo-200">+</button>
+              ) },
+            ]}
+          />
+
+          <ClasesHabituales habituales={habituales} staff={staff} onCambio={() => setVuelta((n) => n + 1)} />
+        </>
       )}
     </div>
   );
@@ -282,10 +341,10 @@ function ClasesHabituales({ habituales, staff, onCambio }: { habituales: ClaseHa
   const repetida = editando?.nueva && habituales.some((h) => claveActividad(h.actividad) === claveActividad(editando.actividad));
 
   return (
-    <Card pad="md" className="space-y-3">
+    <Hoja pad="md" className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <SectionLabel icon={<Dumbbell size={14} />}>Clases de física y su profesor habitual</SectionLabel>
-        <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => setEditando({ actividad: '', nueva: true, ids: [] })}>Añadir clase</Button>
+        <BloqueTitulo icon={<Dumbbell size={14} />}>Clases de física y su profesor habitual</BloqueTitulo>
+        <Boton size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => setEditando({ actividad: '', nueva: true, ids: [] })}>Añadir clase</Boton>
       </div>
       <p className={TEXT.muted}>En el cuadrante, al escribir «Boxeo», el profesor se pone solo. Si ese día lo da otro, se cambia en la celda. «FLK» vale para FLK 5.0, 5.1…</p>
       {habituales.length === 0 ? (
@@ -311,21 +370,21 @@ function ClasesHabituales({ habituales, staff, onCambio }: { habituales: ClaseHa
           footer={
             <div className="flex gap-2 w-full">
               {!editando.nueva && (
-                <Button variant="ghost" icon={<Trash2 size={14} />} disabled={guardando}
+                <Boton variant="ghost" icon={<Trash2 size={14} />} disabled={guardando}
                   onClick={() => { if (confirm(`¿Quitar «${editando.actividad}» de la lista? Las celdas ya escritas no cambian.`)) guarda([]); }}>
                   Quitar
-                </Button>
+                </Boton>
               )}
               <div className="flex-1" />
-              <Button variant="secondary" disabled={guardando} onClick={() => setEditando(null)}>Cancelar</Button>
-              <Button disabled={guardando || !editando.actividad.trim() || !editando.ids.length || !!repetida} onClick={() => guarda(editando.ids)}>
+              <Boton variant="secondary" disabled={guardando} onClick={() => setEditando(null)}>Cancelar</Boton>
+              <Boton disabled={guardando || !editando.actividad.trim() || !editando.ids.length || !!repetida} onClick={() => guarda(editando.ids)}>
                 {guardando ? 'Guardando…' : 'Guardar'}
-              </Button>
+              </Boton>
             </div>
           }>
           <div className="space-y-3">
             {editando.nueva && (
-              <TextField label="Clase" value={editando.actividad} maxLength={60} placeholder="Boxeo, Jiujitsu, FLK…"
+              <Campo label="Clase" value={editando.actividad} maxLength={60} placeholder="Boxeo, Jiujitsu, FLK…"
                 onChange={(e) => setEditando({ ...editando, actividad: e.target.value })}
                 hint={repetida ? 'Esa clase ya está en la lista.' : 'Como empieza el título en el cuadrante.'} />
             )}
@@ -347,17 +406,17 @@ function ClasesHabituales({ habituales, staff, onCambio }: { habituales: ClaseHa
               ))}
             </ol>
             {activos.some((p) => !editando.ids.includes(p.id)) && (
-              <SelectField label={editando.ids.length ? 'Si no puede, después…' : 'Profesor habitual'} value=""
+              <CampoSelect label={editando.ids.length ? 'Si no puede, después…' : 'Profesor habitual'} value=""
                 onChange={(e) => e.target.value && setEditando({ ...editando, ids: [...editando.ids, e.target.value] })}>
                 <option value="">— Elegir —</option>
                 {activos.filter((p) => !editando.ids.includes(p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </SelectField>
+              </CampoSelect>
             )}
             {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
           </div>
         </Modal>
       )}
-    </Card>
+    </Hoja>
   );
 }
 
@@ -383,14 +442,14 @@ function TemasDelProfesor({ profesorId, temas, onCambio }: { profesorId: string;
 
   return (
     <div className="space-y-1.5">
-      <SectionLabel icon={<BookOpen size={14} />}>Sus temas de teoría</SectionLabel>
+      <BloqueTitulo icon={<BookOpen size={14} />}>Sus temas de teoría</BloqueTitulo>
       {editando !== null ? (
         <div className="space-y-2">
-          <TextField label="Temas" value={editando} onChange={(e) => setEditando(e.target.value)} placeholder="1-10, 14, 17, 18" autoFocus
+          <Campo label="Temas" value={editando} onChange={(e) => setEditando(e.target.value)} placeholder="1-10, 14, 17, 18" autoFocus
             hint="Números y rangos, separados por comas. Vacío, ninguno." />
           <div className="flex gap-2">
-            <Button size="sm" disabled={guardando} onClick={guarda}>{guardando ? 'Guardando…' : 'Guardar'}</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setEditando(null); setError(null); }}>Cancelar</Button>
+            <Boton size="sm" disabled={guardando} onClick={guarda}>{guardando ? 'Guardando…' : 'Guardar'}</Boton>
+            <Boton size="sm" variant="ghost" onClick={() => { setEditando(null); setError(null); }}>Cancelar</Boton>
           </div>
           {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
         </div>

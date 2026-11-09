@@ -14,6 +14,8 @@ export type Columna<T> = {
   acciones?: boolean;
   /** Alineada a la derecha. */
   derecha?: boolean;
+  /** Solo en la tarjeta del móvil: no hay columna en la tabla. */
+  soloTarjeta?: boolean;
 };
 
 /**
@@ -37,6 +39,7 @@ export default function TablaDual<T>({
   if (filas.length === 0 && vacio) return <div className={cx(HOJA, 'p-7 text-sm text-slate-600 dark:text-slate-400')}>{vacio}</div>;
   const datos = columnas.filter((c) => !c.acciones);
   const acciones = columnas.filter((c) => c.acciones);
+  const enTabla = columnas.filter((c) => !c.soloTarjeta);
   const clicable = !!onFila && !soloLectura;
 
   return (
@@ -45,7 +48,7 @@ export default function TablaDual<T>({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              {columnas.map((c) => (
+              {enTabla.map((c) => (
                 <th
                   key={c.id}
                   scope="col"
@@ -70,7 +73,7 @@ export default function TablaDual<T>({
                 tabIndex={clicable ? 0 : undefined}
                 className={cx('border-b border-linea dark:border-noche-linea last:border-b-0', clicable && 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-500/10')}
               >
-                {columnas.map((c) => (
+                {enTabla.map((c) => (
                   <td key={c.id} className={cx('px-3.5 py-2.5 align-middle', c.soloAncho && 'hidden xl:table-cell', c.derecha && 'text-right')}>
                     {c.celda(f)}
                   </td>
