@@ -78,8 +78,11 @@ const PESTANAS_SUPERADMIN: (PestanaPanel & { id: AdminTab })[] = [
   { id: 'cost', etiqueta: 'Consumo IA', icono: Coins, seccion: 'Sistema' },
   { id: 'academies', etiqueta: 'Academias', icono: Building2, seccion: 'Sistema' },
 ];
-/** Las cuatro de la barra inferior del móvil: las de cada día. */
-const PRINCIPALES_ADMIN = ['students', 'groups', 'attendance', 'staff'];
+/**
+ * Las cuatro de la barra inferior del móvil: las que se tocan CADA DÍA (regla
+ * 103). Grupos y Profesores se montan una vez al empezar el curso: van en «Más».
+ */
+const PRINCIPALES_ADMIN = ['students', 'attendance', 'physical', 'payments'];
 const PRINCIPALES_SUPERADMIN = ['content', 'bank', 'moderation', 'cost'];
 
 export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
@@ -144,7 +147,8 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
     >
       {/* Usamos la 'key' para forzar remontaje si pulsamos Recargar */}
       <div key={refreshKey} className="animate-in fade-in duration-300">
-        <ModuleErrorBoundary moduleName={tabs.find((t) => t.id === activeTab)?.etiqueta ?? 'La sección'}>
+        {/* Con `key`, un fallo en una pantalla no se queda puesto al cambiar a otra. */}
+        <ModuleErrorBoundary key={activeTab} moduleName={tabs.find((t) => t.id === activeTab)?.etiqueta ?? 'La sección'}>
           {activeTab === 'students' && <AdminStudents />}
           {activeTab === 'groups' && <AdminGroups />}
           {activeTab === 'staff' && <AdminProfesores />}

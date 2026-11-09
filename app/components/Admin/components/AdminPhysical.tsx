@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { Dumbbell, RefreshCw, Users2, CalendarDays, CalendarRange, Sparkles, Trophy } from 'lucide-react';
+import { RefreshCw, Users2, Sparkles } from 'lucide-react';
 import { getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
 import Planificador from './fisica/Planificador';
 import MarcasAcademia from './fisica/MarcasAcademia';
 import Cuadrante from './fisica/Cuadrante';
-import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
+import { PanelTitulo, Pestanas, Hoja, BloqueTitulo, Aviso, Boton, Estado, EmptyState, cx } from '../../ui';
 
 /**
  * «Preparación física» (P7, afinado tras P8): el entrenamiento vive aquí, por
@@ -49,32 +49,17 @@ export default function AdminPhysical() {
   const iaOn = switches?.ai !== false;
 
   return (
-    <div className="space-y-4 animate-in fade-in pb-24">
-      <Card tone="sunken" pad="md" className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-slate-700/10 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
-            <Dumbbell size={20} />
-          </div>
-          <div>
-            <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Preparación física</h3>
-            <p className={cx(TEXT.muted, 'mt-0.5')}>
-              {esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'Sesiones para un grupo o para un alumno, y las marcas de las pruebas oficiales.'}
-            </p>
-          </div>
-        </div>
-        <button onClick={() => { setLoading(true); cargar(); }} className="w-11 h-11 shrink-0 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400" aria-label="Recargar">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </Card>
+    <div className="space-y-5 animate-in fade-in pb-24">
+      <PanelTitulo
+        titulo="Prep. física"
+        sub={esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'El cuadrante de cada semana, el entreno de cada alumno y las marcas de las pruebas oficiales.'}
+        acciones={<Boton variant="secondary" icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />} onClick={() => { setLoading(true); cargar(); }}>Recargar</Boton>}
+      />
 
-      {error && (
-        <Card tone="base" pad="md" className="border-red-500/30 text-red-700 dark:text-red-300">
-          <p className="text-xs font-medium">{error}</p>
-        </Card>
-      )}
+      {error && <Aviso tono="malo">{error}</Aviso>}
 
       {/* En Alphapol (no es la academia casa) el interruptor de la física con
-          preparador se quitó de la vista a petición del dueño (regla 101): está
+          preparador se quitó de la vista a petición del dueño (regla 103): está
           encendido y no se toca. Si alguna vez estuviera apagado, el aviso de
           abajo trae su botón para encenderlo. */}
       {switches && esCasa && (
@@ -102,20 +87,21 @@ export default function AdminPhysical() {
           icon={<Users2 size={40} />}
           title="La física con preparador está apagada"
           hint="Los alumnos no ven su calendario de física ni tú el cuadrante. Enciéndela para volver a usarla."
-          action={<Button disabled={busy} onClick={() => cambiaSwitch('group', true)}>Encender</Button>}
+          action={<Boton disabled={busy} onClick={() => cambiaSwitch('group', true)}>Encender</Boton>}
           bordered
         />
       ) : (
         <>
-          <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 max-w-xl">
-            {([['cuadrante', 'Cuadrante', CalendarRange], ['planificar', 'Planificar', CalendarDays], ['marcas', 'Marcas', Trophy]] as const).map(([id, texto, Icono]) => (
-              <button key={id} onClick={() => setVista(id)} aria-pressed={vista === id}
-                className={cx('flex-1 min-h-[44px] rounded-xl text-sm font-black flex items-center justify-center gap-2',
-                  vista === id ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
-                <Icono size={16} /> {texto}
-              </button>
-            ))}
-          </div>
+          <Pestanas
+            etiqueta="Vistas de la preparación física"
+            activa={vista}
+            onCambia={setVista}
+            items={[
+              { id: 'cuadrante', etiqueta: 'Cuadrante' },
+              { id: 'planificar', etiqueta: 'Planificar' },
+              { id: 'marcas', etiqueta: 'Marcas' },
+            ]}
+          />
           {vista === 'cuadrante' ? <Cuadrante /> : vista === 'planificar' ? <Planificador /> : <MarcasAcademia />}
         </>
       )}
@@ -134,20 +120,15 @@ function SwitchCard({
   onToggle: (v: boolean) => void;
 }) {
   return (
-    <Card tone="base" pad="md" className={cx('flex flex-col gap-2', !on && 'opacity-70')}>
+    <Hoja pad="md" className={cx('flex flex-col gap-2', !on && 'opacity-80')}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-          <span className="text-slate-500 dark:text-slate-400 shrink-0">{icon}</span>
-          <span className="text-xs font-black leading-tight">{label}</span>
-        </div>
-        <Button size="sm" variant={on ? 'secondary' : 'primary'} disabled={busy} onClick={() => onToggle(!on)}>
+        <BloqueTitulo icon={icon}>{label}</BloqueTitulo>
+        <Boton size="sm" variant={on ? 'secondary' : 'primary'} disabled={busy} onClick={() => onToggle(!on)}>
           {on ? 'Apagar' : 'Encender'}
-        </Button>
+        </Boton>
       </div>
-      <p className={cx(TEXT.muted, 'leading-relaxed')}>{desc}</p>
-      <span className={cx('text-[10px] font-black uppercase tracking-wider', on ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400')}>
-        {on ? 'Encendido' : 'Apagado'}
-      </span>
-    </Card>
+      <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">{desc}</p>
+      <Estado tono={on ? 'ok' : 'apagado'}>{on ? 'Encendido' : 'Apagado'}</Estado>
+    </Hoja>
   );
 }

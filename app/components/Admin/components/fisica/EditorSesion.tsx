@@ -10,7 +10,7 @@ import {
 import type { ApunteConCorreo, RMVigente } from '@/app/actions/fisica';
 import { EJERCICIOS_FUERZA, claveEjercicio, kgDeCarga, formateaKg, type Carga } from '@/app/lib/rm';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
-import { Modal, Button, TextField, TextAreaField, SelectField, TEXT, cx } from '../../../ui';
+import { Modal, Boton, Campo, CampoArea, CampoSelect, TEXT, cx } from '../../../ui';
 
 /**
  * CREAR O CAMBIAR UNA SESIÓN (regla 86).
@@ -89,33 +89,33 @@ export default function EditorSesion({
       width="md"
       footer={pestaña === 'sesion' && !soloLectura ? (
         <div className="flex flex-wrap items-center gap-2 w-full">
-          <Button onClick={() => haz('guardar', () => saveSesion({ id: sesion?.id ?? null, destino, fecha, contenido }))} disabled={!!ocupado}>
+          <Boton onClick={() => haz('guardar', () => saveSesion({ id: sesion?.id ?? null, destino, fecha, contenido }))} disabled={!!ocupado}>
             {ocupado === 'guardar' ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Guardar
-          </Button>
-          <Button variant="secondary" disabled={!!ocupado}
+          </Boton>
+          <Boton variant="secondary" disabled={!!ocupado}
             onClick={async () => { if (await haz('plantilla', () => savePlantilla({ contenido }), false)) setAviso('Guardada en la biblioteca.'); }}>
             <BookmarkPlus size={16} /> Guardar como plantilla
-          </Button>
+          </Boton>
           {sesion && (
             <>
-              <Button variant="ghost" disabled={!!ocupado} onClick={() => haz('duplicar', () => moverSesion({ id: sesion.id, fecha: sesion.fecha, copiar: true }))}>
+              <Boton variant="ghost" disabled={!!ocupado} onClick={() => haz('duplicar', () => moverSesion({ id: sesion.id, fecha: sesion.fecha, copiar: true }))}>
                 <Copy size={16} /> Duplicar
-              </Button>
-              <Button variant="danger" disabled={!!ocupado} className="sm:ml-auto"
+              </Boton>
+              <Boton variant="danger" disabled={!!ocupado} className="sm:ml-auto"
                 onClick={() => { if (confirm('¿Borrar esta sesión? Se pierde también lo que hayan apuntado los alumnos.')) haz('borrar', () => deleteSesion({ id: sesion.id })); }}>
                 <Trash2 size={16} /> Borrar
-              </Button>
+              </Boton>
             </>
           )}
         </div>
       ) : undefined}
     >
       {sesion && (
-        <div className="flex gap-1 p-1 mb-4 rounded-xl bg-slate-100 dark:bg-slate-800/60">
+        <div className="flex gap-1 p-1 mb-4 rounded-lg bg-hundido dark:bg-noche-hondo/60">
           {(['sesion', 'feedback'] as const).map((p) => (
             <button key={p} onClick={() => setPestaña(p)} aria-pressed={pestaña === p}
-              className={cx('flex-1 min-h-[40px] rounded-lg text-sm font-black',
-                pestaña === p ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
+              className={cx('flex-1 min-h-[40px] rounded-lg text-sm font-bold',
+                pestaña === p ? 'bg-white dark:bg-noche-2 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400')}>
               {p === 'sesion' ? 'Sesión' : `Feedback · ${hechas}/${miembros.length}`}
             </button>
           ))}
@@ -124,7 +124,7 @@ export default function EditorSesion({
 
       {pestaña === 'sesion' && soloLectura && sesion && (
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-xl px-3 py-2">
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-lg px-3 py-2">
             Es una sesión del grupo «{nombreGrupo}», común a todos sus alumnos. Se cambia en su plan común (al final de la lista de alumnos), no aquí.
           </p>
           <p className="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-100">{sesion.description || 'Sin descripción.'}</p>
@@ -134,7 +134,7 @@ export default function EditorSesion({
       {pestaña === 'sesion' && !soloLectura && (
         <div className="space-y-3">
           {!sesion && plantillas.length > 0 && (
-            <SelectField label="Partir de una plantilla (opcional)" defaultValue="" onChange={(e) => desdePlantilla(e.target.value)}>
+            <CampoSelect label="Partir de una plantilla (opcional)" defaultValue="" onChange={(e) => desdePlantilla(e.target.value)}>
               <option value="">— Elegir de la biblioteca —</option>
               {TIPOS_SESION.map((t) => {
                 const deTipo = plantillas.filter((p) => p.kind === t);
@@ -144,7 +144,7 @@ export default function EditorSesion({
                   </optgroup>
                 ) : null;
               })}
-            </SelectField>
+            </CampoSelect>
           )}
 
           <div>
@@ -155,8 +155,8 @@ export default function EditorSesion({
                 const Icono = E.icono;
                 return (
                   <button key={t} onClick={() => setKind(t)} aria-pressed={kind === t}
-                    className={cx('min-h-[40px] px-3 rounded-xl text-xs font-black inline-flex items-center gap-1.5 border-2 transition-colors',
-                      kind === t ? cx(E.chip, 'border-current') : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}>
+                    className={cx('min-h-[40px] px-3 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 border-2 transition-colors',
+                      kind === t ? cx(E.chip, 'border-current') : 'border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300')}>
                     <Icono size={14} /> {ETIQUETA_TIPO[t]}
                   </button>
                 );
@@ -164,8 +164,8 @@ export default function EditorSesion({
             </div>
           </div>
 
-          <TextField label="Título" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Series de 400 m, Fuerza tren superior…" />
-          <TextAreaField
+          <Campo label="Título" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Series de 400 m, Fuerza tren superior…" />
+          <CampoArea
             label="Descripción"
             hint="Escríbela como se la explicarías: calentamiento, bloques, descansos, en qué fijarse."
             value={description}
@@ -175,11 +175,11 @@ export default function EditorSesion({
             placeholder={'Calentamiento: 10′ trote suave + movilidad\n6 × 400 m a ritmo de prueba · R: 1′30″\nVuelta a la calma: 5′'}
           />
           <div className="grid grid-cols-3 gap-2">
-            <TextField label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-            <TextField label="Duración (min)" inputMode="numeric" value={durationMin} onChange={(e) => setDurationMin(e.target.value)} placeholder="45" />
-            <TextField label="Distancia (km)" inputMode="decimal" value={distanceKm} onChange={(e) => setDistanceKm(e.target.value)} placeholder="—" />
+            <Campo label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <Campo label="Duración (min)" inputMode="numeric" value={durationMin} onChange={(e) => setDurationMin(e.target.value)} placeholder="45" />
+            <Campo label="Distancia (km)" inputMode="decimal" value={distanceKm} onChange={(e) => setDistanceKm(e.target.value)} placeholder="—" />
           </div>
-          <TextField label="Vídeo (opcional)" type="url" inputMode="url" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="https://youtube.com/…" />
+          <Campo label="Vídeo (opcional)" type="url" inputMode="url" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="https://youtube.com/…" />
           <EditorCargas cargas={cargas} onChange={setCargas} rm={rm} />
           {aviso && <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{aviso}</p>}
           {error && <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
@@ -214,25 +214,25 @@ function FilaFeedback({ sesionId, userId, email, apunte, estado, onCambio }: {
   const real = [formateaMinutos(apunte?.durationMin), formateaKm(apunte?.distanceKm)].filter(Boolean).join(' · ');
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+    <div className="rounded-lg border border-linea dark:border-noche-linea p-3">
       <div className="flex items-center gap-2 min-w-0">
         <span className="flex-1 min-w-0 truncate text-sm font-bold text-slate-800 dark:text-slate-100">{email}</span>
-        {estado === 'hecha' && <span className="shrink-0 text-[10px] font-black px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 flex items-center gap-1"><Check size={11} /> Hecha{apunte?.rpe != null && ` · ${apunte.rpe}/10`}</span>}
-        {estado === 'no_hecha' && <span className="shrink-0 text-[10px] font-black px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200 flex items-center gap-1"><X size={11} /> No hecha</span>}
-        {estado === 'pendiente' && <span className="shrink-0 text-[10px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Sin apuntar</span>}
-        {estado === 'planificada' && <span className="shrink-0 text-[10px] font-black px-2 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Planificada</span>}
+        {estado === 'hecha' && <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 flex items-center gap-1"><Check size={11} /> Hecha{apunte?.rpe != null && ` · ${apunte.rpe}/10`}</span>}
+        {estado === 'no_hecha' && <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200 flex items-center gap-1"><X size={11} /> No hecha</span>}
+        {estado === 'pendiente' && <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Sin apuntar</span>}
+        {estado === 'planificada' && <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">Planificada</span>}
       </div>
-      {real && <p className={cx(TEXT.hud, 'text-slate-500 dark:text-slate-400 mt-1')}>Real: {real}</p>}
+      {real && <p className={cx(TEXT.hud, 'text-slate-600 dark:text-slate-400 mt-1')}>Real: {real}</p>}
       {apunte?.comment && <p className="text-sm text-slate-700 dark:text-slate-200 mt-1 whitespace-pre-wrap break-words">«{apunte.comment}»</p>}
       {apunte && (
         <div className="mt-2 flex items-end gap-2">
           <div className="flex-1 min-w-0">
-            <TextAreaField label="Tu respuesta" value={respuesta} onChange={(e) => { setRespuesta(e.target.value); setOk(false); }} rows={2} maxLength={500} placeholder="Bien hecho. El jueves, más suave." />
+            <CampoArea label="Tu respuesta" value={respuesta} onChange={(e) => { setRespuesta(e.target.value); setOk(false); }} rows={2} maxLength={500} placeholder="Bien hecho. El jueves, más suave." />
           </div>
-          <Button size="sm" variant="secondary" disabled={guardando}
+          <Boton size="sm" variant="secondary" disabled={guardando}
             onClick={async () => { setGuardando(true); const r = await responderApunte({ sessionId: sesionId, alumnoId: userId, reply: respuesta }); setGuardando(false); if (r.success) { setOk(true); onCambio(); } }}>
             {guardando ? <Loader2 size={14} className="animate-spin" /> : ok ? <Check size={14} /> : <MessageSquare size={14} />} {ok ? 'Enviada' : 'Responder'}
-          </Button>
+          </Boton>
         </div>
       )}
     </div>
@@ -251,13 +251,13 @@ function EditorCargas({ cargas, onChange, rm }: { cargas: FilaCarga[]; onChange:
   const nueva = () => onChange([...cargas, { ejercicio: '', porcentaje: '75', series: '', reps: '' }]);
   if (!cargas.length) {
     return (
-      <Button variant="ghost" size="sm" onClick={nueva}>
+      <Boton variant="ghost" size="sm" onClick={nueva}>
         <Weight size={15} /> Añadir cargas en % del 1RM (opcional)
-      </Button>
+      </Boton>
     );
   }
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3 space-y-2">
+    <div className="rounded-lg border border-linea dark:border-noche-linea p-3 space-y-2">
       <p className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"><Weight size={14} /> Cargas en % del 1RM</p>
       <p className={TEXT.muted}>{rm ? 'Al lado, los kilos de este alumno.' : 'Cada alumno verá sus kilos según su 1RM.'}</p>
       <datalist id="ejercicios-cargas">{EJERCICIOS_FUERZA.map((x) => <option key={x} value={x} />)}</datalist>
@@ -267,15 +267,15 @@ function EditorCargas({ cargas, onChange, rm }: { cargas: FilaCarga[]; onChange:
         return (
           <div key={i} className="grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-end">
             <div className="col-span-2 sm:col-span-1">
-              <TextField label="Ejercicio" list="ejercicios-cargas" value={c.ejercicio} onChange={(e) => cambia(i, { ejercicio: e.target.value })} placeholder="Sentadilla" />
+              <Campo label="Ejercicio" list="ejercicios-cargas" value={c.ejercicio} onChange={(e) => cambia(i, { ejercicio: e.target.value })} placeholder="Sentadilla" />
             </div>
             <div className="grid grid-cols-3 gap-2 sm:contents">
-              <TextField label="Series" inputMode="numeric" value={c.series} onChange={(e) => cambia(i, { series: e.target.value })} placeholder="4" />
-              <TextField label="Reps" inputMode="numeric" value={c.reps} onChange={(e) => cambia(i, { reps: e.target.value })} placeholder="6" />
-              <TextField label="% 1RM" inputMode="numeric" value={c.porcentaje} onChange={(e) => cambia(i, { porcentaje: e.target.value })} placeholder="75" />
+              <Campo label="Series" inputMode="numeric" value={c.series} onChange={(e) => cambia(i, { series: e.target.value })} placeholder="4" />
+              <Campo label="Reps" inputMode="numeric" value={c.reps} onChange={(e) => cambia(i, { reps: e.target.value })} placeholder="6" />
+              <Campo label="% 1RM" inputMode="numeric" value={c.porcentaje} onChange={(e) => cambia(i, { porcentaje: e.target.value })} placeholder="75" />
             </div>
             <div className="flex items-center gap-1 pb-0.5 col-start-2 row-start-2 sm:col-start-auto sm:row-start-auto">
-              {rm && <span className="text-xs font-black text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap">{kg !== null ? formateaKg(kg) : '— kg'}</span>}
+              {rm && <span className="text-xs font-bold text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap">{kg !== null ? formateaKg(kg) : '— kg'}</span>}
               <button aria-label="Quitar la carga" onClick={() => onChange(cargas.filter((_, j) => j !== i))}
                 className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
                 <Trash2 size={15} />
@@ -284,7 +284,7 @@ function EditorCargas({ cargas, onChange, rm }: { cargas: FilaCarga[]; onChange:
           </div>
         );
       })}
-      <Button variant="ghost" size="sm" onClick={nueva}><Plus size={14} /> Otra carga</Button>
+      <Boton variant="ghost" size="sm" onClick={nueva}><Plus size={14} /> Otra carga</Boton>
     </div>
   );
 }

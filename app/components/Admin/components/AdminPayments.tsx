@@ -467,7 +467,7 @@ function FichaAlumno({ data, ficha, acciones, cambiaMes, onVolver }: {
   const [propia, setPropia] = useState(cuotaHoy?.cuota.origen === 'propia' && cuotaHoy.cuota.importe !== null ? String(cuotaHoy.cuota.importe).replace('.', ',') : '');
   const [notaPropia, setNotaPropia] = useState(cuotaHoy?.notaPropia ?? '');
   const lectura = leeImporte(cantidad);
-  const meses = useMemo(() => (hist ? data.historico.periodos.filter((p) => hist.celdas[p]).reverse() : []), [hist, data.historico.periodos]);
+  const meses = hist ? data.historico.periodos.filter((p) => hist.celdas[p]).reverse() : [];
   const puedeCobrar = lectura.ok && (lectura.valor !== null ? lectura.valor > 0 : !!celda && celda.pendiente > 0);
 
   return (

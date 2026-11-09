@@ -415,7 +415,14 @@ function FichaAlumno({
             </Boton>
           )}
           {a.acceso !== 'suspended' && (
-            <Boton variant="danger" disabled={busy} onClick={() => onAccion(() => setMemberAccess(a.id, 'suspended'))}>
+            <Boton variant="danger" disabled={busy} onClick={() => {
+              // Suspender deja al alumno fuera en ese momento: un toque sin
+              // querer en el móvil no puede bastar.
+              const quien = nombreDeCorreo(a.email) || a.email || 'este alumno';
+              if (confirm(a.acceso === 'pending' ? `¿Rechazar la solicitud de ${quien}?` : `¿Suspender a ${quien}? Deja de poder entrar hasta que le vuelvas a dar acceso.`)) {
+                onAccion(() => setMemberAccess(a.id, 'suspended'));
+              }
+            }}>
               {a.acceso === 'pending' ? 'Rechazar solicitud' : 'Suspender'}
             </Boton>
           )}
@@ -465,8 +472,13 @@ function FichaAlumno({
                 ? <>Exento de pago.</>
                 : a.pagadoMesActual
                   ? <>Pagó {formateaPeriodo(periodo)}.</>
-                  : <>Sin pagar {formateaPeriodo(periodo)}. Se marca en la pestaña «Pagos».</>}
+                  : <>Sin pagar {formateaPeriodo(periodo)}.</>}
             </p>
+            {!a.exento && (
+              <Boton size="sm" variant="secondary" onClick={() => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: 'payments' }))}>
+                {a.pagadoMesActual ? 'Ver sus pagos' : 'Cobrar en «Pagos»'}
+              </Boton>
+            )}
           </Hoja>
         )}
       </div>

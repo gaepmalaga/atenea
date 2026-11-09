@@ -122,10 +122,18 @@ export default function PanelShell({
               </button>
             );
           })}
-          <button type="button" onClick={() => { window.scrollTo({ top: 0 }); setMenuAbierto(true); }} className="grid min-h-[52px] justify-items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-400">
-            <Menu size={22} strokeWidth={1.8} />
-            <span>Más</span>
-          </button>
+          {/* En una pantalla que no está abajo (Grupos, Ajustes…), «Más» dice
+              dónde estás: si no, ninguna salía marcada. */}
+          {(() => {
+            const fuera = abajo.some((p) => p.id === activa) ? null : pestanas.find((p) => p.id === activa) ?? null;
+            return (
+              <button type="button" onClick={() => { window.scrollTo({ top: 0 }); setMenuAbierto(true); }} aria-current={fuera ? 'page' : undefined}
+                className={cx('grid min-h-[52px] min-w-0 justify-items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px]', fuera ? 'font-semibold text-indigo-900 dark:text-indigo-200' : 'font-medium text-slate-600 dark:text-slate-400')}>
+                <Menu size={22} strokeWidth={fuera ? 2.4 : 1.8} />
+                <span className="max-w-full truncate">{fuera ? fuera.etiqueta : 'Más'}</span>
+              </button>
+            );
+          })()}
         </nav>
       </div>
     </div>
