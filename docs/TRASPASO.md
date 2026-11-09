@@ -26,6 +26,12 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
   - **El banco:** 4.617 preguntas activas sobre 45 temas y 56 documentos.
   - **Datos de ejemplo de física:** el grupo «Promo 43 · Físicas», con el plan
     de noviembre (31 sesiones).
+  - **Los grupos reales de física (9 nov, regla 96):** «Promo 44 · Kappa, Alpha,
+    Zetta, Omega, Sigma, Betta, Delta» y «Promo 44 · Multi», con su horario
+    (lunes y miércoles / martes y jueves; 08:00 o 20:00), aforo 30, y los
+    profesores como nombres en `academy_staff` (José Morato, Lucas, Olivares,
+    Lucio, Juan, Sofía). Sin alumnos dentro todavía: se asignan desde la ficha
+    de cada alumno (regla 53).
 - **Gemini funciona.** El modelo es `gemini-3.5-flash-lite`, probado en
   producción el 7 nov (regla 92). Se paga por **prepago**: si se acaba el
   saldo, toda la IA falla con un `402`.
@@ -38,7 +44,7 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
 | Quién | Pestañas / módulos |
 |---|---|
 | **Alumno** | Inicio · Test (entrenamiento adaptativo / simulacro con nota del BOE) · Repasar fallos · Fichas · Preparación física (calendario de sesiones, apuntar lo hecho, marcas con baremo, 1RM) · Mi evolución · Mi perfil (convocatoria, mis clases y avisos de falta, acceso y pago, cambiar contraseña) |
-| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (horario, plazas, profesores) · Asistencia · Prep. física (planificador estilo TrainingMonkeys, plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes · Logs & Auditoría |
+| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (horario, plazas, profesores) · Asistencia · Prep. física (cuadrante semanal, planificador estilo TrainingMonkeys, plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes · Logs & Auditoría |
 | **Superadmin** | Temario & IA (generar preguntas) · Banco Oficial · Moderación · Consumo IA · Academias |
 
 El chat («Pregunta al temario») y la entrevista están **fuera del MVP** (regla
@@ -66,6 +72,7 @@ Todo en producción y apuntado en `REGLAS.md`:
 | Las dudosas (marcar «dudo» y si compensa contestar) | 80 |
 | Imagen al compartir el enlace (WhatsApp) | 93 |
 | Identidad de marca (marino y oro), Inicio «Tu día», Test, Fallos, Evolución, Perfil, Física y Fichas rediseñados | 94, 95 |
+| Cuadrante semanal de física: rejilla grupo × día con profesor por sesión, copiar semana, imagen y texto para WhatsApp; los multis se apuntan a las clases | 96 |
 
 ---
 

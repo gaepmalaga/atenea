@@ -894,3 +894,69 @@ export async function deleteRM() { return { success: true as const }; }
 export async function addMiMarca() { return { success: true as const }; }
 export async function deleteMiMarca() { return { success: true as const }; }
 export async function setMiSexo() { return { success: true as const }; }
+
+// ── CUADRANTE SEMANAL Y MULTI (regla 96) ────────────────────────────────────
+// La semana real de Alphapol (9-12 nov 2026), con fechas fijas.
+const CUAD_PROFES = [
+  { id: 'p-jose', nombre: 'José Morato' }, { id: 'p-lucas', nombre: 'Lucas' }, { id: 'p-olivares', nombre: 'Olivares' },
+  { id: 'p-lucio', nombre: 'Lucio' }, { id: 'p-juan', nombre: 'Juan' },
+];
+const cuadGrupo = (corto: string, dias: number[] | null, inicio: string | null, multi = false) => ({
+  id: `g-${corto.toLowerCase()}`, nombre: `Promo 44 · ${corto}`, corto, esMulti: multi, inscritos: multi ? 14 : 20,
+  horario: { weekdays: dias, startTime: inicio, endTime: inicio ? `${String(Number(inicio.slice(0, 2)) + 1).padStart(2, '0')}:00` : null, capacity: multi ? null : 30 },
+});
+const CUAD_GRUPOS = [
+  cuadGrupo('Kappa', [1, 3], '08:00'), cuadGrupo('Alpha', [1, 3], '08:00'), cuadGrupo('Zetta', [1, 3], '20:00'),
+  cuadGrupo('Omega', [2, 4], '08:00'), cuadGrupo('Sigma', [2, 4], '08:00'), cuadGrupo('Betta', [2, 4], '20:00'), cuadGrupo('Delta', [2, 4], '20:00'),
+  cuadGrupo('Multi', null, null, true),
+];
+let cuadN = 0;
+const cs = (corto: string, fecha: string, titulo: string, profesorId: string | null, horaPropia: string | null = null) =>
+  ({ id: `cs${++cuadN}`, classId: `g-${corto.toLowerCase()}`, fecha, titulo, tipo: 'otro' as const, profesorId, horaPropia, position: 0 });
+const CUAD_SESIONES = [
+  cs('Kappa', '2026-11-09', 'FLK 5.0', 'p-jose'), cs('Alpha', '2026-11-09', 'Boxeo', 'p-juan'), cs('Zetta', '2026-11-09', 'F.M + RDL', 'p-lucio'),
+  cs('Omega', '2026-11-10', 'Jiujitsu', 'p-lucas'), cs('Sigma', '2026-11-10', 'FLK 5.0', 'p-jose'), cs('Betta', '2026-11-10', 'FLK 5.0', 'p-olivares'),
+  cs('Delta', '2026-11-10', 'F.M + RDL', 'p-lucio'), cs('Multi', '2026-11-10', 'Jiujitsu', 'p-lucas', '18:30'),
+  cs('Kappa', '2026-11-11', 'F.M + RDL', 'p-lucio'), cs('Alpha', '2026-11-11', 'FLK 5.1', 'p-jose'), cs('Zetta', '2026-11-11', 'FLK 5.1', 'p-olivares'),
+  // Un choque a propósito para ver el aviso: Lucas con Sigma y con Omega a la vez.
+  cs('Omega', '2026-11-12', 'FLK 5.1', 'p-lucas'), cs('Sigma', '2026-11-12', 'F.M + RDL', 'p-lucas'), cs('Betta', '2026-11-12', 'F.M + RDL', 'p-lucio'),
+  cs('Delta', '2026-11-12', 'FLK 5.0', 'p-jose'), cs('Multi', '2026-11-12', 'Boxeo', 'p-juan', '18:30'),
+];
+export async function getCuadrante(params?: { lunes?: string }) {
+  const lunes = params?.lunes ?? '2026-11-09';
+  const sesiones = lunes === '2026-11-09' ? CUAD_SESIONES : [];
+  const plaza = (aforo: number, asisten: number) => ({ aforo, inscritos: 20, faltan: 0, asisten, libres: aforo - asisten, sobreaforo: false });
+  return ok({
+    datos: {
+      lunes, hoy: '2026-11-10', grupos: CUAD_GRUPOS, profesores: CUAD_PROFES, sesiones,
+      plazas: { 'g-kappa|2026-11-09': plaza(30, 28), 'g-omega|2026-11-10': plaza(30, 30), 'g-sigma|2026-11-10': plaza(30, 24) },
+      multis: { 'g-kappa|2026-11-09': [{ userId: 'u2', email: 'alumno@atenea.com' }, { userId: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com' }] },
+      totalMultis: 14,
+    },
+  });
+}
+export async function saveCelda() { return { success: true as const, id: 'cs-nueva' }; }
+export async function copiarCuadrante() { return { success: true as const, creadas: 12, omitidas: 0 }; }
+export async function getMiMulti() {
+  const s = (classId: string, grupo: string, fecha: string, etiqueta: string, hora: string, titulo: string | null, profesor: string | null, libres: number | null, unido: boolean, editable = true) =>
+    ({ classId, grupo, fecha, etiqueta, hora, titulo, profesor, libres, unido, editable, llena: !unido && libres === 0 });
+  return ok({
+    esMulti: true as const,
+    semanas: [
+      { classId: 'g-kappa', grupo: 'Kappa', lunes: '2026-11-09', total: 1, unidas: 1 },
+      { classId: 'g-omega', grupo: 'Omega', lunes: '2026-11-09', total: 2, unidas: 0 },
+      { classId: 'g-delta', grupo: 'Delta', lunes: '2026-11-09', total: 2, unidas: 1 },
+      { classId: 'g-kappa', grupo: 'Kappa', lunes: '2026-11-16', total: 2, unidas: 0 },
+    ],
+    dias: [
+      { fecha: '2026-11-11', etiqueta: 'mié, 11 nov', sesiones: [s('g-kappa', 'Kappa', '2026-11-11', 'mié, 11 nov', '08:00', 'F.M + RDL', 'Lucio', 9, true)] },
+      { fecha: '2026-11-12', etiqueta: 'jue, 12 nov', sesiones: [
+        s('g-omega', 'Omega', '2026-11-12', 'jue, 12 nov', '08:00', 'FLK 5.1', 'Olivares', 0, false),
+        s('g-delta', 'Delta', '2026-11-12', 'jue, 12 nov', '20:00', 'FLK 5.0', 'José', 12, true),
+      ] },
+      { fecha: '2026-11-16', etiqueta: 'lun, 16 nov', sesiones: [s('g-kappa', 'Kappa', '2026-11-16', 'lun, 16 nov', '08:00', null, null, null, false)] },
+    ],
+  });
+}
+export async function setMiUnion() { return { success: true as const }; }
+export async function setMiUnionSemana() { return { success: true as const, cambiadas: 2, completas: 0 }; }

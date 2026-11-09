@@ -200,8 +200,9 @@ export type CuentaSesion = {
   sobreaforo: boolean;
 };
 
-export function cuentaSesion(aforo: number | null, inscritos: number, faltan: number): CuentaSesion {
-  const asisten = Math.max(0, inscritos - faltan);
+export function cuentaSesion(aforo: number | null, inscritos: number, faltan: number, multis = 0): CuentaSesion {
+  // Un multi apuntado a la sesión (regla 96) ocupa plaza igual que uno del grupo.
+  const asisten = Math.max(0, inscritos - faltan) + Math.max(0, multis);
   const libres = aforo === null ? null : aforo - asisten;
   return { aforo, inscritos, faltan, asisten, libres, sobreaforo: libres !== null && libres < 0 };
 }

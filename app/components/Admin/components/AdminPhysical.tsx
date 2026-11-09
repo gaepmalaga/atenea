@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { Dumbbell, RefreshCw, Users2, CalendarDays, Sparkles, Trophy } from 'lucide-react';
+import { Dumbbell, RefreshCw, Users2, CalendarDays, CalendarRange, Sparkles, Trophy } from 'lucide-react';
 import { getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
 import Planificador from './fisica/Planificador';
 import MarcasAcademia from './fisica/MarcasAcademia';
+import Cuadrante from './fisica/Cuadrante';
 import { Card, EmptyState, Button, TEXT, cx } from '../../ui';
 
 /**
@@ -25,7 +26,7 @@ export default function AdminPhysical() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [vista, setVista] = useState<'planificar' | 'marcas'>('planificar');
+  const [vista, setVista] = useState<'cuadrante' | 'planificar' | 'marcas'>('cuadrante');
 
   const cargar = useCallback(async () => {
     const switchesRes = await getTrainingSwitches();
@@ -117,8 +118,8 @@ export default function AdminPhysical() {
         />
       ) : (
         <>
-          <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 max-w-md">
-            {([['planificar', 'Planificar', CalendarDays], ['marcas', 'Marcas', Trophy]] as const).map(([id, texto, Icono]) => (
+          <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 max-w-xl">
+            {([['cuadrante', 'Cuadrante', CalendarRange], ['planificar', 'Planificar', CalendarDays], ['marcas', 'Marcas', Trophy]] as const).map(([id, texto, Icono]) => (
               <button key={id} onClick={() => setVista(id)} aria-pressed={vista === id}
                 className={cx('flex-1 min-h-[44px] rounded-xl text-sm font-black flex items-center justify-center gap-2',
                   vista === id ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
@@ -126,7 +127,7 @@ export default function AdminPhysical() {
               </button>
             ))}
           </div>
-          {vista === 'planificar' ? <Planificador /> : <MarcasAcademia />}
+          {vista === 'cuadrante' ? <Cuadrante /> : vista === 'planificar' ? <Planificador /> : <MarcasAcademia />}
         </>
       )}
     </div>

@@ -164,7 +164,7 @@ export async function getAsistenciaAcademia(): Promise<
 
   const ahora = ahoraEnZona(Date.now());
   const ids = (grupos ?? []).map((g) => g.id as string);
-  const [miembrosRes, faltasRes] = ids.length
+  const [miembrosRes, faltasRes, multisRes] = ids.length
     ? await Promise.all([
         supabaseAdmin.from('class_members').select('class_id, user_id').in('class_id', ids),
         supabaseAdmin
@@ -173,11 +173,24 @@ export async function getAsistenciaAcademia(): Promise<
           .in('class_id', ids)
           .gte('session_date', ahora.fecha)
           .lte('session_date', sumaDias(ahora.fecha, DIAS_VISIBLES)),
+        // Los multis apuntados a la sesión de este grupo ocupan plaza (regla 96).
+        supabaseAdmin
+          .from('class_session_joins')
+          .select('class_id, session_date')
+          .in('class_id', ids)
+          .gte('session_date', ahora.fecha)
+          .lte('session_date', sumaDias(ahora.fecha, DIAS_VISIBLES)),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
 
   const miembros = (miembrosRes.data ?? []) as { class_id: string; user_id: string }[];
   const faltas = (faltasRes.data ?? []) as { class_id: string; user_id: string; session_date: string }[];
+
+  const multisPorSesion = new Map<string, number>();
+  for (const j of (multisRes.data ?? []) as { class_id: string; session_date: string }[]) {
+    const k = `${j.class_id}|${j.session_date}`;
+    multisPorSesion.set(k, (multisPorSesion.get(k) ?? 0) + 1);
+  }
 
   const usuarios = [...new Set(faltas.map((f) => f.user_id))];
   const { data: perfiles } = usuarios.length
@@ -212,7 +225,7 @@ export async function getAsistenciaAcademia(): Promise<
           nombre: g.name as string,
           hora: h.startTime,
           quienesFaltan: quienes,
-          ...cuentaSesion(h.capacity, inscritos.get(g.id as string) ?? 0, quienes.length),
+          ...cuentaSesion(h.capacity, inscritos.get(g.id as string) ?? 0, quienes.length, multisPorSesion.get(`${g.id}|${fecha}`) ?? 0),
         },
       ]);
     }
