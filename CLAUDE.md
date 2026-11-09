@@ -213,6 +213,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 93 | Un enlace sin imagen de vista previa parece un enlace roto |
 | 94 | Inicio dice «qué hago hoy», y la identidad de Alphapol vive en `ui/` |
 | 95 | El calendario de física arranca por la semana, y el mes está siempre a un botón |
+| 96 | El cuadrante semanal: un profesor por sesión, y los multis ocupan plaza |
 
 ## Trampas conocidas
 

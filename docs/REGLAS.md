@@ -3660,6 +3660,54 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   de un menú que ya no existe (anterior a la regla 86) y, con la semana, esos
   textos son tarjetas que abren un diálogo. El guion cierra el diálogo y sigue.
 
+### 96 · El cuadrante semanal: un profesor por sesión, y los multis ocupan plaza
+
+- **Qué pasó (9 nov):** Alphapol organiza la física de la Promoción 44 en
+  siete grupos fijos (Kappa, Alpha y Zetta, lunes y miércoles; Omega, Sigma,
+  Betta y Delta, martes y jueves; mañana a las 08:00 y tarde a las 20:00) y
+  cada semana manda por WhatsApp una imagen, el «cuadrante», con lo que toca a
+  cada grupo cada día y QUÉ PROFESOR lo da, según quién esté disponible. Los
+  alumnos **multidisciplinares** no tienen grupo: dicen cada semana «esta
+  semana voy con OMEGA». Hacía falta que el preparador montara ese cuadrante
+  aquí y que el multi se apuntara solo.
+- **Regla:**
+  - **El profesor cuelga de la SESIÓN, no del grupo** (`training_sessions.teacher_id`
+    → `academy_staff`, que ya guardaba profesores como NOMBRES sin cuenta; se
+    podrán enlazar a una cuenta «preparador» más adelante). La hora propia de
+    una sesión (`start_time`) sirve para la de Multi a las 18:30.
+  - **El cuadrante no tiene tabla**: es una vista de las sesiones de los grupos
+    `fisicas` (una celda = la primera sesión del grupo ese día; `saveCelda`
+    la crea o la cambia sin tocar su descripción ni sus cargas).
+    `armaCuadrante` (`app/lib/cuadrante.ts`) alimenta el panel, la imagen y el
+    texto de WhatsApp: tres salidas, una sola rejilla.
+  - **Los grupos salen en su ORDEN DE ALTA, no alfabético** (el cuadrante que
+    ya conocen los alumnos es Kappa, Alpha, Zetta…). Un INSERT de varias filas
+    da el mismo `created_at` a todas: se escalonan un segundo
+    (`docs/sql/fisica-cuadrante.sql`).
+  - **Un profesor no puede estar en dos sitios a la vez**: `choquesDeProfesor`
+    avisa si dos sesiones suyas se solapan (una hora por sesión). Sin hora
+    conocida no avisa: avisar sin saber es ruido.
+  - **Multi** es un grupo con `is_multi = true`, sin días propios. El multi se
+    apunta a una sesión de otro grupo en `class_session_joins` (RLS y CERO
+    políticas, como `class_absences`, regla 82) y **ocupa plaza**: plazas
+    libres = aforo − (propios − faltas) − multis (`cuentaSesion` ganó un
+    cuarto parámetro). Aforo 30 por grupo: 20 propios y 10 plazas para multis.
+  - **El servidor comprueba lo que la pantalla ya filtra** (regla 34): que es
+    multi, que el grupo es de su academia, que es día de clase, que no ha
+    empezado (`sePuedeAvisar`) y que queda plaza (`quedaPlaza`). Sin aforo
+    puesto no se bloquea: no se sabe (regla 8).
+  - **La imagen se dibuja en el navegador** (`cuadranteImagen.ts`, canvas) con
+    los colores de cada grupo; en el móvil abre la hoja de compartir
+    (WhatsApp) y donde no, descarga el PNG.
+- **Trampas:** `limpieza.ts` tiene listas de tablas con `user_id`/`class_id` y
+  su test las cruza con el esquema: la tabla nueva hubo que añadirla. Desde la
+  sesión en la nube la app local no llega a `*.supabase.co` (solo a la API de
+  gestión): la pantalla se probó en el banco de pruebas y las escrituras con
+  SQL en una transacción deshecha.
+- **Pendiente:** el profesor aún no sale en el calendario del alumno; los
+  entrenos individuales siguen como en la regla 86 (falta «enviar lo mismo a
+  varios alumnos a la vez»); enlazar los nombres de profesor a cuentas.
+
 ---
 
 ## Los tests
@@ -3677,6 +3725,7 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
 tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
+tests/cuadrante.test.ts         el cuadrante semanal (regla 96): la semana real de Alphapol, choques de profesor, texto de WhatsApp, plazas con multis y guardas de las acciones
 tests/sesiones.test.ts          la física como la lleva un preparador (regla 86): sesiones, lo que apunta el alumno, el calendario, copiar semana, cada frontera del baremo del BOE y las guardas de las acciones
 tests/alta-masiva.test.ts       alta en bloque (regla 83): leer la lista pegada, contraseñas legibles, el CSV para Excel, y las guardas de la acción
 tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista
