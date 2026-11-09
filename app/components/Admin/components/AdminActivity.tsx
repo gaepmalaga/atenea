@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, RefreshCw, AlertTriangle, History, LogIn } from 'lucide-react';
+import { ShieldCheck, RefreshCw, AlertTriangle, LogIn } from 'lucide-react';
 import { getAdminAuditLog, getInicioSesiones } from '@/actions';
 import type { AuditRow, SesionUsuario } from '@/app/actions/audit';
 import { ACCION_LABEL, type AccionAuditada } from '@/app/lib/audit-labels';
-import { Card, EmptyState, TEXT, cx } from '../../ui';
+import { PanelTitulo, BloqueTitulo, Aviso, Boton, Filtros, FiltroChip, TablaDual, Avatar, Etiqueta, inicialesDeCorreo, EmptyState } from '../../ui';
 
 /**
  * "Logs & Auditoría": quién hizo qué.
@@ -54,111 +54,81 @@ export default function AdminActivity() {
     cargar();
   }
 
+  const [filtro, setFiltro] = useState<'todos' | 'alumnos' | 'admin'>('todos');
+  const visibles = usuarios.filter((u) => filtro === 'todos' || (filtro === 'admin' ? u.rol === 'admin' : u.rol !== 'admin'));
+  const cuenta = (f: 'alumnos' | 'admin') => usuarios.filter((u) => (f === 'admin' ? u.rol === 'admin' : u.rol !== 'admin')).length;
+
   return (
-    <div className="space-y-4 animate-in fade-in pb-24">
-      <Card tone="sunken" pad="md" className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-slate-700/10 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
-            <History size={20} />
-          </div>
-          <div>
-            <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Logs &amp; Auditoría</h3>
-            <p className={cx(TEXT.muted, 'mt-0.5')}>
-              Quién entra y cuándo, y quién ha borrado, publicado o apagado algo.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={recargar}
-          className="w-11 h-11 shrink-0 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </Card>
+    <div className="space-y-5 animate-in fade-in pb-24">
+      <PanelTitulo
+        titulo="Logs"
+        sub="Quién entra y cuándo, y quién ha borrado, publicado o apagado algo."
+        acciones={<Boton variant="secondary" onClick={recargar} icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}>Recargar</Boton>}
+      />
 
       {loading && (
-        <div className="flex items-center gap-2 px-1 py-8 justify-center text-slate-500 dark:text-slate-400">
+        <div className="flex items-center justify-center gap-2 px-1 py-8 text-slate-600 dark:text-slate-400">
           <RefreshCw size={15} className="animate-spin" />
-          <span className="text-xs font-bold">Cargando…</span>
+          <span className="text-xs font-semibold">Cargando…</span>
         </div>
       )}
 
       {/* ───────── ÚLTIMO ACCESO POR USUARIO ───────── */}
-      <div className="space-y-2" hidden={loading}>
-        <div className="flex items-center gap-2 px-1">
-          <LogIn size={13} className="text-slate-500 dark:text-slate-400" />
-          <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Inicios de sesión
-          </h4>
-        </div>
+      <section className="space-y-3" hidden={loading}>
+        <BloqueTitulo icon={<LogIn size={15} />}>Inicios de sesión</BloqueTitulo>
+
+        <Filtros etiqueta="Qué usuarios ver">
+          <FiltroChip activo={filtro === 'todos'} onClick={() => setFiltro('todos')} cuenta={usuarios.length}>Todos</FiltroChip>
+          <FiltroChip activo={filtro === 'alumnos'} onClick={() => setFiltro('alumnos')} cuenta={cuenta('alumnos')}>Alumnos</FiltroChip>
+          <FiltroChip activo={filtro === 'admin'} onClick={() => setFiltro('admin')} cuenta={cuenta('admin')}>Administración</FiltroChip>
+        </Filtros>
 
         {sinFechas && (
-          <Card tone="base" pad="md" className="border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-start gap-3">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <p className="text-xs leading-relaxed">
-              No se han podido leer las fechas de conexión de Supabase. La lista sale igual, pero sin el último acceso.
-            </p>
-          </Card>
+          <Aviso><AlertTriangle size={15} className="mt-0.5 shrink-0" /> No se han podido leer las fechas de conexión de Supabase. La lista sale igual, pero sin el último acceso.</Aviso>
         )}
 
         {!loading && usuarios.length === 0 ? (
           <EmptyState icon={<LogIn size={40} />} title="Ningún usuario todavía" bordered />
         ) : (
-          <div className="space-y-2">
-            {usuarios.map((u) => (
-              <Card key={u.id} tone="sunken" pad="sm" className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug truncate">
-                    {u.email ?? '(sin correo)'}
-                    {u.rol === 'admin' && (
-                      <span className="ml-2 text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 align-middle">
-                        admin
-                      </span>
-                    )}
-                  </p>
-                  <p className={cx(TEXT.muted, 'mt-1')}>
-                    {u.ultimoAcceso ? `Última vez: ${fechaCompleta(u.ultimoAcceso)}` : 'No ha entrado nunca'}
-                  </p>
+          <TablaDual
+            soloLectura
+            clave={(u) => u.id}
+            filas={visibles}
+            vacio="Ningún usuario de ese tipo."
+            columnas={[
+              { id: 'usuario', titulo: 'Usuario', celda: (u) => (
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar iniciales={inicialesDeCorreo(u.email)} />
+                  <div className="min-w-0"><p className="truncate font-semibold text-slate-900 dark:text-white">{u.email ?? '(sin correo)'}</p></div>
                 </div>
-                <span
-                  className={cx(
-                    'text-[11px] font-bold whitespace-nowrap shrink-0',
-                    u.ultimoAcceso ? 'text-slate-600 dark:text-slate-300' : 'text-amber-600 dark:text-amber-400',
-                  )}
-                >
-                  {desdeCuando(u.ultimoAcceso)}
-                </span>
-              </Card>
-            ))}
-          </div>
+              ) },
+              { id: 'rol', titulo: 'Rol', celda: (u) => <Etiqueta tono={u.rol === 'admin' ? 'oro' : 'apagado'}>{u.rol === 'admin' ? 'Administración' : 'Alumno'}</Etiqueta> },
+              { id: 'ultimo', titulo: 'Último acceso', celda: (u) => (
+                u.ultimoAcceso
+                  ? <span><b className="font-semibold">{desdeCuando(u.ultimoAcceso)}</b> <span className="text-slate-600 dark:text-slate-400">· {fechaCompleta(u.ultimoAcceso)}</span></span>
+                  : <span className="font-semibold text-amber-700 dark:text-amber-300">No ha entrado nunca</span>
+              ) },
+            ]}
+          />
         )}
-      </div>
+      </section>
 
       {/* ───────── REGISTRO DE ACCIONES ───────── */}
-      <div className="space-y-2 pt-2" hidden={loading}>
-        <div className="flex items-center gap-2 px-1">
-          <ShieldCheck size={13} className="text-slate-500 dark:text-slate-400" />
-          <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Acciones de administración
-          </h4>
-        </div>
+      <section className="space-y-3 pt-2" hidden={loading}>
+        <BloqueTitulo icon={<ShieldCheck size={15} />}>Acciones de administración</BloqueTitulo>
 
         {tablaFalta && (
-          <Card tone="base" pad="md" className="border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-start gap-3">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <p className="text-xs leading-relaxed">
+          <Aviso>
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <span>
               Todavía no existe la tabla del registro. Hay que ejecutar{' '}
-              <code className="font-mono bg-black/10 dark:bg-white/10 px-1 rounded">docs/sql/admin-audit-log.sql</code>{' '}
+              <code className="rounded bg-black/10 px-1 font-mono dark:bg-white/10">docs/sql/admin-audit-log.sql</code>{' '}
               en el editor SQL de Supabase — mientras tanto no hay nada que enseñar aquí, pero nada se ha roto.
-            </p>
-          </Card>
+            </span>
+          </Aviso>
         )}
 
-        {error && !tablaFalta && (
-          <Card tone="base" pad="md" className="border-red-500/30 text-red-700 dark:text-red-300">
-            <p className="text-xs font-medium">{error}</p>
-          </Card>
-        )}
+        {error && !tablaFalta && <Aviso tono="malo">{error}</Aviso>}
 
         {!loading && !error && rows.length === 0 && (
           <EmptyState
@@ -169,25 +139,22 @@ export default function AdminActivity() {
           />
         )}
 
-        <div className="space-y-2">
-          {rows.map((r) => (
-            <Card key={r.id} tone="sunken" pad="sm" className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                  {ACCION_LABEL[r.action as AccionAuditada] ?? r.action}
-                </p>
-                <p className={cx(TEXT.muted, 'mt-1')}>
-                  {r.actorEmail ?? 'admin'}
-                  {r.target ? ` · ${r.target}` : ''}
-                </p>
-              </div>
-              <span className="text-slate-500 dark:text-slate-400 text-[11px] font-mono whitespace-nowrap shrink-0">
-                {new Date(r.createdAt).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </Card>
-          ))}
-        </div>
-      </div>
+        {rows.length > 0 && (
+          <TablaDual
+            soloLectura
+            clave={(r) => r.id}
+            filas={rows}
+            columnas={[
+              { id: 'cuando', titulo: 'Cuándo', celda: (r) => (
+                <span className="font-semibold tabular-nums">{new Date(r.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              ) },
+              { id: 'quien', titulo: 'Quién', celda: (r) => <span className="break-all">{r.actorEmail ?? 'admin'}</span> },
+              { id: 'accion', titulo: 'Acción', celda: (r) => ACCION_LABEL[r.action as AccionAuditada] ?? r.action },
+              { id: 'sobre', titulo: 'Sobre qué', celda: (r) => r.target ?? <span className="text-slate-600 dark:text-slate-400">—</span> },
+            ]}
+          />
+        )}
+      </section>
     </div>
   );
 }

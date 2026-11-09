@@ -31,8 +31,10 @@ export { default as Avatar, inicialesDeCorreo, inicialesDeNombre, nombreDeCorreo
 export { Filtros, FiltroChip } from './panel/Filtros';
 export { default as Pestanas, type PestanaItem } from './panel/Pestanas';
 export { default as Boton } from './panel/Boton';
+export { Campo, CampoArea, CampoSelect } from './panel/Campo';
 export { default as Conmutador } from './panel/Conmutador';
 export { Hoja, BloqueTitulo, Rotulo, Aviso, Atras } from './panel/Hoja';
+export { default as Barras, type DatoBarra } from './panel/Barras';
 export { default as TablaDual, type Columna } from './panel/TablaDual';
 export { default as PanelLateral } from './panel/PanelLateral';
 export { default as PanelShell, type PestanaPanel } from './panel/PanelShell';

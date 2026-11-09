@@ -2,16 +2,39 @@ import type { ReactNode } from 'react';
 import { HOJA, HUNDIDO } from './estilos';
 import { cx } from '../tokens';
 
-/** Una hoja: la superficie de una lista, una tabla o un bloque. Esquinas de 8 px y un filete. */
-export function Hoja({ children, className, hundida }: { children: ReactNode; className?: string; hundida?: boolean }) {
-  return <div className={cx(HOJA, hundida && HUNDIDO, className)}>{children}</div>;
+const RELLENO = { none: '', sm: 'p-3 sm:p-3.5', md: 'p-4 sm:p-5', lg: 'p-5 sm:p-6' } as const;
+
+/**
+ * Una hoja: la superficie de una lista, una tabla o un bloque. Esquinas de 8 px
+ * y un filete. Acepta las propiedades de `Card` (`tone`, `pad`) para que migrar
+ * una pantalla sea cambiar el nombre; `brand` es la franja marino con el filete
+ * dorado, para lo que hay que mirar primero.
+ */
+export function Hoja({
+  children, className, tone = 'base', pad = 'none',
+}: { children: ReactNode; className?: string; tone?: 'base' | 'sunken' | 'brand'; pad?: keyof typeof RELLENO }) {
+  return (
+    <div
+      className={cx(
+        tone === 'brand' ? 'min-w-0 rounded-lg border border-marino border-b-[3px] border-b-oro bg-marino text-white' : HOJA,
+        tone === 'sunken' && HUNDIDO,
+        RELLENO[pad],
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 /** El título de un bloque dentro de una hoja: «SUS GRUPOS». */
-export function BloqueTitulo({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+export function BloqueTitulo({ children, aside, icon }: { children: ReactNode; aside?: ReactNode; icon?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h3 className="font-titulo text-lg font-bold uppercase leading-none tracking-wider text-slate-900 dark:text-white">{children}</h3>
+      <h3 className="flex min-w-0 items-center gap-2 font-titulo text-lg font-bold uppercase leading-none tracking-wider text-slate-900 dark:text-white">
+        {icon && <span className="shrink-0 text-slate-600 dark:text-slate-400">{icon}</span>}
+        {children}
+      </h3>
       {aside}
     </div>
   );
