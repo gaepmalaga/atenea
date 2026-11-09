@@ -128,6 +128,9 @@ describe('superficie de las Server Actions', () => {
       'moverMulti',
       'getAlumnosFisica',
       'copiarAAlumnos',
+      // Regla 98 y 99: publicar el cuadrante, y la agenda de los profesores.
+      'publicarCuadrante',
+      'getAgendaProfesores',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

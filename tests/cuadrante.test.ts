@@ -132,10 +132,15 @@ describe('armaCuadrante: la semana real', () => {
     expect(x.dias[1].filas.find((f) => f.grupo.corto === 'Omega')?.extra).toBe(false);
   });
 
-  it('una sesión de un grupo en un día en que nadie tiene clase NO crea el día (regla 97)', () => {
-    const extra = [...SEMANA, ses('Kappa', '2026-11-13', 'Carrera larga', JOSE)];
+  it('un día añadido a un grupo con horario (un sábado) crea su día, suelto y solo con ese grupo y Multi (regla 99)', () => {
+    const extra = [...SEMANA, ses('Kappa', '2026-11-14', 'Carrera larga', JOSE, '10:00')];
     const x = armaCuadrante({ lunes: LUNES, grupos: GRUPOS, sesiones: extra, profesores: PROFES });
-    expect(x.dias.map((d) => d.fecha)).not.toContain('2026-11-13');
+    const sabado = x.dias.find((d) => d.fecha === '2026-11-14')!;
+    expect(sabado.titulo).toBe('SÁBADO 14');
+    expect(sabado.suelto).toBe(true);
+    expect(sabado.filas.map((f) => [f.grupo.corto, f.extra, f.horaRotulada])).toEqual([['Kappa', true, '10:00'], ['Multi', false, null]]);
+    expect(x.rango).toBe('del 9 al 14 de noviembre');
+    expect(textoCuadrante(x)).toContain('• KAPPA — Carrera larga · 10:00 h (José)');
   });
 
   it('ningún día de la semana real es suelto: todos son de algún horario fijo', () => {
@@ -200,6 +205,10 @@ describe('el cuadrante solo lleva clases de grupo (regla 97)', () => {
 
   it('la fila de Multi no crea días: un sábado sin nada no existe', () => {
     expect(fechasDelCuadrante(GRUPOS, [], LUNES)).toEqual(['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12']);
+  });
+
+  it('una sesión de un grupo SIN horario tampoco crea días, aunque sea en sábado', () => {
+    expect(fechasDelCuadrante(CON_PROMO43, [DEL_43('2026-11-14', 'Rodaje')], LUNES)).not.toContain('2026-11-14');
   });
 
   it('una sesión de Multi sí crea su día, y ese día es suelto', () => {
@@ -414,7 +423,7 @@ describe('las acciones del cuadrante (guardas estáticas)', () => {
   };
 
   it('lo del preparador va detrás de requireAdmin y acotado a su academia dentro de la consulta (regla 65)', () => {
-    for (const f of ['getCuadrante', 'saveCelda', 'copiarCuadrante', 'copiarCelda', 'setSinClase', 'borrarSesionesDia']) {
+    for (const f of ['getCuadrante', 'saveCelda', 'copiarCuadrante', 'copiarCelda', 'setSinClase', 'borrarSesionesDia', 'getAgendaProfesores']) {
       const c = cuerpo(f);
       expect(c, f).toContain('requireAdmin()');
       expect(c, f).toMatch(/\.eq\('organization_id', org\)/);

@@ -158,3 +158,13 @@ describe('guardas de las acciones', () => {
     expect(cuerpo).toContain(".eq('organization_id', organizationId)");
   });
 });
+
+describe('el horario del grupo con la hora escrita a mano (regla 99)', () => {
+  it('entiende «8», «0800», «20.30» y lo que devuelve Postgres', async () => {
+    const { normalizeHorario } = await import('../app/lib/asistencia');
+    expect(normalizeHorario({ weekdays: [1, 3], startTime: '8', endTime: '0900' })).toMatchObject({ ok: true, horario: { startTime: '08:00', endTime: '09:00' } });
+    expect(normalizeHorario({ weekdays: [2], startTime: '20.30', endTime: '21:30:00' })).toMatchObject({ ok: true, horario: { startTime: '20:30', endTime: '21:30' } });
+    expect(normalizeHorario({ weekdays: [2], startTime: 'tarde' })).toMatchObject({ ok: false });
+  });
+});
+

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   LogOut, RefreshCw, Users, Book, Building2,
   Activity, AlertTriangle, Database, Power, Coins, KeyRound, Users2, Dumbbell,
-  ArrowLeftRight, ChevronLeft, ChevronRight, Check, CalendarCheck,
+  ArrowLeftRight, ChevronLeft, ChevronRight, Check, CalendarCheck, GraduationCap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -20,12 +20,13 @@ import AdminGroups from './components/AdminGroups';
 import AdminAsistencia from './components/AdminAsistencia';
 import AdminPhysical from './components/AdminPhysical';
 import AdminAcademies from './components/AdminAcademies';
+import AdminProfesores from './components/AdminProfesores';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { MARCA } from '@/app/lib/marca';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'students' | 'groups' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
+type AdminTab = 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
 
 /**
  * El orden de las pestañas lo puede cambiar cada admin y se recuerda en SU
@@ -42,7 +43,7 @@ const ORDEN_KEY = 'atenea-admin-orden-pestanas';
  */
 const TAB_KEY = 'atenea-admin-pestana';
 const TABS_VALIDAS: AdminTab[] = [
-  'students', 'groups', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies',
+  'students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies',
 ];
 
 function leeTabGuardada(): AdminTab | null {
@@ -155,6 +156,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   const TODAS_LAS_PESTANAS: TabDef[] = [
     { id: 'students', label: 'Alumnos', icon: Users, color: 'text-blue-700 dark:text-blue-400' },
     { id: 'groups', label: 'Grupos', icon: Users2, color: 'text-teal-700 dark:text-teal-400' },
+    { id: 'staff', label: 'Profesores', icon: GraduationCap, color: 'text-indigo-700 dark:text-indigo-400' },
     { id: 'attendance', label: 'Asistencia', icon: CalendarCheck, color: 'text-sky-700 dark:text-sky-400' },
     { id: 'physical', label: 'Prep. física', icon: Dumbbell, color: 'text-orange-700 dark:text-orange-400' },
     { id: 'payments', label: 'Pagos', icon: KeyRound, color: 'text-rose-700 dark:text-rose-400' },
@@ -178,13 +180,25 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // «Alumnos», «Grupos», «Pagos» ni «Prep. física»: eso es de quien
   // administra UNA academia.
   const IDS_SUPERADMIN: AdminTab[] = ['content', 'bank', 'moderation', 'cost', 'academies'];
-  const IDS_ADMIN: AdminTab[] = ['students', 'groups', 'attendance', 'physical', 'payments', 'bank', 'moderation', 'modules', 'activity'];
+  const IDS_ADMIN: AdminTab[] = ['students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'bank', 'moderation', 'modules', 'activity'];
 
   const tabs: TabDef[] = TODAS_LAS_PESTANAS.filter((t) =>
     (esSuperadmin ? IDS_SUPERADMIN : IDS_ADMIN).includes(t.id)
   );
 
   const tabsOrdenadas = aplicaOrden(tabs, orden);
+
+  // Una pantalla puede pedir otra pestaña («los horarios, en Grupos»): un
+  // evento del navegador, para no pasar funciones por todo el árbol (regla 99).
+  const idsVisibles = tabs.map((t) => t.id).join(',');
+  useEffect(() => {
+    const alPedir = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (idsVisibles.split(',').includes(id)) cambiaTab(id as AdminTab);
+    };
+    window.addEventListener('admin:pestana', alPedir);
+    return () => window.removeEventListener('admin:pestana', alPedir);
+  }, [idsVisibles]);
 
   const mueve = (id: AdminTab, dir: -1 | 1) => {
     const ids = tabsOrdenadas.map((t) => t.id);
@@ -353,6 +367,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
             <ModuleErrorBoundary moduleName={tabs.find(t => t.id === activeTab)?.label ?? 'La seccion'}>
                 {activeTab === 'students' && <AdminStudents />}
                 {activeTab === 'groups' && <AdminGroups />}
+                {activeTab === 'staff' && <AdminProfesores />}
                 {activeTab === 'attendance' && <AdminAsistencia />}
                 {activeTab === 'physical' && <AdminPhysical />}
                 {activeTab === 'payments' && <AdminPayments />}

@@ -1,20 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2, Loader2, Plus, Pencil, Trash2, AlertTriangle, CalendarClock, Link2, Check, Copy } from 'lucide-react';
+import { Building2, Loader2, AlertTriangle, CalendarClock, Link2, Check, Copy } from 'lucide-react';
 import {
   getAcademySettings,
   saveAcademySettings,
   getConvocatoria,
   saveConvocatoria,
   listStaff,
-  saveStaff,
-  deleteStaff,
-  listCuentasAcademia,
 } from '@/actions';
 import type { AcademySettings, StaffMember } from '@/app/lib/academy-settings';
 import { diasHasta, textoCuentaAtras, type Convocatoria } from '@/app/lib/convocatoria';
-import { Card, Button, Modal, TextField, TextAreaField, SelectField, SectionLabel, TEXT, cx } from '../../ui';
+import { Card, Button, TextField, TextAreaField, SectionLabel, TEXT, cx } from '../../ui';
 
 /**
  * Los datos de la academia: nombre, dirección, horario, contacto, y quién da
@@ -72,7 +69,7 @@ export default function AcademyIdentity() {
       <CardEnlace slug={slug} />
       <CardConvocatoria />
       <FichaAcademia inicial={settings} error={error} />
-      <ListaProfesores staff={staff} onCambio={setStaff} />
+      <EnlaceProfesores cuantos={staff.length} />
     </div>
   );
 }
@@ -257,130 +254,20 @@ function FichaAcademia({ inicial, error }: { inicial: AcademySettings | null; er
   );
 }
 
-type FormularioProfesor = { id?: string; name: string; role: string; email: string; phone: string; active: boolean; userId: string };
-const PROFESOR_VACIO: FormularioProfesor = { name: '', role: 'profesor', email: '', phone: '', active: true, userId: '' };
-type Cuenta = { id: string; email: string; role: string };
-
-function ListaProfesores({ staff, onCambio }: { staff: StaffMember[]; onCambio: (s: StaffMember[]) => void }) {
-  const [editando, setEditando] = useState<FormularioProfesor | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [borrando, setBorrando] = useState<string | null>(null);
-  const [cuentas, setCuentas] = useState<Cuenta[]>([]);
-
-  // Las cuentas de la academia, para enlazar un profesor con la suya (regla 97).
-  useEffect(() => {
-    listCuentasAcademia().then((r) => { if (r.success) setCuentas(r.cuentas); });
-  }, []);
-  const correoDe = (id: string | null) => (id ? cuentas.find((c) => c.id === id)?.email ?? 'una cuenta' : null);
-
-  async function guardar() {
-    if (!editando) return;
-    setGuardando(true);
-    setError(null);
-    const res = await saveStaff(editando);
-    if (res.success) {
-      const fresh = await listStaff();
-      if (fresh.success) onCambio(fresh.staff);
-      setEditando(null);
-    } else {
-      setError(res.error ?? 'No se pudo guardar.');
-    }
-    setGuardando(false);
-  }
-
-  async function borrar(id: string) {
-    setBorrando(id);
-    const res = await deleteStaff(id);
-    if (res.success) onCambio(staff.filter((s) => s.id !== id));
-    setBorrando(null);
-  }
-
+/**
+ * Los profesores tienen su pestaña desde la regla 99: aquí, al fondo de
+ * «Ajustes», nadie los encontraba.
+ */
+function EnlaceProfesores({ cuantos }: { cuantos: number }) {
   return (
-    <Card pad="md" className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <Card pad="md" className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
         <SectionLabel>Profesores</SectionLabel>
-        <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => setEditando(PROFESOR_VACIO)}>
-          Añadir
-        </Button>
+        <p className={TEXT.muted}>{cuantos ? `${cuantos} ${cuantos === 1 ? 'profesor' : 'profesores'}. ` : ''}Se gestionan en su pestaña, con sus grupos y sus clases de física.</p>
       </div>
-
-      {staff.length === 0 && (
-        <p className={cx(TEXT.muted)}>Todavía no hay ningún profesor dado de alta.</p>
-      )}
-
-      <div className="space-y-2">
-        {staff.map((s) => (
-          <div
-            key={s.id}
-            className={cx(
-              'flex items-center justify-between gap-3 p-3 rounded-2xl border',
-              s.active ? 'border-slate-200 dark:border-slate-800' : 'border-slate-100 dark:border-slate-900 opacity-60',
-            )}
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                {s.name} <span className="font-normal text-slate-500 dark:text-slate-400">· {s.role}</span>
-                {!s.active && <span className="ml-2 text-[10px] uppercase font-black text-slate-500 dark:text-slate-400">inactivo</span>}
-              </p>
-              {/* Sin `truncate`: un correo largo se corta a media palabra y el
-                  contacto es justo el dato que hace falta entero. Envuelve a
-                  una segunda linea en vez de esconderse. */}
-              <p className={cx(TEXT.muted, 'break-words')}>{[s.email, s.phone].filter(Boolean).join(' · ') || 'Sin contacto'}</p>
-              {s.userId && <p className={cx(TEXT.muted, 'break-words')}>Entra con {correoDe(s.userId)}</p>}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => setEditando({ id: s.id, name: s.name, role: s.role, email: s.email ?? '', phone: s.phone ?? '', active: s.active, userId: s.userId ?? '' })}
-                className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
-                aria-label={`Editar a ${s.name}`}
-              >
-                <Pencil size={15} />
-              </button>
-              <button
-                onClick={() => borrar(s.id)}
-                disabled={borrando === s.id}
-                className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40"
-                aria-label={`Borrar a ${s.name}`}
-              >
-                {borrando === s.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {editando && (
-        <Modal
-          title={editando.id ? 'Editar profesor' : 'Nuevo profesor'}
-          onClose={() => setEditando(null)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
-              <Button onClick={guardar} disabled={guardando || !editando.name.trim()}>
-                {guardando ? <Loader2 size={14} className="animate-spin" /> : 'Guardar'}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <TextField label="Nombre" value={editando.name} onChange={(e) => setEditando({ ...editando, name: e.target.value })} autoFocus />
-            <TextField label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })} placeholder="profesor, coordinador, entrenador…" />
-            <TextField label="Correo" type="email" value={editando.email} onChange={(e) => setEditando({ ...editando, email: e.target.value })} />
-            <TextField label="Teléfono" value={editando.phone} onChange={(e) => setEditando({ ...editando, phone: e.target.value })} />
-            <SelectField label="Cuenta con la que entra (opcional)" value={editando.userId} onChange={(e) => setEditando({ ...editando, userId: e.target.value })}
-              hint="Si da clase y tiene cuenta en la plataforma. Sin cuenta, sigue saliendo por su nombre en el cuadrante.">
-              <option value="">Sin cuenta</option>
-              {cuentas.map((c) => <option key={c.id} value={c.id}>{c.email}{c.role === 'student' ? ' (alumno)' : ''}</option>)}
-            </SelectField>
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={editando.active} onChange={(e) => setEditando({ ...editando, active: e.target.checked })} className="w-5 h-5" />
-              Activo
-            </label>
-            {error && <p className="text-xs text-red-600 dark:text-red-400 font-medium">{error}</p>}
-          </div>
-        </Modal>
-      )}
+      <Button size="sm" variant="secondary" onClick={() => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: 'staff' }))}>
+        Ir a «Profesores»
+      </Button>
     </Card>
   );
 }

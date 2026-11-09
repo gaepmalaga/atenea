@@ -78,7 +78,14 @@ export default function AdminGroups() {
         {groups.map((g) => (
           <FilaGrupo key={g.id} g={g} kinds={kinds} staff={staff} busy={busy}
             onGuardar={(input) => accion(() => updateGroup(g.id, input))}
-            onBorrar={() => accion(() => deleteGroup(g.id))} />
+            onBorrar={() => {
+              // Borrar un grupo arrastra sus clases, faltas, multis apuntados y
+              // la pertenencia de sus alumnos, y la base de datos del plan
+              // gratuito no tiene copias: el 6 nov se perdió así un grupo entero.
+              if (confirm(`¿Borrar «${g.name}»? Se pierden también sus clases del cuadrante, las faltas avisadas y quién estaba dentro (${g.miembros} ${g.miembros === 1 ? 'alumno' : 'alumnos'}). No se puede deshacer.`)) {
+                accion(() => deleteGroup(g.id));
+              }
+            }} />
         ))}
       </div>
     </div>
@@ -128,12 +135,14 @@ type GrupoInput = {
   // El horario estructurado (regla 82). Las plazas viajan como texto: un campo
   // vacío es «sin poner», y lo convierte a `null` el servidor (regla 16).
   weekdays: number[]; startTime: string; endTime: string; capacity: string;
+  isMulti: boolean;
 };
 function campos(g?: GroupRow, kinds: GroupKindRow[] = []): GrupoInput {
   return {
     name: g?.name ?? '', kind: g?.kind ?? kinds[0]?.id ?? 'otro', schedule: g?.schedule ?? '', staffIds: g?.staffIds ?? [],
     weekdays: g?.horario.weekdays ?? [], startTime: g?.horario.startTime ?? '', endTime: g?.horario.endTime ?? '',
     capacity: g?.horario.capacity == null ? '' : String(g.horario.capacity),
+    isMulti: g?.esMulti ?? false,
   };
 }
 
@@ -150,9 +159,21 @@ function Formulario({ inicial, kinds, staff, busy, onSubmit, textoBoton }: {
           {kinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
         </select>
       </div>
+      {(v.isMulti || kinds.find((k) => k.id === v.kind)?.lleva_plan) && <label className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer min-h-[44px]">
+        <input type="checkbox" className="w-5 h-5 mt-0.5 shrink-0" checked={v.isMulti}
+          onChange={(e) => setV(e.target.checked
+            // Multi no tiene horario propio: se vacía, para que no se cuele.
+            ? { ...v, isMulti: true, weekdays: [], startTime: '', endTime: '', capacity: '' }
+            : { ...v, isMulti: false })} />
+        <span>
+          <b>Multidisciplinar (Multi)</b>: sin días propios; sus alumnos se apuntan cada semana a clases de otros grupos.
+          Sus sesiones sueltas (las de las 18:30) se ponen en el cuadrante.
+        </span>
+      </label>}
       {/* EL HORARIO (regla 82). De aquí salen las sesiones en las que el
-          alumno puede avisar de que falta, y las plazas libres de cada una. */}
-      <div className="space-y-2">
+          alumno puede avisar de que falta, y las plazas libres de cada una.
+          Un grupo Multi no tiene: se apuntan a las de los demás (regla 96). */}
+      {!v.isMulti && <div className="space-y-2">
         <span className={cx(TEXT.muted, 'block')}>Días de clase:</span>
         <div className="flex flex-wrap gap-1.5">
           {DIAS_SEMANA.map((d) => {
@@ -177,18 +198,20 @@ function Formulario({ inicial, kinds, staff, busy, onSubmit, textoBoton }: {
           })}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Hora escrita, no `type="time"`: en Android salía vacío con una
+              flecha (reglas 97 y 99). El servidor entiende «8», «0800», «8.00». */}
           <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-            De <input type="time" className={inp} value={v.startTime} onChange={(e) => setV({ ...v, startTime: e.target.value })} />
+            De <input inputMode="numeric" autoComplete="off" placeholder="08:00" className={cx(inp, 'w-20')} value={v.startTime} onChange={(e) => setV({ ...v, startTime: e.target.value })} />
           </label>
           <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-            a <input type="time" className={inp} value={v.endTime} onChange={(e) => setV({ ...v, endTime: e.target.value })} />
+            a <input inputMode="numeric" autoComplete="off" placeholder="09:00" className={cx(inp, 'w-20')} value={v.endTime} onChange={(e) => setV({ ...v, endTime: e.target.value })} />
           </label>
           <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
             Plazas <input type="number" min={1} max={500} inputMode="numeric" className={cx(inp, 'w-20')} value={v.capacity} onChange={(e) => setV({ ...v, capacity: e.target.value })} />
           </label>
         </div>
-        <input className={cx(inp, 'w-full')} placeholder="Nota del horario (opcional: aula, observaciones…)" value={v.schedule} onChange={(e) => setV({ ...v, schedule: e.target.value })} />
-      </div>
+      </div>}
+      <input className={cx(inp, 'w-full')} placeholder="Nota del horario (opcional: aula, observaciones…)" value={v.schedule} onChange={(e) => setV({ ...v, schedule: e.target.value })} />
       {staff.length > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           <span className={cx(TEXT.muted, 'w-full')}>Profesores:</span>

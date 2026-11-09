@@ -131,3 +131,31 @@ describe('las guardas de la acción', () => {
     expect(training).not.toContain('idsGruposConPlan');
   });
 });
+
+describe('grupos: Multi, horas a mano y borrar con cuidado (regla 99)', () => {
+  const lee = (f: string) => readFileSync(join(__dirname, '..', 'app', f), 'utf-8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('un grupo se marca Multi solo con `true` explícito', () => {
+    expect(normalizeGroupInput({ name: 'Multi', isMulti: true })?.isMulti).toBe(true);
+    expect(normalizeGroupInput({ name: 'Kappa' })?.isMulti).toBe(false);
+    expect(normalizeGroupInput({ name: 'Kappa', isMulti: 'true' })?.isMulti).toBe(false);
+  });
+
+  it('crear y cambiar un grupo escriben is_multi', () => {
+    const src = lee('actions/groups.ts');
+    for (const f of ['createGroup', 'updateGroup']) {
+      const c = src.slice(src.indexOf(`export async function ${f}`), src.indexOf('\nexport async function', src.indexOf(`export async function ${f}`) + 10));
+      expect(c, f).toContain('is_multi: clean.isMulti');
+    }
+  });
+
+  it('la pantalla pregunta antes de borrar un grupo (el 6 nov se perdió uno así)', () => {
+    const src = lee('components/Admin/components/AdminGroups.tsx');
+    expect(src).toMatch(/onBorrar=\{\(\) => \{[\s\S]*?confirm\([\s\S]*?deleteGroup\(g\.id\)/);
+  });
+
+  it('las horas del grupo no usan type="time" (en Android salía vacío)', () => {
+    expect(lee('components/Admin/components/AdminGroups.tsx')).not.toMatch(/type="time"/);
+  });
+});

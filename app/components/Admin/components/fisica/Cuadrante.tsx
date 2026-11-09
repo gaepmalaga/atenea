@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Copy, Image as ImagenIcono, MessageSquare, Plus, AlertTriangle, Users, Loader2, Trash2, Check,
-  CalendarX2, Undo2, FileText, ArrowRightLeft, UserPlus, Send, EyeOff,
+  CalendarX2, Undo2, FileText, ArrowRightLeft, UserPlus, Send, EyeOff, CalendarPlus, Settings2,
 } from 'lucide-react';
 import {
   getCuadrante, saveCelda, copiarCuadrante, deleteSesion, copiarCelda, setSinClase, borrarSesionesDia,
@@ -15,7 +15,7 @@ import { lunesDe, ETIQUETA_TIPO, type Sesion, type Plantilla } from '@/app/lib/s
 import { sumaDias } from '@/app/lib/asistencia';
 import {
   armaCuadrante, textoCuadrante, colorDeGrupo, nombrePila, etiquetaRango, tipoDeTitulo, leeHora, plazasSesion,
-  fechasDelGrupo, tituloDia,
+  fechasDelGrupo, tituloDia, horaCortaGrupo,
   type FilaCuadrante, type DiaCuadrante, type Cuadrante as CuadranteArmado, type GrupoCuadrante,
 } from '@/app/lib/cuadrante';
 import { entregaImagenCuadrante } from '@/app/components/fisica/cuadranteImagen';
@@ -53,6 +53,8 @@ function hoyLocal(): string {
 }
 
 const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** Pide al panel que abra otra pestaña (lo escucha `AdminView`). */
+const irAPestana = (id: string) => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: id }));
 /** «lun 9 nov, 10:12», en la hora de la academia. */
 const cuando = (iso: string) => new Date(iso).toLocaleString('es-ES', {
   weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: MARCA.zonaHoraria,
@@ -79,6 +81,7 @@ export default function Cuadrante() {
   const [copia, setCopia] = useState<Edicion | null>(null);
   const [quitar, setQuitar] = useState<DiaCuadrante | null>(null);
   const [detalle, setDetalle] = useState<Detalle | null>(null);
+  const [anadir, setAnadir] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
 
   const cargar = useCallback(async (l: string) => {
@@ -209,7 +212,14 @@ export default function Cuadrante() {
             disabled={!cuadrante?.dias.length || ocupado !== null} onClick={bajaImagen}>Imagen para WhatsApp</Button>
           <Button size="sm" variant="secondary" icon={<MessageSquare size={14} />}
             disabled={!cuadrante?.dias.length} onClick={copiaTexto}>Copiar texto</Button>
+          <Button size="sm" variant="secondary" icon={<CalendarPlus size={14} />}
+            disabled={!hayGrupos || ocupado !== null} onClick={() => setAnadir(true)}>Añadir un día</Button>
         </div>
+        {/* Los grupos, sus días, horas y plazas se cambian en «Grupos» (regla 99). */}
+        <button type="button" onClick={() => irAPestana('groups')}
+          className="min-h-[44px] text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 hover:underline">
+          <Settings2 size={14} /> Grupos, días de clase, horas y plazas: en la pestaña «Grupos»
+        </button>
         {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"><Check size={14} /> {aviso}</p>}
         {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
       </Card>
@@ -274,6 +284,10 @@ export default function Cuadrante() {
       {detalle && (
         <DetalleCelda detalle={detalle} onClose={() => setDetalle(null)} onCambio={() => recargar()} />
       )}
+      {anadir && datos && cuadrante && (
+        <AnadirDia datos={datos} cuadrante={cuadrante} onClose={() => setAnadir(false)}
+          onElegido={(e) => { setAnadir(false); setEdicion(e); }} />
+      )}
     </div>
   );
 }
@@ -287,7 +301,7 @@ function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
         <h4 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">{dia.titulo}</h4>
         <button onClick={onQuitar} aria-label={`Quitar el ${dia.titulo.toLowerCase()}`}
           className="min-h-[44px] px-2 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1">
-          <CalendarX2 size={14} /> Quitar día
+          <CalendarX2 size={14} /> Quitar…
         </button>
       </div>
       {dia.filas.map((f) => {
@@ -354,6 +368,10 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
   const { fila, fecha, titulo: tituloDia } = edicion;
   const s = fila.sesion;
   const esMulti = fila.grupo.esMulti;
+  // Un día que no es de su horario (un sábado añadido): lleva su hora, y ni
+  // multis ni «no tiene clase», que son de las clases del horario (regla 99).
+  const esExtra = fila.extra;
+  const conHora = esMulti || esExtra;
   const [titulo, setTitulo] = useState(s?.titulo ?? '');
   const [profesorId, setProfesorId] = useState(s?.profesorId ?? '');
   const [hora, setHora] = useState(s?.horaPropia ?? '');
@@ -369,14 +387,14 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
   );
   const horaLeida = leeHora(hora);
   const tipo = titulo.trim() ? tipoDeTitulo(titulo) : null;
-  const cambiado = titulo !== (s?.titulo ?? '') || profesorId !== (s?.profesorId ?? '') || (esMulti && hora !== (s?.horaPropia ?? ''));
+  const cambiado = titulo !== (s?.titulo ?? '') || profesorId !== (s?.profesorId ?? '') || (conHora && hora !== (s?.horaPropia ?? ''));
 
   async function guarda() {
     setGuardando(true); setError(null);
     const res = await saveCelda({
       classId: fila.grupo.id, fecha,
       // La hora propia solo se escribe en Multi; en el resto se deja la que hubiera.
-      celda: { titulo, profesorId: profesorId || null, horaPropia: esMulti ? hora || null : s?.horaPropia ?? null },
+      celda: { titulo, profesorId: profesorId || null, horaPropia: conHora ? hora || null : s?.horaPropia ?? null },
     });
     if (res.success) await onGuardado();
     else { setError(res.error); setGuardando(false); }
@@ -399,7 +417,9 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
 
   return (
     <Modal title={`${fila.grupo.corto} · ${tituloDia}`}
-      subtitle={esMulti ? 'Multi: sesión propia, con su hora' : fila.grupo.horario.startTime ? `Clase a las ${fila.grupo.horario.startTime}` : undefined}
+      subtitle={esMulti ? 'Multi: sesión propia, con su hora'
+        : esExtra ? `Día añadido: no es de su horario${fila.grupo.horario.startTime ? ` (sus clases son a las ${fila.grupo.horario.startTime})` : ''}`
+          : fila.grupo.horario.startTime ? `Clase a las ${fila.grupo.horario.startTime}` : undefined}
       onClose={onClose} width="sm"
       footer={
         <div className="flex gap-2 w-full">
@@ -438,12 +458,14 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
           {datos.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </SelectField>
 
-        {esMulti && (
+        {conHora && (
           <div className="space-y-2">
             <TextField label="Hora" inputMode="numeric" autoComplete="off" value={hora} onChange={(e) => setHora(e.target.value)}
-              placeholder="18:30" hint={hora.trim() ? (horaLeida ? `Se guardará como ${horaLeida}` : 'Escríbela como 18:30') : 'Como 18:30 o 1830'} />
+              placeholder={horaCortaGrupo(fila.grupo) ?? '18:30'}
+              hint={hora.trim() ? (horaLeida ? `Se guardará como ${horaLeida}` : 'Escríbela como 18:30')
+                : esExtra && fila.grupo.horario.startTime ? `Vacía, la de sus clases (${fila.grupo.horario.startTime})` : 'Como 18:30 o 1830'} />
             <div className="flex flex-wrap gap-1.5">
-              {HORAS_MULTI.map((h) => (
+              {[...new Set([...(esExtra && fila.grupo.horario.startTime ? [fila.grupo.horario.startTime] : []), ...HORAS_MULTI])].map((h) => (
                 <button key={h} type="button" onClick={() => setHora(h)} aria-pressed={horaLeida === h}
                   className={cx('min-h-[44px] px-3 rounded-xl border text-xs font-black tabular-nums',
                     horaLeida === h ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200')}>
@@ -465,11 +487,11 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
         )}
         {s && cambiado && <p className={TEXT.muted}>Guarda antes de copiar o de abrir el detalle.</p>}
 
-        {!esMulti && (
+        {!esMulti && !esExtra && (
           <Asistentes datos={datos} cuadrante={cuadrante} grupo={fila.grupo} fecha={fecha} onCambio={onCambio} />
         )}
 
-        <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+        {!esExtra && <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
           {!sinClase ? (
             <Button size="sm" variant="ghost" icon={<CalendarX2 size={14} />} disabled={guardando} onClick={() => setSinClaseAbierto(true)}>
               Este día {fila.grupo.corto} no tiene clase
@@ -494,7 +516,7 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
               </div>
             </div>
           )}
-        </div>
+        </div>}
         {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
       </div>
     </Modal>
@@ -693,7 +715,10 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
   // Los grupos que tienen clase ese día; Multi, solo si tiene sesión.
   const grupos = dia.filas.filter((f) => !f.grupo.esMulti || f.sesion).map((f) => f.grupo);
   const sueltas = dia.filas.filter((f) => f.sesion).map((f) => ({ id: f.sesion!.id, texto: `${f.grupo.corto} · ${f.sesion!.titulo}` }));
-  const [elegidos, setElegidos] = useState<Set<string>>(() => new Set(grupos.map((g) => g.id)));
+  // Sin nada marcado: así se ve que se puede quitar UN grupo (Alpha) y no
+  // solo el día entero (regla 99).
+  const [elegidos, setElegidos] = useState<Set<string>>(() => new Set());
+  const todos = grupos.length > 0 && grupos.every((g) => elegidos.has(g.id));
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -712,14 +737,15 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
   }
 
   return (
-    <Modal title={`Quitar el ${dia.titulo.toLowerCase()}`} onClose={onClose} width="sm"
-      subtitle={dia.suelto ? 'Es un día suelto: no es de ningún horario fijo' : 'El horario fijo de los grupos no cambia'}
+    <Modal title={dia.suelto ? `Quitar el ${dia.titulo.toLowerCase()}` : `¿Quién no tiene clase el ${dia.titulo.toLowerCase()}?`} onClose={onClose} width="sm"
+      subtitle={dia.suelto ? 'Es un día añadido: no es de ningún horario fijo' : 'Un grupo, varios o todos. El horario fijo no cambia.'}
       footer={
         <div className="flex gap-2 w-full">
           <div className="flex-1" />
           <Button variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Button>
           <Button variant="danger" disabled={guardando || (dia.suelto ? !sueltas.length : !elegidos.size)} onClick={quita}>
-            {guardando ? 'Quitando…' : dia.suelto ? `Borrar ${sueltas.length === 1 ? 'la sesión' : `las ${sueltas.length} sesiones`}` : 'Quitar'}
+            {guardando ? 'Quitando…' : dia.suelto ? `Borrar ${sueltas.length === 1 ? 'la sesión' : `las ${sueltas.length} sesiones`}`
+              : todos ? 'Quitar el día entero' : elegidos.size ? `Quitar ${elegidos.size === 1 ? grupos.find((g) => elegidos.has(g.id))?.corto : `${elegidos.size} grupos`}` : 'Quitar'}
           </Button>
         </div>
       }>
@@ -730,7 +756,10 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
         </div>
       ) : (
         <div className="space-y-3">
-          <p className={TEXT.muted}>Lo quitado sale de la imagen y del texto, y sus alumnos lo ven como «sin clase». Lo que ya estuviera escrito no se borra: vuelve si lo devuelves.</p>
+          <p className={TEXT.muted}>Marca los grupos que ese día no tienen clase. Salen de la imagen y del texto, y sus alumnos lo ven como «sin clase». Lo escrito no se borra: vuelve si lo devuelves.</p>
+          <Button size="sm" variant="ghost" onClick={() => setElegidos(todos ? new Set() : new Set(grupos.map((g) => g.id)))}>
+            {todos ? 'Desmarcar todos' : 'Todo el día (todos los grupos)'}
+          </Button>
           <div className="flex flex-wrap gap-1.5">
             {grupos.map((g) => {
               const si = elegidos.has(g.id);
@@ -757,6 +786,66 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
         </div>
       )}
       {error && <p className="text-xs font-medium text-red-700 dark:text-red-300 mt-2">{error}</p>}
+    </Modal>
+  );
+}
+
+// ── Añadir un día: cualquier día de la semana, para un grupo (regla 99) ──
+
+/**
+ * Para una clase que no está en el horario: un sábado, un día que se recupera…
+ * Se elige el día y el grupo, y se abre su celda; al guardarla, el día sale en
+ * el cuadrante. Si ese grupo ya tiene celda ese día, se abre esa.
+ */
+function AnadirDia({ datos, cuadrante, onClose, onElegido }: {
+  datos: DatosCuadrante;
+  cuadrante: CuadranteArmado;
+  onClose: () => void;
+  onElegido: (e: Edicion) => void;
+}) {
+  const [fecha, setFecha] = useState<string | null>(null);
+  const dias = Array.from({ length: 7 }, (_, i) => sumaDias(datos.lunes, i));
+  const enCuadrante = new Set(cuadrante.dias.map((d) => d.fecha));
+  const grupos = [...datos.grupos].sort((a, b) => Number(a.esMulti) - Number(b.esMulti));
+
+  function elige(g: GrupoCuadrante) {
+    if (!fecha) return;
+    const existente = cuadrante.dias.find((d) => d.fecha === fecha)?.filas.find((f) => f.grupo.id === g.id && f.sesion);
+    const deClase = !g.esMulti && fechasDelGrupo(g, datos.lunes).includes(fecha);
+    onElegido({
+      fecha,
+      titulo: tituloDia(fecha),
+      fila: existente ?? {
+        grupo: g, sesion: null, extras: 0, profesor: null, hora: horaCortaGrupo(g), horaRotulada: null,
+        extra: !g.esMulti && !deClase, avisos: [],
+      },
+    });
+  }
+
+  return (
+    <Modal title="Añadir un día" subtitle={fecha ? `${mayuscula(tituloDia(fecha).toLowerCase())}: ¿qué grupo?` : '¿Qué día?'} onClose={onClose} width="sm"
+      footer={fecha ? <Button variant="secondary" onClick={() => setFecha(null)}>Otro día</Button> : undefined}>
+      {!fecha ? (
+        <div className="grid grid-cols-2 gap-2">
+          {dias.map((d) => (
+            <Button key={d} variant="secondary" size="sm" onClick={() => setFecha(d)}>
+              <span className="capitalize">{tituloDia(d).toLowerCase()}</span>{enCuadrante.has(d) ? '' : ' · nuevo'}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {grupos.map((g) => (
+              <button key={g.id} type="button" onClick={() => elige(g)}
+                className="min-h-[44px] px-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-700 dark:text-slate-200 hover:border-indigo-400">
+                {g.corto}
+              </button>
+            ))}
+          </div>
+          <p className={TEXT.muted}>Se abre su celda: escribe qué toca, el profesor y la hora. Al guardar, el día sale en el cuadrante.</p>
+        </div>
+      )}
     </Modal>
   );
 }

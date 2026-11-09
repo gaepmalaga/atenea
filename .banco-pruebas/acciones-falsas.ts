@@ -544,6 +544,19 @@ export async function listStaff() {
     ],
   });
 }
+export async function getAgendaProfesores(params?: { lunes?: string }) {
+  const lunes = params?.lunes ?? '2026-11-09';
+  const c = (fecha: string, grupo: string, titulo: string, hora: string) => ({ fecha, grupo, titulo, hora });
+  return ok({
+    lunes,
+    agenda: [
+      { profesorId: 's1', grupos: [{ id: 'g1', nombre: 'Teoría mañana', tipo: 'Teoría' }], clases: [] },
+      { profesorId: 's2', grupos: [{ id: 'g-kappa', nombre: 'Promo 44 · Kappa', tipo: 'Físicas' }, { id: 'g-alpha', nombre: 'Promo 44 · Alpha', tipo: 'Físicas' }],
+        clases: [c('2026-11-09', 'Kappa', 'FLK 5.0', '08:00'), c('2026-11-10', 'Multi', 'Jiujitsu', '18:30'), c('2026-11-11', 'Alpha', 'FLK 5.1', '08:00')] },
+      { profesorId: 's3', grupos: [], clases: [] },
+    ],
+  });
+}
 export async function listCuentasAcademia() {
   return ok({ cuentas: [{ id: 'u-prep', email: 'preparador@alphapol.es', role: 'admin' }, { id: 'u2', email: 'alumno@atenea.com', role: 'student' }] });
 }
