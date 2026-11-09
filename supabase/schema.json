@@ -394,6 +394,25 @@
         "user_id": "uuid"
       }
     },
+    "class_week_publications": {
+      "columnas": [
+        "organization_id",
+        "published_at",
+        "published_by",
+        "week_start"
+      ],
+      "obligatorias": [
+        "organization_id",
+        "published_at",
+        "week_start"
+      ],
+      "tipos": {
+        "organization_id": "uuid",
+        "published_at": "timestamp with time zone",
+        "published_by": "uuid",
+        "week_start": "date"
+      }
+    },
     "curva_progreso": {
       "columnas": [
         "dominadas",
@@ -581,53 +600,6 @@
         "lleva_plan": "boolean",
         "organization_id": "uuid",
         "sort_order": "integer"
-      }
-    },
-    "group_training_plans": {
-      "columnas": [
-        "class_id",
-        "plan_data",
-        "updated_at",
-        "week_start"
-      ],
-      "obligatorias": [
-        "class_id",
-        "plan_data",
-        "updated_at",
-        "week_start"
-      ],
-      "tipos": {
-        "class_id": "uuid",
-        "plan_data": "jsonb",
-        "updated_at": "timestamp with time zone",
-        "week_start": "date"
-      }
-    },
-    "group_workout_logs": {
-      "columnas": [
-        "class_id",
-        "comment",
-        "created_at",
-        "rpe",
-        "session_date",
-        "updated_at",
-        "user_id"
-      ],
-      "obligatorias": [
-        "class_id",
-        "created_at",
-        "session_date",
-        "updated_at",
-        "user_id"
-      ],
-      "tipos": {
-        "class_id": "uuid",
-        "comment": "text",
-        "created_at": "timestamp with time zone",
-        "rpe": "smallint",
-        "session_date": "date",
-        "updated_at": "timestamp with time zone",
-        "user_id": "uuid"
       }
     },
     "interview_reports": {

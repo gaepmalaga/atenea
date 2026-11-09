@@ -255,12 +255,8 @@ describe('apagar un interruptor de fisicas lo apaga en el servidor', () => {
     expect(fuentes['groups.ts']).not.toContain('saveGroupTrainingPlan');
   });
 
-  it('getActiveTrainingPlan no hereda el plan de grupo si esta apagado', () => {
-    const cuerpo = fuentes['training.ts'].slice(
-      fuentes['training.ts'].indexOf('export async function getActiveTrainingPlan'),
-      fuentes['training.ts'].indexOf('export async function completeTrainingDay'),
-    );
-    expect(cuerpo).toMatch(/switches\.group/);
+  it('getActiveTrainingPlan ya no hereda un plan de grupo: la tabla se retiro (regla 98)', () => {
+    expect(fuentes['training.ts']).not.toContain("from('group_training_plans')");
   });
 
   it('el lector NO es una Server Action (mismo motivo que requireModule)', () => {

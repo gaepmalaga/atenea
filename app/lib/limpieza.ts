@@ -52,7 +52,6 @@ export const TABLAS_POR_USUARIO = [
   'ai_usage',
   'class_absences',
   'class_session_joins',
-  'group_workout_logs',
   'training_session_logs',
   'training_sessions',
   'training_week_notes',
@@ -73,7 +72,7 @@ export const TABLAS_POR_USUARIO = [
 export const TABLAS_CON_USUARIO_QUE_SE_CONSERVAN = ['academy_staff'] as const;
 
 /** Tablas que cuelgan de un grupo (`class_id`): se borran antes que el grupo. */
-export const TABLAS_POR_GRUPO = ['class_absences', 'class_session_joins', 'class_days_off', 'group_workout_logs', 'training_sessions', 'training_week_notes', 'class_members', 'class_group_staff', 'group_training_plans'] as const;
+export const TABLAS_POR_GRUPO = ['class_absences', 'class_session_joins', 'class_days_off', 'training_sessions', 'training_week_notes', 'class_members', 'class_group_staff'] as const;
 
 /** Tablas que cuelgan de una pregunta (`question_id`): antes que la pregunta. */
 export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'question_votes', 'question_reports'] as const;
@@ -90,6 +89,7 @@ export const TABLAS_POR_ACADEMIA = [
   'training_sessions',
   'training_week_notes',
   'class_days_off',
+  'class_week_publications',
   'session_templates',
   'physical_marks',
   'rm_marks',

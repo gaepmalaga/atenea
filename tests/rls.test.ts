@@ -83,19 +83,12 @@ const SOLO_SERVICIO = [
   'memberships',
   'academy_payments',
   // P7: grupos. `class_groups` y `class_members` son administracion pura.
-  // `group_training_plans` tiene politica de SELECT abierta (el plan tiene que
-  // llegar al alumno), pero `training.ts` lo lee con la clave de servicio de una
-  // vez, filtrando por el propio usuario — no con `db`.
   'class_groups',
   'class_members',
-  'group_training_plans',
   // Regla 82: las faltas avisadas. RLS y CERO políticas — una de propietario
   // dejaría a un alumno apuntar faltas en un grupo que no es el suyo. Las
   // acciones del alumno filtran por su id y comprueban que es del grupo.
   'class_absences',
-  // Regla 84: el registro del entrenamiento de grupo. Mismo motivo: desde una
-  // política no se puede mirar `class_members` para saber si es del grupo.
-  'group_workout_logs',
   // Regla 86: la física como la lleva un preparador. Mismo motivo: desde una
   // política no se puede mirar `class_members` para saber si es de su grupo.
   'training_sessions',

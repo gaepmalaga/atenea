@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Copy, Image as ImagenIcono, MessageSquare, Plus, AlertTriangle, Users, Loader2, Trash2, Check,
-  CalendarX2, Undo2, FileText, ArrowRightLeft, UserPlus,
+  CalendarX2, Undo2, FileText, ArrowRightLeft, UserPlus, Send, EyeOff,
 } from 'lucide-react';
 import {
   getCuadrante, saveCelda, copiarCuadrante, deleteSesion, copiarCelda, setSinClase, borrarSesionesDia,
-  setMultiEnClase, moverMulti, getPlanificador, getPlantillas,
+  setMultiEnClase, moverMulti, getPlanificador, getPlantillas, publicarCuadrante,
 } from '@/actions';
 import type { DatosCuadrante, ApuntadoMulti } from '@/app/actions/cuadrante';
 import type { ApunteConCorreo } from '@/app/actions/fisica';
@@ -19,6 +19,7 @@ import {
   type FilaCuadrante, type DiaCuadrante, type Cuadrante as CuadranteArmado, type GrupoCuadrante,
 } from '@/app/lib/cuadrante';
 import { entregaImagenCuadrante } from '@/app/components/fisica/cuadranteImagen';
+import { MARCA } from '@/app/lib/marca';
 import { Button, Card, EmptyState, Modal, SelectField, TextField, TEXT, cx } from '../../../ui';
 import EditorSesion from './EditorSesion';
 
@@ -38,6 +39,12 @@ import EditorSesion from './EditorSesion';
  *
  * Cada celda es una sesión del grupo (regla 86): lo que se escribe aquí se ve en
  * el calendario del alumno. El tipo (el color) sale del título.
+ *
+ * PUBLICAR (regla 98): mientras la semana no se publica, el alumno solo ve el
+ * horario de su grupo. Al publicar, ve qué toca, el profesor y los días sin
+ * clase; lo que se cambie después, al momento. Sacar la imagen o el texto de
+ * WhatsApp de una semana sin publicar pregunta si publicarla también: es el
+ * momento en que se avisa a los alumnos.
  */
 
 function hoyLocal(): string {
@@ -46,6 +53,10 @@ function hoyLocal(): string {
 }
 
 const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** «lun 9 nov, 10:12», en la hora de la academia. */
+const cuando = (iso: string) => new Date(iso).toLocaleString('es-ES', {
+  weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: MARCA.zonaHoraria,
+});
 const clave = (classId: string, fecha: string) => `${classId}|${fecha}`;
 const MOTIVOS = ['Festivo', 'Sin profesor'];
 const HORAS_MULTI = ['18:30', '19:00', '10:00'];
@@ -96,9 +107,25 @@ export default function Cuadrante() {
     setOcupado(null);
   }
 
+  async function publica(publicar: boolean): Promise<boolean> {
+    setOcupado('publicar'); setError(null); setAviso(null);
+    const res = await publicarCuadrante({ lunes, publicar });
+    setOcupado(null);
+    if (!res.success) { setError(res.error); return false; }
+    setDatos((d) => d && { ...d, publicada: res.publicada });
+    setAviso(publicar ? 'Semana publicada: los alumnos ya ven qué toca y con quién.' : 'Publicación retirada: los alumnos solo ven el horario.');
+    return true;
+  }
+
+  /** Mandar el cuadrante es avisar a los alumnos: si no está publicado, se ofrece publicarlo. */
+  async function ofrecePublicar() {
+    if (datos && !datos.publicada && confirm('Esta semana aún no está publicada: los alumnos solo ven el horario. ¿La publico también?')) await publica(true);
+  }
+
   async function bajaImagen() {
     if (!cuadrante) return;
-    setOcupado('imagen'); setError(null); setAviso(null);
+    await ofrecePublicar();
+    setOcupado('imagen'); setError(null);
     const r = await entregaImagenCuadrante(cuadrante, `cuadrante-${lunes}.png`);
     if (r === 'error') setError('No se ha podido crear la imagen.');
     else setAviso(r === 'descargada' ? 'Imagen descargada.' : 'Imagen lista para compartir.');
@@ -107,13 +134,17 @@ export default function Cuadrante() {
 
   async function copiaTexto() {
     if (!cuadrante) return;
-    setError(null); setAviso(null);
+    setError(null);
+    // El portapapeles se escribe ANTES de preguntar: algunos navegadores solo
+    // dejan copiar justo después del toque.
     try {
       await navigator.clipboard.writeText(textoCuadrante(cuadrante));
       setAviso('Texto copiado: pégalo en WhatsApp.');
     } catch {
       setError('Tu navegador no deja copiar. Prueba desde Chrome o Safari.');
+      return;
     }
+    await ofrecePublicar();
   }
 
   async function devolver(fecha: string, grupos: GrupoCuadrante[]) {
@@ -147,6 +178,30 @@ export default function Cuadrante() {
             <ChevronRight size={20} />
           </button>
         </div>
+        {datos && hayGrupos && (
+          datos.publicada ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50 px-3 py-2">
+              <p className="text-xs text-emerald-900 dark:text-emerald-100">
+                <b className="inline-flex items-center gap-1"><Check size={13} /> Publicada</b> el {cuando(datos.publicada)}. Lo que cambies lo ven al momento.
+              </p>
+              <Button size="sm" variant="ghost" disabled={ocupado !== null} icon={<EyeOff size={14} />}
+                onClick={() => { if (confirm('¿Retirar la publicación? Los alumnos volverán a ver solo el horario.')) publica(false); }}>
+                Retirar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 px-3 py-2">
+              <p className="text-xs text-amber-900 dark:text-amber-100">
+                <b>Sin publicar.</b> Los alumnos solo ven el horario de su grupo, no qué toca ni con quién.
+              </p>
+              <Button size="sm" disabled={ocupado !== null || !cuadrante?.dias.length}
+                icon={ocupado === 'publicar' ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                onClick={() => publica(true)}>
+                Publicar semana
+              </Button>
+            </div>
+          )
+        )}
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" icon={ocupado === 'copiar' ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
             disabled={!hayGrupos || ocupado !== null} onClick={copiaAnterior}>Copiar semana anterior</Button>

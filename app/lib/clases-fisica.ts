@@ -13,12 +13,18 @@
  *
  * Una clase lleva su sesión (si la hay) para leerla y apuntarla.
  *
+ * PUBLICAR (regla 98): de una semana que el preparador aún no ha publicado,
+ * el alumno ve solo el HORARIO (la clase, su hora). Ni qué toca, ni el
+ * profesor, ni los días sin clase, ni las sesiones sueltas de Multi: es un
+ * borrador. Quien llama dice qué semanas están publicadas (`publicadas`); sin
+ * ese dato (el panel del preparador) se ve todo.
+ *
  * Módulo PURO (regla 21): lo usan el calendario del alumno y la vista del
  * alumno en «Planificar», donde las clases salen aparte y en solo lectura.
  */
 
 import { sumaDias, diaSemanaDe, sePuedeAvisar, horaCorta, type HorarioGrupo, type Ahora } from './asistencia.ts';
-import type { Sesion } from './sesiones.ts';
+import { lunesDe, type Sesion } from './sesiones.ts';
 import { nombreCorto } from './cuadrante.ts';
 
 export type GrupoClase = {
@@ -88,8 +94,11 @@ export function armaClasesAlumno(p: {
   faltas: { classId: string; fecha: string }[];
   profesores: Record<string, string>;
   ahora: Ahora;
+  /** Los lunes de las semanas publicadas. Sin él, todo se ve (el preparador). */
+  publicadas?: Set<string> | null;
 }): ClaseFisica[] {
-  const off = new Map(p.sinClase.map((x) => [clave(x.classId, x.fecha), x.motivo]));
+  const publicada = (fecha: string) => !p.publicadas || p.publicadas.has(lunesDe(fecha));
+  const off = new Map(p.sinClase.filter((x) => publicada(x.fecha)).map((x) => [clave(x.classId, x.fecha), x.motivo]));
   const faltas = new Set(p.faltas.map((x) => clave(x.classId, x.fecha)));
   const porCelda = new Map<string, SesionDeClase[]>();
   for (const s of [...p.sesiones].sort((a, b) => a.position - b.position || a.title.localeCompare(b.title, 'es'))) {
@@ -103,7 +112,8 @@ export function armaClasesAlumno(p: {
   const pon = (g: GrupoClase, fecha: string, origen: ClaseFisica['origen']) => {
     const k = clave(g.id, fecha);
     if (out.has(k)) return;
-    const sesion = porCelda.get(k)?.[0] ?? null;
+    // De una semana sin publicar, solo el horario: el resto es un borrador.
+    const sesion = publicada(fecha) ? porCelda.get(k)?.[0] ?? null : null;
     const sinClase = off.has(k);
     // Avisar de una falta (o quitarse, si es multi) solo en un día de su
     // horario y antes de que empiece: es lo que comprueba el servidor.
@@ -127,8 +137,9 @@ export function armaClasesAlumno(p: {
     if (!g.esMulti) {
       for (const f of fechasEntre(p.desde, p.hasta)) if (g.horario.weekdays!.includes(diaSemanaDe(f))) pon(g, f, 'grupo');
     }
-    // Las sesiones del grupo fuera de su horario (la de Multi, una extra).
-    for (const s of p.sesiones) if (s.classId === g.id && dentro(s.fecha)) pon(g, s.fecha, 'grupo');
+    // Las sesiones del grupo fuera de su horario (la de Multi, una extra):
+    // solo de semanas publicadas, que sin publicar son un borrador.
+    for (const s of p.sesiones) if (s.classId === g.id && dentro(s.fecha) && publicada(s.fecha)) pon(g, s.fecha, 'grupo');
   }
   const ajenos = new Map(p.gruposAjenos.map((g) => [g.id, g]));
   for (const u of p.uniones) {

@@ -1,8 +1,8 @@
 -- =============================================================================
--- RETIRAR EL PLAN DE SEMANA VIEJO (reglas 84, 86 y 97) — SIN EJECUTAR
+-- RETIRAR EL PLAN DE SEMANA VIEJO (reglas 84, 86, 97 y 98)
 -- =============================================================================
 --
--- NO SE HA EJECUTADO. Borra dos tablas: hace falta el visto bueno del dueño.
+-- EJECUTADO el 9 nov 2026, con el visto bueno del dueño (regla 98).
 --
 -- Desde la regla 86 (6 nov 2026) la física son SESIONES sueltas
 -- (`training_sessions`), y desde la regla 97 las clases de grupo van en el
@@ -16,7 +16,7 @@
 -- `saveGroupTrainingPlan` y `deleteGroupTrainingPlan` (`app/actions/groups.ts`)
 -- y la lectura de `getGroups` que decía «con plan / sin plan».
 --
--- ANTES DE EJECUTARLO, en el código:
+-- Lo que se hizo en el código en el mismo cambio (regla 98):
 --   1. `app/actions/training.ts`: quitar las dos lecturas de
 --      `group_training_plans` — la herencia del plan de grupo en
 --      `getActiveTrainingPlan` y `getStudentGroupWeeks` entera (y su uso en

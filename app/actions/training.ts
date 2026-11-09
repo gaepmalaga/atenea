@@ -4,7 +4,7 @@ import { parseAIJson } from '../lib/ai-output';
 import { requireUser } from '../lib/auth';
 import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
-import { requireTrainingSwitch, leeTrainingSwitches } from '../lib/training-switch-guard';
+import { requireTrainingSwitch } from '../lib/training-switch-guard';
 import { checkQuota } from '../lib/rate-limit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import {
@@ -21,7 +21,6 @@ import {
     buildManualPlan,
     buildWorkoutLogRow,
     agrupaHistorialPorSemana,
-    lunesDeSemana,
     PLAN_SHAPE,
     type WeeklyPlan,
     type TrainingDayLog,
@@ -126,37 +125,6 @@ export type StoredPlan = {
     weekStart: string | null;
 };
 
-/**
- * Los `class_id` de los grupos de físicas del alumno — los de un `group_kinds`
- * con `lleva_plan = true`, DE SU ACADEMIA (P11: `group_kinds.id` es un slug
- * que se reutiliza entre academias, así que sin acotar por
- * `organization_id` el `in('class_groups.kind', idsKind)` de abajo podría
- * colar el grupo de OTRA academia con el mismo slug de tipo). Se lee con la
- * clave de servicio filtrando por el propio usuario (regla 34): `class_members`
- * y `group_kinds` son de administración. Vacío si no está en ninguno, o si
- * no se ha resuelto la academia de la sesión.
- */
-async function idsGruposConPlan(userId: string, organizationId: string | null): Promise<string[]> {
-    if (!organizationId) return [];
-
-    const { data: kindsConPlan } = await supabaseAdmin
-        .from('group_kinds')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('lleva_plan', true);
-    const idsKind = (kindsConPlan ?? []).map((k) => k.id as string);
-    if (!idsKind.length) return [];
-
-    const { data: susGrupos } = await supabaseAdmin
-        .from('class_members')
-        .select('class_id, class_groups!inner(kind, organization_id)')
-        .eq('user_id', userId)
-        .eq('class_groups.organization_id', organizationId)
-        .in('class_groups.kind', idsKind);
-
-    return (susGrupos ?? []).map((m) => m.class_id as string);
-}
-
 export async function getActiveTrainingPlan(): Promise<
     { success: false; error: string; plan: null } | { success: true; plan: StoredPlan | null }
 > {
@@ -184,84 +152,10 @@ export async function getActiveTrainingPlan(): Promise<
         };
     }
 
-    // Si la academia ha apagado el plan de grupo, el alumno no lo hereda.
-    const switches = await leeTrainingSwitches(auth.user.organizationId);
-    if (!switches.group) return { success: true, plan: null };
-
-    const idsFisicas = await idsGruposConPlan(userId, auth.user.organizationId);
-    if (idsFisicas.length) {
-        // P9: varias semanas por grupo. El alumno ve la de esta semana — el
-        // `week_start` más reciente que no pase del lunes de hoy. Una semana
-        // futura preparada por adelantado no se le enseña todavía.
-        const lunesHoy = lunesDeSemana();
-        const { data: gtp } = await supabaseAdmin
-            .from('group_training_plans')
-            .select('class_id, plan_data, week_start')
-            .in('class_id', idsFisicas)
-            .lte('week_start', lunesHoy)
-            .order('week_start', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (gtp?.plan_data) {
-            return {
-                success: true,
-                plan: {
-                    id: `grupo:${gtp.class_id}`,
-                    plan_data: normalizePlan(gtp.plan_data),
-                    origen: 'grupo',
-                    weekStart: (gtp.week_start as string | null) ?? null,
-                },
-            };
-        }
-    }
-
+    // El plan de GRUPO por semanas (P7/P9, `group_training_plans`) se retiró
+    // con su tabla (regla 98): la física de grupo son las clases del cuadrante
+    // y el entreno de cada alumno, sesiones sueltas (reglas 86 y 97).
     return { success: true, plan: null };
-}
-
-/**
- * Las semanas del plan de grupo del alumno, de la más antigua a la vigente
- * (regla 54: una semana futura preparada por adelantado NO se le enseña). Para
- * que el alumno pueda mirar atrás — «¿qué hice la semana pasada?»— sin que el
- * módulo cambie de forma.
- *
- * Vacío si no tiene grupo de físicas o la academia apagó el plan de grupo. Un
- * plan INDIVIDUAL (lo escribe un preparador) no pasa por aquí: es una sola
- * semana, la que haya activa.
- */
-export async function getStudentGroupWeeks(): Promise<
-    | { success: true; semanas: { weekStart: string; plan: WeeklyPlan; classId: string }[] }
-    | { success: false; error: string }
-> {
-    const auth = await requireUser();
-    if (!auth.ok) return { success: false as const, error: auth.error };
-
-    const switches = await leeTrainingSwitches(auth.user.organizationId);
-    if (!switches.group) return { success: true as const, semanas: [] };
-
-    const idsFisicas = await idsGruposConPlan(auth.user.id, auth.user.organizationId);
-    if (!idsFisicas.length) return { success: true as const, semanas: [] };
-
-    const lunesHoy = lunesDeSemana();
-    const { data, error } = await supabaseAdmin
-        .from('group_training_plans')
-        .select('class_id, plan_data, week_start')
-        .in('class_id', idsFisicas)
-        .lte('week_start', lunesHoy)
-        .order('week_start', { ascending: true });
-
-    if (error) return { success: false as const, error: error.message };
-
-    const semanas = (data ?? [])
-        .map((r) => {
-            const plan = normalizePlan(r.plan_data);
-            // El grupo viaja con la semana: el registro de cada día (regla 84) va
-            // por grupo y fecha.
-            return plan ? { weekStart: r.week_start as string, plan, classId: r.class_id as string } : null;
-        })
-        .filter((x): x is { weekStart: string; plan: WeeklyPlan; classId: string } => x !== null);
-
-    return { success: true as const, semanas };
 }
 
 export async function completeTrainingDay(

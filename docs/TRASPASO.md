@@ -18,17 +18,19 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
   pull request cuando el dueño pide desplegar. `npm run check` (typecheck +
   tests) y `npm run build` en verde.
 - **La base de datos (Supabase, `ecupmlqimmpybbrlrmpx`) está limpia:**
-  - **3 cuentas.** `gaepmalaga@gmail.com` es el superadmin (el dueño).
-    `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` son de prueba; sus
-    contraseñas las tiene el dueño (van en el dossier) y **no se escriben en el
-    repo**.
+  - **4 cuentas.** `gaepmalaga@gmail.com` es el superadmin (el dueño).
+    `prueba.admin@alphapol.es`, `prueba.alumno@alphapol.es` (en Alpha, sin
+    entrenos: el destino para probar «Copiar a varios») y
+    `prueba.entreno@alphapol.es` (en Kappa, con el entreno de ejemplo de
+    noviembre, regla 98) son de prueba; sus contraseñas las tiene el dueño y
+    **no se escriben en el repo**.
   - **1 academia**, `alphapol`.
   - **El banco:** 4.617 preguntas activas sobre 45 temas y 56 documentos.
-  - **Datos de ejemplo de física:** el grupo «Promo 43 · Físicas», con el plan
-    de noviembre (31 sesiones). Desde la regla 97 no sale en el cuadrante (no
-    tiene horario). Retirarlo está preparado en
-    `docs/sql/retirar-ejemplo-promo43.sql`, **sin ejecutar**: se propone para
-    cuando los entrenos individuales estén en marcha.
+  - **Datos de ejemplo de física:** las 31 sesiones de noviembre son el
+    entreno individual de `prueba.entreno` (regla 98). El grupo de ejemplo
+    «Promo 43 · Físicas» se retiró.
+  - **Ninguna semana del cuadrante está publicada todavía** (regla 98): los
+    alumnos ven el horario de su grupo hasta que el preparador la publique.
   - **Los grupos reales de física (9 nov, regla 96):** «Promo 44 · Kappa, Alpha,
     Zetta, Omega, Sigma, Betta, Delta» y «Promo 44 · Multi», con su horario
     (lunes y miércoles / martes y jueves; 08:00 o 20:00), aforo 30, y los
@@ -77,6 +79,7 @@ Todo en producción y apuntado en `REGLAS.md`:
 | Identidad de marca (marino y oro), Inicio «Tu día», Test, Fallos, Evolución, Perfil, Física y Fichas rediseñados | 94, 95 |
 | Cuadrante semanal de física: rejilla grupo × día con profesor por sesión, copiar semana, imagen y texto para WhatsApp; los multis se apuntan a las clases | 96 |
 | Clases de grupo y entreno individual, separados: el cuadrante solo con grupos con horario, días «sin clase» (`class_days_off`), editor de celda sin «Tipo» y con sugerencias, copiar celda, multis desde el preparador; «Planificar» por alumno con copiar a varios; el calendario del alumno con clases (profesor, sin clase) y entrenos; profesor con cuenta | 97 |
+| Publicar el cuadrante por semanas; el ejemplo de física, entreno de `prueba.entreno`; fuera el grupo de ejemplo, «Jdjd» y las dos tablas del plan viejo | 98 |
 
 ---
 
@@ -120,16 +123,12 @@ Todo en producción y apuntado en `REGLAS.md`:
   datos a un entrenador.
 - **«Ver huecos» de las clases para el alumno** (aplazado: de momento solo los
   ve la academia, regla 82).
-- **Limpieza del plan de semana viejo** (reglas 86 y 97): las acciones de
-  `groups.ts` ya se retiraron. Queda borrar `group_training_plans` y
-  `group_workout_logs` (0 filas): el guion está en
-  `docs/sql/retirar-plan-semana-viejo.sql`, **sin ejecutar**, y dice lo que
-  hay que quitar antes en el código (dos lecturas en `training.ts`, del módulo
-  de IA, y sus tests).
-- **Física (regla 97), si Alphapol lo pide al usarlo:**
-  - un paso de «publicar» el cuadrante (hoy no hace falta: ver la regla);
-  - una vista «mis clases» para el profesor que tenga cuenta enlazada;
-  - retirar el ejemplo «Promo 43 · Físicas» (`docs/sql/retirar-ejemplo-promo43.sql`).
+- **Física, si Alphapol lo pide al usarlo:** una vista «mis clases» para el
+  profesor que tenga cuenta enlazada (regla 97); avisar a los alumnos cuando
+  se publica la semana (hoy se avisa por WhatsApp, regla 98).
+- **`prueba.entreno` se creó con SQL** (regla 98): desde la nube no se pudo
+  probar a entrar con ella. Si no entra, `npm run cuenta -- prueba.entreno@alphapol.es 'clave' student`
+  desde un ordenador le pone la contraseña.
 - **`getGroups` lee `class_members` y `class_group_staff` de TODAS las
   academias** (sin `organization_id` en la consulta, regla 65) y sin paginar:
   hoy hay una sola academia y pocos alumnos; con ~100 alumnos en varios grupos

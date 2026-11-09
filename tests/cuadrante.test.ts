@@ -452,9 +452,10 @@ describe('las acciones del cuadrante (guardas estáticas)', () => {
   });
 
   it('un día quitado no admite multis: ni el alumno ni el preparador lo apuntan ahí', () => {
-    expect(cuerpo('setMiUnion')).toContain('diasSinClase(');
-    expect(cuerpo('setMiUnionSemana')).toContain('diasSinClase(');
-    expect(cuerpo('getMiMulti')).toContain('diasSinClase(');
+    // Al alumno, solo lo de semanas publicadas (regla 98); al preparador, todo.
+    expect(cuerpo('setMiUnion')).toContain('diasSinClasePublicados(');
+    expect(cuerpo('setMiUnionSemana')).toContain('diasSinClasePublicados(');
+    expect(cuerpo('getMiMulti')).toContain('diasSinClasePublicados(');
     expect(src.slice(src.indexOf('async function claseParaMulti'), src.indexOf('type ResultadoMulti'))).toContain('diasSinClase(');
   });
 
@@ -496,5 +497,34 @@ describe('el profesor y su cuenta (regla 97)', () => {
     const l = src.slice(src.indexOf('export async function listCuentasAcademia'));
     expect(l).toContain('requireAdmin()');
     expect(l).toContain(".eq('academy_id', org)");
+  });
+});
+
+describe('publicar el cuadrante (regla 98)', () => {
+  const src = readFileSync(join(__dirname, '..', 'app', 'actions', 'cuadrante.ts'), 'utf-8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const cuerpo = (nombre: string) => {
+    const i = src.indexOf(`export async function ${nombre}`);
+    const j = src.indexOf('\nexport async function', i + 10);
+    return src.slice(i, j === -1 ? undefined : j);
+  };
+
+  it('publicar es del preparador, solo un lunes, y con la academia de la sesión', () => {
+    const c = cuerpo('publicarCuadrante');
+    expect(c).toContain('requireAdmin()');
+    expect(c).toContain('esLunes(lunes)');
+    expect(c).toContain('organization_id: org');
+    expect(c).toMatch(/\.delete\(\)\.eq\('organization_id', org\)/);
+  });
+
+  it('el multi solo ve qué toca y con quién en una semana publicada', () => {
+    const c = cuerpo('getMiMulti');
+    expect(c).toContain('semanasPublicadas(');
+    expect(c).toMatch(/publicadas\.has\(lunesDe\(fecha\)\)/);
+  });
+
+  it('el día sin clase que ve el alumno es el de una semana publicada', () => {
+    const h = src.slice(src.indexOf('async function diasSinClasePublicados'), src.indexOf('const esDiaDeClase'));
+    expect(h).toContain('publicadas.has(lunesDe(d.fecha))');
   });
 });

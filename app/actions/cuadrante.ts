@@ -136,6 +136,22 @@ async function diasSinClase(org: string, ids: string[], desde: string, hasta: st
   return (data ?? []).map((d) => ({ classId: d.class_id as string, fecha: d.session_date as string, motivo: (d.reason as string | null) ?? null }));
 }
 
+/** Los lunes de las semanas con el cuadrante publicado (regla 98) entre dos fechas. */
+async function semanasPublicadas(org: string, desde: string, hasta: string): Promise<Set<string>> {
+  const { data } = await supabaseAdmin.from('class_week_publications').select('week_start')
+    .eq('organization_id', org).gte('week_start', lunesDe(desde)).lte('week_start', hasta);
+  return new Set((data ?? []).map((x) => x.week_start as string));
+}
+
+/**
+ * Lo que el ALUMNO puede saber de los días sin clase: solo los de semanas
+ * publicadas (regla 98). Un festivo en un borrador aún no existe para él.
+ */
+async function diasSinClasePublicados(org: string, ids: string[], desde: string, hasta: string): Promise<DiaSinClase[]> {
+  const [dias, publicadas] = await Promise.all([diasSinClase(org, ids, desde, hasta), semanasPublicadas(org, desde, hasta)]);
+  return dias.filter((d) => publicadas.has(lunesDe(d.fecha)));
+}
+
 /** ¿Es una fecha de clase del horario fijo del grupo? */
 const esDiaDeClase = (h: HorarioGrupo, fecha: string) => esFecha(fecha) && !!h.weekdays?.includes(diaSemanaDe(fecha));
 
@@ -178,6 +194,8 @@ export type DatosCuadrante = {
   totalMultis: number;
   /** Los títulos que ya se han usado, del más repetido al menos: las sugerencias. */
   titulos: string[];
+  /** Cuándo se publicó la semana para los alumnos (regla 98); `null` = sin publicar. */
+  publicada: string | null;
 };
 
 /** Hasta dónde se miran los títulos usados para sugerirlos. */
@@ -202,7 +220,7 @@ export async function getCuadrante(params: { lunes: string }): Promise<
   const grupos0 = (filas ?? []).filter(conHorarioOMulti);
   const ids = grupos0.map((g) => g.id as string);
 
-  const [asistencia, profesores, sesionesRes, sinClase, titulosRes] = await Promise.all([
+  const [asistencia, profesores, sesionesRes, sinClase, titulosRes, publicacion] = await Promise.all([
     cuentasDeSesiones(grupos0.map((g) => ({ id: g.id as string })), lunes, domingo),
     profesoresDe(org),
     ids.length
@@ -214,6 +232,7 @@ export async function getCuadrante(params: { lunes: string }): Promise<
           .eq('organization_id', org).in('class_id', ids).gte('session_date', sumaDias(lunes, -DIAS_TITULOS))
           .order('id').range(desde, hasta), { maxFilas: 5_000 })
       : Promise.resolve({ data: [] as Fila[], error: null }),
+    supabaseAdmin.from('class_week_publications').select('published_at').eq('organization_id', org).eq('week_start', lunes).maybeSingle(),
   ]);
   if (sesionesRes.error) return { success: false as const, error: sesionesRes.error.message };
   const { cuentas, miembros, quienFalta, quienSeUne } = asistencia;
@@ -251,8 +270,33 @@ export async function getCuadrante(params: { lunes: string }): Promise<
       alumnosMulti: [...new Set(alumnosMultiIds)].map(apuntado).sort(porCorreo),
       totalMultis: grupos.filter((g) => g.esMulti).reduce((n, g) => n + g.inscritos, 0),
       titulos: titulosFrecuentes((titulosRes.data ?? []).map((t) => t.title as string)),
+      publicada: (publicacion.data?.published_at as string | undefined) ?? null,
     },
   };
+}
+
+/**
+ * Publica (o retira) el cuadrante de una semana para los alumnos (regla 98).
+ * Sin publicar, el alumno ve solo el horario de su grupo; publicada, qué toca,
+ * el profesor y los días sin clase. Lo que se cambie después se ve al momento.
+ */
+export async function publicarCuadrante(params: { lunes: string; publicar: boolean }): Promise<
+  { success: true; publicada: string | null } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const { lunes, publicar } = params ?? ({} as typeof params);
+  if (!org || !esLunes(lunes)) return { success: false as const, error: 'Datos no válidos.' };
+
+  if (!publicar) {
+    const { error } = await supabaseAdmin.from('class_week_publications').delete().eq('organization_id', org).eq('week_start', lunes);
+    return error ? { success: false as const, error: error.message } : { success: true as const, publicada: null };
+  }
+  const { data, error } = await supabaseAdmin.from('class_week_publications')
+    .upsert({ organization_id: org, week_start: lunes, published_at: new Date().toISOString(), published_by: auth.user.id }, { onConflict: 'organization_id,week_start' })
+    .select('published_at').single();
+  return error ? { success: false as const, error: error.message } : { success: true as const, publicada: data.published_at as string };
 }
 
 /**
@@ -536,14 +580,15 @@ export async function getMiMulti(): Promise<
   const ids = grupos.map((g) => g.id as string);
   if (!ids.length) return { success: true as const, esMulti: true as const, dias: [], semanas: [] };
 
-  const [{ cuentas, miembros }, sesionesRes, mias, profesores, sinClase] = await Promise.all([
+  const [{ cuentas, miembros }, sesionesRes, mias, profesores, sinClase, publicadas] = await Promise.all([
     cuentasDeSesiones(grupos.map((g) => ({ id: g.id as string })), ahora.fecha, hasta),
     supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('organization_id', org).in('class_id', ids)
       .gte('session_date', ahora.fecha).lte('session_date', hasta),
     supabaseAdmin.from('class_session_joins').select('class_id, session_date').eq('user_id', auth.user.id).in('class_id', ids)
       .gte('session_date', ahora.fecha).lte('session_date', hasta),
     profesoresDe(org),
-    diasSinClase(org, ids, ahora.fecha, hasta),
+    diasSinClasePublicados(org, ids, ahora.fecha, hasta),
+    semanasPublicadas(org, ahora.fecha, hasta),
   ]);
   const unidas = new Set((mias.data ?? []).map((j) => `${j.class_id}|${j.session_date}`));
   // Un día quitado (festivo, sin profesor) no tiene clase a la que apuntarse (regla 97).
@@ -558,7 +603,10 @@ export async function getMiMulti(): Promise<
     const corto = nombreCorto(g.name as string);
     for (const fecha of proximasSesiones(h, ahora, 14)) {
       if (fecha > hasta || quitados.has(`${g.id}|${fecha}`)) continue;
-      const delDia = sesiones.filter((s) => s.classId === g.id && s.fecha === fecha).sort((x, y) => x.position - y.position)[0];
+      // De una semana sin publicar, solo el horario (regla 98).
+      const delDia = publicadas.has(lunesDe(fecha))
+        ? sesiones.filter((s) => s.classId === g.id && s.fecha === fecha).sort((x, y) => x.position - y.position)[0]
+        : undefined;
       const c = cuentaDe(cuentas, miembros, g.id as string, fecha, h.capacity);
       const unido = unidas.has(`${g.id}|${fecha}`);
       const editable = sePuedeAvisar(h, fecha, ahora);
@@ -627,7 +675,7 @@ export async function setMiUnion(params: { classId: string; fecha: string; unir:
       .eq('class_id', classId).eq('user_id', auth.user.id).eq('session_date', fecha);
     return error ? { success: false as const, error: error.message } : { success: true as const };
   }
-  if ((await diasSinClase(auth.user.organizationId, [classId], fecha, fecha)).length) {
+  if ((await diasSinClasePublicados(auth.user.organizationId, [classId], fecha, fecha)).length) {
     return { success: false as const, error: 'Ese día ese grupo no tiene clase.' };
   }
   const { cuentas, miembros } = await cuentasDeSesiones([{ id: classId }], fecha, fecha);
@@ -663,7 +711,7 @@ export async function setMiUnionSemana(params: { classId: string; lunes: string;
     return error ? { success: false as const, error: error.message } : { success: true as const, cambiadas: fechas.length, completas: 0 };
   }
 
-  const quitados = new Set((await diasSinClase(auth.user.organizationId, [classId], fechas[0], fechas[fechas.length - 1])).map((d) => d.fecha));
+  const quitados = new Set((await diasSinClasePublicados(auth.user.organizationId, [classId], fechas[0], fechas[fechas.length - 1])).map((d) => d.fecha));
   const { cuentas, miembros } = await cuentasDeSesiones([{ id: classId }], fechas[0], fechas[fechas.length - 1]);
   const conPlaza = fechas.filter((f) => !quitados.has(f) && quedaPlaza(cuentaDe(cuentas, miembros, classId, f, ctx.horario.capacity)));
   if (conPlaza.length) {

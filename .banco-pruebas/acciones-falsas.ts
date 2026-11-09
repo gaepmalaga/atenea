@@ -274,14 +274,6 @@ export async function savePhysicalProfile() { return { success: true as const };
 // Como en Alphapol: el plan lo escribe el preparador para el grupo (`grupo:…`),
 // y el alumno apunta cada día (regla 84).
 export async function getActiveTrainingPlan() { return ok({ plan: { ...PLAN, id: 'grupo:g1', weekStart: '2026-09-07' } }); }
-export async function getStudentGroupWeeks() {
-  return ok({
-    semanas: [
-      { weekStart: '2026-08-31', plan: PLAN.plan_data, classId: 'g1' },
-      { weekStart: '2026-09-07', plan: PLAN.plan_data, classId: 'g1' },
-    ],
-  });
-}
 
 export async function generateWeeklyPlan() { return ok({ data: null }); }
 export async function generateNextWeek() { return ok({ plan: PLAN }); }
@@ -980,10 +972,15 @@ export async function getCuadrante(params?: { lunes?: string }) {
       ],
       totalMultis: 14,
       titulos: ['FLK 5.0', 'F.M + RDL', 'FLK 5.1', 'Boxeo', 'Jiujitsu', 'Rodaje 40′', 'Circuito de agilidad'],
+      // La del 9 de noviembre, publicada; las demás, sin publicar (regla 98).
+      publicada: lunes === '2026-11-09' ? '2026-11-08T18:12:00Z' : null,
     },
   });
 }
 export async function saveCelda() { return { success: true as const, id: 'cs-nueva' }; }
+export async function publicarCuadrante(params?: { publicar?: boolean }) {
+  return { success: true as const, publicada: params?.publicar ? new Date().toISOString() : null };
+}
 export async function copiarCelda() { return { success: true as const, copiadas: 2 }; }
 export async function setSinClase() { return { success: true as const }; }
 export async function borrarSesionesDia() { return { success: true as const, borradas: 1 }; }

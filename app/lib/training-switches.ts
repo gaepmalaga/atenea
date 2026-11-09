@@ -5,7 +5,7 @@
  *
  *  - `ai`       — que el ALUMNO se genere su plan de FÍSICAS con IA
  *                 (`generateWeeklyPlan` / `generateNextWeek`). De pago.
- *  - `group`    — el plan de físicas MANUAL por grupo (`saveGroupTrainingPlan`).
+ *  - `group`    — la física con preparador: el cuadrante y el entreno de cada alumno (reglas 86, 97).
  *  - `adaptive` — que el modo «Entrenamiento» del TEST sea adaptativo (P10):
  *                 repetición espaciada + cajones por alumno. Apagado = vuelve a
  *                 la selección aleatoria de siempre.

@@ -125,32 +125,9 @@ describe('las guardas de la acción', () => {
     expect(src).not.toContain("from('group_training_plans')");
   });
 
-  it('el alumno hereda el plan de grupo por los tipos con lleva_plan, no por "fisicas", y solo la semana vigente', () => {
-    // La resolución del grupo de físicas vive en un helper compartido
-    // (`idsGruposConPlan`), que usan tanto `getActiveTrainingPlan` como
-    // `getStudentGroupWeeks`.
-    const helper = training.slice(
-      training.indexOf('async function idsGruposConPlan'),
-      training.indexOf('export async function getActiveTrainingPlan'),
-    );
-    expect(helper).toMatch(/lleva_plan/);
-
-    const fn = training.slice(
-      training.indexOf('export async function getActiveTrainingPlan'),
-      training.indexOf('export async function completeTrainingDay'),
-    );
-    expect(fn).toMatch(/idsGruposConPlan\(/);
-    expect(fn).toMatch(/\.lte\('week_start'/);
-    expect(fn.indexOf("origen: 'individual'")).toBeLessThan(fn.indexOf("origen: 'grupo'"));
-  });
-
-  it('el alumno puede mirar semanas anteriores del plan de grupo, pero no las futuras (regla 54)', () => {
-    const fn = training.slice(
-      training.indexOf('export async function getStudentGroupWeeks'),
-      training.indexOf('export async function completeTrainingDay'),
-    );
-    // Ordena ascendente (antigua → vigente) y corta en el lunes de hoy.
-    expect(fn).toMatch(/\.lte\('week_start',\s*lunesHoy\)/);
-    expect(fn).toMatch(/ascending:\s*true/);
+  it('el plan de grupo por semanas se retiró con su tabla (regla 98): nadie la lee', () => {
+    expect(training).not.toContain("from('group_training_plans')");
+    expect(training).not.toContain('export async function getStudentGroupWeeks');
+    expect(training).not.toContain('idsGruposConPlan');
   });
 });

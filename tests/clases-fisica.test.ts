@@ -116,6 +116,41 @@ describe('el multi', () => {
   });
 });
 
+describe('una semana sin publicar es un borrador (regla 98)', () => {
+  const datos = {
+    ...base,
+    grupos: [KAPPA, MULTI],
+    sesiones: [ses('g-kappa', LUNES, 'FLK 5.0', 'jose'), ses('g-multi', '2026-11-10', 'Jiujitsu', 'lucas', '18:30')],
+    sinClase: [{ classId: 'g-kappa', fecha: '2026-11-11', motivo: 'Festivo' }],
+  };
+
+  it('sin publicar: el alumno ve su clase y su hora, pero ni qué toca, ni el profesor, ni el festivo, ni la sesión suelta de Multi', () => {
+    const c = armaClasesAlumno({ ...datos, publicadas: new Set() });
+    expect(c.map((x) => [x.fecha, x.grupo, x.hora, x.sesion, x.profesor, x.sinClase])).toEqual([
+      ['2026-11-09', 'Kappa', '08:00', null, null, false],
+      ['2026-11-11', 'Kappa', '08:00', null, null, false],
+    ]);
+  });
+
+  it('publicada: todo', () => {
+    const c = armaClasesAlumno({ ...datos, publicadas: new Set([LUNES]) });
+    expect(c.map((x) => [x.fecha, x.grupo, x.sesion?.title ?? null, x.profesor, x.sinClase])).toEqual([
+      ['2026-11-09', 'Kappa', 'FLK 5.0', 'José Morato', false],
+      ['2026-11-10', 'Multi', 'Jiujitsu', 'Lucas', false],
+      ['2026-11-11', 'Kappa', null, null, true],
+    ]);
+  });
+
+  it('la que se publica es la semana, no el día: la siguiente sigue en borrador', () => {
+    const c = armaClasesAlumno({ ...datos, hasta: '2026-11-16', sesiones: [...datos.sesiones, ses('g-kappa', '2026-11-16', 'Boxeo')], publicadas: new Set([LUNES]) });
+    expect(c.find((x) => x.fecha === '2026-11-16')?.sesion).toBeNull();
+  });
+
+  it('sin el dato de qué está publicado (el preparador), se ve todo', () => {
+    expect(armaClasesAlumno({ ...datos }).find((x) => x.fecha === LUNES)?.sesion?.title).toBe('FLK 5.0');
+  });
+});
+
 describe('Inicio: la clase de física de hoy', () => {
   const c = armaClasesAlumno({ ...base, grupos: [KAPPA], sesiones: [ses('g-kappa', LUNES, 'FLK 5.0', 'jose')] });
 
@@ -148,7 +183,8 @@ describe('las acciones (guardas estáticas)', () => {
 
   it('los entrenos del alumno no traen las clases de grupo: solo lo suyo y los planes comunes', () => {
     const c = cuerpo(fisica, 'getMiFisica');
-    expect(c).toContain('clasesDelAlumno(auth.user.id, org, desde, hasta)');
+    // `true`: el alumno solo ve lo publicado (regla 98).
+    expect(c).toContain('clasesDelAlumno(auth.user.id, org, desde, hasta, true)');
     expect(c).toContain('filtroAlumno(auth.user.id, gruposPlan)');
     expect(c).not.toMatch(/const filtro = filtroAlumno\(auth\.user\.id, grupos\)/);
   });
@@ -162,7 +198,8 @@ describe('las acciones (guardas estáticas)', () => {
   });
 
   it('en «Planificar», la vista de un alumno trae sus clases aparte', () => {
-    expect(cuerpo(fisica, 'getPlanificador')).toContain('clasesDelAlumno(destino.id, org, desde, hasta)');
+    // `false`: el preparador ve también lo que aún no ha publicado.
+    expect(cuerpo(fisica, 'getPlanificador')).toContain('clasesDelAlumno(destino.id, org, desde, hasta, false)');
   });
 
   it('un multi puede apuntar la sesión de la clase a la que se apuntó, y solo esa', () => {

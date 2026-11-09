@@ -134,7 +134,18 @@ const aGrupoClase = (g: Fila): GrupoClase => ({ id: g.id as string, nombre: g.na
  * como multi) y los grupos de PLAN COMÚN (de física sin horario, como el
  * «Promo 43 · Físicas» de ejemplo), cuyas sesiones son entrenos, no clases.
  */
-async function clasesDelAlumno(userId: string, org: string, desde: string, hasta: string): Promise<{
+/** Los lunes de las semanas con el cuadrante publicado (regla 98) entre dos fechas. */
+async function semanasPublicadas(org: string, desde: string, hasta: string): Promise<Set<string>> {
+  const { data } = await supabaseAdmin.from('class_week_publications').select('week_start')
+    .eq('organization_id', org).gte('week_start', lunesDe(desde)).lte('week_start', hasta);
+  return new Set((data ?? []).map((x) => x.week_start as string));
+}
+
+/**
+ * `soloPublicado`: para el ALUMNO, de una semana sin publicar solo sale el
+ * horario (regla 98); el preparador lo ve todo.
+ */
+async function clasesDelAlumno(userId: string, org: string, desde: string, hasta: string, soloPublicado: boolean): Promise<{
   clases: ClaseFisica[];
   /** Los grupos del alumno que NO dan clases: sus sesiones van con los entrenos. */
   gruposPlan: string[];
@@ -160,7 +171,7 @@ async function clasesDelAlumno(userId: string, org: string, desde: string, hasta
   const ids = [...deClase, ...gruposAjenos.map((g) => g.id)];
   if (!ids.length) return { clases: [], gruposPlan };
 
-  const [{ data: ses }, { data: off }, { data: faltas }, { data: profes }] = await Promise.all([
+  const [{ data: ses }, { data: off }, { data: faltas }, { data: profes }, publicadas] = await Promise.all([
     supabaseAdmin.from('training_sessions').select(`${COLS_SESION}, teacher_id, start_time`).eq('organization_id', org)
       .in('class_id', ids).gte('session_date', desde).lte('session_date', hasta),
     supabaseAdmin.from('class_days_off').select('class_id, session_date, reason').eq('organization_id', org)
@@ -168,6 +179,7 @@ async function clasesDelAlumno(userId: string, org: string, desde: string, hasta
     supabaseAdmin.from('class_absences').select('class_id, session_date').eq('user_id', userId)
       .in('class_id', ids).gte('session_date', desde).lte('session_date', hasta),
     supabaseAdmin.from('academy_staff').select('id, name').eq('organization_id', org),
+    soloPublicado ? semanasPublicadas(org, desde, hasta) : Promise.resolve(null),
   ]);
   const sesiones: SesionDeClase[] = (ses ?? []).map((r) => ({
     ...aSesion(r),
@@ -182,6 +194,7 @@ async function clasesDelAlumno(userId: string, org: string, desde: string, hasta
     faltas: (faltas ?? []).map((f) => ({ classId: f.class_id as string, fecha: f.session_date as string })),
     profesores: Object.fromEntries((profes ?? []).map((x) => [x.id as string, x.name as string])),
     ahora: ahoraEnZona(Date.now()),
+    publicadas,
   });
   return { clases, gruposPlan };
 }
@@ -464,7 +477,8 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
   } else {
     // Las clases de su grupo van aparte; con los entrenos, solo lo suyo y lo
     // de un plan común (un grupo sin horario).
-    const c = await clasesDelAlumno(destino.id, org, desde, hasta);
+    // El preparador ve también lo que aún no ha publicado.
+    const c = await clasesDelAlumno(destino.id, org, desde, hasta, false);
     clases = c.clases;
     sesionesQ = sesionesQ.or(filtroAlumno(destino.id, c.gruposPlan));
     notasQ = notasQ.or(filtroAlumno(destino.id, c.gruposPlan));
@@ -855,7 +869,7 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
 
   const grupos = await gruposDelAlumno(auth.user.id, org);
   // Las clases de grupo, aparte; con los entrenos, lo suyo y lo de un plan común.
-  const { clases, gruposPlan } = await clasesDelAlumno(auth.user.id, org, desde, hasta);
+  const { clases, gruposPlan } = await clasesDelAlumno(auth.user.id, org, desde, hasta, true);
   const filtro = filtroAlumno(auth.user.id, gruposPlan);
   const [{ data: filas, error }, { data: notas }, nombresGrupo, rm] = await Promise.all([
     supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('organization_id', org).or(filtro).gte('session_date', desde).lte('session_date', hasta),
