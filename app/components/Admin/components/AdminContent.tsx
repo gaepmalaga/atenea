@@ -5,7 +5,7 @@ import type { QuestionStatus } from '@/app/lib/questions';
 import {
   Upload, FileText, Trash2, Loader2, RefreshCw,
   Book, Sparkles, ChevronDown, ChevronRight, FolderOpen,
-  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle, Eye, Layers
+  File, Calendar, AlertCircle, AlertTriangle, Eye
 } from 'lucide-react';
 
 import DocumentChunksViewer from './DocumentChunksViewer';

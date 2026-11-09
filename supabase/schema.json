@@ -714,11 +714,13 @@
     "monthly_payments": {
       "columnas": [
         "amount_eur",
+        "method",
         "note",
         "organization_id",
         "paid",
         "paid_on",
         "period",
+        "receipt_no",
         "recorded_by",
         "updated_at",
         "user_id"
@@ -732,11 +734,13 @@
       ],
       "tipos": {
         "amount_eur": "numeric",
+        "method": "text",
         "note": "text",
         "organization_id": "uuid",
         "paid": "boolean",
         "paid_on": "date",
         "period": "text",
+        "receipt_no": "integer",
         "recorded_by": "uuid",
         "updated_at": "timestamp with time zone",
         "user_id": "uuid"

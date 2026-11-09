@@ -8,6 +8,7 @@ import {
   resumeHistorico,
   periodoActual,
   periodosRecientes,
+  esMetodo,
   type MonthlyPaymentRow,
   type ResumenMes,
   type HistoricoPagos,
@@ -33,7 +34,18 @@ export type MonthlyPaymentsOverview = ResumenMes & {
   filas: (ResumenMes['filas'][number] & { email: string | null })[];
   /** Los meses que se pueden elegir en el desplegable. */
   periodos: string[];
+  /**
+   * ¿Está ejecutado `docs/sql/pagos-contabilidad.sql`? Sin él no existen las
+   * columnas de método y recibo: la pantalla no los ofrece, y el resto sigue
+   * funcionando igual que antes.
+   */
+  contabilidad: boolean;
 };
+
+const COLS_PAGO = 'user_id, period, paid, amount_eur, paid_on';
+const COLS_PAGO_CONTA = `${COLS_PAGO}, method, receipt_no`;
+/** PostgREST rechaza la consulta ENTERA si pide una columna que no existe. */
+const faltaColumna = (msg?: string | null) => !!msg && /column|does not exist|schema cache/i.test(msg);
 
 export async function getMonthlyPayments(
   period?: string,
@@ -54,15 +66,21 @@ export async function getMonthlyPayments(
   if (!idsAcademia.length) {
     return {
       success: true as const,
-      data: { ...resumeMes(p, [], []), periodos: periodosRecientes(12) },
+      data: { ...resumeMes(p, [], []), periodos: periodosRecientes(12), contabilidad: false },
     };
   }
 
-  const [perfilesRes, membresiasRes, pagosRes] = await Promise.all([
+  const [perfilesRes, membresiasRes] = await Promise.all([
     supabaseAdmin.from('profiles').select('id, email, role').eq('role', 'student').in('id', idsAcademia).limit(MAX_PERFILES),
     supabaseAdmin.from('memberships').select('user_id, access_status, exempt').eq('organization_id', organizationId),
-    supabaseAdmin.from('monthly_payments').select('user_id, period, paid, amount_eur, paid_on').eq('organization_id', organizationId).eq('period', p),
   ]);
+  const leePagos = (cols: string) => supabaseAdmin.from('monthly_payments').select(cols).eq('organization_id', organizationId).eq('period', p);
+  let contabilidad = true;
+  let pagosRes = await leePagos(COLS_PAGO_CONTA);
+  if (pagosRes.error && faltaColumna(pagosRes.error.message)) {
+    contabilidad = false;
+    pagosRes = await leePagos(COLS_PAGO);
+  }
 
   if (perfilesRes.error) {
     console.error('getMonthlyPayments:', perfilesRes.error.message);
@@ -81,7 +99,7 @@ export async function getMonthlyPayments(
     .filter((u) => activos.has(u.id as string))
     .map((u) => ({ id: u.id as string, email: (u.email as string) ?? null, exempt: exentos.has(u.id as string) }));
 
-  const resumen = resumeMes(p, roster, (pagosRes.data ?? []) as MonthlyPaymentRow[]);
+  const resumen = resumeMes(p, roster, (pagosRes.data ?? []) as unknown as MonthlyPaymentRow[]);
   const emailPorId = new Map(roster.map((r) => [r.id, r.email]));
 
   return {
@@ -92,6 +110,7 @@ export async function getMonthlyPayments(
         .map((f) => ({ ...f, email: emailPorId.get(f.userId) ?? null }))
         .sort((a, b) => Number(a.paid) - Number(b.paid) || (a.email ?? '').localeCompare(b.email ?? '')),
       periodos: periodosRecientes(12),
+      contabilidad,
     },
   };
 }
@@ -176,6 +195,33 @@ export async function setPayment(input: unknown) {
   }
   const note = typeof raw.note === 'string' && raw.note.trim() ? raw.note.trim() : null;
 
+  // CONTABILIDAD (regla 102): el método y el recibo SOLO viajan si la pantalla
+  // los manda. PostgREST rechaza la escritura ENTERA si una columna no existe,
+  // así que sin el guion `pagos-contabilidad.sql` el cobro de siempre no puede
+  // llevarlas por defecto.
+  const extra: Record<string, unknown> = {};
+  if (paid && esMetodo(raw.method)) extra.method = raw.method;
+  if (paid && raw.emitirRecibo === true) {
+    // Un cobro que ya tiene recibo lo conserva: volver a guardarlo no gasta otro número.
+    const { data: previo } = await supabaseAdmin
+      .from('monthly_payments')
+      .select('receipt_no')
+      .eq('organization_id', auth.user.organizationId)
+      .eq('user_id', studentId)
+      .eq('period', period)
+      .maybeSingle();
+    const existente = (previo as { receipt_no?: number | null } | null)?.receipt_no;
+    if (typeof existente === 'number') {
+      extra.receipt_no = existente;
+    } else {
+      const { data: numero, error: numErr } = await supabaseAdmin.rpc('next_receipt_no', { p_org: auth.user.organizationId });
+      if (numErr || typeof numero !== 'number') {
+        return { success: false as const, error: `No se pudo numerar el recibo: ${numErr?.message ?? 'respuesta vacía'}` };
+      }
+      extra.receipt_no = numero;
+    }
+  }
+
   const { error } = await supabaseAdmin.from('monthly_payments').upsert(
     {
       organization_id: auth.user.organizationId,
@@ -187,6 +233,7 @@ export async function setPayment(input: unknown) {
       note,
       recorded_by: auth.user.id,
       updated_at: new Date().toISOString(),
+      ...extra,
     },
     { onConflict: 'organization_id,user_id,period' },
   );

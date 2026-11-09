@@ -11,7 +11,7 @@ import type { StaffMember } from '@/app/lib/academy-settings';
 import type { GroupKindRow } from '@/app/lib/groups';
 import { DIAS_SEMANA, horarioEnTexto } from '@/app/lib/asistencia';
 import {
-  PanelTitulo, Hoja, BloqueTitulo, Rotulo, Aviso, Atras, Boton, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, EmptyState, TEXT, cx,
+  PanelTitulo, Hoja, Rotulo, Aviso, Atras, Boton, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, EmptyState, TEXT, cx,
 } from '../../ui';
 
 /**

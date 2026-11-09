@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  PhoneCall, Loader2, AlertTriangle, ChevronDown, Layers, Target,
+  Loader2, AlertTriangle, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro, KeyRound,
-  Mail, ShieldCheck, X, Send, Shuffle, Brain, Search, Archive, HelpCircle,
+  Mail, ShieldCheck, X, Send, Shuffle, Brain, Archive, HelpCircle,
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
@@ -28,13 +28,6 @@ import { Hoja, BloqueTitulo, Boton, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, 
  * marca en la pestaña «Pagos» (aquí solo se ve el aviso). El entrenamiento
  * físico vive en «Prep. física», por grupo.
  */
-
-const ESTILO_ESTADO: Record<EstadoAlumno, string> = {
-  nunca_entro: 'bg-slate-300/40 dark:bg-slate-700/40 text-slate-700 dark:text-slate-300',
-  abandonado: 'bg-red-500/10 text-red-700 dark:text-red-400',
-  en_riesgo: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  activo: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-};
 
 const ACCESO_BADGE: Record<FilaAlumno['acceso'], { label: string; cls: string; icon: typeof UserCheck }> = {
   active: { label: 'Acceso', cls: 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10', icon: UserCheck },

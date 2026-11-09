@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, Pencil, Save, Loader2, ShieldAlert } from 'lucide-react';
-import { PanelTitulo, Pestanas, Hoja, Etiqueta, Boton, PanelLateral, Aviso, EmptyState, cx, type Tono } from '../../ui';
+import { PanelTitulo, Pestanas, Hoja, Etiqueta, Boton, PanelLateral, EmptyState, cx, type Tono } from '../../ui';
 import EditorPregunta from './EditorPregunta';
 
 import { 

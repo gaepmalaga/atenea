@@ -15,7 +15,7 @@ import {
 } from '@/app/lib/profesores';
 import { lunesDe, etiquetaSemana } from '@/app/lib/sesiones';
 import { sumaDias, etiquetaFecha, DIAS_SEMANA } from '@/app/lib/asistencia';
-import { Hoja, Boton, Modal, Campo, CampoSelect, BloqueTitulo, EmptyState, TEXT, cx, PanelTitulo, Pulso, Rotulo, Aviso, Atras, Dato, Etiqueta, Avatar, inicialesDeNombre, TablaDual } from '../../ui';
+import { Hoja, Boton, Modal, Campo, CampoSelect, BloqueTitulo, EmptyState, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, Dato, Etiqueta, Avatar, inicialesDeNombre, TablaDual } from '../../ui';
 
 /**
  * PROFESORES (regla 99): el equipo de la academia, de teoría y de física.
@@ -88,7 +88,6 @@ export default function AdminProfesores() {
   const clasesDe = (id: string) => habituales.filter((h) => h.profesorIds.includes(id)).map((h) => h.actividad);
   // Los exámenes oficiales (46-50) no los «da» nadie: no cuentan como sin profesor.
   const sinProfesor = temas.filter((t) => !t.profesorIds.length && !/ex[aá]menes/i.test(t.bloque ?? '')).map((t) => t.numero);
-  const correoDe = (id: string | null) => (id ? cuentas.find((c) => c.id === id)?.email ?? 'una cuenta' : null);
 
   async function guardar() {
     if (!editando) return;

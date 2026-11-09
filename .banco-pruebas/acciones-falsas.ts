@@ -783,11 +783,12 @@ export async function getMonthlyPayments() {
     data: {
       period: '2026-09',
       filas: [
-        { userId: 'u2', email: 'alumno@atenea.com', paid: true, amount: 45, paidOn: '2026-09-03', exempt: false },
-        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', paid: false, amount: null, paidOn: null, exempt: false },
+        { userId: 'u2', email: 'alumno@atenea.com', paid: true, amount: 45, paidOn: '2026-09-03', exempt: false, method: 'bizum', receiptNo: 12 },
+        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', paid: false, amount: null, paidOn: null, exempt: false, method: null, receiptNo: null },
       ],
       pagados: 1, porPagar: 1, total: 2, cobrado: 45,
       periodos: ['2026-09', '2026-08', '2026-07'],
+      contabilidad: true,
     },
   });
 }
