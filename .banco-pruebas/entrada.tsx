@@ -8,7 +8,8 @@ import SetPasswordScreen from '@/app/components/auth/SetPasswordScreen';
 import SelectAcademyScreen from '@/app/components/auth/SelectAcademyScreen';
 import AccessLocked from '@/app/components/auth/AccessLocked';
 
-const usuario = { id: '11111111-2222-3333-4444-555555555555', email: 'gaepmalaga@gmail.com', role: 'admin' };
+// `&rol=superadmin` enseña el panel del superadmin (Temario & IA, Consumo IA, Academias).
+const usuario = { id: '11111111-2222-3333-4444-555555555555', email: 'gaepmalaga@gmail.com', role: new URLSearchParams(location.search).get('rol') === 'superadmin' ? 'superadmin' : 'admin' };
 
 // ?vista=admin para el panel, ?vista=login para la puerta de entrada,
 // ?vista=carga para la pantalla de carga; por defecto, el alumno. Las otras

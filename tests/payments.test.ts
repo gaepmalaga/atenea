@@ -65,7 +65,11 @@ describe('las guardas de la acción', () => {
 
   it('cada consulta va acotada a la academia DENTRO de la consulta (reglas 65 y 75)', () => {
     const sueltas: string[] = [];
+    // El perfil de un alumno se lee solo DESPUÉS de comprobar que es miembro
+    // de la academia, dentro de `alumnoDeLaAcademia`.
+    const ayudante = src.slice(src.indexOf('async function alumnoDeLaAcademia'), src.indexOf('async function', src.indexOf('async function alumnoDeLaAcademia') + 10));
     for (const m of src.matchAll(/\.from\('(\w+)'\)/g)) {
+      if (m[1] === 'profiles' && ayudante.includes(src.slice(m.index!, m.index! + 80)) && /academy_id/.test(ayudante)) continue;
       const resto = src.slice(m.index!, m.index! + 700);
       const sentencia = resto.slice(0, resto.search(/\)\);|\);\n|;\n/) + 1 || 700);
       // `class_members` se pide por los grupos DE la academia, o con su filtro.
@@ -78,14 +82,17 @@ describe('las guardas de la acción', () => {
   it('un alumno que llega de la pantalla se comprueba que es de la academia antes de escribir (regla 1)', () => {
     for (const n of ['registraCobro', 'setCuotaMes']) {
       const c = cuerpo(n);
-      const comprueba = c.indexOf('esDeLaAcademia(');
+      const comprueba = c.indexOf('alumnoDeLaAcademia(');
+      const escribe = Math.min(...['.upsert(', '.rpc(', 'aseguraFilaMes('].map((x) => c.indexOf(x)).filter((i) => i >= 0));
       expect(comprueba, n).toBeGreaterThan(0);
-      expect(comprueba, n).toBeLessThan(c.indexOf('.upsert('));
+      expect(comprueba, n).toBeLessThan(escribe);
     }
-    // Las otras escriben con un update acotado a la academia: si no es suyo, no toca nada.
+    // Las otras escriben con un update o una función acotados a la academia:
+    // si el alumno no es suyo, no tocan nada.
     for (const n of ['anulaCobro', 'setCuotaPropia']) {
       expect(cuerpo(n), n).not.toMatch(/\.upsert\(|\.insert\(/);
     }
+    expect(cuerpo('anulaCobro')).toMatch(/p_org: organizationId/);
   });
 
   it('el mes se abre solo con los activos y no exentos', () => {

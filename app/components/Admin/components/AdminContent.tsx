@@ -5,13 +5,13 @@ import type { QuestionStatus } from '@/app/lib/questions';
 import {
   Upload, FileText, Trash2, Loader2, RefreshCw,
   Book, Sparkles, ChevronDown, ChevronRight, FolderOpen,
-  File, Calendar, CheckCircle2, AlertCircle, XCircle, AlertTriangle, Eye, Layers
+  File, Calendar, AlertCircle, AlertTriangle, Eye
 } from 'lucide-react';
 
 import DocumentChunksViewer from './DocumentChunksViewer';
 import type { DocumentChunkRow } from '@/app/lib/documents';
 import { enteroEnRango } from '@/app/lib/input-number';
-import { cx } from '../../ui';
+import { cx, PanelTitulo, Pulso, Hoja, BloqueTitulo, Boton } from '../../ui';
 
 // Importamos las Server Actions
 import {
@@ -245,77 +245,37 @@ export default function AdminContent() {
   return (
     <div className="space-y-8 animate-in fade-in pb-20 font-sans">
         
-        {/* --- HEADER KPI & UPLOAD ZONE (DISEÑO VIP) --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* 1. TARJETA KPI CON EFECTO CRISTAL */}
-            <div className="bg-slate-200/40 dark:bg-slate-800/40 backdrop-blur-md p-8 rounded-2xl sm:rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
-                {/* Glow Effect de fondo */}
-                <div className="absolute top-0 right-0 p-32 bg-indigo-600/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none group-hover:bg-indigo-500/30 transition-all duration-1000"></div>
-                
-                <div className="flex justify-between items-start mb-8 relative z-10">
-                    <div className="p-3.5 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl shadow-lg shadow-indigo-500/20 text-white transform group-hover:scale-110 transition-transform duration-300">
-                        <Book size={28} strokeWidth={2.5} />
-                    </div>
-                    <span className="text-[10px] font-black bg-slate-100/60 dark:bg-slate-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-full uppercase tracking-widest backdrop-blur-md">
-                        Biblioteca Oficial
-                    </span>
-                </div>
-                
-                <div className="relative z-10">
-                    <p className="text-4xl sm:text-6xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter mb-2 drop-shadow-lg">{totalDocs}</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-500"/> {totalDocs === 1 ? 'Documento indexado' : 'Documentos indexados'}
-                    </p>
-                </div>
-            </div>
+        <PanelTitulo titulo="Temario & IA" sub="Los PDF de cada tema y las preguntas que salen de ellos." acciones={
+          <Boton variant="secondary" onClick={load} icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}>Recargar</Boton>
+        } />
 
-            {/* 2. ZONA DE SUBIDA (Upload Zone) */}
-            <div className={`relative p-[2px] rounded-2xl sm:rounded-3xl transition-all duration-500 ${selectedSubject ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-indigo-500/20' : 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700'}`}>
-                <div className="bg-white dark:bg-slate-900 h-full w-full rounded-3xl overflow-hidden relative">
-                    {uploading ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 animate-in fade-in bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-sm">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 animate-pulse"></div>
-                                <Loader2 className="animate-spin text-indigo-700 dark:text-indigo-400 relative z-10" size={48} />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">Indexando Documento...</p>
-                                <p className="text-xs font-mono text-indigo-700 dark:text-indigo-300 animate-pulse">Generando vectores semánticos</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-8 relative group">
-                            {selectedSubject ? (
-                                <>
-                                    <input 
-                                        type="file" 
-                                        accept="application/pdf" 
-                                        onChange={handleFileUpload} 
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50" 
-                                    />
-                                    <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 border border-indigo-500/20 shadow-inner">
-                                        <Upload className="text-indigo-700 dark:text-indigo-400" size={36} />
-                                    </div>
-                                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Subir PDF al Tema {selectedSubject.number}</h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto line-clamp-1 font-medium">{selectedSubject.title}</p>
-                                    <div className="mt-5 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all">
-                                        Seleccionar Archivo
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 border border-slate-300 dark:border-slate-700 grayscale opacity-50">
-                                        <FolderOpen className="text-slate-500 dark:text-slate-400" size={32} />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-slate-500 dark:text-slate-400 mb-1">Selecciona un Tema</h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Elige un tema de la lista inferior para activar la subida</p>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
+        {/* --- BIBLIOTECA Y SUBIDA --- */}
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <Pulso cifras={[{ valor: totalDocs, etiqueta: totalDocs === 1 ? 'documento indexado' : 'documentos indexados', tono: 'ok' }]} />
+
+            {/* ZONA DE SUBIDA: el tema se elige abajo, en la lista; sin tema no hay subida. */}
+            <Hoja pad="md" className="space-y-3">
+                <BloqueTitulo icon={<Upload size={15} />}>{selectedSubject ? `Subir PDF al tema ${selectedSubject.number}` : 'Subir PDF'}</BloqueTitulo>
+                {uploading ? (
+                    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-indigo-700 bg-indigo-50 py-8 dark:border-indigo-300 dark:bg-indigo-500/10">
+                        <Loader2 className="animate-spin text-indigo-700 dark:text-indigo-300" size={32} />
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Indexando documento…</p>
+                        <p className="font-mono text-xs text-slate-600 dark:text-slate-400">Generando vectores semánticos</p>
+                    </div>
+                ) : selectedSubject ? (
+                    <div className="relative flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-indigo-700 bg-indigo-50 px-4 py-7 text-center dark:border-indigo-300 dark:bg-indigo-500/10">
+                        <input type="file" accept="application/pdf" onChange={handleFileUpload} aria-label={`Subir un PDF al tema ${selectedSubject.number}`} className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
+                        <p className="font-semibold text-slate-900 dark:text-white">Arrastra el PDF aquí</p>
+                        <p className="line-clamp-1 max-w-sm text-xs text-slate-600 dark:text-slate-400">{selectedSubject.title}</p>
+                        <span className="mt-1 inline-flex min-h-[44px] items-center rounded-lg bg-indigo-900 px-4 text-[13px] font-semibold text-white dark:bg-indigo-300 dark:text-marino-hondo">Seleccionar archivo</span>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center gap-1 rounded-lg border-2 border-dashed border-linea px-4 py-7 text-center dark:border-noche-linea">
+                        <FolderOpen className="text-slate-500 dark:text-slate-400" size={26} />
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Elige un tema de la lista inferior para activar la subida.</p>
+                    </div>
+                )}
+            </Hoja>
         </div>
 
         {/* --- 3. GENERAR --- */}
@@ -328,15 +288,15 @@ export default function AdminContent() {
         />
 
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+        <div className="bg-white dark:bg-noche-2 rounded-lg border border-linea dark:border-noche-linea overflow-hidden">
             {/* Header del Visor */}
-            <div className="px-8 py-6 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-20">
+            <div className="px-8 py-6 bg-hundido/80 dark:bg-noche-hondo/80 border-b border-linea dark:border-noche-linea flex justify-between items-center sticky top-0 z-20">
                 <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest flex items-center gap-3">
                     <Book size={18} className="text-indigo-500"/> Estructura Oficial
                 </h3>
                 <button 
                     onClick={load} 
-                    className="w-11 h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-95" 
+                    className="w-11 h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all active:scale-95" 
                     title="Recargar datos"
                 >
                     <RefreshCw size={18} className={loading ? 'animate-spin' : ''}/>
@@ -354,7 +314,7 @@ export default function AdminContent() {
             {/* Lista de Bloques */}
             <div className="divide-y divide-slate-200 dark:divide-slate-800/50">
                 {syllabus.map((block) => (
-                    <div key={block.id} className="bg-white dark:bg-slate-900 group/block">
+                    <div key={block.id} className="bg-white dark:bg-noche-2 group/block">
                         {/* Botón del Bloque */}
                         <button 
                             onClick={() => toggleBlock(block.id)}
@@ -369,14 +329,14 @@ export default function AdminContent() {
                                 </div>
                                 {block.name}
                             </span>
-                            <span className="text-[10px] font-black tracking-wider bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <span className="text-[10px] font-black tracking-wider bg-hundido dark:bg-noche-hondo text-slate-500 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-linea dark:border-noche-linea">
                                 {block.subjects.length} {block.subjects.length === 1 ? 'TEMA' : 'TEMAS'}
                             </span>
                         </button>
 
                         {/* Lista de Temas (Desplegable) */}
                         {openBlocks[block.id] && (
-                            <div className="bg-slate-50 dark:bg-black/20 border-t border-slate-200 dark:border-slate-800/50 animate-in slide-in-from-top-2 duration-300">
+                            <div className="bg-hundido dark:bg-black/20 border-t border-linea dark:border-noche-linea/50 animate-in slide-in-from-top-2 duration-300">
                                 {block.subjects.map(subject => {
                                     const isSelected = selectedSubject?.id === subject.id;
                                     const hasDocs = subject.docCount > 0;
@@ -399,7 +359,7 @@ export default function AdminContent() {
                                             <div className="p-4 pl-5 sm:pl-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                                 <div className="flex items-center gap-4 sm:gap-5 flex-1 min-w-0">
                                                     {/* Número del Tema */}
-                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-sm font-black shadow-sm flex-shrink-0 transition-all ${
+                                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-sm font-black  flex-shrink-0 transition-all ${
                                                         hasDocs 
                                                         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20' 
                                                         : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
@@ -437,9 +397,9 @@ export default function AdminContent() {
                                                 <div className="flex items-center justify-end gap-3 shrink-0 opacity-100 lg:opacity-40 lg:group-hover/subject:opacity-100 transition-all sm:mr-4">
                                                     <button 
                                                         onClick={() => setSelectedSubject(subject)}
-                                                        className={`min-h-[44px] px-3 rounded-xl transition-all flex items-center justify-center gap-2 text-xs font-bold border ${
+                                                        className={`min-h-[44px] px-3 rounded-lg transition-all flex items-center justify-center gap-2 text-xs font-bold border ${
                                                             isSelected 
-                                                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
+                                                            ? 'bg-indigo-600 border-indigo-500 text-white  ' 
                                                             : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300 dark:hover:bg-slate-700'
                                                         }`}
                                                         title="Seleccionar para subir"
@@ -450,9 +410,9 @@ export default function AdminContent() {
                                                     {hasDocs && (
                                                         <button 
                                                             onClick={() => { setGenSubject(subject); window.scrollTo({top:0, behavior:'smooth'}); }}
-                                                            className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition-all border ${
+                                                            className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-all border ${
                                                                 genSubject?.id === subject.id 
-                                                                ? 'bg-purple-600 border-purple-500 text-white shadow-lg' 
+                                                                ? 'bg-purple-600 border-purple-500 text-white ' 
                                                                 : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-purple-700 dark:hover:text-purple-400 hover:bg-slate-300 dark:hover:bg-slate-700'
                                                             }`}
                                                             title="Generar Test IA"
@@ -466,7 +426,7 @@ export default function AdminContent() {
 
                                             {/* LISTA DE ARCHIVOS (SUB-NIVEL) */}
                                             {hasDocs && subject.documents && subject.documents.length > 0 && (
-                                                <div className="ml-[5rem] mr-6 mb-4 space-y-2 border-l-2 border-slate-200 dark:border-slate-800 pl-6 animate-in slide-in-from-left-2 duration-300 py-2">
+                                                <div className="ml-[5rem] mr-6 mb-4 space-y-2 border-l-2 border-linea dark:border-noche-linea pl-6 animate-in slide-in-from-left-2 duration-300 py-2">
                                                     {subject.documents.map(doc => (
                                                         /* En movil se APILA: el nombre arriba, los tres
                                                            botones debajo. Con los botones a 44px en una
@@ -475,7 +435,7 @@ export default function AdminContent() {
                                                            esta lista va sangrada 80px por la izquierda.
                                                            Los controles no pueden dejar sin sitio a lo que
                                                            identifica la fila. */
-                                                        <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl text-xs group/doc hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all shadow-sm">
+                                                        <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white dark:bg-noche-2 border border-linea dark:border-noche-linea p-3 rounded-lg text-xs group/doc hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all">
                                                             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                                                                 <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 group-hover/doc:text-indigo-700 dark:group-hover/doc:text-indigo-400 group-hover/doc:bg-indigo-500/10 transition-colors">
                                                                     <File size={14}/>
@@ -671,13 +631,13 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-5">
+    <div className="bg-white dark:bg-noche-2 border-2 border-linea dark:border-noche-linea rounded-lg p-5 sm:p-6 space-y-5">
       <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-sm flex items-center gap-2">
         <Sparkles size={16} className="text-indigo-500" /> Generar
       </h3>
 
       {/* 1 · QUÉ. Lo primero que se decide, y antes era lo último. */}
-      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-noche-hondo border border-linea dark:border-noche-linea">
         {(['preguntas', 'fichas'] as const).map((k) => (
           <button
             key={k}
@@ -704,7 +664,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
           value={subject?.id ?? ''}
           onChange={(e) => setSubject(temas.find((t) => t.id === Number(e.target.value)) ?? null)}
           disabled={corriendo}
-          className="w-full min-h-[44px] px-3 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl text-base sm:text-sm font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+          className="w-full min-h-[44px] px-3 bg-white dark:bg-noche-hondo border-2 border-linea dark:border-noche-linea rounded-lg text-base sm:text-sm font-semibold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
         >
           <option value="">Elige un tema…</option>
           {temas.map((t) => (
@@ -746,7 +706,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
               enteroEnRango(e.target.value, { min: 1, max: que === 'fichas' ? 100 : 200 }) ?? cuantas,
             )}
             disabled={corriendo}
-            className="w-24 min-h-[44px] px-3 bg-white dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-xl text-base sm:text-sm text-center font-black text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+            className="w-24 min-h-[44px] px-3 bg-white dark:bg-noche-hondo border-2 border-linea dark:border-noche-linea rounded-lg text-base sm:text-sm text-center font-black text-slate-900 dark:text-white outline-none focus:border-indigo-500"
           />
         </div>
 
@@ -754,7 +714,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
           type="button"
           onClick={generar}
           disabled={!subject || corriendo || sinDocumentos}
-          className="flex-1 min-h-[52px] bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-wider text-sm rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="flex-1 min-h-[52px] bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-wider text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {corriendo ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
           {corriendo ? 'Generando…' : `Generar ${cuantas}`}
@@ -780,7 +740,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
 
       {resultado && (
         <div className={cx(
-          'p-3 border-2 text-xs font-bold rounded-xl',
+          'p-3 border-2 text-xs font-bold rounded-lg',
           resultado.success
             ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300'
             : 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300',

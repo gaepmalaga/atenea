@@ -35,6 +35,16 @@
   --color-oro-oscuro: #8a6d12;
   --color-marino: #14295a;
   --color-marino-hondo: #0c1a3d;
+
+  /* El panel de administración (regla 101): el filete cálido de las tablas y
+     tarjetas en claro, y el azul noche en oscuro. El panel sigue el tema
+     (regla 45); solo su barra lateral es marino siempre. */
+  --color-linea: #ddd8c9;
+  --color-hundido: #efebe0;
+  --color-noche: #0e1432;
+  --color-noche-2: #151d3f;
+  --color-noche-hondo: #0b1129;
+  --color-noche-linea: #283260;
 }
 
 /* La tipografía de los títulos (regla 94): condensada y en mayúsculas. `inline`

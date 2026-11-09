@@ -89,6 +89,33 @@ Todo en producción y apuntado en `REGLAS.md`:
 
 ---
 
+## 2b · El rediseño del panel de administración (9 nov, sin desplegar)
+
+Hecho en la rama `claude/gifted-brahmagupta-3gzmoh`, **sin pasar a `main`**:
+el dueño pidió verlo entero antes de desplegar. Las reglas 101 y 102 lo cuentan.
+
+- **Rediseñado** (esquinas pequeñas, barra lateral, tablas que pasan a tarjetas
+  en móvil, todo a 44 px): Alumnos (lista y ficha), Grupos (cuadrante y editor),
+  Profesores (carga semanal y ficha), Asistencia, Pagos (con contabilidad),
+  Temario & IA, Banco oficial, Moderación, Ajustes, Consumo IA y Logs.
+- **NO se tocó**, a petición del dueño: **Prep. física**. Tampoco «Academias»
+  (superadmin) ni el compositor de preguntas.
+- **Antes de desplegar:**
+  1. **Ejecutar [`docs/sql/pagos-contabilidad.sql`](sql/pagos-contabilidad.sql)**
+     en el editor SQL de Supabase y regenerar el esquema
+     (`node scripts/schema-snapshot.mjs`). Sin él, el código funciona, pero
+     Pagos no ofrece método ni recibo.
+  2. Mirar el panel en el móvil de verdad (`npm run build` + la app local contra
+     la BD real, §4), sobre todo Alumnos, Grupos y Pagos.
+  3. Decidir si se echa de menos lo que se quitó: reordenar las pestañas
+     (`localStorage`) y la «evolución del acierto» de la ficha del alumno, que
+     estaba en las maquetas pero no tiene de dónde salir (no hay serie semanal
+     en la base de datos).
+- **Cambios de comportamiento a propósito:** «Descartar del banco» solo se
+  ofrece dentro del editor de la pregunta; apagar un módulo de Ajustes pide
+  confirmación; los filtros de Alumnos y Logs llevan su contador; «Banco
+  Maestro» y «Banco Oficial» pasan a llamarse solo «Banco oficial».
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

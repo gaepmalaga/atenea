@@ -68,14 +68,17 @@ export function numONull(v: unknown): number | null {
   return null;
 }
 
-/** 50 → «50 €»; 49.9 → «49,90 €»; 12000 → «12.000 €». `null` → «—». */
+/** 50 → «50 €»; 49.9 → «49,90 €»; 2675 → «2.675 €». `null` → «—». */
 export function eur(valor: number | null): string {
   if (valor === null || !Number.isFinite(valor)) return '—';
   const entero = Math.abs(valor - Math.round(valor)) < 0.005;
+  // `useGrouping: 'always'`: en es-ES, Intl no pone el punto a los de cuatro
+  // cifras («2675 €»); en dinero se lee mejor «2.675 €».
   const txt = new Intl.NumberFormat('es-ES', {
     minimumFractionDigits: entero ? 0 : 2,
     maximumFractionDigits: entero ? 0 : 2,
-  }).format(entero ? Math.round(valor) : valor);
+    useGrouping: 'always',
+  } as Intl.NumberFormatOptions).format(entero ? Math.round(valor) : valor);
   return `${txt} €`;
 }
 
@@ -564,20 +567,218 @@ const ETIQUETA_ESTADO: Record<EstadoPago, string> = {
 export const etiquetaEstado = (e: EstadoPago) => ETIQUETA_ESTADO[e];
 
 /**
+ * Una celda de CSV a salvo: entre comillas si lleva `;`, comillas o saltos, y
+ * con una comilla delante si empieza por `=`, `+`, `-`, `@` (o tabulador):
+ * un correo o una nota no pueden convertirse en una fórmula al abrir el
+ * fichero en Excel.
+ */
+export function celdaCsv(s: string): string {
+  const t = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return /[;"\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+const numCsv = (x: number | null) => (x === null ? '' : x.toFixed(2).replace('.', ','));
+
+/**
  * El histórico en CSV para la hoja de cálculo: una fila por alumno y mes, con
  * `;` y la coma decimal (lo que abre bien un Excel en español), y el BOM para
  * que los acentos salgan.
  */
 export function csvHistorico(h: HistoricoCuotas): string {
-  const n = (x: number | null) => (x === null ? '' : x.toFixed(2).replace('.', ','));
-  const q = (s: string) => (/[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const lineas = ['Alumno;Mes;Cuota;Cobrado;Pendiente;Estado;Pagado el;Nota'];
   for (const a of h.alumnos) {
     for (const p of h.periodos) {
       const c = a.celdas[p];
       if (!c) continue;
-      lineas.push([q(a.email ?? a.userId), p, n(c.debido), n(c.cobrado), n(c.pendiente), ETIQUETA_ESTADO[c.estado], c.pagadoEl ?? '', q(c.nota ?? '')].join(';'));
+      lineas.push([celdaCsv(a.email ?? a.userId), p, numCsv(c.debido), numCsv(c.cobrado), numCsv(c.pendiente), ETIQUETA_ESTADO[c.estado], c.pagadoEl ?? '', celdaCsv(c.nota ?? '')].join(';'));
     }
   }
-  return `﻿${lineas.join('\r\n')}\r\n`;
+  return `\uFEFF${lineas.join('\r\n')}\r\n`;
+}
+
+// ============================================================
+// EL LIBRO DE COBROS: RECIBOS, MÉTODO Y CAJA
+// ============================================================
+
+export const METODOS_PAGO = ['efectivo', 'bizum', 'transferencia', 'tarjeta'] as const;
+export type MetodoPago = (typeof METODOS_PAGO)[number];
+export const ETIQUETA_METODO: Record<MetodoPago, string> = {
+  efectivo: 'Efectivo',
+  bizum: 'Bizum',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+};
+export const esMetodo = (v: unknown): v is MetodoPago => typeof v === 'string' && (METODOS_PAGO as readonly string[]).includes(v);
+
+/** Una fila de `payment_entries` tal como llega de PostgREST. */
+export type CobroBD = {
+  id?: string | null;
+  user_id?: string | null;
+  alumno?: string | null;
+  period?: string | null;
+  amount_eur?: number | string | null;
+  method?: string | null;
+  receipt_no?: number | null;
+  paid_on?: string | null;
+  voided_at?: string | null;
+};
+
+/** Un cobro: un recibo. Anulado sigue existiendo (con su número), pero no suma. */
+export type Cobro = {
+  id: string;
+  userId: string | null;
+  alumno: string;
+  periodo: string;
+  importe: number;
+  metodo: MetodoPago;
+  recibo: number;
+  fecha: string;
+  anulado: boolean;
+};
+
+export function leeCobro(c: CobroBD): Cobro | null {
+  const importe = numONull(c.amount_eur);
+  if (typeof c.id !== 'string' || typeof c.period !== 'string' || typeof c.paid_on !== 'string' || importe === null || typeof c.receipt_no !== 'number') return null;
+  return {
+    id: c.id,
+    userId: typeof c.user_id === 'string' ? c.user_id : null,
+    alumno: typeof c.alumno === 'string' ? c.alumno : '',
+    periodo: c.period,
+    importe: centimos(importe),
+    metodo: esMetodo(c.method) ? c.method : 'efectivo',
+    recibo: c.receipt_no,
+    fecha: c.paid_on.slice(0, 10),
+    anulado: typeof c.voided_at === 'string' && c.voided_at.length > 0,
+  };
+}
+
+/**
+ * Lo cobrado de cada (alumno, mes) según el libro: la suma de sus cobros no
+ * anulados. Solo trae los meses que tienen algún cobro, anulado o no: un mes
+ * sin ninguno se queda con lo que diga su fila (de antes del libro).
+ */
+export function cobradoSegunLibro(cobros: Cobro[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const c of cobros) {
+    if (!c.userId) continue;
+    const k = `${c.userId} ${c.periodo}`;
+    m.set(k, centimos((m.get(k) ?? 0) + (c.anulado ? 0 : c.importe)));
+  }
+  return m;
+}
+
+/** La fila del mes con lo cobrado según el libro (que manda sobre el resumen guardado). */
+export function filaSegunLibro(f: FilaPagoBD, cobrado: number | undefined): FilaPagoBD {
+  if (cobrado === undefined) return f;
+  const debido = numONull(f.due_eur);
+  return { ...f, amount_eur: cobrado > 0 ? cobrado : null, paid: alDia(estadoDe(debido, cobrado)) };
+}
+
+export type TotalMetodo = { metodo: MetodoPago; importe: number; cobros: number };
+
+export type CajaDia = { fecha: string; importe: number; cobros: number };
+
+export type Caja = {
+  /** El mes de la caja (por la FECHA del cobro, no por el mes que paga). */
+  mes: string;
+  /** Todos los cobros con fecha en ese mes, anulados incluidos, del más reciente al más antiguo. */
+  lineas: Cobro[];
+  total: number;
+  cobros: number;
+  anulados: number;
+  porMetodo: TotalMetodo[];
+  porDia: CajaDia[];
+};
+
+/**
+ * El cierre de caja de un mes: lo que ENTRÓ en ese mes, por fecha de cobro.
+ * Un cobro anulado sale (el gestor ve su número) pero no suma.
+ */
+export function cajaDelMes(mes: string, cobros: Cobro[]): Caja {
+  const lineas = cobros
+    .filter((c) => c.fecha.startsWith(mes))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.recibo - a.recibo);
+  const validos = lineas.filter((c) => !c.anulado);
+  const porMetodo = METODOS_PAGO
+    .map((metodo) => {
+      const xs = validos.filter((c) => c.metodo === metodo);
+      return { metodo, importe: centimos(xs.reduce((s, c) => s + c.importe, 0)), cobros: xs.length };
+    })
+    .filter((t) => t.cobros > 0);
+  const dias = new Map<string, CajaDia>();
+  for (const c of validos) {
+    const d = dias.get(c.fecha) ?? { fecha: c.fecha, importe: 0, cobros: 0 };
+    d.importe = centimos(d.importe + c.importe);
+    d.cobros++;
+    dias.set(c.fecha, d);
+  }
+  return {
+    mes,
+    lineas,
+    total: centimos(validos.reduce((s, c) => s + c.importe, 0)),
+    cobros: validos.length,
+    anulados: lineas.length - validos.length,
+    porMetodo,
+    porDia: [...dias.values()].sort((a, b) => a.fecha.localeCompare(b.fecha)),
+  };
+}
+
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+/** `2026-11` → «noviembre de 2026». */
+export const mesEnTexto = (p: string) => `${MESES_LARGOS[Number(p.slice(5, 7)) - 1] ?? p.slice(5, 7)} de ${p.slice(0, 4)}`;
+/** `2026-11-03` → «03/11/2026». */
+export const fechaEnTexto = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)}`;
+
+/** La caja en CSV para el gestor: un cobro por fila, los anulados marcados y sin sumar. */
+export function csvCaja(caja: Caja): string {
+  const lineas = ['Recibo;Fecha;Alumno;Concepto;Método;Importe;Estado'];
+  for (const c of [...caja.lineas].sort((a, b) => a.recibo - b.recibo)) {
+    lineas.push([
+      String(c.recibo),
+      fechaEnTexto(c.fecha),
+      celdaCsv(c.alumno),
+      celdaCsv(`Mensualidad de ${mesEnTexto(c.periodo)}`),
+      ETIQUETA_METODO[c.metodo],
+      numCsv(c.importe),
+      c.anulado ? 'Anulado' : 'Cobrado',
+    ].join(';'));
+  }
+  lineas.push(['', '', '', '', 'Total', numCsv(caja.total), ''].join(';'));
+  return `\uFEFF${lineas.join('\r\n')}\r\n`;
+}
+
+const escapaHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/**
+ * El recibo de un cobro, para imprimir o guardar en PDF desde el navegador
+ * (el justificante que piden los alumnos o sus padres). Todo lo que viene de
+ * la base de datos se escapa: un correo no puede meter HTML.
+ */
+export function htmlRecibo(c: Cobro, academia: string): string {
+  const e = escapaHtml;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Recibo ${c.recibo} · ${e(academia)}</title>
+<style>
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a;margin:0;padding:32px;background:#fff}
+.r{max-width:560px;margin:0 auto;border:1px solid #cbd5e1;border-radius:8px;padding:28px}
+h1{font-size:20px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase}
+.n{color:#475569;font-size:14px;margin:0 0 24px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:8px 0;border-bottom:1px solid #e2e8f0;vertical-align:top}
+td:first-child{color:#475569;width:38%}
+.t td{border:0;padding-top:16px;font-size:20px;font-weight:700}
+.a{margin-top:24px;color:#b91c1c;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.p{margin-top:28px;font-size:12px;color:#64748b}
+@media print{body{padding:0}.r{border:0}}
+</style></head><body><div class="r">
+<h1>${e(academia)}</h1><p class="n">Recibo nº ${c.recibo}</p>
+<table>
+<tr><td>Fecha</td><td>${fechaEnTexto(c.fecha)}</td></tr>
+<tr><td>Alumno</td><td>${e(c.alumno)}</td></tr>
+<tr><td>Concepto</td><td>Mensualidad de ${e(mesEnTexto(c.periodo))}</td></tr>
+<tr><td>Forma de pago</td><td>${ETIQUETA_METODO[c.metodo]}</td></tr>
+<tr class="t"><td>Importe</td><td>${eur(c.importe)}</td></tr>
+</table>
+${c.anulado ? '<p class="a">Anulado</p>' : ''}
+<p class="p">Recibí la cantidad indicada en concepto de la mensualidad señalada.</p>
+</div><script>window.onload=function(){window.print()}</script></body></html>`;
 }

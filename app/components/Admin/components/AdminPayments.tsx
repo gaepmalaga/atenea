@@ -1,47 +1,53 @@
 'use client';
 
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
-import {
-  BadgeEuro, RefreshCw, ChevronLeft, ChevronRight, Search, Download, AlertTriangle, Check,
-  CalendarDays, Table2, Tag, Undo2, ChevronRight as Flecha, X,
-} from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, Search, Download, AlertTriangle, Check, RefreshCw, Printer, X, Tag } from 'lucide-react';
 import { getPagos, registraCobro, anulaCobro, setCuotaMes, setCuotaPropia } from '@/actions';
 import type { PagosVista } from '@/app/actions/payments';
 import {
-  eur, sumaMeses, mesCorto, csvHistorico, etiquetaEstado, leeImporte, listaY,
-  type AlumnoMes, type EstadoPago, type CeldaCuota, type AlumnoHistorico, type MesHistorico,
+  eur, sumaMeses, mesCorto, mesEnTexto, fechaEnTexto, csvHistorico, csvCaja, cajaDelMes, htmlRecibo, etiquetaEstado,
+  leeImporte, listaY, METODOS_PAGO, ETIQUETA_METODO, esMetodo,
+  type AlumnoMes, type EstadoPago, type CeldaCuota, type AlumnoHistorico, type MesHistorico, type Cobro, type MetodoPago,
 } from '@/app/lib/cuotas';
-import { formateaPeriodo } from '@/app/lib/payments';
-import { Card, EmptyState, StatTile, Button, Modal, SectionLabel, TEXT, cx } from '../../ui';
+import { MARCA } from '@/app/lib/marca';
+import {
+  PanelTitulo, Pestanas, Pulso, Filtros, FiltroChip, Hoja, BloqueTitulo, Rotulo, Aviso, Atras, Boton, Etiqueta, Estado,
+  Avatar, inicialesDeCorreo, nombreDeCorreo, TablaDual, Campo, CampoSelect, EmptyState, cx, type Tono,
+} from '../../ui';
 
 /**
- * «Pagos» (P8, rehecho en la regla 102) — las cuotas y el cobro en efectivo.
+ * «Pagos» (P8 · rediseño del panel, regla 101 · cuotas y libro de cobros, regla 104).
  *
  * La cuota de cada alumno sale de sus grupos y de los precios de «Grupos»; el
- * mes en curso se abre solo con lo que debe cada uno. Dos vistas:
- *  - MES: a quién cobrar, con un toque («Cobrar 50 €»), lo previsto, lo
+ * mes en curso se abre solo con lo que debe cada uno. Cada cobro es un apunte
+ * del libro con su recibo, su método y su fecha. Tres vistas del mismo dinero:
+ *  - COBRAR: a quién cobrar, con un toque («Cobrar 50 €»), lo previsto, lo
  *    cobrado y lo pendiente; los pagos a medias, y quién debe meses atrás.
- *  - HISTÓRICO: doce meses de un vistazo (gráfico y rejilla), quién debe, y
- *    la hoja para Excel.
- * La ficha de un alumno lo tiene todo de él: cobrar cualquier mes, deshacer,
- * cambiar la cuota de un mes o la suya de siempre.
+ *  - HISTÓRICO: doce meses de un vistazo (gráfico y rejilla) y quién debe.
+ *  - CAJA: lo que entró en un mes por fecha y método, recibo a recibo, y el
+ *    CSV para el gestor.
+ * La ficha de un alumno se abre a pantalla completa: cobrar cualquier mes, sus
+ * recibos, anular, cambiar la cuota de un mes o la suya de siempre.
  */
 
 const irAPestana = (id: string) => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: id }));
+const CLAVE_METODO = 'pagos:metodo';
 
+type Vista = 'mes' | 'historico' | 'caja';
 type Ficha = { userId: string; periodo: string };
-type Aviso = { texto: string; deshacer?: { userId: string; periodo: string } };
+type AvisoCobro = { texto: string; deshacer?: { userId: string; periodo: string; cobroId?: string } };
 
 export default function AdminPayments() {
-  const [vista, setVista] = useState<'mes' | 'historico'>('mes');
+  const [vista, setVista] = useState<Vista>('mes');
   const [periodo, setPeriodo] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [data, setData] = useState<PagosVista | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [ficha, setFicha] = useState<Ficha | null>(null);
-  const [aviso, setAviso] = useState<Aviso | null>(null);
+  const [aviso, setAviso] = useState<AvisoCobro | null>(null);
+  const [metodo, setMetodoEstado] = useState<MetodoPago>('efectivo');
 
   useEffect(() => {
     let vivo = true;
@@ -49,109 +55,119 @@ export default function AdminPayments() {
       const res = await getPagos(periodo ?? undefined);
       if (!vivo) return;
       if (res.success) { setData(res.data); setError(null); } else setError(res.error);
-      setLoading(false);
+      setCargando(false);
     })();
     return () => { vivo = false; };
   }, [periodo, version]);
 
-  // El aviso de «cobrado» se va solo.
+  // El método con el que se cobra de un toque: se recuerda en este navegador.
+  useEffect(() => {
+    let m: string | null = null;
+    try { m = localStorage.getItem(CLAVE_METODO); } catch { /* sin almacenamiento: efectivo */ }
+    if (esMetodo(m)) queueMicrotask(() => setMetodoEstado(m as MetodoPago));
+  }, []);
+  const setMetodo = (m: MetodoPago) => {
+    setMetodoEstado(m);
+    try { localStorage.setItem(CLAVE_METODO, m); } catch { /* sin almacenamiento */ }
+  };
+
   useEffect(() => {
     if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 6000);
+    const t = setTimeout(() => setAviso(null), 7000);
     return () => clearTimeout(t);
   }, [aviso]);
 
   const recargar = () => setVersion((v) => v + 1);
 
-  /** Una acción sobre un alumno y un mes: bloquea ese botón, avisa y recarga. */
-  async function haz(clave: string, fn: () => Promise<{ success: boolean; error?: string }>, ok?: Aviso) {
+  async function haz<R extends { success: boolean; error?: string }>(clave: string, fn: () => Promise<R>, ok?: (r: R) => AvisoCobro | null) {
     setOcupado(clave);
     const res = await fn();
     if (!res.success) setError(res.error ?? 'No se pudo guardar.');
-    else { setError(null); if (ok) setAviso(ok); }
+    else { setError(null); const a = ok?.(res); if (a) setAviso(a); }
     recargar();
     setOcupado(null);
   }
 
   const acciones: Acciones = {
     ocupado,
-    cobrar: (a, p, cantidad) => {
-      const antes = a.cobrado;
-      return haz(`${a.userId}:${p}`, () => registraCobro({ studentId: a.userId, period: p, cantidad: cantidad ?? null }), {
-        texto: `Cobrado a ${nombre(a.email)} (${mesLargo(p)})`,
-        deshacer: antes === 0 ? { userId: a.userId, periodo: p } : undefined,
-      });
-    },
-    anular: (userId, p) => haz(`${userId}:${p}`, () => anulaCobro({ studentId: userId, period: p }), { texto: 'Cobro deshecho' }),
-    cuotaMes: (userId, p, cuota, nota) => haz(`${userId}:${p}`, () => setCuotaMes({ studentId: userId, period: p, cuota, nota })),
-    cuotaPropia: (userId, cuota, nota) => haz(`${userId}:propia`, () => setCuotaPropia({ studentId: userId, cuota, nota })),
-    abrir: (userId, p) => setFicha({ userId, periodo: p }),
+    metodo,
+    cobrar: (a, p, cantidad, m) =>
+      haz(`${a.userId}:${p}`, () => registraCobro({ studentId: a.userId, period: p, cantidad: cantidad ?? null, metodo: m ?? metodo }), (r) => ({
+        texto: `Cobrado a ${nombreDeCorreo(a.email) || 'el alumno'} · ${mesCorto(p)}${'recibo' in r && r.recibo ? ` · recibo nº ${r.recibo}` : ''}`,
+        deshacer: { userId: a.userId, periodo: p },
+      })),
+    anular: (userId, p, cobroId) => haz(`${userId}:${p}`, () => anulaCobro({ studentId: userId, period: p, cobroId }), () => ({ texto: cobroId ? 'Cobro anulado' : 'Cobros del mes anulados' })),
+    cuotaMes: (userId, p, cuota, nota) => haz(`${userId}:${p}`, () => setCuotaMes({ studentId: userId, period: p, cuota, nota }), () => ({ texto: 'Cuota del mes guardada' })),
+    cuotaPropia: (userId, cuota, nota) => haz(`${userId}:propia`, () => setCuotaPropia({ studentId: userId, cuota, nota }), () => ({ texto: cuota ? 'Cuota propia guardada' : 'Vuelve a la cuota de sus grupos' })),
+    abrir: (userId, p) => { setFicha({ userId, periodo: p }); window.scrollTo({ top: 0 }); },
   };
 
+  // «Deshacer» un cobro de un toque: anula el último cobro de ese mes (el que
+  // se acaba de hacer), no todos.
+  const deshacer = (d: NonNullable<AvisoCobro['deshacer']>) => {
+    setAviso(null);
+    const ultimo = data?.cobros.filter((c) => c.userId === d.userId && c.periodo === d.periodo && !c.anulado).sort((a, b) => b.recibo - a.recibo)[0];
+    acciones.anular(d.userId, d.periodo, d.cobroId ?? ultimo?.id);
+  };
+
+  if (data && ficha) {
+    return (
+      <div className="space-y-5 animate-in fade-in pb-24">
+        <FichaAlumno data={data} ficha={ficha} acciones={acciones} cambiaMes={(p) => setFicha({ ...ficha, periodo: p })} onVolver={() => setFicha(null)} />
+        {error && <Aviso tono="malo"><AlertTriangle size={16} className="mt-0.5 shrink-0" /> {error}</Aviso>}
+        <Tostada aviso={aviso} onDeshacer={deshacer} />
+      </div>
+    );
+  }
+
+  const porCobrar = data ? data.mes.filas.filter((f) => f.pendiente > 0 || f.estado === 'sin_cuota').length : undefined;
+
   return (
-    <div className="space-y-4 animate-in fade-in pb-24">
-      <Card tone="sunken" pad="md" className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-slate-700/10 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
-            <BadgeEuro size={20} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-tight">Pagos</h3>
-            <p className={cx(TEXT.muted, 'mt-0.5')}>La cuota de cada alumno sale de sus grupos. Cobro en efectivo.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1" role="tablist">
-            {([['mes', 'Mes', CalendarDays], ['historico', 'Histórico', Table2]] as const).map(([id, label, Icono]) => (
-              <button key={id} role="tab" aria-selected={vista === id} onClick={() => setVista(id)}
-                className={cx('min-h-[40px] px-3 rounded-lg text-xs font-bold flex items-center gap-1.5',
-                  vista === id ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
-                <Icono size={14} /> {label}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => { setLoading(true); recargar(); }} className="w-11 h-11 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400" aria-label="Recargar">
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </Card>
+    <div className="space-y-5 animate-in fade-in pb-24">
+      <PanelTitulo
+        titulo="Pagos"
+        sub="La cuota de cada alumno sale de sus grupos. Cada cobro lleva su recibo."
+        acciones={<Boton variant="secondary" icon={<RefreshCw size={15} className={cargando ? 'animate-spin' : ''} />} onClick={() => { setCargando(true); recargar(); }}>Recargar</Boton>}
+      />
+      <Pestanas
+        etiqueta="Vistas de pagos"
+        activa={vista}
+        onCambia={setVista}
+        items={[
+          { id: 'mes', etiqueta: 'Cobrar', cuenta: porCobrar },
+          { id: 'historico', etiqueta: 'Histórico' },
+          { id: 'caja', etiqueta: 'Caja' },
+        ]}
+      />
 
       {error && (
-        <Card tone="base" pad="md" className="border-red-500/30 flex items-start justify-between gap-3">
-          <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>
-          <button onClick={() => setError(null)} className="text-red-400 shrink-0" aria-label="Cerrar el error"><X size={14} /></button>
-        </Card>
+        <Aviso tono="malo">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)} aria-label="Cerrar el error" className="shrink-0"><X size={15} /></button>
+        </Aviso>
       )}
 
-      {!data && loading && <p className={cx(TEXT.muted, 'text-center py-10')}>Cargando…</p>}
+      {!data && cargando && <p className="py-10 text-center text-sm text-slate-600 dark:text-slate-400">Cargando…</p>}
 
       {data && vista === 'mes' && (
-        <VistaMes data={data} acciones={acciones} cambiaPeriodo={(p) => { setLoading(true); setPeriodo(p); }} cargando={loading} />
+        <VistaMes data={data} acciones={acciones} setMetodo={setMetodo} cargando={cargando}
+          cambiaPeriodo={(p) => { setCargando(true); setPeriodo(p); }} />
       )}
       {data && vista === 'historico' && <VistaHistorico data={data} acciones={acciones} />}
+      {data && vista === 'caja' && <VistaCaja data={data} />}
 
-      {data && ficha && (
-        <FichaAlumno data={data} ficha={ficha} acciones={acciones} cambiaMes={(p) => setFicha({ ...ficha, periodo: p })} onClose={() => setFicha(null)} />
-      )}
-
-      {aviso && (
-        <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 z-[250] flex items-center justify-between gap-3 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xl px-4 py-3 sm:min-w-[22rem] animate-in fade-in slide-in-from-bottom-2" role="status">
-          <span className="text-sm font-semibold flex items-center gap-2"><Check size={16} className="text-emerald-400 dark:text-emerald-600 shrink-0" /> {aviso.texto}</span>
-          {aviso.deshacer && (
-            <button onClick={() => { const d = aviso.deshacer!; setAviso(null); acciones.anular(d.userId, d.periodo); }}
-              className="min-h-[44px] px-2 text-sm font-black text-oro dark:text-indigo-700 shrink-0">Deshacer</button>
-          )}
-        </div>
-      )}
+      <Tostada aviso={aviso} onDeshacer={deshacer} />
     </div>
   );
 }
 
 type Acciones = {
   ocupado: string | null;
-  /** Sin cantidad: lo que falta. Con cantidad (texto tal como lo escribe): se suma. */
-  cobrar: (a: { userId: string; email: string | null; cobrado: number }, periodo: string, cantidad?: string) => Promise<void>;
-  anular: (userId: string, periodo: string) => Promise<void>;
+  metodo: MetodoPago;
+  /** Sin cantidad: lo que falta. Con cantidad (tal como la escribe): un cobro de esa cantidad. */
+  cobrar: (a: { userId: string; email: string | null }, periodo: string, cantidad?: string, metodo?: MetodoPago) => Promise<void>;
+  anular: (userId: string, periodo: string, cobroId?: string) => Promise<void>;
   cuotaMes: (userId: string, periodo: string, cuota: string | null, nota: string | null) => Promise<void>;
   cuotaPropia: (userId: string, cuota: string | null, nota: string | null) => Promise<void>;
   abrir: (userId: string, periodo: string) => void;
@@ -161,95 +177,156 @@ type Acciones = {
 // PIEZAS COMUNES
 // ============================================================
 
-/** «ana.garcia@gmail.com» → «ana.garcia». */
-const nombre = (email: string | null) => (email ? email.split('@')[0] : 'Alumno sin correo');
-const mesLargo = (p: string) => formateaPeriodo(p);
-const diaDe = (fecha: string | null) => (fecha ? `${Number(fecha.slice(8, 10))} ${mesCorto(fecha.slice(0, 7))}` : null);
+const TONO_ESTADO: Record<EstadoPago, Tono> = { pagado: 'ok', parcial: 'aviso', debe: 'malo', no_paga: 'apagado', sin_cuota: 'aviso' };
 
-const ESTILO_ESTADO: Record<EstadoPago, { pill: string; punto: string }> = {
-  pagado: { pill: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400', punto: 'bg-emerald-600' },
-  parcial: { pill: 'bg-amber-500/15 text-amber-800 dark:text-amber-300', punto: 'bg-amber-600' },
-  debe: { pill: 'bg-rose-500/10 text-rose-700 dark:text-rose-400', punto: 'bg-rose-600' },
-  no_paga: { pill: 'bg-slate-500/10 text-slate-600 dark:text-slate-300', punto: 'bg-slate-400' },
-  sin_cuota: { pill: 'bg-amber-500/10 text-amber-800 dark:text-amber-300', punto: 'bg-amber-400' },
-};
+const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-function Estado({ estado }: { estado: EstadoPago }) {
-  return (
-    <span className={cx('inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded', ESTILO_ESTADO[estado].pill)}>
-      {estado === 'pagado' && <Check size={10} />}{etiquetaEstado(estado)}
-    </span>
-  );
+/** Lo que añade la línea a la palabra del estado; `null` si no añade nada. */
+function detalleEstado(a: Pick<CeldaCuota, 'estado' | 'debido' | 'cobrado' | 'pendiente' | 'pagadoEl' | 'nota'>): string | null {
+  if (a.estado === 'debe' || a.estado === 'sin_cuota') return null;
+  if (a.estado === 'no_paga') return a.nota;
+  return lineaEstado(a);
 }
 
-/** La línea que dice cómo está un mes: «Debe 50 €», «Pagó 30 de 50 € · faltan 20 €»… */
+/** «Debe 50 €», «Pagó 30 de 50 € · faltan 20 €»… */
 function lineaEstado(a: Pick<CeldaCuota, 'estado' | 'debido' | 'cobrado' | 'pendiente' | 'pagadoEl' | 'nota'>): string {
   switch (a.estado) {
     case 'debe': return `Debe ${eur(a.pendiente)}`;
     case 'parcial': return `Pagó ${eur(a.cobrado)} de ${eur(a.debido)} · faltan ${eur(a.pendiente)}`;
-    case 'pagado': return `Pagado ${eur(a.cobrado)}${a.pagadoEl ? ` el ${diaDe(a.pagadoEl)}` : ''}`;
+    case 'pagado': return `Pagado ${eur(a.cobrado)}${a.pagadoEl ? ` el ${Number(a.pagadoEl.slice(8, 10))} ${mesCorto(a.pagadoEl.slice(0, 7))}` : ''}`;
     case 'no_paga': return `Este mes no paga${a.nota ? `: ${a.nota}` : ''}`;
     case 'sin_cuota': return 'Sin cuota: no se sabe cuánto debe';
   }
 }
 
-function Correo({ email, sub }: { email: string | null; sub?: ReactNode }) {
-  const [local, dominio] = email ? email.split('@') : [null, null];
+function Alumno({ email, sub }: { email: string | null; sub?: ReactNode }) {
   return (
-    <span className="min-w-0 block">
-      <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">
-        {local ?? 'Alumno que ya no está'}{dominio && <span className="font-normal text-slate-400 dark:text-slate-500">@{dominio}</span>}
+    <span className="flex min-w-0 items-center gap-2.5">
+      <Avatar iniciales={inicialesDeCorreo(email)} size="sm" />
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-slate-900 dark:text-white">{email ? nombreDeCorreo(email) : 'Alumno que ya no está'}</span>
+        {sub ?? <span className="block truncate text-xs text-slate-600 dark:text-slate-400">{email}</span>}
       </span>
-      {sub}
     </span>
   );
 }
 
+/** El selector del mes: ‹ NOVIEMBRE DE 2026 ›. */
+function NavMes({ periodo, sub, onCambia, min, max, deshabilitado }: {
+  periodo: string; sub?: ReactNode; onCambia: (p: string) => void; min?: string; max?: string; deshabilitado?: boolean;
+}) {
+  const boton = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-linea text-slate-700 hover:border-indigo-700 disabled:opacity-30 dark:border-noche-linea dark:text-slate-300';
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <button onClick={() => onCambia(sumaMeses(periodo, -1))} disabled={deshabilitado || (min !== undefined && periodo <= min)} className={boton} aria-label="Mes anterior">
+        <ChevronLeft size={18} />
+      </button>
+      <div className="min-w-0 text-center">
+        <p className="whitespace-nowrap font-titulo text-xl font-bold uppercase leading-none tracking-wide text-slate-900 dark:text-white sm:text-2xl">{mesEnTexto(periodo)}</p>
+        {sub && <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{sub}</p>}
+      </div>
+      <button onClick={() => onCambia(sumaMeses(periodo, 1))} disabled={deshabilitado || (max !== undefined && periodo >= max)} className={boton} aria-label="Mes siguiente">
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
+}
+
+function Buscador({ valor, onCambia, etiqueta }: { valor: string; onCambia: (v: string) => void; etiqueta: string }) {
+  return (
+    <Campo value={valor} onChange={(e) => onCambia(e.target.value)} placeholder="Buscar por correo" aria-label={etiqueta}
+      trailing={<Search size={15} className="mr-2 text-slate-500" aria-hidden />} />
+  );
+}
+
+function SelectorMetodo({ valor, onCambia, label }: { valor: MetodoPago; onCambia: (m: MetodoPago) => void; label?: string }) {
+  return (
+    <CampoSelect label={label} value={valor} onChange={(e) => { if (esMetodo(e.target.value)) onCambia(e.target.value); }} aria-label="Método de cobro">
+      {METODOS_PAGO.map((m) => <option key={m} value={m}>{ETIQUETA_METODO[m]}</option>)}
+    </CampoSelect>
+  );
+}
+
+/** Abre el recibo en una ventana para imprimirlo o guardarlo en PDF. */
+function imprimeRecibo(c: Cobro) {
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.open();
+  w.document.write(htmlRecibo(c, MARCA.nombre));
+  w.document.close();
+}
+
+function descarga(nombre: string, contenido: string) {
+  const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function Tostada({ aviso, onDeshacer }: { aviso: AvisoCobro | null; onDeshacer: (d: NonNullable<AvisoCobro['deshacer']>) => void }) {
+  if (!aviso) return null;
+  return (
+    <div role="status" className="fixed inset-x-4 bottom-20 z-[250] flex items-center justify-between gap-3 rounded-lg bg-marino px-4 py-3 text-white shadow-2xl animate-in fade-in slide-in-from-bottom-2 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:min-w-[24rem]">
+      <span className="flex items-center gap-2 text-sm font-semibold"><Check size={16} className="shrink-0 text-oro" /> {aviso.texto}</span>
+      {aviso.deshacer && (
+        <button onClick={() => onDeshacer(aviso.deshacer!)} className="min-h-[44px] shrink-0 px-2 text-sm font-bold text-oro">Deshacer</button>
+      )}
+    </div>
+  );
+}
+
 // ============================================================
-// EL MES
+// COBRAR: EL MES
 // ============================================================
 
-type Filtro = 'cobrar' | 'pagados' | 'todos';
+type Filtro = 'cobrar' | 'aldia' | 'todos';
 
-function VistaMes({ data, acciones, cambiaPeriodo, cargando }: {
-  data: PagosVista; acciones: Acciones; cambiaPeriodo: (p: string) => void; cargando: boolean;
+function VistaMes({ data, acciones, setMetodo, cambiaPeriodo, cargando }: {
+  data: PagosVista; acciones: Acciones; setMetodo: (m: MetodoPago) => void; cambiaPeriodo: (p: string) => void; cargando: boolean;
 }) {
   const { mes, actual, periodo, esPrevision } = data;
   const [busca, setBusca] = useState('');
   const porCobrar = mes.filas.filter((f) => f.pendiente > 0 || f.estado === 'sin_cuota');
   const [filtroElegido, setFiltro] = useState<Filtro | null>(null);
   const filtro: Filtro = filtroElegido ?? (porCobrar.length ? 'cobrar' : 'todos');
-
   const visibles = mes.filas.filter((f) => {
     if (busca.trim() && !(f.email ?? '').toLowerCase().includes(busca.trim().toLowerCase())) return false;
     if (filtro === 'cobrar') return f.pendiente > 0 || f.estado === 'sin_cuota';
-    if (filtro === 'pagados') return f.estado === 'pagado' || f.estado === 'no_paga';
+    if (filtro === 'aldia') return f.estado === 'pagado' || f.estado === 'no_paga';
     return true;
   });
-  const minimo = sumaMeses(actual, -24);
 
   return (
-    <div className="space-y-4">
-      {/* El mes que se mira */}
-      <div className="flex items-center justify-between gap-2">
-        <button onClick={() => cambiaPeriodo(sumaMeses(periodo, -1))} disabled={cargando || periodo <= minimo}
-          className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" aria-label="Mes anterior">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="text-center min-w-0">
-          <p className="font-titulo uppercase text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-wide">{mesLargo(periodo)}</p>
-          <p className={TEXT.muted}>
-            {periodo === actual ? 'Este mes' : esPrevision ? 'El mes que viene · previsión' : periodo < actual ? 'Mes cerrado' : ''}
-            {periodo !== actual && <> · <button className="underline font-semibold" onClick={() => cambiaPeriodo(actual)}>volver a este mes</button></>}
-          </p>
-        </div>
-        <button onClick={() => cambiaPeriodo(sumaMeses(periodo, 1))} disabled={cargando || esPrevision}
-          className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" aria-label="Mes siguiente">
-          <ChevronRight size={20} />
-        </button>
-      </div>
+    <div className="space-y-5">
+      <NavMes periodo={periodo} onCambia={cambiaPeriodo} deshabilitado={cargando} min={sumaMeses(actual, -24)} max={sumaMeses(actual, 1)}
+        sub={<>
+          {periodo === actual ? 'Este mes' : esPrevision ? 'El mes que viene · previsión' : 'Mes cerrado'}
+          {periodo !== actual && <> · <button className="font-semibold text-indigo-900 underline dark:text-indigo-200" onClick={() => cambiaPeriodo(actual)}>volver a este mes</button></>}
+        </>} />
 
-      <Resumen data={data} />
+      {esPrevision ? (
+        <Pulso cifras={[
+          { valor: mes.previsto > 0 ? eur(mes.previsto) : null, etiqueta: 'se prevé cobrar', tono: 'oro' },
+          { valor: mes.alumnos, etiqueta: 'alumnos con cuota' },
+          { valor: mes.sinCuota, etiqueta: 'sin cuota calculada', tono: mes.sinCuota ? 'aviso' : 'neutro' },
+        ]} />
+      ) : (
+        <Pulso cifras={[
+          {
+            valor: mes.alumnos ? eur(mes.cobrado) : null, etiqueta: `cobrado de ${eur(mes.previsto)}`, tono: 'ok',
+            extra: mes.porcentaje !== null && (
+              <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-hundido dark:bg-noche-hondo" role="progressbar" aria-valuenow={mes.porcentaje} aria-valuemin={0} aria-valuemax={100} aria-label="Cobrado de lo previsto">
+                <span className="block h-full rounded-full bg-emerald-600 dark:bg-emerald-400" style={{ width: `${mes.porcentaje}%` }} />
+              </span>
+            ),
+          },
+          { valor: mes.alumnos ? eur(mes.pendiente) : null, etiqueta: 'pendiente', tono: mes.pendiente > 0 ? 'aviso' : 'neutro' },
+          { valor: mes.alumnos ? `${mes.pagados + mes.noPagan}/${mes.alumnos}` : null, etiqueta: 'al día' },
+          { valor: mes.alumnos ? mes.parciales + mes.deben : null, etiqueta: mes.parciales ? `por cobrar (${mes.parciales} a medias)` : 'por cobrar', tono: mes.parciales + mes.deben ? 'malo' : 'neutro' },
+        ]} />
+      )}
 
       <Avisos data={data} />
 
@@ -258,168 +335,113 @@ function VistaMes({ data, acciones, cambiaPeriodo, cargando }: {
       )}
 
       {mes.alumnos === 0 ? (
-        <EmptyState icon={<BadgeEuro size={40} />} bordered
+        <EmptyState bordered icon={<Tag size={36} />}
           title={periodo < actual ? 'Nadie en la lista de ese mes' : 'No hay alumnos que paguen'}
           hint={periodo < actual
             ? 'En un mes cerrado salen los alumnos que tenían cuota ese mes.'
             : 'Entran los alumnos con acceso activo, menos los exentos. Se da acceso en «Alumnos».'} />
       ) : (
-        <Card tone="base" pad="md" className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
-              {([['cobrar', `Por cobrar · ${porCobrar.length}`], ['pagados', `Al día · ${mes.pagados + mes.noPagan}`], ['todos', `Todos · ${mes.alumnos}`]] as const).map(([id, label]) => (
-                <button key={id} onClick={() => setFiltro(id)} aria-pressed={filtro === id}
-                  className={cx('min-h-[40px] px-3 rounded-lg text-xs font-bold',
-                    filtro === id ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <label className="flex-1 min-w-[12rem] flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3">
-              <Search size={14} className="text-slate-400 shrink-0" />
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar alumno" aria-label="Buscar alumno"
-                className="w-full bg-transparent py-2 text-base sm:text-sm outline-none" />
-            </label>
+        <>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+            <Buscador valor={busca} onCambia={setBusca} etiqueta="Buscar alumno" />
+            <SelectorMetodo valor={acciones.metodo} onCambia={setMetodo} />
           </div>
-
-          {visibles.length === 0 ? (
-            <p className={cx(TEXT.muted, 'text-center py-6')}>
-              {filtro === 'cobrar' && !busca ? 'Nadie por cobrar este mes. Todo al día.' : 'Nadie con ese filtro.'}
-            </p>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800 -mx-1">
-              {visibles.map((f) => <FilaMes key={f.userId} f={f} periodo={periodo} acciones={acciones} />)}
-            </ul>
-          )}
-        </Card>
+          <Filtros etiqueta="Qué alumnos ver">
+            <FiltroChip activo={filtro === 'cobrar'} onClick={() => setFiltro('cobrar')} cuenta={porCobrar.length}>Por cobrar</FiltroChip>
+            <FiltroChip activo={filtro === 'aldia'} onClick={() => setFiltro('aldia')} cuenta={mes.pagados + mes.noPagan}>Al día</FiltroChip>
+            <FiltroChip activo={filtro === 'todos'} onClick={() => setFiltro('todos')} cuenta={mes.alumnos}>Todos</FiltroChip>
+          </Filtros>
+          <TablaDual<AlumnoMes>
+            filas={visibles}
+            clave={(f) => f.userId}
+            onFila={(f) => acciones.abrir(f.userId, periodo)}
+            vacio={filtro === 'cobrar' && !busca ? 'Nadie por cobrar este mes: todo al día.' : 'Nadie con ese filtro.'}
+            columnas={[
+              { id: 'alumno', titulo: 'Alumno', celda: (f) => <Alumno email={f.email} /> },
+              {
+                id: 'cuota', titulo: 'Cuota', celda: (f) => (
+                  <span className="block">
+                    <span className="font-semibold tabular-nums">{eur(f.debido)}</span>
+                    <span className="block max-w-[16rem] truncate text-xs text-slate-600 dark:text-slate-400">{origenCuota(f)}</span>
+                  </span>
+                ),
+              },
+              { id: 'estado', titulo: 'Estado', celda: (f) => <span className="block"><Estado tono={TONO_ESTADO[f.estado]}>{etiquetaEstado(f.estado)}</Estado>{detalleEstado(f) && <span className="block text-xs text-slate-600 dark:text-slate-400">{detalleEstado(f)}</span>}</span> },
+              {
+                id: 'accion', titulo: '', acciones: true, derecha: true, celda: (f) => f.pendiente > 0 ? (
+                  <Boton size="sm" disabled={!!acciones.ocupado} onClick={(e) => { e.stopPropagation(); acciones.cobrar(f, periodo); }} className="tabular-nums max-lg:flex-1">
+                    {acciones.ocupado === `${f.userId}:${periodo}` ? 'Cobrando…' : `Cobrar ${eur(f.pendiente)}`}
+                  </Boton>
+                ) : (
+                  <Boton size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); acciones.abrir(f.userId, periodo); }} className="max-lg:flex-1">
+                    {f.estado === 'sin_cuota' ? 'Anotar' : 'Ver'}
+                  </Boton>
+                ),
+              },
+            ]}
+          />
+          <p className="text-xs text-slate-600 dark:text-slate-400">«Cobrar» anota lo que falta del mes en {ETIQUETA_METODO[acciones.metodo].toLowerCase()}, con su recibo. Para un pago a medias o con otro método, abre la ficha del alumno.</p>
+        </>
       )}
     </div>
   );
 }
 
-function Resumen({ data }: { data: PagosVista }) {
-  const { mes, esPrevision } = data;
-  if (esPrevision) {
-    return (
-      <Card tone="base" pad="md" className="space-y-2">
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-          <StatTile label="Previsto" value={mes.previsto > 0 ? eur(mes.previsto) : null} tone="brand" />
-          <StatTile label="Alumnos" value={mes.alumnos} />
-        </div>
-        <p className={TEXT.muted}>Lo que se cobraría con los alumnos y los precios de hoy.{mes.sinCuota > 0 && ` ${mes.sinCuota} sin cuota calculada: no suman.`}</p>
-      </Card>
-    );
-  }
-  const pct = mes.porcentaje;
-  return (
-    <Card tone="base" pad="md" className="space-y-3">
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <StatTile label="Previsto" value={mes.alumnos ? eur(mes.previsto) : null} />
-        <StatTile label="Cobrado" value={mes.alumnos ? eur(mes.cobrado) : null} tone="success" />
-        <StatTile label="Pendiente" value={mes.alumnos ? eur(mes.pendiente) : null} tone={mes.pendiente > 0 ? 'warning' : 'neutral'} />
-      </div>
-      {pct !== null && (
-        <div>
-          <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Cobrado de lo previsto">
-            <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${pct}%` }} />
-          </div>
-          <p className={cx(TEXT.muted, 'mt-1.5 flex flex-wrap gap-x-3')}>
-            <span className="font-bold text-slate-700 dark:text-slate-200">{pct} % cobrado</span>
-            <span>{mes.pagados} {mes.pagados === 1 ? 'pagado' : 'pagados'}</span>
-            {mes.parciales > 0 && <span>{mes.parciales} a medias</span>}
-            {mes.deben > 0 && <span>{mes.deben} sin pagar</span>}
-            {mes.noPagan > 0 && <span>{mes.noPagan} no pagan este mes</span>}
-            {mes.sinCuota > 0 && <span className="text-amber-700 dark:text-amber-300">{mes.sinCuota} sin cuota</span>}
-          </p>
-        </div>
-      )}
-    </Card>
-  );
+function origenCuota(f: AlumnoMes): string {
+  if (f.manual) return `A mano este mes${f.nota ? ` · ${f.nota}` : ''}`;
+  if (f.cuota?.origen === 'propia') return 'Cuota propia';
+  return `${f.cuota?.detalle ?? ''}${!f.activo ? ' · ya no tiene acceso' : ''}`;
 }
 
 function Avisos({ data }: { data: PagosVista }) {
   const { avisos } = data;
   if (avisos.tarifaVacia) {
     return (
-      <Card tone="base" pad="md" className="border-amber-500/40 space-y-2">
-        <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2"><Tag size={15} className="text-amber-600" /> Aún no hay precios</p>
-        <p className={TEXT.muted}>Pon en «Grupos» lo que cuesta al mes cada tipo (Teoría, Físicas, Inglés…) y los packs. Con eso, aquí sale lo que debe cada alumno según sus grupos.</p>
-        <Button size="sm" onClick={() => irAPestana('groups')}>Poner los precios</Button>
-      </Card>
+      <Aviso tono="aviso">
+        <Tag size={16} className="mt-0.5 shrink-0" />
+        <span className="flex flex-1 flex-wrap items-center justify-between gap-3">
+          <span><b>Aún no hay precios.</b> Pon en «Grupos» lo que cuesta al mes cada tipo (Teoría, Físicas, Inglés…) y los packs: aquí saldrá lo que debe cada alumno.</span>
+          <Boton size="sm" onClick={() => irAPestana('groups')}>Poner los precios</Boton>
+        </span>
+      </Aviso>
     );
   }
   if (!avisos.sinPrecio.length && !avisos.sinGrupos.length) return null;
   return (
-    <Card tone="base" pad="md" className="border-amber-500/40 space-y-2">
-      <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2"><AlertTriangle size={15} className="text-amber-600" /> Alumnos sin cuota calculada</p>
-      <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+    <Aviso tono="aviso">
+      <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+      <span className="flex-1 space-y-1">
+        <b className="block">Alumnos sin cuota calculada</b>
         {avisos.sinPrecio.map((s) => (
-          <li key={s.tipo}>Falta el precio de <b>{s.tipo}</b> ({s.alumnos} {s.alumnos === 1 ? 'alumno' : 'alumnos'}).</li>
+          <span key={s.tipo} className="block">Falta el precio de <b>{s.tipo}</b> ({s.alumnos} {s.alumnos === 1 ? 'alumno' : 'alumnos'}).</span>
         ))}
         {avisos.sinGrupos.length > 0 && (
-          <li>Sin ningún grupo: {listaY(avisos.sinGrupos.slice(0, 4).map(nombre))}{avisos.sinGrupos.length > 4 ? ` y ${avisos.sinGrupos.length - 4} más` : ''}. Métele en sus grupos en «Alumnos», o ponle una cuota propia.</li>
+          <span className="block">Sin ningún grupo: {listaY(avisos.sinGrupos.slice(0, 4).map(nombreDeCorreo))}{avisos.sinGrupos.length > 4 ? ` y ${avisos.sinGrupos.length - 4} más` : ''}. Asígnales sus grupos en «Alumnos» o ponles una cuota propia.</span>
         )}
-      </ul>
-      {avisos.sinPrecio.length > 0 && <Button size="sm" variant="secondary" onClick={() => irAPestana('groups')}>Ir a los precios</Button>}
-    </Card>
+        {avisos.sinPrecio.length > 0 && <Boton size="sm" variant="secondary" className="mt-1" onClick={() => irAPestana('groups')}>Ir a los precios</Boton>}
+      </span>
+    </Aviso>
   );
 }
 
 function DeudasAnteriores({ deudores, acciones, actual }: { deudores: AlumnoHistorico[]; acciones: Acciones; actual: string }) {
-  const [abierto, setAbierto] = useState(false);
+  const [todos, setTodos] = useState(false);
   const total = deudores.reduce((s, d) => s + d.deudaAnterior, 0);
-  const lista = abierto ? deudores : deudores.slice(0, 3);
   return (
-    <Card tone="base" pad="md" className="border-rose-500/30 space-y-2">
-      <SectionLabel aside={<span className="text-sm font-black text-rose-700 dark:text-rose-400 tabular-nums">{eur(total)}</span>}>
-        Deben de meses anteriores
-      </SectionLabel>
-      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-        {lista.map((d) => (
+    <Hoja pad="md" className="space-y-3">
+      <BloqueTitulo aside={<span className="font-titulo text-xl font-bold tabular-nums text-red-700 dark:text-red-300">{eur(total)}</span>}>Deben de meses anteriores</BloqueTitulo>
+      <ul className="divide-y divide-linea dark:divide-noche-linea">
+        {(todos ? deudores : deudores.slice(0, 4)).map((d) => (
           <li key={d.userId}>
-            <button onClick={() => acciones.abrir(d.userId, d.mesesDebe[0] ?? actual)} className="w-full flex items-center justify-between gap-3 py-2 text-left min-h-[44px]">
-              <Correo email={d.email} sub={<span className={cx(TEXT.muted, 'block')}>{listaY(d.mesesDebe.map((p) => mesCorto(p)))}</span>} />
-              <span className="flex items-center gap-1 shrink-0 text-sm font-black tabular-nums text-rose-700 dark:text-rose-400">{eur(d.deudaAnterior)} <Flecha size={14} className="text-slate-400" /></span>
+            <button onClick={() => acciones.abrir(d.userId, d.mesesDebe[0] ?? actual)} className="flex min-h-[52px] w-full items-center justify-between gap-3 py-2 text-left">
+              <Alumno email={d.email} sub={<span className="block text-xs text-slate-600 dark:text-slate-400">{listaY(d.mesesDebe.map((p) => mesCorto(p, true)))}</span>} />
+              <span className="flex shrink-0 items-center gap-1 font-semibold tabular-nums text-red-700 dark:text-red-300">{eur(d.deudaAnterior)} <ChevronRight size={15} className="text-slate-500" /></span>
             </button>
           </li>
         ))}
       </ul>
-      {deudores.length > 3 && (
-        <button onClick={() => setAbierto((x) => !x)} className="text-xs font-bold text-indigo-600 dark:text-indigo-400 min-h-[44px]">
-          {abierto ? 'Ver menos' : `Ver los ${deudores.length}`}
-        </button>
-      )}
-    </Card>
-  );
-}
-
-function FilaMes({ f, periodo, acciones }: { f: AlumnoMes; periodo: string; acciones: Acciones }) {
-  const ocupado = acciones.ocupado === `${f.userId}:${periodo}`;
-  const origen = f.manual
-    ? `Cuota de este mes puesta a mano${f.nota ? ` · ${f.nota}` : ''}`
-    : f.cuota?.origen === 'propia' ? 'Cuota propia' : f.cuota && f.cuota.importe !== null ? f.cuota.detalle : f.cuota?.detalle ?? null;
-  const tono = f.estado === 'debe' ? 'text-rose-700 dark:text-rose-400' : f.estado === 'parcial' || f.estado === 'sin_cuota' ? 'text-amber-700 dark:text-amber-300' : f.estado === 'pagado' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
-  return (
-    <li className="flex items-center gap-3 py-2.5 px-1">
-      <span className={cx('w-2.5 h-2.5 rounded-full shrink-0', ESTILO_ESTADO[f.estado].punto)} aria-hidden />
-      <button onClick={() => acciones.abrir(f.userId, periodo)} className="flex-1 min-w-0 text-left min-h-[44px]" aria-label={`Ficha de ${nombre(f.email)}`}>
-        <Correo email={f.email} sub={<>
-          <span className={cx('block text-xs font-semibold', tono)}>{lineaEstado(f)}</span>
-          {origen && <span className="block text-[11px] text-slate-400 dark:text-slate-500 truncate">{origen}{!f.activo && ' · ya no tiene acceso'}</span>}
-        </>} />
-      </button>
-      {f.pendiente > 0 ? (
-        <Button size="sm" disabled={!!acciones.ocupado} onClick={() => acciones.cobrar(f, periodo)} className="shrink-0 tabular-nums">
-          {ocupado ? '…' : `Cobrar ${eur(f.pendiente)}`}
-        </Button>
-      ) : f.estado === 'sin_cuota' ? (
-        <Button size="sm" variant="secondary" onClick={() => acciones.abrir(f.userId, periodo)} className="shrink-0">Anotar</Button>
-      ) : (
-        <button onClick={() => acciones.abrir(f.userId, periodo)} className="shrink-0 w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white" aria-label={`Más de ${nombre(f.email)}`}>
-          <Flecha size={16} />
-        </button>
-      )}
-    </li>
+      {deudores.length > 4 && <Boton size="sm" variant="ghost" onClick={() => setTodos((x) => !x)}>{todos ? 'Ver menos' : `Ver los ${deudores.length}`}</Boton>}
+    </Hoja>
   );
 }
 
@@ -427,8 +449,8 @@ function FilaMes({ f, periodo, acciones }: { f: AlumnoMes; periodo: string; acci
 // LA FICHA DE UN ALUMNO
 // ============================================================
 
-function FichaAlumno({ data, ficha, acciones, cambiaMes, onClose }: {
-  data: PagosVista; ficha: Ficha; acciones: Acciones; cambiaMes: (p: string) => void; onClose: () => void;
+function FichaAlumno({ data, ficha, acciones, cambiaMes, onVolver }: {
+  data: PagosVista; ficha: Ficha; acciones: Acciones; cambiaMes: (p: string) => void; onVolver: () => void;
 }) {
   const { userId, periodo } = ficha;
   const deMes = data.periodo === periodo ? data.mes.filas.find((f) => f.userId === userId) : undefined;
@@ -436,129 +458,150 @@ function FichaAlumno({ data, ficha, acciones, cambiaMes, onClose }: {
   const cuotaHoy = data.cuotas.find((c) => c.userId === userId) ?? null;
   const email = deMes?.email ?? hist?.email ?? cuotaHoy?.email ?? null;
   const celda: CeldaCuota | null = deMes ?? hist?.celdas[periodo] ?? null;
+  const cobrosMes = data.cobros.filter((c) => c.userId === userId && c.periodo === periodo).sort((a, b) => b.recibo - a.recibo);
   const ocupado = acciones.ocupado === `${userId}:${periodo}`;
   const [cantidad, setCantidad] = useState('');
+  const [metodo, setMetodo] = useState<MetodoPago>(acciones.metodo);
   const [cuotaMes, setCuotaMesTxt] = useState('');
   const [notaMes, setNotaMes] = useState('');
   const [propia, setPropia] = useState(cuotaHoy?.cuota.origen === 'propia' && cuotaHoy.cuota.importe !== null ? String(cuotaHoy.cuota.importe).replace('.', ',') : '');
   const [notaPropia, setNotaPropia] = useState(cuotaHoy?.notaPropia ?? '');
-  const lecturaCantidad = leeImporte(cantidad);
-  const meses = useMemo(
-    () => (hist ? data.historico.periodos.filter((p) => hist.celdas[p]).reverse() : []),
-    [hist, data.historico.periodos],
-  );
-  const inp = 'text-base sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-2';
+  const lectura = leeImporte(cantidad);
+  const meses = useMemo(() => (hist ? data.historico.periodos.filter((p) => hist.celdas[p]).reverse() : []), [hist, data.historico.periodos]);
+  const puedeCobrar = lectura.ok && (lectura.valor !== null ? lectura.valor > 0 : !!celda && celda.pendiente > 0);
 
   return (
-    <Modal title={nombre(email)} subtitle={email ?? undefined} onClose={onClose} width="sm"
-      footer={<Button variant="secondary" block onClick={onClose}>Cerrar</Button>}>
-      <div className="space-y-5">
+    <div className="space-y-5">
+      <Atras onClick={onVolver}>Pagos</Atras>
+      <div className="flex items-center gap-3">
+        <Avatar iniciales={inicialesDeCorreo(email)} size="lg" />
+        <div className="min-w-0">
+          <h2 className="truncate font-titulo text-3xl font-bold uppercase leading-none tracking-wide text-slate-900 dark:text-white">{email ? nombreDeCorreo(email) : 'Alumno'}</h2>
+          <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-400">{email}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         {/* EL MES */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <button onClick={() => cambiaMes(sumaMeses(periodo, -1))} className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Mes anterior"><ChevronLeft size={18} /></button>
-            <p className="font-black text-slate-900 dark:text-white capitalize">{mesLargo(periodo)}</p>
-            <button onClick={() => cambiaMes(sumaMeses(periodo, 1))} disabled={periodo >= sumaMeses(data.actual, 1)} className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30" aria-label="Mes siguiente"><ChevronRight size={18} /></button>
-          </div>
+        <Hoja pad="md" className="space-y-4">
+          <NavMes periodo={periodo} onCambia={cambiaMes} max={sumaMeses(data.actual, 1)} />
           {celda ? (
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3 space-y-1">
-              <div className="flex items-center justify-between gap-2"><Estado estado={celda.estado} />{celda.manual && <span className="text-[10px] font-bold text-slate-500">cuota a mano</span>}</div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{lineaEstado(celda)}</p>
-              <p className={TEXT.muted}>Cuota del mes: {eur(celda.debido)}{celda.cobrado > 0 && <> · cobrado {eur(celda.cobrado)}</>}</p>
+            <div className="space-y-1">
+              <Estado tono={TONO_ESTADO[celda.estado]}>{etiquetaEstado(celda.estado)}</Estado>
+              <p className="text-base font-semibold text-slate-900 dark:text-white">{lineaEstado(celda)}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Cuota del mes {eur(celda.debido)}{celda.manual && ' (puesta a mano)'}{celda.cobrado > 0 && <> · cobrado {eur(celda.cobrado)}</>}
+              </p>
             </div>
           ) : (
-            <p className={cx(TEXT.muted, 'rounded-xl bg-slate-50 dark:bg-slate-800/40 p-3')}>Ese mes no estaba en la lista. Si pagó, anótalo abajo: se le pone su cuota de hoy.</p>
+            <Aviso tono="info">Ese mes no estaba en la lista. Si pagó, anótalo abajo: se le pone su cuota de hoy.</Aviso>
           )}
 
-          {celda && celda.pendiente > 0 && (
-            <Button block disabled={!!acciones.ocupado} onClick={() => acciones.cobrar({ userId, email, cobrado: celda.cobrado }, periodo)}>
-              {ocupado ? 'Guardando…' : `Cobrar lo que falta · ${eur(celda.pendiente)}`}
-            </Button>
-          )}
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 flex-1">
-              {celda && celda.cobrado > 0 ? 'Trae' : 'Pagó'}
-              <input value={cantidad} onChange={(e) => setCantidad(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="30" aria-label="Cantidad que ha pagado" className={cx(inp, 'w-24 text-right tabular-nums font-bold')} /> €
-            </label>
-            <Button size="sm" variant="secondary" disabled={!!acciones.ocupado || !lecturaCantidad.ok || lecturaCantidad.valor === null || lecturaCantidad.valor <= 0}
-              onClick={() => { acciones.cobrar({ userId, email, cobrado: celda?.cobrado ?? 0 }, periodo, cantidad); setCantidad(''); }}>Anotar</Button>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
+            <Campo label={celda && celda.cobrado > 0 ? 'Otra cantidad (se suma)' : 'Cantidad'} value={cantidad} onChange={(e) => setCantidad(e.target.value)}
+              inputMode="decimal" autoComplete="off" placeholder={celda && celda.pendiente > 0 ? String(celda.pendiente).replace('.', ',') : '50'}
+              hint={!lectura.ok ? lectura.error : 'Vacío: lo que falta del mes. Un pago a medias queda «faltan X €».'} />
+            <SelectorMetodo label="Método" valor={metodo} onCambia={setMetodo} />
           </div>
-          {!lecturaCantidad.ok && <p className="text-xs text-red-600 dark:text-red-400">{lecturaCantidad.error}</p>}
-          <p className={TEXT.muted}>Un pago a medias se anota aquí y queda «faltan X €»; lo que traiga después se suma.</p>
-          {celda && celda.cobrado > 0 && (
-            <button onClick={() => { if (confirm(`¿Deshacer lo cobrado en ${mesLargo(periodo)} (${eur(celda.cobrado)})?`)) acciones.anular(userId, periodo); }}
-              disabled={!!acciones.ocupado} className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5 min-h-[44px]">
-              <Undo2 size={13} /> Deshacer lo cobrado este mes
-            </button>
+          <Boton disabled={!!acciones.ocupado || !puedeCobrar}
+            onClick={() => { acciones.cobrar({ userId, email }, periodo, cantidad.trim() || undefined, metodo); setCantidad(''); }}>
+            {ocupado ? 'Guardando…' : lectura.ok && lectura.valor ? `Cobrar ${eur(lectura.valor)}` : celda && celda.pendiente > 0 ? `Cobrar lo que falta · ${eur(celda.pendiente)}` : 'Cobrar'}
+          </Boton>
+
+          {cobrosMes.length > 0 && (
+            <div className="space-y-2">
+              <Rotulo>Cobros de {mesCorto(periodo)}</Rotulo>
+              <ul className="divide-y divide-linea rounded-lg border border-linea dark:divide-noche-linea dark:border-noche-linea">
+                {cobrosMes.map((c) => (
+                  <li key={c.id} className={cx('flex flex-wrap items-center justify-between gap-2 px-3 py-2', c.anulado && 'opacity-60')}>
+                    <span className="min-w-0 text-sm">
+                      <b className={cx('tabular-nums', c.anulado && 'line-through')}>{eur(c.importe)}</b>
+                      <span className="text-slate-600 dark:text-slate-400"> · {ETIQUETA_METODO[c.metodo]} · {fechaEnTexto(c.fecha)} · recibo nº {c.recibo}</span>
+                      {c.anulado && <Etiqueta tono="malo" className="ml-2">Anulado</Etiqueta>}
+                    </span>
+                    <span className="flex gap-1.5">
+                      <Boton size="sm" variant="ghost" icon={<Printer size={14} />} onClick={() => imprimeRecibo(c)}>Recibo</Boton>
+                      {!c.anulado && (
+                        <Boton size="sm" variant="danger" disabled={!!acciones.ocupado}
+                          onClick={() => { if (confirm(`¿Anular el recibo nº ${c.recibo} (${eur(c.importe)})? Queda en el libro como anulado.`)) acciones.anular(userId, periodo, c.id); }}>
+                          Anular
+                        </Boton>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
-          <details className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
-            <summary className="text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer min-h-[28px]">Cambiar la cuota de este mes</summary>
-            <div className="mt-3 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <input value={cuotaMes} onChange={(e) => setCuotaMesTxt(e.target.value)} inputMode="decimal" autoComplete="off" placeholder={celda?.debido != null ? String(celda.debido) : '50'} aria-label="Cuota de este mes" className={cx(inp, 'w-24 text-right tabular-nums')} />
-                <span className="text-xs">€</span>
-                <input value={notaMes} onChange={(e) => setNotaMes(e.target.value)} maxLength={200} placeholder="Por qué (opcional)" className={cx(inp, 'flex-1 min-w-[9rem]')} />
+          <details className="rounded-lg border border-linea p-3 dark:border-noche-linea">
+            <summary className="min-h-[28px] cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">Cambiar la cuota de este mes</summary>
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                <Campo label="Cuota (€)" value={cuotaMes} onChange={(e) => setCuotaMesTxt(e.target.value)} inputMode="decimal" autoComplete="off" placeholder={celda?.debido != null ? String(celda.debido) : '50'} />
+                <Campo label="Por qué" value={notaMes} onChange={(e) => setNotaMes(e.target.value)} maxLength={200} placeholder="Opcional" />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={!!acciones.ocupado || !cuotaMes.trim()} onClick={() => { acciones.cuotaMes(userId, periodo, cuotaMes, notaMes); setCuotaMesTxt(''); setNotaMes(''); }}>Guardar</Button>
-                <Button size="sm" variant="secondary" disabled={!!acciones.ocupado} onClick={() => acciones.cuotaMes(userId, periodo, '0', notaMes || 'Este mes no paga')}>No cobrar este mes</Button>
-                {celda?.manual && <Button size="sm" variant="ghost" disabled={!!acciones.ocupado} onClick={() => acciones.cuotaMes(userId, periodo, null, null)}>Volver a su cuota</Button>}
+                <Boton size="sm" disabled={!!acciones.ocupado || !cuotaMes.trim()} onClick={() => { acciones.cuotaMes(userId, periodo, cuotaMes, notaMes); setCuotaMesTxt(''); setNotaMes(''); }}>Guardar</Boton>
+                <Boton size="sm" variant="secondary" disabled={!!acciones.ocupado} onClick={() => acciones.cuotaMes(userId, periodo, '0', notaMes || 'Este mes no paga')}>No cobrar este mes</Boton>
+                {celda?.manual && <Boton size="sm" variant="ghost" disabled={!!acciones.ocupado} onClick={() => acciones.cuotaMes(userId, periodo, null, null)}>Volver a su cuota</Boton>}
               </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Solo cambia este mes. Los demás meses no se tocan.</p>
             </div>
           </details>
-        </section>
+        </Hoja>
 
-        {/* SU CUOTA DE SIEMPRE */}
-        {cuotaHoy && (
-          <section className="space-y-2">
-            <SectionLabel>Su cuota</SectionLabel>
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-              {cuotaHoy.cuota.importe !== null ? `${eur(cuotaHoy.cuota.importe)}/mes` : 'Sin calcular'}
-              <span className="font-normal text-slate-500 dark:text-slate-400"> · {cuotaHoy.cuota.detalle}{cuotaHoy.notaPropia ? ` (${cuotaHoy.notaPropia})` : ''}</span>
-            </p>
-            {cuotaHoy.grupos.length > 0 && <p className={TEXT.muted}>Grupos: {cuotaHoy.grupos.join(', ')}</p>}
-            <details className="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
-              <summary className="text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer min-h-[28px]">Ponerle una cuota propia</summary>
-              <p className={cx(TEXT.muted, 'mt-2')}>Para todos los meses, en vez de la de sus grupos (un descuento, un hermano…). Se aplica desde el mes en curso si aún no se le ha cobrado.</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input value={propia} onChange={(e) => setPropia(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="80" aria-label="Cuota propia" className={cx(inp, 'w-24 text-right tabular-nums')} />
-                <span className="text-xs">€/mes</span>
-                <input value={notaPropia} onChange={(e) => setNotaPropia(e.target.value)} maxLength={120} placeholder="Por qué (opcional)" className={cx(inp, 'flex-1 min-w-[9rem]')} />
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button size="sm" disabled={!!acciones.ocupado || !propia.trim()} onClick={() => acciones.cuotaPropia(userId, propia, notaPropia)}>Guardar</Button>
-                {cuotaHoy.cuota.origen === 'propia' && (
-                  <Button size="sm" variant="ghost" disabled={!!acciones.ocupado} onClick={() => { setPropia(''); setNotaPropia(''); acciones.cuotaPropia(userId, null, null); }}>Quitar: la de sus grupos</Button>
-                )}
-              </div>
-            </details>
-          </section>
-        )}
+        <div className="space-y-5">
+          {/* SU CUOTA DE SIEMPRE */}
+          {cuotaHoy && (
+            <Hoja pad="md" className="space-y-3">
+              <BloqueTitulo>Su cuota</BloqueTitulo>
+              <p className="text-sm">
+                <b className="font-titulo text-2xl tabular-nums text-slate-900 dark:text-white">{cuotaHoy.cuota.importe !== null ? `${eur(cuotaHoy.cuota.importe)}/mes` : 'Sin calcular'}</b>
+                <span className="block text-slate-600 dark:text-slate-400">{cuotaHoy.cuota.detalle}{cuotaHoy.notaPropia ? ` (${cuotaHoy.notaPropia})` : ''}</span>
+              </p>
+              {cuotaHoy.grupos.length > 0 && <p className="text-xs text-slate-600 dark:text-slate-400">Grupos: {cuotaHoy.grupos.join(', ')}</p>}
+              <details className="rounded-lg border border-linea p-3 dark:border-noche-linea">
+                <summary className="min-h-[28px] cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">Ponerle una cuota propia</summary>
+                <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Para todos los meses, en vez de la de sus grupos (un descuento, un hermano…). Se aplica desde este mes si aún no se le ha cobrado; los meses anteriores no cambian.</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                  <Campo label="€/mes" value={propia} onChange={(e) => setPropia(e.target.value)} inputMode="decimal" autoComplete="off" placeholder="80" />
+                  <Campo label="Por qué" value={notaPropia} onChange={(e) => setNotaPropia(e.target.value)} maxLength={120} placeholder="Opcional" />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Boton size="sm" disabled={!!acciones.ocupado || !propia.trim()} onClick={() => acciones.cuotaPropia(userId, propia, notaPropia)}>Guardar</Boton>
+                  {cuotaHoy.cuota.origen === 'propia' && (
+                    <Boton size="sm" variant="ghost" disabled={!!acciones.ocupado} onClick={() => { setPropia(''); setNotaPropia(''); acciones.cuotaPropia(userId, null, null); }}>Quitar: la de sus grupos</Boton>
+                  )}
+                </div>
+              </details>
+            </Hoja>
+          )}
 
-        {/* SUS MESES */}
-        {meses.length > 0 && hist && (
-          <section className="space-y-1">
-            <SectionLabel aside={hist.deudaAnterior > 0 ? <span className="text-xs font-black text-rose-700 dark:text-rose-400">debe {eur(hist.deudaAnterior)}</span> : undefined}>Sus meses</SectionLabel>
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {meses.map((p) => {
-                const c = hist.celdas[p];
-                return (
-                  <li key={p}>
-                    <button onClick={() => cambiaMes(p)} aria-current={p === periodo}
-                      className={cx('w-full flex items-center justify-between gap-3 py-2 px-2 rounded-lg text-left min-h-[44px]', p === periodo && 'bg-indigo-500/10')}>
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize w-16 shrink-0">{mesCorto(p, true)}</span>
-                      <span className="flex-1 min-w-0 text-xs text-slate-500 dark:text-slate-400 truncate">{lineaEstado(c)}</span>
-                      <Estado estado={c.estado} />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
+          {/* SUS MESES */}
+          {meses.length > 0 && hist && (
+            <Hoja pad="md" className="space-y-2">
+              <BloqueTitulo aside={hist.deudaAnterior > 0 ? <Etiqueta tono="malo">Debe {eur(hist.deudaAnterior)}</Etiqueta> : undefined}>Sus meses</BloqueTitulo>
+              <ul className="divide-y divide-linea dark:divide-noche-linea">
+                {meses.map((p) => {
+                  const c = hist.celdas[p];
+                  return (
+                    <li key={p}>
+                      <button onClick={() => cambiaMes(p)} aria-current={p === periodo}
+                        className={cx('flex min-h-[46px] w-full items-center gap-3 rounded px-2 text-left', p === periodo && 'bg-hundido dark:bg-noche-hondo')}>
+                        <span className="w-16 shrink-0 text-sm font-semibold capitalize text-slate-900 dark:text-white">{mesCorto(p, true)}</span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-slate-600 dark:text-slate-400">{lineaEstado(c)}</span>
+                        <Estado tono={TONO_ESTADO[c.estado]}>{etiquetaEstado(c.estado)}</Estado>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Hoja>
+          )}
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -570,60 +613,49 @@ function VistaHistorico({ data, acciones }: { data: PagosVista; acciones: Accion
   const h = data.historico;
   const [busca, setBusca] = useState('');
   const [soloDeuda, setSoloDeuda] = useState(false);
-  const conDatos = h.meses.some((m) => m.alumnos > 0);
+  const conCobro = h.meses.filter((m) => m.cobrado > 0);
+  const mejor = conCobro.reduce<MesHistorico | null>((b, m) => (!b || m.cobrado > b.cobrado ? m : b), null);
+  const media = conCobro.length ? conCobro.reduce((s, m) => s + m.cobrado, 0) / conCobro.length : null;
 
   const alumnos = h.alumnos
     .filter((a) => !busca.trim() || (a.email ?? '').toLowerCase().includes(busca.trim().toLowerCase()))
     .filter((a) => !soloDeuda || a.deudaAnterior + a.pendienteActual > 0)
     .sort((a, b) => (b.deudaAnterior + b.pendienteActual) - (a.deudaAnterior + a.pendienteActual) || (a.email ?? '').localeCompare(b.email ?? '', 'es'));
 
-  function exportar() {
-    const blob = new Blob([csvHistorico(h)], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pagos-${h.periodos[0]}-a-${h.actual}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  if (!conDatos) {
-    return (
-      <EmptyState icon={<Table2 size={40} />} bordered title="Aún no hay meses con cuotas"
-        hint="El histórico se llena solo: cada mes, al abrir «Pagos», queda anotado lo que debe cada alumno y lo que paga." />
-    );
+  if (!h.meses.some((m) => m.alumnos > 0)) {
+    return <EmptyState bordered icon={<Tag size={36} />} title="Aún no hay meses con cuotas" hint="El histórico se llena solo: cada mes, al abrir «Pagos», queda anotado lo que debe cada alumno y lo que paga." />;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <StatTile label="Cobrado en 12 meses" value={eur(h.totales.cobrado)} tone="success" />
-        <StatTile label="Deuda de meses cerrados" value={eur(h.totales.deudaAnterior)} tone={h.totales.deudaAnterior > 0 ? 'danger' : 'neutral'} />
-        <StatTile label="Cobrado de lo previsto" value={h.totales.porcentaje} suffix=" %" tone="brand" />
-      </div>
+    <div className="space-y-5">
+      <Pulso cifras={[
+        { valor: eur(h.totales.cobrado), etiqueta: 'cobrado en 12 meses', tono: 'ok' },
+        { valor: media === null ? null : eur(Math.round(media)), etiqueta: 'media al mes' },
+        { valor: mejor ? eur(mejor.cobrado) : null, etiqueta: mejor ? `mejor mes (${mesCorto(mejor.periodo, true)})` : 'mejor mes' },
+        { valor: eur(h.totales.deudaAnterior), etiqueta: 'deuda de meses cerrados', tono: h.totales.deudaAnterior > 0 ? 'malo' : 'neutro' },
+      ]} />
 
-      <Card tone="base" pad="md" className="space-y-3">
-        <SectionLabel>Mes a mes</SectionLabel>
+      <Hoja pad="md" className="space-y-3">
+        <BloqueTitulo>Mes a mes</BloqueTitulo>
         <Grafico meses={h.meses} actual={h.actual} prevision={data.prevision} />
-      </Card>
+      </Hoja>
 
       {h.deudores.length > 0 && <DeudasAnteriores deudores={h.deudores} acciones={acciones} actual={h.actual} />}
 
-      <Card tone="base" pad="md" className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex-1 min-w-[12rem] flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3">
-            <Search size={14} className="text-slate-400 shrink-0" />
-            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar alumno" aria-label="Buscar alumno en el histórico"
-              className="w-full bg-transparent py-2 text-base sm:text-sm outline-none" />
-          </label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 min-h-[44px] cursor-pointer">
-            <input type="checkbox" className="w-5 h-5" checked={soloDeuda} onChange={(e) => setSoloDeuda(e.target.checked)} /> Solo los que deben
-          </label>
-          <Button size="sm" variant="secondary" icon={<Download size={14} />} onClick={exportar}>Excel (CSV)</Button>
+      <Hoja pad="md" className="space-y-3">
+        <BloqueTitulo aside={<Boton size="sm" variant="secondary" icon={<Download size={14} />} onClick={() => descarga(`pagos-${h.periodos[0]}-a-${h.actual}.csv`, csvHistorico(h))}>Excel (CSV)</Boton>}>
+          Alumno a alumno
+        </BloqueTitulo>
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <Buscador valor={busca} onCambia={setBusca} etiqueta="Buscar alumno en el histórico" />
+          <Filtros etiqueta="Filtro del histórico">
+            <FiltroChip activo={!soloDeuda} onClick={() => setSoloDeuda(false)} cuenta={h.alumnos.length}>Todos</FiltroChip>
+            <FiltroChip activo={soloDeuda} onClick={() => setSoloDeuda(true)} cuenta={h.alumnos.filter((a) => a.deudaAnterior + a.pendienteActual > 0).length}>Deben algo</FiltroChip>
+          </Filtros>
         </div>
         <Rejilla h={h} alumnos={alumnos} acciones={acciones} />
         <Leyenda />
-      </Card>
+      </Hoja>
     </div>
   );
 }
@@ -641,36 +673,35 @@ function Grafico({ meses, actual, prevision }: { meses: MesHistorico[]; actual: 
     periodo: prevision.periodo, previsto: prevision.previsto, cobrado: 0, pendiente: 0, porcentaje: null, alumnos: prevision.alumnos, pagados: 0, prev: true,
   }];
   const alto = (v: number) => `${(v / max) * 100}%`;
+  const ultimo = meses[meses.length - 1];
   return (
-    <div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[11px] text-slate-600 dark:text-slate-300">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-600" /> Cobrado</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-600 rayas" /> Pendiente</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border-2 border-dashed border-slate-400" /> Previsión</span>
+    <figure className="m-0 min-w-0">
+      <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700 dark:text-slate-300">
+        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-emerald-600" /> Cobrado</span>
+        <span className="flex items-center gap-1.5"><span className="rayas h-3 w-3 rounded-sm bg-amber-600" /> Pendiente</span>
+        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border-2 border-dashed border-slate-400" /> Previsión</span>
       </div>
       <div className="relative">
-        {/* Rejilla de fondo: la mitad y el tope, recesiva. */}
-        <div className="absolute inset-x-0 top-0 h-40 pointer-events-none">
-          <div className="absolute inset-x-0 top-0 border-t border-dashed border-slate-200 dark:border-slate-800" />
-          <span className="absolute right-0 -top-4 text-[10px] text-slate-400 tabular-nums">{eur(max)}</span>
-          <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-100 dark:border-slate-800/60" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-44">
+          <div className="absolute inset-x-0 top-0 border-t border-dashed border-linea dark:border-noche-linea" />
+          <span className="absolute -top-4 right-0 text-[10px] tabular-nums text-slate-500">{eur(max)}</span>
+          <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-linea dark:border-noche-linea" />
         </div>
-        <div className="flex items-end gap-1 sm:gap-2 h-40 border-b border-slate-300 dark:border-slate-700">
+        <div className="flex h-44 items-end gap-1 border-b border-slate-300 dark:border-noche-linea sm:gap-2">
           {barras.map((b) => {
             const esActivo = activo === b.periodo;
+            const base = Math.max(b.previsto, b.cobrado) || 1;
             const cobrado = Math.min(b.cobrado, b.previsto || b.cobrado);
             return (
               <button key={b.periodo} type="button"
                 onMouseEnter={() => setActivo(b.periodo)} onMouseLeave={() => setActivo(null)}
                 onFocus={() => setActivo(b.periodo)} onBlur={() => setActivo(null)}
                 onClick={() => setActivo(esActivo ? null : b.periodo)}
-                aria-label={b.prev
-                  ? `${mesLargo(b.periodo)}, previsión: ${eur(b.previsto)}`
-                  : `${mesLargo(b.periodo)}: cobrado ${eur(b.cobrado)} de ${eur(b.previsto)}, pendiente ${eur(b.pendiente)}`}
-                className="relative flex-1 h-full flex flex-col justify-end items-center outline-none group">
+                aria-label={b.prev ? `${mesEnTexto(b.periodo)}, previsión: ${eur(b.previsto)}` : `${mesEnTexto(b.periodo)}: cobrado ${eur(b.cobrado)} de ${eur(b.previsto)}, pendiente ${eur(b.pendiente)}`}
+                className="relative flex h-full flex-1 flex-col items-center justify-end outline-none">
                 {esActivo && (
-                  <span className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 w-40 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xl p-2.5 text-left text-[11px] leading-snug pointer-events-none">
-                    <span className="block font-black capitalize mb-1">{mesLargo(b.periodo)}{b.prev && ' · previsión'}</span>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 w-40 -translate-x-1/2 rounded-lg bg-marino p-2.5 text-left text-[11px] leading-snug text-white shadow-xl">
+                    <span className="mb-1 block font-bold">{capital(mesEnTexto(b.periodo))}{b.prev && ' · previsión'}</span>
                     <span className="flex justify-between"><span>Previsto</span><b className="tabular-nums">{eur(b.previsto)}</b></span>
                     {!b.prev && <>
                       <span className="flex justify-between"><span>Cobrado</span><b className="tabular-nums">{eur(b.cobrado)}</b></span>
@@ -682,43 +713,42 @@ function Grafico({ meses, actual, prevision }: { meses: MesHistorico[]; actual: 
                 {b.prev ? (
                   <span className="w-full max-w-[28px] rounded-t-[4px] border-2 border-b-0 border-dashed border-slate-400 dark:border-slate-500" style={{ height: alto(b.previsto) }} />
                 ) : (
-                  <span className={cx('w-full max-w-[28px] flex flex-col justify-end gap-[2px]', esActivo && 'opacity-90')} style={{ height: alto(Math.max(b.previsto, b.cobrado)) }}>
-                    {b.pendiente > 0 && <span className={cx('w-full bg-amber-600 rayas', 'rounded-t-[4px]')} style={{ height: `${(b.pendiente / Math.max(b.previsto, b.cobrado)) * 100}%` }} />}
-                    {cobrado > 0 && <span className={cx('w-full bg-emerald-600', b.pendiente > 0 ? '' : 'rounded-t-[4px]')} style={{ height: `${(cobrado / Math.max(b.previsto, b.cobrado)) * 100}%` }} />}
+                  <span className="flex w-full max-w-[28px] flex-col justify-end gap-[2px]" style={{ height: alto(Math.max(b.previsto, b.cobrado)) }}>
+                    {b.pendiente > 0 && <span className="rayas w-full rounded-t-[4px] bg-amber-600" style={{ height: `${(b.pendiente / base) * 100}%` }} />}
+                    {cobrado > 0 && <span className={cx('w-full bg-emerald-600', b.pendiente > 0 ? '' : 'rounded-t-[4px]')} style={{ height: `${(cobrado / base) * 100}%` }} />}
                   </span>
                 )}
               </button>
             );
           })}
         </div>
-        <div className="flex gap-1 sm:gap-2 mt-1">
+        <div className="mt-1.5 flex gap-1 sm:gap-2">
           {barras.map((b, i) => (
-            <span key={b.periodo} className={cx('flex-1 text-center text-[10px] tabular-nums', b.periodo === actual ? 'font-black text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400')}>
+            <span key={b.periodo} className={cx('flex-1 text-center text-[10px] tabular-nums', b.periodo === actual ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400')}>
               {mesCorto(b.periodo, i === 0 || b.periodo.endsWith('-01'))}
             </span>
           ))}
         </div>
       </div>
-      <p className={cx(TEXT.muted, 'mt-3')}>
-        Este mes: {eur(meses[meses.length - 1]?.cobrado ?? 0)} cobrados de {eur(meses[meses.length - 1]?.previsto ?? 0)}.
-        {' '}El que viene se prevén {eur(prevision.previsto)} ({prevision.alumnos} {prevision.alumnos === 1 ? 'alumno' : 'alumnos'}{prevision.sinCuota > 0 ? `, ${prevision.sinCuota} sin cuota` : ''}).
-      </p>
-    </div>
+      <figcaption className="mt-3 text-xs text-slate-600 dark:text-slate-400">
+        Este mes: {eur(ultimo?.cobrado ?? 0)} cobrados de {eur(ultimo?.previsto ?? 0)}. El que viene se prevén {eur(prevision.previsto)} ({prevision.alumnos} {prevision.alumnos === 1 ? 'alumno' : 'alumnos'}{prevision.sinCuota > 0 ? `, ${prevision.sinCuota} sin cuota` : ''}).
+      </figcaption>
+    </figure>
   );
 }
 
 const CELDA: Record<EstadoPago, string> = {
-  pagado: 'bg-emerald-600 text-white',
-  parcial: 'bg-amber-500/20 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/50',
-  debe: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/40',
-  no_paga: 'bg-slate-500/10 text-slate-500 dark:text-slate-400',
-  sin_cuota: 'border border-dashed border-amber-500 text-amber-700 dark:text-amber-300',
+  pagado: 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-marino-hondo',
+  parcial: 'bg-amber-100 text-amber-900 ring-1 ring-amber-500/60 dark:bg-amber-500/15 dark:text-amber-200',
+  debe: 'bg-red-100 text-red-800 ring-1 ring-red-500/40 dark:bg-red-500/15 dark:text-red-200',
+  no_paga: 'bg-hundido text-slate-600 dark:bg-noche-hondo dark:text-slate-400',
+  sin_cuota: 'border border-dashed border-amber-600 text-amber-800 dark:text-amber-300',
 };
 
 function textoCelda(c: CeldaCuota): ReactNode {
   switch (c.estado) {
     case 'pagado': return <Check size={13} strokeWidth={3} />;
-    case 'parcial': return Math.round(c.pendiente);
+    case 'parcial':
     case 'debe': return Math.round(c.pendiente);
     case 'no_paga': return '0';
     case 'sin_cuota': return '?';
@@ -727,19 +757,27 @@ function textoCelda(c: CeldaCuota): ReactNode {
 
 /** Alumnos × meses. Cada celda abre la ficha en ese mes. En el móvil se desliza de lado con el nombre fijo. */
 function Rejilla({ h, alumnos, acciones }: { h: PagosVista['historico']; alumnos: AlumnoHistorico[]; acciones: Acciones }) {
-  if (!alumnos.length) return <p className={cx(TEXT.muted, 'text-center py-6')}>Nadie con ese filtro.</p>;
+  // Los meses del principio sin nadie no se pintan (una academia que empieza
+  // vería ocho columnas vacías), y en el móvil la rejilla se abre por el final:
+  // lo que importa es lo reciente.
+  const desde = h.meses.findIndex((m) => m.alumnos > 0);
+  const periodos = desde > 0 ? h.periodos.slice(desde) : h.periodos;
+  const meses = desde > 0 ? h.meses.slice(desde) : h.meses;
+  const caja = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (caja.current) caja.current.scrollLeft = caja.current.scrollWidth; }, [periodos.length]);
+  if (!alumnos.length) return <p className="py-6 text-center text-sm text-slate-600 dark:text-slate-400">Nadie con ese filtro.</p>;
   return (
-    <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+    <div ref={caja} className="-mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5">
       <table className="border-separate border-spacing-0 text-xs">
         <thead>
           <tr>
-            <th className="sticky left-0 z-[1] bg-white dark:bg-slate-900 text-left font-black uppercase tracking-wide text-[10px] text-slate-500 pr-3 pb-2 min-w-[8.5rem]">Alumno</th>
-            {h.periodos.map((p, i) => (
-              <th key={p} className={cx('font-bold text-[10px] pb-2 px-0.5 text-center min-w-[44px]', p === h.actual ? 'text-slate-900 dark:text-white' : 'text-slate-500')}>
+            <th className="sticky left-0 z-[1] min-w-[8.5rem] bg-white pb-2 pr-3 text-left text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:bg-noche-2 dark:text-slate-400">Alumno</th>
+            {periodos.map((p, i) => (
+              <th key={p} className={cx('min-w-[44px] px-0.5 pb-2 text-center text-[11px] font-semibold capitalize', p === h.actual ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400')}>
                 {mesCorto(p, i === 0 || p.endsWith('-01'))}
               </th>
             ))}
-            <th className="text-right font-black uppercase tracking-wide text-[10px] text-slate-500 pl-3 pb-2">Debe</th>
+            <th className="pb-2 pl-3 text-right text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">Debe</th>
           </tr>
         </thead>
         <tbody>
@@ -747,26 +785,25 @@ function Rejilla({ h, alumnos, acciones }: { h: PagosVista['historico']; alumnos
             const debe = a.deudaAnterior + a.pendienteActual;
             return (
               <tr key={a.userId}>
-                <th className="sticky left-0 z-[1] bg-white dark:bg-slate-900 text-left font-semibold text-slate-800 dark:text-slate-100 pr-3 py-0.5 max-w-[10rem]">
-                  <button onClick={() => acciones.abrir(a.userId, a.mesesDebe[0] ?? h.actual)} className="block truncate max-w-[10rem] text-left min-h-[44px]">
-                    {nombre(a.email)}{!a.activo && <span className="text-slate-400 font-normal"> · baja</span>}
+                <th className="sticky left-0 z-[1] max-w-[10rem] bg-white py-0.5 pr-3 text-left font-semibold text-slate-900 dark:bg-noche-2 dark:text-white">
+                  <button onClick={() => acciones.abrir(a.userId, a.mesesDebe[0] ?? h.actual)} className="block min-h-[44px] max-w-[10rem] truncate text-left text-[13px]">
+                    {a.email ? nombreDeCorreo(a.email) : 'Ya no está'}{!a.activo && <span className="font-normal text-slate-500"> · baja</span>}
                   </button>
                 </th>
-                {h.periodos.map((p) => {
+                {periodos.map((p) => {
                   const c = a.celdas[p];
                   return (
                     <td key={p} className="px-0.5 py-0.5 text-center">
                       {c ? (
-                        <button onClick={() => acciones.abrir(a.userId, p)}
-                          title={`${mesLargo(p)}: ${lineaEstado(c)}`} aria-label={`${nombre(a.email)}, ${mesLargo(p)}: ${lineaEstado(c)}`}
-                          className={cx('w-10 h-10 rounded-lg inline-flex items-center justify-center font-black tabular-nums', CELDA[c.estado])}>
+                        <button onClick={() => acciones.abrir(a.userId, p)} title={`${mesEnTexto(p)}: ${lineaEstado(c)}`} aria-label={`${nombreDeCorreo(a.email)}, ${mesEnTexto(p)}: ${lineaEstado(c)}`}
+                          className={cx('inline-flex h-11 w-11 items-center justify-center rounded-lg font-bold tabular-nums', CELDA[c.estado])}>
                           {textoCelda(c)}
                         </button>
-                      ) : <span className="inline-block w-10 h-10 leading-10 text-slate-300 dark:text-slate-700" aria-label="No estaba">·</span>}
+                      ) : <span className="inline-block h-11 w-11 leading-[2.75rem] text-slate-300 dark:text-slate-700" aria-label="No estaba">·</span>}
                     </td>
                   );
                 })}
-                <td className={cx('pl-3 text-right font-black tabular-nums whitespace-nowrap', debe > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-300 dark:text-slate-600')}>
+                <td className={cx('whitespace-nowrap pl-3 text-right font-semibold tabular-nums', debe > 0 ? 'text-red-700 dark:text-red-300' : 'text-slate-400 dark:text-slate-600')}>
                   {debe > 0 ? eur(debe) : '—'}
                 </td>
               </tr>
@@ -775,11 +812,9 @@ function Rejilla({ h, alumnos, acciones }: { h: PagosVista['historico']; alumnos
         </tbody>
         <tfoot>
           <tr>
-            <th className="sticky left-0 z-[1] bg-white dark:bg-slate-900 text-left text-[10px] font-black uppercase tracking-wide text-slate-500 pr-3 pt-2">Cobrado</th>
-            {h.meses.map((m) => (
-              <td key={m.periodo} className="pt-2 text-center text-[10px] font-bold tabular-nums text-slate-600 dark:text-slate-300 whitespace-nowrap px-0.5">
-                {m.alumnos ? Math.round(m.cobrado) : '—'}
-              </td>
+            <th className="sticky left-0 z-[1] bg-white pr-3 pt-2 text-left text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:bg-noche-2 dark:text-slate-400">Cobrado</th>
+            {meses.map((m) => (
+              <td key={m.periodo} className="whitespace-nowrap px-0.5 pt-2 text-center text-[11px] font-semibold tabular-nums text-slate-700 dark:text-slate-300">{m.alumnos ? Math.round(m.cobrado) : '—'}</td>
             ))}
             <td />
           </tr>
@@ -792,14 +827,87 @@ function Rejilla({ h, alumnos, acciones }: { h: PagosVista['historico']; alumnos
 function Leyenda() {
   const items: [EstadoPago, string][] = [['pagado', 'Pagado'], ['parcial', 'A medias (lo que falta)'], ['debe', 'Debe (lo que falta)'], ['no_paga', 'No paga ese mes'], ['sin_cuota', 'Sin cuota']];
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-700 dark:text-slate-300">
       {items.map(([e, t]) => (
         <span key={e} className="flex items-center gap-1.5">
-          <span className={cx('w-5 h-5 rounded inline-flex items-center justify-center text-[9px] font-black', CELDA[e])}>{e === 'pagado' ? <Check size={10} strokeWidth={3} /> : e === 'no_paga' ? '0' : e === 'sin_cuota' ? '?' : '50'}</span>
+          <span className={cx('inline-flex h-5 w-5 items-center justify-center rounded text-[9px] font-bold', CELDA[e])}>{e === 'pagado' ? <Check size={10} strokeWidth={3} /> : e === 'no_paga' ? '0' : e === 'sin_cuota' ? '?' : '50'}</span>
           {t}
         </span>
       ))}
-      <span className="flex items-center gap-1.5"><span className="w-5 h-5 inline-flex items-center justify-center text-slate-300">·</span> No estaba</span>
+      <span className="flex items-center gap-1.5"><span className="inline-flex h-5 w-5 items-center justify-center text-slate-400">·</span> No estaba</span>
+    </div>
+  );
+}
+
+// ============================================================
+// LA CAJA
+// ============================================================
+
+function VistaCaja({ data }: { data: PagosVista }) {
+  const [mes, setMes] = useState(data.actual);
+  const [verAnulados, setVerAnulados] = useState(true);
+  const caja = useMemo(() => cajaDelMes(mes, data.cobros), [mes, data.cobros]);
+  const lineas = verAnulados ? caja.lineas : caja.lineas.filter((c) => !c.anulado);
+
+  return (
+    <div className="space-y-5">
+      <NavMes periodo={mes} onCambia={setMes} min={data.historico.periodos[0]} max={data.actual} sub="Lo que entró en el mes, por la fecha de cada cobro" />
+      <Pulso cifras={[
+        { valor: eur(caja.total), etiqueta: 'entró en caja', tono: 'ok' },
+        { valor: caja.cobros, etiqueta: caja.cobros === 1 ? 'cobro' : 'cobros' },
+        ...caja.porMetodo.slice(0, 2).map((t) => ({ valor: eur(t.importe), etiqueta: `${ETIQUETA_METODO[t.metodo].toLowerCase()} (${t.cobros})` })),
+      ]} />
+
+      {caja.lineas.length === 0 ? (
+        <EmptyState bordered icon={<Tag size={36} />} title="Ningún cobro en ese mes" hint="Cada cobro que se anota en «Cobrar» o en la ficha de un alumno sale aquí con su recibo." />
+      ) : (
+        <>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Hoja pad="md" className="space-y-3">
+              <BloqueTitulo>Por método</BloqueTitulo>
+              <ul className="space-y-2.5">
+                {caja.porMetodo.map((t) => (
+                  <li key={t.metodo} className="text-sm">
+                    <span className="flex justify-between gap-3"><span>{ETIQUETA_METODO[t.metodo]} <span className="text-slate-600 dark:text-slate-400">· {t.cobros}</span></span><b className="tabular-nums">{eur(t.importe)}</b></span>
+                    <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-hundido dark:bg-noche-hondo"><span className="block h-full rounded-full bg-indigo-900 dark:bg-indigo-300" style={{ width: `${caja.total ? (t.importe / caja.total) * 100 : 0}%` }} /></span>
+                  </li>
+                ))}
+              </ul>
+            </Hoja>
+            <Hoja pad="md" className="space-y-3">
+              <BloqueTitulo>Por día</BloqueTitulo>
+              <ul className="max-h-60 divide-y divide-linea overflow-y-auto text-sm dark:divide-noche-linea">
+                {[...caja.porDia].reverse().map((d) => (
+                  <li key={d.fecha} className="flex justify-between gap-3 py-1.5"><span>{fechaEnTexto(d.fecha)} <span className="text-slate-600 dark:text-slate-400">· {d.cobros} {d.cobros === 1 ? 'cobro' : 'cobros'}</span></span><b className="tabular-nums">{eur(d.importe)}</b></li>
+                ))}
+              </ul>
+            </Hoja>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Filtros etiqueta="Qué cobros ver">
+              <FiltroChip activo={verAnulados} onClick={() => setVerAnulados(true)} cuenta={caja.lineas.length}>Todos</FiltroChip>
+              <FiltroChip activo={!verAnulados} onClick={() => setVerAnulados(false)} cuenta={caja.cobros}>Sin anulados</FiltroChip>
+            </Filtros>
+            <Boton variant="secondary" icon={<Download size={15} />} onClick={() => descarga(`caja-${mes}.csv`, csvCaja(caja))}>Descargar para el gestor (CSV)</Boton>
+          </div>
+
+          <TablaDual<Cobro>
+            filas={lineas}
+            clave={(c) => c.id}
+            columnas={[
+              { id: 'recibo', titulo: 'Recibo', celda: (c) => <span className="font-semibold tabular-nums">nº {c.recibo}{c.anulado && <Etiqueta tono="malo" className="ml-2">Anulado</Etiqueta>}</span> },
+              { id: 'fecha', titulo: 'Fecha', celda: (c) => fechaEnTexto(c.fecha) },
+              { id: 'alumno', titulo: 'Alumno', celda: (c) => <span className="block max-w-[16rem] truncate">{c.alumno}</span> },
+              { id: 'concepto', titulo: 'Mensualidad', celda: (c) => capital(mesEnTexto(c.periodo)) },
+              { id: 'metodo', titulo: 'Método', celda: (c) => ETIQUETA_METODO[c.metodo] },
+              { id: 'importe', titulo: 'Importe', derecha: true, celda: (c) => <b className={cx('tabular-nums', c.anulado && 'line-through opacity-60')}>{eur(c.importe)}</b> },
+              { id: 'acc', titulo: '', acciones: true, derecha: true, celda: (c) => <Boton size="sm" variant="ghost" icon={<Printer size={14} />} onClick={() => imprimeRecibo(c)}>Recibo</Boton> },
+            ]}
+          />
+          {caja.anulados > 0 && <p className="text-xs text-slate-600 dark:text-slate-400">Los anulados salen con su número para que el talonario no tenga huecos, pero no suman.</p>}
+        </>
+      )}
     </div>
   );
 }

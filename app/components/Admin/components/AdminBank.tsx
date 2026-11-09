@@ -1,11 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Search, Filter, Edit, Trash2, ChevronLeft, ChevronRight, 
-  Database, Loader2, BookOpen, Save, CheckCircle2,
-  MoreHorizontal, AlertTriangle, Copy, Plus
-} from 'lucide-react';
+import { Loader2, Save, Plus, Copy, Trash2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   getAdminQuestionBank,
   getOfficialSyllabus,
@@ -24,20 +20,15 @@ import {
 } from '@/app/lib/questions';
 import type { SyllabusSubject } from '@/app/actions/admin';
 import QuestionComposer from './QuestionComposer';
-import { Modal, Button, TextAreaField } from '../../ui';
+import { PanelTitulo, Aviso, Boton, Campo, CampoSelect, Etiqueta, Dato, TablaDual, PanelLateral, EmptyState, TEXT, type Tono } from '../../ui';
+import EditorPregunta from './EditorPregunta';
 
-// --- UTILIDAD VISUAL: ESTADO DE LA PREGUNTA ---
-const STATUS_STYLE: Record<QuestionStatus, string> = {
-  [QUESTION_STATUS.ACTIVE]: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-  [QUESTION_STATUS.CANDIDATE]: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
-  [QUESTION_STATUS.DISABLED]: 'bg-slate-300/40 dark:bg-slate-700/40 text-slate-500 dark:text-slate-400 border-slate-600/30',
-};
-
-// --- UTILIDAD VISUAL: COLORES POR BLOQUE ---
-const getTopicStyle = (num: number) => {
-    if (num <= 26) return { bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-500/20', label: 'JURÍDICAS' };
-    if (num <= 37) return { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-500/20', label: 'SOCIALES' };
-    return { bg: 'bg-purple-500/10', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-500/20', label: 'TÉCNICAS' };
+// El estado de una pregunta, con el color de su significado: activa verde,
+// candidata ámbar (los alumnos aún no la reciben), descartada gris.
+const STATUS_TONO: Record<QuestionStatus, Tono> = {
+  [QUESTION_STATUS.ACTIVE]: 'ok',
+  [QUESTION_STATUS.CANDIDATE]: 'aviso',
+  [QUESTION_STATUS.DISABLED]: 'apagado',
 };
 
 export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
@@ -119,6 +110,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       setIsDeleting(id);
       const res = await disableQuestion(id);
       if (res.success) {
+          setEditingQ(null);
           // Si estamos viendo todos los estados, la pregunta sigue ahi pero
           // descartada; si hay filtro, ya no pertenece a esta vista.
           if (statusFilter === 'all') {
@@ -212,410 +204,169 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in pb-24">
-        
-        {/* --- HEADER CONTROL PANEL --- */}
-        <div className="sticky top-4 z-30 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-3xl shadow-2xl flex flex-col lg:flex-row gap-4 justify-between items-center transition-all">
-            
-            {/* Título & Stats */}
-            <div className="flex items-center gap-4 w-full lg:w-auto">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-                    <Database size={24} strokeWidth={2.5}/>
-                </div>
-                <div>
-                    <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight uppercase">Banco Maestro</h3>
-                    <div className="flex items-center gap-2">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                            {stats.total} {statusFilter === 'all' ? 'preguntas' : QUESTION_STATUS_LABEL[statusFilter].toLowerCase()}
-                        </p>
-                    </div>
-                </div>
-            </div>
+    <div className="space-y-5 animate-in fade-in pb-24">
+      <PanelTitulo
+        titulo="Banco oficial"
+        sub={`${stats.total} ${statusFilter === 'all' ? 'preguntas' : QUESTION_STATUS_LABEL[statusFilter].toLowerCase()} · las que se sirven a los alumnos`}
+        acciones={
+          /* Nueva pregunta a mano (P2) */
+          <Boton icon={<Plus size={15} />} onClick={() => setComponiendo(true)}>Nueva pregunta</Boton>
+        }
+      />
 
-            {/* Nueva pregunta a mano (P2) */}
-            <button
-                onClick={() => setComponiendo(true)}
-                className="shrink-0 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-600/20"
-            >
-                <Plus size={16} strokeWidth={3}/> Nueva
-            </button>
+      {/* --- FILTROS --- */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Campo
+          type="search"
+          aria-label="Buscar por contenido"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar por contenido"
+        />
+        <CampoSelect aria-label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as QuestionStatus | 'all')}>
+          <option value="all">Todos los estados</option>
+          {QUESTION_STATUSES.map((st) => (
+            <option key={st} value={st}>{QUESTION_STATUS_LABEL[st]}</option>
+          ))}
+        </CampoSelect>
+        {/* Regla 78: sin esto, una pregunta subida por la propia academia se
+            perdía mezclada con las 1.795+ del banco global, sin forma de
+            aislarla para auditarla. */}
+        <CampoSelect aria-label="Origen" value={origenFilter} onChange={(e) => setOrigenFilter(e.target.value as 'all' | 'global' | 'propia')}>
+          <option value="all">Global + propias</option>
+          <option value="global">Solo banco global</option>
+          <option value="propia">{esSuperadmin ? 'Solo privadas (cualquier academia)' : 'Solo las de tu academia'}</option>
+        </CampoSelect>
+        <CampoSelect aria-label="Tema" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}>
+          <option value="">Todos los temas</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>Tema {s.number}: {s.title.substring(0, 25)}...</option>
+          ))}
+        </CampoSelect>
+      </div>
 
-            {/* Filtros Avanzados */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                <div className="relative group w-full sm:w-64">
-                    <Search className="absolute left-4 top-3 text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-400 transition-colors" size={18}/>
-                    <input 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Buscar por contenido..." 
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-500 dark:placeholder:text-slate-400"
-                    />
-                </div>
+      {/* --- APROBACIÓN EN LOTE --- */}
+      {!loading && visibleCandidates.length > 0 && (
+        <Aviso>
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <p><b>{visibleCandidates.length}</b> preguntas pendientes en esta página. Los alumnos no las reciben hasta que se publiquen.</p>
+            <Boton size="sm" disabled={bulkRunning} onClick={handleApproveVisible} icon={bulkRunning ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
+              Publicar las {visibleCandidates.length}
+            </Boton>
+          </div>
+        </Aviso>
+      )}
 
-                <div className="relative group w-full sm:w-48">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as QuestionStatus | 'all')}
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer"
-                    >
-                        <option value="all">Todos los estados</option>
-                        {QUESTION_STATUSES.map(st => (
-                            <option key={st} value={st}>{QUESTION_STATUS_LABEL[st]}</option>
-                        ))}
-                    </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500 dark:text-slate-400">
-                        <MoreHorizontal size={14}/>
-                    </div>
-                </div>
-
-                {/* Regla 78: sin esto, una pregunta subida por la propia academia se
-                    perdía mezclada con las 1.795+ del banco global, sin forma de
-                    aislarla para auditarla. */}
-                <div className="relative group w-full sm:w-48">
-                    <select
-                        value={origenFilter}
-                        onChange={(e) => setOrigenFilter(e.target.value as 'all' | 'global' | 'propia')}
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer"
-                    >
-                        <option value="all">Global + propias</option>
-                        <option value="global">Solo banco global</option>
-                        <option value="propia">{esSuperadmin ? 'Solo privadas (cualquier academia)' : 'Solo las de tu academia'}</option>
-                    </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500 dark:text-slate-400">
-                        <MoreHorizontal size={14}/>
-                    </div>
-                </div>
-
-                <div className="relative group w-full sm:w-64">
-                    <Filter className="absolute left-4 top-3 text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-400 transition-colors" size={18}/>
-                    <select
-                        value={selectedSubject || ''}
-                        onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}
-                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-10 py-3 text-sm text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none appearance-none cursor-pointer truncate"
-                    >
-                        <option value="">Todos los Temas</option>
-                        {subjects.map(s => (
-                            <option key={s.id} value={s.id}>Tema {s.number}: {s.title.substring(0,25)}...</option>
-                        ))}
-                    </select>
-                    <div className="absolute right-4 top-3.5 pointer-events-none text-slate-500 dark:text-slate-400">
-                        <MoreHorizontal size={14}/>
-                    </div>
-                </div>
-            </div>
+      {/* --- LAS PREGUNTAS --- */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-600 dark:text-slate-400">
+          <Loader2 size={26} className="animate-spin" />
+          <p className="font-mono text-xs uppercase tracking-widest">Cargando el banco…</p>
         </div>
+      ) : questions.length === 0 ? (
+        <EmptyState icon={<CheckCircle2 size={36} />} title="No hay preguntas que coincidan." hint="Prueba a generar más en «Temario & IA»." bordered />
+      ) : (
+        <TablaDual
+          clave={(q) => q.id}
+          filas={questions}
+          onFila={openEditor}
+          columnas={[
+            { id: 'pregunta', titulo: 'Pregunta', celda: (q) => (
+              <p className="line-clamp-2 max-w-[34rem] font-medium leading-snug text-slate-900 dark:text-slate-100">
+                {q.question_text}
+                {/* La columna se llama `difficulty_level`, no `difficulty`. Con el estado en `any` esto era siempre undefined y el distintivo no salió nunca. */}
+                {q.difficulty_level === DIFFICULTY.hard && <span className="ml-2 align-middle"><Etiqueta tono="malo">Difícil</Etiqueta></span>}
+              </p>
+            ) },
+            { id: 'tema', titulo: 'Tema', celda: (q) => <Dato>Tema {q.subjects?.topic_number ?? '—'}</Dato> },
+            { id: 'estado', titulo: 'Estado', celda: (q) => <Etiqueta tono={STATUS_TONO[q.status as QuestionStatus] ?? 'apagado'}>{QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}</Etiqueta> },
+            // Regla 78: de dónde viene la pregunta — antes no se veía, mezclada con el resto de la lista.
+            { id: 'origen', titulo: 'Origen', soloAncho: true, celda: (q) => <span className="text-[13px]">{q.academyName ?? 'Banco global'}</span> },
+            { id: 'acciones', titulo: '', acciones: true, derecha: true, celda: (q) => (
+              <span className="inline-flex gap-2" onClick={(e) => e.stopPropagation()}>
+                <Boton size="sm" variant="secondary" onClick={() => navigator.clipboard.writeText(q.id)} title="Copiar ID" aria-label="Copiar ID" icon={<Copy size={14} />} />
+                <Boton size="sm" variant="secondary" onClick={() => openEditor(q)}>Editar</Boton>
+              </span>
+            ) },
+          ]}
+        />
+      )}
 
-        {/* --- APROBACIÓN EN LOTE --- */}
-        {!loading && visibleCandidates.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-amber-500/5 border border-amber-500/20 rounded-2xl px-6 py-4 animate-in fade-in">
-                <p className="text-sm text-amber-800 dark:text-amber-200/80">
-                    <span className="font-black text-amber-700 dark:text-amber-400">{visibleCandidates.length}</span> preguntas pendientes en esta página.
-                    Los alumnos no las reciben hasta que se publiquen.
-                </p>
-                <button
-                    onClick={handleApproveVisible}
-                    disabled={bulkRunning}
-                    className="shrink-0 min-h-[44px] px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center gap-2 active:scale-95"
-                >
-                    {bulkRunning ? <Loader2 className="animate-spin" size={14}/> : <CheckCircle2 size={14}/>}
-                    Publicar las {visibleCandidates.length}
-                </button>
-            </div>
-        )}
-
-        {/* --- GRID DE PREGUNTAS (Estilo Tarjetas Pro) --- */}
-        {loading ? (
-            <div className="py-32 flex flex-col items-center justify-center gap-4 opacity-50">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 size={24} className="text-indigo-500 animate-pulse"/>
-                    </div>
-                </div>
-                <p className="text-sm font-mono text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Accediendo a la BBDD...</p>
-            </div>
-        ) : (
-            <div className="grid grid-cols-1 gap-6">
-                {questions.map((q) => {
-                    const topicNum = q.subjects?.topic_number || 99;
-                    const style = getTopicStyle(topicNum);
-                    
-                    return (
-                        <div key={q.id} className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/5 transition-all duration-300">
-                            
-                            {/* Header de la Tarjeta */}
-                            <div className="flex justify-between items-start mb-5">
-                                <div className="flex gap-2 items-center">
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider flex items-center gap-2 ${style.bg} ${style.text} ${style.border}`}>
-                                        <BookOpen size={10}/>
-                                        TEMA {topicNum}
-                                    </span>
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${STATUS_STYLE[q.status as QuestionStatus] ?? STATUS_STYLE[QUESTION_STATUS.DISABLED]}`}>
-                                        {QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}
-                                    </span>
-                                    {/* Regla 78: de dónde viene la pregunta — antes no se
-                                        veía, mezclada con el resto de la lista. */}
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-wider ${
-                                        q.academyName
-                                            ? 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300/50 dark:border-slate-700'
-                                    }`}>
-                                        {q.academyName ?? 'Banco global'}
-                                    </span>
-                                    {/* La columna se llama `difficulty_level`, no
-                                        `difficulty`. Con el estado en `any` esto era
-                                        siempre undefined y el distintivo no salio nunca. */}
-                                    {q.difficulty_level === DIFFICULTY.hard && (
-                                        <span className="text-[10px] font-bold bg-red-500/10 text-red-700 dark:text-red-400 px-2 py-1 rounded-full border border-red-500/20 flex items-center gap-1">
-                                            <AlertTriangle size={10}/> DIFÍCIL
-                                        </span>
-                                    )}
-                                </div>
-
-                                {/* Menú de Acciones (Hover) */}
-                                <div className="flex gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all transform lg:translate-x-4 group-hover:translate-x-0">
-                                    <button 
-                                        onClick={() => navigator.clipboard.writeText(q.id)}
-                                        className="w-11 h-11 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-                                        title="Copiar ID"
-                                    >
-                                        <Copy size={16}/>
-                                    </button>
-                                    <button 
-                                        onClick={() => openEditor(q)}
-                                        className="w-11 h-11 flex items-center justify-center bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-500 transition-all"
-                                        title="Editar"
-                                    >
-                                        <Edit size={16}/>
-                                    </button>
-                                    <button 
-                                        onClick={() => handleDisable(q.id)}
-                                        disabled={q.status === QUESTION_STATUS.DISABLED}
-                                        className="w-11 h-11 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:border-red-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-300 dark:disabled:hover:border-slate-700 disabled:hover:text-slate-500 dark:disabled:hover:text-slate-400 rounded-xl transition-colors"
-                                        title="Descartar del banco"
-                                    >
-                                        {isDeleting === q.id ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16}/>}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Contenido */}
-                            <div className="mb-6">
-                                <p className="text-slate-800 dark:text-slate-200 font-bold text-base md:text-lg leading-relaxed selection:bg-indigo-500/30">
-                                    {q.question_text}
-                                </p>
-                            </div>
-
-                            {/* Opciones Grid */}
-                            <div className="grid md:grid-cols-3 gap-3">
-                                {(Array.isArray(q.options) ? q.options : []).map((opt: string, i: number) => {
-                                    const isCorrect = i === q.correct_index;
-                                    return (
-                                        <div key={i} className={`relative p-4 rounded-2xl border transition-all ${
-                                            isCorrect 
-                                            ? 'bg-emerald-500/5 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
-                                            : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
-                                        }`}>
-                                            <div className="flex gap-3 items-start">
-                                                <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold border ${
-                                                    isCorrect ? 'bg-emerald-500 text-slate-900 border-emerald-500' : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
-                                                }`}>
-                                                    {['A','B','C'][i]}
-                                                </span>
-                                                <p className={`text-xs leading-snug ${isCorrect ? 'text-emerald-800 dark:text-emerald-200 font-medium' : ''}`}>
-                                                    {opt}
-                                                </p>
-                                            </div>
-                                            {isCorrect && (
-                                                <div className="absolute top-2 right-2 text-emerald-500">
-                                                    <CheckCircle2 size={14}/>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Explicación (Acordeón sutil) */}
-                            {q.explanation && (
-                                <div className="mt-4 pt-4 border-t border-slate-800/50">
-                                    <p className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest mb-1">
-                                        Retroalimentación Oficial
-                                    </p>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-4xl">
-                                        {q.explanation}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-
-                {questions.length === 0 && (
-                    <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl bg-slate-100/30 dark:bg-slate-900/30">
-                        <Database size={48} className="mx-auto mb-4 text-slate-700"/>
-                        <p className="text-slate-500 dark:text-slate-400 font-bold">No hay preguntas que coincidan.</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Prueba a generar más en la pestaña “Temario”.</p>
-                    </div>
-                )}
-            </div>
-        )}
-
-        {/* --- PAGINACIÓN MODERNA --- */}
-        {stats.totalPages > 1 && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-300 dark:border-slate-700 p-2 rounded-2xl shadow-2xl flex items-center gap-2 z-40">
-                <button 
-                    disabled={stats.page === 1}
-                    onClick={() => { loadQuestions(stats.page - 1); window.scrollTo({top:0, behavior:'smooth'}); }}
-                    className="p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-colors text-slate-900 dark:text-white"
-                >
-                    <ChevronLeft size={18}/>
-                </button>
-                
-                <span className="px-4 font-mono text-sm text-indigo-700 dark:text-indigo-400 font-bold">
-                    {stats.page} <span className="text-slate-500 dark:text-slate-400">/</span> {stats.totalPages}
-                </span>
-                
-                <button 
-                    disabled={stats.page === stats.totalPages}
-                    onClick={() => { loadQuestions(stats.page + 1); window.scrollTo({top:0, behavior:'smooth'}); }}
-                    className="p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl disabled:opacity-30 transition-colors text-slate-900 dark:text-white"
-                >
-                    <ChevronRight size={18}/>
-                </button>
-            </div>
-        )}
-
-        {/* --- VACIAR EL BANCO ---
-
-            AL FINAL, Y APARTE. Estaba pegado a "Nueva", del mismo tamaño y con
-            la misma forma: en un movil, doce pixeles separaban el boton de
-            CREAR una pregunta del que DESCARTA TODAS. Es la regla 26 del
-            proyecto —una accion irreversible no comparte sitio, color ni
-            tamaño con la que se repite— y es la accion mas destructiva de la
-            plataforma.
-
-            Sigue estando a un toque de distancia, con su confirmacion escrita
-            ("BORRAR"), pero al final de la pantalla y en la zona de peligro:
-            donde no se llega sin querer. */}
-        <div className="mt-10 pt-6 border-t border-dashed border-red-500/20">
-            <p className="text-[10px] font-black uppercase tracking-widest text-red-700 dark:text-red-400 mb-2">Zona de peligro</p>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1 leading-snug">
-                    Descarta <strong className="text-slate-500 dark:text-slate-400">todas</strong> las preguntas del banco, sin
-                    importar el filtro. Dejan de servirse a los alumnos; no se borran de la base de datos.
-                </p>
-                <button
-                    onClick={handleDiscardAll}
-                    disabled={clearingAll}
-                    title={esSuperadmin
-                      ? 'Descarta TODAS las preguntas del banco global, sin importar el filtro'
-                      : 'Descarta TODAS las preguntas de tu banco privado, sin importar el filtro (el banco global no se toca)'}
-                    className="shrink-0 min-h-[44px] px-5 bg-transparent hover:bg-red-600 border border-red-500/30 hover:border-red-500 disabled:opacity-40 text-red-700 dark:text-red-400 hover:text-white rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
-                >
-                    {clearingAll ? <Loader2 className="animate-spin" size={16}/> : <Trash2 size={16} strokeWidth={3}/>}
-                    Vaciar banco
-                </button>
-            </div>
+      {/* --- PAGINACIÓN --- */}
+      {stats.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Boton variant="secondary" size="sm" icon={<ChevronLeft size={16} />} disabled={stats.page === 1}
+            onClick={() => { loadQuestions(stats.page - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Anterior</Boton>
+          <span className="font-mono text-sm tabular-nums text-slate-700 dark:text-slate-300">{stats.page} / {stats.totalPages}</span>
+          <Boton variant="secondary" size="sm" iconRight={<ChevronRight size={16} />} disabled={stats.page === stats.totalPages}
+            onClick={() => { loadQuestions(stats.page + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Siguiente</Boton>
         </div>
+      )}
 
-        {/* --- ALTA MANUAL / IMPORTACIÓN (P2) --- */}
-        {componiendo && (
-            <QuestionComposer
-                subjects={subjects}
-                onClose={() => setComponiendo(false)}
-                // Se recarga la pagina actual para que lo recien publicado
-                // aparezca en la lista sin cerrar el panel.
-                onCreated={() => loadQuestions(stats.page)}
-            />
-        )}
+      {/* --- VACIAR EL BANCO ---
 
-        {/* --- EDITOR DE UNA PREGUNTA --- */}
-        {/* Estaba escrito a mano, con `max-h-[95vh]`: en un móvil el pie —donde
-            está "Guardar cambios"— se salía de la pantalla nada más abrirlo,
-            porque `vh` no descuenta la barra de direcciones. El primitivo usa
-            `dvh`, deja fijos cabecera y pie, y en móvil se apoya abajo. */}
-        {editingQ && (
-            <Modal
-                title="Editar pregunta"
-                subtitle={`ID ${editingQ.id.substring(0, 8)}`}
-                onClose={() => setEditingQ(null)}
-                footer={
-                    <>
-                        <Button variant="ghost" onClick={() => setEditingQ(null)}>Descartar</Button>
-                        <Button
-                            onClick={handleSaveEdit}
-                            disabled={saving}
-                            icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                        >
-                            {saving ? 'Guardando…' : 'Guardar cambios'}
-                        </Button>
-                    </>
-                }
-            >
-                <div className="space-y-5">
-                    <TextAreaField
-                        label="Enunciado"
-                        rows={4}
-                        value={editForm.question_text}
-                        onChange={e => setEditForm({ ...editForm, question_text: e.target.value })}
-                    />
+          AL FINAL, Y APARTE, Y PLEGADO. Estaba pegado a "Nueva", del mismo
+          tamaño y con la misma forma: en un móvil, doce píxeles separaban el
+          botón de CREAR una pregunta del que DESCARTA TODAS. Es la regla 26 del
+          proyecto —una acción irreversible no comparte sitio, color ni tamaño
+          con la que se repite— y es la acción más destructiva de la plataforma.
 
-                    <div>
-                        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">
-                            Opciones · marca la válida
-                        </p>
-                        <div className="space-y-2">
-                            {editForm.options.map((opt, i) => (
-                                <div
-                                    key={i}
-                                    className={`flex items-center gap-2 p-2 rounded-2xl border transition-all ${
-                                        i === editForm.correct_index
-                                            ? 'bg-emerald-500/5 border-emerald-500/40'
-                                            : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
-                                    }`}
-                                >
-                                    <button
-                                        onClick={() => setEditForm({ ...editForm, correct_index: i })}
-                                        aria-label={`Marcar la opción ${['A', 'B', 'C'][i]} como correcta`}
-                                        className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center font-black text-sm transition-all ${
-                                            i === editForm.correct_index
-                                                ? 'bg-emerald-500 text-slate-900'
-                                                : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
-                                        }`}
-                                    >
-                                        {['A', 'B', 'C'][i]}
-                                    </button>
-                                    <input
-                                        className="flex-1 min-w-0 bg-transparent border-b border-transparent focus:border-indigo-500/50 px-2 py-3 text-base sm:text-sm text-slate-900 dark:text-white outline-none transition-colors"
-                                        value={opt}
-                                        onChange={(e) => {
-                                            const newOpts = [...editForm.options];
-                                            newOpts[i] = e.target.value;
-                                            setEditForm({ ...editForm, options: newOpts });
-                                        }}
-                                    />
-                                    {i === editForm.correct_index && (
-                                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mr-1" />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+          Sigue estando a un toque de distancia, con su confirmación escrita
+          («BORRAR»), pero al final de la pantalla y en la zona de peligro:
+          donde no se llega sin querer. */}
+      <details className="rounded-lg border border-red-300 bg-red-50/60 p-4 dark:border-red-500/40 dark:bg-red-500/5">
+        <summary className="flex min-h-[44px] cursor-pointer items-center text-sm font-semibold text-red-700 dark:text-red-300">Zona de peligro</summary>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <p className="flex-1 text-[13px] leading-relaxed text-slate-700 dark:text-slate-300">
+            Descarta <strong>todas</strong> las preguntas del banco, sin importar el filtro. Dejan de servirse a los alumnos; no se borran de la base de datos.
+            No se puede deshacer desde este panel.
+          </p>
+          <Boton
+            variant="danger"
+            onClick={handleDiscardAll}
+            disabled={clearingAll}
+            title={esSuperadmin
+              ? 'Descarta TODAS las preguntas del banco global, sin importar el filtro'
+              : 'Descarta TODAS las preguntas de tu banco privado, sin importar el filtro (el banco global no se toca)'}
+            icon={clearingAll ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+          >
+            Vaciar banco
+          </Boton>
+        </div>
+      </details>
 
-                    <TextAreaField
-                        label="Justificación"
-                        rows={3}
-                        value={editForm.explanation}
-                        onChange={e => setEditForm({ ...editForm, explanation: e.target.value })}
-                    />
-                </div>
-            </Modal>
-        )}
+      {/* --- ALTA MANUAL / IMPORTACIÓN (P2) --- */}
+      {componiendo && (
+        <QuestionComposer
+          subjects={subjects}
+          onClose={() => setComponiendo(false)}
+          // Se recarga la página actual para que lo recién publicado aparezca
+          // en la lista sin cerrar el panel.
+          onCreated={() => loadQuestions(stats.page)}
+        />
+      )}
+
+      {/* --- EDITOR DE UNA PREGUNTA: un panel lateral, no un diálogo ---
+          «Descartar del banco» vive aquí y no en cada fila: estaba a un toque
+          de «Editar», y descartar es lo único que no se deshace desde el panel. */}
+      {editingQ && (
+        <PanelLateral titulo="Editar pregunta" sub={`ID ${editingQ.id.substring(0, 8)}`} onCerrar={() => setEditingQ(null)}>
+          <EditorPregunta form={editForm} onChange={setEditForm} />
+          <div className="flex flex-wrap gap-2">
+            <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </Boton>
+            <Boton variant="ghost" onClick={() => setEditingQ(null)}>Cerrar</Boton>
+          </div>
+          <div className="border-t border-linea pt-4 dark:border-noche-linea">
+            <Boton variant="danger" disabled={editingQ.status === QUESTION_STATUS.DISABLED || isDeleting === editingQ.id} onClick={() => handleDisable(editingQ.id)}
+              icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}>
+              Descartar del banco
+            </Boton>
+            <p className={`${TEXT.muted} mt-2`}>Deja de aparecer en los exámenes. No se borra: queda marcada como descartada.</p>
+          </div>
+        </PanelLateral>
+      )}
     </div>
   );
 }

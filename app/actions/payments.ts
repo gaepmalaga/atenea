@@ -23,6 +23,12 @@ import {
   tiposDePack,
   nombreDePack,
   centimos,
+  leeCobro,
+  cobradoSegunLibro,
+  filaSegunLibro,
+  esMetodo,
+  type Cobro,
+  type CobroBD,
   type Cuota,
   type Tarifa,
   type FilaPagoBD,
@@ -90,6 +96,8 @@ export type PagosVista = {
   avisos: { sinPrecio: { tipo: string; alumnos: number }[]; sinGrupos: string[]; tarifaVacia: boolean };
   /** La cuota de hoy de cada alumno activo (para cambiarle la suya). */
   cuotas: AlumnoCuota[];
+  /** El libro: cada cobro con su recibo, del rango que se mira (anulados incluidos). */
+  cobros: Cobro[];
 };
 
 /** El tipo de grupo y los packs de la academia → la tarifa. */
@@ -172,16 +180,22 @@ async function cargaPersonas(organizationId: string): Promise<{ personas: Person
 const cuotaDe = (p: PersonaCuota, tarifa: Tarifa) =>
   cuotaDeAlumno({ tipos: p.tipos, tarifa, propia: p.propia, exento: p.exento });
 
-/** `true` si el alumno es de la academia: lo que llega de un parámetro no se cree (regla 1). */
-async function esDeLaAcademia(organizationId: string, userId: string): Promise<boolean> {
-  if (!/^[0-9a-f-]{36}$/i.test(userId)) return false;
+/**
+ * El alumno que llega de un parámetro, si es de la academia (regla 1): su
+ * correo, o `null`. Primero se mira que sea miembro de ESTA academia; solo
+ * entonces se lee su perfil.
+ */
+async function alumnoDeLaAcademia(organizationId: string, userId: string): Promise<{ email: string | null } | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) return null;
   const { data, error } = await supabaseAdmin
     .from('academy_members')
     .select('user_id')
     .eq('academy_id', organizationId)
     .eq('user_id', userId)
     .maybeSingle();
-  return !error && !!data;
+  if (error || !data) return null;
+  const { data: perfil } = await supabaseAdmin.from('profiles').select('email').eq('id', userId).maybeSingle();
+  return { email: (perfil?.email as string | undefined) ?? null };
 }
 
 /** La cuota de HOY de un alumno, para congelarla al cobrar un mes que aún no la tenía. */
@@ -298,7 +312,23 @@ export async function getPagos(
     console.error('getPagos:', filasRes.error);
     return { success: false as const, error: filasRes.error };
   }
-  const filas = filasRes.data;
+  // EL LIBRO DE COBROS manda sobre el resumen guardado en la fila (regla 104):
+  // los cobros con fecha o mes en el rango, para la ficha, la caja y lo cobrado.
+  const cobrosRes = await paginaCompleta<CobroBD>(async (d, h) => await
+    supabaseAdmin
+      .from('payment_entries')
+      .select('id, user_id, alumno, period, amount_eur, method, receipt_no, paid_on, voided_at')
+      .eq('organization_id', organizationId)
+      .or(`period.gte.${desde},paid_on.gte.${desde}-01`)
+      .order('receipt_no')
+      .range(d, h));
+  if (cobrosRes.error) {
+    console.error('getPagos (cobros):', cobrosRes.error);
+    return { success: false as const, error: cobrosRes.error };
+  }
+  const cobros = cobrosRes.data.map(leeCobro).filter((c): c is Cobro => c !== null);
+  const segunLibro = cobradoSegunLibro(cobros);
+  const filas = filasRes.data.map((f) => filaSegunLibro(f, segunLibro.get(`${f.user_id} ${f.period}`)));
   const persona = new Map(personas.map((x) => [x.userId, x]));
 
   // EL MES QUE SE MIRA: quien tiene fila en él; y, si es el siguiente, la
@@ -348,6 +378,7 @@ export async function getPagos(
       cuotas: roster
         .map((r) => ({ userId: r.userId, email: r.email, cuota: cuotaPorId.get(r.userId)!, notaPropia: r.notaPropia, grupos: grupos.get(r.userId) ?? [] }))
         .sort((a, b) => (a.email ?? '').localeCompare(b.email ?? '', 'es')),
+      cobros,
     },
   };
 }
@@ -360,12 +391,53 @@ function periodoValido(v: unknown): string | null {
 const hoyEnZona = () => ahoraEnZona(Date.now()).fecha;
 
 /**
+ * La fila del mes de un alumno, que tiene que existir antes de cobrar o de
+ * cambiarle la cuota (`registra_cobro` bloquea esa fila). Si no sabía lo que
+ * debía, se congela con la cuota de hoy. Devuelve lo que debía.
+ */
+async function aseguraFilaMes(organizationId: string, studentId: string, period: string): Promise<{ debido: number | null; error: string | null }> {
+  const { data: fila, error } = await supabaseAdmin
+    .from('monthly_payments')
+    .select('due_eur, due_manual')
+    .eq('organization_id', organizationId)
+    .eq('user_id', studentId)
+    .eq('period', period)
+    .maybeSingle();
+  if (error) return { debido: null, error: error.message };
+  if (fila && (fila.due_eur !== null || fila.due_manual === true)) return { debido: numONull(fila.due_eur), error: null };
+  const debido = await cuotaDeHoy(organizationId, studentId);
+  const { error: e } = fila
+    ? await supabaseAdmin.from('monthly_payments').update({ due_eur: debido, updated_at: new Date().toISOString() })
+        .eq('organization_id', organizationId).eq('user_id', studentId).eq('period', period)
+    : await supabaseAdmin.from('monthly_payments').upsert(
+        { organization_id: organizationId, user_id: studentId, period, paid: false, due_eur: debido, due_manual: false, updated_at: new Date().toISOString() },
+        { onConflict: 'organization_id,user_id,period', ignoreDuplicates: true },
+      );
+  return { debido, error: e?.message ?? null };
+}
+
+/** Lo cobrado de un mes según el libro: la suma de sus cobros no anulados. */
+async function cobradoDelMes(organizationId: string, studentId: string, period: string): Promise<{ cobrado: number; error: string | null }> {
+  const { data, error } = await supabaseAdmin
+    .from('payment_entries')
+    .select('amount_eur')
+    .eq('organization_id', organizationId)
+    .eq('user_id', studentId)
+    .eq('period', period)
+    .is('voided_at', null);
+  if (error) return { cobrado: 0, error: error.message };
+  return { cobrado: centimos((data ?? []).reduce((s, c) => s + (numONull(c.amount_eur) ?? 0), 0)), error: null };
+}
+
+/**
  * Cobrar. Sin cantidad, lo que falta de ese mes (el botón de un toque); con
- * cantidad, se SUMA a lo cobrado: un pago a medias, o lo que faltaba de él.
+ * cantidad, un cobro de esa cantidad: un pago a medias, o lo que faltaba de
+ * él. Cada cobro es un apunte del libro con su número de recibo, su método y
+ * su fecha; el número lo da la base de datos (`registra_cobro`), atómico.
  */
 export async function registraCobro(
   input: unknown,
-): Promise<{ success: true; cobrado: number; estado: EstadoPago } | { success: false; error: string }> {
+): Promise<{ success: true; cobrado: number; estado: EstadoPago; recibo: number } | { success: false; error: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   if (!auth.user.organizationId) return { success: false as const, error: 'No hay una academia seleccionada.' };
@@ -377,46 +449,43 @@ export async function registraCobro(
   if (!studentId || !period) return { success: false as const, error: 'Falta el alumno o el mes.' };
   const cantidad = leeImporte(raw.cantidad);
   if (!cantidad.ok) return { success: false as const, error: cantidad.error };
-  if (!(await esDeLaAcademia(organizationId, studentId))) return { success: false as const, error: 'Ese alumno no es de la academia.' };
+  const metodo = raw.metodo === undefined || raw.metodo === null ? 'efectivo' : raw.metodo;
+  if (!esMetodo(metodo)) return { success: false as const, error: 'Ese método de pago no existe.' };
+  const alumno = await alumnoDeLaAcademia(organizationId, studentId);
+  if (!alumno) return { success: false as const, error: 'Ese alumno no es de la academia.' };
 
-  const { data: fila, error: filaErr } = await supabaseAdmin
-    .from('monthly_payments')
-    .select('paid, amount_eur, due_eur, due_manual')
-    .eq('organization_id', organizationId)
-    .eq('user_id', studentId)
-    .eq('period', period)
-    .maybeSingle();
-  if (filaErr) return { success: false as const, error: filaErr.message };
-
-  // Si el mes aún no sabía lo que debía, se congela con la cuota de hoy.
-  const debido = fila && (fila.due_eur !== null || fila.due_manual === true)
-    ? numONull(fila.due_eur)
-    : await cuotaDeHoy(organizationId, studentId);
-  const antes = leeApunte(fila ? { ...fila, due_eur: debido } : null, debido);
-  const r = aplicaCobro({ debido, cobrado: antes.cobrado }, cantidad.valor);
+  const fila = await aseguraFilaMes(organizationId, studentId, period);
+  if (fila.error) return { success: false as const, error: fila.error };
+  const antes = await cobradoDelMes(organizationId, studentId, period);
+  if (antes.error) return { success: false as const, error: antes.error };
+  const r = aplicaCobro({ debido: fila.debido, cobrado: antes.cobrado }, cantidad.valor);
   if (!r.ok) return { success: false as const, error: r.error };
+  const importe = centimos(r.cobrado - antes.cobrado);
 
-  const { error } = await supabaseAdmin.from('monthly_payments').upsert(
-    {
-      organization_id: organizationId,
-      user_id: studentId,
-      period,
-      due_eur: debido,
-      due_manual: fila?.due_manual === true,
-      amount_eur: r.cobrado,
-      paid: alDia(r.estado),
-      paid_on: hoyEnZona(),
-      recorded_by: auth.user.id,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'organization_id,user_id,period' },
-  );
-  if (error) return { success: false as const, error: error.message };
-  registraAccion({ actorId: auth.user.id, action: 'registra_cobro', target: studentId, detail: { period, cantidad: cantidad.valor, cobrado: r.cobrado }, organizationId });
-  return { success: true as const, cobrado: r.cobrado, estado: r.estado };
+  const { data, error } = await supabaseAdmin.rpc('registra_cobro', {
+    p_org: organizationId,
+    p_user: studentId,
+    p_alumno: alumno.email || studentId,
+    p_period: period,
+    p_amount: importe,
+    p_method: metodo,
+    p_paid_on: hoyEnZona(),
+    p_by: auth.user.id,
+  });
+  if (error) {
+    console.error('registraCobro:', error.message);
+    return { success: false as const, error: error.message };
+  }
+  const recibo = numONull((Array.isArray(data) ? data[0] : data)?.receipt) ?? 0;
+  registraAccion({ actorId: auth.user.id, action: 'registra_cobro', target: studentId, detail: { period, importe, metodo, recibo }, organizationId });
+  return { success: true as const, cobrado: r.cobrado, estado: r.estado, recibo };
 }
 
-/** Deshacer lo cobrado de un mes: vuelve a «no ha pagado nada», con la misma cuota. */
+/**
+ * Anular un cobro (`cobroId`) o todos los de un mes. No se borra nada: el
+ * cobro queda ANULADO con su número de recibo, como en un talonario, y el mes
+ * vuelve a deber lo que falte.
+ */
 export async function anulaCobro(input: unknown) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
@@ -427,25 +496,19 @@ export async function anulaCobro(input: unknown) {
   const studentId = typeof raw.studentId === 'string' ? raw.studentId : '';
   const period = periodoValido(raw.period);
   if (!studentId || !period) return { success: false as const, error: 'Falta el alumno o el mes.' };
+  const cobroId = typeof raw.cobroId === 'string' && /^[0-9a-f-]{36}$/i.test(raw.cobroId) ? raw.cobroId : null;
 
-  const { data: fila, error: filaErr } = await supabaseAdmin
-    .from('monthly_payments')
-    .select('due_eur')
-    .eq('organization_id', organizationId)
-    .eq('user_id', studentId)
-    .eq('period', period)
-    .maybeSingle();
-  if (filaErr) return { success: false as const, error: filaErr.message };
-  if (!fila) return { success: false as const, error: 'Ese mes no tiene nada cobrado.' };
-
-  const { error } = await supabaseAdmin
-    .from('monthly_payments')
-    .update({ amount_eur: null, paid: alDia(estadoDe(numONull(fila.due_eur), 0)), paid_on: null, recorded_by: auth.user.id, updated_at: new Date().toISOString() })
-    .eq('organization_id', organizationId)
-    .eq('user_id', studentId)
-    .eq('period', period);
+  const { data, error } = await supabaseAdmin.rpc('anula_cobros', {
+    p_org: organizationId,
+    p_user: studentId,
+    p_period: period,
+    p_entry: cobroId,
+    p_by: auth.user.id,
+  });
   if (error) return { success: false as const, error: error.message };
-  registraAccion({ actorId: auth.user.id, action: 'anula_cobro', target: studentId, detail: { period }, organizationId });
+  const anulados = numONull(data) ?? 0;
+  if (!anulados) return { success: false as const, error: 'No había nada cobrado que anular.' };
+  registraAccion({ actorId: auth.user.id, action: 'anula_cobro', target: studentId, detail: { period, cobroId, anulados }, organizationId });
   return { success: true as const };
 }
 
@@ -466,20 +529,10 @@ export async function setCuotaMes(input: unknown) {
   const cuota = leeImporte(raw.cuota);
   if (!cuota.ok) return { success: false as const, error: cuota.error };
   const nota = typeof raw.nota === 'string' ? raw.nota.replace(/\0/g, '').trim().slice(0, 200) || null : null;
-  if (!(await esDeLaAcademia(organizationId, studentId))) return { success: false as const, error: 'Ese alumno no es de la academia.' };
-
-  const { data: fila, error: filaErr } = await supabaseAdmin
-    .from('monthly_payments')
-    .select('paid, amount_eur, due_eur')
-    .eq('organization_id', organizationId)
-    .eq('user_id', studentId)
-    .eq('period', period)
-    .maybeSingle();
-  if (filaErr) return { success: false as const, error: filaErr.message };
+  if (!(await alumnoDeLaAcademia(organizationId, studentId))) return { success: false as const, error: 'Ese alumno no es de la academia.' };
 
   const manual = cuota.valor !== null;
   const debido = manual ? cuota.valor : await cuotaDeHoy(organizationId, studentId);
-  const cobrado = leeApunte(fila ?? null).cobrado;
 
   const { error } = await supabaseAdmin.from('monthly_payments').upsert(
     {
@@ -488,7 +541,6 @@ export async function setCuotaMes(input: unknown) {
       period,
       due_eur: debido,
       due_manual: manual,
-      paid: alDia(estadoDe(debido, cobrado)),
       note: manual ? nota : null,
       recorded_by: auth.user.id,
       updated_at: new Date().toISOString(),
@@ -496,6 +548,9 @@ export async function setCuotaMes(input: unknown) {
     { onConflict: 'organization_id,user_id,period' },
   );
   if (error) return { success: false as const, error: error.message };
+  // `paid` depende de la cuota nueva y de lo cobrado: la cuenta, en la base de datos.
+  const { error: e } = await supabaseAdmin.rpc('recalcula_mes', { p_org: organizationId, p_user: studentId, p_period: period });
+  if (e) return { success: false as const, error: e.message };
   registraAccion({ actorId: auth.user.id, action: 'set_cuota_mes', target: studentId, detail: { period, cuota: debido, manual }, organizationId });
   return { success: true as const };
 }

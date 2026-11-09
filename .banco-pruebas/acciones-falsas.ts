@@ -10,7 +10,7 @@
 import { mapBankRowToQuestion } from '../app/lib/questions';
 import {
   cuotaDeAlumno, resumeCuotasMes, resumeHistoricoCuotas, leeApunte, aplicaCobro, leeImporte, nombreDePack,
-  periodoEnZona, sumaMeses, mesesHasta, esPeriodo, type Tarifa, type FilaPagoBD,
+  periodoEnZona, sumaMeses, mesesHasta, esPeriodo, filaSegunLibro, esMetodo, type Tarifa, type FilaPagoBD, type Cobro,
 } from '../app/lib/cuotas';
 
 const ok = <T,>(extra: T) => ({ success: true as const, ...extra });
@@ -713,6 +713,11 @@ export async function getGroups() {
     groups: [
       { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'Aula 2', horario: { weekdays: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '11:00', capacity: 20 }, staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, esMulti: false },
       { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: null, startTime: null, endTime: null, capacity: null }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, esMulti: false },
+      // Dos grupos a la MISMA hora, como Alpha y Kappa en Alphapol: el cuadrante
+      // tiene que enseñar los dos, uno al lado del otro.
+      { id: 'g3', name: 'Promo 44 · Alpha', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: [1, 3], startTime: '08:00', endTime: '09:00', capacity: 30 }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2', 'u4'], miembros: 2, llevaPlan: true, esMulti: false },
+      { id: 'g4', name: 'Promo 44 · Kappa', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: [1, 3], startTime: '08:00', endTime: '09:00', capacity: 30 }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u7'], miembros: 1, llevaPlan: true, esMulti: false },
+      { id: 'g5', name: 'Promo 44 · Zetta', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: [1, 3], startTime: '20:00', endTime: '21:00', capacity: 30 }, staffIds: [], staffNames: [], memberIds: ['u10'], miembros: 1, llevaPlan: true, esMulti: false },
     ],
   });
 }
@@ -840,6 +845,25 @@ const FILAS_BANCO: FilaPagoBD[] = (() => {
 
 const filaBanco = (userId: string, period: string) => FILAS_BANCO.find((f) => f.user_id === userId && f.period === period);
 
+/** El libro de cobros del banco: un cobro por cada mes pagado (Lucía, en dos veces). */
+let reciboBanco = 0;
+const METODOS_BANCO = ['efectivo', 'efectivo', 'bizum', 'efectivo', 'transferencia'] as const;
+const COBROS_BANCO: Cobro[] = FILAS_BANCO
+  .filter((f) => (f.amount_eur ?? 0) !== 0 && f.amount_eur !== null)
+  .sort((a, b) => String(a.paid_on).localeCompare(String(b.paid_on)))
+  .map((f) => ({
+    id: `cb${++reciboBanco}`, userId: f.user_id as string, alumno: ALUMNOS_BANCO.find((a) => a.id === f.user_id)?.email ?? '',
+    periodo: f.period as string, importe: Number(f.amount_eur), metodo: METODOS_BANCO[reciboBanco % METODOS_BANCO.length],
+    recibo: reciboBanco, fecha: f.paid_on as string, anulado: false,
+  }));
+const recalculaBanco = (userId: string, period: string) => {
+  const f = filaBanco(userId, period);
+  if (!f) return;
+  const total = COBROS_BANCO.filter((c) => c.userId === userId && c.periodo === period && !c.anulado).reduce((s, c) => s + c.importe, 0);
+  Object.assign(f, filaSegunLibro(f, total));
+  f.paid_on = total > 0 ? COBROS_BANCO.filter((c) => c.userId === userId && c.periodo === period && !c.anulado).map((c) => c.fecha).sort().at(-1) : null;
+};
+
 export async function getPagos(periodo?: string) {
   const actual = periodoEnZona();
   const siguiente = sumaMeses(actual, 1);
@@ -867,11 +891,12 @@ export async function getPagos(periodo?: string) {
         tarifaVacia: false,
       },
       cuotas: roster.map((r) => ({ userId: r.id, email: r.email, cuota: cuotaPorId.get(r.id)!, notaPropia: r.notaPropia, grupos: r.grupos })),
+      cobros: [...COBROS_BANCO],
     },
   });
 }
 
-export async function registraCobro(input: { studentId: string; period: string; cantidad?: string | null }) {
+export async function registraCobro(input: { studentId: string; period: string; cantidad?: string | null; metodo?: string }) {
   const lectura = leeImporte(input.cantidad ?? null);
   if (!lectura.ok) return { success: false as const, error: lectura.error };
   let f = filaBanco(input.studentId, input.period);
@@ -883,14 +908,20 @@ export async function registraCobro(input: { studentId: string; period: string; 
   const antes = leeApunte(f);
   const r = aplicaCobro({ debido: antes.debido, cobrado: antes.cobrado }, lectura.valor);
   if (!r.ok) return { success: false as const, error: r.error };
-  f.amount_eur = r.cobrado;
-  f.paid = r.estado === 'pagado' || r.estado === 'no_paga';
-  f.paid_on = new Date().toISOString().slice(0, 10);
-  return { success: true as const, cobrado: r.cobrado, estado: r.estado };
+  const recibo = ++reciboBanco;
+  COBROS_BANCO.push({
+    id: `cb${recibo}`, userId: input.studentId, alumno: ALUMNOS_BANCO.find((a) => a.id === input.studentId)?.email ?? '',
+    periodo: input.period, importe: r.cobrado - antes.cobrado, metodo: esMetodo(input.metodo) ? input.metodo : 'efectivo',
+    recibo, fecha: new Date().toISOString().slice(0, 10), anulado: false,
+  });
+  recalculaBanco(input.studentId, input.period);
+  return { success: true as const, cobrado: r.cobrado, estado: r.estado, recibo };
 }
-export async function anulaCobro(input: { studentId: string; period: string }) {
-  const f = filaBanco(input.studentId, input.period);
-  if (f) { f.amount_eur = null; f.paid = leeApunte({ due_eur: f.due_eur }).estado === 'no_paga'; f.paid_on = null; }
+export async function anulaCobro(input: { studentId: string; period: string; cobroId?: string }) {
+  for (const c of COBROS_BANCO) {
+    if (c.userId === input.studentId && c.periodo === input.period && !c.anulado && (!input.cobroId || c.id === input.cobroId)) c.anulado = true;
+  }
+  recalculaBanco(input.studentId, input.period);
   return { success: true as const };
 }
 export async function setCuotaMes(input: { studentId: string; period: string; cuota: string | null; nota: string | null }) {
@@ -902,8 +933,7 @@ export async function setCuotaMes(input: { studentId: string; period: string; cu
   f.due_eur = lectura.valor ?? (a ? cuotaBanco(a).importe : null);
   f.due_manual = lectura.valor !== null;
   f.note = lectura.valor !== null ? input.nota : null;
-  const e = leeApunte(f).estado;
-  f.paid = e === 'pagado' || e === 'no_paga';
+  recalculaBanco(input.studentId, input.period);
   return { success: true as const };
 }
 export async function setCuotaPropia(input: { studentId: string; cuota: string | null; nota: string | null }) {

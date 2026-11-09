@@ -114,3 +114,57 @@ export function planEfectivo(
   if (grupo) return { plan: grupo, origen: 'grupo' };
   return { plan: null, origen: 'ninguno' };
 }
+
+// ============================================================
+// EL CUADRANTE DE GRUPOS: CARRILES Y TRAMOS
+// ============================================================
+
+/**
+ * Las clases de un día que se pisan van en CARRILES, una al lado de otra.
+ * En Alphapol, Alpha y Kappa son las dos de 8 a 9 los lunes: pintadas en la
+ * misma columna, una tapaba a la otra y en el cuadrante solo había una.
+ * `carriles` es cuántos hay en su bloque de clases solapadas.
+ */
+export function enCarriles<T extends { ini: number; fin: number }>(xs: T[]): (T & { carril: number; carriles: number })[] {
+  const orden = [...xs].sort((a, b) => a.ini - b.ini || a.fin - b.fin);
+  const out: (T & { carril: number; carriles: number })[] = [];
+  let bloque: (T & { carril: number; carriles: number })[] = [];
+  let finBloque = -Infinity;
+  const cierra = () => {
+    const n = Math.max(1, ...bloque.map((b) => b.carril + 1));
+    for (const b of bloque) b.carriles = n;
+    out.push(...bloque);
+    bloque = [];
+    finBloque = -Infinity;
+  };
+  for (const x of orden) {
+    if (bloque.length && x.ini >= finBloque) cierra();
+    const finCarril: number[] = [];
+    for (const b of bloque) finCarril[b.carril] = Math.max(finCarril[b.carril] ?? -Infinity, b.fin);
+    let carril = finCarril.findIndex((f) => f <= x.ini);
+    if (carril < 0) carril = finCarril.length;
+    bloque.push({ ...x, carril, carriles: 1 });
+    finBloque = Math.max(finBloque, x.fin);
+  }
+  if (bloque.length) cierra();
+  return out;
+}
+
+/**
+ * Las horas que se pintan: los tramos con alguna clase, en horas enteras. Lo
+ * que queda entre dos tramos (de 9 a 20 en Alphapol) no se pinta hora a hora:
+ * es un salto. Así el cuadrante no es un pasillo de 13 horas vacías.
+ */
+export function tramosDeHoras(clases: { ini: number; fin: number }[]): { desde: number; hasta: number }[] {
+  const xs = clases
+    .map((c) => ({ desde: Math.floor(c.ini), hasta: Math.ceil(c.fin) }))
+    .sort((a, b) => a.desde - b.desde);
+  const out: { desde: number; hasta: number }[] = [];
+  for (const x of xs) {
+    const ultimo = out[out.length - 1];
+    // Un hueco de una hora o menos no merece un salto.
+    if (ultimo && x.desde <= ultimo.hasta + 1) ultimo.hasta = Math.max(ultimo.hasta, x.hasta);
+    else out.push({ ...x });
+  }
+  return out;
+}

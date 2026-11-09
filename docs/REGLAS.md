@@ -3965,22 +3965,6 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   lo da Morato»; un cuadrante de teoría (qué tema se da cada día y con quién)
   con el mismo relleno automático del profesor.
 
-### 101 · Lo que no se toca a diario no ocupa la pantalla
-
-- **Qué pasó (9 nov):** el dueño pidió quitar de «Alumnos» el interruptor del
-  control de acceso y la lista de correos exentos de pago, y de «Prep. física»
-  el interruptor de la física con preparador. Son decisiones que se toman una
-  vez y se quedaban ahí, cada día, ocupando lo primero de la pantalla.
-- **Regla:** se quitan de la VISTA, no del funcionamiento. El control de
-  acceso sigue encendido (quien se registra solo espera a que se le dé acceso),
-  los alumnos exentos siguen exentos y la física sigue encendida. Las acciones
-  (`setMembershipRequired`, `addExemptEmail`…) siguen existiendo.
-  - Se queda, suelto, el aviso «Hay N sin activar · Activar a todos»: solo sale
-    cuando hay alguien esperando, y sin él no habría forma de dar acceso de
-    golpe.
-  - Si la física estuviera apagada, el aviso que sale en su lugar trae su
-    botón «Encender»: quitar el interruptor no puede dejar sin salida.
-
 ---
 
 ## Los tests
@@ -4090,3 +4074,99 @@ propósito** y viendo que el test lo señala. Un guardián que no muerde no sirv
 join). Para eso está `npm run smoke`, que inserta una fila de verdad por cada camino de
 escritura y la borra. Los dos se complementan: el primero corre en CI sin credenciales,
 el segundo necesita el proyecto real.
+
+### 101 · El panel de administración tiene una sola forma, y vive en `ui/panel`
+
+- **Qué pasó (9 nov):** los dueños y los profesores de Alphapol vieron el
+  panel y dijeron que parecía «pura IA»: tarjetas de 24-32 px de radio, títulos
+  en `font-black` diminutos, un icono de un color distinto por pestaña, cuatro
+  cajas iguales de cifras en cada pantalla. Era la parte del alumno trasladada
+  sin criterio.
+- **Qué se hizo:** una forma para todo el panel, en
+  `app/components/ui/panel/` (la exporta `ui/index.ts`):
+  - **La cáscara** (`PanelShell`): barra lateral marino en escritorio, con las
+    pantallas agrupadas (Día a día / Contenido / Sistema); en móvil, una barra
+    superior con el menú completo y una inferior con las cuatro de cada día.
+    La barra es lo único que no sigue el tema (regla 45).
+  - **Las piezas:** `PanelTitulo`, `Pulso` (la franja de cifras, con filetes,
+    en lugar de cuatro cajas), `Etiqueta`/`Estado`/`Dato`, `Avatar`,
+    `Filtros`/`FiltroChip` (con su contador), `Pestanas`, `Boton`, `Campo*`,
+    `Conmutador`, `Hoja`, `Barras`, `PanelLateral`, y **`TablaDual`**: una
+    tabla en escritorio y tarjetas en móvil desde los mismos datos.
+  - **Reglas de la forma:** esquinas de 8 px, filetes en lugar de sombras, el
+    color solo para un estado (verde bien, ámbar atención, rojo urgente, gris
+    sin empezar; el estado va siempre con una palabra), Barlow Condensed solo
+    en títulos y cifras. Los tokens (`linea`, `hundido`, `noche…`) viven en
+    `marca.css`.
+  - `Boton`, `Hoja` y `Campo*` aceptan las mismas propiedades que `Button`,
+    `Card` y `TextField`, para que migrar una pantalla sea cambiar el nombre.
+- **Lo que cada pantalla hace distinto:** una lista que se abre en una ficha
+  (Alumnos, Profesores: el «+» de cada fila) o en un editor (Grupos: «Editar
+  grupo») lo hace a pantalla completa con su flecha de volver, no en un
+  diálogo flotante; en escritorio, Moderación y Banco usan `PanelLateral`.
+  Una acción que no se deshace (descartar una pregunta, vaciar el banco,
+  apagar un módulo para todos los alumnos) se aleja de las que se repiten
+  (regla 26) y pregunta antes.
+- **Cuidado:** el panel se ve en el móvil de un profesor tanto como en el
+  ordenador del dueño. Se comprobó a 390, 768 y 1.360 px, en claro y oscuro,
+  sin desbordes y con todo lo que se toca a 44 px. `design-system.test.ts`
+  sigue mordiendo: no se inventan radios a mano en las pantallas.
+- **Quedó fuera, a propósito:** «Prep. física» (el dueño pidió no tocarla; sus
+  tres vistas siguen con el estilo anterior dentro de la cáscara nueva),
+  «Academias» y el compositor de preguntas.
+- **Se quitó:** el reordenar las pestañas del panel (`localStorage`): con una
+  barra lateral agrupada por secciones ya no hacía falta.
+
+### 102 · Pagos: la contabilidad se añade sin romper el cobro de siempre
+
+- **Qué pasó (9 nov):** al ver la rejilla de pagos, los dueños pidieron «más
+  datos contables para controlar bien la contabilidad». Eligieron tres cosas:
+  el resumen de ingresos, el cierre de caja con exportación, y el método y el
+  recibo de cada cobro.
+- **Cuatro vistas del mismo dinero** (`AdminPayments`): **Rejilla** (alumnos ×
+  meses, un toque marca el pago), **Un mes** (el cobro: importe, método y
+  recibo), **Resumen** (ingresos por mes en barras, la media de los meses con
+  cobro, el mejor mes y el pendiente estimado) y **Caja** (el cierre de un mes
+  por fecha, el total por método y la descarga en CSV).
+- **La aritmética es pura y está probada** (`lib/payments.ts`,
+  `payments-contabilidad.test.ts`): sin importe anotado no es 0 € (regla 8);
+  el pendiente es una ESTIMACIÓN (el importe medio de los que ya pagaron) y es
+  `null` si no hay con qué estimar; un exento no cobra ni debe; lo que no tiene
+  método anotado va aparte, no se reparte.
+- **El CSV es para el gestor:** BOM, `;` y coma decimal (como lo abre Excel en
+  español). Todo texto que empiece por `=`, `+`, `-` o `@` se antepone con una
+  comilla: un correo no puede convertirse en una fórmula.
+- **El esquema, aparte:**
+  [`docs/sql/pagos-contabilidad.sql`](sql/pagos-contabilidad.sql) añade
+  `monthly_payments.method` y `receipt_no`, el contador de recibos por academia
+  (`receipt_counters` y `next_receipt_no`, atómico: dos cobros a la vez no
+  sacan el mismo número) y un índice único por (academia, recibo). Solo AÑADE.
+  **No se ha ejecutado** desde la sesión que lo escribió (el proxy de la nube
+  bloquea `api.supabase.com`); `schema.json` se completó a mano con las dos
+  columnas y hay que regenerarlo con `node scripts/schema-snapshot.mjs` tras
+  ejecutar el guion.
+- **Funciona con y sin el guion:** `getMonthlyPayments` pide las columnas nuevas
+  y, si faltan, repite la consulta sin ellas y dice `contabilidad: false`: la
+  pantalla no ofrece método ni recibo y avisa de qué falta. `setPayment` solo
+  envía `method` y `receipt_no` si la pantalla los manda (PostgREST rechaza la
+  escritura entera si una columna no existe, regla 4).
+- **Pendiente:** la cuota por alumno o por academia y los descuentos (el
+  pendiente se estima con la media hasta entonces), y el cobro de conceptos
+  sueltos (matrícula, material). No se hizo: pedía una tabla más y nadie lo ha
+  necesitado todavía.
+
+### 103 · Lo que no se toca a diario no ocupa la pantalla
+
+- **Qué pasó (9 nov):** el dueño pidió quitar de «Alumnos» el interruptor del
+  control de acceso y la lista de correos exentos de pago, y de «Prep. física»
+  el interruptor de la física con preparador. Son decisiones que se toman una
+  vez y se quedaban ahí, cada día, ocupando lo primero de la pantalla.
+- **Regla:** se quitan de la VISTA, no del funcionamiento. El control de
+  acceso sigue encendido (quien se registra solo espera a que se le dé acceso),
+  los alumnos exentos siguen exentos y la física sigue encendida. Las acciones
+  (`setMembershipRequired`, `addExemptEmail`…) siguen existiendo.
+  - Se queda, suelto, el aviso «Hay N sin activar · Activar a todos»: solo sale
+    cuando hay alguien esperando, y sin él no habría forma de dar acceso de
+    golpe.
+  - Si la física estuviera apagada, el aviso que sale en su lugar trae su
+    botón «Encender»: quitar el interruptor no puede dejar sin salida.

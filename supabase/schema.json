@@ -753,6 +753,7 @@
         "paid",
         "paid_on",
         "period",
+        "receipt_no",
         "recorded_by",
         "updated_at",
         "user_id"
@@ -774,9 +775,53 @@
         "paid": "boolean",
         "paid_on": "date",
         "period": "text",
+        "receipt_no": "integer",
         "recorded_by": "uuid",
         "updated_at": "timestamp with time zone",
         "user_id": "uuid"
+      }
+    },
+    "payment_entries": {
+      "columnas": [
+        "alumno",
+        "amount_eur",
+        "created_at",
+        "id",
+        "method",
+        "organization_id",
+        "paid_on",
+        "period",
+        "receipt_no",
+        "recorded_by",
+        "user_id",
+        "voided_at",
+        "voided_by"
+      ],
+      "obligatorias": [
+        "alumno",
+        "amount_eur",
+        "created_at",
+        "id",
+        "method",
+        "organization_id",
+        "paid_on",
+        "period",
+        "receipt_no"
+      ],
+      "tipos": {
+        "alumno": "text",
+        "amount_eur": "numeric",
+        "created_at": "timestamp with time zone",
+        "id": "uuid",
+        "method": "text",
+        "organization_id": "uuid",
+        "paid_on": "date",
+        "period": "text",
+        "receipt_no": "integer",
+        "recorded_by": "uuid",
+        "user_id": "uuid",
+        "voided_at": "timestamp with time zone",
+        "voided_by": "uuid"
       }
     },
     "physical_marks": {
@@ -1071,6 +1116,20 @@
         "question_id": "uuid",
         "user_id": "uuid",
         "vote": "integer"
+      }
+    },
+    "receipt_counters": {
+      "columnas": [
+        "last_no",
+        "organization_id"
+      ],
+      "obligatorias": [
+        "last_no",
+        "organization_id"
+      ],
+      "tipos": {
+        "last_no": "integer",
+        "organization_id": "uuid"
       }
     },
     "rm_marks": {

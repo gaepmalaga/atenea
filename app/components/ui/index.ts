@@ -21,3 +21,20 @@ export { TextField, TextAreaField, SelectField } from './Field';
 export { Kicker, HeroMarino, Fichas, Interruptor } from './Marca';
 export { default as useAltoDisponible } from './useAltoDisponible';
 export { RADIUS, PAD, GAP, ELEVATION, SURFACE, TEXT, TAP, cx } from './tokens';
+
+// El panel de administración (regla 101)
+export { HOJA, HUNDIDO, LINEA, TONO_TEXTO, TONO_ETIQUETA, TONO_PUNTO, type Tono } from './panel/estilos';
+export { default as PanelTitulo } from './panel/PanelTitulo';
+export { default as Pulso, type CifraPulso } from './panel/Pulso';
+export { Etiqueta, Estado, Dato } from './panel/Etiqueta';
+export { default as Avatar, inicialesDeCorreo, inicialesDeNombre, nombreDeCorreo } from './panel/Avatar';
+export { Filtros, FiltroChip } from './panel/Filtros';
+export { default as Pestanas, type PestanaItem } from './panel/Pestanas';
+export { default as Boton } from './panel/Boton';
+export { Campo, CampoArea, CampoSelect } from './panel/Campo';
+export { default as Conmutador } from './panel/Conmutador';
+export { Hoja, BloqueTitulo, Rotulo, Aviso, Atras } from './panel/Hoja';
+export { default as Barras, type DatoBarra } from './panel/Barras';
+export { default as TablaDual, type Columna } from './panel/TablaDual';
+export { default as PanelLateral } from './panel/PanelLateral';
+export { default as PanelShell, type PestanaPanel } from './panel/PanelShell';

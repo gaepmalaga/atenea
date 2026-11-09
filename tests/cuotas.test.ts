@@ -17,7 +17,15 @@ import {
   mesesHasta,
   esPeriodo,
   csvHistorico,
+  celdaCsv,
+  leeCobro,
+  cobradoSegunLibro,
+  filaSegunLibro,
+  cajaDelMes,
+  csvCaja,
+  htmlRecibo,
   type Tarifa,
+  type Cobro,
 } from '../app/lib/cuotas';
 import { periodoActual } from '../app/lib/payments';
 
@@ -62,6 +70,7 @@ describe('los importes que escribe el dueño', () => {
     expect(eur(49.9)).toBe('49,90 €');
     expect(eur(0)).toBe('0 €');
     expect(eur(null)).toBe('—');
+    expect(eur(2675)).toBe('2.675 €');
   });
 });
 
@@ -288,5 +297,70 @@ describe('los meses', () => {
     expect(mesesHasta('2026-02', 3)).toEqual(['2025-12', '2026-01', '2026-02']);
     expect(esPeriodo('2026-13')).toBe(false);
     expect(esPeriodo('2026-11')).toBe(true);
+  });
+});
+
+describe('el libro de cobros: recibos, método y caja', () => {
+  const c = (n: number, extra: Partial<Cobro> = {}): Cobro => ({
+    id: `c${n}`, userId: 'a', alumno: 'ana@x', periodo: '2026-11', importe: 30, metodo: 'efectivo', recibo: n, fecha: '2026-11-03', anulado: false, ...extra,
+  });
+
+  it('lee una fila de PostgREST, y una rota no cuela', () => {
+    expect(leeCobro({ id: 'x', user_id: 'a', alumno: 'ana@x', period: '2026-11', amount_eur: '30.00', method: 'bizum', receipt_no: 7, paid_on: '2026-11-03', voided_at: null }))
+      .toMatchObject({ importe: 30, metodo: 'bizum', recibo: 7, anulado: false });
+    expect(leeCobro({ id: 'x', period: '2026-11', amount_eur: null, receipt_no: 7, paid_on: '2026-11-03' })).toBeNull();
+    expect(leeCobro({ id: 'x', period: '2026-11', amount_eur: 5, method: 'cheque', receipt_no: 7, paid_on: '2026-11-03' })!.metodo).toBe('efectivo');
+  });
+
+  it('un mes pagado en dos veces suma los dos cobros; uno anulado no cuenta', () => {
+    const m = cobradoSegunLibro([c(1), c(2, { importe: 20, metodo: 'bizum', fecha: '2026-11-15' }), c(3, { importe: 99, anulado: true })]);
+    expect(m.get('a 2026-11')).toBe(50);
+  });
+
+  it('el libro manda sobre el resumen guardado; sin cobros, la fila se queda como estaba', () => {
+    expect(filaSegunLibro({ due_eur: 50, amount_eur: 50, paid: true }, 0)).toMatchObject({ amount_eur: null, paid: false });
+    expect(filaSegunLibro({ due_eur: 50, amount_eur: null, paid: false }, 50)).toMatchObject({ amount_eur: 50, paid: true });
+    const vieja = { due_eur: 50, amount_eur: 50, paid: true };
+    expect(filaSegunLibro(vieja, undefined)).toBe(vieja);
+  });
+
+  it('la caja es por la FECHA del cobro: totales por método y por día, y el anulado sale sin sumar', () => {
+    const caja = cajaDelMes('2026-11', [
+      c(1),
+      c(2, { importe: 20, metodo: 'bizum', fecha: '2026-11-15' }),
+      c(3, { importe: 60, periodo: '2026-10', fecha: '2026-11-03' }),
+      c(4, { importe: 99, anulado: true }),
+      c(5, { fecha: '2026-10-31' }),
+    ]);
+    expect(caja).toMatchObject({ total: 110, cobros: 3, anulados: 1 });
+    expect(caja.porMetodo).toEqual([{ metodo: 'efectivo', importe: 90, cobros: 2 }, { metodo: 'bizum', importe: 20, cobros: 1 }]);
+    expect(caja.porDia).toEqual([{ fecha: '2026-11-03', importe: 90, cobros: 2 }, { fecha: '2026-11-15', importe: 20, cobros: 1 }]);
+    expect(caja.lineas.map((x) => x.recibo)).toEqual([2, 4, 3, 1]);
+  });
+
+  it('el CSV del gestor: por número de recibo, el anulado marcado y el total', () => {
+    const csv = csvCaja(cajaDelMes('2026-11', [c(2, { importe: 20, metodo: 'bizum' }), c(1), c(3, { anulado: true })]));
+    const filas = csv.replace('\uFEFF', '').trim().split('\r\n');
+    expect(filas[0]).toBe('Recibo;Fecha;Alumno;Concepto;Método;Importe;Estado');
+    expect(filas[1]).toBe('1;03/11/2026;ana@x;Mensualidad de noviembre de 2026;Efectivo;30,00;Cobrado');
+    expect(filas[3]).toContain(';Anulado');
+    expect(filas[4]).toBe(';;;;Total;50,00;');
+  });
+
+  it('un texto que empieza por =, +, - o @ no puede ser una fórmula en Excel', () => {
+    expect(celdaCsv('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
+    expect(celdaCsv('+34 600')).toBe("'+34 600");
+    expect(celdaCsv('@ana')).toBe("'@ana");
+    expect(celdaCsv('ana@x.es')).toBe('ana@x.es');
+    expect(celdaCsv('a;b')).toBe('"a;b"');
+  });
+
+  it('el recibo escapa lo que viene de la base de datos y dice si está anulado', () => {
+    const html = htmlRecibo(c(12, { alumno: '<img src=x onerror=alert(1)>@x' }), 'Alphapol');
+    expect(html).toContain('Recibo nº 12');
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;@x');
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('Mensualidad de noviembre de 2026');
+    expect(htmlRecibo(c(1, { anulado: true }), 'Alphapol')).toContain('Anulado');
   });
 });
