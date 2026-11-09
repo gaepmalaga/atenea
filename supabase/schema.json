@@ -1110,6 +1110,49 @@
         "video": "text"
       }
     },
+    "staff_activities": {
+      "columnas": [
+        "activity",
+        "created_at",
+        "organization_id",
+        "priority",
+        "staff_id"
+      ],
+      "obligatorias": [
+        "activity",
+        "created_at",
+        "organization_id",
+        "priority",
+        "staff_id"
+      ],
+      "tipos": {
+        "activity": "text",
+        "created_at": "timestamp with time zone",
+        "organization_id": "uuid",
+        "priority": "smallint",
+        "staff_id": "uuid"
+      }
+    },
+    "staff_subjects": {
+      "columnas": [
+        "created_at",
+        "organization_id",
+        "staff_id",
+        "subject_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "organization_id",
+        "staff_id",
+        "subject_id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "organization_id": "uuid",
+        "staff_id": "uuid",
+        "subject_id": "integer"
+      }
+    },
     "subjects": {
       "columnas": [
         "block_id",

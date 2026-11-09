@@ -557,6 +557,26 @@ export async function getAgendaProfesores(params?: { lunes?: string }) {
     ],
   });
 }
+// ── LO QUE DA CADA PROFESOR (regla 100) ─────────────────────────────────────
+export async function getClasesHabituales() {
+  return ok({ clases: [
+    { actividad: 'Boxeo', profesorIds: ['s2'] }, { actividad: 'FLK', profesorIds: ['s2', 's1'] },
+  ] });
+}
+export async function setClaseHabitual() { return { success: true as const }; }
+export async function getTemasProfesores() {
+  const t = (n: number, titulo: string, profesorIds: string[], contestadas: number, aciertos: number, bloque = 'CIENCIAS JURÍDICAS') =>
+    ({ subjectId: 100 + n, numero: n, titulo, bloque, profesorIds, alumnos: contestadas ? 12 : 0, contestadas, aciertos, blancos: 3 });
+  return ok({ temas: [
+    t(1, 'El Derecho: concepto y acepciones', ['s1'], 240, 190), t(2, 'La Constitución Española (I)', ['s1'], 310, 220),
+    t(3, 'La Constitución Española (II)', ['s1'], 180, 75), t(4, 'El Tribunal Constitucional', ['s1'], 12, 5),
+    t(5, 'La Corona', ['s1'], 0, 0), t(14, 'El Código Penal', ['s1'], 150, 120),
+    t(17, 'La Policía Nacional', ['s2'], 90, 60), t(18, 'Ley de Seguridad Ciudadana', ['s2'], 0, 0),
+    t(23, 'Delitos contra la Administración', [], 40, 22), t(24, 'Faltas y delitos leves', [], 0, 0),
+    t(46, 'Examen oficial 2020', [], 30, 20, 'EXÁMENES OFICIALES ANTERIORES'),
+  ] });
+}
+export async function setTemasProfesor() { return { success: true as const, temas: [1, 2, 3] }; }
 export async function listCuentasAcademia() {
   return ok({ cuentas: [{ id: 'u-prep', email: 'preparador@alphapol.es', role: 'admin' }, { id: 'u2', email: 'alumno@atenea.com', role: 'student' }] });
 }
@@ -987,6 +1007,11 @@ export async function getCuadrante(params?: { lunes?: string }) {
       titulos: ['FLK 5.0', 'F.M + RDL', 'FLK 5.1', 'Boxeo', 'Jiujitsu', 'Rodaje 40′', 'Circuito de agilidad'],
       // La del 9 de noviembre, publicada; las demás, sin publicar (regla 98).
       publicada: lunes === '2026-11-09' ? '2026-11-08T18:12:00Z' : null,
+      // Los habituales que aprobó el dueño (regla 100).
+      habituales: [
+        { actividad: 'Boxeo', profesorIds: ['p-juan'] }, { actividad: 'F.M + RDL', profesorIds: ['p-lucio', 'p-jose'] },
+        { actividad: 'FLK', profesorIds: ['p-jose', 'p-olivares'] }, { actividad: 'Jiujitsu', profesorIds: ['p-lucas'] },
+      ],
     },
   });
 }

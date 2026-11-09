@@ -131,6 +131,11 @@ describe('superficie de las Server Actions', () => {
       // Regla 98 y 99: publicar el cuadrante, y la agenda de los profesores.
       'publicarCuadrante',
       'getAgendaProfesores',
+      // Regla 100: lo que da cada profesor.
+      'getClasesHabituales',
+      'setClaseHabitual',
+      'getTemasProfesores',
+      'setTemasProfesor',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

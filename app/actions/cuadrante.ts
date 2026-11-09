@@ -35,6 +35,7 @@ import {
 } from '../lib/asistencia';
 import { lunesDe } from '../lib/sesiones';
 import { paginaCompleta } from '../lib/pagination';
+import { agrupaHabituales, type ClaseHabitual } from '../lib/profesores';
 import {
   nombreCorto, normalizaCelda, plazasSesion, quedaPlaza, nombrePila, tipoDeTitulo, titulosFrecuentes, normalizaMotivo,
   type GrupoCuadrante, type Profesor, type SesionCuadrante, type DiaSinClase,
@@ -196,6 +197,8 @@ export type DatosCuadrante = {
   titulos: string[];
   /** Cuándo se publicó la semana para los alumnos (regla 98); `null` = sin publicar. */
   publicada: string | null;
+  /** El profesor habitual de cada clase, en orden (regla 100): se propone al escribir el título. */
+  habituales: ClaseHabitual[];
 };
 
 /** Hasta dónde se miran los títulos usados para sugerirlos. */
@@ -220,7 +223,7 @@ export async function getCuadrante(params: { lunes: string }): Promise<
   const grupos0 = (filas ?? []).filter(conHorarioOMulti);
   const ids = grupos0.map((g) => g.id as string);
 
-  const [asistencia, profesores, sesionesRes, sinClase, titulosRes, publicacion] = await Promise.all([
+  const [asistencia, profesores, sesionesRes, sinClase, titulosRes, publicacion, habitualesRes] = await Promise.all([
     cuentasDeSesiones(grupos0.map((g) => ({ id: g.id as string })), lunes, domingo),
     profesoresDe(org),
     ids.length
@@ -233,6 +236,7 @@ export async function getCuadrante(params: { lunes: string }): Promise<
           .order('id').range(desde, hasta), { maxFilas: 5_000 })
       : Promise.resolve({ data: [] as Fila[], error: null }),
     supabaseAdmin.from('class_week_publications').select('published_at').eq('organization_id', org).eq('week_start', lunes).maybeSingle(),
+    supabaseAdmin.from('staff_activities').select('activity, staff_id, priority').eq('organization_id', org),
   ]);
   if (sesionesRes.error) return { success: false as const, error: sesionesRes.error.message };
   const { cuentas, miembros, quienFalta, quienSeUne } = asistencia;
@@ -271,6 +275,10 @@ export async function getCuadrante(params: { lunes: string }): Promise<
       totalMultis: grupos.filter((g) => g.esMulti).reduce((n, g) => n + g.inscritos, 0),
       titulos: titulosFrecuentes((titulosRes.data ?? []).map((t) => t.title as string)),
       publicada: (publicacion.data?.published_at as string | undefined) ?? null,
+      // Si falla, el cuadrante sigue: solo no se propone profesor.
+      habituales: agrupaHabituales((habitualesRes.data ?? []).map((r) => ({
+        actividad: r.activity as string, profesorId: r.staff_id as string, prioridad: Number(r.priority),
+      }))),
     },
   };
 }

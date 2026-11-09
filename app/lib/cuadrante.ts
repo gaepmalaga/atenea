@@ -279,6 +279,37 @@ export function choquesDeProfesor(
   return avisos;
 }
 
+/**
+ * Los profesores que ya tienen OTRA clase que se solapa con esa hora ese día
+ * (regla 100): para proponer al siguiente habitual libre. Sin hora conocida,
+ * nadie: no se sabe, y no se salta a nadie por si acaso. Lo de un día quitado
+ * no cuenta.
+ */
+export function profesoresOcupados(params: {
+  sesiones: SesionCuadrante[];
+  grupos: GrupoCuadrante[];
+  fecha: string;
+  hora: string | null;
+  /** La sesión que se está escribiendo: no se cuenta a sí misma. */
+  excluirSesion?: string | null;
+  sinClase?: DiaSinClase[];
+}): Set<string> {
+  const h = horaCorta(params.hora);
+  const ocupados = new Set<string>();
+  if (!h) return ocupados;
+  const ini = minutosDe(h);
+  const porGrupo = new Map(params.grupos.map((g) => [g.id, g]));
+  const off = new Set((params.sinClase ?? []).map((x) => claveDia(x.classId, x.fecha)));
+  for (const s of params.sesiones) {
+    if (!s.profesorId || s.fecha !== params.fecha || s.id === params.excluirSesion || off.has(claveDia(s.classId, s.fecha))) continue;
+    const otra = horaCorta(s.horaPropia ?? porGrupo.get(s.classId)?.horario.startTime ?? null);
+    if (!otra) continue;
+    const o = minutosDe(otra);
+    if (ini < o + DURACION_SESION_MIN && o < ini + DURACION_SESION_MIN) ocupados.add(s.profesorId);
+  }
+  return ocupados;
+}
+
 /** Arma el cuadrante de una semana: lo que ve el panel, la imagen y el texto. */
 export function armaCuadrante(params: {
   lunes: string;
