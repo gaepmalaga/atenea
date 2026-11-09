@@ -753,7 +753,6 @@
         "paid",
         "paid_on",
         "period",
-        "receipt_no",
         "recorded_by",
         "updated_at",
         "user_id"
@@ -775,7 +774,6 @@
         "paid": "boolean",
         "paid_on": "date",
         "period": "text",
-        "receipt_no": "integer",
         "recorded_by": "uuid",
         "updated_at": "timestamp with time zone",
         "user_id": "uuid"
