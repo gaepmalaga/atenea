@@ -223,6 +223,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 102 | Pagos: la contabilidad se añade sin romper el cobro de siempre |
 | 103 | Lo que no se toca a diario no ocupa la pantalla |
 | 104 | La cuota sale de los grupos, y cada cobro es un recibo del libro |
+| 105 | El calendario no guarda nada: enseña lo que ya está programado |
 
 ## Trampas conocidas
 

@@ -8,6 +8,8 @@
  */
 
 import { mapBankRowToQuestion } from '../app/lib/questions';
+import { armaCalendario, colorDe, type GrupoCal, type SesionCal } from '../app/lib/calendario';
+import { ahoraEnZona, sumaDias as sumaDiasCal, diaSemanaDe } from '../app/lib/asistencia';
 import {
   cuotaDeAlumno, resumeCuotasMes, resumeHistoricoCuotas, leeApunte, aplicaCobro, leeImporte, nombreDePack,
   periodoEnZona, sumaMeses, mesesHasta, esPeriodo, filaSegunLibro, esMetodo, type Tarifa, type FilaPagoBD, type Cobro,
@@ -1207,3 +1209,60 @@ export async function getMiMulti() {
 }
 export async function setMiUnion() { return { success: true as const }; }
 export async function setMiUnionSemana() { return { success: true as const, cambiadas: 2, completas: 0 }; }
+
+// ── EL CALENDARIO (regla 105) ────────────────────────────────────────────────
+// Seis semanas alrededor de hoy: teoría e inglés del horario, física con su
+// sesión del cuadrante (Alpha y Kappa a la misma hora), sueltas de Multi a las
+// 18:30, entrenos de dos alumnos, un festivo y el examen.
+
+const H = (weekdays: number[] | null, startTime: string | null, endTime: string | null, capacity: number | null) => ({ weekdays, startTime, endTime, capacity });
+const GRUPOS_CAL: GrupoCal[] = [
+  { id: 'c-teo', nombre: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', llevaPlan: false, esMulti: false, horario: H([1, 2, 3, 4], '10:00', '13:00', 34), profesorIds: ['p-marta'] },
+  { id: 'c-teo2', nombre: 'Teoría tarde', kind: 'teoria', kindLabel: 'Teoría', llevaPlan: false, esMulti: false, horario: H([1, 3], '17:00', '19:00', 30), profesorIds: ['p-carlos'] },
+  { id: 'c-ing', nombre: 'Inglés B1', kind: 'ingles', kindLabel: 'Inglés', llevaPlan: false, esMulti: false, horario: H([2, 4], '19:00', '20:00', null), profesorIds: ['p-laura'] },
+  { id: 'c-alpha', nombre: 'Promo 44 · Alpha', kind: 'fisicas', kindLabel: 'Físicas', llevaPlan: true, esMulti: false, horario: H([1, 3], '08:00', '09:00', 30), profesorIds: [] },
+  { id: 'c-kappa', nombre: 'Promo 44 · Kappa', kind: 'fisicas', kindLabel: 'Físicas', llevaPlan: true, esMulti: false, horario: H([1, 3], '08:00', '09:00', 30), profesorIds: [] },
+  { id: 'c-omega', nombre: 'Promo 44 · Omega', kind: 'fisicas', kindLabel: 'Físicas', llevaPlan: true, esMulti: false, horario: H([2, 4], '08:00', '09:00', 30), profesorIds: [] },
+  { id: 'c-zetta', nombre: 'Promo 44 · Zetta', kind: 'fisicas', kindLabel: 'Físicas', llevaPlan: true, esMulti: false, horario: H([1, 3], '20:00', '21:00', 30), profesorIds: [] },
+  { id: 'c-multi', nombre: 'Promo 44 · Multi', kind: 'fisicas', kindLabel: 'Físicas', llevaPlan: true, esMulti: true, horario: H(null, null, null, null), profesorIds: [] },
+];
+const PROFES_CAL = new Map([['p-marta', 'Marta Ortega'], ['p-carlos', 'Carlos Ruiz'], ['p-laura', 'Laura Gil'], ['p-juan', 'Juan'], ['p-jose', 'José'], ['p-lucas', 'Lucas'], ['p-lucio', 'Lucio']]);
+const ROTACION: [string, string][] = [['Boxeo', 'p-juan'], ['FLK 5.0', 'p-jose'], ['F.M + RDL', 'p-lucio'], ['Jiujitsu', 'p-lucas'], ['FLK 5.1', 'p-jose']];
+
+export async function getCalendario(params: { desde: string; hasta: string }) {
+  const hoy = ahoraEnZona(Date.now()).fecha;
+  const sesiones: SesionCal[] = [];
+  let n = 0;
+  for (let f = sumaDiasCal(hoy, -35); f <= sumaDiasCal(hoy, 35); f = sumaDiasCal(f, 1)) {
+    const d = diaSemanaDe(f);
+    for (const g of GRUPOS_CAL.filter((x) => x.llevaPlan && !x.esMulti && x.horario.weekdays?.includes(d))) {
+      // La semana que viene, Kappa aún sin planificar.
+      if (g.id === 'c-kappa' && f > sumaDiasCal(hoy, 7)) continue;
+      const [titulo, profe] = ROTACION[(n++) % ROTACION.length];
+      sesiones.push({ id: `cs${n}`, classId: g.id, userId: null, fecha: f, inicio: null, titulo, profesorId: profe, duracionMin: 60 });
+    }
+    if (d === 2 || d === 4) sesiones.push({ id: `cm${n++}`, classId: 'c-multi', userId: null, fecha: f, inicio: '18:30:00', titulo: d === 2 ? 'Jiujitsu' : 'Boxeo', profesorId: d === 2 ? 'p-lucas' : 'p-juan', duracionMin: 60 });
+    if (d <= 5) {
+      sesiones.push({ id: `ce${n++}`, classId: null, userId: 'u2', fecha: f, inicio: null, titulo: d % 2 ? 'Carrera 5 km' : 'Fuerza tren superior', profesorId: null, duracionMin: 45 });
+      if (d === 1 || d === 4) sesiones.push({ id: `ce${n++}`, classId: null, userId: 'u4', fecha: f, inicio: '19:00:00', titulo: 'Series 400 m', profesorId: 'p-lucio', duracionMin: 45 });
+    }
+  }
+  const lunes = sumaDiasCal(hoy, 1 - diaSemanaDe(hoy));
+  const eventos = armaCalendario({
+    desde: params.desde, hasta: params.hasta, grupos: GRUPOS_CAL, sesiones,
+    sinClase: [{ classId: 'c-zetta', fecha: sumaDiasCal(lunes, 2), motivo: 'Festivo local' }, { classId: 'c-teo', fecha: sumaDiasCal(lunes, 9), motivo: 'Simulacro en el aula' }],
+    profesores: PROFES_CAL,
+    alumnos: new Map([['u2', 'alumno@atenea.com'], ['u4', 'lucia.martin@gmail.com']]),
+    cuentas: new Map([[`c-alpha|${lunes}`, { inscritos: 28, faltan: 2, multis: 3 }], [`c-teo|${sumaDiasCal(lunes, 1)}`, { inscritos: 33, faltan: 0, multis: 0 }]]),
+    inscritos: new Map([['c-teo', 31], ['c-teo2', 22], ['c-ing', 9], ['c-alpha', 27], ['c-kappa', 30], ['c-omega', 18], ['c-zetta', 12]]),
+    examen: sumaDiasCal(hoy, 26),
+  });
+  return ok({
+    datos: {
+      desde: params.desde, hasta: params.hasta, hoy, eventos,
+      grupos: GRUPOS_CAL.map((g) => ({ id: g.id, nombre: g.nombre, kind: g.kind, color: colorDe(g), esMulti: g.esMulti })),
+      tipos: [{ id: 'teoria', label: 'Teoría' }, { id: 'ingles', label: 'Inglés' }, { id: 'fisicas', label: 'Físicas' }],
+      profesores: [...PROFES_CAL].map(([id, nombre]) => ({ id, nombre })),
+    },
+  });
+}
