@@ -52,7 +52,6 @@ export const TABLAS_POR_USUARIO = [
   'ai_usage',
   'class_absences',
   'class_session_joins',
-  'group_workout_logs',
   'training_session_logs',
   'training_sessions',
   'training_week_notes',
@@ -64,8 +63,16 @@ export const TABLAS_POR_USUARIO = [
   'academy_members',
 ] as const;
 
+/**
+ * Tablas con `user_id` que NO se borran con la cuenta. `academy_staff.user_id`
+ * es la cuenta con la que entra un profesor, si la tiene (regla 97): la clave
+ * ajena es `on delete set null`, así que al borrar la cuenta el profesor se
+ * queda como nombre sin cuenta, que es lo que era antes.
+ */
+export const TABLAS_CON_USUARIO_QUE_SE_CONSERVAN = ['academy_staff'] as const;
+
 /** Tablas que cuelgan de un grupo (`class_id`): se borran antes que el grupo. */
-export const TABLAS_POR_GRUPO = ['class_absences', 'class_session_joins', 'group_workout_logs', 'training_sessions', 'training_week_notes', 'class_members', 'class_group_staff', 'group_training_plans'] as const;
+export const TABLAS_POR_GRUPO = ['class_absences', 'class_session_joins', 'class_days_off', 'training_sessions', 'training_week_notes', 'class_members', 'class_group_staff'] as const;
 
 /** Tablas que cuelgan de una pregunta (`question_id`): antes que la pregunta. */
 export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'question_votes', 'question_reports'] as const;
@@ -81,6 +88,8 @@ export const TABLAS_POR_ACADEMIA = [
   'academy_staff',
   'training_sessions',
   'training_week_notes',
+  'class_days_off',
+  'class_week_publications',
   'session_templates',
   'physical_marks',
   'rm_marks',

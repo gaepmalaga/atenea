@@ -119,9 +119,15 @@ describe('superficie de las Server Actions', () => {
       'updateGroup',
       'deleteGroup',
       'setStudentGroups',
-      'getGroupTrainingPlan',
-      'saveGroupTrainingPlan',
-      'deleteGroupTrainingPlan',
+      // Regla 97: el cuadrante (días sin clase, copiar celda, multis) y
+      // «Planificar» por alumno.
+      'setSinClase',
+      'borrarSesionesDia',
+      'copiarCelda',
+      'setMultiEnClase',
+      'moverMulti',
+      'getAlumnosFisica',
+      'copiarAAlumnos',
     ];
 
     const flojas = debenSerAdmin.filter((name) => {

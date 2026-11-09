@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   planLimpieza, trozos, listaDeIds, pasosLimpiezaSql, sqlDeConteo, sqlDeBorrado,
-  TABLAS_POR_USUARIO, TABLAS_POR_GRUPO, TABLAS_POR_PREGUNTA, TABLAS_POR_ACADEMIA, TABLAS_DE_PRUEBA_DE_LA_ACADEMIA,
+  TABLAS_POR_USUARIO, TABLAS_CON_USUARIO_QUE_SE_CONSERVAN, TABLAS_POR_GRUPO, TABLAS_POR_PREGUNTA, TABLAS_POR_ACADEMIA, TABLAS_DE_PRUEBA_DE_LA_ACADEMIA,
 } from '../app/lib/limpieza';
 
 /**
@@ -68,7 +68,9 @@ describe('planLimpieza', () => {
 
 describe('las listas de tablas cubren el esquema real', () => {
   it('toda tabla con user_id está en TABLAS_POR_USUARIO', () => {
-    expect([...TABLAS_POR_USUARIO].sort()).toEqual(conColumna('user_id').sort());
+    expect([...TABLAS_POR_USUARIO, ...TABLAS_CON_USUARIO_QUE_SE_CONSERVAN].sort()).toEqual(conColumna('user_id').sort());
+    // Una tabla no puede estar en las dos: o se borra con la cuenta o se conserva.
+    for (const t of TABLAS_CON_USUARIO_QUE_SE_CONSERVAN) expect(TABLAS_POR_USUARIO as readonly string[]).not.toContain(t);
   });
 
   it('toda tabla con class_id o question_id está en su lista', () => {

@@ -115,44 +115,19 @@ describe('las guardas de la acción', () => {
     expect(src).toMatch(/export async function setStudentGroups\(studentId: string/);
   });
 
-  it('un plan de grupo solo se cuelga de un tipo con lleva_plan', () => {
-    const fn = src.slice(src.indexOf('export async function saveGroupTrainingPlan'), src.indexOf('export async function deleteGroupTrainingPlan'));
-    expect(fn).toMatch(/llevaPlan\(/);
+  it('el plan de semana viejo ya no se toca desde los grupos (reglas 86 y 97)', () => {
+    // `getGroupTrainingPlan`, `saveGroupTrainingPlan` y `deleteGroupTrainingPlan`
+    // se retiraron: ninguna pantalla las usaba desde que la física son
+    // sesiones sueltas. Si vuelven, el borrado de la tabla vacía romperá algo.
+    for (const f of ['getGroupTrainingPlan', 'saveGroupTrainingPlan', 'deleteGroupTrainingPlan']) {
+      expect(src, f).not.toContain(`export async function ${f}`);
+    }
+    expect(src).not.toContain("from('group_training_plans')");
   });
 
-  it('el plan de grupo va semana a semana (P9): upsert por (class_id, week_start) y no se editan semanas pasadas', () => {
-    const fn = src.slice(src.indexOf('export async function saveGroupTrainingPlan'), src.indexOf('export async function deleteGroupTrainingPlan'));
-    expect(fn).toMatch(/onConflict:\s*'class_id,week_start'/);
-    expect(fn).toMatch(/lunesDeSemana\(\)/);
-    expect(fn).toMatch(/ya pasó/);
-  });
-
-  it('el alumno hereda el plan de grupo por los tipos con lleva_plan, no por "fisicas", y solo la semana vigente', () => {
-    // La resolución del grupo de físicas vive en un helper compartido
-    // (`idsGruposConPlan`), que usan tanto `getActiveTrainingPlan` como
-    // `getStudentGroupWeeks`.
-    const helper = training.slice(
-      training.indexOf('async function idsGruposConPlan'),
-      training.indexOf('export async function getActiveTrainingPlan'),
-    );
-    expect(helper).toMatch(/lleva_plan/);
-
-    const fn = training.slice(
-      training.indexOf('export async function getActiveTrainingPlan'),
-      training.indexOf('export async function completeTrainingDay'),
-    );
-    expect(fn).toMatch(/idsGruposConPlan\(/);
-    expect(fn).toMatch(/\.lte\('week_start'/);
-    expect(fn.indexOf("origen: 'individual'")).toBeLessThan(fn.indexOf("origen: 'grupo'"));
-  });
-
-  it('el alumno puede mirar semanas anteriores del plan de grupo, pero no las futuras (regla 54)', () => {
-    const fn = training.slice(
-      training.indexOf('export async function getStudentGroupWeeks'),
-      training.indexOf('export async function completeTrainingDay'),
-    );
-    // Ordena ascendente (antigua → vigente) y corta en el lunes de hoy.
-    expect(fn).toMatch(/\.lte\('week_start',\s*lunesHoy\)/);
-    expect(fn).toMatch(/ascending:\s*true/);
+  it('el plan de grupo por semanas se retiró con su tabla (regla 98): nadie la lee', () => {
+    expect(training).not.toContain("from('group_training_plans')");
+    expect(training).not.toContain('export async function getStudentGroupWeeks');
+    expect(training).not.toContain('idsGruposConPlan');
   });
 });

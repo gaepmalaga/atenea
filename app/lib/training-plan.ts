@@ -54,7 +54,7 @@ export type WeeklyPlan = {
 
 /**
  * El LUNES de la semana de `d`, como `YYYY-MM-DD`. Es la clave de cada semana en
- * `group_training_plans` (P9). Se calcula en horario local a propósito: «esta
+ * `group_training_plans` (P9; la tabla se retiró en la regla 98). Se calcula en horario local a propósito: «esta
  * semana» es la del profesor, no la de UTC.
  */
 export function lunesDeSemana(d: Date = new Date()): string {

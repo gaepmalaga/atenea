@@ -1,4 +1,4 @@
-# Traspaso — estado a 7 de noviembre de 2026
+# Traspaso — estado a 9 de noviembre de 2026
 
 Qué hay hecho, qué falta y cómo seguir. Las normas de trabajo están en
 [`CLAUDE.md`](../CLAUDE.md), y el porqué de cada regla en
@@ -14,18 +14,23 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
   desde el 6 nov. El repo se sigue llamando `atenea`.
 - **Producción:** https://atenea-eight.vercel.app. Cada push a `main` despliega
   solo en Vercel.
-- **Ramas:** `main` y `claude/alfapol-platform-requirements-3kt6w6` están en el
-  mismo commit (`213d223`). `npm run check` (typecheck + tests) y
-  `npm run build` en verde.
+- **Ramas:** cada sesión trabaja en su rama (`ccr-…`) y llega a `main` por un
+  pull request cuando el dueño pide desplegar. `npm run check` (typecheck +
+  tests) y `npm run build` en verde.
 - **La base de datos (Supabase, `ecupmlqimmpybbrlrmpx`) está limpia:**
-  - **3 cuentas.** `gaepmalaga@gmail.com` es el superadmin (el dueño).
-    `prueba.admin@alphapol.es` y `prueba.alumno@alphapol.es` son de prueba; sus
-    contraseñas las tiene el dueño (van en el dossier) y **no se escriben en el
-    repo**.
+  - **4 cuentas.** `gaepmalaga@gmail.com` es el superadmin (el dueño).
+    `prueba.admin@alphapol.es`, `prueba.alumno@alphapol.es` (en Alpha, sin
+    entrenos: el destino para probar «Copiar a varios») y
+    `prueba.entreno@alphapol.es` (en Kappa, con el entreno de ejemplo de
+    noviembre, regla 98) son de prueba; sus contraseñas las tiene el dueño y
+    **no se escriben en el repo**.
   - **1 academia**, `alphapol`.
   - **El banco:** 4.617 preguntas activas sobre 45 temas y 56 documentos.
-  - **Datos de ejemplo de física:** el grupo «Promo 43 · Físicas», con el plan
-    de noviembre (31 sesiones).
+  - **Datos de ejemplo de física:** las 31 sesiones de noviembre son el
+    entreno individual de `prueba.entreno` (regla 98). El grupo de ejemplo
+    «Promo 43 · Físicas» se retiró.
+  - **Ninguna semana del cuadrante está publicada todavía** (regla 98): los
+    alumnos ven el horario de su grupo hasta que el preparador la publique.
   - **Los grupos reales de física (9 nov, regla 96):** «Promo 44 · Kappa, Alpha,
     Zetta, Omega, Sigma, Betta, Delta» y «Promo 44 · Multi», con su horario
     (lunes y miércoles / martes y jueves; 08:00 o 20:00), aforo 30, y los
@@ -43,8 +48,8 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
 
 | Quién | Pestañas / módulos |
 |---|---|
-| **Alumno** | Inicio · Test (entrenamiento adaptativo / simulacro con nota del BOE) · Repasar fallos · Fichas · Preparación física (calendario de sesiones, apuntar lo hecho, marcas con baremo, 1RM) · Mi evolución · Mi perfil (convocatoria, mis clases y avisos de falta, acceso y pago, cambiar contraseña) |
-| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (horario, plazas, profesores) · Asistencia · Prep. física (cuadrante semanal, planificador estilo TrainingMonkeys, plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes · Logs & Auditoría |
+| **Alumno** | Inicio · Test (entrenamiento adaptativo / simulacro con nota del BOE) · Repasar fallos · Fichas · Preparación física (un calendario con sus clases de grupo —hora, profesor, «sin clase», «no voy»— y sus entrenos; apuntar lo hecho, marcas con baremo, 1RM; los multis eligen con qué grupo van) · Mi evolución · Mi perfil (convocatoria, clases que no son de física y avisos de falta, acceso y pago, cambiar contraseña) |
+| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (horario, plazas, profesores) · Asistencia · Prep. física (cuadrante semanal con días sin clase y multis; Planificar el entreno de cada alumno, con copiar a varios; plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes (profesores, con su cuenta si la tienen) · Logs & Auditoría |
 | **Superadmin** | Temario & IA (generar preguntas) · Banco Oficial · Moderación · Consumo IA · Academias |
 
 El chat («Pregunta al temario») y la entrevista están **fuera del MVP** (regla
@@ -52,7 +57,7 @@ El chat («Pregunta al temario») y la entrevista están **fuera del MVP** (regl
 
 ---
 
-## 2 · Lo último que se hizo (6-7 nov)
+## 2 · Lo último que se hizo (6-9 nov)
 
 Todo en producción y apuntado en `REGLAS.md`:
 
@@ -73,6 +78,8 @@ Todo en producción y apuntado en `REGLAS.md`:
 | Imagen al compartir el enlace (WhatsApp) | 93 |
 | Identidad de marca (marino y oro), Inicio «Tu día», Test, Fallos, Evolución, Perfil, Física y Fichas rediseñados | 94, 95 |
 | Cuadrante semanal de física: rejilla grupo × día con profesor por sesión, copiar semana, imagen y texto para WhatsApp; los multis se apuntan a las clases | 96 |
+| Clases de grupo y entreno individual, separados: el cuadrante solo con grupos con horario, días «sin clase» (`class_days_off`), editor de celda sin «Tipo» y con sugerencias, copiar celda, multis desde el preparador; «Planificar» por alumno con copiar a varios; el calendario del alumno con clases (profesor, sin clase) y entrenos; profesor con cuenta | 97 |
+| Publicar el cuadrante por semanas; el ejemplo de física, entreno de `prueba.entreno`; fuera el grupo de ejemplo, «Jdjd» y las dos tablas del plan viejo | 98 |
 
 ---
 
@@ -116,13 +123,16 @@ Todo en producción y apuntado en `REGLAS.md`:
   datos a un entrenador.
 - **«Ver huecos» de las clases para el alumno** (aplazado: de momento solo los
   ve la academia, regla 82).
-- **Limpieza del plan de semana viejo** (regla 86):
-  - las acciones `getGroupTrainingPlan`, `saveGroupTrainingPlan`,
-    `deleteGroupTrainingPlan` y compañía de `app/actions/groups.ts`, y lo que
-    solo las use;
-  - las tablas `group_training_plans` y `group_workout_logs`, que tienen 0
-    filas. Borrarlas pide un guion SQL que ejecute el dueño (las guardas de
-    `schema-drift` tienen una lista `RETIRADAS` para esto).
+- **Física, si Alphapol lo pide al usarlo:** una vista «mis clases» para el
+  profesor que tenga cuenta enlazada (regla 97); avisar a los alumnos cuando
+  se publica la semana (hoy se avisa por WhatsApp, regla 98).
+- **`prueba.entreno` se creó con SQL** (regla 98): desde la nube no se pudo
+  probar a entrar con ella. Si no entra, `npm run cuenta -- prueba.entreno@alphapol.es 'clave' student`
+  desde un ordenador le pone la contraseña.
+- **`getGroups` lee `class_members` y `class_group_staff` de TODAS las
+  academias** (sin `organization_id` en la consulta, regla 65) y sin paginar:
+  hoy hay una sola academia y pocos alumnos; con ~100 alumnos en varios grupos
+  conviene acotarlo y paginarlo.
 - **Regla 79, abierto:** pulsar «Generar» dos veces deja dos planes de IA
   activos. Hoy no afecta: la IA de física está apagada para Alphapol.
 - **P11h** (elegir academia si una cuenta está en varias): no hace falta con
@@ -178,8 +188,8 @@ producción:
 4. Solo entonces escribe el código: PostgREST rechaza la escritura entera si
    falta una columna.
 
-**Desplegar:** se trabaja en la rama `claude/alfapol-platform-requirements-3kt6w6`.
-Para producción, se fusiona en `main` (`git checkout main && git merge --ff-only
-<rama> && git push origin main`) **solo si el dueño lo pide**. Para saber si
-Vercel ya lo ha desplegado, mira si cambia la lista de
-`/_next/static/chunks/*.js` del HTML de producción.
+**Desplegar:** se trabaja en la rama de la sesión. Para producción, y **solo si
+el dueño lo pide**, se abre un pull request de esa rama a `main` con las
+herramientas de GitHub y se fusiona (el `git push` directo a `main` está
+bloqueado). Para saber si Vercel ya lo ha desplegado, mira si cambia la lista
+de `/_next/static/chunks/*.js` del HTML de producción.

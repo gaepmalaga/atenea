@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import { Play, Target, Clock, Dumbbell, Crosshair, Flame, ChevronRight, Check, Brain, Zap } from 'lucide-react';
+import { Play, Target, Clock, Dumbbell, Crosshair, Flame, ChevronRight, Check, Brain, Zap, Users } from 'lucide-react';
 import { getUserStats, getEntrenoDeHoy, getMisClases, getMiFisica } from '@/actions';
 import { TabId } from '../../StudentDashboard';
 import { ahoraEnZona } from '@/app/lib/asistencia';
-import { claseDeHoy, fisicaDeHoy, type EntrenoDeHoy, type ClaseDeHoy, type FisicaDeHoy } from '@/app/lib/dia';
+import { claseDeHoy, fisicaDeHoy, claseFisicaDeHoy, type EntrenoDeHoy, type ClaseDeHoy, type FisicaDeHoy, type ClaseFisicaDeHoy } from '@/app/lib/dia';
 import { ETIQUETA_TIPO, type TipoSesion } from '@/app/lib/sesiones';
 import { Card, Button, HeroMarino, Kicker, EmptyState, cx, TAP } from '../../../ui';
 
@@ -21,6 +21,8 @@ type Hoy = {
   racha: number;
   entreno: EntrenoDeHoy | null;
   clase: ClaseDeHoy | null;
+  /** La clase de física de su grupo hoy (regla 97). */
+  claseFisica: ClaseFisicaDeHoy | null;
   fisica: FisicaDeHoy | null;
 };
 
@@ -54,7 +56,8 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
         const e = entreno.status === 'fulfilled' && entreno.value.success ? entreno.value.hoy : null;
         const c = clases.status === 'fulfilled' && clases.value.success ? claseDeHoy(clases.value.clases, fecha) : null;
         const f = fisica.status === 'fulfilled' && fisica.value.success ? fisicaDeHoy(fisica.value.sesiones, fisica.value.apuntes, fecha) : null;
-        setHoy({ answered: s ? s.answered : null, racha: s?.racha ?? 0, entreno: e, clase: c, fisica: f });
+        const cf = fisica.status === 'fulfilled' && fisica.value.success ? claseFisicaDeHoy(fisica.value.clases, fecha) : null;
+        setHoy({ answered: s ? s.answered : null, racha: s?.racha ?? 0, entreno: e, clase: c, claseFisica: cf, fisica: f });
       });
     return () => { vivo = false; };
   }, [user.id]);
@@ -141,7 +144,22 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
           </Hito>
         )}
 
-        {/* 4 · LA FÍSICA DE HOY — solo si el preparador ha puesto una sesión.
+        {/* 4 · LA CLASE DE FÍSICA DE HOY — la de su grupo, con su profesor.
+            Si la academia la ha quitado (festivo), también se dice. */}
+        {hoy.claseFisica && (
+          <Hito icono={<Users size={18} />}>
+            <FilaDelDia
+              onClick={() => onNavigate('training')}
+              titulo={hoy.claseFisica.sinClase ? `Hoy no hay clase de ${hoy.claseFisica.grupo}` : `Clase de física · ${hoy.claseFisica.grupo}`}
+              detalle={hoy.claseFisica.sinClase
+                ? hoy.claseFisica.motivo ?? 'La academia la ha quitado'
+                : [hoy.claseFisica.titulo ?? 'Aún sin publicar qué toca', hoy.claseFisica.profesor ? `con ${hoy.claseFisica.profesor}` : null, hoy.claseFisica.falta ? 'has avisado de que faltas' : null].filter(Boolean).join(' · ')}
+              aparte={!hoy.claseFisica.sinClase && hoy.claseFisica.hora ? <span className="font-titulo font-bold text-xl text-marino dark:text-white">{hoy.claseFisica.hora}</span> : undefined}
+            />
+          </Hito>
+        )}
+
+        {/* 5 · TU ENTRENO DE HOY — solo si el preparador ha puesto una sesión.
             Hay academias que aún no la llevan aquí: entonces no hay fila. */}
         {hoy.fisica && (
           <Hito icono={<Dumbbell size={18} />}>

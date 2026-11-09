@@ -3708,6 +3708,171 @@ su página de precios). Se cambió el 7 nov para no depender de esa redirección
   entrenos individuales siguen como en la regla 86 (falta «enviar lo mismo a
   varios alumnos a la vez»); enlazar los nombres de profesor a cuentas.
 
+### 97 · Clases de grupo y entreno de cada alumno: dos capas que no se mezclan
+
+- **Qué pasó (9 nov):** el cuadrante (regla 96) cargaba TODOS los grupos de
+  física, y metía el grupo genérico de ejemplo «Promo 43 · Físicas» (sin
+  horario, con 31 sesiones que ya no pintaban nada): celdas como «FÍSICAS ·
+  Dominadas: pirámide · Sin profesor · Día sin clase en su horario» y hasta
+  columnas como «DOMINGO 15 · FÍSICAS · Descanso», con Multi colgando debajo.
+  Además, «Planificar» partía de un GRUPO y lo escrito llegaba a todos sus
+  miembros, cuando Alphapol quiere sustituir trainingmonkeys.pro: cada alumno
+  recibe SU entreno.
+- **Regla: hay dos capas.**
+  1. **Clases de grupo** (el cuadrante): lo que hace todo un grupo cada día y
+     qué profesor lo da.
+  2. **Entreno individual** (Planificar): cada alumno el suyo. Varios pueden
+     coincidir en el mismo entreno, pero cada uno tiene SU copia.
+- **El cuadrante solo lleva clases de grupo:**
+  - Entran los grupos con horario (`weekdays` no vacío) y los de Multi
+    (`is_multi`). Un grupo sin horario no sale NUNCA, tenga las sesiones que
+    tenga (`entraEnCuadrante` en la lógica pura, `conHorarioOMulti` en la
+    acción: las dos cosas, para que no se cuele por ningún lado).
+  - Un día existe si algún grupo tiene clase ese día o si hay una sesión de
+    Multi. **La fila de Multi no crea días.** Una sesión de un grupo en un día
+    de clase de otros sale como «extra»; en un día sin nadie, no crea el día.
+  - **Quitar un día sin tocar el horario fijo:** `class_days_off` (grupo,
+    fecha, motivo; [`docs/sql/fisica-sin-clase.sql`](sql/fisica-sin-clase.sql),
+    **ejecutado** el 9 nov con el visto bueno del dueño; RLS y CERO políticas,
+    como `class_absences`). Una fila por grupo: «quitar el día entero» es una
+    por cada grupo que tenía clase, así que no hay un `class_id` nulo que
+    signifique «todos» y se cuele en los grupos de teoría. Lo quitado
+    desaparece de la rejilla, de la imagen y del texto; se lista en «Sin clase
+    esta semana» con «Devolver»; el alumno lo ve como «sin clase»; un multi no
+    se puede apuntar (ni el preparador lo apunta); Asistencia no lo cuenta. Las
+    sesiones de ese día NO se borran: se esconden y vuelven al devolverlo. Un
+    **día suelto** (solo existe por una sesión de Multi) se quita borrando sus
+    sesiones, con confirmación (`borrarSesionesDia`).
+- **El editor de celda:**
+  - **Sin «Tipo».** `kind` exige un valor y da el color del calendario del
+    alumno: sale del título (`tipoDeTitulo`: rodaje/series/1.000 m → carrera,
+    circuito, movilidad, F.M/RDL/dominadas → fuerza…). Lo que no se reconoce
+    («Boxeo», «FLK 5.0») es `otro`, en gris: mejor que un color equivocado. Si
+    el título no cambia, se respeta el tipo que ya tuviera.
+  - **La hora propia, solo en Multi**, y escrita a mano: `type="time"` salía
+    vacío con una flecha en el Android del dueño. `leeHora` entiende «18:30»,
+    «18.30», «18h30», «1830», «18»… y hay botones de las horas de siempre.
+  - **Sugerencias** de los títulos usados en los últimos 120 días, del más
+    repetido al menos (`titulosFrecuentes`), como botones. **«Copiar a…»**
+    otras celdas de esta semana o la siguiente (otro día, otro grupo), con o
+    sin el profesor; la hora propia solo viaja dentro del mismo grupo.
+    **«Descripción y cargas»** abre el editor de sesión de siempre: así una
+    clase de grupo lleva cargas en % del 1RM sin un planificador por grupo.
+  - **Quién va (Multi):** «Van 21 de 30: 20 del grupo − 1 que falta + 2 de
+    Multi. Quedan 9», quién avisó de que falta, y los multis con «cambiar de
+    clase» y «quitar»; el preparador también los apunta (`setMultiEnClase`,
+    `moverMulti`). Con la clase llena, pregunta antes de pasarse del aforo
+    (`forzar`). Al mover, primero se apunta a la nueva: si no cabe, no se
+    queda sin ninguna.
+- **Planificar es por ALUMNO.** La vista principal es la lista de alumnos de
+  física por grupo, con buscador y filtros «sin esta semana / sin la
+  siguiente»: sesiones de cada semana y «N/M apuntadas» (`getAlumnosFisica`,
+  paginada, regla 74). Un alumno en dos grupos sale una vez, en el primero. Al
+  entrar en uno: sus entrenos y, APARTE y con candado, las clases de su grupo
+  (`getPlanificador` las trae en `clases`). **Copiar a varios**
+  (`copiarAAlumnos`): una semana o un día de un alumno a los marcados; una fila
+  nueva por alumno y sesión, así que cambiar la de uno no cambia las demás, y
+  las cargas en % dan los kilos de cada uno con SU 1RM (regla 89). «Su semana
+  anterior» copia la del propio alumno. El planificador por grupo solo queda
+  para un grupo SIN horario (un plan común, el modelo de antes).
+- **El alumno ve un solo calendario con las dos capas** (`armaClasesAlumno`,
+  `app/lib/clases-fisica.ts`): las clases salen del HORARIO aunque el
+  preparador no haya escrito nada («aún sin publicar qué toca»), con hora,
+  PROFESOR y color del grupo; los días «sin clase», como tales; «Aviso: no
+  voy» se da ahí; el multi ve las clases a las que se apuntó y se quita ahí.
+  Los entrenos llevan el color de su TIPO y no tienen hora. «Mis clases» (Mi
+  perfil) deja la física a su calendario y solo dice dónde está
+  (`fisicaAparte`); «Con qué grupo entreno» se queda en elegir, con la lista
+  sesión a sesión plegada. Inicio tiene su fila «Clase de física · Kappa».
+- **Profesor con cuenta:** `academy_staff.user_id` (nulable, una cuenta por
+  profesor y academia). Se elige en Ajustes → Profesores entre las cuentas de
+  la academia; el servidor comprueba que es de la academia. Los nombres sin
+  cuenta siguen igual. `limpieza.ts` no lo borra con la cuenta
+  (`TABLAS_CON_USUARIO_QUE_SE_CONSERVAN`): la clave lo deja a `null`.
+- **¿Hace falta «publicar» el cuadrante? Hoy, no** (el dueño lo pidió el mismo
+  día: regla 98). El alumno ve lo que se
+  guarda al instante, pero lo que ve antes de que se escriba es el horario
+  («clase de Kappa a las 08:00, aún sin publicar qué toca»), que es verdad; el
+  aviso a los alumnos sigue siendo la imagen de WhatsApp. Un paso más es un
+  estado que se olvida («¿lo publiqué?»). Si molesta ver la semana a medio
+  escribir, es barato: una fila por academia y semana con `publicado_en`, y el
+  alumno ve el título solo de las semanas publicadas.
+- **Limpieza del plan de semana viejo:** fuera `getGroupTrainingPlan`,
+  `saveGroupTrainingPlan` y `deleteGroupTrainingPlan`, y la lectura de
+  `getGroups` («con plan / sin plan», que ahora dice «sin horario: no sale en
+  el cuadrante»). El `drop` de `group_training_plans` y `group_workout_logs`
+  (0 filas) está en
+  [`docs/sql/retirar-plan-semana-viejo.sql`](sql/retirar-plan-semana-viejo.sql)
+  (ejecutado al final, en la regla 98). El ejemplo «Promo 43 · Físicas» se
+  retiró también en la regla 98.
+- **Trampas:**
+  - `class_days_off` tiene `class_id` y `organization_id`: va en
+    `TABLAS_POR_GRUPO` y `TABLAS_POR_ACADEMIA` de `limpieza.ts`, o su test lo
+    canta.
+  - Un `useEffect` que llama a un `cargar()` de `useCallback` cuenta como
+    `set-state-in-effect` en el lint; con la función asíncrona DENTRO del
+    efecto, no. El lint se queda en los 32 errores de antes.
+  - Desde la nube no se llega a `*.supabase.co`: las pantallas se miraron en el
+    banco de pruebas (390 px y escritorio) y las escrituras nuevas, con su SQL
+    en una transacción deshecha.
+- **Pendiente:** el profesor enlazado aún no tiene una vista «mis clases»; un
+  grupo de físicas sin horario sigue pudiendo crearse (y no sale en el
+  cuadrante: «Grupos» lo avisa).
+
+### 98 · Publicar el cuadrante, y el ejemplo de física es el entreno de un alumno
+
+- **Qué pasó (9 nov):** al ver la regla 97, el dueño pidió tres cosas: un paso
+  de «publicar» el cuadrante; retirar el grupo de ejemplo «Promo 43 ·
+  Físicas» y poner sus sesiones a un alumno de prueba, para que los dueños
+  vean cómo queda un entreno individual y cómo se copia de uno a otro; y
+  borrar las dos tablas vacías del plan de semana viejo.
+- **Publicar** (`class_week_publications`, una fila por academia y semana;
+  [`docs/sql/fisica-publicar-cuadrante.sql`](sql/fisica-publicar-cuadrante.sql),
+  **ejecutado** el 9 nov; RLS y CERO políticas):
+  - De una semana SIN publicar, el alumno ve solo el HORARIO de su grupo
+    («Clase de Kappa · 08:00 · aún sin publicar qué toca»): ni qué toca, ni el
+    profesor, ni los días sin clase, ni las sesiones sueltas de Multi. Al
+    publicarla, todo; lo que se cambie después, al momento (no hay versiones
+    que comparar: un «hay cambios sin publicar» sería un estado más que
+    olvidar).
+  - **Se filtra en el SERVIDOR, no en la pantalla**: `clasesDelAlumno(…,
+    soloPublicado)` (el alumno, `true`; el preparador en «Planificar»,
+    `false`) y `getMiMulti`. Un borrador no llega al navegador del alumno.
+  - Un día «sin clase» de una semana sin publicar no existe para el alumno:
+    tampoco le impide apuntarse como multi (`diasSinClasePublicados`). El
+    preparador sí lo ve en todas partes (Asistencia, quién va).
+  - En el cuadrante, un aviso verde («Publicada el dom 8 nov, 19:12») o ámbar
+    («Sin publicar: los alumnos solo ven el horario») con su botón. Sacar la
+    imagen o el texto de WhatsApp de una semana sin publicar pregunta si
+    publicarla: mandarla es el momento en que se avisa a los alumnos. El
+    texto se copia ANTES de preguntar: algunos navegadores solo dejan escribir
+    en el portapapeles justo después del toque.
+- **El ejemplo, a un alumno**
+  ([`docs/sql/fisica-ejemplo-a-un-alumno.sql`](sql/fisica-ejemplo-a-un-alumno.sql),
+  **ejecutado**): cuenta nueva `prueba.entreno@alphapol.es` (alumno, acceso
+  activo y exento; la contraseña la tiene el dueño y no está en el repo),
+  en Kappa, con las 31 sesiones de ejemplo como SU entreno (las 29 del grupo
+  y las 2 individuales), sus 5 apuntes y sus 5 notas de semana.
+  `prueba.alumno` pasa a Alpha y se queda sin entrenos: es el destino para
+  probar «Copiar a varios». Se borró el grupo y la sesión «Jdjd» de Kappa
+  (una prueba del dueño).
+  - **La cuenta se creó con SQL** (`auth.users` + `auth.identities`, igual que
+    las deja la API): desde la nube no se llega a la API de Supabase. Los
+    disparadores ponen el perfil de alumno y la academia. La contraseña se
+    puso aparte, con `extensions.crypt`, sin pasar por el repo.
+- **El plan de semana viejo, fuera del todo:** borradas `group_training_plans`
+  y `group_workout_logs` (0 filas;
+  [`docs/sql/retirar-plan-semana-viejo.sql`](sql/retirar-plan-semana-viejo.sql)).
+  En el código: fuera la herencia del plan de grupo de `getActiveTrainingPlan`,
+  `getStudentGroupWeeks` y su uso en `PhysicalTrainer`; las dos tablas, a
+  `RETIRADAS` de `schema-drift` (un `.from()` que vuelva a ellas falla).
+  Se borraron ANTES de desplegar: el código que había en producción las leía
+  ignorando el error, así que no se rompía nada.
+- **Trampa:** un fichero de tests que no compila no sale como «×» en vitest,
+  sale como `FAIL` del fichero entero y sus tests no cuentan. Al filtrar la
+  salida por «×», un test roto así pasa desapercibido: mira también el
+  número total de tests, o `tsc`.
+
 ---
 
 ## Los tests
@@ -3725,7 +3890,9 @@ tests/single-result.test.ts     una fila por respuesta, sin doble inserción
 tests/answer-signals.test.ts    lo que se deduce sin preguntar (firmeza, tipo de fallo) y cuándo SÍ se pregunta (regla 56)
 tests/dudosas.test.ts           la marca de duda (regla 80): qué se guarda, el umbral del BOE, el veredicto y que el planificador la escuche
 tests/asistencia.test.ts        la asistencia (regla 82): hora de Madrid y no del servidor, sesiones, hasta cuándo se avisa, plazas libres, y que el alumno solo toca sus faltas
-tests/cuadrante.test.ts         el cuadrante semanal (regla 96): la semana real de Alphapol, choques de profesor, texto de WhatsApp, plazas con multis y guardas de las acciones
+tests/cuadrante.test.ts         el cuadrante semanal (reglas 96 y 97): la semana real de Alphapol, que un grupo sin horario no sale ni crea días, días sin clase, el tipo sacado del título, la hora escrita a mano, choques de profesor, texto de WhatsApp, plazas con multis, el profesor con cuenta y guardas de las acciones
+tests/clases-fisica.test.ts     las clases de grupo en el calendario del alumno (reglas 97 y 98): del horario aunque no estén escritas, «sin clase», faltas, el multi, la fila de Inicio, que los entrenos no traigan las clases y que una semana sin publicar sea un borrador
+tests/planificar.test.ts        «Planificar» por alumno (regla 97): el resumen de cada semana, la lista por grupos, y copiar a varios con una copia independiente para cada uno
 tests/sesiones.test.ts          la física como la lleva un preparador (regla 86): sesiones, lo que apunta el alumno, el calendario, copiar semana, cada frontera del baremo del BOE y las guardas de las acciones
 tests/alta-masiva.test.ts       alta en bloque (regla 83): leer la lista pegada, contraseñas legibles, el CSV para Excel, y las guardas de la acción
 tests/limpieza.test.ts          dejar la BD solo de Alphapol (regla 81): nunca sin una cuenta con la que entrar, y ninguna tabla con user_id/organization_id fuera de la lista

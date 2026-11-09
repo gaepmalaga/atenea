@@ -10,13 +10,20 @@
  * Los alumnos MULTIDISCIPLINARES (`is_multi`) no tienen grupo propio: cada
  * semana se apuntan a las sesiones de otros grupos y ocupan plaza en ellas.
  *
+ * SOLO LLEVA CLASES DE GRUPO (regla 97): entran los grupos con horario semanal
+ * y los de Multi. Un grupo sin horario (el «Promo 43 · Físicas» de ejemplo, un
+ * plan común) no sale nunca, tenga las sesiones que tenga. Y un día solo
+ * existe si algún grupo tiene clase ese día o si hay sesión de Multi: la fila
+ * de Multi no crea días. Un día (o un grupo un día) se puede marcar «sin
+ * clase» (`class_days_off`) sin tocar el horario fijo.
+ *
  * Módulo PURO (regla 21): lo comparten el panel, la imagen que se descarga, el
  * texto de WhatsApp y las acciones. Las fechas son `YYYY-MM-DD` en la hora de
  * la academia (regla 82).
  */
 
 import { DIAS_SEMANA, diaSemanaDe, horaCorta, sumaDias, cuentaSesion, type HorarioGrupo, type CuentaSesion } from './asistencia.ts';
-import { TIPOS_SESION, MAX_TITULO, diasDeSemana, esTipoSesion, type TipoSesion } from './sesiones.ts';
+import { MAX_TITULO, diasDeSemana, type TipoSesion } from './sesiones.ts';
 
 /** Lo que dura una sesión si no se dice otra cosa (la física de Alphapol es de una hora). */
 export const DURACION_SESION_MIN = 60;
@@ -70,13 +77,33 @@ export type FilaCuadrante = {
   hora: string | null;
   /** Hora que se rotula en la celda: solo si NO es la del grupo (Multi, 18:30). */
   horaRotulada: string | null;
-  /** Hay sesión en un día que no es de clase del grupo. */
-  fueraDeHorario: boolean;
+  /** Sesión de un grupo con horario en un día que no es el suyo (una clase extra). */
+  extra: boolean;
   /** Lo que avisa el sistema (profesor en dos sitios a la vez). */
   avisos: string[];
 };
 
-export type DiaCuadrante = { fecha: string; titulo: string; filas: FilaCuadrante[] };
+export type DiaCuadrante = {
+  fecha: string;
+  titulo: string;
+  filas: FilaCuadrante[];
+  /** Ningún grupo tiene ese día en su horario: existe solo por una sesión de Multi. */
+  suelto: boolean;
+};
+
+/** Una marca «sin clase» (`class_days_off`): ese grupo, ese día, no tiene clase. */
+export type DiaSinClase = { classId: string; fecha: string; motivo: string | null };
+
+/** Lo quitado de una semana, por día: lo que se puede devolver. */
+export type QuitadoCuadrante = {
+  fecha: string;
+  titulo: string;
+  grupos: GrupoCuadrante[];
+  /** Los motivos distintos que se escribieron (festivo, sin profesor…). */
+  motivos: string[];
+  /** Todos los grupos que tenían clase ese día están quitados: el día entero. */
+  todos: boolean;
+};
 
 export type TurnoCuadrante = { id: TurnoId; hora: string | null; grupos: string[] };
 
@@ -85,6 +112,8 @@ export type Cuadrante = {
   rango: string;
   dias: DiaCuadrante[];
   turnos: TurnoCuadrante[];
+  /** Lo marcado «sin clase» esa semana. No sale en la rejilla, ni en la imagen, ni en el texto. */
+  quitados: QuitadoCuadrante[];
 };
 
 // ============================================================
@@ -172,14 +201,41 @@ function ordenGrupos(a: GrupoCuadrante, b: GrupoCuadrante): number {
 }
 
 /**
- * Los días que salen en el cuadrante: los días de clase de los grupos y,
- * además, cualquier día donde haya una sesión (la de Multi, o una suelta).
+ * ¿Sale el grupo en el cuadrante? Solo las CLASES DE GRUPO: los grupos con
+ * horario semanal y los de Multi. Un grupo sin días (un plan común, como el
+ * «Promo 43 · Físicas» de ejemplo) no sale nunca, tenga las sesiones que tenga:
+ * eso ya no es una clase, es un plan, y el entreno de cada alumno es suyo.
  */
-export function fechasDelCuadrante(grupos: GrupoCuadrante[], sesiones: SesionCuadrante[], lunes: string): string[] {
-  const set = new Set<string>();
-  for (const g of grupos) if (!g.esMulti) for (const f of fechasDelGrupo(g, lunes)) set.add(f);
+export function entraEnCuadrante(g: Pick<GrupoCuadrante, 'esMulti' | 'horario'>): boolean {
+  return g.esMulti || !!g.horario.weekdays?.length;
+}
+
+const claveDia = (classId: string, fecha: string) => `${classId}|${fecha}`;
+
+/**
+ * Los días que salen en el cuadrante: los días de clase de los grupos con
+ * horario y los días con sesión de Multi (su clase suelta de las 18:30). La
+ * fila de Multi NO crea días por sí sola, ni una sesión de un grupo sin
+ * horario. Lo marcado «sin clase» no cuenta: un día con todos sus grupos
+ * quitados desaparece.
+ */
+export function fechasDelCuadrante(
+  grupos: GrupoCuadrante[],
+  sesiones: SesionCuadrante[],
+  lunes: string,
+  sinClase: DiaSinClase[] = [],
+): string[] {
+  const off = new Set(sinClase.map((x) => claveDia(x.classId, x.fecha)));
   const fin = sumaDias(lunes, 6);
-  for (const s of sesiones) if (s.fecha >= lunes && s.fecha <= fin) set.add(s.fecha);
+  const set = new Set<string>();
+  for (const g of grupos) {
+    if (g.esMulti || !entraEnCuadrante(g)) continue;
+    for (const f of fechasDelGrupo(g, lunes)) if (!off.has(claveDia(g.id, f))) set.add(f);
+  }
+  const multis = new Set(grupos.filter((g) => g.esMulti).map((g) => g.id));
+  for (const s of sesiones) {
+    if (multis.has(s.classId) && s.fecha >= lunes && s.fecha <= fin && !off.has(claveDia(s.classId, s.fecha))) set.add(s.fecha);
+  }
   return [...set].sort();
 }
 
@@ -225,23 +281,34 @@ export function armaCuadrante(params: {
   grupos: GrupoCuadrante[];
   sesiones: SesionCuadrante[];
   profesores: Profesor[];
+  sinClase?: DiaSinClase[];
 }): Cuadrante {
-  const { lunes, grupos, profesores } = params;
+  const { lunes, profesores } = params;
   const fin = sumaDias(lunes, 6);
+  const grupos = params.grupos.filter(entraEnCuadrante);
+  const ids = new Set(grupos.map((g) => g.id));
+  const off = new Map((params.sinClase ?? [])
+    .filter((x) => ids.has(x.classId) && x.fecha >= lunes && x.fecha <= fin)
+    .map((x) => [claveDia(x.classId, x.fecha), x]));
+  const sinClase = [...off.values()];
+  // Lo de un grupo que no sale, o lo de un día quitado, no pinta nada: ni
+  // celda, ni choques de profesor.
   const sesiones = params.sesiones
-    .filter((s) => s.fecha >= lunes && s.fecha <= fin)
+    .filter((s) => ids.has(s.classId) && s.fecha >= lunes && s.fecha <= fin && !off.has(claveDia(s.classId, s.fecha)))
     .sort((a, b) => a.position - b.position || a.titulo.localeCompare(b.titulo, 'es'));
   const orden = [...grupos].sort(ordenGrupos);
   const prof = new Map(profesores.map((p) => [p.id, p]));
   const choques = choquesDeProfesor(sesiones, grupos, profesores);
+  const programados = (fecha: string) => orden.filter((g) => !g.esMulti && fechasDelGrupo(g, lunes).includes(fecha));
 
-  const dias: DiaCuadrante[] = fechasDelCuadrante(grupos, sesiones, lunes).map((fecha) => {
+  const dias: DiaCuadrante[] = fechasDelCuadrante(grupos, sesiones, lunes, sinClase).map((fecha) => {
     const filas: FilaCuadrante[] = [];
     for (const g of orden) {
+      if (off.has(claveDia(g.id, fecha))) continue;
       const delDia = sesiones.filter((s) => s.classId === g.id && s.fecha === fecha);
       const diaDeClase = !g.esMulti && fechasDelGrupo(g, lunes).includes(fecha);
-      // Multi sale siempre (es la celda de abajo del día, a veces vacía); el
-      // resto, solo si tiene clase ese día o una sesión suelta.
+      // Multi sale en todos los días (es la celda de abajo, a veces vacía); el
+      // resto, si tiene clase ese día o una clase extra.
       if (!g.esMulti && !diaDeClase && !delDia.length) continue;
       const sesion = delDia[0] ?? null;
       const hora = horaCorta(sesion?.horaPropia ?? g.horario.startTime ?? null);
@@ -252,11 +319,24 @@ export function armaCuadrante(params: {
         profesor: sesion?.profesorId ? prof.get(sesion.profesorId) ?? null : null,
         hora,
         horaRotulada: sesion?.horaPropia && sesion.horaPropia !== g.horario.startTime ? sesion.horaPropia : null,
-        fueraDeHorario: !g.esMulti && !diaDeClase && !!sesion,
+        extra: !g.esMulti && !diaDeClase,
         avisos: sesion ? choques.get(sesion.id) ?? [] : [],
       });
     }
-    return { fecha, titulo: tituloDia(fecha), filas };
+    return { fecha, titulo: tituloDia(fecha), filas, suelto: programados(fecha).length === 0 };
+  });
+
+  const quitados: QuitadoCuadrante[] = [...new Set(sinClase.map((x) => x.fecha))].sort().map((fecha) => {
+    const delDia = sinClase.filter((x) => x.fecha === fecha);
+    const quitadosIds = new Set(delDia.map((x) => x.classId));
+    const prog = programados(fecha);
+    return {
+      fecha,
+      titulo: tituloDia(fecha),
+      grupos: orden.filter((g) => quitadosIds.has(g.id)),
+      motivos: [...new Set(delDia.map((x) => x.motivo?.trim()).filter((m): m is string => !!m))],
+      todos: prog.length > 0 && prog.every((g) => quitadosIds.has(g.id)),
+    };
   });
 
   const turnos: TurnoCuadrante[] = [];
@@ -272,6 +352,7 @@ export function armaCuadrante(params: {
     rango: fechas.length ? etiquetaRango(fechas[0], fechas[fechas.length - 1]) : etiquetaRango(lunes, fin),
     dias,
     turnos,
+    quitados,
   };
 }
 
@@ -311,12 +392,31 @@ export function textoCuadrante(c: Cuadrante, nombreAcademia = 'ALPHAPOL'): strin
 
 export type CeldaEntrada = {
   titulo: string;
-  tipo: TipoSesion;
   profesorId: string | null;
   horaPropia: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Una hora escrita a mano, como se escribe en un móvil: «18:30», «18.30»,
+ * «18,30», «18h30», «18 30», «1830», «830» o «18» → `HH:MM`. `null` si no es una
+ * hora. Existe porque el `type="time"` del navegador, en el Android del dueño,
+ * salía vacío con una flecha y no se sabía qué hacer con él (regla 97).
+ */
+export function leeHora(valor: unknown): string | null {
+  if (typeof valor !== 'string') return null;
+  const t = valor.trim().toLowerCase().replace(/\s*h$/, '');
+  let h: string;
+  let m: string;
+  const conSeparador = t.match(/^(\d{1,2})\s*[h:.,\s]\s*(\d{2})$/);
+  if (conSeparador) [, h, m] = conSeparador;
+  else if (/^\d{3,4}$/.test(t)) { h = t.slice(0, -2); m = t.slice(-2); }
+  else if (/^\d{1,2}$/.test(t)) { h = t; m = '00'; }
+  else return null;
+  if (Number(h) > 23 || Number(m) > 59) return null;
+  return `${h.padStart(2, '0')}:${m}`;
+}
 
 /** Valida lo que llega de una celda del cuadrante (regla 27: igual que lo que escribe la IA). */
 export function normalizaCelda(raw: Record<string, unknown> | null | undefined):
@@ -325,16 +425,69 @@ export function normalizaCelda(raw: Record<string, unknown> | null | undefined):
   const titulo = typeof r.titulo === 'string' ? r.titulo.replace(/\0/g, '').trim() : '';
   if (!titulo) return { ok: false, error: 'Escribe qué toca (por ejemplo, FLK 5.0).' };
   if (titulo.length > MAX_TITULO) return { ok: false, error: `El título admite hasta ${MAX_TITULO} caracteres.` };
-  const tipo = r.tipo === undefined || r.tipo === null || r.tipo === '' ? 'otro' : r.tipo;
-  if (!esTipoSesion(tipo)) return { ok: false, error: `El tipo tiene que ser uno de: ${TIPOS_SESION.join(', ')}.` };
   const profesorId = r.profesorId === undefined || r.profesorId === null || r.profesorId === '' ? null : r.profesorId;
   if (profesorId !== null && !(typeof profesorId === 'string' && UUID.test(profesorId))) {
     return { ok: false, error: 'Ese profesor no es válido.' };
   }
-  const vacia = r.horaPropia === undefined || r.horaPropia === null || r.horaPropia === '';
-  const horaPropia = vacia ? null : horaCorta(r.horaPropia);
+  const vacia = r.horaPropia === undefined || r.horaPropia === null || (typeof r.horaPropia === 'string' && r.horaPropia.trim() === '');
+  const horaPropia = vacia ? null : leeHora(r.horaPropia);
   if (!vacia && !horaPropia) return { ok: false, error: 'La hora tiene que ser como 18:30.' };
-  return { ok: true, valor: { titulo, tipo, profesorId, horaPropia } };
+  return { ok: true, valor: { titulo, profesorId, horaPropia } };
+}
+
+// ============================================================
+// EL TIPO, DEDUCIDO DEL TÍTULO
+// ============================================================
+
+/**
+ * El tipo de la sesión (que da el color en el calendario del alumno) sale del
+ * título cuando es evidente: el preparador escribe «Rodaje 40′» o «Circuito»,
+ * no elige «Carrera» en un desplegable (regla 97). Lo que no se reconoce
+ * («Boxeo», «Jiujitsu», «FLK 5.0») es `otro`: mejor un gris que un color
+ * equivocado. El orden importa: «Circuito de agilidad» es agilidad, y
+ * «Circuito de fuerza» es circuito.
+ */
+const REGLAS_TIPO: [TipoSesion, RegExp][] = [
+  ['descanso', /\b(descanso|dia libre)\b/],
+  ['movilidad', /\b(movilidad|estiramientos?|flexibilidad|yoga|pilates|recuperacion|foam)\b/],
+  ['agilidad', /\bagilidad\b/],
+  ['carrera', /\b(carrera|correr|rodajes?|fartlek|trote|cuestas|1\.?000|\d+ ?(m|km))\b/],
+  ['circuito', /\b(circuitos?|hiit|wod|crossfit|tabata|emom|amrap)\b/],
+  ['fuerza', /(\bfuerza\b|\bf\.m\b|\bfm\b|\brdl\b|\bdominadas?\b|\bpesas\b|\bsentadillas?\b|\bpress\b|\bpeso muerto\b|\bgimnasio\b|\bgym\b|\bpotencia\b|\bsuspension\b)/],
+];
+
+export function tipoDeTitulo(titulo: string): TipoSesion {
+  const t = titulo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  for (const [tipo, re] of REGLAS_TIPO) if (re.test(t)) return tipo;
+  return 'otro';
+}
+
+/**
+ * Los títulos ya usados, del más repetido al menos: son las sugerencias del
+ * editor de celda, para no escribir «F.M + RDL» de cero cada semana.
+ */
+export function titulosFrecuentes(titulos: string[], max = 24): string[] {
+  const n = new Map<string, { titulo: string; veces: number }>();
+  for (const t of titulos) {
+    const limpio = t.trim();
+    if (!limpio) continue;
+    const k = limpio.toLowerCase();
+    const x = n.get(k) ?? { titulo: limpio, veces: 0 };
+    x.veces += 1;
+    n.set(k, x);
+  }
+  return [...n.values()]
+    .sort((a, b) => b.veces - a.veces || a.titulo.localeCompare(b.titulo, 'es'))
+    .slice(0, max)
+    .map((x) => x.titulo);
+}
+
+/** El motivo de un día sin clase: texto corto, vacío es `null` (regla 16). */
+export const MAX_MOTIVO = 120;
+export function normalizaMotivo(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.replace(/\0/g, '').trim().slice(0, MAX_MOTIVO);
+  return t || null;
 }
 
 // ============================================================

@@ -163,6 +163,14 @@ export async function saveStaff(input: unknown) {
   const clean = normalizeStaffInput(raw);
   if (!clean) return { success: false as const, error: 'Falta el nombre.' };
 
+  // La cuenta enlazada (regla 97) tiene que ser de esta academia: con la
+  // clave de servicio nada más lo impide (regla 34).
+  if (clean.user_id) {
+    const { data: socio } = await supabaseAdmin.from('academy_members').select('user_id')
+      .eq('academy_id', auth.user.organizationId).eq('user_id', clean.user_id).maybeSingle();
+    if (!socio) return { success: false as const, error: 'Esa cuenta no es de tu academia.' };
+  }
+
   const id = typeof raw.id === 'string' && raw.id ? raw.id : undefined;
   const payload: typeof clean & { id?: string; organization_id: string } = {
     ...clean,
@@ -174,7 +182,35 @@ export async function saveStaff(input: unknown) {
   if (!error) {
     registraAccion({ actorId: auth.user.id, action: 'save_staff', target: clean.name, organizationId: auth.user.organizationId });
   }
-  return { success: !error, error: error?.message };
+  // El índice único (una cuenta, un profesor por academia) habla en inglés.
+  const yaTiene = error && /academy_staff_una_cuenta|duplicate key/i.test(error.message);
+  return { success: !error, error: yaTiene ? 'Esa cuenta ya es de otro profesor.' : error?.message };
+}
+
+/**
+ * Las cuentas de la academia, para enlazar un profesor con la suya (regla 97).
+ * Primero las de administración, que es lo normal en quien da clase.
+ */
+export async function listCuentasAcademia(): Promise<
+  { success: true; cuentas: { id: string; email: string; role: string }[] } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: true as const, cuentas: [] };
+  const { data: socios, error } = await supabaseAdmin.from('academy_members').select('user_id').eq('academy_id', org);
+  if (error) return { success: false as const, error: error.message };
+  const ids = (socios ?? []).map((x) => x.user_id as string);
+  if (!ids.length) return { success: true as const, cuentas: [] };
+  const { data: perfiles, error: e2 } = await supabaseAdmin.from('profiles').select('id, email, role').in('id', ids);
+  if (e2) return { success: false as const, error: e2.message };
+  const peso = (r: string) => (r === 'admin' ? 0 : r === 'superadmin' ? 1 : 2);
+  return {
+    success: true as const,
+    cuentas: (perfiles ?? [])
+      .map((p) => ({ id: p.id as string, email: (p.email as string | null) ?? '—', role: (p.role as string | null) ?? 'student' }))
+      .sort((a, b) => peso(a.role) - peso(b.role) || a.email.localeCompare(b.email)),
+  };
 }
 
 export async function deleteStaff(id: string) {

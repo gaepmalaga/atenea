@@ -7,7 +7,6 @@ import {
     savePhysicalProfile,
     generateWeeklyPlan,
     getActiveTrainingPlan,
-    getStudentGroupWeeks,
     generateNextWeek,
     completeTrainingDay,
     getTrainingHistory,
@@ -71,12 +70,11 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
   useEffect(() => {
     async function init() {
         try {
-            const [profileRes, planRes, switchesRes, histRes, semanasRes] = await Promise.all([
+            const [profileRes, planRes, switchesRes, histRes] = await Promise.all([
                  getPhysicalProfile(),
                  getActiveTrainingPlan(),
                  getTrainingSwitches(),
                  getTrainingHistory(),
-                 getStudentGroupWeeks()
             ]);
 
             if (switchesRes.success) setAiOn(switchesRes.switches.ai);
@@ -93,11 +91,6 @@ export default function PhysicalTrainer({ user }: PhysicalTrainerProps) {
             if (activePlanRow) {
                 setWeeklyPlan(activePlanRow.plan_data);
                 setActivePlanId(activePlanRow.id); // ¡CRÍTICO! Guardamos el ID para poder actualizarlo luego
-                setView('dashboard');
-            } else if (semanasRes.success && semanasRes.semanas.length > 0) {
-                // Está en un grupo de físicas pero getActiveTrainingPlan no
-                // devolvió nada (p. ej. group_training un plan de grupo con el
-                // interruptor recién encendido).
                 setView('dashboard');
             } else if (!hasBiometrics(profileData)) {
                 setView('setup');

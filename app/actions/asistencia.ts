@@ -17,12 +17,14 @@
 
 import { supabaseAdmin } from './core';
 import { requireUser, requireAdmin } from '../lib/auth';
+import { requireModule } from '../lib/module-guard';
+import { leeTrainingSwitches } from '../lib/training-switch-guard';
 import {
   ahoraEnZona, proximasSesiones, sePuedeAvisar, cuentaSesion, horarioDeFila, horarioEnTexto,
   etiquetaFecha, esFecha, sumaDias, DIAS_VISIBLES, type CuentaSesion,
 } from '../lib/asistencia';
 
-const COLUMNAS_GRUPO = 'id, name, organization_id, weekdays, start_time, end_time, capacity';
+const COLUMNAS_GRUPO = 'id, name, kind, organization_id, weekdays, start_time, end_time, capacity';
 
 export type SesionAlumno = {
   fecha: string;
@@ -32,6 +34,8 @@ export type SesionAlumno = {
   falta: boolean;
   /** Todavía puede cambiarlo (la clase no ha empezado). */
   editable: boolean;
+  /** La academia ha quitado esa clase (festivo, sin profesor…, regla 97). */
+  sinClase: boolean;
 };
 
 export type ClaseAlumno = {
@@ -41,14 +45,21 @@ export type ClaseAlumno = {
   sesiones: SesionAlumno[];
 };
 
-/** Las clases del alumno en las próximas semanas, con las faltas que ha avisado. */
+/**
+ * Las clases del alumno en las próximas semanas, con las faltas que ha avisado.
+ *
+ * Las de FÍSICA no salen aquí cuando la academia lleva la física en la app: se
+ * ven, y se avisa de que falta, en su calendario de «Preparación física»
+ * (regla 97). Así no hay dos sitios con la misma clase. `fisicaAparte` dice
+ * que tiene clases de física y dónde están.
+ */
 export async function getMisClases(): Promise<
-  { success: true; clases: ClaseAlumno[] } | { success: false; error: string }
+  { success: true; clases: ClaseAlumno[]; fisicaAparte: boolean } | { success: false; error: string }
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const organizationId = auth.user.organizationId;
-  if (!organizationId) return { success: true as const, clases: [] };
+  if (!organizationId) return { success: true as const, clases: [], fisicaAparte: false };
 
   const { data: miembros, error } = await supabaseAdmin
     .from('class_members')
@@ -58,20 +69,34 @@ export async function getMisClases(): Promise<
   if (error) return { success: false as const, error: error.message };
 
   const ahora = ahoraEnZona(Date.now());
-  const grupos = (miembros ?? [])
+  const todos = (miembros ?? [])
     .map((m) => m.class_groups as unknown as Record<string, unknown>)
     .filter(Boolean);
+  const tieneFisica = todos.some((g) => g.kind === 'fisicas');
+  const fisicaAparte = tieneFisica
+    && (await requireModule('training')).ok
+    && (await leeTrainingSwitches(organizationId)).group;
+  const grupos = fisicaAparte ? todos.filter((g) => g.kind !== 'fisicas') : todos;
   const ids = grupos.map((g) => g.id as string);
 
-  const { data: faltas } = ids.length
-    ? await supabaseAdmin
-        .from('class_absences')
-        .select('class_id, session_date')
-        .eq('user_id', auth.user.id)
-        .in('class_id', ids)
-        .gte('session_date', ahora.fecha)
-    : { data: [] as { class_id: string; session_date: string }[] };
+  const [{ data: faltas }, { data: quitadas }] = ids.length
+    ? await Promise.all([
+        supabaseAdmin
+          .from('class_absences')
+          .select('class_id, session_date')
+          .eq('user_id', auth.user.id)
+          .in('class_id', ids)
+          .gte('session_date', ahora.fecha),
+        supabaseAdmin
+          .from('class_days_off')
+          .select('class_id, session_date')
+          .eq('organization_id', organizationId)
+          .in('class_id', ids)
+          .gte('session_date', ahora.fecha),
+      ])
+    : [{ data: [] as { class_id: string; session_date: string }[] }, { data: [] as { class_id: string; session_date: string }[] }];
   const avisadas = new Set((faltas ?? []).map((f) => `${f.class_id}|${f.session_date}`));
+  const sinClase = new Set((quitadas ?? []).map((f) => `${f.class_id}|${f.session_date}`));
 
   const clases: ClaseAlumno[] = grupos
     .map((g) => {
@@ -85,14 +110,15 @@ export async function getMisClases(): Promise<
           etiqueta: etiquetaFecha(fecha),
           hora: h.startTime,
           falta: avisadas.has(`${g.id}|${fecha}`),
-          editable: sePuedeAvisar(h, fecha, ahora),
+          editable: !sinClase.has(`${g.id}|${fecha}`) && sePuedeAvisar(h, fecha, ahora),
+          sinClase: sinClase.has(`${g.id}|${fecha}`),
         })),
       };
     })
     .filter((c) => c.sesiones.length > 0)
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-  return { success: true as const, clases };
+  return { success: true as const, clases, fisicaAparte };
 }
 
 /**
@@ -164,7 +190,7 @@ export async function getAsistenciaAcademia(): Promise<
 
   const ahora = ahoraEnZona(Date.now());
   const ids = (grupos ?? []).map((g) => g.id as string);
-  const [miembrosRes, faltasRes, multisRes] = ids.length
+  const [miembrosRes, faltasRes, multisRes, quitadasRes] = ids.length
     ? await Promise.all([
         supabaseAdmin.from('class_members').select('class_id, user_id').in('class_id', ids),
         supabaseAdmin
@@ -180,8 +206,17 @@ export async function getAsistenciaAcademia(): Promise<
           .in('class_id', ids)
           .gte('session_date', ahora.fecha)
           .lte('session_date', sumaDias(ahora.fecha, DIAS_VISIBLES)),
+        // Lo quitado del cuadrante (festivo, sin profesor) no es una clase (regla 97).
+        supabaseAdmin
+          .from('class_days_off')
+          .select('class_id, session_date')
+          .eq('organization_id', organizationId)
+          .in('class_id', ids)
+          .gte('session_date', ahora.fecha)
+          .lte('session_date', sumaDias(ahora.fecha, DIAS_VISIBLES)),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+  const quitadas = new Set(((quitadasRes.data ?? []) as { class_id: string; session_date: string }[]).map((q) => `${q.class_id}|${q.session_date}`));
 
   const miembros = (miembrosRes.data ?? []) as { class_id: string; user_id: string }[];
   const faltas = (faltasRes.data ?? []) as { class_id: string; user_id: string; session_date: string }[];
@@ -217,6 +252,7 @@ export async function getAsistenciaAcademia(): Promise<
     const fechas = proximasSesiones(h, ahora);
     if (!h.weekdays?.length) { gruposSinHorario.push(g.name as string); continue; }
     for (const fecha of fechas) {
+      if (quitadas.has(`${g.id}|${fecha}`)) continue;
       const quienes = (faltasPorSesion.get(`${g.id}|${fecha}`) ?? []).sort();
       porDia.set(fecha, [
         ...(porDia.get(fecha) ?? []),

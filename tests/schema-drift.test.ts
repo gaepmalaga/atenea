@@ -138,7 +138,8 @@ describe('las tablas retiradas no vuelven al codigo', () => {
    * resultados que PostgREST rechazaba enteros, en silencio. La buena es
    * `question_attempts` (regla 7).
    */
-  const RETIRADAS = ['test_results', 'exams', 'exam_questions', 'content_documents'];
+  // Regla 98: el plan de semana por grupo y su registro, borrados el 9 nov 2026.
+  const RETIRADAS = ['test_results', 'exams', 'exam_questions', 'content_documents', 'group_training_plans', 'group_workout_logs'];
 
   const raices = ['actions', 'lib', 'components'].map((d) => join(__dirname, '..', 'app', d));
 
