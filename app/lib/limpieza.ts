@@ -58,6 +58,9 @@ export const TABLAS_POR_USUARIO = [
   'physical_marks',
   'rm_marks',
   'class_members',
+  // Los cobros de una cuenta de prueba (regla 104). Los de un alumno de verdad
+  // nunca se borran: su `user_id` se queda en nulo y el apunte sigue.
+  'payment_entries',
   'monthly_payments',
   'memberships',
   'academy_members',
@@ -83,6 +86,8 @@ export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'ques
  */
 export const TABLAS_POR_ACADEMIA = [
   'memberships',
+  'payment_entries',
+  'receipt_counters',
   'monthly_payments',
   'membership_exemptions',
   // Apuntan a `academy_staff` (regla 100): antes que él.
@@ -96,6 +101,8 @@ export const TABLAS_POR_ACADEMIA = [
   'session_templates',
   'physical_marks',
   'rm_marks',
+  // Los packs de precios (regla 102) nombran tipos de grupo: antes que ellos.
+  'fee_packs',
   'group_kinds',
   'module_settings',
   'admin_audit_log',

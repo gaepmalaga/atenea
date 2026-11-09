@@ -21,7 +21,7 @@ import {
 import { entregaImagenCuadrante } from '@/app/components/fisica/cuadranteImagen';
 import { MARCA } from '@/app/lib/marca';
 import { profesorSugerido } from '@/app/lib/profesores';
-import { Button, Card, EmptyState, Modal, SelectField, TextField, TEXT, cx } from '../../../ui';
+import { Boton, Hoja, EmptyState, Modal, CampoSelect, Campo, TEXT, cx } from '../../../ui';
 import EditorSesion from './EditorSesion';
 
 /**
@@ -164,57 +164,57 @@ export default function Cuadrante() {
 
   return (
     <div className="space-y-4">
-      <Card tone="base" pad="md" className="space-y-3">
+      <Hoja tone="base" pad="md" className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <button onClick={() => setLunes(sumaDias(lunes, -7))} aria-label="Semana anterior"
-            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-linea text-slate-700 hover:border-indigo-700 dark:border-noche-linea dark:text-slate-300">
             <ChevronLeft size={20} />
           </button>
           <div className="text-center min-w-0">
-            <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400')}>Semana</p>
-            <p className="font-black text-slate-900 dark:text-white text-sm sm:text-base">{mayuscula(etiquetaRango(lunes, fin))}</p>
+            <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400')}>Semana</p>
+            <p className="font-titulo text-xl font-bold uppercase leading-tight tracking-wide text-slate-900 dark:text-white sm:text-2xl">{etiquetaRango(lunes, fin)}</p>
             {lunes !== lunesDe(hoyLocal()) && (
-              <button onClick={() => setLunes(lunesDe(hoyLocal()))} className="min-h-[44px] px-2 text-xs font-black text-indigo-600 dark:text-indigo-400">Ir a esta semana</button>
+              <button onClick={() => setLunes(lunesDe(hoyLocal()))} className="min-h-[44px] px-2 text-xs font-semibold text-indigo-900 underline dark:text-indigo-200">Ir a esta semana</button>
             )}
           </div>
           <button onClick={() => setLunes(sumaDias(lunes, 7))} aria-label="Semana siguiente"
-            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-linea text-slate-700 hover:border-indigo-700 dark:border-noche-linea dark:text-slate-300">
             <ChevronRight size={20} />
           </button>
         </div>
         {datos && hayGrupos && (
           datos.publicada ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50 px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50 px-3 py-2">
               <p className="text-xs text-emerald-900 dark:text-emerald-100">
                 <b className="inline-flex items-center gap-1"><Check size={13} /> Publicada</b> el {cuando(datos.publicada)}. Lo que cambies lo ven al momento.
               </p>
-              <Button size="sm" variant="ghost" disabled={ocupado !== null} icon={<EyeOff size={14} />}
+              <Boton size="sm" variant="ghost" disabled={ocupado !== null} icon={<EyeOff size={14} />}
                 onClick={() => { if (confirm('¿Retirar la publicación? Los alumnos volverán a ver solo el horario.')) publica(false); }}>
                 Retirar
-              </Button>
+              </Boton>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 px-3 py-2">
               <p className="text-xs text-amber-900 dark:text-amber-100">
                 <b>Sin publicar.</b> Los alumnos solo ven el horario de su grupo, no qué toca ni con quién.
               </p>
-              <Button size="sm" disabled={ocupado !== null || !cuadrante?.dias.length}
+              <Boton size="sm" disabled={ocupado !== null || !cuadrante?.dias.length}
                 icon={ocupado === 'publicar' ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 onClick={() => publica(true)}>
                 Publicar semana
-              </Button>
+              </Boton>
             </div>
           )
         )}
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" icon={ocupado === 'copiar' ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
-            disabled={!hayGrupos || ocupado !== null} onClick={copiaAnterior}>Copiar semana anterior</Button>
-          <Button size="sm" variant="secondary" icon={ocupado === 'imagen' ? <Loader2 size={14} className="animate-spin" /> : <ImagenIcono size={14} />}
-            disabled={!cuadrante?.dias.length || ocupado !== null} onClick={bajaImagen}>Imagen para WhatsApp</Button>
-          <Button size="sm" variant="secondary" icon={<MessageSquare size={14} />}
-            disabled={!cuadrante?.dias.length} onClick={copiaTexto}>Copiar texto</Button>
-          <Button size="sm" variant="secondary" icon={<CalendarPlus size={14} />}
-            disabled={!hayGrupos || ocupado !== null} onClick={() => setAnadir(true)}>Añadir un día</Button>
+          <Boton size="sm" variant="secondary" icon={ocupado === 'copiar' ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
+            disabled={!hayGrupos || ocupado !== null} onClick={copiaAnterior}>Copiar semana anterior</Boton>
+          <Boton size="sm" variant="secondary" icon={ocupado === 'imagen' ? <Loader2 size={14} className="animate-spin" /> : <ImagenIcono size={14} />}
+            disabled={!cuadrante?.dias.length || ocupado !== null} onClick={bajaImagen}>Imagen para WhatsApp</Boton>
+          <Boton size="sm" variant="secondary" icon={<MessageSquare size={14} />}
+            disabled={!cuadrante?.dias.length} onClick={copiaTexto}>Copiar texto</Boton>
+          <Boton size="sm" variant="secondary" icon={<CalendarPlus size={14} />}
+            disabled={!hayGrupos || ocupado !== null} onClick={() => setAnadir(true)}>Añadir un día</Boton>
         </div>
         {/* Los grupos, sus días, horas y plazas se cambian en «Grupos» (regla 99). */}
         <button type="button" onClick={() => irAPestana('groups')}
@@ -223,7 +223,7 @@ export default function Cuadrante() {
         </button>
         {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"><Check size={14} /> {aviso}</p>}
         {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
-      </Card>
+      </Hoja>
 
       {cargando && !datos ? (
         <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-slate-400" /></div>
@@ -244,25 +244,25 @@ export default function Cuadrante() {
           </div>
 
           {cuadrante && cuadrante.quitados.length > 0 && (
-            <Card tone="sunken" pad="md" className="space-y-2">
-              <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 flex items-center gap-1.5')}><CalendarX2 size={14} /> Sin clase esta semana</p>
+            <Hoja tone="sunken" pad="md" className="space-y-2">
+              <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400 flex items-center gap-1.5')}><CalendarX2 size={14} /> Sin clase esta semana</p>
               <ul className="divide-y divide-slate-200 dark:divide-slate-800">
                 {cuadrante.quitados.map((q) => (
                   <li key={q.fecha} className="flex items-center justify-between gap-3 py-1.5">
                     <span className="min-w-0 text-sm text-slate-700 dark:text-slate-200">
-                      <span className="font-black">{q.titulo}</span>
+                      <span className="font-bold">{q.titulo}</span>
                       {' · '}{q.todos ? 'todo el día' : q.grupos.map((g) => g.corto).join(', ')}
-                      {q.motivos.length > 0 && <span className="text-slate-500 dark:text-slate-400"> ({q.motivos.join(', ')})</span>}
+                      {q.motivos.length > 0 && <span className="text-slate-600 dark:text-slate-400"> ({q.motivos.join(', ')})</span>}
                     </span>
-                    <Button size="sm" variant="ghost" disabled={ocupado !== null} onClick={() => devolver(q.fecha, q.grupos)}
+                    <Boton size="sm" variant="ghost" disabled={ocupado !== null} onClick={() => devolver(q.fecha, q.grupos)}
                       icon={ocupado === `devolver-${q.fecha}` ? <Loader2 size={14} className="animate-spin" /> : <Undo2 size={14} />}>
                       Devolver
-                    </Button>
+                    </Boton>
                   </li>
                 ))}
               </ul>
               <p className={TEXT.muted}>No salen en la imagen ni en el texto. Los alumnos lo ven como «sin clase».</p>
-            </Card>
+            </Hoja>
           )}
         </>
       )}
@@ -297,11 +297,11 @@ function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
   dia: DiaCuadrante; datos: DatosCuadrante; hoy: string; onEdita: (f: FilaCuadrante) => void; onQuitar: () => void;
 }) {
   return (
-    <Card tone="base" pad="sm" className={cx('space-y-2', dia.fecha === hoy && 'ring-2 ring-oro')}>
+    <Hoja tone="base" pad="sm" className={cx('space-y-2', dia.fecha === hoy && 'ring-2 ring-oro')}>
       <div className="flex items-center justify-between gap-2 pl-1">
-        <h4 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">{dia.titulo}</h4>
+        <h4 className="font-titulo text-lg font-bold uppercase leading-none tracking-wide text-slate-900 dark:text-white">{dia.titulo}</h4>
         <button onClick={onQuitar} aria-label={`Quitar el ${dia.titulo.toLowerCase()}`}
-          className="min-h-[44px] px-2 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1">
+          className="min-h-[44px] px-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1">
           <CalendarX2 size={14} /> Quitar…
         </button>
       </div>
@@ -311,22 +311,22 @@ function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
         const multis = datos.multis[clave(f.grupo.id, dia.fecha)]?.length ?? 0;
         return (
           <div key={f.grupo.id} className="flex gap-1.5">
-            <div className="w-[88px] shrink-0 rounded-xl flex items-center justify-center text-center font-black italic text-sm px-1"
+            <div className="w-[88px] shrink-0 rounded-lg flex items-center justify-center text-center font-bold italic text-sm px-1"
               style={{ background: col.fondo, color: col.texto }}>
               {f.grupo.corto.toUpperCase()}
             </div>
             <button onClick={() => onEdita(f)}
-              className={cx('flex-1 min-h-[56px] min-w-0 text-left rounded-xl border-2 px-3 py-2',
-                f.sesion ? 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700' : 'border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400',
+              className={cx('flex-1 min-h-[56px] min-w-0 text-left rounded-lg border-2 px-3 py-2',
+                f.sesion ? 'bg-white dark:bg-slate-950 border-linea dark:border-noche-linea' : 'border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400',
                 f.avisos.length > 0 && 'border-amber-400 dark:border-amber-500')}>
               {f.sesion ? (
                 <>
-                  <span className="flex items-center gap-1.5 font-black text-slate-900 dark:text-white text-sm leading-tight min-w-0">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-sm leading-tight min-w-0">
                     <span className="truncate">{f.sesion.titulo}</span>
                     {f.horaRotulada && <span className="shrink-0 text-[10px] bg-amber-300 text-slate-900 rounded px-1.5 py-0.5">{f.horaRotulada} h</span>}
                     {f.extra && <span className="shrink-0 text-[10px] bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 rounded px-1.5 py-0.5">extra</span>}
                   </span>
-                  <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                  <span className="block text-xs text-slate-600 dark:text-slate-400 truncate">
                     {f.profesor ? nombrePila(f.profesor.nombre) : 'Sin profesor'}
                     {f.extras > 0 && ` · +${f.extras} más`}
                     {plazas && plazas.libres !== null && ` · ${plazas.libres} libres`}
@@ -350,7 +350,7 @@ function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
           </div>
         );
       })}
-    </Card>
+    </Hoja>
   );
 }
 
@@ -445,22 +445,22 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
       onClose={onClose} width="sm"
       footer={
         <div className="flex gap-2 w-full">
-          {s && <Button variant="ghost" icon={<Trash2 size={14} />} disabled={guardando} onClick={quita}>Quitar</Button>}
+          {s && <Boton variant="ghost" icon={<Trash2 size={14} />} disabled={guardando} onClick={quita}>Quitar</Boton>}
           <div className="flex-1" />
-          <Button variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Button>
-          <Button disabled={guardando || !titulo.trim() || !cambiado || (esMulti && !!hora.trim() && !horaLeida)} onClick={guarda}>
+          <Boton variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Boton>
+          <Boton disabled={guardando || !titulo.trim() || !cambiado || (esMulti && !!hora.trim() && !horaLeida)} onClick={guarda}>
             {guardando ? 'Guardando…' : 'Guardar'}
-          </Button>
+          </Boton>
         </div>
       }>
       <div className="space-y-4">
         <div className="space-y-2">
-          <TextField label="Qué toca" value={titulo} onChange={(e) => cambiaTitulo(e.target.value)} maxLength={120} placeholder="FLK 5.0, Boxeo, F.M + RDL…" />
+          <Campo label="Qué toca" value={titulo} onChange={(e) => cambiaTitulo(e.target.value)} maxLength={120} placeholder="FLK 5.0, Boxeo, F.M + RDL…" />
           {sugeridos.length > 0 && (
             <div className="flex flex-wrap gap-1.5" aria-label="Títulos ya usados">
               {sugeridos.map((t) => (
                 <button key={t} type="button" onClick={() => cambiaTitulo(t)}
-                  className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-400">
+                  className="min-h-[44px] px-3 rounded-lg border border-linea dark:border-noche-linea text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-400">
                   {t}
                 </button>
               ))}
@@ -476,25 +476,25 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
         </div>
 
         <div className="space-y-1">
-          <SelectField label="Profesor" value={profesorId}
+          <CampoSelect label="Profesor" value={profesorId}
             onChange={(e) => { setProfesorId(e.target.value); setProfesorTocado(true); setNotaProfesor(null); }}>
             <option value="">Sin asignar</option>
             {datos.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </SelectField>
+          </CampoSelect>
           {notaProfesor && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{notaProfesor}</p>}
         </div>
 
         {conHora && (
           <div className="space-y-2">
-            <TextField label="Hora" inputMode="numeric" autoComplete="off" value={hora} onChange={(e) => setHora(e.target.value)}
+            <Campo label="Hora" inputMode="numeric" autoComplete="off" value={hora} onChange={(e) => setHora(e.target.value)}
               placeholder={horaCortaGrupo(fila.grupo) ?? '18:30'}
               hint={hora.trim() ? (horaLeida ? `Se guardará como ${horaLeida}` : 'Escríbela como 18:30')
                 : esExtra && fila.grupo.horario.startTime ? `Vacía, la de sus clases (${fila.grupo.horario.startTime})` : 'Como 18:30 o 1830'} />
             <div className="flex flex-wrap gap-1.5">
               {[...new Set([...(esExtra && fila.grupo.horario.startTime ? [fila.grupo.horario.startTime] : []), ...HORAS_MULTI])].map((h) => (
                 <button key={h} type="button" onClick={() => setHora(h)} aria-pressed={horaLeida === h}
-                  className={cx('min-h-[44px] px-3 rounded-xl border text-xs font-black tabular-nums',
-                    horaLeida === h ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200')}>
+                  className={cx('min-h-[44px] px-3 rounded-lg border text-xs font-bold tabular-nums',
+                    horaLeida === h ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-linea dark:border-noche-linea text-slate-700 dark:text-slate-200')}>
                   {h}
                 </button>
               ))}
@@ -504,11 +504,11 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
 
         {s && (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" icon={<Copy size={14} />} disabled={guardando || cambiado} onClick={onCopiar}>Copiar a…</Button>
-            <Button size="sm" variant="secondary" icon={<FileText size={14} />} disabled={guardando || cambiado}
+            <Boton size="sm" variant="secondary" icon={<Copy size={14} />} disabled={guardando || cambiado} onClick={onCopiar}>Copiar a…</Boton>
+            <Boton size="sm" variant="secondary" icon={<FileText size={14} />} disabled={guardando || cambiado}
               onClick={() => onDetalles({ classId: fila.grupo.id, fecha, sesionId: s.id, nombre: fila.grupo.nombre })}>
               Descripción y cargas
-            </Button>
+            </Boton>
           </div>
         )}
         {s && cambiado && <p className={TEXT.muted}>Guarda antes de copiar o de abrir el detalle.</p>}
@@ -519,26 +519,26 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
 
         {!esExtra && <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
           {!sinClase ? (
-            <Button size="sm" variant="ghost" icon={<CalendarX2 size={14} />} disabled={guardando} onClick={() => setSinClaseAbierto(true)}>
+            <Boton size="sm" variant="ghost" icon={<CalendarX2 size={14} />} disabled={guardando} onClick={() => setSinClaseAbierto(true)}>
               Este día {fila.grupo.corto} no tiene clase
-            </Button>
+            </Boton>
           ) : (
             <div className="space-y-2">
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100">¿Por qué no hay clase?</p>
               <div className="flex flex-wrap gap-1.5">
                 {MOTIVOS.map((m) => (
                   <button key={m} type="button" onClick={() => setMotivo(m)} aria-pressed={motivo === m}
-                    className={cx('min-h-[44px] px-3 rounded-xl border text-xs font-bold',
-                      motivo === m ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200')}>
+                    className={cx('min-h-[44px] px-3 rounded-lg border text-xs font-bold',
+                      motivo === m ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-linea dark:border-noche-linea text-slate-700 dark:text-slate-200')}>
                     {m}
                   </button>
                 ))}
               </div>
-              <TextField label="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={120} placeholder="Festivo, sin profesor…" />
+              <Campo label="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={120} placeholder="Festivo, sin profesor…" />
               <p className={TEXT.muted}>Sale de la imagen y del texto, y sus alumnos lo ven como «sin clase». El horario fijo no cambia.</p>
               <div className="flex gap-2">
-                <Button size="sm" variant="danger" disabled={guardando} onClick={marcaSinClase}>Quitar la clase de este día</Button>
-                <Button size="sm" variant="ghost" onClick={() => setSinClaseAbierto(false)}>No</Button>
+                <Boton size="sm" variant="danger" disabled={guardando} onClick={marcaSinClase}>Quitar la clase de este día</Boton>
+                <Boton size="sm" variant="ghost" onClick={() => setSinClaseAbierto(false)}>No</Boton>
               </div>
             </div>
           )}
@@ -582,8 +582,8 @@ function Asistentes({ datos, cuadrante, grupo, fecha, onCambio }: {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-3 space-y-2">
-      <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 flex items-center gap-1.5')}><Users size={14} /> Quién va</p>
+    <div className="rounded-lg border border-linea dark:border-noche-linea p-3 space-y-2">
+      <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400 flex items-center gap-1.5')}><Users size={14} /> Quién va</p>
       <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
         {plazas.aforo === null
           ? `Sin aforo puesto. Van ${plazas.asisten}.`
@@ -621,15 +621,15 @@ function Asistentes({ datos, cuadrante, grupo, fecha, onCambio }: {
       {libresMultis.length > 0 && (
         <div className="flex items-end gap-2">
           <div className="flex-1 min-w-0">
-            <SelectField label="Apuntar a alguien de Multi" value={nuevo} onChange={(e) => setNuevo(e.target.value)}>
+            <CampoSelect label="Apuntar a alguien de Multi" value={nuevo} onChange={(e) => setNuevo(e.target.value)}>
               <option value="">— Elegir —</option>
               {libresMultis.map((a: ApuntadoMulti) => <option key={a.userId} value={a.userId}>{a.email}</option>)}
-            </SelectField>
+            </CampoSelect>
           </div>
-          <Button size="sm" disabled={!nuevo || ocupado !== null} icon={ocupado === 'nuevo' ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+          <Boton size="sm" disabled={!nuevo || ocupado !== null} icon={ocupado === 'nuevo' ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
             onClick={() => haz('nuevo', (forzar) => setMultiEnClase({ alumnoId: nuevo, classId: grupo.id, fecha, unir: true, forzar }))}>
             Apuntar
-          </Button>
+          </Boton>
         </div>
       )}
       {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
@@ -643,12 +643,12 @@ function MoverA({ destinos, ocupado, onMover }: { destinos: { valor: string; eti
   return (
     <div className="flex items-end gap-2">
       <div className="flex-1 min-w-0">
-        <SelectField label="Llevarlo a" value={destino} onChange={(e) => setDestino(e.target.value)}>
+        <CampoSelect label="Llevarlo a" value={destino} onChange={(e) => setDestino(e.target.value)}>
           <option value="">— Elegir clase —</option>
           {destinos.map((d) => <option key={d.valor} value={d.valor}>{d.etiqueta}</option>)}
-        </SelectField>
+        </CampoSelect>
       </div>
-      <Button size="sm" variant="secondary" disabled={!destino || ocupado} onClick={() => onMover(destino)}>Cambiar</Button>
+      <Boton size="sm" variant="secondary" disabled={!destino || ocupado} onClick={() => onMover(destino)}>Cambiar</Boton>
     </div>
   );
 }
@@ -696,26 +696,26 @@ function CopiarCelda({ edicion, datos, onClose, onHecho }: {
       footer={
         <div className="flex gap-2 w-full">
           <div className="flex-1" />
-          <Button variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Button>
-          <Button disabled={guardando || !elegidos.size} onClick={copia}>{guardando ? 'Copiando…' : `Copiar${elegidos.size ? ` a ${elegidos.size}` : ''}`}</Button>
+          <Boton variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Boton>
+          <Boton disabled={guardando || !elegidos.size} onClick={copia}>{guardando ? 'Copiando…' : `Copiar${elegidos.size ? ` a ${elegidos.size}` : ''}`}</Boton>
         </div>
       }>
       <div className="space-y-4">
         <p className={TEXT.muted}>Elige a qué celdas. Si ya tienen algo, se cambia por esto.</p>
         {semanas.map((sem, i) => (
           <div key={sem.lunes} className="space-y-2">
-            <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400')}>{i === 0 ? 'Esta semana' : 'La semana siguiente'}</p>
+            <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400')}>{i === 0 ? 'Esta semana' : 'La semana siguiente'}</p>
             {sem.dias.map((d) => (
               <div key={d.fecha}>
-                <p className="text-xs font-black text-slate-800 dark:text-slate-100 mb-1">{tituloDia(d.fecha)}</p>
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-1">{tituloDia(d.fecha)}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {d.grupos.map((g) => {
                     const k = clave(g.id, d.fecha);
                     const si = elegidos.has(k);
                     return (
                       <button key={k} type="button" onClick={() => alterna(k)} aria-pressed={si}
-                        className={cx('min-h-[44px] px-3 rounded-xl border-2 text-xs font-black flex items-center gap-1',
-                          si ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200')}>
+                        className={cx('min-h-[44px] px-3 rounded-lg border-2 text-xs font-bold flex items-center gap-1',
+                          si ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-linea dark:border-noche-linea text-slate-700 dark:text-slate-200')}>
                         {si && <Check size={12} />}{g.corto}
                       </button>
                     );
@@ -768,11 +768,11 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
       footer={
         <div className="flex gap-2 w-full">
           <div className="flex-1" />
-          <Button variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Button>
-          <Button variant="danger" disabled={guardando || (dia.suelto ? !sueltas.length : !elegidos.size)} onClick={quita}>
+          <Boton variant="secondary" disabled={guardando} onClick={onClose}>Cancelar</Boton>
+          <Boton variant="danger" disabled={guardando || (dia.suelto ? !sueltas.length : !elegidos.size)} onClick={quita}>
             {guardando ? 'Quitando…' : dia.suelto ? `Borrar ${sueltas.length === 1 ? 'la sesión' : `las ${sueltas.length} sesiones`}`
               : todos ? 'Quitar el día entero' : elegidos.size ? `Quitar ${elegidos.size === 1 ? grupos.find((g) => elegidos.has(g.id))?.corto : `${elegidos.size} grupos`}` : 'Quitar'}
-          </Button>
+          </Boton>
         </div>
       }>
       {dia.suelto ? (
@@ -783,17 +783,17 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
       ) : (
         <div className="space-y-3">
           <p className={TEXT.muted}>Marca los grupos que ese día no tienen clase. Salen de la imagen y del texto, y sus alumnos lo ven como «sin clase». Lo escrito no se borra: vuelve si lo devuelves.</p>
-          <Button size="sm" variant="ghost" onClick={() => setElegidos(todos ? new Set() : new Set(grupos.map((g) => g.id)))}>
+          <Boton size="sm" variant="ghost" onClick={() => setElegidos(todos ? new Set() : new Set(grupos.map((g) => g.id)))}>
             {todos ? 'Desmarcar todos' : 'Todo el día (todos los grupos)'}
-          </Button>
+          </Boton>
           <div className="flex flex-wrap gap-1.5">
             {grupos.map((g) => {
               const si = elegidos.has(g.id);
               return (
                 <button key={g.id} type="button" aria-pressed={si}
                   onClick={() => setElegidos((prev) => { const n = new Set(prev); if (n.has(g.id)) n.delete(g.id); else n.add(g.id); return n; })}
-                  className={cx('min-h-[44px] px-3 rounded-xl border-2 text-xs font-black flex items-center gap-1',
-                    si ? 'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400')}>
+                  className={cx('min-h-[44px] px-3 rounded-lg border-2 text-xs font-bold flex items-center gap-1',
+                    si ? 'border-red-500 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 'border-linea dark:border-noche-linea text-slate-600 dark:text-slate-400')}>
                   {si && <Check size={12} />}{g.corto}
                 </button>
               );
@@ -802,13 +802,13 @@ function QuitarDia({ dia, onClose, onHecho }: { dia: DiaCuadrante; onClose: () =
           <div className="flex flex-wrap gap-1.5">
             {MOTIVOS.map((m) => (
               <button key={m} type="button" onClick={() => setMotivo(m)} aria-pressed={motivo === m}
-                className={cx('min-h-[44px] px-3 rounded-xl border text-xs font-bold',
-                  motivo === m ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200')}>
+                className={cx('min-h-[44px] px-3 rounded-lg border text-xs font-bold',
+                  motivo === m ? 'border-indigo-500 bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200' : 'border-linea dark:border-noche-linea text-slate-700 dark:text-slate-200')}>
                 {m}
               </button>
             ))}
           </div>
-          <TextField label="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={120} placeholder="Festivo, sin profesor…" />
+          <Campo label="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={120} placeholder="Festivo, sin profesor…" />
         </div>
       )}
       {error && <p className="text-xs font-medium text-red-700 dark:text-red-300 mt-2">{error}</p>}
@@ -850,13 +850,13 @@ function AnadirDia({ datos, cuadrante, onClose, onElegido }: {
 
   return (
     <Modal title="Añadir un día" subtitle={fecha ? `${mayuscula(tituloDia(fecha).toLowerCase())}: ¿qué grupo?` : '¿Qué día?'} onClose={onClose} width="sm"
-      footer={fecha ? <Button variant="secondary" onClick={() => setFecha(null)}>Otro día</Button> : undefined}>
+      footer={fecha ? <Boton variant="secondary" onClick={() => setFecha(null)}>Otro día</Boton> : undefined}>
       {!fecha ? (
         <div className="grid grid-cols-2 gap-2">
           {dias.map((d) => (
-            <Button key={d} variant="secondary" size="sm" onClick={() => setFecha(d)}>
+            <Boton key={d} variant="secondary" size="sm" onClick={() => setFecha(d)}>
               <span className="capitalize">{tituloDia(d).toLowerCase()}</span>{enCuadrante.has(d) ? '' : ' · nuevo'}
-            </Button>
+            </Boton>
           ))}
         </div>
       ) : (
@@ -864,7 +864,7 @@ function AnadirDia({ datos, cuadrante, onClose, onElegido }: {
           <div className="flex flex-wrap gap-1.5">
             {grupos.map((g) => (
               <button key={g.id} type="button" onClick={() => elige(g)}
-                className="min-h-[44px] px-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-700 dark:text-slate-200 hover:border-indigo-400">
+                className="min-h-[44px] px-3 rounded-lg border-2 border-linea dark:border-noche-linea text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-400">
                 {g.corto}
               </button>
             ))}

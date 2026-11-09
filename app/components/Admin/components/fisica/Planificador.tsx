@@ -21,7 +21,7 @@ import { clasesPorDia, type ClaseFisica } from '@/app/lib/clases-fisica';
 import { nombreCorto } from '@/app/lib/cuadrante';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
 import TarjetaClase from '@/app/components/fisica/TarjetaClase';
-import { Button, EmptyState, Modal, SelectField, TextField, TEXT, cx } from '../../../ui';
+import { Boton, EmptyState, Modal, CampoSelect, Campo, Filtros, FiltroChip, TEXT, cx } from '../../../ui';
 import EditorSesion from './EditorSesion';
 
 /**
@@ -145,12 +145,12 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
-          <button onClick={() => onLunes(sumaDias(lunes, -7))} aria-label="Semana anterior" className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft size={18} /></button>
-          <span className="px-2 text-sm font-black text-slate-900 dark:text-white min-w-[150px] text-center">
+          <button onClick={() => onLunes(sumaDias(lunes, -7))} aria-label="Semana anterior" className="w-11 h-11 flex items-center justify-center rounded-lg border border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft size={18} /></button>
+          <span className="px-2 text-sm font-bold text-slate-900 dark:text-white min-w-[150px] text-center">
             {esEsta ? 'Esta semana' : `Semana ${etiquetaSemana(lunes)}`} y la siguiente
           </span>
-          <button onClick={() => onLunes(sumaDias(lunes, 7))} aria-label="Semana siguiente" className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight size={18} /></button>
-          {!esEsta && <Button variant="ghost" size="sm" onClick={() => onLunes(lunesDe(hoyLocal()))}>Hoy</Button>}
+          <button onClick={() => onLunes(sumaDias(lunes, 7))} aria-label="Semana siguiente" className="w-11 h-11 flex items-center justify-center rounded-lg border border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight size={18} /></button>
+          {!esEsta && <Boton variant="ghost" size="sm" onClick={() => onLunes(lunesDe(hoyLocal()))}>Hoy</Boton>}
         </div>
       </div>
 
@@ -161,26 +161,22 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
         <>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <div className="flex-1 min-w-0">
-              <TextField label="Buscar alumno" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Correo…" autoComplete="off" />
+              <Campo label="Buscar alumno" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Correo…" autoComplete="off" />
             </div>
-            <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/60" role="group" aria-label="Qué alumnos ver">
-              {([['todos', `Todos (${lista.alumnos.length})`], ['esta', `Sin ${esEsta ? 'esta semana' : 'la 1.ª'} (${faltan(0)})`], ['siguiente', `Sin la siguiente (${faltan(1)})`]] as const).map(([v, t]) => (
-                <button key={v} onClick={() => setFiltro(v)} aria-pressed={filtro === v}
-                  className={cx('min-h-[44px] px-2.5 rounded-lg text-xs font-black',
-                    filtro === v ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
-                  {t}
-                </button>
+            <Filtros etiqueta="Qué alumnos ver">
+              {([['todos', 'Todos', lista.alumnos.length], ['esta', `Sin ${esEsta ? 'esta semana' : 'la 1.ª'}`, faltan(0)], ['siguiente', 'Sin la siguiente', faltan(1)]] as const).map(([v, t, n]) => (
+                <FiltroChip key={v} activo={filtro === v} onClick={() => setFiltro(v)} cuenta={n}>{t}</FiltroChip>
               ))}
-            </div>
+            </Filtros>
           </div>
 
           {marcados.size > 0 && (
-            <div className="rounded-2xl border-2 border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-3 flex flex-wrap items-center gap-2">
-              <span className="text-sm font-black text-indigo-900 dark:text-indigo-100 flex-1 min-w-[10rem]">
+            <div className="rounded-lg border-2 border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-bold text-indigo-900 dark:text-indigo-100 flex-1 min-w-[10rem]">
                 {marcados.size} {marcados.size === 1 ? 'alumno marcado' : 'alumnos marcados'}
               </span>
-              <Button size="sm" icon={<CopyPlus size={14} />} onClick={() => setCopiando(true)}>Copiarles entrenos</Button>
-              <Button size="sm" variant="ghost" onClick={() => setMarcados(new Set())}>Desmarcar</Button>
+              <Boton size="sm" icon={<CopyPlus size={14} />} onClick={() => setCopiando(true)}>Copiarles entrenos</Boton>
+              <Boton size="sm" variant="ghost" onClick={() => setMarcados(new Set())}>Desmarcar</Boton>
             </div>
           )}
           {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"><Check size={14} /> {aviso}</p>}
@@ -189,13 +185,13 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
           {secciones.map(({ grupo, alumnos }) => {
             const todos = alumnos.every((a) => marcados.has(a.id));
             return (
-              <section key={grupo.id} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                <header className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800">
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">
-                    {nombreCorto(grupo.nombre)} <span className="font-medium text-slate-500 dark:text-slate-400">· {alumnos.length}{!grupo.conHorario && !grupo.esMulti ? ' · plan común' : ''}</span>
+              <section key={grupo.id} className="rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2 overflow-hidden">
+                <header className="flex items-center justify-between gap-2 px-3 py-1.5 bg-hundido dark:bg-noche-hondo/40 border-b border-slate-100 dark:border-slate-800">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                    {nombreCorto(grupo.nombre)} <span className="font-medium text-slate-600 dark:text-slate-400">· {alumnos.length}{!grupo.conHorario && !grupo.esMulti ? ' · plan común' : ''}</span>
                   </h4>
                   <button onClick={() => setMarcados((prev) => { const n = new Set(prev); for (const a of alumnos) { if (todos) n.delete(a.id); else n.add(a.id); } return n; })}
-                    className="min-h-[44px] px-2 text-xs font-black text-indigo-700 dark:text-indigo-300">
+                    className="min-h-[44px] px-2 text-xs font-bold text-indigo-700 dark:text-indigo-300">
                     {todos ? 'Desmarcar todos' : 'Marcar todos'}
                   </button>
                 </header>
@@ -210,7 +206,7 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
                         <span className="flex-1 min-w-0 truncate text-sm font-bold text-slate-800 dark:text-slate-100">{a.email}</span>
                         <span className="flex flex-wrap gap-1.5">
                           {a.semanas.map((r, i) => (
-                            <span key={r.lunes} className={cx('text-[10px] font-black px-2 py-1 rounded-md whitespace-nowrap', ESTILO_ESTADO[estadoSemana(r)])}>
+                            <span key={r.lunes} className={cx('text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap', ESTILO_ESTADO[estadoSemana(r)])}>
                               {i === 0 ? (esEsta ? 'Esta' : etiquetaSemana(r.lunes)) : 'Siguiente'}: {textoSemana(r)}
                             </span>
                           ))}
@@ -226,12 +222,12 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
       )}
 
       {planesComunes.length > 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-3 space-y-2">
-          <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400')}>Plan común de un grupo sin horario</p>
+        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-3 space-y-2">
+          <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400')}>Plan común de un grupo sin horario</p>
           <p className={TEXT.muted}>El modelo de antes: lo que se escribe aquí lo ven todos los alumnos del grupo. Para las clases, el cuadrante; para cada alumno, su entreno.</p>
           <div className="flex flex-wrap gap-2">
             {planesComunes.map((g) => (
-              <Button key={g.id} size="sm" variant="secondary" onClick={() => onAbrir({ destino: { tipo: 'grupo', id: g.id }, titulo: g.nombre })}>{g.nombre}</Button>
+              <Boton key={g.id} size="sm" variant="secondary" onClick={() => onAbrir({ destino: { tipo: 'grupo', id: g.id }, titulo: g.nombre })}>{g.nombre}</Boton>
             ))}
           </div>
         </div>
@@ -294,27 +290,27 @@ function CopiarAVarios({ alumnos, grupos, lunes, origen, destinos: iniciales, on
       footer={
         <div className="flex gap-2 w-full">
           <div className="flex-1" />
-          <Button variant="secondary" disabled={guardando} onClick={onCerrar}>Cancelar</Button>
-          <Button disabled={guardando || !origenId || mismo} onClick={copia}>
+          <Boton variant="secondary" disabled={guardando} onClick={onCerrar}>Cancelar</Boton>
+          <Boton disabled={guardando || !origenId || mismo} onClick={copia}>
             {guardando ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />} Copiar{destinos.size ? ` a ${destinos.size}` : ''}
-          </Button>
+          </Boton>
         </div>
       }>
       <div className="space-y-4">
         {origen === null ? (
-          <SelectField label="De quién" value={origenId} onChange={(e) => { setOrigenId(e.target.value); setDestinos((d) => { const n = new Set(d); n.delete(e.target.value); return n; }); }}>
+          <CampoSelect label="De quién" value={origenId} onChange={(e) => { setOrigenId(e.target.value); setDestinos((d) => { const n = new Set(d); n.delete(e.target.value); return n; }); }}>
             <option value="">— Elegir alumno —</option>
             {alumnos.map((x) => <option key={x.id} value={x.id}>{x.email}</option>)}
-          </SelectField>
+          </CampoSelect>
         ) : (
           <p className="text-sm text-slate-700 dark:text-slate-200">De <b>{nombre(origen)}</b></p>
         )}
 
-        <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/60" role="group" aria-label="Qué copiar">
+        <div className="flex gap-1 p-1 rounded-lg bg-hundido dark:bg-noche-hondo/60" role="group" aria-label="Qué copiar">
           {([['semana', 'Una semana entera'], ['dia', 'Un día']] as const).map(([v, t]) => (
             <button key={v} onClick={() => setModo(v)} aria-pressed={modo === v}
-              className={cx('flex-1 min-h-[44px] rounded-lg text-xs font-black',
-                modo === v ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
+              className={cx('flex-1 min-h-[44px] rounded-lg text-xs font-bold',
+                modo === v ? 'bg-white dark:bg-noche-2 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400')}>
               {t}
             </button>
           ))}
@@ -322,34 +318,34 @@ function CopiarAVarios({ alumnos, grupos, lunes, origen, destinos: iniciales, on
 
         {modo === 'semana' ? (
           <div className="grid sm:grid-cols-2 gap-3">
-            <SelectField label="Su semana del" value={semana} onChange={(e) => setSemana(e.target.value)}>
+            <CampoSelect label="Su semana del" value={semana} onChange={(e) => setSemana(e.target.value)}>
               {semanas.map((l) => <option key={l} value={l}>{etiquetaSemana(l)}</option>)}
-            </SelectField>
-            <SelectField label="A la semana del" value={aSemana} onChange={(e) => setASemana(e.target.value)}>
+            </CampoSelect>
+            <CampoSelect label="A la semana del" value={aSemana} onChange={(e) => setASemana(e.target.value)}>
               {semanas.map((l) => <option key={l} value={l}>{etiquetaSemana(l)}</option>)}
-            </SelectField>
+            </CampoSelect>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
-            <SelectField label="Su día" value={dia} onChange={(e) => setDia(e.target.value)}>
+            <CampoSelect label="Su día" value={dia} onChange={(e) => setDia(e.target.value)}>
               {semanas.flatMap(diasDeSemana).map((d) => <option key={d} value={d}>{etiquetaDia(d)}</option>)}
-            </SelectField>
-            <SelectField label="Al día" value={aDia} onChange={(e) => setADia(e.target.value)}>
+            </CampoSelect>
+            <CampoSelect label="Al día" value={aDia} onChange={(e) => setADia(e.target.value)}>
               {semanas.flatMap(diasDeSemana).map((d) => <option key={d} value={d}>{etiquetaDia(d)}</option>)}
-            </SelectField>
+            </CampoSelect>
           </div>
         )}
         {diasEntre(desde, a) === 0 && <p className={TEXT.muted}>A los mismos días.</p>}
 
         <div className="space-y-2">
-          <TextField label={`A quiénes (${destinos.size})`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por correo…" autoComplete="off" />
-          <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+          <Campo label={`A quiénes (${destinos.size})`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por correo…" autoComplete="off" />
+          <div className="max-h-72 overflow-y-auto rounded-lg border border-linea dark:border-noche-linea divide-y divide-slate-100 dark:divide-slate-800">
             {secciones.map(({ grupo, alumnos: delGrupo }) => {
               const todos = delGrupo.every((x) => destinos.has(x.id));
               return (
                 <div key={grupo.id}>
                   <button type="button" onClick={() => setDestinos((prev) => { const n = new Set(prev); for (const x of delGrupo) { if (todos) n.delete(x.id); else n.add(x.id); } return n; })}
-                    className="w-full min-h-[44px] px-3 flex items-center justify-between bg-slate-50 dark:bg-slate-950/40 text-xs font-black text-slate-700 dark:text-slate-200">
+                    className="w-full min-h-[44px] px-3 flex items-center justify-between bg-hundido dark:bg-noche-hondo/40 text-xs font-bold text-slate-700 dark:text-slate-200">
                     {nombreCorto(grupo.nombre)} · {delGrupo.length}
                     <span className="text-indigo-700 dark:text-indigo-300">{todos ? 'Quitar todos' : 'Todo el grupo'}</span>
                   </button>
@@ -484,12 +480,12 @@ function CalendarioPlan({ destino, titulo, alumnos, grupos, onVolver }: {
       {/* ── DE QUIÉN ── */}
       <div className="flex items-center gap-2 min-w-0">
         <button onClick={onVolver} aria-label="Volver a la lista de alumnos"
-          className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+          className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg border border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
           <ArrowLeft size={18} />
         </button>
         <div className="min-w-0">
-          <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400')}>{esAlumno ? 'Entreno de' : 'Plan común del grupo'}</p>
-          <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">{titulo}</p>
+          <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400')}>{esAlumno ? 'Entreno de' : 'Plan común del grupo'}</p>
+          <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">{titulo}</p>
         </div>
       </div>
       <p className={TEXT.muted}>
@@ -501,34 +497,34 @@ function CalendarioPlan({ destino, titulo, alumnos, grupos, onVolver }: {
       {/* ── NAVEGAR Y HERRAMIENTAS ── */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
-          <button onClick={() => mover(-1)} aria-label="Anterior" className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft size={18} /></button>
-          <span className="px-2 text-sm font-black text-slate-900 dark:text-white min-w-[150px] text-center">
+          <button onClick={() => mover(-1)} aria-label="Anterior" className="w-11 h-11 flex items-center justify-center rounded-lg border border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft size={18} /></button>
+          <span className="px-2 text-sm font-bold text-slate-900 dark:text-white min-w-[150px] text-center">
             {vista === 'mes' ? mayuscula(etiquetaMes(mes)) : semanas.map(etiquetaSemana).join(' · ')}
           </span>
-          <button onClick={() => mover(1)} aria-label="Siguiente" className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight size={18} /></button>
-          <Button variant="ghost" size="sm" onClick={irAHoy}>Hoy</Button>
+          <button onClick={() => mover(1)} aria-label="Siguiente" className="w-11 h-11 flex items-center justify-center rounded-lg border border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight size={18} /></button>
+          <Boton variant="ghost" size="sm" onClick={irAHoy}>Hoy</Boton>
         </div>
-        <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/60">
+        <div className="flex gap-1 p-1 rounded-lg bg-hundido dark:bg-noche-hondo/60">
           {([['semana', 'Semana'], ['2semanas', '2 semanas'], ['mes', 'Mes']] as const).map(([v, t]) => (
             <button key={v} onClick={() => setVista(v)} aria-pressed={vista === v}
-              className={cx('min-h-[44px] px-3 rounded-lg text-xs font-black',
-                vista === v ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400')}>
+              className={cx('min-h-[44px] px-3 rounded-lg text-xs font-bold',
+                vista === v ? 'bg-white dark:bg-noche-2 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400')}>
               {t}
             </button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <Button variant="secondary" size="sm" onClick={() => setBiblioteca((b) => !b)} aria-pressed={biblioteca}>
+          <Boton variant="secondary" size="sm" onClick={() => setBiblioteca((b) => !b)} aria-pressed={biblioteca}>
             <Library size={15} /> Biblioteca{plantillas.length ? ` (${plantillas.length})` : ''}
-          </Button>
+          </Boton>
           {esAlumno && (
-            <Button variant="secondary" size="sm" disabled={copiandoAnterior} onClick={copiaAnterior}>
+            <Boton variant="secondary" size="sm" disabled={copiandoAnterior} onClick={copiaAnterior}>
               {copiandoAnterior ? <Loader2 size={15} className="animate-spin" /> : <History size={15} />} Su semana anterior
-            </Button>
+            </Boton>
           )}
-          <Button variant="secondary" size="sm" onClick={() => setCopiando(true)}><Copy size={15} /> Copiar semana</Button>
-          {esAlumno && <Button variant="secondary" size="sm" onClick={() => setAVarios(true)}><CopyPlus size={15} /> A otros alumnos</Button>}
-          <Button size="sm" onClick={() => setEditor({ sesion: null, fecha: hoy >= desde && hoy <= hasta ? hoy : desde })}><Plus size={15} /> Sesión</Button>
+          <Boton variant="secondary" size="sm" onClick={() => setCopiando(true)}><Copy size={15} /> Copiar semana</Boton>
+          {esAlumno && <Boton variant="secondary" size="sm" onClick={() => setAVarios(true)}><CopyPlus size={15} /> A otros alumnos</Boton>}
+          <Boton size="sm" onClick={() => setEditor({ sesion: null, fecha: hoy >= desde && hoy <= hasta ? hoy : desde })}><Plus size={15} /> Sesión</Boton>
         </div>
       </div>
 
@@ -557,7 +553,7 @@ function CalendarioPlan({ destino, titulo, alumnos, grupos, onVolver }: {
             const nota = datos.notas.find((n) => n.weekStart === lunes
               && (destino.tipo === 'grupo' ? n.classId === destino.id : n.classId === null));
             return (
-              <div key={lunes} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+              <div key={lunes} className="rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2 overflow-hidden">
                 <NotaSemanaBar destino={destino} lunes={lunes} nota={nota?.note ?? null} onCambio={cargar} />
                 <div className="grid grid-cols-1 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
                   {dias.map((d) => {
@@ -572,12 +568,12 @@ function CalendarioPlan({ destino, titulo, alumnos, grupos, onVolver }: {
                         className={cx(
                           'p-2 flex md:flex-col gap-2 md:min-h-[150px] min-w-0',
                           d === hoy && 'bg-indigo-50/50 dark:bg-indigo-900/10',
-                          fuera && 'bg-slate-50 dark:bg-slate-950/40',
+                          fuera && 'bg-hundido dark:bg-noche-hondo/40',
                           arrastrando && 'md:hover:bg-indigo-50 md:dark:hover:bg-indigo-900/20',
                         )}
                       >
                         <div className="w-16 md:w-auto shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-1 pt-1 md:pt-0">
-                          <span className={cx('text-[11px] font-black capitalize', d === hoy ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400')}>
+                          <span className={cx('text-[11px] font-bold capitalize', d === hoy ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400')}>
                             {etiquetaDia(d).replace(/ \S+$/, '')}
                           </span>
                           {/* En el móvil, un «+» de 44 px bajo la fecha si el día ya tiene algo; en el ordenador, pequeño a la derecha. */}
@@ -605,7 +601,7 @@ function CalendarioPlan({ destino, titulo, alumnos, grupos, onVolver }: {
                           ))}
                           {ses.length === 0 && (
                             <button onClick={() => setEditor({ sesion: null, fecha: d })}
-                              className="md:hidden w-full min-h-[44px] rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
+                              className="md:hidden w-full min-h-[44px] rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5">
                               <Plus size={14} /> {esAlumno ? 'Añadir entreno' : 'Añadir sesión'}
                             </button>
                           )}
@@ -642,9 +638,9 @@ function CalendarioPlan({ destino, titulo, alumnos, grupos, onVolver }: {
         <Modal title={`«${plantillaPorColocar.title}»`} subtitle="¿Qué día?" onClose={() => setPlantillaPorColocar(null)} width="sm">
           <div className="grid grid-cols-2 gap-2">
             {semanas.flatMap(diasDeSemana).filter((d) => vista !== 'mes' || mesDe(d) === mes).map((d) => (
-              <Button key={d} variant={d === hoy ? 'primary' : 'secondary'} size="sm" onClick={() => colocarPlantilla(plantillaPorColocar, d)}>
+              <Boton key={d} variant={d === hoy ? 'primary' : 'secondary'} size="sm" onClick={() => colocarPlantilla(plantillaPorColocar, d)}>
                 <span className="capitalize">{etiquetaDia(d)}</span>
-              </Button>
+              </Boton>
             ))}
           </div>
         </Modal>
@@ -689,28 +685,28 @@ function TarjetaCoach({ s, destino, apuntes, miembros, hoy, nombreGrupo, onAbrir
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'sesion', id: s.id })); onArrastrar(); }}
       onClick={onAbrir}
       className={cx(
-        'w-full min-h-[44px] text-left rounded-xl overflow-hidden flex border transition-colors hover:shadow-sm',
-        deGrupoEnAlumno ? 'border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900',
+        'w-full min-h-[44px] text-left rounded-lg overflow-hidden flex border transition-colors hover:shadow-sm',
+        deGrupoEnAlumno ? 'border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-noche-2' : 'border-linea dark:border-noche-linea bg-white dark:bg-noche-2',
       )}
     >
       <span className={cx('w-1 shrink-0', E.barra)} />
       <span className="flex-1 min-w-0 px-2 py-1.5">
         <span className="flex items-center gap-1.5 min-w-0">
           <Icono size={12} className={cx('shrink-0 rounded', E.chip)} />
-          <span className="text-xs font-black text-slate-900 dark:text-white leading-snug line-clamp-2">{s.title}</span>
+          <span className="text-xs font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">{s.title}</span>
         </span>
         {s.cargas.length > 0 && (
-          <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+          <span className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mt-0.5">
             {s.cargas.length} {s.cargas.length === 1 ? 'carga' : 'cargas'} en % 1RM
           </span>
         )}
         {(meta || deGrupoEnAlumno) && (
-          <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+          <span className="block text-[10px] text-slate-600 dark:text-slate-400 truncate mt-0.5">
             {meta}{meta && deGrupoEnAlumno ? ' · ' : ''}{deGrupoEnAlumno ? nombreGrupo : ''}
           </span>
         )}
         {s.fecha <= hoy && s.kind !== 'descanso' && (
-          <span className="mt-1 flex items-center gap-1.5 text-[10px] font-black">
+          <span className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
             {destino.tipo === 'grupo' ? (
               <span className={cx('px-1.5 py-0.5 rounded-md', hechas === miembros && miembros > 0
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
@@ -735,7 +731,7 @@ function TarjetaCoach({ s, destino, apuntes, miembros, hoy, nombreGrupo, onAbrir
 function ResumenFila({ r, grupo }: { r: ReturnType<typeof resumenSemana>; grupo: boolean }) {
   const pct = r.posibles ? Math.round((r.hechas / r.posibles) * 100) : null;
   return (
-    <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+    <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 bg-hundido dark:bg-noche-hondo/40 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-300">
       <span><b className="text-slate-900 dark:text-white">{r.sesiones}</b> {r.sesiones === 1 ? 'sesión' : 'sesiones'}</span>
       {formateaMinutos(r.minutos) && <span>{formateaMinutos(r.minutos)}</span>}
       {formateaKm(r.kilometros) && <span>{formateaKm(r.kilometros)}</span>}
@@ -754,16 +750,16 @@ function NotaSemanaBar({ destino, lunes, nota, onCambio }: { destino: Destino; l
     return (
       <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-indigo-50/60 dark:bg-indigo-900/15 flex items-end gap-2">
         <div className="flex-1 min-w-0">
-          <TextField label={`Nota de la semana del ${etiquetaSemana(lunes)}`} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={300}
+          <Campo label={`Nota de la semana del ${etiquetaSemana(lunes)}`} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={300}
             placeholder="Semana de carga · lo importante es…" autoFocus />
         </div>
-        <Button size="sm" disabled={guardando} onClick={async () => {
+        <Boton size="sm" disabled={guardando} onClick={async () => {
           setGuardando(true);
           const r = await setNotaSemana({ destino, weekStart: lunes, note: texto });
           setGuardando(false);
           if (r.success) { setEditando(false); onCambio(); }
-        }}>{guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Guardar</Button>
-        <Button size="sm" variant="ghost" onClick={() => { setEditando(false); setTexto(nota ?? ''); }}>Cancelar</Button>
+        }}>{guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Guardar</Boton>
+        <Boton size="sm" variant="ghost" onClick={() => { setEditando(false); setTexto(nota ?? ''); }}>Cancelar</Boton>
       </div>
     );
   }
@@ -787,14 +783,14 @@ function Biblioteca({ plantillas, onColocar, onCambio, onArrastrar }: {
 }) {
   if (!plantillas.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-center">
+      <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-4 text-center">
         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">La biblioteca está vacía</p>
         <p className={TEXT.muted}>Abre cualquier sesión y pulsa «Guardar como plantilla». Luego la podrás poner en cualquier día con un toque o arrastrándola.</p>
       </div>
     );
   }
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 space-y-2">
+    <div className="rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2 p-3 space-y-2">
       <p className={TEXT.muted}>
         <span className="hidden md:inline">Arrastra una plantilla a un día, o </span>tócala para elegir el día.
       </p>
@@ -805,10 +801,10 @@ function Biblioteca({ plantillas, onColocar, onCambio, onArrastrar }: {
         const Icono = E.icono;
         return (
           <div key={t}>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">{ETIQUETA_TIPO[t]}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">{ETIQUETA_TIPO[t]}</p>
             <div className="flex flex-wrap gap-1.5">
               {deTipo.map((p) => (
-                <span key={p.id} className={cx('inline-flex items-center rounded-xl overflow-hidden max-w-full', E.chip)}>
+                <span key={p.id} className={cx('inline-flex items-center rounded-lg overflow-hidden max-w-full', E.chip)}>
                   <button
                     draggable
                     onDragStart={(e) => { e.dataTransfer.setData('text/plain', JSON.stringify({ tipo: 'plantilla', id: p.id })); onArrastrar(); }}
@@ -850,7 +846,7 @@ function CopiarSemana({ destino, semanas, onCerrar, onHecho }: {
   return (
     <Modal title="Copiar una semana" subtitle="Las mismas sesiones, el mismo día de la semana" onClose={onCerrar} width="sm"
       footer={
-        <Button disabled={guardando} onClick={async () => {
+        <Boton disabled={guardando} onClick={async () => {
           setGuardando(true);
           const r = await copiarSemanaFisica({ destino, desde: origen, a });
           setGuardando(false);
@@ -858,17 +854,17 @@ function CopiarSemana({ destino, semanas, onCerrar, onHecho }: {
           onHecho();
         }}>
           {guardando ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />} Copiar
-        </Button>
+        </Boton>
       }>
       <div className="space-y-3">
-        <SelectField label="Copiar la semana del" value={origen} onChange={(e) => setOrigen(e.target.value)}>
+        <CampoSelect label="Copiar la semana del" value={origen} onChange={(e) => setOrigen(e.target.value)}>
           {semanas.map((l) => <option key={l} value={l}>{etiquetaSemana(l)}</option>)}
-        </SelectField>
-        <SelectField label="A la semana del" value={String(saltos)} onChange={(e) => setSaltos(Number(e.target.value))}>
+        </CampoSelect>
+        <CampoSelect label="A la semana del" value={String(saltos)} onChange={(e) => setSaltos(Number(e.target.value))}>
           {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
             <option key={n} value={n}>{etiquetaSemana(sumaDias(origen, 7 * n))}{n === 1 ? ' (la siguiente)' : ''}</option>
           ))}
-        </SelectField>
+        </CampoSelect>
         <p className={TEXT.muted}>Lo que ya haya en la semana de destino se queda; las copiadas se añaden.</p>
         {error && <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
       </div>

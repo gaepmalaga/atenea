@@ -11,7 +11,7 @@ import {
 } from '@/actions';
 import type { AcademySettings, StaffMember } from '@/app/lib/academy-settings';
 import { diasHasta, textoCuentaAtras, type Convocatoria } from '@/app/lib/convocatoria';
-import { Card, Button, TextField, TextAreaField, SectionLabel, TEXT, cx } from '../../ui';
+import { Hoja, Boton, Campo, CampoArea, BloqueTitulo, TEXT, cx } from '../../ui';
 
 /**
  * Los datos de la academia: nombre, dirección, horario, contacto, y quién da
@@ -45,22 +45,22 @@ export default function AcademyIdentity() {
 
   if (cargando) {
     return (
-      <Card tone="sunken" pad="lg" className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+      <Hoja tone="sunken" pad="lg" className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
         <Loader2 size={16} className="animate-spin" /> Cargando…
-      </Card>
+      </Hoja>
     );
   }
 
   if (tablaFalta) {
     return (
-      <Card pad="md" className="border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-start gap-3">
+      <Hoja pad="md" className="border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-start gap-3">
         <AlertTriangle size={16} className="shrink-0 mt-0.5" />
         <p className="text-xs leading-relaxed">
           Falta ejecutar{' '}
           <code className="font-mono bg-black/10 dark:bg-white/10 px-1 rounded">docs/sql/academia-ajustes.sql</code>{' '}
           en el editor SQL de Supabase. En cuanto se ejecute, esta sección deja de estar vacía.
         </p>
-      </Card>
+      </Hoja>
     );
   }
 
@@ -103,8 +103,8 @@ function CardEnlace({ slug }: { slug: string }) {
   }
 
   return (
-    <Card pad="md" className="space-y-3">
-      <SectionLabel icon={<Link2 size={16} />}>Tu enlace de acceso</SectionLabel>
+    <Hoja pad="md" className="space-y-3">
+      <BloqueTitulo icon={<Link2 size={16} />}>Tu enlace de acceso</BloqueTitulo>
       <p className={TEXT.muted}>
         Es lo que le das a un alumno para que se registre en tu academia — nunca la URL pelada.
       </p>
@@ -112,16 +112,16 @@ function CardEnlace({ slug }: { slug: string }) {
         <code className="flex-1 min-w-0 truncate rounded-xl bg-slate-100 dark:bg-slate-800 px-3 py-2.5 text-sm font-mono text-slate-700 dark:text-slate-200">
           {url}
         </code>
-        <Button
+        <Boton
           size="sm"
           variant="secondary"
           icon={copiado ? <Check size={14} /> : <Copy size={14} />}
           onClick={copiar}
         >
           {copiado ? 'Copiado' : 'Copiar'}
-        </Button>
+        </Boton>
       </div>
-    </Card>
+    </Hoja>
   );
 }
 
@@ -169,8 +169,8 @@ function CardConvocatoria() {
   const dias = diasHasta(conv.fechaExamen || null);
 
   return (
-    <Card pad="md" className="space-y-4">
-      <SectionLabel icon={<CalendarClock size={16} />}>La convocatoria</SectionLabel>
+    <Hoja pad="md" className="space-y-4">
+      <BloqueTitulo icon={<CalendarClock size={16} />}>La convocatoria</BloqueTitulo>
 
       {tablaFalta && (
         <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200 flex items-start gap-2">
@@ -185,10 +185,10 @@ function CardConvocatoria() {
       ) : (
         <>
           <div className="grid sm:grid-cols-2 gap-4">
-            <TextField label="Escala" value={conv.escala ?? ''} onChange={(e) => setConv({ ...conv, escala: e.target.value })} placeholder="Escala Básica" />
-            <TextField label="Fecha del examen" type="date" value={conv.fechaExamen ?? ''} onChange={(e) => setConv({ ...conv, fechaExamen: e.target.value })} />
+            <Campo label="Escala" value={conv.escala ?? ''} onChange={(e) => setConv({ ...conv, escala: e.target.value })} placeholder="Escala Básica" />
+            <Campo label="Fecha del examen" type="date" value={conv.fechaExamen ?? ''} onChange={(e) => setConv({ ...conv, fechaExamen: e.target.value })} />
           </div>
-          <TextField label="Nota (opcional)" value={conv.nota ?? ''} onChange={(e) => setConv({ ...conv, nota: e.target.value })} placeholder="BOE-A-2027-…" />
+          <Campo label="Nota (opcional)" value={conv.nota ?? ''} onChange={(e) => setConv({ ...conv, nota: e.target.value })} placeholder="BOE-A-2027-…" />
 
           {conv.fechaExamen && dias !== null && (
             <p className={cx(TEXT.muted)}>El alumno verá: <strong className="text-slate-700 dark:text-slate-200">{textoCuentaAtras(dias)}</strong>.</p>
@@ -198,13 +198,13 @@ function CardConvocatoria() {
           {ok && <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Guardado.</p>}
 
           <div className="flex justify-end">
-            <Button onClick={guardar} disabled={guardando} icon={guardando ? <Loader2 size={14} className="animate-spin" /> : null}>
+            <Boton onClick={guardar} disabled={guardando} icon={guardando ? <Loader2 size={14} className="animate-spin" /> : null}>
               Guardar
-            </Button>
+            </Boton>
           </div>
         </>
       )}
-    </Card>
+    </Hoja>
   );
 }
 
@@ -229,28 +229,28 @@ function FichaAcademia({ inicial, error }: { inicial: AcademySettings | null; er
   }
 
   return (
-    <Card pad="md" className="space-y-4">
-      <SectionLabel icon={<Building2 size={16} />}>Datos de la academia</SectionLabel>
+    <Hoja pad="md" className="space-y-4">
+      <BloqueTitulo icon={<Building2 size={16} />}>Datos de la academia</BloqueTitulo>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <TextField label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Alphapol" />
-        <TextField label="Horario" value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="L-V 10:00-14:00 y 17:00-21:00" />
+        <Campo label="Nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder="Alphapol" />
+        <Campo label="Horario" value={schedule} onChange={(e) => setSchedule(e.target.value)} placeholder="L-V 10:00-14:00 y 17:00-21:00" />
       </div>
-      <TextAreaField label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="Calle, número, ciudad" />
+      <CampoArea label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="Calle, número, ciudad" />
       <div className="grid sm:grid-cols-2 gap-4">
-        <TextField label="Correo de contacto" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="info@academia.es" />
-        <TextField label="Teléfono de contacto" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="600 000 000" />
+        <Campo label="Correo de contacto" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="info@academia.es" />
+        <Campo label="Teléfono de contacto" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="600 000 000" />
       </div>
 
       {guardadoError && <p className="text-xs text-red-600 dark:text-red-400 font-medium">{guardadoError}</p>}
       {guardadoOk && <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Guardado.</p>}
 
       <div className="flex justify-end">
-        <Button onClick={guardar} disabled={guardando} icon={guardando ? <Loader2 size={14} className="animate-spin" /> : null}>
+        <Boton onClick={guardar} disabled={guardando} icon={guardando ? <Loader2 size={14} className="animate-spin" /> : null}>
           Guardar
-        </Button>
+        </Boton>
       </div>
-    </Card>
+    </Hoja>
   );
 }
 
@@ -260,14 +260,14 @@ function FichaAcademia({ inicial, error }: { inicial: AcademySettings | null; er
  */
 function EnlaceProfesores({ cuantos }: { cuantos: number }) {
   return (
-    <Card pad="md" className="flex flex-wrap items-center justify-between gap-3">
+    <Hoja pad="md" className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <SectionLabel>Profesores</SectionLabel>
+        <BloqueTitulo>Profesores</BloqueTitulo>
         <p className={TEXT.muted}>{cuantos ? `${cuantos} ${cuantos === 1 ? 'profesor' : 'profesores'}. ` : ''}Se gestionan en su pestaña, con sus grupos y sus clases de física.</p>
       </div>
-      <Button size="sm" variant="secondary" onClick={() => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: 'staff' }))}>
+      <Boton size="sm" variant="secondary" onClick={() => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: 'staff' }))}>
         Ir a «Profesores»
-      </Button>
-    </Card>
+      </Boton>
+    </Hoja>
   );
 }

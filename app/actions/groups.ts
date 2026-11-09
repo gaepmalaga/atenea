@@ -81,6 +81,17 @@ export async function deleteGroupKind(kindId: string) {
   if ((count ?? 0) > 0) {
     return { success: false as const, error: `Ese tipo lo usan ${count} grupo(s). Cámbiaselos primero.` };
   }
+  // Ni si está en un pack de precios (regla 102): el pack quedaría cobrando un
+  // tipo que no existe.
+  const { data: packs, error: packsErr } = await supabaseAdmin
+    .from('fee_packs')
+    .select('name')
+    .eq('organization_id', organizationId)
+    .contains('kinds', [kindId]);
+  if (packsErr) return { success: false as const, error: packsErr.message };
+  if (packs?.length) {
+    return { success: false as const, error: `Ese tipo está en el pack «${packs[0].name}». Quítalo del pack primero.` };
+  }
 
   const { error } = await supabaseAdmin
     .from('group_kinds')

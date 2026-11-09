@@ -64,7 +64,7 @@ export default function DocumentChunksViewer({
     >
       <div className="space-y-4">
         {/* RESUMEN */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/50 rounded-lg p-4">
           <Dato valor={resumen.total} etiqueta="Fragmentos" />
           <Dato
             valor={resumen.conReferencia}
@@ -87,7 +87,7 @@ export default function DocumentChunksViewer({
         </div>
 
         {/* BUSCADOR */}
-        <div className="flex items-center gap-3 border border-slate-200 dark:border-slate-800 rounded-xl px-3 min-h-[44px]">
+        <div className="flex items-center gap-3 border border-linea dark:border-noche-linea rounded-lg px-3 min-h-[44px]">
           <Search size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
           <input
             value={filtro}
@@ -113,8 +113,8 @@ export default function DocumentChunksViewer({
           )}
 
           {grupos.map((grupo, i) => (
-            <div key={`${grupo.reference ?? 'sin'}-${i}`} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-              <div className="px-4 py-2.5 bg-white dark:bg-slate-900 flex items-center justify-between gap-3">
+            <div key={`${grupo.reference ?? 'sin'}-${i}`} className="border border-linea dark:border-noche-linea rounded-lg overflow-hidden">
+              <div className="px-4 py-2.5 bg-white dark:bg-noche-2 flex items-center justify-between gap-3">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                   {grupo.reference ?? (
                     /* El preambulo, la exposicion de motivos… no salen de

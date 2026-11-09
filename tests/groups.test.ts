@@ -159,3 +159,31 @@ describe('grupos: Multi, horas a mano y borrar con cuidado (regla 99)', () => {
     expect(lee('components/Admin/components/AdminGroups.tsx')).not.toMatch(/type="time"/);
   });
 });
+
+describe('el cuadrante de grupos: carriles y tramos', () => {
+  it('dos clases a la misma hora van una al lado de otra, no una encima de otra', async () => {
+    const { enCarriles } = await import('../app/lib/groups');
+    const r = enCarriles([
+      { id: 'alpha', ini: 8, fin: 9 },
+      { id: 'kappa', ini: 8, fin: 9 },
+      { id: 'zetta', ini: 20, fin: 21 },
+    ]);
+    const de = (id: string) => r.find((x) => x.id === id)!;
+    expect([de('alpha').carril, de('kappa').carril].sort()).toEqual([0, 1]);
+    expect(de('alpha').carriles).toBe(2);
+    expect(de('zetta')).toMatchObject({ carril: 0, carriles: 1 });
+  });
+
+  it('una clase que empieza cuando acaba otra reutiliza su carril', async () => {
+    const { enCarriles } = await import('../app/lib/groups');
+    const r = enCarriles([{ id: 'a', ini: 8, fin: 10 }, { id: 'b', ini: 9, fin: 11 }, { id: 'c', ini: 10, fin: 12 }]);
+    expect(r.find((x) => x.id === 'c')!.carril).toBe(0);
+    expect(r.every((x) => x.carriles === 2)).toBe(true);
+  });
+
+  it('las horas vacías entre la mañana y la tarde no se pintan', async () => {
+    const { tramosDeHoras } = await import('../app/lib/groups');
+    expect(tramosDeHoras([{ ini: 8, fin: 9 }, { ini: 20, fin: 21 }, { ini: 10, fin: 13 }])).toEqual([{ desde: 8, hasta: 13 }, { desde: 20, hasta: 21 }]);
+    expect(tramosDeHoras([])).toEqual([]);
+  });
+});

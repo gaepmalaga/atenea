@@ -8,6 +8,10 @@
  */
 
 import { mapBankRowToQuestion } from '../app/lib/questions';
+import {
+  cuotaDeAlumno, resumeCuotasMes, resumeHistoricoCuotas, leeApunte, aplicaCobro, leeImporte, nombreDePack,
+  periodoEnZona, sumaMeses, mesesHasta, esPeriodo, filaSegunLibro, esMetodo, type Tarifa, type FilaPagoBD, type Cobro,
+} from '../app/lib/cuotas';
 
 const ok = <T,>(extra: T) => ({ success: true as const, ...extra });
 
@@ -699,7 +703,7 @@ export async function addAcademyAdmin() {
 // ── GRUPOS Y TIPOS DE GRUPO (P7/P8) ─────────────────────────────────────────
 
 export async function getGroupKinds() {
-  return ok({ kinds: [{ id: 'teoria', label: 'Teoría', lleva_plan: false, sort_order: 1 }, { id: 'fisicas', label: 'Físicas', lleva_plan: true, sort_order: 2 }] });
+  return ok({ kinds: [{ id: 'teoria', label: 'Teoría', lleva_plan: false, sort_order: 1 }, { id: 'fisicas', label: 'Físicas', lleva_plan: true, sort_order: 2 }, { id: 'ingles', label: 'Inglés', lleva_plan: false, sort_order: 3 }, { id: 'otro', label: 'Otro', lleva_plan: false, sort_order: 9 }] });
 }
 export async function saveGroupKind() { return { success: true as const }; }
 export async function deleteGroupKind() { return { success: true as const }; }
@@ -709,6 +713,11 @@ export async function getGroups() {
     groups: [
       { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'Aula 2', horario: { weekdays: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '11:00', capacity: 20 }, staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, esMulti: false },
       { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: null, startTime: null, endTime: null, capacity: null }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, esMulti: false },
+      // Dos grupos a la MISMA hora, como Alpha y Kappa en Alphapol: el cuadrante
+      // tiene que enseñar los dos, uno al lado del otro.
+      { id: 'g3', name: 'Promo 44 · Alpha', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: [1, 3], startTime: '08:00', endTime: '09:00', capacity: 30 }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2', 'u4'], miembros: 2, llevaPlan: true, esMulti: false },
+      { id: 'g4', name: 'Promo 44 · Kappa', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: [1, 3], startTime: '08:00', endTime: '09:00', capacity: 30 }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u7'], miembros: 1, llevaPlan: true, esMulti: false },
+      { id: 'g5', name: 'Promo 44 · Zetta', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: [1, 3], startTime: '20:00', endTime: '21:00', capacity: 30 }, staffIds: [], staffNames: [], memberIds: ['u10'], miembros: 1, llevaPlan: true, esMulti: false },
     ],
   });
 }
@@ -776,35 +785,185 @@ export async function getTrainingSwitches() {
 }
 export async function setTrainingSwitch() { return { success: true as const }; }
 
-// ── PAGOS MENSUALES (P8) ─────────────────────────────────────────────────────
+// ── PAGOS Y CUOTAS (P8, regla 102) ───────────────────────────────────────────
+// Un almacén en memoria con la misma lógica que el servidor (`lib/cuotas.ts`):
+// cobrar, deshacer, la cuota de un mes y la propia funcionan de verdad en el
+// banco, y el histórico sale de seis meses de datos inventados.
 
-export async function getMonthlyPayments() {
+const TARIFA_BANCO: Tarifa = {
+  tipos: [
+    { id: 'teoria', label: 'Teoría', precio: 60 },
+    { id: 'fisicas', label: 'Físicas', precio: 50 },
+    { id: 'ingles', label: 'Inglés', precio: 20 },
+    { id: 'otro', label: 'Otro', precio: null },
+  ],
+  packs: [{ id: 'pk1', nombre: 'Completo', tipos: ['fisicas', 'ingles', 'teoria'], precio: 100 }],
+};
+
+type AlumnoBanco = { id: string; email: string; tipos: string[]; grupos: string[]; propia: number | null; notaPropia: string | null; desde: number; activo: boolean };
+const ALUMNOS_BANCO: AlumnoBanco[] = [
+  { id: 'u2', email: 'alumno@atenea.com', tipos: ['teoria', 'fisicas', 'ingles'], grupos: ['Teoría mañana', 'Físicas L-X', 'Inglés B1'], propia: null, notaPropia: null, desde: 6, activo: true },
+  { id: 'u3', email: 'alumno.flojo@ejemplo.com', tipos: ['teoria'], grupos: ['Teoría mañana'], propia: null, notaPropia: null, desde: 6, activo: true },
+  { id: 'u4', email: 'lucia.martin@gmail.com', tipos: ['fisicas'], grupos: ['Físicas L-X'], propia: null, notaPropia: null, desde: 5, activo: true },
+  { id: 'u5', email: 'javier.romero@hotmail.com', tipos: ['teoria', 'ingles'], grupos: ['Teoría tarde', 'Inglés B1'], propia: null, notaPropia: null, desde: 6, activo: true },
+  { id: 'u6', email: 'sara.ortiz@gmail.com', tipos: ['teoria'], grupos: ['Teoría tarde'], propia: 45, notaPropia: 'hermana de Javier', desde: 4, activo: true },
+  { id: 'u7', email: 'david.navas@gmail.com', tipos: ['teoria', 'fisicas'], grupos: ['Teoría mañana', 'Físicas M-J'], propia: null, notaPropia: null, desde: 3, activo: true },
+  { id: 'u8', email: 'elena.ruiz@yahoo.es', tipos: ['ingles', 'otro'], grupos: ['Inglés B1', 'Psicotécnicos'], propia: null, notaPropia: null, desde: 1, activo: true },
+  { id: 'u9', email: 'pablo.gil@gmail.com', tipos: [], grupos: [], propia: null, notaPropia: null, desde: 0, activo: true },
+  { id: 'u10', email: 'marta.leon@gmail.com', tipos: ['fisicas'], grupos: ['Físicas M-J'], propia: null, notaPropia: null, desde: 2, activo: true },
+  { id: 'u11', email: 'ruben.soto@gmail.com', tipos: ['teoria'], grupos: [], propia: null, notaPropia: null, desde: 6, activo: false },
+];
+const cuotaBanco = (a: AlumnoBanco) => cuotaDeAlumno({ tipos: a.tipos, tarifa: TARIFA_BANCO, propia: a.propia });
+
+/** Seis meses de pagos: casi todos al día, con algún retraso, un pago a medias y una baja. */
+const FILAS_BANCO: FilaPagoBD[] = (() => {
+  const actual = periodoEnZona();
+  const filas: FilaPagoBD[] = [];
+  for (const a of ALUMNOS_BANCO) {
+    for (let k = a.desde; k >= 1; k--) {
+      const period = sumaMeses(actual, -k);
+      if (a.id === 'u11' && k < 3) continue; // se dio de baja hace dos meses
+      const due = cuotaBanco(a).importe;
+      const dia = `${period}-0${(k % 7) + 2}`;
+      let amount: number | null = due;
+      if (a.id === 'u3' && k === 1) amount = null; // debe el mes pasado
+      if (a.id === 'u11' && k === 3) amount = null; // se fue debiendo
+      if (a.id === 'u7' && k === 2) amount = 50; // a medias hace dos meses
+      if (a.id === 'u8') amount = null; // sin cuota calculada
+      filas.push({ user_id: a.id, period, due_eur: due, due_manual: false, amount_eur: amount, paid: due !== null && amount !== null && amount >= due, paid_on: amount ? dia : null, note: null });
+    }
+  }
+  // Este mes: unos ya han pagado, Lucía trajo 30 de 50 y Marta no paga (lesión).
+  const pagaron: Record<string, number> = { u2: 100, u5: 80, u6: 45, u4: 30 };
+  for (const a of ALUMNOS_BANCO.filter((x) => x.activo)) {
+    const due = a.id === 'u10' ? 0 : cuotaBanco(a).importe;
+    const amount = pagaron[a.id] ?? null;
+    filas.push({ user_id: a.id, period: actual, due_eur: due, due_manual: a.id === 'u10', amount_eur: amount, paid: due === 0 || (due !== null && amount !== null && amount >= due), paid_on: amount ? `${actual}-03` : null, note: a.id === 'u10' ? 'Lesionada este mes' : null });
+  }
+  return filas;
+})();
+
+const filaBanco = (userId: string, period: string) => FILAS_BANCO.find((f) => f.user_id === userId && f.period === period);
+
+/** El libro de cobros del banco: un cobro por cada mes pagado (Lucía, en dos veces). */
+let reciboBanco = 0;
+const METODOS_BANCO = ['efectivo', 'efectivo', 'bizum', 'efectivo', 'transferencia'] as const;
+const COBROS_BANCO: Cobro[] = FILAS_BANCO
+  .filter((f) => (f.amount_eur ?? 0) !== 0 && f.amount_eur !== null)
+  .sort((a, b) => String(a.paid_on).localeCompare(String(b.paid_on)))
+  .map((f) => ({
+    id: `cb${++reciboBanco}`, userId: f.user_id as string, alumno: ALUMNOS_BANCO.find((a) => a.id === f.user_id)?.email ?? '',
+    periodo: f.period as string, importe: Number(f.amount_eur), metodo: METODOS_BANCO[reciboBanco % METODOS_BANCO.length],
+    recibo: reciboBanco, fecha: f.paid_on as string, anulado: false,
+  }));
+const recalculaBanco = (userId: string, period: string) => {
+  const f = filaBanco(userId, period);
+  if (!f) return;
+  const total = COBROS_BANCO.filter((c) => c.userId === userId && c.periodo === period && !c.anulado).reduce((s, c) => s + c.importe, 0);
+  Object.assign(f, filaSegunLibro(f, total));
+  f.paid_on = total > 0 ? COBROS_BANCO.filter((c) => c.userId === userId && c.periodo === period && !c.anulado).map((c) => c.fecha).sort().at(-1) : null;
+};
+
+export async function getPagos(periodo?: string) {
+  const actual = periodoEnZona();
+  const siguiente = sumaMeses(actual, 1);
+  const p = esPeriodo(periodo) && periodo <= siguiente ? periodo : actual;
+  const roster = ALUMNOS_BANCO.filter((a) => a.activo);
+  const cuotaPorId = new Map(ALUMNOS_BANCO.map((a) => [a.id, cuotaBanco(a)]));
+  const delMes = FILAS_BANCO.filter((f) => f.period === p);
+  const ids = new Set<string>([...delMes.map((f) => f.user_id as string), ...(p === siguiente ? roster.map((r) => r.id) : [])]);
+  const persona = new Map(ALUMNOS_BANCO.map((a) => [a.id, a]));
+  const mes = resumeCuotasMes(p, [...ids].map((id) => ({
+    userId: id, email: persona.get(id)?.email ?? null, activo: persona.get(id)?.activo ?? false, cuota: cuotaPorId.get(id) ?? null, fila: filaBanco(id, p) ?? null,
+  })));
+  const historico = resumeHistoricoCuotas(mesesHasta(actual, 12), actual,
+    ALUMNOS_BANCO.map((a) => ({ userId: a.id, email: a.email, activo: a.activo })), FILAS_BANCO.filter((f) => (f.period as string) <= actual));
+  const cuotas = roster.map((r) => cuotaPorId.get(r.id)!);
+  const faltan = new Map<string, number>();
+  for (const c of cuotas) for (const t of c.sinPrecio) faltan.set(t, (faltan.get(t) ?? 0) + 1);
   return ok({
     data: {
-      period: '2026-09',
-      filas: [
-        { userId: 'u2', email: 'alumno@atenea.com', paid: true, amount: 45, paidOn: '2026-09-03', exempt: false },
-        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', paid: false, amount: null, paidOn: null, exempt: false },
-      ],
-      pagados: 1, porPagar: 1, total: 2, cobrado: 45,
-      periodos: ['2026-09', '2026-08', '2026-07'],
+      actual, periodo: p, esPrevision: p === siguiente, mes, historico,
+      prevision: { periodo: siguiente, previsto: cuotas.reduce((s, c) => s + (c.importe ?? 0), 0), alumnos: roster.length, sinCuota: cuotas.filter((c) => c.importe === null).length },
+      avisos: {
+        sinPrecio: [...faltan].map(([tipo, alumnos]) => ({ tipo, alumnos })),
+        sinGrupos: roster.filter((r) => cuotaPorId.get(r.id)!.origen === 'sin_grupos').map((r) => r.email),
+        tarifaVacia: false,
+      },
+      cuotas: roster.map((r) => ({ userId: r.id, email: r.email, cuota: cuotaPorId.get(r.id)!, notaPropia: r.notaPropia, grupos: r.grupos })),
+      cobros: [...COBROS_BANCO],
     },
   });
 }
-export async function getPaymentsHistory() {
-  const periodos = ['2026-07', '2026-08', '2026-09'];
-  return ok({
-    data: {
-      periodos,
-      columnas: periodos.map((period, i) => ({ period, pagados: i === 2 ? 1 : 2, total: 2, cobrado: i === 2 ? 45 : 90 })),
-      filas: [
-        { userId: 'u2', email: 'alumno@atenea.com', celdas: { '2026-07': { paid: true, amount: 45 }, '2026-08': { paid: true, amount: 45 }, '2026-09': { paid: true, amount: 45 } }, pagadosEnRango: 3, exempt: false },
-        { userId: 'u3', email: 'alumno.flojo@ejemplo.com', celdas: { '2026-07': { paid: true, amount: 45 }, '2026-08': { paid: true, amount: 45 } }, pagadosEnRango: 2, exempt: false },
-      ],
-    },
+
+export async function registraCobro(input: { studentId: string; period: string; cantidad?: string | null; metodo?: string }) {
+  const lectura = leeImporte(input.cantidad ?? null);
+  if (!lectura.ok) return { success: false as const, error: lectura.error };
+  let f = filaBanco(input.studentId, input.period);
+  if (!f) {
+    const a = ALUMNOS_BANCO.find((x) => x.id === input.studentId);
+    f = { user_id: input.studentId, period: input.period, due_eur: a ? cuotaBanco(a).importe : null, due_manual: false, amount_eur: null, paid: false, paid_on: null, note: null };
+    FILAS_BANCO.push(f);
+  }
+  const antes = leeApunte(f);
+  const r = aplicaCobro({ debido: antes.debido, cobrado: antes.cobrado }, lectura.valor);
+  if (!r.ok) return { success: false as const, error: r.error };
+  const recibo = ++reciboBanco;
+  COBROS_BANCO.push({
+    id: `cb${recibo}`, userId: input.studentId, alumno: ALUMNOS_BANCO.find((a) => a.id === input.studentId)?.email ?? '',
+    periodo: input.period, importe: r.cobrado - antes.cobrado, metodo: esMetodo(input.metodo) ? input.metodo : 'efectivo',
+    recibo, fecha: new Date().toISOString().slice(0, 10), anulado: false,
   });
+  recalculaBanco(input.studentId, input.period);
+  return { success: true as const, cobrado: r.cobrado, estado: r.estado, recibo };
 }
-export async function setPayment() { return { success: true as const }; }
+export async function anulaCobro(input: { studentId: string; period: string; cobroId?: string }) {
+  for (const c of COBROS_BANCO) {
+    if (c.userId === input.studentId && c.periodo === input.period && !c.anulado && (!input.cobroId || c.id === input.cobroId)) c.anulado = true;
+  }
+  recalculaBanco(input.studentId, input.period);
+  return { success: true as const };
+}
+export async function setCuotaMes(input: { studentId: string; period: string; cuota: string | null; nota: string | null }) {
+  const lectura = leeImporte(input.cuota);
+  if (!lectura.ok) return { success: false as const, error: lectura.error };
+  const a = ALUMNOS_BANCO.find((x) => x.id === input.studentId);
+  let f = filaBanco(input.studentId, input.period);
+  if (!f) { f = { user_id: input.studentId, period: input.period, amount_eur: null, paid: false }; FILAS_BANCO.push(f); }
+  f.due_eur = lectura.valor ?? (a ? cuotaBanco(a).importe : null);
+  f.due_manual = lectura.valor !== null;
+  f.note = lectura.valor !== null ? input.nota : null;
+  recalculaBanco(input.studentId, input.period);
+  return { success: true as const };
+}
+export async function setCuotaPropia(input: { studentId: string; cuota: string | null; nota: string | null }) {
+  const lectura = leeImporte(input.cuota);
+  if (!lectura.ok) return { success: false as const, error: lectura.error };
+  const a = ALUMNOS_BANCO.find((x) => x.id === input.studentId);
+  if (a) { a.propia = lectura.valor; a.notaPropia = lectura.valor === null ? null : input.nota; }
+  return { success: true as const };
+}
+export async function getTarifa() { return ok({ tarifa: TARIFA_BANCO }); }
+export async function setPrecioTipo(kindId: string, precio: string) {
+  const lectura = leeImporte(precio);
+  if (!lectura.ok) return { success: false as const, error: lectura.error };
+  const t = TARIFA_BANCO.tipos.find((x) => x.id === kindId);
+  if (t) t.precio = lectura.valor;
+  return { success: true as const };
+}
+export async function savePack(input: { id?: string; tipos: string[]; precio: string; nombre: string }) {
+  const lectura = leeImporte(input.precio);
+  if (!lectura.ok || lectura.valor === null) return { success: false as const, error: 'Pon el precio del pack.' };
+  const tipos = [...input.tipos].sort();
+  const pk = TARIFA_BANCO.packs.find((x) => x.id === input.id);
+  if (pk) Object.assign(pk, { tipos, precio: lectura.valor, nombre: input.nombre || nombreDePack(tipos, TARIFA_BANCO) });
+  else TARIFA_BANCO.packs.push({ id: `pk${Date.now()}`, tipos, precio: lectura.valor, nombre: input.nombre || nombreDePack(tipos, TARIFA_BANCO) });
+  return { success: true as const };
+}
+export async function deletePack(id: string) {
+  TARIFA_BANCO.packs = TARIFA_BANCO.packs.filter((x) => x.id !== id);
+  return { success: true as const };
+}
 
 // ── LA FÍSICA COMO LA LLEVA UN PREPARADOR (regla 86) ─────────────────────────
 // Fechas relativas a hoy: el calendario tiene que salir lleno al abrirlo.

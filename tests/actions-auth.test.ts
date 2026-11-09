@@ -106,10 +106,16 @@ describe('superficie de las Server Actions', () => {
       'setMembershipRequired',
       'setMemberAccess',
       'activateAllCurrentStudents',
-      // P8: pagos mensuales.
-      'getMonthlyPayments',
-      'getPaymentsHistory',
-      'setPayment',
+      // P8 y regla 102: pagos, cuotas y la tarifa.
+      'getPagos',
+      'registraCobro',
+      'anulaCobro',
+      'setCuotaMes',
+      'setCuotaPropia',
+      'getTarifa',
+      'setPrecioTipo',
+      'savePack',
+      'deletePack',
       // P7/P8: grupos, tipos de grupo y asignación desde el alumno.
       'getGroups',
       'getGroupKinds',

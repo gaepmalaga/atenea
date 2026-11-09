@@ -12,7 +12,7 @@ import { etiquetaDia } from '@/app/lib/sesiones';
 import { colorPuntos } from '@/app/components/fisica/estiloTipo';
 import SeccionRM from '@/app/components/fisica/SeccionRM';
 import { rmVigentes, formateaKg } from '@/app/lib/rm';
-import { Button, EmptyState, Modal, SelectField, TextField, TEXT, cx } from '../../../ui';
+import { Boton, EmptyState, Modal, CampoSelect, Campo, TEXT, cx } from '../../../ui';
 
 /**
  * LAS MARCAS DE LA ACADEMIA (regla 86).
@@ -64,7 +64,7 @@ export default function MarcasAcademia() {
       <p className={TEXT.muted}>
         Puntos según el baremo de la convocatoria ({BAREMO_CNP.fuente}). La nota es la media de las tres pruebas; un 0 en cualquiera elimina y hace falta un 5 para aprobar.
       </p>
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+      <div className="rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
         {lista.map((a) => {
           const { pruebas, puntos, nota } = resumen(a);
           return (
@@ -88,7 +88,7 @@ export default function MarcasAcademia() {
                   })}
                 </span>
               </span>
-              <span className={cx('shrink-0 w-14 text-center px-1 py-1 rounded-xl text-sm font-black', nota.eliminado ? 'bg-red-600 text-white' : nota.media === null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : nota.apto ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200')}>
+              <span className={cx('shrink-0 w-14 text-center px-1 py-1 rounded-lg text-sm font-bold', nota.eliminado ? 'bg-red-600 text-white' : nota.media === null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : nota.apto ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200')}>
                 {nota.eliminado ? 'Elim.' : nota.media !== null ? numES(nota.media) : '—'}
               </span>
               <ChevronRight size={16} className="shrink-0 text-slate-400" />
@@ -130,7 +130,7 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
           {(['male', 'female'] as const).map((s) => (
             <button key={s} onClick={async () => { const r = await setSexoAlumno({ alumnoId: alumno.id, sexo: s }); if (r.success) onCambio(); }}
               aria-pressed={alumno.sexo === s}
-              className={cx('min-h-[36px] px-3 rounded-lg text-xs font-black border', alumno.sexo === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}>
+              className={cx('min-h-[36px] px-3 rounded-lg text-xs font-bold border', alumno.sexo === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-linea dark:border-noche-linea text-slate-600 dark:text-slate-300')}>
               {s === 'male' ? 'Hombre' : 'Mujer'}
             </button>
           ))}
@@ -140,17 +140,17 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
           const de = alumno.marcas.filter((m) => m.prueba === p);
           return (
             <div key={p}>
-              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">{INFO_PRUEBA[p].nombre}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">{INFO_PRUEBA[p].nombre}</p>
               {de.length === 0 ? <p className={TEXT.muted}>Sin marcas.</p> : (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {[...de].reverse().map((m) => {
                     const pts = puntosPrueba(p, m.valor, alumno.sexo);
                     return (
                       <li key={m.id} className="py-1 flex items-center gap-2 text-xs">
-                        <span className="w-24 shrink-0 text-slate-500 dark:text-slate-400">{etiquetaDia(m.fecha)}</span>
+                        <span className="w-24 shrink-0 text-slate-600 dark:text-slate-400">{etiquetaDia(m.fecha)}</span>
                         <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{formateaMarca(p, m.valor)}</span>
-                        <span className={cx('px-1.5 py-0.5 rounded-md text-[10px] font-black', colorPuntos(pts))}>{pts ?? '—'}</span>
-                        <span className="flex-1 truncate text-slate-500 dark:text-slate-400">{m.nota}</span>
+                        <span className={cx('px-1.5 py-0.5 rounded-md text-[10px] font-bold', colorPuntos(pts))}>{pts ?? '—'}</span>
+                        <span className="flex-1 truncate text-slate-600 dark:text-slate-400">{m.nota}</span>
                         <button aria-label="Borrar la marca" onClick={async () => { if (confirm('¿Borrar esta marca?')) { const r = await deleteMarca({ id: m.id }); if (r.success) onCambio(); } }}
                           className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
                           <Trash2 size={14} />
@@ -164,7 +164,7 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
           );
         })}
 
-        <div className="border-t border-slate-200 dark:border-slate-800 pt-3">
+        <div className="border-t border-linea dark:border-noche-linea pt-3">
           <SeccionRM
             marcas={alumno.rms}
             hoy={hoy}
@@ -175,20 +175,20 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
           />
         </div>
 
-        <div className="border-t border-slate-200 dark:border-slate-800 pt-3 space-y-2">
-          <p className="text-xs font-black text-slate-700 dark:text-slate-200">Apuntar una marca de las pruebas</p>
+        <div className="border-t border-linea dark:border-noche-linea pt-3 space-y-2">
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Apuntar una marca de las pruebas</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <SelectField label="Prueba" value={prueba} onChange={(e) => setPrueba(e.target.value as Prueba)}>
+            <CampoSelect label="Prueba" value={prueba} onChange={(e) => setPrueba(e.target.value as Prueba)}>
               {pruebas.map((p) => <option key={p} value={p}>{INFO_PRUEBA[p].corto}</option>)}
-            </SelectField>
-            <TextField label={`Marca (${INFO_PRUEBA[prueba].unidad})`} value={valor} onChange={(e) => setValor(e.target.value)} placeholder={INFO_PRUEBA[prueba].ejemplo} />
-            <TextField label="Fecha" type="date" value={fecha} max={hoy} onChange={(e) => setFecha(e.target.value)} />
-            <TextField label="Nota (opcional)" value={nota} onChange={(e) => setNota(e.target.value)} maxLength={300} placeholder="Simulacro" />
+            </CampoSelect>
+            <Campo label={`Marca (${INFO_PRUEBA[prueba].unidad})`} value={valor} onChange={(e) => setValor(e.target.value)} placeholder={INFO_PRUEBA[prueba].ejemplo} />
+            <Campo label="Fecha" type="date" value={fecha} max={hoy} onChange={(e) => setFecha(e.target.value)} />
+            <Campo label="Nota (opcional)" value={nota} onChange={(e) => setNota(e.target.value)} maxLength={300} placeholder="Simulacro" />
           </div>
           {error && <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
-          <Button onClick={guardar} disabled={guardando || !valor.trim()}>
+          <Boton onClick={guardar} disabled={guardando || !valor.trim()}>
             {guardando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Guardar marca
-          </Button>
+          </Boton>
         </div>
       </div>
     </Modal>
