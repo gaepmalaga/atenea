@@ -546,11 +546,14 @@ export async function saveAcademySettings() { return { success: true as const };
 export async function listStaff() {
   return ok({
     staff: [
-      { id: 's1', name: 'Marta Ortega', role: 'profesora', email: 'marta@academia-atenea.es', phone: '600 222 333', active: true },
-      { id: 's2', name: 'Javier Ruiz', role: 'entrenador', email: null, phone: '600 333 444', active: true },
-      { id: 's3', name: 'Sonia Vidal', role: 'coordinadora', email: 'sonia@academia-atenea.es', phone: null, active: false },
+      { id: 's1', name: 'Marta Ortega', role: 'profesora', email: 'marta@academia-atenea.es', phone: '600 222 333', active: true, userId: null },
+      { id: 's2', name: 'Javier Ruiz', role: 'entrenador', email: null, phone: '600 333 444', active: true, userId: 'u-prep' },
+      { id: 's3', name: 'Sonia Vidal', role: 'coordinadora', email: 'sonia@academia-atenea.es', phone: null, active: false, userId: null },
     ],
   });
+}
+export async function listCuentasAcademia() {
+  return ok({ cuentas: [{ id: 'u-prep', email: 'preparador@alphapol.es', role: 'admin' }, { id: 'u2', email: 'alumno@atenea.com', role: 'student' }] });
 }
 export async function saveStaff() { return { success: true as const }; }
 export async function deleteStaff() { return { success: true as const }; }
@@ -679,8 +682,8 @@ export async function deleteGroupKind() { return { success: true as const }; }
 export async function getGroups() {
   return ok({
     groups: [
-      { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'Aula 2', horario: { weekdays: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '11:00', capacity: 20 }, staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, tienePlan: false },
-      { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: null, startTime: null, endTime: null, capacity: null }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, tienePlan: true },
+      { id: 'g1', name: 'Teoría mañana', kind: 'teoria', kindLabel: 'Teoría', schedule: 'Aula 2', horario: { weekdays: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '11:00', capacity: 20 }, staffIds: ['s1'], staffNames: ['Marta Ortega'], memberIds: ['u2', 'u3'], miembros: 2, llevaPlan: false, esMulti: false },
+      { id: 'g2', name: 'Físicas L-X', kind: 'fisicas', kindLabel: 'Físicas', schedule: null, horario: { weekdays: null, startTime: null, endTime: null, capacity: null }, staffIds: ['s2'], staffNames: ['Javier Ruiz'], memberIds: ['u2'], miembros: 1, llevaPlan: true, esMulti: false },
     ],
   });
 }
@@ -729,19 +732,7 @@ export async function getAsistenciaAcademia() {
   });
 }
 
-export async function getGroupTrainingPlan() {
-  const lunes = new Date();
-  lunes.setDate(lunes.getDate() - lunes.getDay() + 1);
-  const semana = (offset: number, vigente: boolean) => ({
-    weekStart: new Date(lunes.getTime() + offset * 7 * 864e5).toISOString().slice(0, 10),
-    plan: PLAN.plan_data,
-    vigente,
-    pasada: offset < 0,
-  });
-  return ok({ semanas: [semana(-1, false), semana(0, true), semana(1, false)] });
-}
-export async function saveGroupTrainingPlan() { return { success: true as const, error: undefined }; }
-export async function deleteGroupTrainingPlan() { return { success: true as const }; }
+
 
 // ── ACCESO Y EXENTOS (P6/P12) ────────────────────────────────────────────────
 

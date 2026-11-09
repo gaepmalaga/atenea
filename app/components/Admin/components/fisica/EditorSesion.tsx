@@ -125,7 +125,7 @@ export default function EditorSesion({
       {pestaña === 'sesion' && soloLectura && sesion && (
         <div className="space-y-3">
           <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-xl px-3 py-2">
-            Es una sesión del grupo «{nombreGrupo}». Para cambiarla, elige el grupo arriba: aquí la cambiarías para todos.
+            Es una sesión del grupo «{nombreGrupo}», común a todos sus alumnos. Se cambia en su plan común (al final de la lista de alumnos), no aquí.
           </p>
           <p className="text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-100">{sesion.description || 'Sin descripción.'}</p>
         </div>

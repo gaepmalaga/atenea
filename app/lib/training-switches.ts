@@ -63,13 +63,13 @@ export type TrainingSwitches = Record<TrainingSwitchId, boolean>;
 
 export const TRAINING_SWITCH_LABEL: Record<TrainingSwitchId, string> = {
   ai: 'Plan de físicas generado con IA (lo pide el alumno)',
-  group: 'Plan de físicas manual por grupo',
+  group: 'Física con preparador (cuadrante y entrenos)',
   adaptive: 'Entrenamiento del test adaptativo',
 };
 
 export const TRAINING_SWITCH_DESC: Record<TrainingSwitchId, string> = {
   ai: 'El alumno se genera su propio plan y la semana siguiente desde su móvil. Cada generación es una llamada de pago a Gemini.',
-  group: 'Escribes un plan por grupo de físicas y sus miembros lo ven. Si lo apagas, el plan de grupo deja de llegarles.',
+  group: 'Las clases de cada grupo (el cuadrante) y el entreno de cada alumno. Si lo apagas, los alumnos dejan de ver su calendario de física.',
   adaptive: 'El modo «Entrenamiento» reparte las preguntas por repetición espaciada: repasa lo fallado, consolida lo aprendido, introduce lo nuevo con medida. Apagado = selección aleatoria de siempre.',
 };
 

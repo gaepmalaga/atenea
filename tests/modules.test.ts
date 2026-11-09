@@ -251,8 +251,8 @@ describe('apagar un interruptor de fisicas lo apaga en el servidor', () => {
     }
   });
 
-  it('saveGroupTrainingPlan corta si el plan de grupo esta apagado', () => {
-    expect(cuerpoDe('groups.ts', 'saveGroupTrainingPlan')).toContain("requireTrainingSwitch('group',");
+  it('el plan de grupo viejo ya no tiene accion que lo escriba (regla 97)', () => {
+    expect(fuentes['groups.ts']).not.toContain('saveGroupTrainingPlan');
   });
 
   it('getActiveTrainingPlan no hereda el plan de grupo si esta apagado', () => {

@@ -10,10 +10,11 @@ import {
   listStaff,
   saveStaff,
   deleteStaff,
+  listCuentasAcademia,
 } from '@/actions';
 import type { AcademySettings, StaffMember } from '@/app/lib/academy-settings';
 import { diasHasta, textoCuentaAtras, type Convocatoria } from '@/app/lib/convocatoria';
-import { Card, Button, Modal, TextField, TextAreaField, SectionLabel, TEXT, cx } from '../../ui';
+import { Card, Button, Modal, TextField, TextAreaField, SelectField, SectionLabel, TEXT, cx } from '../../ui';
 
 /**
  * Los datos de la academia: nombre, dirección, horario, contacto, y quién da
@@ -256,14 +257,22 @@ function FichaAcademia({ inicial, error }: { inicial: AcademySettings | null; er
   );
 }
 
-type FormularioProfesor = { id?: string; name: string; role: string; email: string; phone: string; active: boolean };
-const PROFESOR_VACIO: FormularioProfesor = { name: '', role: 'profesor', email: '', phone: '', active: true };
+type FormularioProfesor = { id?: string; name: string; role: string; email: string; phone: string; active: boolean; userId: string };
+const PROFESOR_VACIO: FormularioProfesor = { name: '', role: 'profesor', email: '', phone: '', active: true, userId: '' };
+type Cuenta = { id: string; email: string; role: string };
 
 function ListaProfesores({ staff, onCambio }: { staff: StaffMember[]; onCambio: (s: StaffMember[]) => void }) {
   const [editando, setEditando] = useState<FormularioProfesor | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
+  const [cuentas, setCuentas] = useState<Cuenta[]>([]);
+
+  // Las cuentas de la academia, para enlazar un profesor con la suya (regla 97).
+  useEffect(() => {
+    listCuentasAcademia().then((r) => { if (r.success) setCuentas(r.cuentas); });
+  }, []);
+  const correoDe = (id: string | null) => (id ? cuentas.find((c) => c.id === id)?.email ?? 'una cuenta' : null);
 
   async function guardar() {
     if (!editando) return;
@@ -318,10 +327,11 @@ function ListaProfesores({ staff, onCambio }: { staff: StaffMember[]; onCambio: 
                   contacto es justo el dato que hace falta entero. Envuelve a
                   una segunda linea en vez de esconderse. */}
               <p className={cx(TEXT.muted, 'break-words')}>{[s.email, s.phone].filter(Boolean).join(' · ') || 'Sin contacto'}</p>
+              {s.userId && <p className={cx(TEXT.muted, 'break-words')}>Entra con {correoDe(s.userId)}</p>}
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button
-                onClick={() => setEditando({ id: s.id, name: s.name, role: s.role, email: s.email ?? '', phone: s.phone ?? '', active: s.active })}
+                onClick={() => setEditando({ id: s.id, name: s.name, role: s.role, email: s.email ?? '', phone: s.phone ?? '', active: s.active, userId: s.userId ?? '' })}
                 className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
                 aria-label={`Editar a ${s.name}`}
               >
@@ -358,6 +368,11 @@ function ListaProfesores({ staff, onCambio }: { staff: StaffMember[]; onCambio: 
             <TextField label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })} placeholder="profesor, coordinador, entrenador…" />
             <TextField label="Correo" type="email" value={editando.email} onChange={(e) => setEditando({ ...editando, email: e.target.value })} />
             <TextField label="Teléfono" value={editando.phone} onChange={(e) => setEditando({ ...editando, phone: e.target.value })} />
+            <SelectField label="Cuenta con la que entra (opcional)" value={editando.userId} onChange={(e) => setEditando({ ...editando, userId: e.target.value })}
+              hint="Si da clase y tiene cuenta en la plataforma. Sin cuenta, sigue saliendo por su nombre en el cuadrante.">
+              <option value="">Sin cuenta</option>
+              {cuentas.map((c) => <option key={c.id} value={c.id}>{c.email}{c.role === 'student' ? ' (alumno)' : ''}</option>)}
+            </SelectField>
             <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
               <input type="checkbox" checked={editando.active} onChange={(e) => setEditando({ ...editando, active: e.target.checked })} className="w-5 h-5" />
               Activo

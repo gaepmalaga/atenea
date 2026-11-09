@@ -235,7 +235,8 @@ function FilaGrupo({ g, kinds, staff, busy, onGuardar, onBorrar }: {
             {g.staffNames.length > 0 && <span>· {g.staffNames.join(', ')}</span>}
             {horarioEnTexto(g.horario) && <span>· {horarioEnTexto(g.horario)}</span>}
             {g.schedule && <span>· {g.schedule}</span>}
-            {g.llevaPlan && <span className="text-orange-700 dark:text-orange-400 font-bold">{g.tienePlan ? 'con plan' : 'sin plan'}</span>}
+            {/* Un grupo de física sin días no es una clase: no sale en el cuadrante (regla 97). */}
+            {g.llevaPlan && !g.esMulti && !g.horario.weekdays?.length && <span className="text-orange-700 dark:text-orange-400 font-bold">sin horario: no sale en el cuadrante</span>}
           </span>
         </span>
         <ChevronDown size={16} className={cx('shrink-0 text-slate-400 transition-transform', abierto && 'rotate-180')} />

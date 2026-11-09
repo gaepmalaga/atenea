@@ -20,7 +20,9 @@ node comparar-formas.mjs       # en qué se desvía cada stub de su acción
 node zoom.cjs                  # una captura ampliada de un trozo concreto
 ```
 
-`?vista=admin` abre el panel de administración en vez del alumno.
+`?vista=admin` abre el panel de administración en vez del alumno. El
+cuadrante de física sale con Zetta «sin clase» el miércoles, para ver «Sin
+clase esta semana»; `&sinclase=no` lo enseña sin esa marca (regla 97).
 Las capturas van a `.banco-pruebas/tomas/`.
 
 ## Por qué existe

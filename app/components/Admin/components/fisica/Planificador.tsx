@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus, Library, Copy, StickyNote, Loader2, MessageSquare, Check, X, Pencil, Trash2,
-  ArrowLeft, Search, Users, CopyPlus, History,
+  ArrowLeft, Users, CopyPlus, History,
 } from 'lucide-react';
 import {
   getAlumnosFisica, getPlanificador, getPlantillas, moverSesion, saveSesion, copiarSemanaFisica, setNotaSemana,
@@ -71,13 +71,19 @@ export default function Planificador() {
   const [error, setError] = useState<string | null>(null);
   const [abierto, setAbierto] = useState<Abierto | null>(null);
 
-  const cargar = useCallback(async () => {
-    const r = await getAlumnosFisica({ lunes });
-    if (r.success) { setLista(r); setError(null); }
-    else setError(r.error);
-  }, [lunes]);
-
-  useEffect(() => { cargar(); }, [cargar]);
+  // Se vuelve a pedir al cambiar de semana o al volver de un alumno (`vuelta`).
+  const [vuelta, setVuelta] = useState(0);
+  const cargar = useCallback(() => setVuelta((n) => n + 1), []);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const r = await getAlumnosFisica({ lunes });
+      if (!vivo) return;
+      if (r.success) { setLista(r); setError(null); }
+      else setError(r.error);
+    })();
+    return () => { vivo = false; };
+  }, [lunes, vuelta]);
 
   if (abierto) {
     return (

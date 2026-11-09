@@ -475,3 +475,26 @@ describe('las acciones del cuadrante (guardas estáticas)', () => {
     expect(c).not.toMatch(/params\.organization/);
   });
 });
+
+describe('el profesor y su cuenta (regla 97)', () => {
+  it('la cuenta es opcional: un id o nada; lo demás no se guarda', async () => {
+    const { normalizeStaffInput, rowToStaffMember } = await import('../app/lib/academy-settings');
+    const id = '00000000-0000-4000-8000-0000000000aa';
+    expect(normalizeStaffInput({ name: 'Lucas', userId: id })?.user_id).toBe(id);
+    expect(normalizeStaffInput({ name: 'Lucas' })?.user_id).toBeNull();
+    expect(normalizeStaffInput({ name: 'Lucas', userId: '' })?.user_id).toBeNull();
+    expect(normalizeStaffInput({ name: 'Lucas', userId: "x' or 1=1" })?.user_id).toBeNull();
+    expect(rowToStaffMember({ id: 's', name: 'Lucas', user_id: id }).userId).toBe(id);
+    expect(rowToStaffMember({ id: 's', name: 'Lucas' }).userId).toBeNull();
+  });
+
+  it('el servidor comprueba que la cuenta es de su academia antes de enlazarla', () => {
+    const src = readFileSync(join(__dirname, '..', 'app', 'actions', 'settings.ts'), 'utf-8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const c = src.slice(src.indexOf('export async function saveStaff'), src.indexOf('export async function listCuentasAcademia'));
+    expect(c).toMatch(/if \(clean\.user_id\) \{[\s\S]*?from\('academy_members'\)[\s\S]*?\.eq\('academy_id', auth\.user\.organizationId\)/);
+    const l = src.slice(src.indexOf('export async function listCuentasAcademia'));
+    expect(l).toContain('requireAdmin()');
+    expect(l).toContain(".eq('academy_id', org)");
+  });
+});

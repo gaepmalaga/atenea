@@ -20,7 +20,14 @@ export type StaffMember = {
   email: string | null;
   phone: string | null;
   active: boolean;
+  /**
+   * La cuenta con la que entra, si la tiene (regla 97). Los profesores son
+   * NOMBRES sin cuenta (regla 96) y lo siguen pudiendo ser: es opcional.
+   */
+  userId: string | null;
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Un campo en blanco es `null`, nunca cadena vacía (misma familia que regla 16). */
 function textoONull(v: unknown): string | null {
@@ -74,15 +81,19 @@ export function normalizeStaffInput(raw: Record<string, unknown>): {
   email: string | null;
   phone: string | null;
   active: boolean;
+  user_id: string | null;
 } | null {
   const name = textoONull(raw.name);
   if (!name) return null; // un profesor sin nombre no se puede pintar
+  // La cuenta: un id o nada. Algo que no es un id no se guarda (regla 27).
+  const userId = typeof raw.userId === 'string' && UUID.test(raw.userId.trim()) ? raw.userId.trim() : null;
   return {
     name,
     role: textoONull(raw.role) ?? 'profesor',
     email: textoONull(raw.email),
     phone: textoONull(raw.phone),
     active: raw.active !== false,
+    user_id: userId,
   };
 }
 
@@ -94,5 +105,6 @@ export function rowToStaffMember(row: Record<string, unknown>): StaffMember {
     email: textoONull(row.email),
     phone: textoONull(row.phone),
     active: row.active !== false,
+    userId: typeof row.user_id === 'string' ? row.user_id : null,
   };
 }
