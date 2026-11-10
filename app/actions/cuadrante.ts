@@ -36,8 +36,9 @@ import {
 import { lunesDe } from '../lib/sesiones';
 import { paginaCompleta } from '../lib/pagination';
 import { agrupaHabituales, type ClaseHabitual } from '../lib/profesores';
+import { sumaMinutos } from '../lib/calendario';
 import {
-  nombreCorto, normalizaCelda, plazasSesion, quedaPlaza, nombrePila, tipoDeTitulo, titulosFrecuentes, normalizaMotivo,
+  nombreCorto, normalizaCelda, DURACION_SESION_MIN, plazasSesion, quedaPlaza, nombrePila, tipoDeTitulo, titulosFrecuentes, normalizaMotivo,
   type GrupoCuadrante, type Profesor, type SesionCuadrante, type DiaSinClase,
 } from '../lib/cuadrante';
 
@@ -519,7 +520,7 @@ export async function copiarCuadrante(params: { desde: string; a: string }): Pro
 // LOS PROFESORES (regla 99)
 // ═════════════════════════════════════════════════════════════════════════
 
-export type ClaseProfesor = { fecha: string; grupo: string; titulo: string; hora: string | null };
+export type ClaseProfesor = { fecha: string; grupo: string; titulo: string; hora: string | null; fin: string | null };
 export type AgendaProfesor = {
   profesorId: string;
   /** Los grupos que lleva (asignados en «Grupos»), de teoría o de física. */
@@ -576,11 +577,19 @@ export async function getAgendaProfesores(params: { lunes: string }): Promise<
         .map((x) => {
           const g = porId.get(x.class_id as string)!;
           const propia = typeof x.start_time === 'string' ? x.start_time.slice(0, 5) : null;
+          const h = horarioDeFila(g);
+          const hora = propia ?? h.startTime;
+          // Hasta cuándo: la hora del grupo, o una hora si la sesión va a otra
+          // hora (una suelta, un día añadido). Es lo que suma en sus horas.
+          const fin = propia && propia !== h.startTime
+            ? sumaMinutos(propia, DURACION_SESION_MIN)
+            : h.endTime ?? (hora ? sumaMinutos(hora, DURACION_SESION_MIN) : null);
           return {
             fecha: x.session_date as string,
             grupo: nombreCorto(g.name as string),
             titulo: x.title as string,
-            hora: propia ?? horarioDeFila(g).startTime,
+            hora,
+            fin,
           };
         })
         .sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? '99').localeCompare(b.hora ?? '99')),

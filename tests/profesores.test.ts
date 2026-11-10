@@ -191,3 +191,36 @@ describe('las acciones y la pantalla (guardas estáticas)', () => {
     expect(c).toMatch(/onChange=\{\(e\) => \{ setProfesorId\(e\.target\.value\); setProfesorTocado\(true\);/);
   });
 });
+
+describe('la carga semanal de cada profesor', () => {
+  it('horasEntre: las horas entre dos HH:MM; 0 si falta alguna o van al revés', async () => {
+    const { horasEntre } = await import('../app/lib/profesores');
+    expect(horasEntre('08:00', '09:00')).toBe(1);
+    expect(horasEntre('10:00', '13:30')).toBe(3.5);
+    expect(horasEntre('18:30:00', '19:30')).toBe(1);
+    expect(horasEntre(null, '09:00')).toBe(0);
+    expect(horasEntre('09:00', '08:00')).toBe(0);
+  });
+
+  it('las clases de física del cuadrante SUMAN (Lucio, 4 clases, no puede salir con 0 h)', async () => {
+    const { clasesDeLaSemana, horasDeClases } = await import('../app/lib/profesores');
+    const grupos = [
+      { id: 'alpha', name: 'Promo 44 · Alpha', llevaPlan: true, esMulti: false, staffIds: ['lucio'], horario: { weekdays: [1, 3], startTime: '08:00', endTime: '09:00' } },
+      { id: 'teo', name: 'Promo 43', llevaPlan: false, esMulti: false, staffIds: ['sofia'], horario: { weekdays: [2, 4], startTime: '10:00', endTime: '13:00' } },
+    ];
+    const fisica = [
+      { fecha: '2026-11-09', dia: 1, grupo: 'Alpha', titulo: 'F.M + RDL', hora: '08:00', fin: '09:00' },
+      { fecha: '2026-11-10', dia: 2, grupo: 'Omega', titulo: 'F.M + RDL', hora: '08:00', fin: '09:00' },
+      { fecha: '2026-11-11', dia: 3, grupo: 'Alpha', titulo: 'F.M + RDL', hora: '08:00', fin: '09:00' },
+      { fecha: '2026-11-12', dia: 4, grupo: 'Multi', titulo: 'Boxeo', hora: '18:30', fin: '19:30' },
+    ];
+    const lucio = clasesDeLaSemana('lucio', grupos, fisica);
+    expect(lucio).toHaveLength(4);
+    expect(horasDeClases(lucio)).toBe(4);
+    // Estar asignado a Alpha en «Grupos» no suma OTRA VEZ su horario: manda el cuadrante.
+    expect(lucio.every((c) => c.fisica)).toBe(true);
+    const sofia = clasesDeLaSemana('sofia', grupos, []);
+    expect(sofia.map((c) => c.dia)).toEqual([2, 4]);
+    expect(horasDeClases(sofia)).toBe(6);
+  });
+});

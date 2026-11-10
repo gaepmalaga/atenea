@@ -235,7 +235,11 @@ export default function Cuadrante() {
           {cuadrante && cuadrante.dias.length === 0 && (
             <p className={cx(TEXT.muted, 'text-center py-6')}>Esta semana no queda ningún día con clase.</p>
           )}
-          <div className={cx('grid gap-3', cuadrante && cuadrante.dias.length > 2 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-2')}>
+          {/* Tantas columnas como quepan (lo pidió el dueño: «el máximo de
+              columnas posibles» en tablet y PC): cada día necesita unos 11rem.
+              En un móvil, una; en una tablet o un portátil, cuatro; en un PC
+              ancho, la semana entera con el sábado. */}
+          <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
             {cuadrante?.dias.map((dia) => (
               <DiaCard key={dia.fecha} dia={dia} datos={datos!} hoy={datos!.hoy}
                 onEdita={(fila) => setEdicion({ fila, fecha: dia.fecha, titulo: dia.titulo })}
@@ -297,12 +301,12 @@ function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
   dia: DiaCuadrante; datos: DatosCuadrante; hoy: string; onEdita: (f: FilaCuadrante) => void; onQuitar: () => void;
 }) {
   return (
-    <Hoja tone="base" pad="sm" className={cx('space-y-2', dia.fecha === hoy && 'ring-2 ring-oro')}>
-      <div className="flex items-center justify-between gap-2 pl-1">
-        <h4 className="font-titulo text-lg font-bold uppercase leading-none tracking-wide text-slate-900 dark:text-white">{dia.titulo}</h4>
-        <button onClick={onQuitar} aria-label={`Quitar el ${dia.titulo.toLowerCase()}`}
-          className="min-h-[44px] px-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1">
-          <CalendarX2 size={14} /> Quitar…
+    <Hoja tone="base" className={cx('min-w-0 space-y-1.5 p-2', dia.fecha === hoy && 'ring-2 ring-oro')}>
+      <div className="flex items-center justify-between gap-1 pl-1">
+        <h4 className="min-w-0 truncate font-titulo text-[15px] font-bold uppercase leading-none text-slate-900 dark:text-white" title={dia.titulo}>{dia.titulo}</h4>
+        <button onClick={onQuitar} aria-label={`Quitar el ${dia.titulo.toLowerCase()}`} title="Quitar clases de este día"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-red-50 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-900/20">
+          <CalendarX2 size={16} />
         </button>
       </div>
       {dia.filas.map((f) => {
@@ -310,13 +314,13 @@ function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
         const plazas = f.grupo.esMulti ? null : plazasDe(datos, f.grupo, dia.fecha);
         const multis = datos.multis[clave(f.grupo.id, dia.fecha)]?.length ?? 0;
         return (
-          <div key={f.grupo.id} className="flex gap-1.5">
-            <div className="w-[88px] shrink-0 rounded-lg flex items-center justify-center text-center font-bold italic text-sm px-1"
+          <div key={f.grupo.id} className="flex gap-1">
+            <div className="flex w-14 shrink-0 items-center justify-center rounded-lg px-0.5 text-center text-[11px] font-bold italic"
               style={{ background: col.fondo, color: col.texto }}>
               {f.grupo.corto.toUpperCase()}
             </div>
             <button onClick={() => onEdita(f)}
-              className={cx('flex-1 min-h-[56px] min-w-0 text-left rounded-lg border-2 px-3 py-2',
+              className={cx('flex-1 min-h-[56px] min-w-0 text-left rounded-lg border-2 px-2 py-1.5',
                 f.sesion ? 'bg-white dark:bg-slate-950 border-linea dark:border-noche-linea' : 'border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400',
                 f.avisos.length > 0 && 'border-amber-400 dark:border-amber-500')}>
               {f.sesion ? (
