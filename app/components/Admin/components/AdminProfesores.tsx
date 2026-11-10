@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader2, Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ArrowUp, Dumbbell, BookOpen, ChevronDown } from 'lucide-react';
 import {
   listStaff, saveStaff, deleteStaff, listCuentasAcademia, getAgendaProfesores,
@@ -11,10 +11,11 @@ import type { StaffMember } from '@/app/lib/academy-settings';
 import type { AgendaProfesor } from '@/app/actions/cuadrante';
 import type { TemaDeProfesores } from '@/app/actions/profesores';
 import {
-  claveActividad, formateaTemas, resumenTemas, aciertoDe, MIN_RESPUESTAS_TEMA, type ClaseHabitual,
+  claveActividad, formateaTemas, resumenTemas, aciertoDe, MIN_RESPUESTAS_TEMA, clasesDeLaSemana, horasDeClases,
+  type ClaseHabitual, type ClaseDeSemana,
 } from '@/app/lib/profesores';
 import { lunesDe, etiquetaSemana } from '@/app/lib/sesiones';
-import { sumaDias, etiquetaFecha, DIAS_SEMANA } from '@/app/lib/asistencia';
+import { sumaDias, etiquetaFecha, diaSemanaDe, DIAS_SEMANA } from '@/app/lib/asistencia';
 import { Hoja, Boton, Modal, Campo, CampoSelect, BloqueTitulo, EmptyState, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, Dato, Etiqueta, Avatar, inicialesDeNombre, TablaDual } from '../../ui';
 
 /**
@@ -113,24 +114,22 @@ export default function AdminProfesores() {
     else setError(res.error ?? 'No se pudo borrar.');
   }
 
-  // ── La carga semanal: de los horarios de los grupos ──
-  const diasSemana = DIAS_SEMANA.slice(0, 5);
-  const horas = (t: string | null) => {
-    const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(t ?? '');
-    return m ? Number(m[1]) + (m[2] ? Number(m[2]) / 60 : 0) : null;
-  };
-  const clasesDeProfe = (id: string) => grupos
-    .filter((g) => g.staffIds.includes(id) && !g.esMulti && g.horario.weekdays?.length)
-    .flatMap((g) => (g.horario.weekdays ?? []).map((d) => ({ d, g })));
-  const horasDe = (id: string) => clasesDeProfe(id).reduce((n, c) => {
-    const i = horas(c.g.horario.startTime), f = horas(c.g.horario.endTime);
-    return i !== null && f !== null && f > i ? n + (f - i) : n;
-  }, 0);
+  // ── La carga de la semana: teoría por el horario de sus grupos y física
+  //    por las sesiones del cuadrante de ESA semana (`clasesDeLaSemana`). ──
+  const diasDeLaSemana = DIAS_SEMANA.slice(0, 5);
+  const clasesDeProfe = (id: string) => clasesDeLaSemana(
+    id,
+    grupos,
+    (agendaDe.get(id)?.clases ?? []).map((c) => ({ ...c, dia: diaSemanaDe(c.fecha) })),
+  );
+  // Si alguna clase cae en sábado o domingo, esos días también salen.
+  const diasSemana = [...diasDeLaSemana, ...DIAS_SEMANA.slice(5).filter((d) => (staff ?? []).some((s) => clasesDeProfe(s.id).some((c) => c.dia === d.n)))];
+  const horasDe = (id: string) => horasDeClases(clasesDeProfe(id));
   const fmtH = (x: number) => `${Math.round(x * 10) / 10}`.replace('.', ',');
   const activos = (staff ?? []).filter((s) => s.active);
-  const pill = (g: GroupRow) => (
-    <span key={g.id} className={cx('mb-1 block rounded px-2 py-1 text-[11.5px] leading-tight', g.llevaPlan ? 'border border-oro bg-oro/20 text-oro-oscuro dark:bg-oro/15 dark:text-oro-claro' : 'bg-indigo-900 text-white dark:bg-indigo-300 dark:text-marino-hondo')}>
-      <b className="tabular-nums">{g.horario.startTime}</b> {g.name}
+  const pill = (c: ClaseDeSemana) => (
+    <span key={c.clave} className={cx('mb-1 block rounded px-2 py-1 text-[11.5px] leading-tight', c.fisica ? 'border border-oro bg-oro/20 text-oro-oscuro dark:bg-oro/15 dark:text-oro-claro' : 'bg-indigo-900 text-white dark:bg-indigo-300 dark:text-marino-hondo')}>
+      <b className="tabular-nums">{c.inicio}</b> {c.texto}
     </span>
   );
 
@@ -209,7 +208,7 @@ export default function AdminProfesores() {
                   <div className="flex flex-wrap gap-1.5">{a.grupos.map((g) => <Dato key={g.id}>{g.nombre} · {g.tipo}</Dato>)}</div>
                 ) : <p className={TEXT.muted}>No lleva ningún grupo. Se asignan en «Grupos».</p>}
               </Hoja>
-              <Hoja pad="md"><TemasDelProfesor profesorId={sFicha.id} temas={temasDe(sFicha.id)} onCambio={() => setVuelta((n) => n + 1)} /></Hoja>
+              <Hoja pad="md"><TemasDelProfesor profesorId={sFicha.id} temas={temasDe(sFicha.id)} todos={temas} staff={staff ?? []} onCambio={() => setVuelta((n) => n + 1)} /></Hoja>
               {clasesDe(sFicha.id).length > 0 && (
                 <Hoja pad="md" className="space-y-2"><BloqueTitulo icon={<Dumbbell size={15} />}>Habitual de</BloqueTitulo>
                   <div className="flex flex-wrap gap-1.5">{clasesDe(sFicha.id).map((c) => <Etiqueta key={c} tono="oro">{c}</Etiqueta>)}</div></Hoja>
@@ -280,6 +279,19 @@ export default function AdminProfesores() {
             </Aviso>
           )}
 
+          {/* La física sale del cuadrante de UNA semana: se elige aquí. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              <b className="font-titulo text-lg uppercase tracking-wide">Semana del {etiquetaSemana(lunes)}</b>
+              <span className="block text-xs text-slate-600 dark:text-slate-400">Teoría, por el horario de sus grupos; física, por las sesiones del cuadrante de esa semana.</span>
+            </p>
+            <div className="flex items-center gap-1">
+              <Boton size="sm" variant="secondary" aria-label="Semana anterior" onClick={() => setLunes(sumaDias(lunes, -7))} icon={<ChevronLeft size={15} />} />
+              <Boton size="sm" variant="secondary" disabled={lunes === lunesDe(hoyLocal())} onClick={() => setLunes(lunesDe(hoyLocal()))}>Esta semana</Boton>
+              <Boton size="sm" variant="secondary" aria-label="Semana siguiente" onClick={() => setLunes(sumaDias(lunes, 7))} icon={<ChevronRight size={15} />} />
+            </div>
+          </div>
+
           <TablaDual
             soloLectura
             clave={(s) => s.id}
@@ -293,10 +305,10 @@ export default function AdminProfesores() {
               ) },
               ...diasSemana.map((d) => ({
                 id: `d${d.n}`, titulo: d.largo.slice(0, 3), sinTarjeta: true,
-                celda: (s: StaffMember) => <div className="min-w-[7.5rem] align-top">{clasesDeProfe(s.id).filter((c) => c.d === d.n).map((c) => pill(c.g))}{!clasesDeProfe(s.id).some((c) => c.d === d.n) && <span className="text-slate-500">—</span>}</div>,
+                celda: (s: StaffMember) => <div className="min-w-[7.5rem] align-top">{clasesDeProfe(s.id).filter((c) => c.dia === d.n).map((c) => pill(c))}{!clasesDeProfe(s.id).some((c) => c.dia === d.n) && <span className="text-slate-500">—</span>}</div>,
               })),
               { id: 'semana', titulo: 'Semana', soloTarjeta: true, celda: (s) => (
-                <div className="text-left">{clasesDeProfe(s.id).length === 0 && <span className="text-slate-500">Sin clases</span>}{clasesDeProfe(s.id).sort((a, b) => a.d - b.d).map((c) => <p key={`${c.g.id}-${c.d}`} className="mb-1 flex gap-2 text-[13px]"><span className="w-8 shrink-0 text-slate-600 dark:text-slate-400">{DIAS_SEMANA[c.d - 1].largo.slice(0, 3)}</span>{pill(c.g)}</p>)}</div>
+                <div className="text-left">{clasesDeProfe(s.id).length === 0 && <span className="text-slate-500">Sin clases</span>}{clasesDeProfe(s.id).map((c) => <p key={c.clave} className="mb-1 flex gap-2 text-[13px]"><span className="w-8 shrink-0 text-slate-600 dark:text-slate-400">{DIAS_SEMANA[c.dia - 1].largo.slice(0, 3)}</span>{pill(c)}</p>)}</div>
               ) },
               { id: 'total', titulo: 'Total', celda: (s) => <span className="whitespace-nowrap font-titulo text-xl font-bold tabular-nums">{fmtH(horasDe(s.id))} h</span> },
               { id: 'ficha', titulo: '', acciones: true, derecha: true, celda: (s) => (
@@ -421,8 +433,17 @@ function ClasesHabituales({ habituales, staff, onCambio }: { habituales: ClaseHa
 
 // ── Teoría: sus temas y cómo van sus alumnos en ellos (regla 100) ──
 
-function TemasDelProfesor({ profesorId, temas, onCambio }: { profesorId: string; temas: TemaDeProfesores[]; onCambio: () => void }) {
-  const [editando, setEditando] = useState<string | null>(null);
+/**
+ * Los temas de teoría de un profesor: un desplegable con TODO el temario, por
+ * bloques, y una casilla por tema (lo pidió el dueño: «un desplegable con
+ * todos los temas y marcar los que le correspondan»). Al lado de cada tema,
+ * quién más lo da. Se guarda igual que antes (`setTemasProfesor`).
+ */
+function TemasDelProfesor({ profesorId, temas, todos, staff, onCambio }: {
+  profesorId: string; temas: TemaDeProfesores[]; todos: TemaDeProfesores[]; staff: StaffMember[]; onCambio: () => void;
+}) {
+  const [editando, setEditando] = useState<Set<number> | null>(null);
+  const [busca, setBusca] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
@@ -432,7 +453,7 @@ function TemasDelProfesor({ profesorId, temas, onCambio }: { profesorId: string;
   async function guarda() {
     if (editando === null) return;
     setGuardando(true); setError(null);
-    const res = await setTemasProfesor({ profesorId, temas: editando });
+    const res = await setTemasProfesor({ profesorId, temas: formateaTemas([...editando]).replace(/–/g, '-') });
     setGuardando(false);
     if (!res.success) { setError(res.error); return; }
     setEditando(null);
@@ -443,17 +464,16 @@ function TemasDelProfesor({ profesorId, temas, onCambio }: { profesorId: string;
     <div className="space-y-1.5">
       <BloqueTitulo icon={<BookOpen size={14} />}>Sus temas de teoría</BloqueTitulo>
       {editando !== null ? (
-        <div className="space-y-2">
-          <Campo label="Temas" value={editando} onChange={(e) => setEditando(e.target.value)} placeholder="1-10, 14, 17, 18" autoFocus
-            hint="Números y rangos, separados por comas. Vacío, ninguno." />
-          <div className="flex gap-2">
-            <Boton size="sm" disabled={guardando} onClick={guarda}>{guardando ? 'Guardando…' : 'Guardar'}</Boton>
-            <Boton size="sm" variant="ghost" onClick={() => { setEditando(null); setError(null); }}>Cancelar</Boton>
-          </div>
-          {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
-        </div>
+        <SelectorTemas marcados={editando} setMarcados={setEditando} todos={todos} profesorId={profesorId} staff={staff} busca={busca} setBusca={setBusca}
+          pie={<>
+            <div className="flex flex-wrap items-center gap-2">
+              <Boton size="sm" disabled={guardando} onClick={guarda}>{guardando ? 'Guardando…' : `Guardar ${editando.size} ${editando.size === 1 ? 'tema' : 'temas'}`}</Boton>
+              <Boton size="sm" variant="ghost" onClick={() => { setEditando(null); setError(null); setBusca(''); }}>Cancelar</Boton>
+            </div>
+            {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
+          </>} />
       ) : (
-        <button onClick={() => setEditando(formateaTemas(numeros).replace(/–/g, '-'))}
+        <button onClick={() => setEditando(new Set(numeros))}
           className="min-h-[44px] w-full text-left text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 hover:underline">
           {numeros.length ? <b>{formateaTemas(numeros)}</b> : <span className="text-slate-500 dark:text-slate-400">Sin temas. Toca para ponerlos.</span>}
           <Pencil size={13} className="text-slate-400 shrink-0" />
@@ -494,3 +514,55 @@ function TemasDelProfesor({ profesorId, temas, onCambio }: { profesorId: string;
   );
 }
 
+
+/** El desplegable de temas: por bloques, con buscador y una casilla por tema. */
+function SelectorTemas({ marcados, setMarcados, todos, profesorId, staff, busca, setBusca, pie }: {
+  marcados: Set<number>; setMarcados: (s: Set<number>) => void; todos: TemaDeProfesores[]; profesorId: string; staff: StaffMember[];
+  busca: string; setBusca: (v: string) => void; pie: ReactNode;
+}) {
+  const nombre = new Map(staff.map((x) => [x.id, x.name]));
+  const q = busca.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const visibles = [...todos]
+    .sort((a, b) => a.numero - b.numero)
+    .filter((t) => !q || String(t.numero) === q || t.titulo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q));
+  const bloques = [...new Set(visibles.map((t) => t.bloque ?? 'Temario'))];
+  const alterna = (n: number) => { const s = new Set(marcados); if (s.has(n)) s.delete(n); else s.add(n); setMarcados(s); };
+  const todosDe = (b: string) => visibles.filter((t) => (t.bloque ?? 'Temario') === b).map((t) => t.numero);
+  return (
+    <div className="space-y-2">
+      <Campo value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar: «constitución», «12»…" aria-label="Buscar tema" autoFocus />
+      <div className="max-h-[22rem] overflow-y-auto rounded-lg border border-linea dark:border-noche-linea" role="group" aria-label="Temas del temario">
+        {bloques.map((b) => {
+          const nums = todosDe(b);
+          const todosMarcados = nums.every((n) => marcados.has(n));
+          return (
+            <div key={b}>
+              <div className="sticky top-0 z-[1] flex items-center justify-between gap-2 border-b border-linea bg-hundido px-3 py-1.5 dark:border-noche-linea dark:bg-noche-hondo">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">{b}</span>
+                <button type="button" className="min-h-[32px] text-xs font-semibold text-indigo-900 underline dark:text-indigo-200"
+                  onClick={() => { const s = new Set(marcados); nums.forEach((n) => (todosMarcados ? s.delete(n) : s.add(n))); setMarcados(s); }}>
+                  {todosMarcados ? 'Quitar el bloque' : 'Marcar el bloque'}
+                </button>
+              </div>
+              {visibles.filter((t) => (t.bloque ?? 'Temario') === b).map((t) => {
+                const on = marcados.has(t.numero);
+                const otros = t.profesorIds.filter((id) => id !== profesorId).map((id) => nombre.get(id)).filter(Boolean);
+                return (
+                  <label key={t.subjectId} className={cx('flex min-h-[44px] cursor-pointer items-center gap-3 border-b border-linea px-3 py-1.5 text-[13px] last:border-b-0 dark:border-noche-linea', on && 'bg-indigo-50 dark:bg-indigo-500/10')}>
+                    <input type="checkbox" className="h-5 w-5 shrink-0 accent-indigo-900" checked={on} onChange={() => alterna(t.numero)} />
+                    <span className="w-7 shrink-0 font-semibold tabular-nums">{t.numero}</span>
+                    <span className="min-w-0 flex-1 truncate">{t.titulo}</span>
+                    {otros.length > 0 && <span className="shrink-0 text-[11px] text-slate-500">{otros.join(', ')}</span>}
+                  </label>
+                );
+              })}
+            </div>
+          );
+        })}
+        {!visibles.length && <p className="p-4 text-center text-xs text-slate-500">Ningún tema con esa búsqueda.</p>}
+      </div>
+      <p className="text-xs text-slate-600 dark:text-slate-400">Marcados: <b>{marcados.size ? formateaTemas([...marcados]) : 'ninguno'}</b></p>
+      {pie}
+    </div>
+  );
+}

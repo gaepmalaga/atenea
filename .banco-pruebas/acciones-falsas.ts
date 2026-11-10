@@ -552,7 +552,7 @@ export async function listStaff() {
 }
 export async function getAgendaProfesores(params?: { lunes?: string }) {
   const lunes = params?.lunes ?? '2026-11-09';
-  const c = (fecha: string, grupo: string, titulo: string, hora: string) => ({ fecha, grupo, titulo, hora });
+  const c = (fecha: string, grupo: string, titulo: string, hora: string) => ({ fecha, grupo, titulo, hora, fin: `${String(Number(hora.slice(0, 2)) + 1).padStart(2, '0')}${hora.slice(2)}` });
   return ok({
     lunes,
     agenda: [

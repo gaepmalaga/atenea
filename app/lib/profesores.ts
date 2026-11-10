@@ -180,3 +180,55 @@ export function resumenTemas(temas: TemaConDatos[]): ResumenTemas {
     conPocosDatos: temas.length - suficientes.length,
   };
 }
+
+// ============================================================
+// LA CARGA SEMANAL DE CADA PROFESOR
+// ============================================================
+
+/** Las horas entre dos `HH:MM`; 0 si falta alguna o van al revés. */
+export function horasEntre(ini: string | null | undefined, fin: string | null | undefined): number {
+  const h = (t: string | null | undefined) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t ?? '');
+    return m ? Number(m[1]) + Number(m[2]) / 60 : null;
+  };
+  const a = h(ini);
+  const b = h(fin);
+  return a !== null && b !== null && b > a ? b - a : 0;
+}
+
+export type ClaseDeSemana = {
+  clave: string;
+  /** 1 = lunes … 7 = domingo. */
+  dia: number;
+  inicio: string | null;
+  fin: string | null;
+  texto: string;
+  fisica: boolean;
+};
+
+/**
+ * Lo que da un profesor en una semana, de DOS sitios (regla 100):
+ *  · teoría, inglés…: los grupos en los que está, por su horario;
+ *  · física: las sesiones del cuadrante de esa semana que lleva su nombre.
+ * Un grupo de física no cuenta por su horario aunque el profesor esté
+ * asignado: lo que da es lo del cuadrante. Antes solo se contaba lo primero, y
+ * un preparador con cuatro clases de física salía con 0 h.
+ */
+export function clasesDeLaSemana(
+  profesorId: string,
+  grupos: { id: string; name: string; llevaPlan: boolean; esMulti: boolean; staffIds: string[]; horario: { weekdays: number[] | null; startTime: string | null; endTime: string | null } }[],
+  fisica: { fecha: string; dia: number; grupo: string; titulo: string; hora: string | null; fin: string | null }[],
+): ClaseDeSemana[] {
+  const teoria = grupos
+    .filter((g) => !g.llevaPlan && !g.esMulti && g.staffIds.includes(profesorId) && g.horario.weekdays?.length)
+    .flatMap((g) => (g.horario.weekdays ?? []).map((d) => ({
+      clave: `${g.id}|${d}`, dia: d, inicio: g.horario.startTime, fin: g.horario.endTime, texto: g.name, fisica: false,
+    })));
+  const deFisica = fisica.map((c, i) => ({
+    clave: `${c.fecha}|${c.grupo}|${i}`, dia: c.dia, inicio: c.hora, fin: c.fin, texto: `${c.titulo} · ${c.grupo}`, fisica: true,
+  }));
+  return [...teoria, ...deFisica].sort((a, b) => a.dia - b.dia || (a.inicio ?? '99').localeCompare(b.inicio ?? '99'));
+}
+
+/** Las horas de una lista de clases. */
+export const horasDeClases = (cs: ClaseDeSemana[]) => cs.reduce((n, c) => n + horasEntre(c.inicio, c.fin), 0);

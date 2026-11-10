@@ -4339,3 +4339,36 @@ el segundo necesita el proyecto real.
   local: tras cargar y borrar, ninguna tabla cambia y el registro queda vacío.
   Se escribió contra producción una sola vez (una tabla de prueba dentro de una
   transacción que se deshizo) y el sistema bloqueó la segunda: no se repitió.
+
+### 107 · Las horas de un profesor salen de lo que da de verdad, y «Grupos» es la lista de todos
+
+- **Qué pasó (10 nov):** el dueño, al usarlo:
+  - «A los profesores de físicas no se les suman las horas: Lucio tiene esta
+    semana 4 clases de física y le pone 0 h». La carga de «Profesores» solo
+    contaba los grupos en los que el profesor está asignado (eso es teoría);
+    lo que da un preparador son las sesiones del cuadrante, que se veían en
+    su ficha pero ni sumaban ni salían en los días de la tabla.
+  - «En grupos el calendario me sobra; no encuentro en ninguna parte un
+    listado completo de todos los grupos».
+  - «En profesores, para los temas de teoría, un desplegable con todos los
+    temas y marcar los que le correspondan».
+  - «En el cuadrante, en tablet y PC, el máximo de columnas posibles: ahora
+    una semana me sale en columnas de dos».
+- **Regla:** lo que da un profesor en una semana sale de DOS sitios
+  (`clasesDeLaSemana`, en `app/lib/profesores.ts`): teoría, inglés… por el
+  horario de los grupos en los que está; física, por las sesiones del
+  cuadrante de esa semana con su nombre (hasta la hora del grupo, o una hora
+  si la sesión va aparte). Un grupo de física no suma por su horario aunque
+  el profesor esté asignado: manda el cuadrante, y así no cuenta doble. La
+  tabla tiene su selector de semana.
+- **«Grupos»** es la lista de TODOS los grupos, por tipo (con cuántos grupos,
+  alumnos y el precio del tipo), con horario, alumnos de plazas y profesores;
+  se toca uno para editarlo. La semana entera está en «Calendario» y la
+  física, en el cuadrante: no se repite aquí.
+- **Los temas de un profesor** se eligen en una lista de todo el temario, por
+  bloques, con casillas, buscador, «marcar el bloque» y quién más da cada
+  tema. Se guarda con la misma acción de antes.
+- **El cuadrante** pone los días en tantas columnas como quepan (cada día
+  pide unos 11rem): cuatro en un portátil con la barra lateral, la semana
+  entera en un PC ancho, una en el móvil.
+

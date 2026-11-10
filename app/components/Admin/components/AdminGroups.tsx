@@ -9,12 +9,12 @@ import {
 } from '@/actions';
 import type { GroupRow } from '@/app/actions/groups';
 import type { StaffMember } from '@/app/lib/academy-settings';
-import { enCarriles, tramosDeHoras, type GroupKindRow } from '@/app/lib/groups';
-import { nombreCorto } from '@/app/lib/cuadrante';
+import type { GroupKindRow } from '@/app/lib/groups';
+import { nombreCorto, colorDeGrupo } from '@/app/lib/cuadrante';
 import { eur, precioSuelto, nombreDePack, cuotaDeAlumno, type Tarifa, type Pack } from '@/app/lib/cuotas';
 import { DIAS_SEMANA, horarioEnTexto } from '@/app/lib/asistencia';
 import {
-  PanelTitulo, Hoja, Rotulo, Aviso, Atras, Boton, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, EmptyState, TEXT, cx,
+  PanelTitulo, Hoja, BloqueTitulo, Rotulo, Aviso, Atras, Boton, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, EmptyState, TablaDual, TEXT, cx,
 } from '../../ui';
 
 /**
@@ -23,8 +23,9 @@ import {
  * profesores (varios). Meter alumnos NO se hace aquí: se hace desde cada
  * alumno, en «Alumnos».
  *
- * Dos vistas: el CUADRANTE (la semana entera, para ver huecos y reparto) y el
- * EDITOR de un grupo, al que se llega con «Editar grupo».
+ * Dos vistas: la LISTA de todos los grupos, separados por tipo, y el EDITOR
+ * de un grupo, al que se llega tocándolo. La semana entera está en
+ * «Calendario» (regla 105) y la física, en el cuadrante de «Prep. física».
  */
 export default function AdminGroups() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -36,7 +37,6 @@ export default function AdminGroups() {
   const [busy, setBusy] = useState(false);
   // `null` es el cuadrante; `'nuevo'`, el editor en blanco; un id, ese grupo.
   const [editando, setEditando] = useState<string | 'nuevo' | null>(null);
-  const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const [g, k, s, t] = await Promise.all([getGroups(), getGroupKinds(), listStaff(), getTarifa()]);
@@ -131,25 +131,12 @@ export default function AdminGroups() {
         <EmptyState icon={<Users2 size={40} />} title="Todavía no hay grupos" hint="Crea el primero con «Nuevo grupo»." bordered />
       )}
 
-      {groups.length > 0 && (
-        <Cuadrante
-          groups={groups}
-          staff={staff}
-          seleccionado={seleccionado}
-          onSeleccion={setSeleccionado}
-          onEditar={abrir}
-          tarifa={tarifa}
-        />
-      )}
+      {groups.length > 0 && <ListaGrupos groups={groups} kinds={kinds} tarifa={tarifa} onEditar={abrir} />}
 
       <Tipos kinds={kinds} tarifa={tarifa} busy={busy} onAccion={accion} />
     </div>
   );
 }
-
-// ─── El cuadrante: la semana tipo ───
-
-const PX_HORA = 56;
 
 /** «08:30» → 8,5. `null` si no se entiende. */
 function aHoras(t: string | null | undefined): number | null {
@@ -159,181 +146,97 @@ function aHoras(t: string | null | undefined): number | null {
   return h >= 0 && h <= 24 ? h : null;
 }
 
-const SALTO = 26;
+// ─── La lista de todos los grupos, por tipo ───
 
-function Cuadrante({ groups, staff, seleccionado, onSeleccion, onEditar, tarifa }: {
-  groups: GroupRow[]; staff: StaffMember[]; seleccionado: string | null; onSeleccion: (id: string) => void; onEditar: (id: string) => void; tarifa: Tarifa;
+/**
+ * TODOS los grupos, separados por tipo (Teoría, Físicas, Inglés…), con su
+ * horario, cuántos van de cuántas plazas y quién los da; tocar uno abre su
+ * editor. Lo pidió el dueño: «no encuentro en ninguna parte un listado
+ * completo de todos los grupos». La semana entera se ve en «Calendario» y la
+ * física, en el cuadrante de «Prep. física»: aquí no se repite.
+ */
+function ListaGrupos({ groups, kinds, tarifa, onEditar }: {
+  groups: GroupRow[]; kinds: GroupKindRow[]; tarifa: Tarifa; onEditar: (id: string) => void;
 }) {
-  const [profe, setProfe] = useState('');
-  const [dia, setDia] = useState<number | null>(null);
-
-  const clases = groups.flatMap((x) => {
-    const ini = aHoras(x.horario.startTime), fin = aHoras(x.horario.endTime);
-    if (x.esMulti || ini === null || fin === null || fin <= ini) return [];
-    return (x.horario.weekdays ?? []).map((d) => ({ g: x, d, ini, fin }));
-  });
-  const diasUsados = DIAS_SEMANA.filter((d) => d.n <= 5 || clases.some((c) => c.d === d.n));
-  // Solo las horas con clase; lo de en medio, un salto (de 9 a 20 no hay nada).
-  const tramos = clases.length ? tramosDeHoras(clases) : [{ desde: 8, hasta: 14 }];
-  const yDe = (h: number) => {
-    let y = 6;
-    for (const t of tramos) {
-      if (h <= t.hasta) return y + (Math.max(h, t.desde) - t.desde) * PX_HORA;
-      y += (t.hasta - t.desde) * PX_HORA + SALTO;
-    }
-    return y - SALTO;
-  };
-  const alto = yDe(tramos[tramos.length - 1].hasta) - 6;
-  const saltos = tramos.slice(0, -1).map((t, i) => ({ y: yDe(t.hasta), de: t.hasta, a: tramos[i + 1].desde }));
-  const diaMovil = dia ?? diasUsados.find((d) => clases.some((c) => c.d === d.n))?.n ?? 1;
-
-  const sel = groups.find((x) => x.id === seleccionado) ?? null;
-  const oculta = (x: GroupRow) => !!profe && !x.staffIds.includes(profe);
-  const bloque = (x: GroupRow) => x.llevaPlan
-    ? 'border-oro bg-oro/20 text-oro-oscuro dark:bg-oro/15 dark:text-oro-claro border'
-    : 'border-indigo-900 bg-indigo-900 text-white dark:border-indigo-300 dark:bg-indigo-300 dark:text-marino-hondo border';
-  const lleno = (x: GroupRow) => x.horario.capacity !== null && x.miembros >= x.horario.capacity;
+  const [tipo, setTipo] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+  const q = busca.trim().toLowerCase();
+  // Los tipos en su orden, y al final los de un tipo que ya no existe.
+  const ordenTipos = [...kinds.map((k) => k.id), ...new Set(groups.map((g) => g.kind).filter((k) => !kinds.some((x) => x.id === k)))];
+  const deTipo = (k: string) => groups.filter((g) => g.kind === k).sort((a, b) => Number(a.esMulti) - Number(b.esMulti) || a.name.localeCompare(b.name, 'es'));
+  const tipos = ordenTipos.filter((k) => deTipo(k).length);
+  const etiqueta = (k: string) => kinds.find((x) => x.id === k)?.label ?? groups.find((g) => g.kind === k)?.kindLabel ?? k;
+  const precio = (k: string) => tarifa.tipos.find((t) => t.id === k)?.precio ?? null;
 
   return (
     <div className="space-y-4">
-      {staff.length > 0 && (
-        <Filtros etiqueta="Filtrar por profesor">
-          <FiltroChip activo={!profe} onClick={() => setProfe('')}>Todos los profesores</FiltroChip>
-          {staff.map((s) => <FiltroChip key={s.id} activo={profe === s.id} onClick={() => setProfe(s.id)}>{s.name}</FiltroChip>)}
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center">
+        <Filtros etiqueta="Tipo de grupo">
+          <FiltroChip activo={tipo === null} onClick={() => setTipo(null)} cuenta={groups.length}>Todos</FiltroChip>
+          {tipos.map((k) => <FiltroChip key={k} activo={tipo === k} onClick={() => setTipo(k)} cuenta={deTipo(k).length}>{etiqueta(k)}</FiltroChip>)}
         </Filtros>
-      )}
-
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_17rem]">
-        {/* ESCRITORIO Y TABLET: la rejilla de la semana */}
-        <Hoja className="hidden overflow-hidden sm:block">
-          <div className="grid" style={{ gridTemplateColumns: `3.25rem repeat(${diasUsados.length}, minmax(0, 1fr))` }}>
-            <div className="border-b border-linea bg-hundido dark:border-noche-linea dark:bg-noche-hondo" />
-            {diasUsados.map((d) => (
-              <div key={d.n} className="border-b border-linea bg-hundido py-2.5 text-center font-titulo text-[15px] font-semibold uppercase tracking-widest dark:border-noche-linea dark:bg-noche-hondo">
-                <span className="hidden lg:inline">{d.largo}</span><span className="lg:hidden">{d.corto}</span>
-              </div>
-            ))}
-            <div className="relative" style={{ height: alto + 12 }}>
-              {tramos.flatMap((t) => Array.from({ length: t.hasta - t.desde + 1 }, (_, i) => t.desde + i)).map((h, i) => (
-                <span key={`${h}-${i}`} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-slate-600 dark:text-slate-400" style={{ top: yDe(h) }}>
-                  {String(h).padStart(2, '0')}:00
-                </span>
-              ))}
-            </div>
-            {diasUsados.map((d) => (
-              <div key={d.n} className="relative border-l border-linea dark:border-noche-linea" style={{ height: alto + 12 }}>
-                {saltos.map((x) => (
-                  <div key={x.y} className="absolute inset-x-0 border-y border-dashed border-linea bg-hundido/60 dark:border-noche-linea dark:bg-noche-hondo/60" style={{ top: x.y + 2, height: SALTO - 4 }} aria-hidden />
-                ))}
-                {enCarriles(clases.filter((c) => c.d === d.n)).map((c) => (
-                  <button
-                    key={c.g.id}
-                    type="button"
-                    onClick={() => onSeleccion(c.g.id)}
-                    className={cx(
-                      'absolute overflow-hidden rounded-md px-2 py-1.5 text-left text-xs leading-tight transition-opacity',
-                      bloque(c.g),
-                      oculta(c.g) && 'opacity-20',
-                      seleccionado === c.g.id && 'outline outline-[3px] outline-offset-1 outline-oro',
-                    )}
-                    style={{
-                      top: yDe(c.ini) + 1,
-                      height: yDe(c.fin) - yDe(c.ini) - 3,
-                      left: `calc(${(c.carril / c.carriles) * 100}% + 3px)`,
-                      width: `calc(${100 / c.carriles}% - 6px)`,
-                    }}
-                  >
-                    {/* En un carril estrecho, «Alpha» y no «Promo 44 · Alpha»; el nombre entero, al pasar el ratón y en «Seleccionado». */}
-                    <b className="block truncate font-titulo text-[15px] font-semibold leading-none tracking-wide" title={c.g.name}>{c.carriles > 1 ? nombreCorto(c.g.name) : c.g.name}</b>
-                    <span className="tabular-nums">{c.g.horario.startTime}–{c.g.horario.endTime}</span>
-                    {c.g.horario.capacity !== null && <span className="tabular-nums"> · {c.g.miembros}/{c.g.horario.capacity}</span>}
-                    {lleno(c.g) && <span className="block text-[10px] font-bold uppercase tracking-wide">Completo</span>}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </Hoja>
-
-        {/* MÓVIL: una agenda de un día, con los días arriba */}
-        <div className="space-y-3 sm:hidden">
-          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${diasUsados.length}, minmax(0, 1fr))` }} role="group" aria-label="Día">
-            {diasUsados.map((d) => (
-              <button
-                key={d.n}
-                type="button"
-                aria-pressed={diaMovil === d.n}
-                aria-label={d.largo}
-                onClick={() => setDia(d.n)}
-                className={cx(
-                  'grid min-h-[52px] place-items-center rounded-lg border font-titulo text-lg font-semibold tracking-wide',
-                  diaMovil === d.n ? 'border-indigo-900 bg-indigo-900 text-white dark:border-indigo-300 dark:bg-indigo-300 dark:text-marino-hondo' : 'border-linea bg-white dark:border-noche-linea dark:bg-noche-2',
-                )}
-              >
-                {d.corto}
-                <small className="-mt-1 font-sans text-[10px] font-normal opacity-80">{clases.filter((c) => c.d === d.n).length} clases</small>
-              </button>
-            ))}
-          </div>
-          {clases.filter((c) => c.d === diaMovil && !oculta(c.g)).sort((a, b) => a.ini - b.ini).map((c) => (
-            <Hoja key={c.g.id} className={cx('grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-l-4 p-3', c.g.llevaPlan ? 'border-l-oro' : 'border-l-indigo-900 dark:border-l-indigo-300')}>
-              <div className="font-titulo text-xl font-bold leading-none tabular-nums">{c.g.horario.startTime}<small className="mt-1 block font-sans text-xs font-normal text-slate-600 dark:text-slate-400">{c.g.horario.endTime}</small></div>
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-start justify-between gap-2"><h4 className="font-titulo text-xl font-bold leading-tight tracking-wide">{c.g.name}</h4>{lleno(c.g) && <Etiqueta tono="malo">Completo</Etiqueta>}</div>
-                <p className={TEXT.muted}>{c.g.kindLabel}{c.g.staffNames.length > 0 && ` · ${c.g.staffNames.join(', ')}`}</p>
-                {c.g.horario.capacity !== null && <p className="text-xs tabular-nums">Plazas <b>{c.g.miembros}</b> de {c.g.horario.capacity}</p>}
-                <Boton size="sm" variant="secondary" onClick={() => onEditar(c.g.id)}>Editar grupo</Boton>
-              </div>
-            </Hoja>
-          ))}
-          {clases.filter((c) => c.d === diaMovil && !oculta(c.g)).length === 0 && <Hoja pad="md" className="text-sm text-slate-600 dark:text-slate-400">Ese día no hay clases{profe ? ' con ese profesor' : ''}.</Hoja>}
-        </div>
-
-        {/* LO SELECCIONADO, LA LEYENDA Y LOS GRUPOS SIN HORARIO */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          {sel && (
-            <Hoja pad="md" className="hidden space-y-2.5 sm:block">
-              <Rotulo>Seleccionado</Rotulo>
-              <h4 className="font-titulo text-xl font-bold uppercase leading-tight tracking-wide">{sel.name}</h4>
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
-                <dt className="text-slate-600 dark:text-slate-400">Tipo</dt><dd className="font-medium">{sel.kindLabel}</dd>
-                <dt className="text-slate-600 dark:text-slate-400">Horario</dt><dd className="font-medium">{horarioEnTexto(sel.horario) ?? 'Sin horario'}</dd>
-                <dt className="text-slate-600 dark:text-slate-400">Alumnos</dt><dd className="font-medium">{sel.miembros}</dd>
-                <dt className="text-slate-600 dark:text-slate-400">Profesores</dt><dd className="font-medium">{sel.staffNames.join(', ') || '—'}</dd>
-                <dt className="text-slate-600 dark:text-slate-400">Precio</dt><dd className="font-medium">{(() => { const pr = tarifa.tipos.find((t) => t.id === sel.kind)?.precio; return pr == null ? 'Sin precio' : `${eur(pr)}/mes (${sel.kindLabel})`; })()}</dd>
-              </dl>
-              <Boton size="sm" onClick={() => onEditar(sel.id)}>Editar grupo</Boton>
-            </Hoja>
-          )}
-          <Hoja pad="md" className="space-y-2">
-            <Rotulo>Tipos</Rotulo>
-            <p className="flex items-center gap-2 text-[13px]"><i className="h-3.5 w-3.5 rounded bg-indigo-900 dark:bg-indigo-300" aria-hidden /> Teoría, Inglés y el resto</p>
-            <p className="flex items-center gap-2 text-[13px]"><i className="h-3.5 w-3.5 rounded border border-oro bg-oro/30" aria-hidden /> Lleva plan de entrenamiento</p>
-          </Hoja>
-          {groups.some((x) => !conClase(x)) && (
-            <Hoja pad="md" className="space-y-2 border-dashed">
-              <Rotulo>Sin horario propio</Rotulo>
-              {groups.filter((x) => !conClase(x)).map((x) => (
-                <div key={x.id} className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold">{x.name}</p>
-                    <p className={TEXT.muted}>{x.esMulti ? `Multi · ${x.miembros} ${x.miembros === 1 ? "alumno" : "alumnos"}` : `${x.miembros} ${x.miembros === 1 ? "alumno" : "alumnos"}`}</p>
-                    {/* Un grupo de física sin días no es una clase: no sale en el cuadrante (regla 97). */}
-                    {x.llevaPlan && !x.esMulti && <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Sin horario: no sale en el cuadrante</p>}
-                  </div>
-                  <Boton size="sm" variant="secondary" onClick={() => onEditar(x.id)}>Editar</Boton>
-                </div>
-              ))}
-            </Hoja>
-          )}
-        </div>
+        <Campo value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar grupo o profesor" aria-label="Buscar grupo" />
       </div>
+
+      {tipos.filter((k) => tipo === null || tipo === k).map((k) => {
+        const lista = deTipo(k).filter((g) => !q || g.name.toLowerCase().includes(q) || g.staffNames.some((n) => n.toLowerCase().includes(q)));
+        if (!lista.length) return null;
+        const alumnos = lista.reduce((n, g) => n + g.miembros, 0);
+        const pr = precio(k);
+        return (
+          <section key={k} className="space-y-2">
+            <BloqueTitulo aside={<span className="text-xs text-slate-600 dark:text-slate-400">{lista.length} {lista.length === 1 ? 'grupo' : 'grupos'} · {alumnos} {alumnos === 1 ? 'alumno' : 'alumnos'}{pr !== null ? ` · ${eur(pr)}/mes` : ' · sin precio'}</span>}>
+              {etiqueta(k)}
+            </BloqueTitulo>
+            <TablaDual<GroupRow>
+              filas={lista}
+              clave={(g) => g.id}
+              onFila={(g) => onEditar(g.id)}
+              columnas={[
+                {
+                  id: 'grupo', titulo: 'Grupo', celda: (g) => (
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <i className="h-8 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: g.llevaPlan ? colorDeGrupo(nombreCorto(g.name)).fondo : '#1e3a8a' }} aria-hidden />
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-slate-900 dark:text-white">{g.name}</span>
+                        <span className="flex flex-wrap gap-1">
+                          {g.esMulti && <Etiqueta tono="oro">Multi</Etiqueta>}
+                          {g.schedule && <span className="truncate text-xs text-slate-600 dark:text-slate-400">{g.schedule}</span>}
+                        </span>
+                      </span>
+                    </span>
+                  ),
+                },
+                {
+                  id: 'horario', titulo: 'Horario', celda: (g) => g.esMulti
+                    ? <span className="text-slate-600 dark:text-slate-400">Se apuntan a las clases de otros</span>
+                    : horarioEnTexto(g.horario) ?? <Etiqueta tono="aviso">Sin horario</Etiqueta>,
+                },
+                {
+                  id: 'alumnos', titulo: 'Alumnos', celda: (g) => {
+                    const cap = g.horario.capacity;
+                    return (
+                      <span className="block min-w-[6rem]">
+                        <span className="font-semibold tabular-nums">{g.miembros}</span>
+                        {cap !== null && <span className="text-slate-600 dark:text-slate-400"> de {cap}</span>}
+                        {cap !== null && (
+                          <span className="mt-1 block h-1.5 w-24 overflow-hidden rounded-full bg-hundido dark:bg-noche-hondo">
+                            <span className={cx('block h-full rounded-full', g.miembros > cap ? 'bg-red-600' : g.miembros === cap ? 'bg-amber-600' : 'bg-emerald-600')} style={{ width: `${Math.min(100, (g.miembros / Math.max(cap, 1)) * 100)}%` }} />
+                          </span>
+                        )}
+                      </span>
+                    );
+                  },
+                },
+                { id: 'profes', titulo: 'Profesores', celda: (g) => g.staffNames.length ? g.staffNames.join(', ') : <span className="text-slate-500">{g.llevaPlan ? 'Los del cuadrante' : 'Sin profesor'}</span> },
+                { id: 'editar', titulo: '', acciones: true, derecha: true, celda: (g) => <Boton size="sm" variant="secondary" icon={<Pencil size={14} />} onClick={(e) => { e.stopPropagation(); onEditar(g.id); }}>Editar</Boton> },
+              ]}
+            />
+          </section>
+        );
+      })}
     </div>
   );
-}
-
-function conClase(x: GroupRow): boolean {
-  return !x.esMulti && !!x.horario.weekdays?.length && aHoras(x.horario.startTime) !== null && aHoras(x.horario.endTime) !== null;
 }
 
 // ─── Tipos de grupo, sus precios y los packs (regla 104) ───
