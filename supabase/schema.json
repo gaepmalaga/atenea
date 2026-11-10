@@ -430,6 +430,35 @@
         "user_id": "uuid"
       }
     },
+    "demo_registro": {
+      "columnas": [
+        "clave",
+        "creado_en",
+        "datos",
+        "fase",
+        "id",
+        "organization_id",
+        "periodo",
+        "tabla"
+      ],
+      "obligatorias": [
+        "clave",
+        "fase",
+        "organization_id",
+        "periodo",
+        "tabla"
+      ],
+      "tipos": {
+        "clave": "jsonb",
+        "creado_en": "timestamp with time zone",
+        "datos": "jsonb",
+        "fase": "text",
+        "id": "bigint",
+        "organization_id": "uuid",
+        "periodo": "text",
+        "tabla": "text"
+      }
+    },
     "document_chunks": {
       "columnas": [
         "content_chunk",

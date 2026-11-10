@@ -125,6 +125,16 @@ y mes, con filtros por qué, grupo y profesor. No tiene tabla propia: sale del
 horario de los grupos, el cuadrante de física, los entrenos, los días sin
 clase y el examen.
 
+## 2d · Datos de demostración (10 nov, regla 106, en la rama, sin desplegar)
+
+Tarjeta «Datos de demostración» en Ajustes: carga ~45 alumnos inventados con
+grupos, cuadrante, entrenos, marcas, asistencia y 6 meses de cobros, y los borra
+quitando exactamente lo que creó. **Antes de usarla:** ejecutar
+[`docs/sql/demo-registro.sql`](sql/demo-registro.sql) (una tabla nueva, con el
+visto bueno del dueño; `schema.json` ya la trae escrita a mano: regenerarlo
+después con `node scripts/schema-snapshot.mjs`) y desplegar. La primera carga
+de verdad la hace el dueño con el botón. Detalles y límites en la regla 106.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

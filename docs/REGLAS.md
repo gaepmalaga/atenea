@@ -4282,3 +4282,60 @@ el segundo necesita el proyecto real.
   acotado a la academia (lo que no lleva `organization_id`, por los grupos de
   la academia), y paginado (un mes de entrenos de cien alumnos pasa de las
   1.000 filas). Como mucho 62 días por petición.
+
+### 106 · Datos de demostración: solo se añaden filas, y el borrado quita exactamente lo que creó la carga
+
+- **Qué pasó (10 nov):** el dueño quiso ver la aplicación entera llena
+  (alumnos, grupos, cuadrante, entrenos, marcas, asistencia, cobros, caja,
+  calendario) entrando con `prueba.admin@alphapol.es`, y poder quitarlo todo
+  después. La base de datos es la de producción y no tiene copias.
+- **Regla: lo inventado se AÑADE, nunca se modifica, y se deshace por lo que se
+  apuntó, no «por academia».**
+  - **Solo se añaden filas.** Se USAN los 6 profesores, los 9 grupos, los
+    precios, la convocatoria y las sesiones que ya existen, y no se tocan. Si
+    la fila que iba a crearse ya existe con esa clave (una sesión de ese grupo
+    ese día, una semana publicada, un día sin clase, una plantilla con ese
+    título), ni se crea ni se apunta. No se crean profesores, ni reportes, ni
+    se toca el banco común. Sin IA ni correos (`email_confirm: true`).
+  - **El registro** (`demo_registro`, [`docs/sql/demo-registro.sql`](sql/demo-registro.sql);
+    RLS y cero políticas): cada fila que crea la carga se apunta con su tabla y
+    su clave primaria (jsonb, también las compuestas) ANTES de crearla. Una
+    carga cortada a medias se puede seguir o borrar. Las marcas `_carga` (mes y
+    «ahora» común a todas las fases) y `_fase` (tandas hechas) también viven ahí.
+  - **El borrado** (`PASOS_BORRADO`) quita lo registrado y lo que CUELGA de una
+    cuenta, un grupo o una sesión de la demo aunque lo creara la aplicación al
+    usarla (el mes que abre «Pagos», un cobro, una falta). No existe un paso
+    «por academia»: `tests/demo-borrado.test.ts` lo vigila (solo dos `.delete()`,
+    uno `in` y otro `match` de clave entera) y se comprobó rompiéndolo.
+    El registro de auditoría NO se borra (el ensayo dice cuántos apuntes
+    nombran cuentas de la demo). Antes, un **ensayo** cuenta tabla a tabla y
+    cuántas filas son «colgadas»; solo se borra escribiendo BORRAR (también lo
+    comprueba el servidor). Al terminar, el registro queda vacío.
+  - **El contador de recibos:** los cobros usan `registra_cobro`, así que
+    gastan números. Se apunta si la fila de `receipt_counters` existía antes;
+    al borrar, si no queda ningún cobro y la creó la carga, se borra (el
+    primer recibo de verdad vuelve a ser el nº 1); si queda alguno real, no se
+    toca y se avisa del hueco.
+  - **Por fases** (Vercel Hobby corta a 60 s; `maxDuration = 60` en las dos
+    páginas): cuentas (en paralelo, por tandas) → grupos y horario → física →
+    respuestas y marcas → cobros (un mes por llamada, en orden de fecha para
+    que los recibos sigan a las fechas). Los ids son deterministas
+    (`uuidDemo`): reintentar una fase no duplica nada. El borrado avanza
+    mientras haya tiempo y se vuelve a llamar.
+- **El generador es puro y determinista** (`app/lib/demo.ts`, semilla fija; la
+  historia se cuenta en «días atrás», no en fechas): mismos 45 alumnos y misma
+  historia cargues cuando cargues; solo cambian las fechas, que salen del mes en
+  curso en hora de Madrid. `alumno@demo.alphapol.test` es la cuenta para ver la
+  parte del alumno; su contraseña se genera al cargar, se enseña UNA vez y no se
+  guarda.
+- **Lo que no se pudo:** la «última conexión» de «Alumnos» sale de
+  `auth.users.last_sign_in_at`, que solo cambia al iniciar sesión de verdad:
+  no se puede inventar. Todos salen «Nunca ha entrado»; los casos «hace tiempo
+  sin estudiar», «nunca» y los demás sí salen, de las respuestas.
+- **Cómo se probó** (nada de PostgREST desde la nube): motor entero contra una
+  base de datos falsa en memoria con filas reales alrededor, cortando la carga
+  en 11 puntos distintos y borrando después; y las mismas operaciones en SQL
+  contra el esquema REAL (volcado con consultas de solo lectura) en un Postgres
+  local: tras cargar y borrar, ninguna tabla cambia y el registro queda vacío.
+  Se escribió contra producción una sola vez (una tabla de prueba dentro de una
+  transacción que se deshizo) y el sistema bloqueó la segunda: no se repitió.

@@ -1266,3 +1266,74 @@ export async function getCalendario(params: { desde: string; hasta: string }) {
     },
   });
 }
+
+// ============================================================
+// DATOS DE DEMOSTRACIÓN (regla 106)
+// ============================================================
+//
+// La tarjeta de «Ajustes» en el banco: una carga que avanza fase a fase, un
+// ensayo con filas «colgadas» y un borrado que tarda dos llamadas. Con
+// `?demo=hay` el banco arranca con una carga completa, y con `?demo=medias`
+// con una carga a medias. Nada de esto habla con Supabase.
+
+import type { EstadoDemo, FaseDemo } from '../app/lib/demo-fases';
+
+const TANDAS_DEMO: { fase: FaseDemo; tandas: number }[] = [
+  { fase: 'cuentas', tandas: 4 }, { fase: 'grupos', tandas: 1 }, { fase: 'fisica', tandas: 1 }, { fase: 'respuestas', tandas: 5 }, { fase: 'cobros', tandas: 6 },
+];
+const TOTAL_TANDAS_DEMO = TANDAS_DEMO.reduce((s, f) => s + f.tandas, 0);
+const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const arranqueDemo = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('demo') : null;
+let estadoDemo: EstadoDemo = arranqueDemo === 'hay'
+  ? { hay: true, periodo: periodoEnZona(), filas: 12_418, cuentas: 45, completa: true, hechas: TOTAL_TANDAS_DEMO, tandas: TOTAL_TANDAS_DEMO }
+  : arranqueDemo === 'medias'
+    ? { hay: true, periodo: periodoEnZona(), filas: 4_310, cuentas: 45, completa: false, hechas: 9, tandas: TOTAL_TANDAS_DEMO }
+    : { hay: false, periodo: null, filas: 0, cuentas: 0, completa: false, hechas: 0, tandas: TOTAL_TANDAS_DEMO };
+let borradosDemo = 0;
+
+export async function getEstadoDemo() {
+  return ok({ data: { estado: estadoDemo, mesActual: periodoEnZona(), fases: TANDAS_DEMO } });
+}
+
+export async function cargaDemoFase(input: { fase: FaseDemo; tanda: number }) {
+  await pausa(arranqueDemo === 'rapido' ? 5 : 350);
+  const total = TANDAS_DEMO.find((f) => f.fase === input.fase)!.tandas;
+  estadoDemo = { ...estadoDemo, hay: true, periodo: periodoEnZona(), filas: estadoDemo.filas + 280, cuentas: input.fase === 'cuentas' ? estadoDemo.cuentas + 12 : estadoDemo.cuentas, hechas: Math.min(estadoDemo.tandas, estadoDemo.hechas + 1) };
+  estadoDemo.completa = estadoDemo.hechas >= estadoDemo.tandas;
+  return ok({
+    fase: input.fase, tanda: input.tanda, tandas: total, siguiente: input.tanda + 1 < total ? input.tanda + 1 : null, filas: 280, texto: 'hecha',
+    claveAlumno: input.fase === 'cuentas' && input.tanda === 0 ? 'Aa1xK7mQpR4vTz9HcB2nWdY6' : undefined,
+  });
+}
+
+export async function ensayoDemo() {
+  await pausa(200);
+  return ok({
+    data: {
+      filas: [
+        { tabla: 'question_attempts', total: 9_859, registradas: 9_859, colgadas: 0 },
+        { tabla: 'training_sessions', total: 269, registradas: 269, colgadas: 0 },
+        { tabla: 'monthly_payments', total: 212, registradas: 211, colgadas: 1 },
+        { tabla: 'physical_marks', total: 315, registradas: 315, colgadas: 0 },
+        { tabla: 'class_members', total: 80, registradas: 79, colgadas: 1 },
+        { tabla: 'payment_entries', total: 175, registradas: 174, colgadas: 1 },
+        { tabla: 'class_absences', total: 29, registradas: 28, colgadas: 1 },
+        { tabla: 'class_groups', total: 2, registradas: 2, colgadas: 0 },
+        { tabla: 'class_week_publications', total: 3, registradas: 3, colgadas: 0 },
+      ],
+      total: 10_944, colgadas: 4, cuentas: 45,
+      avisos: ['Hay 1 cobro que no es de la demo: el contador de recibos NO se toca y habrá un hueco en la numeración. Los recibos del 1 al 174 eran de la demo.', 'El registro de auditoría no se toca (3 apuntes nombran cuentas de la demo).'],
+    },
+  });
+}
+
+export async function borraDemoPaso(input: { confirmacion: string }) {
+  if (input.confirmacion !== 'BORRAR') return { success: false as const, error: 'Escribe BORRAR para confirmar.' };
+  await pausa(arranqueDemo === 'rapido' ? 5 : 450);
+  borradosDemo++;
+  if (borradosDemo < 2) return ok({ hecho: false, borradas: 9_000, avisos: [] as string[] });
+  borradosDemo = 0;
+  estadoDemo = { hay: false, periodo: null, filas: 0, cuentas: 0, completa: false, hechas: 0, tandas: TOTAL_TANDAS_DEMO };
+  return ok({ hecho: true, borradas: 1_989, avisos: ['Hay 1 cobro que no es de la demo: el contador de recibos NO se toca y habrá un hueco en la numeración.'] });
+}
