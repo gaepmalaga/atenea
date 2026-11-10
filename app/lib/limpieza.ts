@@ -85,6 +85,8 @@ export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'ques
  * `question_bank` van aparte (primero sus hijas). En orden de dependencia.
  */
 export const TABLAS_POR_ACADEMIA = [
+  // El registro de los datos de demostración (regla 106): no depende de nada.
+  'demo_registro',
   'memberships',
   'payment_entries',
   'receipt_counters',

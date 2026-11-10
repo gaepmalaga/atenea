@@ -224,6 +224,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 103 | Lo que no se toca a diario no ocupa la pantalla |
 | 104 | La cuota sale de los grupos, y cada cobro es un recibo del libro |
 | 105 | El calendario no guarda nada: enseña lo que ya está programado |
+| 106 | Datos de demostración: solo se añaden filas, y el borrado quita exactamente lo que creó la carga |
 
 ## Trampas conocidas
 

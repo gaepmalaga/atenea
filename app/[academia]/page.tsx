@@ -4,6 +4,14 @@ import { supabaseAdmin } from '@/app/actions/core';
 import AppShell from '@/app/components/AppShell';
 
 /**
+ * Lo que dura como mucho una Server Action llamada desde esta pantalla (60 s,
+ * el tope de Vercel Hobby). Hace falta para «Datos de demostración» (regla
+ * 106): cada fase de la carga es una llamada larga. El resto de acciones
+ * siguen tardando lo que tardaban.
+ */
+export const maxDuration = 60;
+
+/**
  * LA PUERTA DE UNA ACADEMIA (P11): `/alphapol`, `/depol`, `/corporepol`…
  *
  * `middleware.ts` ya dejó la cookie con el slug antes de que esto se

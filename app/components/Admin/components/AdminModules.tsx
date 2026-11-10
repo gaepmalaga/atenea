@@ -14,6 +14,7 @@ import {
 } from '@/app/lib/modules';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC } from '@/app/lib/training-switches';
 import AcademyIdentity from './AcademyIdentity';
+import AdminDemo from './AdminDemo';
 import { PanelTitulo, Hoja, BloqueTitulo, Aviso, Conmutador } from '../../ui';
 
 /**
@@ -130,6 +131,9 @@ export default function AdminModules() {
         </div>
         <Conmutador activo={adaptativo === true} etiqueta={TRAINING_SWITCH_LABEL.adaptive} disabled={guardandoAdaptativo || cargando || adaptativo === null} onChange={alternaAdaptativo} />
       </Hoja>
+
+      {/* Datos de demostración (regla 106): lo que no se toca a diario va al final (regla 103). */}
+      <AdminDemo />
     </div>
   );
 }

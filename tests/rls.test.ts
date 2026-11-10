@@ -82,6 +82,10 @@ const SOLO_SERVICIO = [
   'membership_settings',
   'memberships',
   'academy_payments',
+  // Regla 106: el registro de los datos de demostración. RLS y CERO políticas:
+  // solo `actions/demo.ts` lo toca, con la clave de servicio y detrás de
+  // `requireAdmin`.
+  'demo_registro',
   // P7: grupos. `class_groups` y `class_members` son administracion pura.
   'class_groups',
   'class_members',

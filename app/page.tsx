@@ -1,6 +1,14 @@
 import AppShell from './components/AppShell';
 
 /**
+ * Lo que dura como mucho una Server Action llamada desde esta pantalla (60 s,
+ * el tope de Vercel Hobby). Hace falta para «Datos de demostración» (regla
+ * 106): cada fase de la carga es una llamada larga. El resto de acciones
+ * siguen tardando lo que tardaban.
+ */
+export const maxDuration = 60;
+
+/**
  * La entrada SIN academia en la URL. Funciona igual que antes de P11: si la
  * cuenta pertenece a una sola academia (el caso de hoy, todo el mundo por el
  * backfill del guion), `getSessionUser` la resuelve sola — no hace falta
