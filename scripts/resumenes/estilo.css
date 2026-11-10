@@ -1,0 +1,127 @@
+/* Estilo de los documentos de estudio de Alphapol (cuadros y reglas).
+   Los colores salen de app/marca.css (marino, oro, crema). Se imprime en A4. */
+:root {
+  --marino: #14295a;
+  --marino-hondo: #0c1a3d;
+  --marino-claro: #eef3fb;
+  --oro: #c5a738;
+  --oro-claro: #e2c977;
+  --oro-oscuro: #8a6d12;
+  --crema: #f7f4ec;
+  --linea: #ddd8c9;
+  --texto: #1a2238;
+  --suave: #5b6478;
+}
+@page { size: A4; margin: 13mm 12mm 16mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 9.6pt; line-height: 1.42; color: var(--texto); margin: 0;
+}
+
+/* Portada */
+.portada {
+  background: var(--marino); color: #fff; border-radius: 10px;
+  padding: 16px 20px; display: flex; align-items: center; gap: 18px;
+  border-bottom: 5px solid var(--oro); margin-bottom: 14px;
+}
+.portada img { height: 64px; width: auto; }
+.portada .tit { flex: 1; }
+.portada .kicker { color: var(--oro-claro); font-size: 8.5pt; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
+.portada h1 { margin: 2px 0 2px; font-size: 19pt; line-height: 1.12; font-weight: 800; }
+.portada .sub { color: #c9d4ee; font-size: 9pt; }
+.portada .num {
+  font-size: 40pt; font-weight: 800; color: var(--oro); line-height: 1;
+  border-left: 2px solid rgba(255,255,255,.25); padding-left: 16px;
+}
+
+.como { background: var(--crema); border: 1px solid var(--linea); border-radius: 8px; padding: 7px 12px; font-size: 8.8pt; color: var(--suave); margin-bottom: 12px; }
+.como b { color: var(--marino); }
+
+/* Títulos de sección */
+h2 {
+  display: flex; align-items: center; gap: 9px;
+  margin: 16px 0 7px; font-size: 12.5pt; font-weight: 800; color: var(--marino);
+  break-after: avoid; page-break-after: avoid;
+}
+h2 .n {
+  background: var(--oro); color: var(--marino-hondo); border-radius: 50%;
+  width: 21px; height: 21px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10pt; font-weight: 800; flex: none;
+}
+h2::after { content: ''; flex: 1; height: 2px; background: linear-gradient(90deg, var(--oro), transparent); }
+h3 { font-size: 10pt; color: var(--marino); margin: 10px 0 4px; break-after: avoid; }
+p { margin: 4px 0; }
+
+/* Tablas */
+table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 4px 0 8px; font-size: 8.9pt; }
+thead th {
+  background: var(--marino); color: #fff; text-align: left; font-weight: 700;
+  padding: 5px 8px; font-size: 8.4pt; letter-spacing: .03em; text-transform: uppercase;
+  border-bottom: 3px solid var(--oro);
+}
+thead th:first-child { border-top-left-radius: 7px; }
+thead th:last-child { border-top-right-radius: 7px; }
+tbody td { padding: 5px 8px; vertical-align: top; border-bottom: 1px solid var(--linea); }
+tbody tr:nth-child(even) td { background: #faf8f2; }
+tbody tr:last-child td:first-child { border-bottom-left-radius: 7px; }
+tbody tr:last-child td:last-child { border-bottom-right-radius: 7px; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+td.quien { font-weight: 700; color: var(--marino); width: 17%; }
+td.art, .art { color: var(--oro-oscuro); font-size: 8pt; font-weight: 600; white-space: nowrap; }
+td.art { width: 62px; }
+
+/* Palabras clave */
+.verbo {
+  display: inline-block; background: var(--marino); color: var(--oro-claro);
+  font-weight: 800; font-size: 8.4pt; letter-spacing: .05em; padding: 1px 7px; border-radius: 99px;
+}
+.verbo.oro { background: var(--oro); color: var(--marino-hondo); }
+.verbo.claro { background: var(--marino-claro); color: var(--marino); border: 1px solid #bccdee; }
+mark { background: #f6e9b4; color: inherit; padding: 0 2px; border-radius: 3px; font-weight: 600; }
+strong { color: var(--marino); }
+
+/* Cajas */
+.trampa, .clave {
+  border-radius: 8px; padding: 7px 12px; margin: 8px 0; break-inside: avoid; font-size: 9pt;
+}
+.trampa { background: #fdf3d6; border-left: 5px solid var(--oro); }
+.trampa::before { content: '⚠ OJO AL EXAMEN  '; font-weight: 800; color: var(--oro-oscuro); letter-spacing: .06em; font-size: 8pt; }
+.clave { background: var(--marino-claro); border-left: 5px solid var(--marino); }
+.clave::before { content: '★ CLAVE  '; font-weight: 800; color: var(--marino); letter-spacing: .06em; font-size: 8pt; }
+
+/* Dos tarjetas lado a lado */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 8px; }
+.card { border: 2px solid var(--marino); border-radius: 10px; overflow: hidden; break-inside: avoid; }
+.card.oro { border-color: var(--oro); }
+.card .cab { background: var(--marino); color: #fff; padding: 6px 12px; font-weight: 800; font-size: 11pt; }
+.card.oro .cab { background: var(--oro); color: var(--marino-hondo); }
+.card .cab small { font-weight: 500; opacity: .85; font-size: 8pt; margin-left: 6px; }
+.card ul { margin: 0; padding: 7px 12px 8px 26px; }
+.card li { margin: 2px 0; }
+
+/* Escalera jerárquica */
+.escalera { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 8px; }
+.peldano { display: flex; align-items: stretch; break-inside: avoid; }
+.peldano .p { background: var(--marino); color: #fff; font-weight: 700; padding: 4px 10px; border-radius: 7px 0 0 7px; min-width: 150px; }
+.peldano .d { flex: 1; border: 1px solid var(--linea); border-left: 0; border-radius: 0 7px 7px 0; padding: 4px 10px; background: #faf8f2; }
+.peldano.sup .p { background: var(--oro); color: var(--marino-hondo); }
+.peldano.dir .p { background: var(--marino-hondo); }
+
+/* Reglas mnemotécnicas */
+.regla { border: 1px solid var(--linea); border-radius: 10px; margin: 8px 0; overflow: hidden; break-inside: avoid; }
+.regla .cab { background: var(--marino); color: #fff; padding: 5px 12px; font-weight: 700; display: flex; justify-content: space-between; gap: 10px; }
+.regla .cab .art { color: var(--oro-claro); }
+.regla .cuerpo { padding: 8px 12px 9px; }
+.regla .truco {
+  background: var(--crema); border: 2px dashed var(--oro); border-radius: 8px;
+  padding: 7px 12px; text-align: center; font-size: 12.5pt; font-weight: 800; color: var(--marino);
+  margin: 0 0 7px; letter-spacing: .01em;
+}
+.regla .truco small { display: block; font-weight: 500; color: var(--suave); font-size: 8.3pt; letter-spacing: 0; margin-top: 1px; }
+.regla .truco .l { color: var(--oro-oscuro); font-size: 15pt; }
+.regla ul { margin: 3px 0 0; padding-left: 18px; }
+.regla li { margin: 1.5px 0; }
+.nota { color: var(--suave); font-size: 8.3pt; }
+.pie-doc { margin-top: 14px; padding-top: 6px; border-top: 2px solid var(--oro); color: var(--suave); font-size: 8pt; }
