@@ -190,11 +190,65 @@ de verdad la hace el dueño con el botón. Detalles y límites en la regla 106.
 - **P11h** (elegir academia si una cuenta está en varias): no hace falta con
   una sola academia.
 
-### 3b bis · El piloto con Alphapol
+### 3b bis · El piloto con Alphapol (propuesto, nada implementado)
 
-Propuesto, **nada implementado**: [`HOJA-DE-RUTA.md`](HOJA-DE-RUTA.md) (fases del
-lanzamiento, perfil editable, canal de comentarios, preguntas con su temario
-y menú de mejoras).
+Salió de hablar con el dueño del proyecto el 11 nov: empezar con el grupo más
+veterano y solo teoría, luego física, luego todos. Las fases, las tareas que no
+son de código y el orden están en [`HOJA-DE-RUTA.md`](HOJA-DE-RUTA.md). Los días
+son estimaciones sin medir.
+
+**A · Código para el piloto**
+
+- **A1 · Perfil editable** (3-4 días): nombre, apellidos, teléfono (opcional) y
+  foto. `profiles` hoy solo guarda correo, rol y fecha, así que hay columnas
+  nuevas (guion en `docs/sql/`, ejecutado, y `schema-snapshot`), un bucket de
+  Storage para las fotos, la pantalla en «Mi Perfil» y el nombre en el panel
+  «Alumnos». Teléfono y foto: solo el propio alumno y los preparadores de su
+  academia. «Mi Perfil» es hoy de solo lectura (`perfil.ts`).
+- **A2 · Canal de comentarios con panel** (2-4 días): botón «Enviar comentario»
+  (error, idea, duda de pregunta) con texto y captura, que adjunte pantalla y
+  dispositivo; tabla nueva, subida a Storage y un panel para que el preparador
+  los vea, cambie su estado (nuevo, en curso, resuelto) y responda, con la
+  respuesta visible al alumno. Hoy solo existe el reporte de una pregunta
+  (`question_reports`).
+- **A3 · Alta en bloque con nombre y teléfono** (1 día): que
+  `altaMasivaAlumnos` lea esas columnas de la hoja y las guarde en el perfil.
+- **No tocar el esquema de la BD real hasta que el proyecto esté en la cuenta de
+  Alphapol**, para no hacerlo dos veces. A1 y A2 comparten Storage: se hacen
+  juntos.
+- **Abierto:** qué puede hacer el preparador con un alumno (editar datos, baja,
+  reactivar, alta suelta). Hoy solo suspender o activar el acceso.
+
+**B · Preguntas con el temario de Alphapol**
+
+- **Por CSV** (`app/lib/question-import.ts`, hasta 500 por importación):
+  cabecera `enunciado;A;B;C;correcta;explicacion;dificultad;tema`, **tres**
+  opciones. Se puede preparar el fichero a partir de su PDF y subirlo desde el
+  panel del banco.
+- **Ojo:** lo importado a mano entra **activo** (`moderation.ts`), sin cola de
+  revisión; alguien de la academia lo lee antes de subirlo. Y no guarda de qué
+  fragmento del temario sale (las de Gemini sí).
+- **Plan:** un tema de prueba (40-50 preguntas), revisarlas y, si valen, seguir.
+- **Por Gemini:** `npm run sembrar -- --comprobar-pdfs` y
+  `npm run sembrar:peso -- --ensayo` son gratis; la generación es de pago y solo
+  la hace el superadmin (reglas 39 y 75).
+- Hace falta su temario en **PDF con texto seleccionable** (no escaneado).
+
+**C · Menú de mejoras (que elijan ellos; no son compromisos)**
+
+- **Rápido (1-3 días):** informe semanal por correo al preparador; recordatorios
+  al alumno (racha, clase de mañana); ficha PDF por alumno.
+- **Medio (3-7 días):** señales de abandono avanzadas (hoy solo
+  `DIAS_ABANDONO = 14` sin entrar: añadir caída de ritmo y de aciertos, motivo y
+  una cola con responsable y estado); ranking opcional con percentil, con alias
+  y que cada alumno decida si participa; preguntas aportadas por alumnos con la
+  marca «aportada por un alumno» y revisión previa (campo de origen y estado
+  pendiente); audio en preguntas (el vídeo, por enlace a un servicio externo);
+  simulacro en directo.
+- **Grande (semanas):** exámenes en PDF con marca de agua y QR; tutor con IA (el
+  chat existe y está apagado, regla 58); psicotécnicos e inglés; comparación
+  con la nota de corte (la regla 77 decidió no adivinar el futuro: hablarlo
+  antes).
 
 ### 3c · Sin probar con uso real
 
