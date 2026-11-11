@@ -4479,3 +4479,119 @@ el segundo necesita el proyecto real.
   biodata, entrevista) solo si se abren. El trozo más grande queda en 359 KB.
 - `ActiveTest.tsx` (1.293 líneas) NO se ha partido: es el examen, funciona, y
   partirlo sin alumnos usándolo es arriesgar lo que más importa del piloto.
+
+### 114 · El alumno tiene nombre, teléfono y foto, y los pone él
+
+- **Qué pasaba (11 nov):** `profiles` solo guardaba id, correo y rol. El nombre
+  que veía la academia («Ana Ruiz») se DEDUCÍA del correo, y no había teléfono:
+  para llamar a quien lleva dos semanas sin entrar había que buscarlo fuera.
+- **Regla:** tres columnas opcionales en `profiles` (`full_name`, `phone`,
+  `avatar_url`; vacío es `null`, regla 16). El alumno las edita en «Mi perfil →
+  Mis datos»; la academia corrige nombre y teléfono desde la ficha, donde el
+  teléfono es un enlace `tel:`. La foto es solo del alumno.
+- **Todo pasa por el servidor** (`app/actions/datos.ts`): `profiles` sigue con
+  su única política (leer el propio) y el alumno NO la escribe con su sesión
+  (regla 34). El id sale de la sesión (regla 1), las columnas son lista blanca
+  (regla 2) y todo se limpia antes (`app/lib/perfil-alumno.ts`, regla 27).
+- **La foto se recorta y reduce EN EL MÓVIL** (256 px, JPEG, ~30 KB) antes de
+  subirla; el servidor comprueba los bytes (que SEA un JPEG, no lo que diga la
+  cabecera) y el peso. Va a un cubo público `avatars` del almacenamiento de
+  Supabase, con el id del alumno como nombre de fichero, sin políticas de
+  escritura: solo escribe la clave de servicio. La política de contenido
+  (regla 112) deja pintar imágenes del origen de Supabase.
+- **El nombre que se enseña** es el que puso, y si no, el deducido del correo
+  (`nombreVisible`): nada se rompe donde aún no lo ha puesto.
+- **Guion:** `docs/sql/perfil-alumno.sql` (columnas, comprobaciones de largo y
+  el cubo). Las lecturas van aparte de las del resto del perfil: sin el guion,
+  las pantallas salen igual con los datos vacíos.
+
+### 115 · El examen en papel tiene la forma del de verdad
+
+- **Qué pasaba:** el día del examen el opositor recibe un cuadernillo con su
+  portada y una hoja de lectora óptica donde rellena círculos. Quien solo ha
+  entrenado en el móvil se encuentra un formato que no ha visto, y la academia
+  monta los simulacros presenciales a mano con fotocopias.
+- **Regla:** «Exámenes en papel» (panel, sección Contenido) saca del banco de
+  la academia un examen y descarga TRES PDF del mismo examen: el cuadernillo
+  (portada con las instrucciones y las preguntas), la hoja de respuestas (datos
+  del opositor, DNI en círculos, zona 1 de 100 con A-B-C y zona 2 de cinco
+  opciones, con su fila de anular) y la plantilla de corrección (la misma hoja
+  con la correcta rellena). Todo con el logo y la marca de agua de Alphapol, y
+  un pie que dice que es un simulacro de la academia: se parece al examen, no
+  se hace pasar por él.
+- **El reparto** es el del simulacro del alumno (`planExamen`): cada tema pesa
+  lo que pesa en el examen real. Sin temas elegidos, todo el temario. La
+  acción lleva las respuestas, así que es solo de la academia
+  (`getExamenImprimible`, `requireAdmin`) y del banco de SU academia (regla
+  75). No se guarda: cada llamada es un examen distinto.
+- **`app/lib/examen-pdf.ts` es puro** (regla 21) y corre en el navegador: se
+  carga solo al descargar (`import()`, regla 113). Usa `pdf-lib` y las fuentes
+  estándar del PDF, que no saben escribir todo: `textoImprimible` sustituye lo
+  que falta (una flecha, un espacio fino) en vez de dejar que una pregunta con
+  un carácter raro tumbe el documento.
+- **Los logos** salen de los SVG de la marca en PNG transparente
+  (`node scripts/marca/logos-pdf.mjs` → `public/examen/`); el escudo y el
+  rótulo de Policía Nacional son los que se pasaron de la convocatoria. El
+  logotipo de Alphapol lleva «POL» en blanco: sobre papel va siempre encima de
+  su placa marina.
+- **Límite:** la hoja tiene sitio para 100 preguntas. Los PDF se han mirado
+  como imagen, no impresos: antes de fotocopiar cien, probar UNA hoja en la
+  impresora de la academia.
+
+### 116 · El informe semanal avisa del cambio, no solo del silencio
+
+- **Qué pasaba:** «Alumnos» avisaba a los 14 días sin entrar. Para entonces el
+  alumno casi siempre se ha ido: dos semanas sin tocar la aplicación es el
+  final del abandono, no el principio.
+- **Regla:** lo que avisa antes es el CAMBIO, comparado con lo que ese mismo
+  alumno venía haciendo (`app/lib/informe-semanal.ts`): la caída contra su
+  media de las cuatro semanas anteriores, semanas seguidas bajando, el acierto
+  que se hunde, las faltas a clase y quien no ha empezado tras una semana de
+  alta. Cada señal suma puntos Y trae su frase («venía haciendo 200 a la semana
+  y esta lleva 30»): 60 o más es «llamar», 30 o más «vigilar». Un «riesgo alto»
+  sin motivo no le sirve a quien tiene que coger el teléfono (regla 35).
+- **A prorrata:** con la semana a medias se compara contra lo que tocaba a
+  estas alturas, y el informe enseña por defecto la semana pasada hasta el
+  jueves: un lunes «esta semana» está vacía para todo el mundo y marcaría a toda
+  la academia (regla 66).
+- **Quien hace poco de siempre no «cae»:** por debajo de 15 preguntas a la
+  semana la media no dice nada. El acierto solo cuenta con 20 respuestas.
+- **Las cuentas las hace la base de datos** (`panel_actividad_semanal`, regla
+  91; guion `docs/sql/informe-semanal.sql`, revocada a `anon` y
+  `authenticated`): una fila por alumno y semana, con la semana en lunes y en
+  la hora de la academia (regla 82). Sin el guion, la pantalla lo dice.
+- Se puede copiar como texto para WhatsApp y descargar en PDF.
+- **Lo que NO hace:** no avisa solo (ni correo ni notificación): es un informe
+  que se mira. Mandarlo cada lunes es el siguiente paso, y pide decidir a quién.
+
+### 117 · Los psicotécnicos los genera el código, no un banco
+
+- **Qué pasaba:** una prueba que se parece a esto no pregunta nada que haya
+  que saber: mide rapidez y razonamiento. Con un banco de preguntas escritas,
+  a la tercera semana el alumno se las sabe de memoria y ya no entrena nada.
+- **Regla:** cada sesión sale de una SEMILLA (`app/lib/psico.ts`): la misma
+  semilla da siempre las mismas preguntas y otra, otras. No se acaban, no
+  cuestan nada (ni IA ni redactarlas) y no hay respuesta que memorizar. Seis
+  tipos: series numéricas, series de letras (abecedario español, con la Ñ),
+  cálculo, sinónimos y antónimos, atención (parejas de códigos) y figuras (una
+  tabla 3×3 con la casilla que falta, dibujada en SVG por código).
+- **La corrección es del servidor** (regla 110): al empezar se guarda la
+  semilla y al navegador van las preguntas SIN respuesta ni explicación
+  (`aPublica`); al entregar, el servidor vuelve a generar la sesión con la
+  semilla y corrige. El navegador solo dice qué opción marcó. `psico_sessions`
+  tiene RLS y cero políticas: el alumno no puede leer la semilla. Una sesión se
+  entrega una vez, y la duración sale del reloj del servidor (regla 14).
+- **Si se cambia un generador**, una sesión empezada antes del despliegue y
+  entregada después se corregiría contra otras preguntas: súbase
+  `VERSION_PSICO` (la sesión guarda la suya y la entrega se rechaza si no
+  coincide, con un mensaje que lo explica).
+- **Nota:** cinco opciones; los blancos no restan (regla 24) y cada cuatro
+  fallos quitan un acierto, la fórmula de la regla 22 llevada a cinco opciones.
+- **Probados con 400 semillas por tipo:** cinco opciones distintas, una sola
+  correcta, enteros sin decimales, y en las figuras que NINGÚN distractor
+  completa también la tabla. Es módulo propio (`psico`): se enciende y apaga
+  por academia desde «Ajustes» (regla 109).
+- **Lo que NO se sabe:** si el nivel de dificultad se parece al del examen
+  real. Se hizo a ojo con lo que se suele pedir; conviene que un opositor que
+  ya haya pasado la prueba los pruebe y diga si están más fáciles o más
+  difíciles, y qué tipos faltan (dominós, rotaciones, tablas de datos).

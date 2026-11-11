@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import {
   Users, Book, Building2, Activity, AlertTriangle, Database, Power, Coins,
-  BadgeEuro, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays,
+  BadgeEuro, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays, Printer, LineChart,
 } from 'lucide-react';
 
 import AdminStudents from './components/AdminStudents';
+import AdminExamenes from './components/AdminExamenes';
+import AdminInforme from './components/AdminInforme';
 import AdminPayments from './components/AdminPayments';
 import AdminContent from './components/AdminContent';
 import AdminActivity from './components/AdminActivity';
@@ -26,7 +28,7 @@ import { MARCA } from '@/app/lib/marca';
 import { PanelShell, type PestanaPanel } from '../ui';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies';
+type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies' | 'exams' | 'report';
 
 /**
  * La pestaña abierta también se recuerda en ESTE navegador: el panel es una
@@ -35,7 +37,7 @@ type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'attendance' | 'p
  */
 const TAB_KEY = 'atenea-admin-pestana';
 const TABS_VALIDAS: AdminTab[] = [
-  'calendar', 'students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies',
+  'calendar', 'students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies', 'exams', 'report',
 ];
 
 function leeTabGuardada(): AdminTab | null {
@@ -69,8 +71,12 @@ const PESTANAS_ADMIN: (PestanaPanel & { id: AdminTab })[] = [
   { id: 'attendance', etiqueta: 'Asistencia', icono: CalendarCheck, seccion: 'Día a día' },
   { id: 'physical', etiqueta: 'Prep. física', icono: Dumbbell, seccion: 'Día a día' },
   { id: 'payments', etiqueta: 'Pagos', icono: BadgeEuro, seccion: 'Día a día' },
+  // Cómo ha ido la semana y a quién hay que llamar (regla 116).
+  { id: 'report', etiqueta: 'Informe semanal', icono: LineChart, seccion: 'Día a día' },
   { id: 'bank', etiqueta: 'Banco oficial', icono: Database, seccion: 'Contenido' },
   { id: 'moderation', etiqueta: 'Moderación', icono: AlertTriangle, seccion: 'Contenido' },
+  // El examen en papel: cuadernillo, hoja de respuestas y plantilla (regla 115).
+  { id: 'exams', etiqueta: 'Exámenes en papel', icono: Printer, seccion: 'Contenido' },
   { id: 'modules', etiqueta: 'Ajustes', icono: Power, seccion: 'Sistema' },
   { id: 'activity', etiqueta: 'Logs', icono: Activity, seccion: 'Sistema' },
 ];
@@ -162,6 +168,8 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
           {activeTab === 'content' && <AdminContent />}
           {activeTab === 'bank' && <AdminBank esSuperadmin={esSuperadmin} />}
           {activeTab === 'moderation' && <AdminModeration />}
+          {activeTab === 'exams' && <AdminExamenes />}
+          {activeTab === 'report' && <AdminInforme />}
           {activeTab === 'modules' && <AdminModules />}
           {activeTab === 'cost' && <AdminCost />}
           {activeTab === 'activity' && <AdminActivity />}

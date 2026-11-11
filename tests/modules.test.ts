@@ -38,7 +38,7 @@ import {
 
 describe('el catalogo de modulos', () => {
   it('son los del menu del alumno, en su orden', () => {
-    expect(MODULE_IDS).toEqual(['home', 'chat', 'test', 'review', 'cards', 'training', 'interview', 'stats', 'profile']);
+    expect(MODULE_IDS).toEqual(['home', 'chat', 'test', 'review', 'cards', 'psico', 'training', 'interview', 'stats', 'profile']);
   });
 
   it('todos tienen etiqueta y explicacion', () => {

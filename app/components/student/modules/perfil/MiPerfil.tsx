@@ -9,6 +9,7 @@ import { leeTema, guardaTema, type Tema } from '@/app/lib/theme';
 import { Card, SectionLabel, cx, TEXT, TAP } from '../../../ui';
 import MisClases from '../../MisClases';
 import CambiarClave from '../../CambiarClave';
+import MisDatos from '../../MisDatos';
 
 export default function MiPerfil({ user }: { user: { id: string; email?: string } }) {
   const [data, setData] = useState<MiPerfilData | null>(null);
@@ -34,6 +35,9 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 pb-4 animate-in fade-in duration-150">
+
+      {/* ───────── MIS DATOS (regla 114) ───────── */}
+      <MisDatos email={user.email} />
 
       {/* ───────── LA CONVOCATORIA ───────── */}
       <Card pad="lg" elevation="raised" className="relative overflow-hidden">
@@ -119,7 +123,7 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
 
       {/* ───────── MIS DATOS ───────── */}
       <Card>
-        <SectionLabel icon={<Mail size={14} />}>Mis datos</SectionLabel>
+        <SectionLabel icon={<Mail size={14} />}>Mi cuenta</SectionLabel>
         <p className="text-sm font-bold text-slate-900 dark:text-white break-all">{data?.email ?? user.email ?? '—'}</p>
         <p className={cx(TEXT.muted, 'mt-1')}>Para cambiar el correo o la contraseña, habla con tu academia.</p>
       </Card>

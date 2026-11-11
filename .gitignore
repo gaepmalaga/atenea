@@ -69,3 +69,6 @@ scripts/_*.mjs
 
 # Lo escribe `next dev` (Next 16.4) en la raíz al arrancar: no es del proyecto.
 /AGENTS.md
+
+# Copia de public/examen para el banco de pruebas (los PDF piden los logos).
+.banco-pruebas/examen/

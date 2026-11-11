@@ -3,7 +3,7 @@ import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjec
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
-import { requireSuperadmin, requireUser } from '../lib/auth';
+import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import { registraGasto } from '../lib/ai-usage';
 import { checkQuota } from '../lib/rate-limit';
 import { requireModule } from '../lib/module-guard';
@@ -1168,4 +1168,70 @@ export async function saveExamResults(results: ExamResultPayload[]) {
 
     if (error) console.error('saveExamResults:', error.message);
     return { success: !error };
+}
+
+/** Lo que el panel puede pedir para un examen en papel (regla 115). */
+const PREGUNTAS_EXAMEN_PAPEL = [25, 50, 100];
+
+/**
+ * UN EXAMEN PARA IMPRIMIR (regla 115): las preguntas con su respuesta
+ * correcta, para montar en el navegador el cuestionario, la hoja de respuestas
+ * y la plantilla de corrección.
+ *
+ * Solo la academia: lleva las respuestas. Sale del banco de SU academia (el
+ * global más el suyo, regla 75) con el mismo reparto que el simulacro del
+ * alumno (`planExamen`): cada tema pesa lo que pesa en el examen de verdad.
+ * Sin temas elegidos, entra todo el temario.
+ *
+ * No se guarda en ningún sitio: cada llamada es un examen distinto. El panel
+ * lo conserva en memoria para descargar los tres documentos del MISMO examen.
+ */
+export async function getExamenImprimible(input: unknown): Promise<
+  | { success: true; preguntas: { enunciado: string; opciones: string[]; correcta: number; tema: string }[]; corto: boolean }
+  | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+
+  const d = (input ?? {}) as { preguntas?: unknown; temas?: unknown };
+  const limit = PREGUNTAS_EXAMEN_PAPEL.includes(Number(d.preguntas)) ? Number(d.preguntas) : 100;
+  const pedidos = Array.isArray(d.temas)
+    ? d.temas.map((t) => Number(t)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 200)
+    : [];
+
+  const { data: temasDb, error: errorTemas } = await supabase.from('subjects').select('id, title');
+  if (errorTemas) return { success: false as const, error: fallo('getExamenImprimible', errorTemas) };
+  const tituloPorId = new Map<number, string>(((temasDb ?? []) as { id: number; title: string }[]).map((s) => [s.id, s.title]));
+  const ids = pedidos.filter((id) => tituloPorId.has(id));
+  if (pedidos.length && !ids.length) return { success: false as const, error: 'Esos temas no existen.' };
+
+  const { data: filas, error: bancoError } = await bancoLigero(ids.length ? ids : null, auth.user.organizationId);
+  if (bancoError) return { success: false as const, error: bancoError };
+  if (!filas.length) return { success: false as const, error: 'No hay preguntas en el banco para esos temas.' };
+
+  const temaDeFila = (f: { subject_id?: number | null }) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
+  const plan = planExamen({
+    disponibles: filas.map((f) => ({
+      questionId: f.id,
+      topic: temaDeFila(f),
+      difficultyLevel: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
+      legalReference: f.legal_reference ?? null,
+    })),
+    limit,
+    dificultad: 'medium',
+  });
+
+  const completas = await preguntasCompletas(plan.questionIds);
+  if (completas.error) return { success: false as const, error: completas.error };
+
+  const preguntas = completas.data
+    .filter((f) => Array.isArray(f.options) && f.options.length >= 2 && Number.isInteger(f.correct_index))
+    .map((f) => ({
+      enunciado: String(f.question_text ?? ''),
+      opciones: (f.options as unknown[]).map((o) => String(o ?? '')),
+      correcta: f.correct_index as number,
+      tema: temaDeFila(f),
+    }));
+
+  return { success: true as const, preguntas, corto: plan.corto || preguntas.length < limit };
 }

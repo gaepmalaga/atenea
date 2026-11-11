@@ -93,7 +93,7 @@ export async function getPsychProfile() {
 }
 
 export async function getModuleSettings() {
-  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, training: true, interview: true, stats: true, profile: true } });
+  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, psico: true, training: true, interview: true, stats: true, profile: true } });
 }
 
 export async function getUserStats() {
@@ -1322,4 +1322,76 @@ export async function borraDemoPaso(input: { confirmacion: string }) {
   borradosDemo = 0;
   estadoDemo = { hay: false, periodo: null, filas: 0, cuentas: 0, completa: false, hechas: 0, tandas: TOTAL_TANDAS_DEMO };
   return ok({ hecho: true, borradas: 1_989, avisos: ['Hay 1 cobro que no es de la demo: el contador de recibos NO se toca y habrá un hueco en la numeración.'] });
+}
+
+// ---------- Los datos del alumno (regla 114) ----------
+const DATOS_FALSOS = { nombre: 'Lucía Moreno Cano', telefono: '600123456', fotoUrl: null as string | null };
+export async function getMisDatos() { return ok({ datos: DATOS_FALSOS }); }
+export async function saveMisDatos(d: { nombre?: string; telefono?: string }) {
+  return ok({ datos: { ...DATOS_FALSOS, nombre: d?.nombre || null, telefono: d?.telefono || null } });
+}
+export async function saveMiFoto(dataUrl: string) { return ok({ fotoUrl: dataUrl }); }
+export async function quitaMiFoto() { return ok({}); }
+export async function getDatosAlumnos() { return ok({ datos: {} as Record<string, typeof DATOS_FALSOS> }); }
+export async function setDatosAlumno(d: { nombre?: string; telefono?: string }) {
+  return ok({ datos: { nombre: d?.nombre || null, telefono: d?.telefono || null, fotoUrl: null } });
+}
+
+// ---------- Exámenes en papel (regla 115) ----------
+export async function getExamenImprimible(d: { preguntas?: number }) {
+  const n = d?.preguntas ?? 100;
+  return ok({
+    corto: false,
+    preguntas: Array.from({ length: n }, (_, i) => ({
+      enunciado: `Según el artículo ${i + 1} de la Constitución Española, ¿cuál de las siguientes afirmaciones es correcta?`,
+      opciones: ['La primera opción.', 'La segunda opción, que es bastante más larga que las otras dos y obliga a partir la línea.', 'La tercera opción.'],
+      correcta: i % 3,
+      tema: TEMAS[i % TEMAS.length],
+    })),
+  });
+}
+
+// ---------- Informe semanal (regla 116) ----------
+export async function getInformeSemanal() {
+  const fila = (id: string, nombre: string, contestadas: number, anteriores: number, acierto: number | null, nivel: 'alto' | 'medio' | 'bajo', motivos: string[]) => ({
+    id, nombre, email: `${nombre.toLowerCase().replace(/ /g, '.')}@correo.com`, contestadas, anteriores, mediaPrevia: anteriores,
+    acierto, aciertoPrevio: acierto, diasActivos: contestadas ? 4 : 0, simulacros: contestadas > 100 ? 1 : 0,
+    diasSinActividad: contestadas ? 1 : 16, riesgo: { nivel, puntos: nivel === 'alto' ? 85 : nivel === 'medio' ? 40 : 0, motivos },
+  });
+  return ok({
+    semanas: { actual: '2026-11-09', anterior: '2026-11-02' },
+    informe: {
+      semana: '2026-11-02', hasta: '2026-11-08', enCurso: false,
+      academia: { alumnos: 5, activos: 3, contestadas: 612, contestadasAnterior: 840, acierto: 71, simulacros: 2, riesgoAlto: 2, riesgoMedio: 1 },
+      filas: [
+        fila('i1', 'Marcos Gil', 0, 210, null, 'alto', ['Lleva 16 días sin contestar', 'Ha hecho 0 preguntas; venía haciendo unas 210 a la semana']),
+        fila('i2', 'Sara Vidal', 0, 0, null, 'alto', ['No ha empezado: lleva 12 días de alta sin contestar nada']),
+        fila('i3', 'Iván Soto', 62, 190, 58, 'medio', ['Ha hecho 62 preguntas; venía haciendo unas 190 a la semana', 'El acierto ha bajado del 71 % al 58 %']),
+        fila('i4', 'Lucía Moreno', 310, 280, 78, 'bajo', []),
+        fila('i5', 'Pablo Ruiz', 240, 160, 69, 'bajo', []),
+      ],
+    },
+  });
+}
+
+// ---------- Psicotécnicos (regla 117) ----------
+// El generador de verdad con una semilla fija: lo que se ve aquí es lo que sale.
+import { generaSesion as _genera, aPublica as _publica, corrigeSesion as _corrige, tiposValidos as _tipos, MINUTOS_PSICO as _min } from '@/app/lib/psico';
+let _psico: { tipos: ReturnType<typeof _tipos>; total: number } = { tipos: _tipos([]), total: 15 };
+export async function empiezaPsico(d: { tipos?: string[]; total?: number }) {
+  _psico = { tipos: _tipos(d?.tipos), total: d?.total ?? 15 };
+  return ok({ sesion: { id: '99999999-9999-9999-9999-999999999999', minutos: _min[_psico.total] ?? 8, preguntas: _genera(20261111, _psico.tipos, _psico.total).map(_publica) } });
+}
+export async function entregaPsico(d: { respuestas?: number[] }) {
+  const preguntas = _genera(20261111, _psico.tipos, _psico.total);
+  const respuestas = preguntas.map((_, i) => d?.respuestas?.[i] ?? -1);
+  return ok({ resultado: _corrige(preguntas, respuestas), revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })), duracionMs: 312000 });
+}
+export async function getMisPsico() {
+  return ok({
+    sesiones: [
+      { id: 'p1', fecha: new Date(Date.now() - 864e5).toISOString(), total: 25, aciertos: 17, fallos: 5, blancos: 3, duracionMs: 700000, tipos: _tipos([]), porTipo: { series: { a: 4, t: 5 }, figuras: { a: 2, t: 4 }, calculo: { a: 3, t: 4 } } },
+      { id: 'p2', fecha: new Date(Date.now() - 4 * 864e5).toISOString(), total: 15, aciertos: 6, fallos: 8, blancos: 1, duracionMs: 470000, tipos: _tipos([]), porTipo: { series: { a: 1, t: 3 }, atencion: { a: 2, t: 3 } } },
+    ],
+  });
 }

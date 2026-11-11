@@ -197,6 +197,51 @@ desde él, y tiene permitido el host del proyecto
 `ejecutar-sql.mjs` necesita además
 `NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co` delante.
 
+## 2f · Cuatro funciones nuevas (11 nov, reglas 114 a 117, desplegadas)
+
+Tras desplegar lo de afianzar (PR 27, ya en `main`), se construyó, por este
+orden: perfil del alumno, exámenes en papel, informe semanal y psicotécnicos.
+
+| Qué | Regla | Dónde | Guion de esquema |
+|---|---|---|---|
+| Nombre, teléfono y foto del alumno | 114 | «Mi perfil» → Mis datos; ficha de «Alumnos» | `perfil-alumno.sql` |
+| Cuestionario, hoja de respuestas y plantilla en PDF con la marca de Alphapol | 115 | Panel → «Exámenes en papel» | ninguno |
+| Informe semanal con señales de abandono, copiar a WhatsApp y PDF | 116 | Panel → «Informe semanal» | `informe-semanal.sql` |
+| Psicotécnicos generados por código (6 tipos, contra el reloj) | 117 | Alumno → «Psicotécnicos» (módulo `psico`) | `psicotecnicos.sql` |
+
+**Los tres guiones están EJECUTADOS en producción (11 nov)** y comprobados:
+las tres columnas de `profiles`, el cubo `avatars`, la función
+`panel_actividad_semanal` (el alumno no puede llamarla) y `psico_sessions`
+(RLS activa, cero políticas). `supabase/schema.json` está refrescado.
+
+**Probado en la app local contra la base de datos real**, con un admin y un
+alumno temporales que se borraron al terminar (también la foto del
+almacenamiento; no quedó nada):
+
+- Foto: se sube, queda un JPEG de 1 KB en el cubo y su dirección pública
+  responde. Nombre y teléfono se guardan limpios (`600 12 34 56` →
+  `600123456`) y un teléfono inválido se rechaza con su mensaje.
+- «Alumnos»: se busca por NOMBRE, sale la foto en la lista y el teléfono es un
+  enlace `tel:` en la ficha.
+- Psicotécnicos: una sesión de 15 con los seis tipos; 10 contestadas y 5 en
+  blanco; el servidor guardó semilla, versión, respuestas (`-1` los blancos),
+  nota y duración, y la corrigió él.
+- Informe semanal: 48 alumnos reales (de demostración), 5 para llamar y 3 para
+  vigilar, con su motivo; el PDF se descarga.
+- Exámenes en papel: salen los tres PDF con 100 preguntas del banco real.
+
+**Sin probar de ninguna manera:**
+- **Los PDF impresos.** Se han mirado en pantalla; antes de fotocopiar cien,
+  imprimir UNA hoja de respuestas y comprobar que cabe y se lee.
+- **Que la hoja de respuestas la lea una lectora óptica.** Es una réplica de la
+  forma, no del formato exacto (marcas de tiempo, tolerancias): sirve para que
+  el alumno practique, no para corregir con máquina.
+- **El nivel de los psicotécnicos** (regla 117).
+
+**Ideas que quedan:** mandar el informe semanal cada lunes (a quién); más
+tipos de psicotécnico (dominós, rotaciones); que el profesor vea el informe
+solo de sus grupos.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

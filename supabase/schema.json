@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-09",
+  "generado": "2026-11-11",
   "tablas": {
     "academies": {
       "columnas": [
@@ -443,7 +443,9 @@
       ],
       "obligatorias": [
         "clave",
+        "creado_en",
         "fase",
+        "id",
         "organization_id",
         "periodo",
         "tabla"
@@ -526,7 +528,7 @@
       "tipos": {
         "created_at": "timestamp with time zone",
         "id": "uuid",
-        "kinds": "ARRAY",
+        "kinds": "text[]",
         "name": "text",
         "organization_id": "uuid",
         "price_eur": "numeric"
@@ -886,9 +888,12 @@
     },
     "profiles": {
       "columnas": [
+        "avatar_url",
         "created_at",
         "email",
+        "full_name",
         "id",
+        "phone",
         "role"
       ],
       "obligatorias": [
@@ -896,9 +901,12 @@
         "id"
       ],
       "tipos": {
+        "avatar_url": "text",
         "created_at": "timestamp with time zone",
         "email": "text",
+        "full_name": "text",
         "id": "uuid",
+        "phone": "text",
         "role": "text"
       }
     },
@@ -996,6 +1004,55 @@
         "last_test_date": "timestamp with time zone",
         "sinceridad_score": "integer",
         "user_id": "uuid"
+      }
+    },
+    "psico_sessions": {
+      "columnas": [
+        "answers",
+        "blank",
+        "by_kind",
+        "correct",
+        "duration_ms",
+        "finished_at",
+        "id",
+        "kinds",
+        "minutes",
+        "organization_id",
+        "seed",
+        "started_at",
+        "total",
+        "user_id",
+        "version",
+        "wrong"
+      ],
+      "obligatorias": [
+        "id",
+        "kinds",
+        "minutes",
+        "organization_id",
+        "seed",
+        "started_at",
+        "total",
+        "user_id",
+        "version"
+      ],
+      "tipos": {
+        "answers": "smallint[]",
+        "blank": "integer",
+        "by_kind": "jsonb",
+        "correct": "integer",
+        "duration_ms": "integer",
+        "finished_at": "timestamp with time zone",
+        "id": "uuid",
+        "kinds": "text[]",
+        "minutes": "integer",
+        "organization_id": "uuid",
+        "seed": "bigint",
+        "started_at": "timestamp with time zone",
+        "total": "integer",
+        "user_id": "uuid",
+        "version": "smallint",
+        "wrong": "integer"
       }
     },
     "question_attempts": {

@@ -1,0 +1,386 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Clock, Flag, Play, RotateCcw, Shapes, X } from 'lucide-react';
+import { empiezaPsico, entregaPsico, getMisPsico } from '@/actions';
+import type { RevisionPsico, SesionPsico, SesionPsicoHecha } from '@/app/actions/psico';
+import {
+  TIPOS_PSICO, TIPO_PSICO_LABEL, TIPO_PSICO_DESC, TAMANOS_PSICO, MINUTOS_PSICO, notaPsico,
+  type OpcionPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
+} from '@/app/lib/psico';
+import { Card, Button, SectionLabel, StatTile, OptionCard, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
+import FiguraPsico from './FiguraPsico';
+
+/**
+ * PSICOTÉCNICOS (regla 117): elegir, hacer contra el reloj, y repasar.
+ *
+ * Tres pantallas en una: la configuración (qué tipos y cuántas), la sesión
+ * (una pregunta cada vez, cinco opciones, el reloj arriba) y el resultado (la
+ * nota, por tipo, y cada pregunta con su explicación).
+ *
+ * El reloj se DERIVA de cuándo empezó (regla 14), no cuenta intervalos: si el
+ * móvil se duerme un minuto, al volver marca lo que toca. Al llegar a cero se
+ * entrega solo. Entregar a mano pide confirmación y no está junto a
+ * «Siguiente» (regla 26).
+ */
+
+const LETRAS = ['A', 'B', 'C', 'D', 'E'];
+
+const mmss = (ms: number) => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+function Opcion({ opcion, letra, estado, onClick }: {
+  opcion: OpcionPsico; letra: string; estado: 'libre' | 'marcada' | 'buena' | 'mala'; onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      aria-pressed={estado === 'marcada'}
+      className={cx(
+        'flex w-full items-center gap-3 border-2 px-3 py-2 text-left transition-colors',
+        RADIUS.md, TAP,
+        estado === 'marcada' && 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20',
+        estado === 'buena' && 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20',
+        estado === 'mala' && 'border-red-600 bg-red-50 dark:bg-red-900/20',
+        estado === 'libre' && 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900',
+      )}
+    >
+      <span className={cx(TEXT.hud, 'grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-current text-sm')}>{letra}</span>
+      {opcion.celda
+        ? <FiguraPsico celda={opcion.celda} className="h-12 w-[72px] text-slate-900 dark:text-white" />
+        : <span className="text-base font-semibold text-slate-900 dark:text-white">{opcion.texto}</span>}
+      {estado === 'buena' && <Check size={18} className="ml-auto shrink-0 text-emerald-700 dark:text-emerald-300" aria-label="Correcta" />}
+      {estado === 'mala' && <X size={18} className="ml-auto shrink-0 text-red-700 dark:text-red-300" aria-label="Tu respuesta, incorrecta" />}
+    </button>
+  );
+}
+
+function Enunciado({ q }: { q: PreguntaPsicoPublica }) {
+  return (
+    <>
+      <p className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">{q.enunciado}</p>
+      {q.lineas && (
+        <div className={cx('mt-3 space-y-1 overflow-x-auto bg-slate-100 p-3 dark:bg-slate-800', RADIUS.md)}>
+          {q.lineas.map((l, i) => (
+            <p key={i} className="whitespace-pre font-mono text-base font-bold tabular-nums text-slate-900 dark:text-white sm:text-lg">
+              {q.lineas!.length > 1 ? `${i + 1}.  ` : ''}{l}
+            </p>
+          ))}
+        </div>
+      )}
+      {q.matriz && (
+        <div className="mx-auto mt-3 grid max-w-xs grid-cols-3 gap-1.5" role="group" aria-label="La tabla de figuras">
+          {q.matriz.map((c, i) => (
+            <div key={i} className={cx('grid aspect-[3/2] place-items-center border-2', RADIUS.sm, c ? 'border-slate-300 dark:border-slate-700' : 'border-dashed border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20')}>
+              <FiguraPsico celda={c} className="h-full w-full text-slate-900 dark:text-white" />
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function Psicotecnicos() {
+  const [tipos, setTipos] = useState<Set<TipoPsico>>(new Set(TIPOS_PSICO));
+  const [total, setTotal] = useState<number>(TAMANOS_PSICO[0]);
+  const [historial, setHistorial] = useState<SesionPsicoHecha[]>([]);
+
+  const [sesion, setSesion] = useState<SesionPsico | null>(null);
+  const [respuestas, setRespuestas] = useState<number[]>([]);
+  const [actual, setActual] = useState(0);
+  const [restante, setRestante] = useState(0);
+  const inicio = useRef(0);
+
+  const [resultado, setResultado] = useState<{ r: ResultadoPsico; revision: RevisionPsico; duracionMs: number } | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargaHistorial = useCallback(async () => {
+    const res = await getMisPsico();
+    if (res.success) setHistorial(res.sesiones);
+  }, []);
+  useEffect(() => { cargaHistorial(); }, [cargaHistorial]);
+
+  async function empezar() {
+    setOcupado(true);
+    setError(null);
+    const res = await empiezaPsico({ tipos: [...tipos], total });
+    setOcupado(false);
+    if (!res.success) { setError(res.error); return; }
+    inicio.current = Date.now();
+    setRespuestas(Array(res.sesion.preguntas.length).fill(-1));
+    setActual(0);
+    setRestante(res.sesion.minutos * 60_000);
+    setResultado(null);
+    setSesion(res.sesion);
+    window.scrollTo(0, 0);
+  }
+
+  // Lo último marcado, para entregar desde el reloj sin leer un estado viejo (regla 13).
+  const respuestasRef = useRef<number[]>([]);
+  useEffect(() => { respuestasRef.current = respuestas; }, [respuestas]);
+  const entregando = useRef(false);
+
+  const entregar = useCallback(async (id: string) => {
+    if (entregando.current) return;
+    entregando.current = true;
+    setOcupado(true);
+    setError(null);
+    const res = await entregaPsico({ id, respuestas: respuestasRef.current });
+    entregando.current = false;
+    setOcupado(false);
+    if (!res.success) { setError(res.error); return; }
+    setResultado({ r: res.resultado, revision: res.revision, duracionMs: res.duracionMs });
+    setSesion(null);
+    window.scrollTo(0, 0);
+    cargaHistorial();
+  }, [cargaHistorial]);
+
+  // El reloj: se deriva de cuándo empezó. A cero, se entrega solo.
+  useEffect(() => {
+    if (!sesion) return;
+    const duracion = sesion.minutos * 60_000;
+    const tic = () => {
+      const queda = duracion - (Date.now() - inicio.current);
+      setRestante(queda);
+      if (queda <= 0) entregar(sesion.id);
+    };
+    const t = setInterval(tic, 500);
+    return () => clearInterval(t);
+  }, [sesion, entregar]);
+
+  const contestadas = respuestas.filter((r) => r !== -1).length;
+
+  // Al cambiar de pregunta, arriba: si no, la siguiente empieza a medio leer.
+  useEffect(() => { if (sesion) window.scrollTo(0, 0); }, [actual, sesion]);
+
+  // ───────────────────────── LA SESIÓN ─────────────────────────
+  if (sesion) {
+    const q = sesion.preguntas[actual];
+    const ultima = actual === sesion.preguntas.length - 1;
+    const pocoTiempo = restante < 60_000;
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 pb-6">
+        <div className={cx('sticky top-0 z-10 -mx-1 flex items-center justify-between gap-3 bg-crema px-1 py-2 dark:bg-slate-950')}>
+          <span className={cx(TEXT.label, 'text-slate-600 dark:text-slate-400')}>{TIPO_PSICO_LABEL[q.tipo]} · {actual + 1} de {sesion.preguntas.length}</span>
+          <span role="timer" aria-live="off" className={cx(TEXT.hud, 'inline-flex items-center gap-1.5 text-base', pocoTiempo ? 'text-red-700 dark:text-red-300' : 'text-slate-900 dark:text-white')}>
+            <Clock size={16} aria-hidden /> {mmss(restante)}
+          </span>
+        </div>
+
+        <Card pad="lg">
+          <Enunciado q={q} />
+          {/* Las figuras, de dos en dos: en una columna la tabla y las cinco no cabían en la pantalla. */}
+          <div className={cx('mt-4 grid gap-2', q.matriz ? 'grid-cols-2' : 'grid-cols-1')}>
+            {q.opciones.map((o, i) => (
+              <Opcion
+                key={i}
+                opcion={o}
+                letra={LETRAS[i]}
+                estado={respuestas[actual] === i ? 'marcada' : 'libre'}
+                // Tocar la marcada la quita: así se deja en blanco (regla 24).
+                onClick={() => setRespuestas((prev) => prev.map((r, k) => (k === actual ? (r === i ? -1 : i) : r)))}
+              />
+            ))}
+          </div>
+          <p className={cx(TEXT.muted, 'mt-3')}>Cada cuatro fallos quitan un acierto. Si dudas entre todas, déjala en blanco: toca otra vez la que marcaste.</p>
+        </Card>
+
+        <div className="flex items-center justify-between gap-3">
+          <Button variant="secondary" disabled={actual === 0} onClick={() => setActual((a) => a - 1)} icon={<ArrowLeft size={16} />}>Anterior</Button>
+          {!ultima && <Button onClick={() => setActual((a) => a + 1)} iconRight={<ArrowRight size={16} />}>Siguiente</Button>}
+        </div>
+
+        {/* El mapa: de un vistazo, cuáles faltan; y se salta a cualquiera. */}
+        <Card>
+          <SectionLabel>Preguntas · {contestadas} contestadas</SectionLabel>
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-8">
+            {sesion.preguntas.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActual(i)}
+                aria-label={`Pregunta ${i + 1}${respuestas[i] === -1 ? ', sin contestar' : ', contestada'}`}
+                aria-current={i === actual}
+                className={cx(
+                  TEXT.hud, TAP, RADIUS.sm, 'border-2 text-sm',
+                  i === actual ? 'border-indigo-600' : 'border-transparent',
+                  respuestas[i] === -1 ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' : 'bg-indigo-600 text-white',
+                )}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {error && <p role="alert" className="text-sm font-semibold text-red-700 dark:text-red-300">{error}</p>}
+
+        {/* Entregar, aparte y con confirmación (regla 26). */}
+        <div className="pt-4">
+          <Button
+            variant="secondary"
+            disabled={ocupado}
+            icon={<Flag size={16} />}
+            onClick={() => {
+              const faltan = sesion.preguntas.length - contestadas;
+              if (confirm(faltan ? `Te quedan ${faltan} sin contestar. ¿Entregar ya?` : '¿Entregar la sesión?')) entregar(sesion.id);
+            }}
+          >
+            {ocupado ? 'Entregando…' : 'Entregar'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ───────────────────────── EL RESULTADO ─────────────────────────
+  if (resultado) {
+    const { r, revision } = resultado;
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 pb-6 animate-in fade-in duration-150">
+        {/* Sin cabecera propia: la de la pestaña ya dice dónde se está. */}
+        <Card pad="lg" elevation="raised">
+          <p className={cx(TEXT.label, 'text-slate-600 dark:text-slate-400')}>Tu nota · {r.total} preguntas en {mmss(resultado.duracionMs)}</p>
+          <p className={cx(TEXT.display, r.nota >= 5 ? 'text-marino dark:text-oro-claro' : 'text-red-700 dark:text-red-300')}>{r.nota.toLocaleString('es-ES')}</p>
+          <p className={cx(TEXT.muted)}>Sobre 10, descontando los fallos: cada cuatro quitan un acierto.</p>
+        </Card>
+
+        <div className="grid grid-cols-3 gap-3">
+          <StatTile label="Aciertos" value={r.aciertos} tone="success" />
+          <StatTile label="Fallos" value={r.fallos} tone={r.fallos ? 'danger' : 'neutral'} />
+          <StatTile label="En blanco" value={r.blancos} />
+        </div>
+
+        <Card>
+          <SectionLabel>Por tipo</SectionLabel>
+          <ul className="space-y-2">
+            {TIPOS_PSICO.filter((t) => r.porTipo[t]).map((t) => {
+              const p = r.porTipo[t]!;
+              return (
+                <li key={t} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-slate-900 dark:text-white">{TIPO_PSICO_LABEL[t]}</span>
+                  <span className={cx(TEXT.hud, 'text-sm')}>{p.a} de {p.t}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        <Button onClick={() => setResultado(null)} icon={<RotateCcw size={16} />}>Hacer otra</Button>
+
+        <SectionLabel>Repaso, pregunta a pregunta</SectionLabel>
+        {revision.map((q, i) => (
+          <Card key={i}>
+            <p className={cx(TEXT.label, 'mb-2', q.marcada === q.correcta ? 'text-emerald-700 dark:text-emerald-300' : q.marcada === -1 ? 'text-slate-600 dark:text-slate-400' : 'text-red-700 dark:text-red-300')}>
+              {i + 1} · {TIPO_PSICO_LABEL[q.tipo]} · {q.marcada === q.correcta ? 'Acertada' : q.marcada === -1 ? 'En blanco' : 'Fallada'}
+            </p>
+            <Enunciado q={q} />
+            <div className="mt-3 space-y-2">
+              {q.opciones.map((o, k) => (
+                <Opcion key={k} opcion={o} letra={LETRAS[k]} estado={k === q.correcta ? 'buena' : k === q.marcada ? 'mala' : 'libre'} />
+              ))}
+            </div>
+            <p className={cx(TEXT.body, 'mt-3 text-slate-700 dark:text-slate-300')}><strong>Por qué:</strong> {q.explicacion}</p>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  // ───────────────────────── LA CONFIGURACIÓN ─────────────────────────
+  return <Configuracion {...{ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error }} />;
+}
+
+function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error }: {
+  tipos: Set<TipoPsico>; setTipos: (f: (prev: Set<TipoPsico>) => Set<TipoPsico>) => void;
+  total: number; setTotal: (n: number) => void;
+  historial: SesionPsicoHecha[]; empezar: () => void; ocupado: boolean; error: string | null;
+}) {
+  // Cómo va en cada tipo, sumando sus últimas sesiones.
+  const porTipo = useMemo(() => {
+    const suma = new Map<TipoPsico, { a: number; t: number }>();
+    for (const s of historial) {
+      for (const t of TIPOS_PSICO) {
+        const p = s.porTipo[t];
+        if (!p) continue;
+        const x = suma.get(t) ?? { a: 0, t: 0 };
+        x.a += p.a; x.t += p.t;
+        suma.set(t, x);
+      }
+    }
+    return suma;
+  }, [historial]);
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4 pb-6 animate-in fade-in duration-150">
+      <Card pad="lg">
+        <p className={cx(TEXT.body, 'mb-4 text-slate-700 dark:text-slate-300')}>Preguntas nuevas cada vez, contra el reloj. No se repiten: no hay nada que memorizar.</p>
+        <SectionLabel>Qué entrenar</SectionLabel>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {TIPOS_PSICO.map((t) => {
+            const p = porTipo.get(t);
+            return (
+              <OptionCard
+                key={t}
+                title={TIPO_PSICO_LABEL[t]}
+                description={`${TIPO_PSICO_DESC[t]}${p && p.t ? ` Llevas un ${Math.round((p.a / p.t) * 100)} % de acierto.` : ''}`}
+                selected={tipos.has(t)}
+                onClick={() => setTipos((prev) => {
+                  const n = new Set(prev);
+                  if (n.has(t)) { if (n.size > 1) n.delete(t); } else n.add(t);
+                  return n;
+                })}
+              />
+            );
+          })}
+        </div>
+
+        <div className="mt-5">
+          <SectionLabel>Cuántas preguntas</SectionLabel>
+          <div className="grid grid-cols-3 gap-2">
+            {TAMANOS_PSICO.map((n) => (
+              <OptionCard key={n} title={String(n)} description={`${MINUTOS_PSICO[n]} min`} selected={total === n} onClick={() => setTotal(n)} />
+            ))}
+          </div>
+        </div>
+
+        {error && <p role="alert" className="mt-4 text-sm font-semibold text-red-700 dark:text-red-300">{error}</p>}
+
+        <div className="mt-5">
+          <Button onClick={empezar} disabled={ocupado} icon={<Play size={16} />}>{ocupado ? 'Preparando…' : 'Empezar'}</Button>
+        </div>
+        <p className={cx(TEXT.muted, 'mt-3')}>Cinco opciones por pregunta. Cada cuatro fallos quitan un acierto; los blancos no restan.</p>
+      </Card>
+
+      <Card>
+        <SectionLabel>Mis últimas sesiones</SectionLabel>
+        {historial.length === 0 ? (
+          <EmptyState icon={<Shapes size={36} />} title="Todavía no has hecho ninguna" hint="Cuando entregues la primera, aquí verás tus notas." />
+        ) : (
+          <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+            {historial.slice(0, 10).map((s) => {
+              const nota = notaPsico(s.aciertos, s.fallos, s.total);
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {new Date(s.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} · {s.total} preguntas
+                    </p>
+                    <p className={cx(TEXT.muted, 'truncate')}>{s.aciertos} aciertos · {s.fallos} fallos · {s.blancos} en blanco</p>
+                  </div>
+                  <span className={cx(TEXT.hud, 'text-lg', nota >= 5 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{nota.toLocaleString('es-ES')}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}

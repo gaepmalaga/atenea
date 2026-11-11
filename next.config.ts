@@ -33,7 +33,9 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   // `blob:` y `data:`: la imagen del cuadrante para WhatsApp y las descargas
   // (lista del alta en bloque, recibos) se generan en el navegador.
-  "img-src 'self' data: blob:",
+  // El origen de Supabase también: las fotos de los alumnos salen de su
+  // almacenamiento (regla 114).
+  `img-src 'self' data: blob:${supabase ? ` ${supabase.https}` : ''}`,
   "font-src 'self' data:",
   `connect-src 'self'${supabase ? ` ${supabase.https} ${supabase.wss}` : ''}${enDesarrollo ? ' ws:' : ''}`,
   "media-src 'self' blob:",
