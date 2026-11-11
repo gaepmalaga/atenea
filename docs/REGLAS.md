@@ -4372,3 +4372,108 @@ el segundo necesita el proyecto real.
   pide unos 11rem): cuatro en un portátil con la barra lateral, la semana
   entera en un PC ancho, una en el móvil.
 
+
+### 108 · Lo que dice la base de datos no viaja al navegador: va a «Logs»
+
+- **Qué pasó (11 nov):** en la revisión de antes del piloto, 128 acciones
+  devolvían `error.message` tal cual lo escribe Postgres («column "x" of
+  relation "y" does not exist»). Le enseña a cualquiera el nombre de tablas y
+  columnas, al alumno no le sirve, y el detalle que sí hace falta para
+  arreglarlo solo quedaba en el registro de Vercel, que caduca y nadie mira.
+- **Regla:** un error de la base de datos se devuelve con `fallo('dónde',
+  error)` (`app/lib/fallos.ts`), nunca con `error.message`. Hace tres cosas:
+  al navegador, un mensaje corto; al registro del servidor, la línea con el
+  prefijo `[fallo]`; y a `admin_audit_log` una fila con `action = 'error'`,
+  quién, dónde y lo que dijo la base de datos.
+- **Sin tabla nueva:** se reusa `admin_audit_log`. Quién ha sido sale de la
+  sesión dentro de `fallo` (no se pasa por parámetro), y sin sesión no se
+  guarda porque `actor_id` es obligatorio. El mismo fallo repetido se guarda
+  una vez por minuto.
+- **«Logs»** tiene un tercer bloque, «Fallos». El admin ve los de su academia;
+  el superadmin, todos. `getAdminAuditLog` los excluye: ahí va solo lo que
+  alguien HIZO.
+- **Lo que se queda como estaba:** los mensajes de Supabase Auth al invitar o
+  dar de alta («ese correo ya tiene cuenta») los ve solo un admin y le dicen
+  algo que puede arreglar; y lo que lanza Gemini al generar (regla 92).
+- `paginaCompleta` también pasa por `fallo`: su error acababa en pantalla.
+
+### 109 · Un interruptor de módulo es de UNA academia
+
+- **Qué pasó (11 nov):** `setModuleEnabled` escribía la única fila que había
+  por módulo: el admin de una academia que apagara «Test» se lo apagaba a
+  todas. Con una sola academia no se notaba. Y había más restos del mismo
+  tipo: `getGroups` y el panel «Alumnos» leían `class_members` entera, de
+  todas las academias y sin paginar, y dos acciones sin uso
+  (`getAdminUsersList`, `getGlobalActivity`) devolvían perfiles y respuestas
+  de todo el mundo.
+- **Regla:** el admin escribe la fila de SU academia (`test:<uuid>`,
+  `moduleRowId`), el mismo truco que los interruptores de física (regla 68) y
+  por lo mismo: cabe sin cambiar el esquema. La fila sin sufijo es la de la
+  plataforma y solo la toca el superadmin. Al leer, primero la plataforma y
+  encima lo que diga la academia, en un sentido o en otro.
+- `requireModule` y `leeModuleSettings` llevan la academia: `requireModule(
+  'test', auth.user.organizationId)`.
+- Las tablas hijas sin `organization_id` (`class_members`,
+  `class_group_staff`) se acotan por los grupos de la academia DENTRO de la
+  consulta y se paginan (reglas 65 y 74).
+- Una acción que no usa nadie se borra: sigue siendo un endpoint público.
+
+### 110 · El acierto lo decide el servidor, no el navegador
+
+- **Qué pasó (11 nov):** `is_correct` viajaba desde el navegador y se guardaba
+  tal cual. Con las herramientas del navegador un alumno podía apuntarse cien
+  aciertos sin acertar ninguna, y el panel de la academia se los creía.
+- **Regla:** del cliente solo se toma QUÉ opción marcó. Si acertó lo calcula
+  `corrigeFila` (`app/lib/exam-results.ts`) contra `correct_index` del banco,
+  en `saveTestResult` y `saveExamResults`. Lo que no se puede comprobar (la
+  pregunta no está en el banco, no hay `selected_index`, un blanco) no es un
+  acierto. Si el banco no contesta, no se guarda: el examen sigue en el móvil.
+- **El segundo cierre es de la base de datos:**
+  `docs/sql/acierto-lo-decide-el-servidor.sql`. El alumno tiene política de
+  INSERT y UPDATE sobre sus filas (está bien: es lo que hace que RLS proteja),
+  así que podía escribir `is_correct` contra la API de Supabase con su propio
+  token, sin pasar por la aplicación. El disparador recalcula al insertar y
+  congela `is_correct`, `selected_index` y `question_id` al actualizar; con la
+  clave de servicio o SQL a mano no actúa. Probado en un Postgres local.
+- **Lo que NO cierra:** la respuesta correcta sigue viajando con la pregunta
+  (el entrenamiento la enseña al contestar). Mirarla es copiar en un examen
+  de práctica: se engaña el alumno. Lo que ya no puede es falsear lo guardado.
+
+### 111 · La contraseña provisional se cambia al entrar, y el mínimo es uno
+
+- **Qué pasó (11 nov):** la clave del alta en bloque (regla 83) decía en su
+  comentario «se cambia al entrar» y nada obligaba: el alumno podía quedarse
+  con la que salió en una lista que se descarga, se imprime o se manda por
+  WhatsApp. Y el mínimo era 6 en una pantalla y 8 en otra.
+- **Regla:** la cuenta creada con clave provisional lleva
+  `clave_provisional: true` en sus metadatos. Mientras la lleve, `AppShell`
+  solo enseña «Elige tu contraseña» (la misma pantalla de la invitación, con
+  otro texto y un «Salir»). Al guardar, la contraseña y la marca van en la
+  misma llamada.
+- El mínimo es `MIN_CLAVE` (8), en `app/lib/clave.ts`, para todas las
+  pantallas. **Falta ponerlo también en Supabase** (*Authentication → Sign In
+  / Providers → Email → Minimum password length*): hoy admite 6.
+- **Límite:** las cuentas creadas ANTES de esta regla no llevan la marca. Hoy
+  no hay ninguna de alumno real.
+
+### 112 · Cabeceras de seguridad
+
+- **Qué pasó (11 nov):** no había ninguna. La aplicación se podía meter en un
+  marco de otra página, y el navegador no tenía dicho de dónde cargar código.
+- **Regla:** `next.config.ts` pone en todas las rutas la política de
+  contenido, `X-Frame-Options`, `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy` (el micrófono, solo la propia aplicación: lo usa la
+  entrevista) y HSTS. Las conexiones, solo a la aplicación y al proyecto de
+  Supabase, que sale de `NEXT_PUBLIC_SUPABASE_URL`.
+- **Si se añade algo de fuera** (un vídeo incrustado, una fuente, analítica),
+  no cargará hasta que se añada su origen a la política: mirar la consola.
+
+### 113 · El alumno no descarga el panel de administración
+
+- **Qué pasó (11 nov):** toda la aplicación iba en un fichero de 1,09 MB que
+  se descargaba para pintar la pantalla de entrar.
+- **Regla:** `AppShell` carga `StudentDashboard` y `AdminView` con `lazy`,
+  cuando se sabe quién ha entrado; y los tres módulos fuera del MVP (chat,
+  biodata, entrevista) solo si se abren. El trozo más grande queda en 359 KB.
+- `ActiveTest.tsx` (1.293 líneas) NO se ha partido: es el examen, funciona, y
+  partirlo sin alumnos usándolo es arriesgar lo que más importa del piloto.

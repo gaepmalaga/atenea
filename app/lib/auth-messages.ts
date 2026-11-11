@@ -17,6 +17,7 @@
  */
 
 import { MARCA } from './marca';
+import { MIN_CLAVE } from './clave';
 
 /**
  * Cada entrada es un trozo de lo que manda Supabase (en minúsculas) y lo que
@@ -43,7 +44,7 @@ const TRADUCCIONES: ReadonlyArray<readonly [string, string]> = [
   ],
   [
     'password should be at least',
-    'La contraseña es demasiado corta: necesita al menos 6 caracteres.',
+    `La contraseña es demasiado corta: necesita al menos ${MIN_CLAVE} caracteres.`,
   ],
   [
     'unable to validate email address',

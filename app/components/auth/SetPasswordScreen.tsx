@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { ArrowRight, AlertTriangle, Eye, EyeOff, Loader2, ShieldCheck, LockKeyhole } from 'lucide-react';
 import { TAP, cx } from '../ui';
 import MarcoEntrada from './MarcoEntrada';
+import { MIN_CLAVE, problemaDeClave } from '@/app/lib/clave';
 import {
   ETIQUETA, campo, ICONO_CAMPO, BOTON_PRINCIPAL, AVISO_ERROR, TITULO, SUBTITULO,
 } from './estilosEntrada';
@@ -27,9 +28,15 @@ interface Props {
   onSubmit: (password: string) => void;
   cargando: boolean;
   error: string | null;
+  /**
+   * Viene con la contraseña provisional del alta en bloque (regla 111), no de
+   * un enlace de correo: cambia lo que se le explica, y se le deja salir.
+   */
+  provisional?: boolean;
+  onLogout?: () => void;
 }
 
-export default function SetPasswordScreen({ email, onSubmit, cargando, error }: Props) {
+export default function SetPasswordScreen({ email, onSubmit, cargando, error, provisional = false, onLogout }: Props) {
   const [password, setPassword] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
   const [verClave, setVerClave] = useState(false);
@@ -40,12 +47,9 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
 
   function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) {
-      setErrorLocal('La contraseña es demasiado corta: necesita al menos 6 caracteres.');
-      return;
-    }
-    if (password !== confirmacion) {
-      setErrorLocal('Las dos contraseñas no coinciden.');
+    const problema = problemaDeClave(password, confirmacion);
+    if (problema) {
+      setErrorLocal(problema);
       return;
     }
     setErrorLocal(null);
@@ -58,7 +62,9 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
     <MarcoEntrada>
       <h1 className={TITULO}>Elige tu contraseña</h1>
       <p className={SUBTITULO}>
-        {email
+        {provisional
+          ? <>Has entrado con la contraseña que te dio la academia{email ? <> como <span className="font-semibold text-slate-900">{email}</span></> : null}. Antes de seguir, pon una que solo sepas tú.</>
+          : email
           ? <>Ya tienes acceso como <span className="font-semibold text-slate-900">{email}</span>. Pon una contraseña para poder volver a entrar.</>
           : 'Pon una contraseña para poder volver a entrar.'}
       </p>
@@ -81,7 +87,7 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Mínimo 6 caracteres"
+              placeholder={`Mínimo ${MIN_CLAVE} caracteres`}
               className={cx(campo(true), 'pr-14')}
               autoComplete="new-password"
               enterKeyHint="next"
@@ -132,6 +138,12 @@ export default function SetPasswordScreen({ email, onSubmit, cargando, error }: 
         <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#14295a]" aria-hidden />
         Esta contraseña es solo tuya: nadie de tu academia puede verla.
       </p>
+
+      {provisional && onLogout && (
+        <button type="button" onClick={onLogout} className={cx('mt-2 w-full text-sm font-semibold text-slate-600 underline underline-offset-4 hover:text-slate-900', TAP)}>
+          Salir sin cambiarla
+        </button>
+      )}
     </MarcoEntrada>
   );
 }

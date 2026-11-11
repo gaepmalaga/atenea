@@ -41,6 +41,7 @@ import {
   nombreCorto, normalizaCelda, DURACION_SESION_MIN, plazasSesion, quedaPlaza, nombrePila, tipoDeTitulo, titulosFrecuentes, normalizaMotivo,
   type GrupoCuadrante, type Profesor, type SesionCuadrante, type DiaSinClase,
 } from '../lib/cuadrante';
+import { fallo } from '../lib/fallos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
@@ -219,7 +220,7 @@ export async function getCuadrante(params: { lunes: string }): Promise<
 
   const { data: filas, error } = await supabaseAdmin
     .from('class_groups').select(COLS_GRUPO).eq('organization_id', org).eq('kind', 'fisicas').order('created_at').order('name');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getCuadrante', error) };
   // Un grupo sin horario (un plan común) no es una clase: no sale (regla 97).
   const grupos0 = (filas ?? []).filter(conHorarioOMulti);
   const ids = grupos0.map((g) => g.id as string);
@@ -239,7 +240,7 @@ export async function getCuadrante(params: { lunes: string }): Promise<
     supabaseAdmin.from('class_week_publications').select('published_at').eq('organization_id', org).eq('week_start', lunes).maybeSingle(),
     supabaseAdmin.from('staff_activities').select('activity, staff_id, priority').eq('organization_id', org),
   ]);
-  if (sesionesRes.error) return { success: false as const, error: sesionesRes.error.message };
+  if (sesionesRes.error) return { success: false as const, error: fallo('getCuadrante', sesionesRes.error) };
   const { cuentas, miembros, quienFalta, quienSeUne } = asistencia;
 
   const idsMulti = grupos0.filter((g) => g.is_multi === true).map((g) => g.id as string);
@@ -300,12 +301,12 @@ export async function publicarCuadrante(params: { lunes: string; publicar: boole
 
   if (!publicar) {
     const { error } = await supabaseAdmin.from('class_week_publications').delete().eq('organization_id', org).eq('week_start', lunes);
-    return error ? { success: false as const, error: error.message } : { success: true as const, publicada: null };
+    return error ? { success: false as const, error: fallo('publicarCuadrante', error) } : { success: true as const, publicada: null };
   }
   const { data, error } = await supabaseAdmin.from('class_week_publications')
     .upsert({ organization_id: org, week_start: lunes, published_at: new Date().toISOString(), published_by: auth.user.id }, { onConflict: 'organization_id,week_start' })
     .select('published_at').single();
-  return error ? { success: false as const, error: error.message } : { success: true as const, publicada: data.published_at as string };
+  return error ? { success: false as const, error: fallo('publicarCuadrante', error) } : { success: true as const, publicada: data.published_at as string };
 }
 
 /**
@@ -323,7 +324,7 @@ async function ponCelda(org: string, autor: string, classId: string, fecha: stri
   const { data: previa, error: e0 } = await supabaseAdmin.from('training_sessions').select('id, title, kind')
     .eq('organization_id', org).eq('class_id', classId).eq('session_date', fecha)
     .order('position').order('created_at').limit(1).maybeSingle();
-  if (e0) return { ok: false, error: e0.message };
+  if (e0) return { ok: false, error: fallo('ponCelda', e0) };
 
   const cambios = {
     kind: previa && previa.title === valor.titulo ? (previa.kind as string) : tipoDeTitulo(valor.titulo),
@@ -334,12 +335,12 @@ async function ponCelda(org: string, autor: string, classId: string, fecha: stri
   };
   if (previa) {
     const { error } = await supabaseAdmin.from('training_sessions').update(cambios).eq('id', previa.id as string).eq('organization_id', org);
-    return error ? { ok: false, error: error.message } : { ok: true, id: previa.id as string };
+    return error ? { ok: false, error: fallo('ponCelda', error) } : { ok: true, id: previa.id as string };
   }
   const { data, error } = await supabaseAdmin.from('training_sessions')
     .insert({ ...cambios, organization_id: org, class_id: classId, session_date: fecha, position: 0, created_by: autor })
     .select('id').single();
-  return error ? { ok: false, error: error.message } : { ok: true, id: data.id as string };
+  return error ? { ok: false, error: fallo('ponCelda', error) } : { ok: true, id: data.id as string };
 }
 
 /** Pone lo que toca a un grupo un día (una celda del cuadrante): la crea o cambia la primera. */
@@ -433,14 +434,14 @@ export async function setSinClase(params: {
   if (!sinClase) {
     const { error } = await supabaseAdmin.from('class_days_off').delete()
       .eq('organization_id', org).eq('session_date', fecha).in('class_id', ids);
-    return error ? { success: false as const, error: error.message } : { success: true as const };
+    return error ? { success: false as const, error: fallo('setSinClase', error) } : { success: true as const };
   }
   const motivo = normalizaMotivo(params.motivo);
   const { error } = await supabaseAdmin.from('class_days_off').upsert(
     ids.map((id) => ({ class_id: id, session_date: fecha, organization_id: org, reason: motivo, created_by: auth.user.id })),
     { onConflict: 'class_id,session_date' },
   );
-  return error ? { success: false as const, error: error.message } : { success: true as const };
+  return error ? { success: false as const, error: fallo('setSinClase', error) } : { success: true as const };
 }
 
 /**
@@ -461,7 +462,7 @@ export async function borrarSesionesDia(params: { fecha: string; ids: string[] }
   }
   const { data, error } = await supabaseAdmin.from('training_sessions').delete()
     .eq('organization_id', org).eq('session_date', fecha).in('id', ids).not('class_id', 'is', null).select('id');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('borrarSesionesDia', error) };
   return { success: true as const, borradas: (data ?? []).length };
 }
 
@@ -492,8 +493,8 @@ export async function copiarCuadrante(params: { desde: string; a: string }): Pro
     supabaseAdmin.from('training_sessions').select('class_id, session_date')
       .eq('organization_id', org).in('class_id', ids).gte('session_date', a).lte('session_date', sumaDias(a, 6)),
   ]);
-  if (orig.error) return { success: false as const, error: orig.error.message };
-  if (dest.error) return { success: false as const, error: dest.error.message };
+  if (orig.error) return { success: false as const, error: fallo('copiarCuadrante', orig.error) };
+  if (dest.error) return { success: false as const, error: fallo('copiarCuadrante', dest.error) };
   if (!(orig.data ?? []).length) return { success: false as const, error: 'Esa semana no tiene sesiones que copiar.' };
 
   const ocupadas = new Set((dest.data ?? []).map((s) => `${s.class_id}|${s.session_date}`));
@@ -512,7 +513,7 @@ export async function copiarCuadrante(params: { desde: string; a: string }): Pro
     loads: s.loads ?? null, position: s.position, teacher_id: s.teacher_id, start_time: s.start_time,
     created_by: auth.user.id,
   })));
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('copiarCuadrante', error) };
   return { success: true as const, creadas: nuevas.length, omitidas };
 }
 
@@ -549,9 +550,9 @@ export async function getAgendaProfesores(params: { lunes: string }): Promise<
       .eq('organization_id', org).not('teacher_id', 'is', null).not('class_id', 'is', null)
       .gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
   ]);
-  if (staffRes.error) return { success: false as const, error: staffRes.error.message };
-  if (gruposRes.error) return { success: false as const, error: gruposRes.error.message };
-  if (sesRes.error) return { success: false as const, error: sesRes.error.message };
+  if (staffRes.error) return { success: false as const, error: fallo('getAgendaProfesores', staffRes.error) };
+  if (gruposRes.error) return { success: false as const, error: fallo('getAgendaProfesores', gruposRes.error) };
+  if (sesRes.error) return { success: false as const, error: fallo('getAgendaProfesores', sesRes.error) };
 
   const grupos = (gruposRes.data ?? []) as unknown as Fila[];
   const ids = grupos.map((g) => g.id as string);
@@ -655,7 +656,7 @@ export async function getMiMulti(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  const modulo = await requireModule('training');
+  const modulo = await requireModule('training', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
   const org = auth.user.organizationId;
   if (!org || !(await esMulti(auth.user.id, org))) return { success: true as const, esMulti: false as const };
@@ -666,7 +667,7 @@ export async function getMiMulti(): Promise<
   const hasta = sumaDias(lunesDe(ahora.fecha), 13);
   const { data: filas, error } = await supabaseAdmin.from('class_groups').select(COLS_GRUPO)
     .eq('organization_id', org).eq('kind', 'fisicas').eq('is_multi', false).order('created_at').order('name');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMiMulti', error) };
   const grupos = (filas ?? []).filter((g) => (g.weekdays as number[] | null)?.length);
   const ids = grupos.map((g) => g.id as string);
   if (!ids.length) return { success: true as const, esMulti: true as const, dias: [], semanas: [] };
@@ -764,7 +765,7 @@ export async function setMiUnion(params: { classId: string; fecha: string; unir:
   if (!unir) {
     const { error } = await supabaseAdmin.from('class_session_joins').delete()
       .eq('class_id', classId).eq('user_id', auth.user.id).eq('session_date', fecha);
-    return error ? { success: false as const, error: error.message } : { success: true as const };
+    return error ? { success: false as const, error: fallo('setMiUnion', error) } : { success: true as const };
   }
   if ((await diasSinClasePublicados(auth.user.organizationId, [classId], fecha, fecha)).length) {
     return { success: false as const, error: 'Ese día ese grupo no tiene clase.' };
@@ -775,7 +776,7 @@ export async function setMiUnion(params: { classId: string; fecha: string; unir:
   }
   const { error } = await supabaseAdmin.from('class_session_joins')
     .upsert({ class_id: classId, user_id: auth.user.id, session_date: fecha }, { onConflict: 'class_id,user_id,session_date', ignoreDuplicates: true });
-  return error ? { success: false as const, error: error.message } : { success: true as const };
+  return error ? { success: false as const, error: fallo('setMiUnion', error) } : { success: true as const };
 }
 
 /**
@@ -799,7 +800,7 @@ export async function setMiUnionSemana(params: { classId: string; lunes: string;
   if (!unir) {
     const { error } = await supabaseAdmin.from('class_session_joins').delete()
       .eq('class_id', classId).eq('user_id', auth.user.id).in('session_date', fechas);
-    return error ? { success: false as const, error: error.message } : { success: true as const, cambiadas: fechas.length, completas: 0 };
+    return error ? { success: false as const, error: fallo('setMiUnionSemana', error) } : { success: true as const, cambiadas: fechas.length, completas: 0 };
   }
 
   const quitados = new Set((await diasSinClasePublicados(auth.user.organizationId, [classId], fechas[0], fechas[fechas.length - 1])).map((d) => d.fecha));
@@ -810,7 +811,7 @@ export async function setMiUnionSemana(params: { classId: string; lunes: string;
       conPlaza.map((f) => ({ class_id: classId, user_id: auth.user.id, session_date: f })),
       { onConflict: 'class_id,user_id,session_date', ignoreDuplicates: true },
     );
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('setMiUnionSemana', error) };
   }
   return { success: true as const, cambiadas: conPlaza.length, completas: fechas.filter((f) => !quitados.has(f)).length - conPlaza.length };
 }
@@ -853,7 +854,7 @@ async function uneMulti(org: string, alumnoId: string, classId: string, fecha: s
   }
   const { error } = await supabaseAdmin.from('class_session_joins')
     .upsert({ class_id: classId, user_id: alumnoId, session_date: fecha }, { onConflict: 'class_id,user_id,session_date', ignoreDuplicates: true });
-  return error ? { success: false, error: error.message } : { success: true };
+  return error ? { success: false, error: fallo('uneMulti', error) } : { success: true };
 }
 
 /** El preparador apunta (`unir`) o quita a un alumno de Multi de la clase de un grupo. */
@@ -876,7 +877,7 @@ export async function setMultiEnClase(params: {
     if (!grupo) return { success: false as const, error: 'Ese grupo no es de tu academia.' };
     const { error } = await supabaseAdmin.from('class_session_joins').delete()
       .eq('class_id', classId).eq('user_id', alumnoId).eq('session_date', fecha);
-    return error ? { success: false as const, error: error.message } : { success: true as const };
+    return error ? { success: false as const, error: fallo('setMultiEnClase', error) } : { success: true as const };
   }
   return uneMulti(org, alumnoId, classId, fecha, params.forzar === true);
 }
@@ -903,5 +904,5 @@ export async function moverMulti(params: {
   if (!r.success) return r;
   const { error } = await supabaseAdmin.from('class_session_joins').delete()
     .eq('class_id', de.classId).eq('user_id', alumnoId).eq('session_date', de.fecha);
-  return error ? { success: false as const, error: error.message } : { success: true as const };
+  return error ? { success: false as const, error: fallo('moverMulti', error) } : { success: true as const };
 }

@@ -11,6 +11,7 @@ import {
   type StaffMember,
 } from '../lib/academy-settings';
 import { CONVOCATORIA_VACIA, type Convocatoria } from '../lib/convocatoria';
+import { fallo } from '../lib/fallos';
 
 /**
  * LOS DATOS DE LA ACADEMIA: nombre, dirección, horario, contacto, quién da
@@ -37,7 +38,7 @@ export async function getAcademySettings(): Promise<
     supabaseAdmin.from('academies').select('slug').eq('id', auth.user.organizationId).maybeSingle(),
   ]);
 
-  if (settingsRes.error) return { success: false, error: settingsRes.error.message };
+  if (settingsRes.error) return { success: false, error: fallo('getAcademySettings', settingsRes.error) };
   return {
     success: true,
     settings: rowToAcademySettings(settingsRes.data),
@@ -59,7 +60,7 @@ export async function saveAcademySettings(input: unknown) {
   if (!error) {
     registraAccion({ actorId: auth.user.id, action: 'save_academy_settings', organizationId: auth.user.organizationId });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('saveAcademySettings', error) };
 }
 
 /**
@@ -91,7 +92,7 @@ export async function getConvocatoria(): Promise<
     if (/could not find the table/i.test(error.message)) {
       return { success: true as const, convocatoria: CONVOCATORIA_VACIA, tablaFalta: true };
     }
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('getConvocatoria', error) };
   }
 
   return {
@@ -129,7 +130,7 @@ export async function saveConvocatoria(input: unknown) {
 
   if (error) {
     const tablaFalta = /could not find the table/i.test(error.message);
-    return { success: false as const, error: error.message, tablaFalta };
+    return { success: false as const, error: fallo('saveConvocatoria', error), tablaFalta };
   }
   registraAccion({ actorId: auth.user.id, action: 'save_convocatoria', organizationId: auth.user.organizationId });
   return { success: true as const };
@@ -149,7 +150,7 @@ export async function listStaff(): Promise<
     .order('active', { ascending: false })
     .order('name', { ascending: true });
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: fallo('listStaff', error) };
   return { success: true, staff: (data ?? []).map(rowToStaffMember) };
 }
 
@@ -184,7 +185,7 @@ export async function saveStaff(input: unknown) {
   }
   // El índice único (una cuenta, un profesor por academia) habla en inglés.
   const yaTiene = error && /academy_staff_una_cuenta|duplicate key/i.test(error.message);
-  return { success: !error, error: yaTiene ? 'Esa cuenta ya es de otro profesor.' : error?.message };
+  return { success: !error, error: yaTiene ? 'Esa cuenta ya es de otro profesor.' : fallo('saveStaff', error) };
 }
 
 /**
@@ -199,11 +200,11 @@ export async function listCuentasAcademia(): Promise<
   const org = auth.user.organizationId;
   if (!org) return { success: true as const, cuentas: [] };
   const { data: socios, error } = await supabaseAdmin.from('academy_members').select('user_id').eq('academy_id', org);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('listCuentasAcademia', error) };
   const ids = (socios ?? []).map((x) => x.user_id as string);
   if (!ids.length) return { success: true as const, cuentas: [] };
   const { data: perfiles, error: e2 } = await supabaseAdmin.from('profiles').select('id, email, role').in('id', ids);
-  if (e2) return { success: false as const, error: e2.message };
+  if (e2) return { success: false as const, error: fallo('listCuentasAcademia', e2) };
   const peso = (r: string) => (r === 'admin' ? 0 : r === 'superadmin' ? 1 : 2);
   return {
     success: true as const,
@@ -227,5 +228,5 @@ export async function deleteStaff(id: string) {
   if (!error) {
     registraAccion({ actorId: auth.user.id, action: 'delete_staff', target: id, organizationId: auth.user.organizationId });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deleteStaff', error) };
 }

@@ -5,6 +5,7 @@ import { requireAdmin } from '../lib/auth';
 import { paginaCompleta } from '../lib/pagination';
 import { horarioDeFila, esFecha, ahoraEnZona, sumaDias } from '../lib/asistencia';
 import { armaCalendario, colorDe, type EventoCalendario, type GrupoCal, type SesionCal } from '../lib/calendario';
+import { fallo } from '../lib/fallos';
 
 /**
  * EL CALENDARIO DE LA ACADEMIA (regla 105): todo lo que tiene fecha entre dos
@@ -57,7 +58,7 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
   const error = gruposRes.error ?? kindsRes.error ?? staffRes.error ?? sinClaseRes.error ?? convRes.error;
   if (error) {
     console.error('getCalendario:', error.message);
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('getCalendario', error) };
   }
 
   const filas = (gruposRes.data ?? []) as Fila[];
@@ -82,9 +83,8 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
       .select('id, class_id, user_id, session_date, start_time, title, teacher_id, duration_min')
       .eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta).order('id').range(d, h)),
   ]);
-  const error2 = staffGrupo.error ? (staffGrupo.error as { message: string }).message : miembros.error ?? faltas.error ?? multis.error ?? sesiones.error;
+  const error2 = fallo('getCalendario', staffGrupo.error) ?? miembros.error ?? faltas.error ?? multis.error ?? sesiones.error;
   if (error2) {
-    console.error('getCalendario:', error2);
     return { success: false as const, error: String(error2) };
   }
 

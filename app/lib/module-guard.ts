@@ -28,11 +28,13 @@ import { toModuleSettings, todosActivos, type ModuleId, type ModuleSettings } fr
  */
 export const CACHE_MS = 30_000;
 
-let cache: { valor: ModuleSettings; hasta: number } | null = null;
+// Por academia (regla 109): lo que apaga una no vale para otra. `''` es «sin
+// academia» (el superadmin): solo las filas de la plataforma.
+const cache = new Map<string, { valor: ModuleSettings; hasta: number }>();
 
 /** Tira la cache. La llama la accion que escribe. */
 export function olvidaModuleSettings(): void {
-  cache = null;
+  cache.clear();
 }
 
 /**
@@ -45,8 +47,10 @@ export function olvidaModuleSettings(): void {
  * El import de `actions/core` es dinamico por lo mismo que en `rate-limit.ts`:
  * ese modulo es `server-only` y arrastra el cliente de Gemini.
  */
-export async function leeModuleSettings(): Promise<ModuleSettings> {
-  if (cache && cache.hasta > Date.now()) return cache.valor;
+export async function leeModuleSettings(organizationId: string | null): Promise<ModuleSettings> {
+  const clave = organizationId ?? '';
+  const cacheado = cache.get(clave);
+  if (cacheado && cacheado.hasta > Date.now()) return cacheado.valor;
 
   // Sin clave de servicio no hay a donde llamar (tests, o entorno a medio
   // configurar): todo encendido, que es el estado de partida.
@@ -61,8 +65,8 @@ export async function leeModuleSettings(): Promise<ModuleSettings> {
       return todosActivos();
     }
 
-    const valor = toModuleSettings(data ?? []);
-    cache = { valor, hasta: Date.now() + CACHE_MS };
+    const valor = toModuleSettings(data ?? [], organizationId);
+    cache.set(clave, { valor, hasta: Date.now() + CACHE_MS });
     return valor;
   } catch (e) {
     console.error('leeModuleSettings:', e instanceof Error ? e.message : e);
@@ -81,9 +85,10 @@ export async function leeModuleSettings(): Promise<ModuleSettings> {
  * ese orden es justo lo que evita pagar la llamada de un modulo apagado.
  */
 export async function requireModule(
-  moduleId: ModuleId
+  moduleId: ModuleId,
+  organizationId: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const settings = await leeModuleSettings();
+  const settings = await leeModuleSettings(organizationId);
   if (settings[moduleId]) return { ok: true };
   return { ok: false, error: 'Este módulo está desactivado por la academia.' };
 }

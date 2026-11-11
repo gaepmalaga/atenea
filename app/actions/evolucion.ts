@@ -131,7 +131,7 @@ export async function getMiEvolucion(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  const modulo = await requireModule('stats');
+  const modulo = await requireModule('stats', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const userId = auth.user.id;

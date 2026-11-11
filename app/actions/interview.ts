@@ -19,6 +19,7 @@ import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
 import { checkQuota } from '../lib/rate-limit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
+import { fallo } from '../lib/fallos';
 
 export async function getBiodata() {
     const auth = await requireUser();
@@ -73,7 +74,7 @@ export async function saveBiodata(formData: BiodataInput) {
     }
 
     const { error } = await db.from('profiles_biodata').upsert(payload);
-    return { success: !error, error: error?.message ?? null };
+    return { success: !error, error: fallo('saveBiodata', error) ?? null };
 }
 
 export async function getPsychProfile() {
@@ -113,7 +114,7 @@ export async function processInterviewTurn(history: InterviewTurn[], userAudioTe
     if (!auth.ok) return { success: false as const, error: auth.error };
     const db = await createSupabaseServerClient();
 
-    const modulo = await requireModule('interview');
+    const modulo = await requireModule('interview', auth.user.organizationId);
     if (!modulo.ok) return { success: false as const, error: modulo.error };
 
     // La entrevista es por voz: un turno por respuesta, y el primero gasta dos
@@ -277,7 +278,7 @@ export async function getInterviewReports(): Promise<
             console.error('getInterviewReports: falta ejecutar docs/sql/persistir-entrevista.sql');
             return { success: true as const, informes: [] };
         }
-        return { success: false as const, error: error.message };
+        return { success: false as const, error: fallo('getInterviewReports', error) };
     }
 
     const informes: InformeGuardado[] = (data ?? []).map((r) => ({

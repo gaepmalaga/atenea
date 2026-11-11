@@ -5,9 +5,7 @@ import { KeyRound, Loader2 } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/app/lib/supabase/client';
 import { mensajeDeAuth } from '@/app/lib/auth-messages';
 import { Card, SectionLabel, Button, TextField, TEXT, cx } from '../ui';
-
-/** Mínimo propio: Supabase admite 6, pero aquí entra gente con contraseñas provisionales repartidas en papel. */
-const MIN_CLAVE = 8;
+import { MIN_CLAVE, META_CLAVE_PROVISIONAL } from '@/app/lib/clave';
 
 /**
  * CAMBIAR LA CONTRASEÑA (regla 83).
@@ -38,7 +36,7 @@ export default function CambiarClave() {
   async function guardar() {
     setGuardando(true);
     setAviso(null);
-    const { error } = await supabase.auth.updateUser({ password: clave });
+    const { error } = await supabase.auth.updateUser({ password: clave, data: { [META_CLAVE_PROVISIONAL]: false } });
     setGuardando(false);
     if (error) { setAviso({ ok: false, texto: mensajeDeAuth(error) }); return; }
     setClave('');

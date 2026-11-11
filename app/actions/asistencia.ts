@@ -23,6 +23,7 @@ import {
   ahoraEnZona, proximasSesiones, sePuedeAvisar, cuentaSesion, horarioDeFila, horarioEnTexto,
   etiquetaFecha, esFecha, sumaDias, DIAS_VISIBLES, type CuentaSesion,
 } from '../lib/asistencia';
+import { fallo } from '../lib/fallos';
 
 const COLUMNAS_GRUPO = 'id, name, kind, organization_id, weekdays, start_time, end_time, capacity';
 
@@ -66,7 +67,7 @@ export async function getMisClases(): Promise<
     .select(`class_id, class_groups!inner(${COLUMNAS_GRUPO})`)
     .eq('user_id', auth.user.id)
     .eq('class_groups.organization_id', organizationId);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMisClases', error) };
 
   const ahora = ahoraEnZona(Date.now());
   const todos = (miembros ?? [])
@@ -74,7 +75,7 @@ export async function getMisClases(): Promise<
     .filter(Boolean);
   const tieneFisica = todos.some((g) => g.kind === 'fisicas');
   const fisicaAparte = tieneFisica
-    && (await requireModule('training')).ok
+    && (await requireModule('training', auth.user.organizationId)).ok
     && (await leeTrainingSwitches(organizationId)).group;
   const grupos = fisicaAparte ? todos.filter((g) => g.kind !== 'fisicas') : todos;
   const ids = grupos.map((g) => g.id as string);
@@ -155,7 +156,7 @@ export async function setMiFalta(params: { classId: string; fecha: string; falta
         .eq('class_id', classId)
         .eq('user_id', auth.user.id)
         .eq('session_date', fecha);
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setMiFalta', error) };
 }
 
 export type SesionAcademia = CuentaSesion & {
@@ -186,7 +187,7 @@ export async function getAsistenciaAcademia(): Promise<
     .select(COLUMNAS_GRUPO)
     .eq('organization_id', organizationId)
     .order('name');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getAsistenciaAcademia', error) };
 
   const ahora = ahoraEnZona(Date.now());
   const ids = (grupos ?? []).map((g) => g.id as string);

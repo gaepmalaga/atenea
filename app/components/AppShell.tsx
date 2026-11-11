@@ -1,17 +1,22 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { getCurrentUser, getMisAcademias } from '@/actions';
 import { createSupabaseBrowserClient } from '@/app/lib/supabase/client';
 import { mensajeDeAuth } from '@/app/lib/auth-messages';
 import type { AuthUser } from '@/app/lib/auth';
 
-import StudentDashboard from './student/StudentDashboard';
-import AdminView from './Admin/AdminView';
+// CADA PANEL, EN SU TROZO (regla 113). Antes los dos iban en el mismo fichero
+// de 1 MB que se descargaba para pintar la pantalla de entrar: el alumno se
+// bajaba entero el panel de administración, que no va a ver nunca. Ahora cada
+// uno se pide cuando se sabe quién ha entrado.
+const StudentDashboard = lazy(() => import('./student/StudentDashboard'));
+const AdminView = lazy(() => import('./Admin/AdminView'));
 import LoginScreen, { type ModoAuth } from './auth/LoginScreen';
 import AccessLocked from './auth/AccessLocked';
 import SelectAcademyScreen from './auth/SelectAcademyScreen';
 import SetPasswordScreen from './auth/SetPasswordScreen';
+import { META_CLAVE_PROVISIONAL } from '@/app/lib/clave';
 import PantallaCarga from './auth/PantallaCarga';
 import { MARCA } from '@/app/lib/marca';
 
@@ -176,8 +181,11 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
     setPasswordLoading(true);
     setPasswordError(null);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      // Con la contraseña se quita la marca de «provisional» (regla 111): es
+      // la misma llamada, así que no puede quedarse una cosa hecha y la otra no.
+      const { error } = await supabase.auth.updateUser({ password, data: { [META_CLAVE_PROVISIONAL]: false } });
       if (error) throw error;
+      setUser((u) => (u ? { ...u, debeCambiarClave: false } : u));
       // La sesión de la invitación ya era válida (`setSession` en
       // `checkSession`), y `user`/`role` ya se cargaron con ella: no hace
       // falta pedirle nada más, solo dejar de tapar el panel.
@@ -281,9 +289,14 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
   // Sesión de invitación sin contraseña todavía: se le pide ANTES de dejarla
   // pasar, incluso aunque `user` ya se haya cargado con esa misma sesión
   // (regla 65 — `addAcademyAdmin` invita sin pedir contraseña ninguna).
-  if (needsPassword) {
+  //
+  // Y lo mismo quien sigue con la contraseña provisional del alta en bloque
+  // (regla 111): hasta que no ponga una suya no ve nada más.
+  if (needsPassword || user?.debeCambiarClave) {
     return (
       <SetPasswordScreen
+        provisional={!needsPassword}
+        onLogout={handleLogout}
         email={user?.email ?? null}
         onSubmit={handleSetPassword}
         cargando={passwordLoading}
@@ -327,7 +340,11 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
   // P11: `superadmin` administra igual que `admin` (con la academia resuelta
   // de su sesión); el panel transversal de varias academias es trabajo aparte
   // (P11f), sin construir todavía.
-  return role === 'admin' || role === 'superadmin'
-    ? <AdminView user={user} onLogout={handleLogout} />
-    : <StudentDashboard user={user} onLogout={handleLogout} />;
+  return (
+    <Suspense fallback={<PantallaCarga />}>
+      {role === 'admin' || role === 'superadmin'
+        ? <AdminView user={user} onLogout={handleLogout} />
+        : <StudentDashboard user={user} onLogout={handleLogout} />}
+    </Suspense>
+  );
 }

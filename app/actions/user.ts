@@ -10,6 +10,7 @@ import {
   type FailedAttemptRow,
   type FailedQuestion,
 } from '../lib/review';
+import { fallo } from '../lib/fallos';
 
 /**
  * Devuelve el usuario de la sesion actual, o null si no hay sesion.
@@ -43,7 +44,7 @@ export async function getMisAcademias(): Promise<
     .from('academy_members')
     .select('academies(slug, name)')
     .eq('user_id', user.id);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMisAcademias', error) };
 
   type Fila = { academies: { slug: string; name: string } | { slug: string; name: string }[] | null };
   const academias = ((data ?? []) as Fila[])
@@ -178,7 +179,7 @@ export async function getFailedQuestions(): Promise<
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('review');
+  const modulo = await requireModule('review', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const { data, error } = await supabaseAdmin
@@ -193,7 +194,7 @@ export async function getFailedQuestions(): Promise<
     // Un error de lectura NO se traga: sin esto la pantalla diria "no has
     // fallado nada", que es la mentira mas tranquilizadora posible.
     console.error('getFailedQuestions:', error.message);
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('getFailedQuestions', error) };
   }
 
   const rows: FailedAttemptRow[] = (data ?? []).map((row) => {

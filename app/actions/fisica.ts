@@ -36,6 +36,7 @@ import {
   resumenSemanasAlumno, copiasParaAlumnos, diasEntre,
   type GrupoPlan, type AlumnoPlan, type ResumenSemanaAlumno,
 } from '../lib/planificar';
+import { fallo } from '../lib/fallos';
 
 const hoyAcademia = () => ahoraEnZona(Date.now()).fecha;
 const MAX_RANGO_DIAS = 62;
@@ -268,7 +269,7 @@ export async function getDestinosFisica(): Promise<
     supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', org).order('name'),
     supabaseAdmin.from('academy_members').select('user_id').eq('academy_id', org),
   ]);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getDestinosFisica', error) };
 
   const ids = (socios ?? []).map((s) => s.user_id as string);
   const { data: perfiles } = ids.length
@@ -328,7 +329,7 @@ export async function getAlumnosFisica(params: { lunes: string }): Promise<
 
   const { data: filas, error } = await supabaseAdmin.from('class_groups').select('id, name, weekdays, is_multi')
     .eq('organization_id', org).eq('kind', 'fisicas').order('created_at').order('name');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getAlumnosFisica', error) };
   const grupos: GrupoPlan[] = (filas ?? []).map((g) => ({
     id: g.id as string, nombre: g.name as string, esMulti: g.is_multi === true,
     conHorario: ((g.weekdays as number[] | null)?.length ?? 0) > 0,
@@ -353,7 +354,7 @@ export async function getAlumnosFisica(params: { lunes: string }): Promise<
   const apuntadas = new Set<string>();
   for (const t of trozos(sesiones.data.map((x) => x.id as string), 150)) {
     const { data: logs, error: e } = await supabaseAdmin.from('training_session_logs').select('session_id, user_id').in('session_id', t);
-    if (e) return { success: false as const, error: e.message };
+    if (e) return { success: false as const, error: fallo('getAlumnosFisica', e) };
     for (const l of logs ?? []) apuntadas.add(`${l.session_id}|${l.user_id}`);
   }
 
@@ -408,12 +409,12 @@ export async function copiarAAlumnos(params: {
   const todos = [...new Set([origenId, ...unicos])];
   const { data: socios, error: e0 } = await supabaseAdmin.from('academy_members').select('user_id')
     .eq('academy_id', org).in('user_id', todos);
-  if (e0) return { success: false as const, error: e0.message };
+  if (e0) return { success: false as const, error: fallo('copiarAAlumnos', e0) };
   if ((socios ?? []).length !== todos.length) return { success: false as const, error: 'Algún alumno no es de tu academia.' };
 
   const { data, error } = await supabaseAdmin.from('training_sessions').select(COLS_SESION)
     .eq('organization_id', org).eq('user_id', origenId).gte('session_date', desde).lte('session_date', hasta);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('copiarAAlumnos', error) };
   const copias = copiasParaAlumnos((data ?? []).map(aSesion), unicos, diasEntre(desde, a), origenId);
   if (!(data ?? []).length) return { success: false as const, error: 'Ese alumno no tiene entrenos esos días.' };
   if (!copias.length) return { success: false as const, error: 'No hay nada que copiar: es el mismo alumno y los mismos días.' };
@@ -427,7 +428,7 @@ export async function copiarAAlumnos(params: {
       duration_min: c.durationMin, distance_km: c.distanceKm, video: c.video, position: c.position,
       loads: c.cargas.length ? c.cargas : null, created_by: auth.user.id,
     })));
-    if (e) return { success: false as const, error: e.message };
+    if (e) return { success: false as const, error: fallo('copiarAAlumnos', e) };
   }
   return { success: true as const, creadas: copias.length, alumnos: new Set(copias.map((c) => c.alumnoId)).size };
 }
@@ -489,7 +490,7 @@ export async function getPlanificador(params: { destino: Destino; desde: string;
     sesionesQ, notasQ, correos(idsMiembros), nombresDeGrupos(org),
     destino.tipo === 'alumno' ? rmDelAlumno(destino.id, org) : Promise.resolve({} as RMVigente),
   ]);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getPlanificador', error) };
   const sesiones = (filas ?? []).map(aSesion);
 
   const ids = sesiones.map((s) => s.id);
@@ -544,7 +545,7 @@ export async function saveSesion(params: {
   if (id) {
     if (!esUuid(id)) return { success: false as const, error: 'Datos no válidos.' };
     const { data, error } = await supabaseAdmin.from('training_sessions').update(fila).eq('id', id).eq('organization_id', org).select('id').maybeSingle();
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('saveSesion', error) };
     if (!data) return { success: false as const, error: 'No se ha encontrado la sesión.' };
     return { success: true as const, id: data.id as string };
   }
@@ -555,7 +556,7 @@ export async function saveSesion(params: {
   const { data, error } = await supabaseAdmin.from('training_sessions')
     .insert({ ...fila, organization_id: org, position: count ?? 0, created_by: auth.user.id })
     .select('id').single();
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('saveSesion', error) };
   return { success: true as const, id: data.id as string };
 }
 
@@ -565,7 +566,7 @@ export async function deleteSesion(params: { id: string }): Promise<{ success: b
   const org = auth.user.organizationId;
   if (!org || !esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
   const { error } = await supabaseAdmin.from('training_sessions').delete().eq('id', params.id).eq('organization_id', org);
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deleteSesion', error) };
 }
 
 /** Lleva una sesión a otro día; con `copiar`, deja la original y crea otra igual. */
@@ -580,7 +581,7 @@ export async function moverSesion(params: { id: string; fecha: string; copiar?: 
     const { data, error } = await supabaseAdmin.from('training_sessions')
       .update({ session_date: fecha, updated_at: new Date().toISOString() })
       .eq('id', id).eq('organization_id', org).select('id').maybeSingle();
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: fallo('moverSesion', error) };
     return data ? { success: true } : { success: false, error: 'No se ha encontrado la sesión.' };
   }
   const { data: s } = await supabaseAdmin.from('training_sessions').select(COLS_SESION).eq('id', id).eq('organization_id', org).maybeSingle();
@@ -590,7 +591,7 @@ export async function moverSesion(params: { id: string; fecha: string; copiar?: 
     description: s.description, duration_min: s.duration_min, distance_km: s.distance_km, video: s.video,
     loads: s.loads ?? null, position: 99, created_by: auth.user.id,
   });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('moverSesion', error) };
 }
 
 /** Copia las sesiones de una semana a otra, para el mismo grupo o alumno. */
@@ -609,7 +610,7 @@ export async function copiarSemanaFisica(params: { destino: Destino; desde: stri
   const col = destino.tipo === 'grupo' ? 'class_id' : 'user_id';
   const { data, error } = await supabaseAdmin.from('training_sessions').select(COLS_SESION)
     .eq('organization_id', org).eq(col, destino.id).gte('session_date', desde).lte('session_date', sumaDias(desde, 6));
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('copiarSemanaFisica', error) };
   const copias = copiaSemana((data ?? []).map(aSesion), desde, a);
   if (!copias.length) return { success: false as const, error: 'Esa semana no tiene sesiones que copiar.' };
 
@@ -621,7 +622,7 @@ export async function copiarSemanaFisica(params: { destino: Destino; desde: stri
     duration_min: c.durationMin, distance_km: c.distanceKm, video: c.video, position: c.position,
     loads: c.cargas.length ? c.cargas : null, created_by: auth.user.id,
   })));
-  if (e2) return { success: false as const, error: e2.message };
+  if (e2) return { success: false as const, error: fallo('copiarSemanaFisica', e2) };
   return { success: true as const, creadas: copias.length };
 }
 
@@ -638,12 +639,12 @@ export async function setNotaSemana(params: { destino: Destino; weekStart: strin
 
   const { error: e1 } = await supabaseAdmin.from('training_week_notes').delete()
     .eq('organization_id', org).eq(col, destino.id).eq('week_start', weekStart);
-  if (e1) return { success: false, error: e1.message };
+  if (e1) return { success: false, error: fallo('setNotaSemana', e1) };
   if (!nota) return { success: true };
   const { error } = await supabaseAdmin.from('training_week_notes').insert({
     organization_id: org, [col]: destino.id, week_start: weekStart, note: nota, updated_at: new Date().toISOString(),
   });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setNotaSemana', error) };
 }
 
 /** El preparador contesta a lo que ha apuntado un alumno. */
@@ -659,7 +660,7 @@ export async function responderApunte(params: { sessionId: string; alumnoId: str
   const { data, error } = await supabaseAdmin.from('training_session_logs')
     .update({ coach_reply: texto || null, coach_reply_at: texto ? new Date().toISOString() : null })
     .eq('session_id', sessionId).eq('user_id', alumnoId).select('session_id').maybeSingle();
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: fallo('responderApunte', error) };
   return data ? { success: true } : { success: false, error: 'Ese alumno aún no ha apuntado la sesión.' };
 }
 
@@ -671,7 +672,7 @@ export async function getPlantillas(): Promise<{ success: true; plantillas: Plan
   const org = auth.user.organizationId;
   if (!org) return { success: true as const, plantillas: [] };
   const { data, error } = await supabaseAdmin.from('session_templates').select(COLS_PLANTILLA).eq('organization_id', org).order('kind').order('title');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getPlantillas', error) };
   return { success: true as const, plantillas: (data ?? []).map(aPlantilla) };
 }
 
@@ -692,11 +693,11 @@ export async function savePlantilla(params: { id?: string | null; contenido: Rec
   if (params.id) {
     if (!esUuid(params.id)) return { success: false as const, error: 'Datos no válidos.' };
     const { data, error } = await supabaseAdmin.from('session_templates').update(fila).eq('id', params.id).eq('organization_id', org).select('id').maybeSingle();
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('savePlantilla', error) };
     return data ? { success: true as const, id: data.id as string } : { success: false as const, error: 'No se ha encontrado la plantilla.' };
   }
   const { data, error } = await supabaseAdmin.from('session_templates').insert({ ...fila, organization_id: org, created_by: auth.user.id }).select('id').single();
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('savePlantilla', error) };
   return { success: true as const, id: data.id as string };
 }
 
@@ -706,7 +707,7 @@ export async function deletePlantilla(params: { id: string }): Promise<{ success
   const org = auth.user.organizationId;
   if (!org || !esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
   const { error } = await supabaseAdmin.from('session_templates').delete().eq('id', params.id).eq('organization_id', org);
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deletePlantilla', error) };
 }
 
 // ── Las marcas de la academia ────────────────────────────────────────────
@@ -739,7 +740,7 @@ export async function getMarcasAcademia(): Promise<{ success: true; alumnos: Alu
     supabaseAdmin.from('physical_marks').select('id, user_id, test, value, measured_on, note').eq('organization_id', org).order('measured_on'),
     supabaseAdmin.from('rm_marks').select(`${COLS_RM}, user_id`).eq('organization_id', org).order('measured_on'),
   ]);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMarcasAcademia', error) };
   const sexo = new Map((fisicos ?? []).map((f) => [f.user_id as string, aSexo(f.gender)]));
 
   return {
@@ -785,7 +786,7 @@ export async function addMarca(params: { alumnoId: string; prueba: string; valor
   const { error } = await supabaseAdmin.from('physical_marks').insert({
     organization_id: org, user_id: params.alumnoId, test: m.prueba, value: m.valor, measured_on: m.fecha, note: m.nota, recorded_by: auth.user.id,
   });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('addMarca', error) };
 }
 
 export async function deleteMarca(params: { id: string }): Promise<{ success: boolean; error?: string }> {
@@ -794,7 +795,7 @@ export async function deleteMarca(params: { id: string }): Promise<{ success: bo
   const org = auth.user.organizationId;
   if (!org || !esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
   const { error } = await supabaseAdmin.from('physical_marks').delete().eq('id', params.id).eq('organization_id', org);
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deleteMarca', error) };
 }
 
 /** Apunta un 1RM de un alumno: el peso y cuántas repeticiones (1 = medido; 2-12, estimado). */
@@ -809,7 +810,7 @@ export async function addRM(params: { alumnoId: string; ejercicio: string; pesoK
     organization_id: org, user_id: params.alumnoId, exercise: m.ejercicio, weight_kg: m.peso, reps: m.reps,
     measured_on: m.fecha, note: m.nota, recorded_by: auth.user.id,
   });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('addRM', error) };
 }
 
 export async function deleteRM(params: { id: string }): Promise<{ success: boolean; error?: string }> {
@@ -818,7 +819,7 @@ export async function deleteRM(params: { id: string }): Promise<{ success: boole
   const org = auth.user.organizationId;
   if (!org || !esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
   const { error } = await supabaseAdmin.from('rm_marks').delete().eq('id', params.id).eq('organization_id', org);
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deleteRM', error) };
 }
 
 /** El sexo de un alumno, que decide su prueba de fuerza y su baremo. */
@@ -829,7 +830,7 @@ export async function setSexoAlumno(params: { alumnoId: string; sexo: string }):
   const sexo = aSexo(params?.sexo);
   if (!org || !sexo || !(await esAlumnoDe(params.alumnoId, org))) return { success: false, error: 'Datos no válidos.' };
   const { error } = await supabaseAdmin.from('profiles_physical').upsert({ user_id: params.alumnoId, gender: sexo }, { onConflict: 'user_id' });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setSexoAlumno', error) };
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -854,7 +855,7 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  const modulo = await requireModule('training');
+  const modulo = await requireModule('training', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
   const org = auth.user.organizationId;
   const hoy = hoyAcademia();
@@ -877,7 +878,7 @@ export async function getMiFisica(params: { desde: string; hasta: string }): Pro
     nombresDeGrupos(org),
     rmDelAlumno(auth.user.id, org),
   ]);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMiFisica', error) };
   const sesiones = (filas ?? []).map(aSesion);
   // Lo apuntado: de sus entrenos y de las clases que tienen sesión.
   const ids = [...sesiones.map((s) => s.id), ...clases.flatMap((c) => (c.sesion ? [c.sesion.id] : []))];
@@ -930,7 +931,7 @@ export async function setMiApunte(params: {
 
   if (params.status === null) {
     const { error } = await supabaseAdmin.from('training_session_logs').delete().eq('session_id', sessionId).eq('user_id', auth.user.id);
-    return error ? { success: false as const, error: error.message } : { success: true as const, apunte: null };
+    return error ? { success: false as const, error: fallo('setMiApunte', error) } : { success: true as const, apunte: null };
   }
 
   const a = normalizaApunte(params as unknown as Record<string, unknown>);
@@ -939,7 +940,7 @@ export async function setMiApunte(params: {
     session_id: sessionId, user_id: auth.user.id, status: a.valor.status, rpe: a.valor.rpe, comment: a.valor.comment,
     duration_min: a.valor.durationMin, distance_km: a.valor.distanceKm, updated_at: new Date().toISOString(),
   }, { onConflict: 'session_id,user_id' }).select(COLS_APUNTE).single();
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('setMiApunte', error) };
   return { success: true as const, apunte: aApunte(data) };
 }
 
@@ -958,7 +959,7 @@ export async function getMisMarcas(): Promise<{ success: true; sexo: Sexo | null
       .eq('user_id', auth.user.id).eq('organization_id', org).order('measured_on'),
     supabaseAdmin.from('rm_marks').select(`${COLS_RM}, recorded_by`).eq('user_id', auth.user.id).eq('organization_id', org).order('measured_on'),
   ]);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMisMarcas', error) };
   return {
     success: true as const,
     sexo: aSexo(fisico?.gender),
@@ -980,7 +981,7 @@ export async function addMiRM(params: { ejercicio: string; pesoKg: string; reps?
     organization_id: org, user_id: auth.user.id, exercise: m.ejercicio, weight_kg: m.peso, reps: m.reps,
     measured_on: m.fecha, note: m.nota, recorded_by: auth.user.id,
   });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('addMiRM', error) };
 }
 
 /** Borra un 1RM SUYO, que haya apuntado él. Los del preparador no. */
@@ -990,7 +991,7 @@ export async function deleteMiRM(params: { id: string }): Promise<{ success: boo
   if (!esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
   const { data, error } = await supabaseAdmin.from('rm_marks').delete()
     .eq('id', params.id).eq('user_id', auth.user.id).eq('recorded_by', auth.user.id).select('id');
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: fallo('deleteMiRM', error) };
   return data?.length ? { success: true } : { success: false, error: 'Ese 1RM lo apuntó tu preparador: solo él puede borrarlo.' };
 }
 
@@ -1004,7 +1005,7 @@ export async function addMiMarca(params: { prueba: string; valor: string; fecha:
   const { error } = await supabaseAdmin.from('physical_marks').insert({
     organization_id: org, user_id: auth.user.id, test: m.prueba, value: m.valor, measured_on: m.fecha, note: m.nota, recorded_by: auth.user.id,
   });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('addMiMarca', error) };
 }
 
 /** Borra una marca SUYA, que haya apuntado él. Las del preparador no. */
@@ -1014,7 +1015,7 @@ export async function deleteMiMarca(params: { id: string }): Promise<{ success: 
   if (!esUuid(params?.id)) return { success: false, error: 'Datos no válidos.' };
   const { data, error } = await supabaseAdmin.from('physical_marks').delete()
     .eq('id', params.id).eq('user_id', auth.user.id).eq('recorded_by', auth.user.id).select('id');
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: fallo('deleteMiMarca', error) };
   return data?.length ? { success: true } : { success: false, error: 'Esa marca la apuntó tu preparador: solo él puede borrarla.' };
 }
 
@@ -1026,5 +1027,5 @@ export async function setMiSexo(params: { sexo: string }): Promise<{ success: bo
   if (!sexo) return { success: false, error: 'Datos no válidos.' };
   const db = await createSupabaseServerClient();
   const { error } = await db.from('profiles_physical').upsert({ user_id: auth.user.id, gender: sexo }, { onConflict: 'user_id' });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setMiSexo', error) };
 }

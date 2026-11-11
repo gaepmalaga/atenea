@@ -3,6 +3,7 @@ import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { tituloDeConversacion, type ChatTurn } from '../lib/chat';
+import { fallo } from '../lib/fallos';
 
 /**
  * EL HISTORIAL DEL CHAT.
@@ -50,7 +51,7 @@ export async function listConversations(limite = 30) {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('chat');
+  const modulo = await requireModule('chat', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const db = await createSupabaseServerClient();
@@ -61,7 +62,7 @@ export async function listConversations(limite = 30) {
     .order('updated_at', { ascending: false })
     .limit(Math.max(1, Math.min(100, limite)));
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('listConversations', error) };
 
   const conversaciones: ConversacionResumen[] = (data ?? []).map((c) => ({
     id: c.id as string,
@@ -90,7 +91,7 @@ export async function getConversation(conversationId: string) {
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: true });
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getConversation', error) };
 
   const mensajes: MensajeGuardado[] = (data ?? []).map((m) => ({
     id: m.id as string,
@@ -123,7 +124,7 @@ export async function appendTurn(params: {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('chat');
+  const modulo = await requireModule('chat', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const db = await createSupabaseServerClient();
@@ -144,7 +145,7 @@ export async function appendTurn(params: {
       })
       .select('id')
       .single();
-    if (error || !data) return { success: false as const, error: error?.message ?? 'No se pudo abrir la conversación.' };
+    if (error || !data) return { success: false as const, error: fallo('getConversation', error) ?? 'No se pudo abrir la conversación.' };
     conversationId = data.id as string;
   }
 
@@ -162,7 +163,7 @@ export async function appendTurn(params: {
       created_at: new Date(Date.parse(ahora) + 1).toISOString(),
     },
   ]);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('appendTurn', error) };
 
   // `updated_at` es por lo que se ordena la lista: sin tocarlo, una
   // conversación activa se hunde por debajo de otra que nadie usa.
@@ -188,7 +189,7 @@ export async function closeConversation(conversationId: string) {
     .eq('id', conversationId)
     .eq('user_id', auth.user.id);
 
-  return error ? { success: false as const, error: error.message } : { success: true as const };
+  return error ? { success: false as const, error: fallo('closeConversation', error) } : { success: true as const };
 }
 
 /** Borra una conversación y sus mensajes (la clave ajena va en cascada). */
@@ -203,7 +204,7 @@ export async function deleteConversation(conversationId: string) {
     .eq('id', conversationId)
     .eq('user_id', auth.user.id);
 
-  return error ? { success: false as const, error: error.message } : { success: true as const };
+  return error ? { success: false as const, error: fallo('deleteConversation', error) } : { success: true as const };
 }
 
 /**
@@ -228,7 +229,7 @@ export async function contextoDeConversacion(conversationId: string) {
     .eq('user_id', auth.user.id)
     .maybeSingle();
 
-  if (errorConv) return { success: false as const, error: errorConv.message };
+  if (errorConv) return { success: false as const, error: fallo('contextoDeConversacion', errorConv) };
   if (!conv) return { success: true as const, turnos: [] as ChatTurn[] };
   if (conv.closed_at) return { success: true as const, turnos: [] as ChatTurn[] };
 
@@ -243,7 +244,7 @@ export async function contextoDeConversacion(conversationId: string) {
     // dos sitios distintos.
     .limit(12);
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('contextoDeConversacion', error) };
 
   const turnos: ChatTurn[] = (data ?? [])
     .reverse()

@@ -310,3 +310,28 @@ export function buildExamResults(
 export function countChange(previousAnswer: string | null | undefined, newAnswer: string): boolean {
   return Boolean(previousAnswer) && previousAnswer !== newAnswer;
 }
+
+/**
+ * EL ACIERTO LO DECIDE EL SERVIDOR (regla 110).
+ *
+ * `is_correct` viajaba desde el navegador y se guardaba tal cual: con las
+ * herramientas del navegador un alumno podía apuntarse cien aciertos sin
+ * contestar bien ninguna. Ahora lo que llega del cliente es solo QUÉ opción
+ * marcó; si acertó se calcula aquí, contra la respuesta correcta del banco.
+ *
+ * Lo que no se puede comprobar NO es un acierto: una pregunta que no está en
+ * el banco, o una respuesta sin `selected_index`. La aplicación manda siempre
+ * las dos cosas, así que eso solo le pasa a quien llama a mano.
+ */
+export function corrigeFila<T extends Pick<ResultRow, 'question_id' | 'selected_index' | 'is_correct'>>(
+  fila: T,
+  correctaPorPregunta: ReadonlyMap<string, number>,
+): T {
+  const correcta = fila.question_id ? correctaPorPregunta.get(fila.question_id) : undefined;
+  const acierto =
+    correcta !== undefined &&
+    fila.selected_index !== null &&
+    fila.selected_index >= 0 &&
+    fila.selected_index === correcta;
+  return { ...fila, is_correct: acierto };
+}

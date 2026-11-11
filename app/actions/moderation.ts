@@ -15,6 +15,7 @@ import { questionHash } from '../lib/question-hash';
 import { MAX_IMPORT } from '../lib/question-import';
 import { registraAccion } from '../lib/admin-audit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
+import { fallo } from '../lib/fallos';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -32,7 +33,7 @@ export async function voteQuestion(params: { questionId: string; vote: 1 | -1 })
         { question_id: params.questionId, user_id: auth.user.id, vote: params.vote },
         { onConflict: 'question_id,user_id' }
     );
-    return { success: !error, error: error?.message };
+    return { success: !error, error: fallo('voteQuestion', error) };
 }
 
 export async function reportQuestion(params: { questionId: string; reportType: string; message: string }): Promise<ModerationResult> {
@@ -46,7 +47,7 @@ export async function reportQuestion(params: { questionId: string; reportType: s
         report_type: params.reportType,
         message: params.message
     });
-    return { success: !error, error: error?.message };
+    return { success: !error, error: fallo('reportQuestion', error) };
 }
 
 export async function getModerationQueue() {
@@ -116,7 +117,7 @@ export async function approveQuestion(questionId: string): Promise<ModerationRes
     if (!auth.ok) return { success: false, error: auth.error };
 
     const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.ACTIVE }).eq('id', questionId);
-    return { success: !error, error: error?.message };
+    return { success: !error, error: fallo('approveQuestion', error) };
 }
 
 /**
@@ -140,7 +141,7 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
     if (!error && data?.length) {
         registraAccion({ actorId: auth.user.id, action: 'approve_questions', detail: { cantidad: data.length } });
     }
-    return { success: !error, error: error?.message, approved: data?.length ?? 0 };
+    return { success: !error, error: fallo('approveQuestions', error), approved: data?.length ?? 0 };
 }
 
 export async function disableQuestion(questionId: string): Promise<ModerationResult> {
@@ -155,7 +156,7 @@ export async function disableQuestion(questionId: string): Promise<ModerationRes
     // filtra, administra el banco global y, si hace falta, cualquier otro).
     if (auth.user.role !== 'superadmin') query = query.eq('organization_id', auth.user.organizationId);
     const { data, error } = await query.select('id');
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: fallo('disableQuestion', error) };
     if (!data || data.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
     registraAccion({ actorId: auth.user.id, action: 'disable_question', target: questionId });
     return { success: true };
@@ -193,7 +194,7 @@ export async function discardAllQuestions(): Promise<ModerationResult & { discar
     if (!error) {
         registraAccion({ actorId: auth.user.id, action: 'discard_all_candidates', detail: { cantidad: data?.length ?? 0 } });
     }
-    return { success: !error, error: error?.message, discarded: data?.length ?? 0 };
+    return { success: !error, error: fallo('discardAllQuestions', error), discarded: data?.length ?? 0 };
 }
 
 export async function resolveReport(reportId: string): Promise<ModerationResult> {
@@ -218,7 +219,7 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
 
     const { error } = await supabaseAdmin.from('question_reports').update({ status: 'dismissed' }).eq('id', reportId);
     if (!error) registraAccion({ actorId: auth.user.id, action: 'resolve_report', target: reportId });
-    return { success: !error, error: error?.message };
+    return { success: !error, error: fallo('resolveReport', error) };
 }
 
 /**
@@ -251,7 +252,7 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
     // banco privado, nunca el global ni el de otra academia.
     if (auth.user.role !== 'superadmin') query = query.eq('organization_id', auth.user.organizationId);
     const { data: filas, error } = await query.select('id');
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: fallo('updateQuestion', error) };
     if (!filas || filas.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
     return { success: true };
 }
@@ -403,7 +404,7 @@ export async function createManualQuestion(
     .select('id')
     .maybeSingle();
 
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: fallo('createManualQuestion', error) };
 
   if (!data) {
     // No se inserto nada: el hash ya existia. Se dice cual es, y en que estado,
@@ -515,7 +516,7 @@ export async function importManualQuestions(
     .upsert(filas, { onConflict: 'question_hash', ignoreDuplicates: true })
     .select('id');
 
-  if (error) return { success: false, error: error.message, rechazadas };
+  if (error) return { success: false, error: fallo('importManualQuestions', error), rechazadas };
 
   const nInsertadas = insertadas?.length ?? 0;
   return {

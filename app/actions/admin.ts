@@ -7,8 +7,8 @@ import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
 import { checkQuota } from '../lib/rate-limit';
 import { registraAccion } from '../lib/admin-audit';
 import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus, type AdminBankRow } from '../lib/questions';
-import type { ActivityRow } from '../lib/stats';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
+import { fallo } from '../lib/fallos';
 
 // --- TIPOS DEL TEMARIO ---
 // Reflejan la forma que devuelve el `select` anidado de Supabase.
@@ -37,22 +37,6 @@ export type SyllabusSubject = {
 };
 
 export type SyllabusBlock = { id: number; name: string; subjects: SyllabusSubject[] };
-
-/**
- * Un usuario en el panel de administracion.
- *
- * `total_tests` y `win_rate` NO estan en `profiles`: se calculan al vuelo en
- * `getAdminUsersList`.
- */
-export type AdminUser = {
-  id: string;
-  email: string | null;
-  role: string | null;
-  created_at: string | null;
-  total_tests: number;
-  /** `null` si aun no ha respondido ninguna pregunta. */
-  win_rate: number | null;
-};
 
 /** Mensaje de error legible, sin depender de que lo lanzado sea un Error. */
 function errorMessage(e: unknown, fallback = 'Error desconocido'): string {
@@ -425,7 +409,7 @@ export async function getDocumentChunks(documentId: string) {
 
   if (error) {
     console.error('getDocumentChunks:', error.message);
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('getDocumentChunks', error) };
   }
 
   return { success: true as const, chunks: (data ?? []) as DocumentChunkRow[] };
@@ -505,7 +489,7 @@ export async function getStudentSyllabus(): Promise<
   ]);
   if (bloquesRes.error) {
     console.error('getStudentSyllabus:', bloquesRes.error.message);
-    return { success: false as const, error: bloquesRes.error.message };
+    return { success: false as const, error: fallo('getStudentSyllabus', bloquesRes.error) };
   }
 
   const conBanco = new Set(bancoRes.data.map((r) => r.subject_id as number));
@@ -545,7 +529,7 @@ export async function getStudentSubjects() {
 
     if (error) {
         console.error('getStudentSubjects:', error.message);
-        return { success: false as const, subjects: [] as { id: number; title: string }[], error: error.message };
+        return { success: false as const, subjects: [] as { id: number; title: string }[], error: fallo('getStudentSubjects', error) };
     }
 
     type FilaTema = { id: number; title: string; documents: { count: number }[] | null };
@@ -557,97 +541,6 @@ export async function getStudentSubjects() {
         .map((s) => ({ id: s.id, title: s.title }));
 
     return { success: true as const, subjects };
-}
-
-/** Cuantos intentos se agregan para las estadisticas del panel de usuarios. */
-const MAX_INTENTOS_AGREGADOS = 10_000;
-
-/**
- * Los usuarios con sus estadisticas, para el panel de administracion.
- *
- * `profiles` solo guarda id, email, role y created_at: NO guarda `total_tests`
- * ni `win_rate`. La tabla del panel los pintaba igualmente y siempre salia
- * "0" y "0%" para todo el mundo — con el estado tipado como `any[]`, nadie
- * podia enterarse.
- *
- * Se agregan aqui en vez de desnormalizarlos en `profiles`: no hay que
- * mantener contadores al dia ni migrar nada. Si el volumen crece por encima
- * del tope, toca pasarlo a una vista agregada en SQL.
- */
-export async function getAdminUsersList() {
-    const auth = await requireAdmin();
-    if (!auth.ok) return { success: false as const, error: auth.error };
-
-    const { data: perfiles, error } = await supabase
-      .from('profiles')
-      .select('id, email, role, created_at');
-
-    if (error) {
-      console.error('getAdminUsersList:', error.message);
-      return { success: false as const, error: 'No se pudo cargar la lista de usuarios.' };
-    }
-
-    // Solo dos columnas: es una tabla que crece y no hace falta traer mas.
-    const { data: intentos } = await supabase
-      .from('question_attempts')
-      .select('user_id, is_correct')
-      .limit(MAX_INTENTOS_AGREGADOS);
-
-    const porUsuario = new Map<string, { total: number; aciertos: number }>();
-    for (const intento of intentos ?? []) {
-      if (!intento.user_id) continue;
-      const acc = porUsuario.get(intento.user_id) ?? { total: 0, aciertos: 0 };
-      acc.total++;
-      if (intento.is_correct) acc.aciertos++;
-      porUsuario.set(intento.user_id, acc);
-    }
-
-    const users: AdminUser[] = (perfiles ?? []).map((p) => {
-      const acc = porUsuario.get(p.id);
-      return {
-        id: p.id,
-        email: p.email ?? null,
-        role: p.role ?? null,
-        created_at: p.created_at ?? null,
-        total_tests: acc?.total ?? 0,
-        // `null` y no 0 cuando no ha hecho ninguno: sin datos no es lo mismo
-        // que 0 % de aciertos (regla 8).
-        win_rate: acc && acc.total > 0 ? Math.round((acc.aciertos / acc.total) * 100) : null,
-      };
-    });
-
-    return { success: true as const, users };
-}
-
-export async function getGlobalActivity() {
-    const auth = await requireAdmin();
-    if (!auth.ok) return { success: false as const, error: auth.error };
-
-    // El enunciado NO esta en la tabla: se trae por join, igual que en
-    // `getUserStats`. Antes se pedia `select('*')` y el panel pintaba
-    // `log.question_text` sin que existiera, asi que siempre decia "Pregunta
-    // sin texto". El join resuelve porque la FK question_id -> question_bank
-    // quedo declarada en la fase 2.8.
-    const { data, error } = await supabase
-      .from('question_attempts')
-      .select('*, question:question_bank(question_text)')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.error('getGlobalActivity:', error.message);
-      return { success: false as const, error: 'No se pudo cargar la actividad.' };
-    }
-
-    // Se aplana a la clave que espera la UI, como hace `getUserStats`.
-    const activity: ActivityRow[] = (data ?? []).map((fila) => {
-      const { question, ...resto } = fila as Record<string, unknown> & {
-        question?: { question_text?: string | null } | null;
-      };
-      return { ...resto, question_text: question?.question_text ?? null } as ActivityRow;
-    });
-
-    return { success: true as const, activity };
 }
 
 // --- GESTIÓN DEL BANCO (VISOR OPTIMIZADO) ---

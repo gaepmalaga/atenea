@@ -11,6 +11,8 @@ import { MARCA } from '../lib/marca';
 import { siteUrl } from '../lib/registration-requests';
 import { randomBytes } from 'node:crypto';
 import { leeCorreos, claveProvisional, MAX_POR_CLAVE, MAX_POR_CORREO, type ModoAlta, type ResultadoAlta } from '../lib/alta-masiva';
+import { fallo } from '../lib/fallos';
+import { META_CLAVE_PROVISIONAL } from '../lib/clave';
 
 /**
  * CONTROL DE ACCESO (P6 · rehecho en P8 · aviso por correo y exentos en P12).
@@ -40,7 +42,7 @@ export async function getMembershipRequired(): Promise<
     .eq('organization_id', auth.user.organizationId)
     .maybeSingle();
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getMembershipRequired', error) };
   // P12: sin fila, ENCENDIDO por defecto — misma lectura que `checkAccess`.
   return { success: true as const, required: data?.required !== false };
 }
@@ -68,7 +70,7 @@ export async function setMembershipRequired(required: boolean) {
       organizationId: auth.user.organizationId,
     });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setMembershipRequired', error) };
 }
 
 /**
@@ -133,7 +135,7 @@ export async function setMemberAccess(studentId: string, status: AccessStatus) {
       );
     }
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setMemberAccess', error) };
 }
 
 async function avisaResolucion(organizationId: string, studentId: string, aceptado: boolean): Promise<void> {
@@ -172,7 +174,7 @@ export async function activateAllCurrentStudents() {
     .select('user_id')
     .eq('academy_id', organizationId)
     .limit(MAX_PERFILES);
-  if (leerMiembros) return { success: false as const, error: leerMiembros.message };
+  if (leerMiembros) return { success: false as const, error: fallo('activateAllCurrentStudents', leerMiembros) };
 
   const idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
   if (!idsAcademia.length) return { success: true as const, error: undefined, activados: 0 };
@@ -183,7 +185,7 @@ export async function activateAllCurrentStudents() {
     .eq('role', 'student')
     .in('id', idsAcademia)
     .limit(MAX_PERFILES);
-  if (leer) return { success: false as const, error: leer.message };
+  if (leer) return { success: false as const, error: fallo('activateAllCurrentStudents', leer) };
 
   const filas = (perfiles ?? []).map((p) => ({
     organization_id: organizationId,
@@ -205,7 +207,7 @@ export async function activateAllCurrentStudents() {
       organizationId,
     });
   }
-  return { success: !error, error: error?.message, activados: filas.length };
+  return { success: !error, error: fallo('activateAllCurrentStudents', error), activados: filas.length };
 }
 
 // ============================================================
@@ -231,7 +233,7 @@ export async function listExemptEmails(): Promise<
     .eq('organization_id', auth.user.organizationId)
     .order('email');
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('listExemptEmails', error) };
   return { success: true as const, emails: (data ?? []).map((f) => f.email as string) };
 }
 
@@ -258,7 +260,7 @@ export async function addExemptEmail(email: string) {
       organizationId: auth.user.organizationId,
     });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('addExemptEmail', error) };
 }
 
 export async function removeExemptEmail(email: string) {
@@ -283,7 +285,7 @@ export async function removeExemptEmail(email: string) {
       organizationId: auth.user.organizationId,
     });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('removeExemptEmail', error) };
 }
 
 // ============================================================
@@ -310,7 +312,7 @@ export async function inviteStudent(email: string): Promise<{ success: boolean; 
     .select('slug')
     .eq('id', organizationId)
     .maybeSingle();
-  if (acadErr) return { success: false, error: acadErr.message };
+  if (acadErr) return { success: false, error: fallo('inviteStudent', acadErr) };
   if (!academia) return { success: false, error: 'No se encuentra tu academia.' };
 
   const { data: perfilExistente, error: leer } = await supabaseAdmin
@@ -318,7 +320,7 @@ export async function inviteStudent(email: string): Promise<{ success: boolean; 
     .select('id')
     .ilike('email', correo)
     .maybeSingle();
-  if (leer) return { success: false, error: leer.message };
+  if (leer) return { success: false, error: fallo('inviteStudent', leer) };
 
   let perfil = perfilExistente;
   let invitada = false;
@@ -355,7 +357,7 @@ export async function inviteStudent(email: string): Promise<{ success: boolean; 
       organizationId,
     });
   }
-  return { success: !error, error: error?.message, invitada };
+  return { success: !error, error: fallo('inviteStudent', error), invitada };
 }
 
 
@@ -420,7 +422,8 @@ export async function altaMasivaAlumnos(params: {
             email: correo,
             password: clave,
             email_confirm: true,
-            user_metadata: { academia_slug: academia.slug },
+            // La marca que obliga a cambiarla en la primera entrada (regla 111).
+            user_metadata: { academia_slug: academia.slug, [META_CLAVE_PROVISIONAL]: true },
           });
           if (error || !data.user) throw new Error(error?.message ?? 'no se pudo crear la cuenta');
           userId = data.user.id;

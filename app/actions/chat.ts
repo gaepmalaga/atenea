@@ -301,7 +301,7 @@ export async function askAtenea(
   // Si la academia ha apagado Inteligencia, se corta AQUI: antes del
   // embedding y antes del modelo. Esconder el enlace del menu no impide que
   // nadie llame a esta accion, y cada mensaje son dos llamadas de pago (P4).
-  const modulo = await requireModule('chat');
+  const modulo = await requireModule('chat', auth.user.organizationId);
   if (!modulo.ok) return { success: false, error: modulo.error };
 
   // Cada mensaje son DOS llamadas de pago: el embedding de la busqueda y la

@@ -13,7 +13,8 @@ const usuario = { id: '11111111-2222-3333-4444-555555555555', email: 'gaepmalaga
 
 // ?vista=admin para el panel, ?vista=login para la puerta de entrada,
 // ?vista=carga para la pantalla de carga; por defecto, el alumno. Las otras
-// pantallas de entrada (regla 90): ?vista=clave, ?vista=academia y
+// pantallas de entrada (regla 90): ?vista=clave, ?vista=clave-provisional
+// (la del alta en bloque, regla 111), ?vista=academia y
 // ?vista=bloqueado. Con &avisos=no, el login sale sin el error y el aviso.
 const params = new URLSearchParams(location.search);
 const vista = params.get('vista');
@@ -47,6 +48,7 @@ createRoot(document.getElementById('raiz')!).render(
   : vista === 'login' ? <Entrada />
   : vista === 'carga' ? <PantallaCarga />
   : vista === 'clave' ? <SetPasswordScreen email="preparador@alphapol.es" onSubmit={() => console.log('clave')} cargando={false} error={null} />
+  : vista === 'clave-provisional' ? <SetPasswordScreen provisional email="alumno@correo.com" onSubmit={() => console.log('clave')} onLogout={() => console.log('logout')} cargando={false} error={null} />
   : vista === 'academia' ? <SelectAcademyScreen academias={[{ slug: 'alphapol', name: 'Alphapol' }, { slug: 'otra', name: 'Academia de prueba con un nombre largo' }]} email="alumno@correo.com" onLogout={() => console.log('logout')} />
   : vista === 'bloqueado' ? <AccessLocked motivo="pending" email="alumno@correo.com" onLogout={() => console.log('logout')} />
   : <StudentDashboard user={usuario as never} onLogout={() => console.log('logout')} />,

@@ -1,4 +1,4 @@
-# Traspaso — estado a 9 de noviembre de 2026
+# Traspaso — estado a 11 de noviembre de 2026
 
 Qué hay hecho, qué falta y cómo seguir. Las normas de trabajo están en
 [`CLAUDE.md`](../CLAUDE.md), y el porqué de cada regla en
@@ -89,10 +89,10 @@ Todo en producción y apuntado en `REGLAS.md`:
 
 ---
 
-## 2b · El panel nuevo y las cuotas (9 nov, en la rama de la sesión, sin desplegar)
+## 2b · El panel nuevo y las cuotas (9-10 nov, YA EN `main`)
 
-El rediseño del panel se hizo en la rama `claude/gifted-brahmagupta-3gzmoh` y
-se UNIÓ en `ccr-ef0cf392-7w3piz` con las cuotas. Reglas 101 a 104.
+El rediseño del panel y las cuotas están fusionados en `main` (pull requests
+22 a 26) y por tanto desplegados. Reglas 101 a 104 y 107.
 
 - **Rediseñado** (esquinas pequeñas, barra lateral, tablas que pasan a tarjetas
   en móvil, todo a 44 px): Alumnos, Grupos, Profesores, Asistencia, **Prep.
@@ -102,11 +102,14 @@ se UNIÓ en `ccr-ef0cf392-7w3piz` con las cuotas. Reglas 101 a 104.
   en «Grupos»), cada cobro es un recibo del libro con su método, y la caja sale
   del libro. El de la otra sesión (`pagos-contabilidad.sql`, método y recibo
   por mes) se retiró sin ejecutarse.
-- **Antes de desplegar:**
-  1. **Ejecutar [`docs/sql/pagos-cuotas.sql`](sql/pagos-cuotas.sql)** (con el
-     visto bueno del dueño). SIN ÉL, «Pagos» y «Grupos» fallan: piden columnas
-     y tablas que no existen. `schema.json` ya las trae (escritas a mano;
-     regenerarlo después con `node scripts/schema-snapshot.mjs`).
+- **Pendiente de confirmar con el dueño:**
+  1. **Que [`docs/sql/pagos-cuotas.sql`](sql/pagos-cuotas.sql) se ejecutó.**
+     El código que lo necesita ya está en producción: SIN ÉL, «Pagos» y
+     «Grupos» fallan (piden columnas y tablas que no existen). El commit
+     `ecfb153` dice «comprobado contra la base de datos real», pero desde la
+     sesión del 11 nov no había acceso a la BD para verlo. Se comprueba con
+     `scripts/nube/sql.sh "select count(*) from payment_entries"`, o abriendo
+     «Pagos»: si falla, ahora sale en «Logs» → «Fallos» (regla 108).
   2. Poner los precios en «Grupos» → «Tipos de grupo y precios».
   3. Mirar el panel en el móvil de verdad, sobre todo Pagos, Grupos y Prep.
      física.
@@ -125,15 +128,57 @@ y mes, con filtros por qué, grupo y profesor. No tiene tabla propia: sale del
 horario de los grupos, el cuadrante de física, los entrenos, los días sin
 clase y el examen.
 
-## 2d · Datos de demostración (10 nov, regla 106, en la rama, sin desplegar)
+## 2d · Datos de demostración (10 nov, regla 106, YA EN `main`)
 
 Tarjeta «Datos de demostración» en Ajustes: carga ~45 alumnos inventados con
 grupos, cuadrante, entrenos, marcas, asistencia y 6 meses de cobros, y los borra
 quitando exactamente lo que creó. **Antes de usarla:** ejecutar
 [`docs/sql/demo-registro.sql`](sql/demo-registro.sql) (una tabla nueva, con el
 visto bueno del dueño; `schema.json` ya la trae escrita a mano: regenerarlo
-después con `node scripts/schema-snapshot.mjs`) y desplegar. La primera carga
-de verdad la hace el dueño con el botón. Detalles y límites en la regla 106.
+después con `node scripts/schema-snapshot.mjs`). El código está desplegado;
+falta confirmar que el guion se ejecutó. La primera carga de verdad la hace el
+dueño con el botón. Detalles y límites en la regla 106.
+
+## 2e · Afianzar antes del piloto (11 nov, reglas 108 a 113, en la rama `claude/trusting-archimedes-air2im`, sin desplegar)
+
+Revisión entera del proyecto antes de meter alumnos de verdad. El plan
+acordado: **nada nuevo hasta afianzar lo que hay**; después, piloto con los
+alumnos veteranos y solo el test; luego física con ese grupo; luego toda la
+academia.
+
+| Qué | Regla |
+|---|---|
+| Next.js 16.1.6 → 16.4.6 (tenía avisos de seguridad, uno crítico); `npm audit` a cero | — |
+| Los errores de la BD ya no viajan al navegador; quedan en «Logs» → «Fallos» | 108 |
+| Los módulos se apagan por academia; `getGroups` y «Alumnos» acotados y paginados; fuera dos acciones sin uso que leían todas las academias | 109 |
+| El acierto lo calcula el servidor; guion del disparador para la BD | 110 |
+| La clave provisional del alta en bloque obliga a cambiarse; mínimo único de 8 | 111 |
+| Cabeceras de seguridad (política de contenido, sin marcos) | 112 |
+| Cada panel en su trozo: el JavaScript mayor baja de 1,09 MB a 359 KB | 113 |
+| Fuera `reseed-demo.yml`: se lanzaba cada noche contra un guion que ya no existe | — |
+
+**Probado:** `npm run check` (1.471 tests), `npm run build`, la entrada en un
+navegador con las cabeceras puestas (sin avisos en la consola), «Logs» y la
+pantalla de clave en el banco de pruebas, y el disparador en un Postgres local.
+
+**SIN probar contra la base de datos real** (la sesión no tenía acceso):
+la consulta nueva de `class_members` del panel «Alumnos» (usa el mismo
+`class_groups!inner` que ya usa `fisica.ts`), que un fallo de verdad llegue a
+«Logs», y el cambio de clave provisional con una cuenta creada por el alta en
+bloque. **Hay que mirarlo antes de desplegar.**
+
+**Antes de desplegar esta rama:**
+
+1. Ejecutar [`docs/sql/acierto-lo-decide-el-servidor.sql`](sql/acierto-lo-decide-el-servidor.sql)
+   (un disparador; no cambia filas ni columnas). La aplicación funciona igual
+   sin él, pero sin él un alumno puede seguir escribiendo `is_correct` contra
+   la API de Supabase con su propio token.
+2. En Supabase, subir el mínimo de la contraseña a 8 (regla 111).
+3. Un alta en bloque de una cuenta de prueba, entrar con la clave provisional
+   y ver que obliga a cambiarla. Borrar la cuenta después.
+4. Apagar y encender un módulo en «Ajustes» y ver que el alumno lo nota. Los
+   interruptores que ya estuvieran apagados siguen valiendo (son la fila de la
+   plataforma); lo que el admin toque desde ahora es de su academia.
 
 ## 3 · Lo que falta
 
@@ -153,9 +198,16 @@ de verdad la hace el dueño con el botón. Detalles y límites en la regla 106.
    `public/marca/alphapol-{isotipo,logotipo,nombre}.svg` y se regeneran los
    iconos con `node scripts/marca/iconos.mjs` (regla 88).
 4. **Decisiones aplazadas por el dueño:**
-   - **Planes de pago.** Vercel Pro: el plan Hobby no admite uso comercial.
-     Supabase Pro: el Free no hace copias de seguridad (un grupo borrado sin
-     querer el 6 nov no se pudo recuperar) y limita a 30 correos por hora.
+   - **Planes de pago y cuentas propias de Alphapol.** Vercel Pro: el plan
+     Hobby no admite uso comercial. Supabase Pro: el Free no hace copias de
+     seguridad (un grupo borrado sin querer el 6 nov no se pudo recuperar) y
+     limita a 30 correos por hora. **No hay que migrar nada a mano:** los dos
+     servicios dejan TRANSFERIR el proyecto a otra organización o equipo
+     (Supabase: *Project Settings → General → Transfer project*; Vercel:
+     *Settings → General → Transfer*). El proyecto conserva su URL, sus claves
+     y sus datos. Orden: Alphapol crea su organización y su equipo con el plan
+     Pro, invita al dueño actual, y se transfiere. Leer la página de ayuda de
+     cada uno ese día: las condiciones cambian.
    - Las cuentas reales de los alumnos (con «Alta en bloque»).
    - Las preguntas propias de Alphapol.
    - Precios, contrato y RGPD.
@@ -181,14 +233,23 @@ de verdad la hace el dueño con el botón. Detalles y límites en la regla 106.
 - **`prueba.entreno` se creó con SQL** (regla 98): desde la nube no se pudo
   probar a entrar con ella. Si no entra, `npm run cuenta -- prueba.entreno@alphapol.es 'clave' student`
   desde un ordenador le pone la contraseña.
-- **`getGroups` lee `class_members` y `class_group_staff` de TODAS las
-  academias** (sin `organization_id` en la consulta, regla 65) y sin paginar:
-  hoy hay una sola academia y pocos alumnos; con ~100 alumnos en varios grupos
-  conviene acotarlo y paginarlo.
 - **Regla 79, abierto:** pulsar «Generar» dos veces deja dos planes de IA
   activos. Hoy no afecta: la IA de física está apagada para Alphapol.
 - **P11h** (elegir academia si una cuenta está en varias): no hace falta con
   una sola academia.
+
+- **Ideas habladas con el dueño (11 nov), para DESPUÉS del piloto:** perfil
+  del alumno editable (nombre, teléfono, foto), informes semanales, señales de
+  abandono más finas, exámenes a PDF, y psicotécnicos (los verbales y
+  numéricos caben como un bloque más del banco con reloj por pregunta; los de
+  figuras piden preguntas con imagen generada por código). Antes, ver la
+  plataforma que usa hoy la academia.
+- **Preguntas del temario propio de Alphapol:** generarlas fuera de la
+  aplicación y meterlas por la importación que ya valida
+  (`importManualQuestions`, regla 27) hacia moderación.
+- **RGPD:** contrato de encargado de tratamiento antes de cargar los correos
+  de los alumnos.
+- **`ActiveTest.tsx` (1.293 líneas)** sin partir, a propósito (regla 113).
 
 ### 3c · Sin probar con uso real
 

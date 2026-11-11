@@ -18,6 +18,8 @@
  * páginas — el propio caller inyecta cómo se pide cada página.
  */
 
+import { fallo } from './fallos';
+
 export type ResultadoPagina<T> = { data: T[] | null; error: { message: string } | null };
 
 export async function paginaCompleta<T>(
@@ -31,7 +33,9 @@ export async function paginaCompleta<T>(
   let desde = 0;
   while (desde < TOPE) {
     const { data, error } = await pedirPagina(desde, desde + TAMANIO - 1);
-    if (error) return { data: todas, error: error.message };
+    // Lo que sale de aquí acaba en el navegador: va el mensaje corto, y el de
+    // Postgres queda en «Logs» (regla 108).
+    if (error) return { data: todas, error: fallo('paginaCompleta', error) };
 
     const fila = data ?? [];
     todas.push(...fila);

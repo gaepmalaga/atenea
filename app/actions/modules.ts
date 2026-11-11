@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from './core';
 import { requireAdmin, requireUser } from '../lib/auth';
-import { isModuleId, type ModuleSettings } from '../lib/modules';
+import { isModuleId, moduleRowId, type ModuleSettings } from '../lib/modules';
 import { leeModuleSettings, olvidaModuleSettings } from '../lib/module-guard';
 import { leeTrainingSwitches, olvidaTrainingSwitches, esAcademiaCasa } from '../lib/training-switch-guard';
 import {
@@ -12,6 +12,7 @@ import {
   type TrainingSwitches,
 } from '../lib/training-switches';
 import { registraAccion } from '../lib/admin-audit';
+import { fallo } from '../lib/fallos';
 
 /**
  * Encender y apagar modulos (P4).
@@ -33,7 +34,7 @@ export async function getModuleSettings(): Promise<
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  return { success: true as const, settings: await leeModuleSettings() };
+  return { success: true as const, settings: await leeModuleSettings(auth.user.organizationId) };
 }
 
 export async function setModuleEnabled(input: unknown): Promise<{ success: boolean; error?: string }> {
@@ -44,9 +45,17 @@ export async function setModuleEnabled(input: unknown): Promise<{ success: boole
   if (!isModuleId(d.moduleId)) return { success: false, error: 'Ese módulo no existe.' };
   if (typeof d.enabled !== 'boolean') return { success: false, error: 'Falta el estado.' };
 
+  // POR ACADEMIA (regla 109). El admin escribe la fila de SU academia
+  // (`test:<uuid>`); antes escribía la única que había, y apagar «Test» en
+  // una academia se lo apagaba a todas. La fila de la plataforma solo la
+  // toca el superadmin, que no tiene academia.
+  const organizationId = auth.user.organizationId;
+  const fila = organizationId ? moduleRowId(d.moduleId, organizationId) : d.moduleId;
+
   const { error } = await supabaseAdmin.from('module_settings').upsert(
     {
-      module_id: d.moduleId,
+      module_id: fila,
+      organization_id: organizationId,
       enabled: d.enabled,
       updated_at: new Date().toISOString(),
       updated_by: auth.user.id,
@@ -64,10 +73,11 @@ export async function setModuleEnabled(input: unknown): Promise<{ success: boole
       action: 'set_module_enabled',
       target: d.moduleId,
       detail: { enabled: d.enabled },
+      organizationId,
     });
   }
 
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setModuleEnabled', error) };
 }
 
 /**
@@ -146,5 +156,5 @@ export async function setTrainingSwitch(input: unknown): Promise<{ success: bool
     });
   }
 
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setTrainingSwitch', error) };
 }

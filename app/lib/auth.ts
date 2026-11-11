@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from './supabase/server';
 import { decideAccess, type AccessDecision, type MembershipRow } from './membership';
 import { ACADEMIA_COOKIE } from './academies';
 import { resolveFirstContact } from './registration-requests';
+import { tieneClaveProvisional } from './clave';
 
 export type AuthUser = {
   id: string;
@@ -26,6 +27,12 @@ export type AuthUser = {
    * un `admin` ni a un `student` con acceso `ok`.
    */
   organizationId: string | null;
+  /**
+   * Sigue con la contraseña provisional que le dio la academia en el alta en
+   * bloque (regla 111): la aplicación solo le enseña la pantalla de poner una
+   * suya.
+   */
+  debeCambiarClave: boolean;
 };
 
 export const NOT_ACTIVE_MEMBER =
@@ -137,6 +144,7 @@ export async function getSessionUser(): Promise<AuthUser | null> {
     role,
     organizationId,
     access,
+    debeCambiarClave: tieneClaveProvisional(data.user.user_metadata),
   };
 }
 

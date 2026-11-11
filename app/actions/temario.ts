@@ -2,6 +2,7 @@
 import { supabaseAdmin as supabase, getSubjectIdByName } from './core';
 import { requireUser } from '../lib/auth';
 import { numeroDeArticulo } from '../lib/chat';
+import { fallo } from '../lib/fallos';
 
 /**
  * LEER EL ARTÍCULO — la intervención de verdad para una pregunta atascada.
@@ -56,7 +57,7 @@ export async function getArticulo(params: {
 
   if (error) {
     console.error('getArticulo:', error.message);
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('getArticulo', error) };
   }
 
   type Fila = { reference: string | null; content_chunk: string | null; documents: { filename: string | null } | { filename: string | null }[] | null };
