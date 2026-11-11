@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fallo, MENSAJE_FALLO, yaRegistrado, olvidaFallos, detalleDeFallo } from '../app/lib/fallos';
 import { corrigeFila, BLANK_INDEX } from '../app/lib/exam-results';
 import { toModuleSettings, moduleRowId } from '../app/lib/modules';
+import { mensajeDeAuth } from '../app/lib/auth-messages';
 import { MIN_CLAVE, tieneClaveProvisional, problemaDeClave, META_CLAVE_PROVISIONAL } from '../app/lib/clave';
 
 /**
@@ -182,6 +183,11 @@ describe('regla 111 · la contraseña provisional se cambia al entrar', () => {
     for (const f of ['app/components/auth/LoginScreen.tsx', 'app/components/auth/SetPasswordScreen.tsx', 'app/components/student/CambiarClave.tsx', 'app/lib/auth-messages.ts']) {
       expect(lee(f), f).not.toMatch(/6 caracteres|length < 6|MIN_CLAVE = /);
     }
+  });
+
+  it('repetir la provisional se explica en castellano', () => {
+    expect(mensajeDeAuth(new Error('New password should be different from the old password.')))
+      .toBe('Esa es la contraseña que ya tenías. Pon una distinta.');
   });
 
   it('la marca solo vale si es `true`', () => {

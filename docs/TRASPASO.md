@@ -159,12 +159,6 @@ academia.
 navegador con las cabeceras puestas (sin avisos en la consola), «Logs» y la
 pantalla de clave en el banco de pruebas, y el disparador en un Postgres local.
 
-**SIN probar contra la base de datos real** (la sesión no tenía acceso):
-la consulta nueva de `class_members` del panel «Alumnos» (usa el mismo
-`class_groups!inner` que ya usa `fisica.ts`), que un fallo de verdad llegue a
-«Logs», y el cambio de clave provisional con una cuenta creada por el alta en
-bloque. **Hay que mirarlo antes de desplegar.**
-
 **Hecho en la base de datos real el 11 nov** (con el visto bueno del dueño):
 
 - Ejecutado [`docs/sql/acierto-lo-decide-el-servidor.sql`](sql/acierto-lo-decide-el-servidor.sql).
@@ -176,19 +170,31 @@ bloque. **Hay que mirarlo antes de desplegar.**
   existen `payment_entries`, `fee_packs`, `receipt_counters`, `demo_registro`,
   `group_kinds.price_eur` y las tres funciones de cobro.
 
-**Antes de desplegar esta rama** (aplazado por el dueño, «más adelante»):
+**Probado el 11 nov en la app local contra la base de datos real**, con dos
+cuentas temporales que se borraron al terminar (no quedó nada):
 
-1. Un alta en bloque de una cuenta de prueba, entrar con la clave provisional
-   y ver que obliga a cambiarla. Borrar la cuenta después.
-2. Apagar y encender un módulo en «Ajustes» y ver que el alumno lo nota. Los
-   interruptores que ya estuvieran apagados siguen valiendo (son la fila de la
-   plataforma); lo que el admin toque desde ahora es de su academia.
-3. Abrir «Alumnos» y «Grupos» (llevan consulta nueva) y provocar un fallo
-   para verlo en «Logs».
+- «Alumnos» y «Grupos» cargan con la consulta nueva (45 alumnos de
+  demostración con sus grupos).
+- Un fallo provocado (una columna inventada, solo en local) enseña el mensaje
+  corto, no el de Postgres, y sale en «Logs» → «Fallos» con quién, dónde y el
+  código. Repetido, se guardó una sola vez.
+- El alta en bloque crea la cuenta con la marca; al entrar con la clave
+  provisional solo se ve «Elige tu contraseña»; repetir la provisional se
+  rechaza (aviso traducido); con una nueva se entra y ya no la vuelve a pedir.
+- «Ajustes» lee bien los interruptores (Fichas apagado, como en la BD).
+
+**Lo único sin probar:** APAGAR un módulo desde «Ajustes» y ver que el alumno
+lo nota. No se hizo porque apaga el módulo en producción mientras dura la
+prueba; la lógica está cubierta por tests (`afianzar.test.ts`, regla 109).
+Conviene hacerlo una vez a mano al preparar el piloto.
+
+**La rama está lista para desplegar** cuando el dueño lo pida.
 
 **El entorno de la nube `atenea-lectura-web`** tiene desde el 11 nov el token
 de gestión de Supabase como secreto de red: `scripts/nube/sql.sh` funciona
-desde él. `ejecutar-sql.mjs` necesita además
+desde él, y tiene permitido el host del proyecto
+(`ecupmlqimmpybbrlrmpx.supabase.co`), así que `arrancar-local.sh` también.
+`ejecutar-sql.mjs` necesita además
 `NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co` delante.
 
 ## 3 · Lo que falta

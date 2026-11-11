@@ -42,6 +42,11 @@ const TRADUCCIONES: ReadonlyArray<readonly [string, string]> = [
     'already been registered',
     'Ya hay una cuenta con ese correo. Cambia a «Entrar» para iniciar sesión.',
   ],
+  // Al cambiar la provisional del alta en bloque por ella misma (regla 111).
+  [
+    'should be different from the old password',
+    'Esa es la contraseña que ya tenías. Pon una distinta.',
+  ],
   [
     'password should be at least',
     `La contraseña es demasiado corta: necesita al menos ${MIN_CLAVE} caracteres.`,

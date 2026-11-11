@@ -66,3 +66,6 @@ temario/fuentes/BOE-*.json
 
 # guiones de siembra locales del piloto (contienen credenciales de prueba)
 scripts/_*.mjs
+
+# Lo escribe `next dev` (Next 16.4) en la raíz al arrancar: no es del proyecto.
+/AGENTS.md
