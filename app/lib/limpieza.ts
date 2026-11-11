@@ -56,6 +56,7 @@ export const TABLAS_POR_USUARIO = [
   'training_sessions',
   'training_week_notes',
   'physical_marks',
+  'psico_sessions',
   'rm_marks',
   'class_members',
   // Los cobros de una cuenta de prueba (regla 104). Los de un alumno de verdad
@@ -102,6 +103,7 @@ export const TABLAS_POR_ACADEMIA = [
   'class_week_publications',
   'session_templates',
   'physical_marks',
+  'psico_sessions',
   'rm_marks',
   // Los packs de precios (regla 102) nombran tipos de grupo: antes que ellos.
   'fee_packs',

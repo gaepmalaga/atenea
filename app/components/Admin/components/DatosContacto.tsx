@@ -47,7 +47,7 @@ export default function DatosContacto({
     return (
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {datos?.telefono ? (
-          <a href={`tel:${datos.telefono}`} className="inline-flex min-h-[44px] items-center gap-2 rounded-[7px] border border-linea px-3 text-sm font-semibold text-indigo-900 hover:bg-indigo-50 dark:border-noche-linea dark:text-indigo-200 dark:hover:bg-indigo-500/10">
+          <a href={`tel:${datos.telefono}`} className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-linea px-3 text-sm font-semibold text-indigo-900 hover:bg-indigo-50 dark:border-noche-linea dark:text-indigo-200 dark:hover:bg-indigo-500/10">
             <Phone size={15} aria-hidden /> {telefonoLegible(datos.telefono)}
           </a>
         ) : (

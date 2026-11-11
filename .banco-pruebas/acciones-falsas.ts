@@ -1336,3 +1336,40 @@ export async function getDatosAlumnos() { return ok({ datos: {} as Record<string
 export async function setDatosAlumno(d: { nombre?: string; telefono?: string }) {
   return ok({ datos: { nombre: d?.nombre || null, telefono: d?.telefono || null, fotoUrl: null } });
 }
+
+// ---------- Exámenes en papel (regla 115) ----------
+export async function getExamenImprimible(d: { preguntas?: number }) {
+  const n = d?.preguntas ?? 100;
+  return ok({
+    corto: false,
+    preguntas: Array.from({ length: n }, (_, i) => ({
+      enunciado: `Según el artículo ${i + 1} de la Constitución Española, ¿cuál de las siguientes afirmaciones es correcta?`,
+      opciones: ['La primera opción.', 'La segunda opción, que es bastante más larga que las otras dos y obliga a partir la línea.', 'La tercera opción.'],
+      correcta: i % 3,
+      tema: TEMAS[i % TEMAS.length],
+    })),
+  });
+}
+
+// ---------- Informe semanal (regla 116) ----------
+export async function getInformeSemanal() {
+  const fila = (id: string, nombre: string, contestadas: number, anteriores: number, acierto: number | null, nivel: 'alto' | 'medio' | 'bajo', motivos: string[]) => ({
+    id, nombre, email: `${nombre.toLowerCase().replace(/ /g, '.')}@correo.com`, contestadas, anteriores, mediaPrevia: anteriores,
+    acierto, aciertoPrevio: acierto, diasActivos: contestadas ? 4 : 0, simulacros: contestadas > 100 ? 1 : 0,
+    diasSinActividad: contestadas ? 1 : 16, riesgo: { nivel, puntos: nivel === 'alto' ? 85 : nivel === 'medio' ? 40 : 0, motivos },
+  });
+  return ok({
+    semanas: { actual: '2026-11-09', anterior: '2026-11-02' },
+    informe: {
+      semana: '2026-11-02', hasta: '2026-11-08', enCurso: false,
+      academia: { alumnos: 5, activos: 3, contestadas: 612, contestadasAnterior: 840, acierto: 71, simulacros: 2, riesgoAlto: 2, riesgoMedio: 1 },
+      filas: [
+        fila('i1', 'Marcos Gil', 0, 210, null, 'alto', ['Lleva 16 días sin contestar', 'Ha hecho 0 preguntas; venía haciendo unas 210 a la semana']),
+        fila('i2', 'Sara Vidal', 0, 0, null, 'alto', ['No ha empezado: lleva 12 días de alta sin contestar nada']),
+        fila('i3', 'Iván Soto', 62, 190, 58, 'medio', ['Ha hecho 62 preguntas; venía haciendo unas 190 a la semana', 'El acierto ha bajado del 71 % al 58 %']),
+        fila('i4', 'Lucía Moreno', 310, 280, 78, 'bajo', []),
+        fila('i5', 'Pablo Ruiz', 240, 160, 69, 'bajo', []),
+      ],
+    },
+  });
+}
