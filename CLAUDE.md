@@ -15,6 +15,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 | [`docs/REGLAS.md`](docs/REGLAS.md) | El porqué de cada regla de la tabla de abajo. **No lo leas entero:** busca `### N ·` de la zona que toques |
 | `supabase/schema.json` | El esquema REAL. Míralo antes de tocar cualquier tabla |
 | [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) | El plan de producto (P1-P15). Casi todo hecho; consultar antes de abrir una fase |
+| [`docs/HOJA-DE-RUTA.md`](docs/HOJA-DE-RUTA.md) | El piloto con Alphapol: fases, mejoras propuestas y tareas pendientes (nada implementado aún) |
 | [`docs/HISTORIAL.md`](docs/HISTORIAL.md) | La tabla de estado de fase en fase (ago-nov 2026). Solo si hace falta saber cuándo se hizo algo |
 | [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) | Las pantallas en un navegador de verdad, sin BD |
 

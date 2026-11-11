@@ -190,6 +190,12 @@ de verdad la hace el dueño con el botón. Detalles y límites en la regla 106.
 - **P11h** (elegir academia si una cuenta está en varias): no hace falta con
   una sola academia.
 
+### 3b bis · El piloto con Alphapol
+
+Propuesto, **nada implementado**: [`HOJA-DE-RUTA.md`](HOJA-DE-RUTA.md) (fases del
+lanzamiento, perfil editable, canal de comentarios, preguntas con su temario
+y menú de mejoras).
+
 ### 3c · Sin probar con uso real
 
 - **El panel «Alumnos» con ~100 alumnos de verdad.** Las cuentas las hace la
