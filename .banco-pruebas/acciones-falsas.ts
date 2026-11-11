@@ -1323,3 +1323,16 @@ export async function borraDemoPaso(input: { confirmacion: string }) {
   estadoDemo = { hay: false, periodo: null, filas: 0, cuentas: 0, completa: false, hechas: 0, tandas: TOTAL_TANDAS_DEMO };
   return ok({ hecho: true, borradas: 1_989, avisos: ['Hay 1 cobro que no es de la demo: el contador de recibos NO se toca y habrá un hueco en la numeración.'] });
 }
+
+// ---------- Los datos del alumno (regla 114) ----------
+const DATOS_FALSOS = { nombre: 'Lucía Moreno Cano', telefono: '600123456', fotoUrl: null as string | null };
+export async function getMisDatos() { return ok({ datos: DATOS_FALSOS }); }
+export async function saveMisDatos(d: { nombre?: string; telefono?: string }) {
+  return ok({ datos: { ...DATOS_FALSOS, nombre: d?.nombre || null, telefono: d?.telefono || null } });
+}
+export async function saveMiFoto(dataUrl: string) { return ok({ fotoUrl: dataUrl }); }
+export async function quitaMiFoto() { return ok({}); }
+export async function getDatosAlumnos() { return ok({ datos: {} as Record<string, typeof DATOS_FALSOS> }); }
+export async function setDatosAlumno(d: { nombre?: string; telefono?: string }) {
+  return ok({ datos: { nombre: d?.nombre || null, telefono: d?.telefono || null, fotoUrl: null } });
+}

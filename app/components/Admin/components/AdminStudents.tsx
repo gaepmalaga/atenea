@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   getAcademyOverview, getStudentDetail,
-  setMemberAccess, activateAllCurrentStudents, setStudentGroups, inviteStudent,
+  setMemberAccess, activateAllCurrentStudents, setStudentGroups, inviteStudent, getDatosAlumnos,
 } from '@/actions';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno } from '@/app/lib/academy';
@@ -16,6 +16,8 @@ import { ERROR_LABELS } from '@/app/lib/stats';
 import { formateaPeriodo } from '@/app/lib/payments';
 import { fraseDudosas, umbralEnTexto, porcentajeEnTexto, netoEnTexto } from '@/app/lib/dudosas';
 import AltaMasiva from './AltaMasiva';
+import DatosContacto from './DatosContacto';
+import { nombreVisible, type DatosAlumno } from '@/app/lib/perfil-alumno';
 import { Hoja, BloqueTitulo, Boton, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, Estado, Dato, Avatar, TablaDual, inicialesDeCorreo, nombreDeCorreo, type Tono } from '../../ui';
 
 /**
@@ -59,10 +61,15 @@ export default function AdminStudents() {
   const [correoInvitar, setCorreoInvitar] = useState('');
   const [avisoInvitar, setAvisoInvitar] = useState<string | null>(null);
 
+  // El nombre, el teléfono y la foto de verdad (regla 114), por id. Aparte del
+  // resumen: si faltan, la lista sale igual con el nombre deducido del correo.
+  const [datosAlumnos, setDatosAlumnos] = useState<Record<string, DatosAlumno>>({});
+
   const recargar = useCallback(async () => {
-    const res = await getAcademyOverview();
+    const [res, personales] = await Promise.all([getAcademyOverview(), getDatosAlumnos()]);
     if (res.success) setDatos(res.data);
     else setError(res.error);
+    if (personales.success) setDatosAlumnos(personales.datos);
     setCargando(false);
   }, []);
 
@@ -125,7 +132,9 @@ export default function AdminStudents() {
     : alumnos.filter((a) => a.grupos.some((g) => g.id === filtroGrupo));
 
   const q = busqueda.trim().toLowerCase();
-  const porBusqueda = q ? porGrupo.filter((a) => (a.email ?? '').toLowerCase().includes(q)) : porGrupo;
+  const porBusqueda = q
+    ? porGrupo.filter((a) => (a.email ?? '').toLowerCase().includes(q) || (datosAlumnos[a.id]?.nombre ?? '').toLowerCase().includes(q))
+    : porGrupo;
 
   // Los suspendidos se recogen aparte: ya es una decisión tomada, no alguien
   // a quien llamar — sin este corte, un piloto de meses acumula alumnos de
@@ -147,7 +156,7 @@ export default function AdminStudents() {
     return (
       <div className="space-y-5 animate-in fade-in pb-24">
         <Atras onClick={() => { setAbierto(null); setFicha(null); }}>Alumnos</Atras>
-        <FichaAlumno a={fa} grupos={grupos} periodo={periodoActual} ficha={ficha} cargandoFicha={cargandoFicha} busy={busy} onAccion={accion} />
+        <FichaAlumno a={fa} personales={datosAlumnos[fa.id]} onPersonales={(d) => setDatosAlumnos((prev) => ({ ...prev, [fa.id]: d }))} grupos={grupos} periodo={periodoActual} ficha={ficha} cargandoFicha={cargandoFicha} busy={busy} onAccion={accion} />
       </div>
     );
   }
@@ -227,7 +236,7 @@ export default function AdminStudents() {
       {/* --- BUSCADOR Y FILTRO POR GRUPO --- */}
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[14rem] flex-1">
-          <Campo type="search" aria-label="Buscar por correo" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por correo" />
+          <Campo type="search" aria-label="Buscar por nombre o correo" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre o correo" />
         </div>
         {grupos.length > 0 && (
           <div className="w-full sm:w-64">
@@ -257,9 +266,9 @@ export default function AdminStudents() {
         columnas={[
           { id: 'alumno', titulo: 'Alumno', celda: (a) => (
             <div className="flex min-w-0 items-center gap-3">
-              <Avatar iniciales={inicialesDeCorreo(a.email)} />
+              <Avatar iniciales={inicialesDeCorreo(a.email)} foto={datosAlumnos[a.id]?.fotoUrl} />
               <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-900 dark:text-white">{nombreDeCorreo(a.email) || a.id}</p>
+                <p className="truncate font-semibold text-slate-900 dark:text-white">{nombreVisible(datosAlumnos[a.id]?.nombre, a.email) || a.id}</p>
                 <p className="truncate text-xs text-slate-600 dark:text-slate-400">{a.email ?? a.id}</p>
                 {a.grupos.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{a.grupos.map((g) => <Dato key={g.id}>{g.name}</Dato>)}</div>}
               </div>
@@ -378,9 +387,11 @@ const TONO_ACCESO: Record<FilaAlumno['acceso'], Tono> = { active: 'ok', pending:
  * falla. Va a pantalla completa, con su flecha para volver a la lista.
  */
 function FichaAlumno({
-  a, grupos, periodo, ficha, cargandoFicha, busy, onAccion,
+  a, personales, onPersonales, grupos, periodo, ficha, cargandoFicha, busy, onAccion,
 }: {
   a: FilaAlumno;
+  personales: DatosAlumno | undefined;
+  onPersonales: (d: DatosAlumno) => void;
   grupos: { id: string; name: string; kind: string }[];
   periodo: string;
   ficha: StudentDetail | null;
@@ -395,10 +406,11 @@ function FichaAlumno({
   return (
     <>
       <div className="flex flex-wrap items-center gap-4">
-        <Avatar size="lg" iniciales={inicialesDeCorreo(a.email)} />
+        <Avatar size="lg" iniciales={inicialesDeCorreo(a.email)} foto={personales?.fotoUrl} />
         <div className="min-w-0 flex-1">
-          <h2 className="font-titulo text-3xl font-bold uppercase leading-none tracking-wide">{nombreDeCorreo(a.email) || a.id}</h2>
+          <h2 className="font-titulo text-3xl font-bold uppercase leading-none tracking-wide">{nombreVisible(personales?.nombre, a.email) || a.id}</h2>
           <p className="mt-1 break-all text-sm text-slate-600 dark:text-slate-400">{a.email ?? a.id}</p>
+          <DatosContacto alumnoId={a.id} datos={personales} onGuardado={onPersonales} />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Estado tono={TONO_ESTADO[a.estado]}>{ESTADO_ALUMNO_LABEL[a.estado]}</Estado>
             <Etiqueta tono={TONO_ACCESO[a.acceso]}>{ACCESO_BADGE[a.acceso].label}</Etiqueta>
@@ -418,7 +430,7 @@ function FichaAlumno({
             <Boton variant="danger" disabled={busy} onClick={() => {
               // Suspender deja al alumno fuera en ese momento: un toque sin
               // querer en el móvil no puede bastar.
-              const quien = nombreDeCorreo(a.email) || a.email || 'este alumno';
+              const quien = nombreVisible(personales?.nombre, a.email) || a.email || 'este alumno';
               if (confirm(a.acceso === 'pending' ? `¿Rechazar la solicitud de ${quien}?` : `¿Suspender a ${quien}? Deja de poder entrar hasta que le vuelvas a dar acceso.`)) {
                 onAccion(() => setMemberAccess(a.id, 'suspended'));
               }

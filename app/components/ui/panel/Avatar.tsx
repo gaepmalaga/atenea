@@ -1,9 +1,22 @@
+'use client';
+
+import { useState } from 'react';
 import { cx } from '../tokens';
 
 const TAM = { sm: 'h-[26px] w-[26px] text-xs', md: 'h-[34px] w-[34px] text-[15px]', lg: 'h-14 w-14 text-2xl' } as const;
 
-/** Las iniciales dentro de un círculo azul suave. */
-export default function Avatar({ iniciales, size = 'md' }: { iniciales: string; size?: keyof typeof TAM }) {
+/**
+ * Las iniciales dentro de un círculo azul suave; o la foto del alumno, si la
+ * ha puesto (regla 114). Si la foto no carga, vuelven las iniciales.
+ */
+export default function Avatar({ iniciales, size = 'md', foto }: { iniciales: string; size?: keyof typeof TAM; foto?: string | null }) {
+  const [rota, setRota] = useState(false);
+  if (foto && !rota) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={foto} alt="" aria-hidden onError={() => setRota(true)} className={cx('shrink-0 rounded-full object-cover', TAM[size])} />
+    );
+  }
   return (
     <span
       aria-hidden
