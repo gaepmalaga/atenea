@@ -31,7 +31,7 @@
 -- No cambia ninguna fila que ya exista ni ninguna columna: es idempotente y se
 -- puede ejecutar las veces que haga falta.
 --
--- PROBADO en un Postgres 16 local con los ocho casos de abajo (11 nov 2026).
+-- PROBADO en un Postgres 16 local, y EJECUTADO en producción el 11 nov 2026.
 -- =============================================================================
 
 create or replace function public.corrige_respuesta()

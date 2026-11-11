@@ -4434,7 +4434,9 @@ el segundo necesita el proyecto real.
   así que podía escribir `is_correct` contra la API de Supabase con su propio
   token, sin pasar por la aplicación. El disparador recalcula al insertar y
   congela `is_correct`, `selected_index` y `question_id` al actualizar; con la
-  clave de servicio o SQL a mano no actúa. Probado en un Postgres local.
+  clave de servicio o SQL a mano no actúa. Probado en un Postgres local y,
+  ya ejecutado en producción (11 nov), como alumno dentro de una transacción
+  que se deshizo.
 - **Lo que NO cierra:** la respuesta correcta sigue viajando con la pregunta
   (el entrenamiento la enseña al contestar). Mirarla es copiar en un examen
   de práctica: se engaña el alumno. Lo que ya no puede es falsear lo guardado.
@@ -4451,8 +4453,8 @@ el segundo necesita el proyecto real.
   otro texto y un «Salir»). Al guardar, la contraseña y la marca van en la
   misma llamada.
 - El mínimo es `MIN_CLAVE` (8), en `app/lib/clave.ts`, para todas las
-  pantallas. **Falta ponerlo también en Supabase** (*Authentication → Sign In
-  / Providers → Email → Minimum password length*): hoy admite 6.
+  pantallas, y también en Supabase Auth (`password_min_length`, puesto a 8 el
+  11 nov por la API de gestión).
 - **Límite:** las cuentas creadas ANTES de esta regla no llevan la marca. Hoy
   no hay ninguna de alumno real.
 

@@ -102,14 +102,12 @@ El rediseño del panel y las cuotas están fusionados en `main` (pull requests
   en «Grupos»), cada cobro es un recibo del libro con su método, y la caja sale
   del libro. El de la otra sesión (`pagos-contabilidad.sql`, método y recibo
   por mes) se retiró sin ejecutarse.
-- **Pendiente de confirmar con el dueño:**
-  1. **Que [`docs/sql/pagos-cuotas.sql`](sql/pagos-cuotas.sql) se ejecutó.**
+- **Lo que queda:**
+  1. **[`docs/sql/pagos-cuotas.sql`](sql/pagos-cuotas.sql) está ejecutado.**
      El código que lo necesita ya está en producción: SIN ÉL, «Pagos» y
      «Grupos» fallan (piden columnas y tablas que no existen). El commit
      `ecfb153` dice «comprobado contra la base de datos real», pero desde la
-     sesión del 11 nov no había acceso a la BD para verlo. Se comprueba con
-     `scripts/nube/sql.sh "select count(*) from payment_entries"`, o abriendo
-     «Pagos»: si falla, ahora sale en «Logs» → «Fallos» (regla 108).
+     **Confirmado el 11 nov contra la base de datos real: está aplicado.**
   2. Poner los precios en «Grupos» → «Tipos de grupo y precios».
   3. Mirar el panel en el móvil de verdad, sobre todo Pagos, Grupos y Prep.
      física.
@@ -135,8 +133,8 @@ grupos, cuadrante, entrenos, marcas, asistencia y 6 meses de cobros, y los borra
 quitando exactamente lo que creó. **Antes de usarla:** ejecutar
 [`docs/sql/demo-registro.sql`](sql/demo-registro.sql) (una tabla nueva, con el
 visto bueno del dueño; `schema.json` ya la trae escrita a mano: regenerarlo
-después con `node scripts/schema-snapshot.mjs`). El código está desplegado;
-falta confirmar que el guion se ejecutó. La primera carga de verdad la hace el
+después con `node scripts/schema-snapshot.mjs`). El código está desplegado y
+el guion, ejecutado (confirmado el 11 nov). La primera carga de verdad la hace el
 dueño con el botón. Detalles y límites en la regla 106.
 
 ## 2e · Afianzar antes del piloto (11 nov, reglas 108 a 113, en la rama `claude/trusting-archimedes-air2im`, sin desplegar)
@@ -167,18 +165,31 @@ la consulta nueva de `class_members` del panel «Alumnos» (usa el mismo
 «Logs», y el cambio de clave provisional con una cuenta creada por el alta en
 bloque. **Hay que mirarlo antes de desplegar.**
 
-**Antes de desplegar esta rama:**
+**Hecho en la base de datos real el 11 nov** (con el visto bueno del dueño):
 
-1. Ejecutar [`docs/sql/acierto-lo-decide-el-servidor.sql`](sql/acierto-lo-decide-el-servidor.sql)
-   (un disparador; no cambia filas ni columnas). La aplicación funciona igual
-   sin él, pero sin él un alumno puede seguir escribiendo `is_correct` contra
-   la API de Supabase con su propio token.
-2. En Supabase, subir el mínimo de la contraseña a 8 (regla 111).
-3. Un alta en bloque de una cuenta de prueba, entrar con la clave provisional
+- Ejecutado [`docs/sql/acierto-lo-decide-el-servidor.sql`](sql/acierto-lo-decide-el-servidor.sql).
+  El disparador `corrige_respuesta` está activo, y se probó como alumno dentro
+  de una transacción que se deshizo entera: quien falla y manda «acierto»
+  queda como fallo, quien acierta queda como acierto, y un UPDATE no lo cambia.
+- El mínimo de la contraseña en Supabase Auth está en 8 (estaba en 6).
+- Confirmado que `pagos-cuotas.sql` y `demo-registro.sql` SÍ están aplicados:
+  existen `payment_entries`, `fee_packs`, `receipt_counters`, `demo_registro`,
+  `group_kinds.price_eur` y las tres funciones de cobro.
+
+**Antes de desplegar esta rama** (aplazado por el dueño, «más adelante»):
+
+1. Un alta en bloque de una cuenta de prueba, entrar con la clave provisional
    y ver que obliga a cambiarla. Borrar la cuenta después.
-4. Apagar y encender un módulo en «Ajustes» y ver que el alumno lo nota. Los
+2. Apagar y encender un módulo en «Ajustes» y ver que el alumno lo nota. Los
    interruptores que ya estuvieran apagados siguen valiendo (son la fila de la
    plataforma); lo que el admin toque desde ahora es de su academia.
+3. Abrir «Alumnos» y «Grupos» (llevan consulta nueva) y provocar un fallo
+   para verlo en «Logs».
+
+**El entorno de la nube `atenea-lectura-web`** tiene desde el 11 nov el token
+de gestión de Supabase como secreto de red: `scripts/nube/sql.sh` funciona
+desde él. `ejecutar-sql.mjs` necesita además
+`NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co` delante.
 
 ## 3 · Lo que falta
 
