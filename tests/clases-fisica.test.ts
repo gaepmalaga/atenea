@@ -210,7 +210,7 @@ describe('las acciones (guardas estáticas)', () => {
 
   it('«Mis clases» deja la física a su calendario si la academia la lleva aquí', () => {
     const c = cuerpo(asistencia, 'getMisClases');
-    expect(c).toContain("requireModule('training')");
+    expect(c).toContain("requireModule('training', auth.user.organizationId)");
     expect(c).toContain("g.kind !== 'fisicas'");
     expect(c).toContain("from('class_days_off')");
   });

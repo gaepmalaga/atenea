@@ -20,6 +20,7 @@ import {
   agrupaHabituales, claveActividad, normalizaActividad, leeListaTemas,
   type ClaseHabitual,
 } from '../lib/profesores';
+import { fallo } from '../lib/fallos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
@@ -40,7 +41,7 @@ export async function getClasesHabituales(): Promise<
   const org = auth.user.organizationId;
   if (!org) return { success: true as const, clases: [] };
   const { data, error } = await supabaseAdmin.from('staff_activities').select('activity, staff_id, priority').eq('organization_id', org);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getClasesHabituales', error) };
   return {
     success: true as const,
     clases: agrupaHabituales((data ?? []).map((r) => ({ actividad: r.activity as string, profesorId: r.staff_id as string, prioridad: Number(r.priority) }))),
@@ -70,17 +71,17 @@ export async function setClaseHabitual(params: { actividad: string; profesorIds:
 
   // La misma clase escrita de otra forma es la misma clase.
   const { data: actuales, error: e0 } = await supabaseAdmin.from('staff_activities').select('activity').eq('organization_id', org);
-  if (e0) return { success: false as const, error: e0.message };
+  if (e0) return { success: false as const, error: fallo('setClaseHabitual', e0) };
   const existente = [...new Set((actuales ?? []).map((a) => a.activity as string))].find((a) => claveActividad(a) === claveActividad(actividad));
   const nombre = existente ?? actividad;
 
   const { error: e1 } = await supabaseAdmin.from('staff_activities').delete().eq('organization_id', org).eq('activity', nombre);
-  if (e1) return { success: false as const, error: e1.message };
+  if (e1) return { success: false as const, error: fallo('setClaseHabitual', e1) };
   if (!ids.length) return { success: true as const };
   const { error } = await supabaseAdmin.from('staff_activities').insert(
     ids.map((staffId, i) => ({ organization_id: org, activity: nombre, staff_id: staffId, priority: i + 1 })),
   );
-  return error ? { success: false as const, error: error.message } : { success: true as const };
+  return error ? { success: false as const, error: fallo('setClaseHabitual', error) } : { success: true as const };
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -116,8 +117,8 @@ export async function getTemasProfesores(): Promise<
     supabaseAdmin.from('staff_subjects').select('staff_id, subject_id').eq('organization_id', org),
     supabaseAdmin.from('academy_members').select('user_id').eq('academy_id', org),
   ]);
-  if (temasRes.error) return { success: false as const, error: temasRes.error.message };
-  if (asignadosRes.error) return { success: false as const, error: asignadosRes.error.message };
+  if (temasRes.error) return { success: false as const, error: fallo('getTemasProfesores', temasRes.error) };
+  if (asignadosRes.error) return { success: false as const, error: fallo('getTemasProfesores', asignadosRes.error) };
 
   // Los alumnos de la academia (los admin no cuentan: no estudian).
   const ids = (sociosRes.data ?? []).map((s) => s.user_id as string);
@@ -128,7 +129,7 @@ export async function getTemasProfesores(): Promise<
   const { data: porTema, error: e2 } = alumnos.length
     ? await supabaseAdmin.rpc('panel_academia_por_tema', { p_user_ids: alumnos })
     : { data: [], error: null };
-  if (e2) return { success: false as const, error: e2.message };
+  if (e2) return { success: false as const, error: fallo('getTemasProfesores', e2) };
 
   const bloque = new Map((bloquesRes.data ?? []).map((b) => [b.id as number, b.name as string]));
   const datos = new Map(((porTema ?? []) as { subject_id: number; alumnos: number; contestadas: number; aciertos: number; blancos: number }[])
@@ -175,18 +176,18 @@ export async function setTemasProfesor(params: { profesorId: string; temas: stri
   const { data: temas, error: e0 } = lista.temas.length
     ? await supabaseAdmin.from('subjects').select('id, topic_number').in('topic_number', lista.temas)
     : { data: [] as { id: number; topic_number: number }[], error: null };
-  if (e0) return { success: false as const, error: e0.message };
+  if (e0) return { success: false as const, error: fallo('setTemasProfesor', e0) };
   const encontrados = new Set((temas ?? []).map((t) => Number(t.topic_number)));
   const faltan = lista.temas.filter((n) => !encontrados.has(n));
   if (faltan.length) return { success: false as const, error: `No existe el tema ${faltan.join(', ')} en el temario.` };
 
   const { error: e1 } = await supabaseAdmin.from('staff_subjects').delete().eq('organization_id', org).eq('staff_id', profesorId);
-  if (e1) return { success: false as const, error: e1.message };
+  if (e1) return { success: false as const, error: fallo('setTemasProfesor', e1) };
   if (temas?.length) {
     const { error } = await supabaseAdmin.from('staff_subjects').insert(
       temas.map((t) => ({ organization_id: org, staff_id: profesorId, subject_id: t.id as number })),
     );
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('setTemasProfesor', error) };
   }
   return { success: true as const, temas: lista.temas };
 }

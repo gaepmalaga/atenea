@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import {
   LayoutGrid, MessageSquareText, Crosshair, Zap,
   Fingerprint, TrendingUp, Dumbbell, Target, UserRound
@@ -14,12 +14,14 @@ import { MARCA } from '@/app/lib/marca';
 
 // --- MODULES ---
 import DashboardHome from './modules/home/DashboardHome';
-import IntelChat from './modules/chat/IntelChat';
 import ExamManager from './modules/exams/ExamManager';
 import FlashcardDeck from './modules/flashcards/FlashcardDeck';
 import PhysicalTrainer from './modules/training/PhysicalTrainer'; // NUEVO MÓDULO
-import BiodataManager from './modules/profile/BiodataManager';
-import InterviewRoom from './modules/interview/InterviewRoom';
+// Los tres módulos FUERA DEL MVP (regla 58) no se descargan si no se abren
+// (regla 113): el chat arrastra el intérprete de Markdown entero.
+const IntelChat = lazy(() => import('./modules/chat/IntelChat'));
+const BiodataManager = lazy(() => import('./modules/profile/BiodataManager'));
+const InterviewRoom = lazy(() => import('./modules/interview/InterviewRoom'));
 import MiEvolucion from './modules/evolucion/MiEvolucion';
 import FailedQuestions from './modules/review/FailedQuestions';
 import MiPerfil from './modules/perfil/MiPerfil';
@@ -217,7 +219,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       {/* Se monta sobre toda la interfaz cuando se activa el modo entrevista */}
       {interviewMode && (
          <div className="fixed inset-0 z-[200] bg-black animate-in fade-in duration-300">
-             <InterviewRoom onExit={() => setInterviewMode(false)} />
+             <Suspense fallback={null}><InterviewRoom onExit={() => setInterviewMode(false)} /></Suspense>
          </div>
       )}
 
@@ -280,7 +282,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
             {activeTab === 'chat' && (
                 <ModuleErrorBoundary moduleName="Inteligencia">
-                    <IntelChat user={user} />
+                    <Suspense fallback={null}><IntelChat user={user} /></Suspense>
                 </ModuleErrorBoundary>
             )}
 
@@ -334,7 +336,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                         es cosa de esta pestaña. */}
                     <ModuleErrorBoundary moduleName="La entrevista">
                         <div className="pb-28 sm:pb-0">
-                            <BiodataManager user={user} />
+                            <Suspense fallback={null}><BiodataManager user={user} /></Suspense>
                         </div>
                     </ModuleErrorBoundary>
                     

@@ -8,6 +8,7 @@ import {
   type ResumenGastoIA,
   type GastoPorAlumno,
 } from '../lib/ai-cost';
+import { fallo } from '../lib/fallos';
 
 /**
  * EL PANEL DE CONSUMO DE IA (P6, la parte que se construye ya).
@@ -57,7 +58,7 @@ export async function getAiCostOverview(): Promise<
     // No se traga (regla 4): un panel de gasto que enseña "$0.00" cuando la
     // consulta ha fallado es la mentira más cara posible.
     console.error('getAiCostOverview:', error.message);
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('getAiCostOverview', error) };
   }
 
   const resumen = resumeGastoIA((data ?? []) as FilaGastoIA[]);

@@ -20,7 +20,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 
 ## Cómo se trabaja
 
-1. **`npm run check`** (typecheck + ~1.200 tests) antes de cada commit, y
+1. **`npm run check`** (typecheck + ~1.500 tests) antes de cada commit, y
    **`npm run build`** si tocas la app (necesita las 4 variables de
    `.env.example`, que pueden ser inventadas). CI ejecuta los dos.
 2. **Verde no es visto** (regla 38). Una pantalla cambiada se mira en el banco
@@ -44,7 +44,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 npm run dev                 # webpack (Turbopack no resuelve tailwind en dev)
 npm run check               # typecheck + tests
 npm run build
-npm run lint                # ~18 errores, todos el falso positivo de set-state-in-effect (useEffect que carga datos)
+npm run lint                # ~39 errores, casi todos el falso positivo de set-state-in-effect (useEffect que carga datos)
 npm run smoke               # escribe una fila real por camino de escritura y la borra
 npm run cuenta -- correo 'clave' student   # cuenta con el correo ya confirmado
 npm run reset               # ensayo de vaciar respuestas/banco (docs/RESET-Y-SIEMBRA.md). `-- --hazlo` borra
@@ -92,11 +92,13 @@ scripts/          operación (siembra, limpieza, cuentas), esquema, marca, nube
 - **PostgREST corta a 1.000 filas sin avisar:** pagina con `paginaCompleta` y
   `.order('id')` (74).
 - **Errores:** `const { error } = await …` siempre; `success: true as const`
-  (4).
+  (4). Al navegador va `fallo('dónde', error)`, nunca `error.message`: el
+  detalle queda en la pestaña «Logs» (108).
 - **`null` no es `0`.** Un campo vacío es `null` (16). «Sin datos» y «cero» se
   pintan distinto (8).
 - **Un blanco no es un fallo.** `selected_index = -1` es blanco y `null` es
-  «no se sabe» (24). La nota es la del BOE: cada dos fallos, un acierto menos
+  «no se sabe» (24). El acierto lo calcula el servidor contra el banco
+  (`corrigeFila`), no el navegador (110). La nota es la del BOE: cada dos fallos, un acierto menos
   (22).
 - **Una fila de `question_attempts` por respuesta** (7). La traducción
   camelCase↔snake_case vive en `toResultRow` (6).
@@ -226,6 +228,12 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 105 | El calendario no guarda nada: enseña lo que ya está programado |
 | 106 | Datos de demostración: solo se añaden filas, y el borrado quita exactamente lo que creó la carga |
 | 107 | Las horas de un profesor salen de lo que da de verdad, y «Grupos» es la lista de todos |
+| 108 | Lo que dice la base de datos no viaja al navegador: va a «Logs» |
+| 109 | Un interruptor de módulo es de UNA academia |
+| 110 | El acierto lo decide el servidor, no el navegador |
+| 111 | La contraseña provisional se cambia al entrar, y el mínimo es uno |
+| 112 | Cabeceras de seguridad |
+| 113 | El alumno no descarga el panel de administración |
 
 ## Trampas conocidas
 
@@ -238,6 +246,10 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 - Los guiones de `docs/sql/` antiguos se escribieron deduciendo el esquema:
   contrasta uno nuevo con `supabase/schema.json`.
 - En una sesión en la nube, Node no pasa por el proxy sin `NODE_USE_ENV_PROXY=1`.
+- Un recurso de fuera (vídeo, fuente, analítica) no carga si su origen no está
+  en la política de contenido de `next.config.ts` (112).
+- Un módulo se comprueba con la academia: `requireModule('test',
+  auth.user.organizationId)` (109).
 - Vercel Hobby, Supabase Free (sin copias de seguridad, 30 correos/hora),
   Resend gratis (100/día) y Gemini de prepago: los límites de hoy
   (`docs/TRASPASO.md` §3a).

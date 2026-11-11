@@ -10,6 +10,8 @@ import {
   type GroupKindRow,
 } from '../lib/groups';
 import { normalizeHorario, horarioDeFila, type HorarioGrupo } from '../lib/asistencia';
+import { fallo } from '../lib/fallos';
+import { paginaCompleta } from '../lib/pagination';
 
 /**
  * GRUPOS Y TIPOS DE GRUPO (P7 · rehecho en P8).
@@ -40,7 +42,7 @@ export async function getGroupKinds(): Promise<
     .order('sort_order')
     .order('label');
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getGroupKinds', error) };
   return { success: true as const, kinds: (data ?? []) as GroupKindRow[] };
 }
 
@@ -62,7 +64,7 @@ export async function saveGroupKind(input: unknown) {
   if (!error) {
     registraAccion({ actorId: auth.user.id, action: 'save_group_kind', target: clean.label, organizationId: auth.user.organizationId });
   }
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('saveGroupKind', error) };
 }
 
 export async function deleteGroupKind(kindId: string) {
@@ -88,7 +90,7 @@ export async function deleteGroupKind(kindId: string) {
     .select('name')
     .eq('organization_id', organizationId)
     .contains('kinds', [kindId]);
-  if (packsErr) return { success: false as const, error: packsErr.message };
+  if (packsErr) return { success: false as const, error: fallo('deleteGroupKind', packsErr) };
   if (packs?.length) {
     return { success: false as const, error: `Ese tipo está en el pack «${packs[0].name}». Quítalo del pack primero.` };
   }
@@ -99,7 +101,7 @@ export async function deleteGroupKind(kindId: string) {
     .eq('id', kindId)
     .eq('organization_id', organizationId);
   if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group_kind', target: kindId, organizationId });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deleteGroupKind', error) };
 }
 
 // ============================================================
@@ -131,18 +133,31 @@ export async function getGroups(): Promise<
   if (!auth.user.organizationId) return { success: true as const, groups: [] };
   const organizationId = auth.user.organizationId;
 
-  const [gruposRes, miembrosRes, staffRes, staffGrupoRes, kindsRes] = await Promise.all([
+  const [gruposRes, staffRes, kindsRes] = await Promise.all([
     supabaseAdmin.from('class_groups').select('id, name, kind, schedule, weekdays, start_time, end_time, capacity, is_multi').eq('organization_id', organizationId).order('name'),
-    supabaseAdmin.from('class_members').select('class_id, user_id'),
     supabaseAdmin.from('academy_staff').select('id, name').eq('organization_id', organizationId),
-    supabaseAdmin.from('class_group_staff').select('class_id, staff_id'),
     supabaseAdmin.from('group_kinds').select('id, label, lleva_plan').eq('organization_id', organizationId),
   ]);
 
   if (gruposRes.error) {
-    console.error('getGroups:', gruposRes.error.message);
-    return { success: false as const, error: gruposRes.error.message };
+    return { success: false as const, error: fallo('getGroups', gruposRes.error) };
   }
+
+  // `class_members` y `class_group_staff` no llevan `organization_id`: se
+  // acotan por los grupos de ESTA academia, dentro de la consulta (regla 65).
+  // Antes se leían enteras, de todas las academias, y sin paginar: con más de
+  // 1.000 apuntados faltarían alumnos en los grupos sin avisar (regla 74).
+  const idsGrupo = (gruposRes.data ?? []).map((g) => g.id as string);
+  const [miembrosRes, staffGrupoRes] = idsGrupo.length
+    ? await Promise.all([
+        paginaCompleta<{ class_id: string; user_id: string }>(async (d, h) => await
+          supabaseAdmin.from('class_members').select('class_id, user_id').in('class_id', idsGrupo).order('class_id').order('user_id').range(d, h)),
+        paginaCompleta<{ class_id: string; staff_id: string }>(async (d, h) => await
+          supabaseAdmin.from('class_group_staff').select('class_id, staff_id').in('class_id', idsGrupo).order('class_id').order('staff_id').range(d, h)),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  const errorHijas = miembrosRes.error ?? staffGrupoRes.error;
+  if (errorHijas) return { success: false as const, error: errorHijas };
 
   const kinds = (kindsRes.data ?? []) as GroupKindRow[];
   const kindMap = new Map(kinds.map((k) => [k.id, k]));
@@ -223,7 +238,7 @@ export async function createGroup(input: unknown) {
     .select('id')
     .single();
 
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('createGroup', error) };
   await sincronizaProfesores(data.id as string, clean.staffIds);
   registraAccion({ actorId: auth.user.id, action: 'create_group', target: clean.name, organizationId: auth.user.organizationId });
   return { success: true as const, error: undefined };
@@ -245,7 +260,7 @@ export async function updateGroup(groupId: string, input: unknown) {
     .update({ name: clean.name, kind: clean.kind, schedule: clean.schedule, is_multi: clean.isMulti, ...columnasHorario(horario.horario) })
     .eq('id', groupId)
     .eq('organization_id', auth.user.organizationId);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('updateGroup', error) };
 
   await sincronizaProfesores(groupId, clean.staffIds);
   registraAccion({ actorId: auth.user.id, action: 'update_group', target: clean.name, organizationId: auth.user.organizationId });
@@ -264,7 +279,7 @@ export async function deleteGroup(groupId: string) {
     .eq('id', groupId)
     .eq('organization_id', auth.user.organizationId);
   if (!error) registraAccion({ actorId: auth.user.id, action: 'delete_group', target: groupId, organizationId: auth.user.organizationId });
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('deleteGroup', error) };
 }
 
 /**
@@ -288,7 +303,7 @@ export async function setStudentGroups(studentId: string, classIds: string[]) {
     .select('id')
     .eq('organization_id', organizationId)
     .in('id', pedidos.length ? pedidos : ['00000000-0000-0000-0000-000000000000']);
-  if (leerGrupos) return { success: false as const, error: leerGrupos.message };
+  if (leerGrupos) return { success: false as const, error: fallo('setStudentGroups', leerGrupos) };
   const quieren = new Set((gruposDeLaAcademia ?? []).map((g) => g.id as string));
 
   // Solo los grupos de ESTA academia cuentan como "los que tiene ahora": un
@@ -299,7 +314,7 @@ export async function setStudentGroups(studentId: string, classIds: string[]) {
     .select('class_id, class_groups!inner(organization_id)')
     .eq('user_id', studentId)
     .eq('class_groups.organization_id', organizationId);
-  if (leer) return { success: false as const, error: leer.message };
+  if (leer) return { success: false as const, error: fallo('setStudentGroups', leer) };
 
   const tienen = new Set((actuales ?? []).map((m) => m.class_id as string));
   const aMeter = [...quieren].filter((id) => !tienen.has(id));
@@ -309,7 +324,7 @@ export async function setStudentGroups(studentId: string, classIds: string[]) {
     const { error } = await supabaseAdmin
       .from('class_members')
       .insert(aMeter.map((class_id) => ({ class_id, user_id: studentId })));
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('setStudentGroups', error) };
   }
   if (aSacar.length) {
     const { error } = await supabaseAdmin
@@ -317,7 +332,7 @@ export async function setStudentGroups(studentId: string, classIds: string[]) {
       .delete()
       .eq('user_id', studentId)
       .in('class_id', aSacar);
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('setStudentGroups', error) };
   }
 
   registraAccion({

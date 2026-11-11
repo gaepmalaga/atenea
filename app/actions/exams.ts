@@ -21,7 +21,7 @@ import {
   type BankRow,
   type Question,
 } from '../lib/questions';
-import { toResultRow, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
+import { toResultRow, corrigeFila, type AnswerMetrics, type ExamResultPayload } from '../lib/exam-results';
 import { buildQuestionPrompt } from '../lib/question-prompt';
 import { adaptativoEncendido } from '../lib/training-switch-guard';
 import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
@@ -30,6 +30,7 @@ import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart
 import { planExamen } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
+import { fallo } from '../lib/fallos';
 
 // ==========================================
 // 1. GENERADOR DE PREGUNTAS (MOTOR IA)
@@ -260,7 +261,7 @@ export async function generateAndSaveCandidate(topicNameOrId: string | number, d
   const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('test');
+  const modulo = await requireModule('test', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const quota = await checkQuota(auth.user.id, 'question');
@@ -573,7 +574,7 @@ async function preguntasCompletas(ids: string[]): Promise<{ data: BankRow[]; err
       .from('question_bank')
       .select('id, subject_id, question_text, options, correct_index, explanation, origin, legal_reference, difficulty_level')
       .in('id', ids.slice(i, i + 100));
-    if (error) return { data: [], error: error.message };
+    if (error) return { data: [], error: fallo('preguntasCompletas', error) };
     for (const f of (data ?? []) as BankRow[]) porId.set(f.id, f);
   }
   return { data: ids.map((id) => porId.get(id)).filter((f): f is BankRow => !!f), error: null };
@@ -605,7 +606,7 @@ export async function getAdaptiveSession(params: {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('test');
+  const modulo = await requireModule('test', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const topics = (params.topics ?? []).map((t) => String(t).trim()).filter(Boolean);
@@ -738,7 +739,7 @@ export async function getSimulacro(params: {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('test');
+  const modulo = await requireModule('test', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const topics = (params.topics ?? []).map((t) => String(t).trim()).filter(Boolean);
@@ -853,7 +854,7 @@ export async function getEntrenoDeHoy(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  const modulo = await requireModule('test');
+  const modulo = await requireModule('test', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const [bancoRes, temasRes] = await Promise.all([
@@ -885,7 +886,7 @@ export async function getMisCajones(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  const modulo = await requireModule('stats');
+  const modulo = await requireModule('stats', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const [bancoRes, temasRes] = await Promise.all([
@@ -921,7 +922,7 @@ export async function getSimulacros(): Promise<
 > {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
-  const modulo = await requireModule('stats');
+  const modulo = await requireModule('stats', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const db = await createSupabaseServerClient();
@@ -963,7 +964,7 @@ export async function getQuestionsFromBank(params: {
   const auth = await requireUser();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('test');
+  const modulo = await requireModule('test', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   let ids = params.subjectIds || [];
@@ -995,13 +996,13 @@ export async function getQuestionsFromBank(params: {
     const preferentes = await consulta()
       .eq('difficulty_level', nivel)
       .limit(params.limit * 3);
-    if (preferentes.error) return { success: false as const, error: preferentes.error.message };
+    if (preferentes.error) return { success: false as const, error: fallo('getQuestionsFromBank', preferentes.error) };
     elegidas = shuffle(preferentes.data ?? []).slice(0, params.limit);
   }
 
   if (elegidas.length < params.limit) {
     const resto = await consulta().limit(params.limit * 3);
-    if (resto.error) return { success: false as const, error: resto.error.message };
+    if (resto.error) return { success: false as const, error: fallo('getQuestionsFromBank', resto.error) };
 
     // Sin el Set se repetirian las que ya entraron por el nivel pedido.
     const yaEstan = new Set(elegidas.map((q) => q.id));
@@ -1020,6 +1021,32 @@ export async function getQuestionsFromBank(params: {
  * (una al responder y otra al diagnosticar), asi que cada error contaba doble
  * en el porcentaje de acierto de por vida.
  */
+/**
+ * La respuesta correcta de cada pregunta, del banco (regla 110).
+ *
+ * Con la clave de servicio: `question_bank` no tiene política para el alumno,
+ * y está bien que no la tenga. Solo se lee `correct_index` de los ids pedidos.
+ */
+async function respuestasCorrectas(
+  ids: (string | null)[],
+): Promise<{ ok: true; mapa: Map<string, number> } | { ok: false }> {
+  const unicos = [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.length > 0))];
+  const mapa = new Map<string, number>();
+  // De 200 en 200: los ids van en la URL, y un simulacro son 100 preguntas.
+  for (let i = 0; i < unicos.length; i += 200) {
+    const { data, error } = await supabase
+      .from('question_bank')
+      .select('id, correct_index')
+      .in('id', unicos.slice(i, i + 200));
+    if (error) {
+      fallo('respuestasCorrectas', error);
+      return { ok: false };
+    }
+    for (const f of data ?? []) mapa.set(f.id as string, f.correct_index as number);
+  }
+  return { ok: true, mapa };
+}
+
 export async function saveTestResult(
   topicOrId: string | number,
   questionId: string | null,
@@ -1044,7 +1071,11 @@ export async function saveTestResult(
     // El mapeo camelCase -> columnas ocurre en un solo sitio (lib/exam-results),
     // compartido con el guardado en bloque del examen. Aqui se armaba a mano y
     // por eso los nombres pudieron divergir entre los dos caminos.
-    const row = toResultRow({ questionId, topic, isCorrect, ...metrics });
+    // El acierto NO se toma del cliente: se calcula contra el banco (regla 110).
+    const bruta = toResultRow({ questionId, topic, isCorrect, ...metrics });
+    const correctas = await respuestasCorrectas([bruta.question_id]);
+    if (!correctas.ok) return { success: false, id: null };
+    const row = corrigeFila(bruta, correctas.mapa);
 
     // CON LA SESION, no con la clave de servicio (fase 1.2). `question_attempts`
     // ya tiene politica de INSERT/SELECT/UPDATE desde `1.2-attempts-update.sql`,
@@ -1098,7 +1129,7 @@ export async function setResultErrorType(
     .eq('user_id', auth.user.id);
 
   if (error) console.error('setResultErrorType:', error.message);
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('setResultErrorType', error) };
 }
 
 export async function saveExamResults(results: ExamResultPayload[]) {
@@ -1116,8 +1147,15 @@ export async function saveExamResults(results: ExamResultPayload[]) {
     // El parametro era `any[]`: la UI enviaba `response_time_ms` / `option_changes`
     // y aqui se leia `r.time` / `r.changes`, asi que las dos metricas de
     // comportamiento se guardaban a 0 en TODOS los examenes sin que nada fallara.
-    const rows = results.map((r) => ({
-        ...toResultRow(r),
+    // El acierto de cada fila se calcula aquí contra el banco, no se toma del
+    // cliente (regla 110). Si el banco no contesta no se guarda nada: el examen
+    // sigue a salvo en el móvil (`exam-session.ts`) y se reintenta.
+    const brutas = results.map((r) => toResultRow(r));
+    const correctas = await respuestasCorrectas(brutas.map((b) => b.question_id));
+    if (!correctas.ok) return { success: false };
+
+    const rows = brutas.map((b) => ({
+        ...corrigeFila(b, correctas.mapa),
         user_id: auth.user.id,
         exam_id: examId,
         created_at: new Date().toISOString(),

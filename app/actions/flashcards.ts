@@ -10,6 +10,7 @@ import { checkQuota } from '../lib/rate-limit';
 import { registraGasto } from '../lib/ai-usage';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
+import { fallo } from '../lib/fallos';
 
 /** Tarjeta que devuelve la UI al puntuarla. */
 export type FlashcardInput = {
@@ -55,7 +56,7 @@ export async function generateFlashcard(
   const excluirDbId = exclude?.dbId?.trim() || null;
   const excluirCardId = exclude?.cardId?.trim() || null;
 
-  const modulo = await requireModule('cards');
+  const modulo = await requireModule('cards', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   const quota = await checkQuota(userId, 'flashcard');
@@ -143,7 +144,7 @@ export async function generateFlashcard(
     if (fuera.length > 0) consulta = consulta.not('id', 'in', `(${fuera.join(',')})`);
 
     const { data: nuevas, error: errorBanco } = await consulta;
-    if (errorBanco) return { success: false as const, error: errorBanco.message };
+    if (errorBanco) return { success: false as const, error: fallo('flashcards', errorBanco) };
 
     if (!nuevas || nuevas.length === 0) {
         // Se distinguen los dos casos, porque piden cosas distintas del
@@ -212,7 +213,7 @@ export async function saveFlashcardProgress(cardData: FlashcardInput, rating: 'f
         // buena una escritura que podía haber fallado.
         if (error) {
             console.error('saveFlashcardProgress:', error.message);
-            return { success: false, error: error.message };
+            return { success: false, error: fallo('saveFlashcardProgress', error) };
         }
 
         // Histórico para la analítica. La tabla `flashcard_results` existía y
@@ -298,7 +299,7 @@ export async function seedFlashcardBank(params: {
   const auth = await requireSuperadmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const modulo = await requireModule('cards');
+  const modulo = await requireModule('cards', auth.user.organizationId);
   if (!modulo.ok) return { success: false as const, error: modulo.error };
 
   // El tope se aplica ANTES de la cuota: pedir 5.000 fichas por un cero de más
@@ -370,7 +371,7 @@ export async function getFlashcardBankCounts() {
 
   const { data, error } = await supabase
     .from('flashcard_bank').select('topic').eq('status', QUESTION_STATUS.ACTIVE);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('getFlashcardBankCounts', error) };
 
   const porTema: Record<string, number> = {};
   for (const f of data ?? []) {

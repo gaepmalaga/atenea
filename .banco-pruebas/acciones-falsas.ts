@@ -332,16 +332,6 @@ export async function getInterviewReports() {
 
 // ---------- ADMINISTRACIÓN ----------
 
-export async function getAdminUsersList() {
-  return ok({
-    users: [
-      { id: 'u1', email: 'gaepmalaga@gmail.com', role: 'admin', total_tests: 42, win_rate: 67 },
-      { id: 'u2', email: 'alumno.que.acaba.de.registrarse@ejemplo.com', role: 'student', total_tests: 0, win_rate: null },
-      { id: 'u3', email: 'alumno.flojo@ejemplo.com', role: 'student', total_tests: 18, win_rate: 31 },
-    ],
-  });
-}
-
 export async function getOfficialSyllabus() {
   return ok({
     syllabus: [
@@ -454,20 +444,6 @@ export async function getStudentActivePlan() {
   });
 }
 export async function saveManualTrainingPlan() { return ok({}); }
-export async function getGlobalActivity() {
-  // `activity`, no `data`, y con `question_text` YA APLANADO: la accion de
-  // verdad deshace el join antes de devolverlo.
-  return ok({
-    activity: Array.from({ length: 5 }, (_, i) => ({
-      id: `a${i}`,
-      user_id: 'u3',
-      topic: TEMAS[i % TEMAS.length],
-      is_correct: i % 2 === 0,
-      created_at: new Date(Date.now() - i * 3600000).toISOString(),
-      question_text: `Pregunta contestada hace ${i + 1} hora${i === 0 ? '' : 's'} sobre el articulado del tema.`,
-    })),
-  });
-}
 export async function getDocumentChunks() {
   // `chunks`, no `data`: con el nombre equivocado el visor de fragmentos salia
   // vacio y parecia que el documento no estaba indexado.
@@ -599,6 +575,16 @@ export async function getAdminAuditLog() {
       { id: 'a2', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'approve_questions', target: null, detail: { count: 8 }, createdAt: new Date(Date.now() - 3600e3).toISOString() },
       { id: 'a3', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'delete_topic', target: 'Tema de prueba', detail: null, createdAt: new Date(Date.now() - 2 * 864e5).toISOString() },
       { id: 'a4', actorId: 'u1', actorEmail: 'gaepmalaga@gmail.com', action: 'save_staff', target: 'Marta Ortega', detail: null, createdAt: new Date(Date.now() - 5 * 864e5).toISOString() },
+    ],
+  });
+}
+
+// Los fallos del servidor (regla 108): a quién, dónde y qué dijo la base de datos.
+export async function getFallosRecientes() {
+  return ok({
+    rows: [
+      { id: 'f1', email: 'prueba.alumno@alphapol.es', donde: 'saveTestResult', mensaje: 'new row violates row-level security policy for table "question_attempts"', codigo: '42501', createdAt: new Date(Date.now() - 20 * 60e3).toISOString() },
+      { id: 'f2', email: 'prueba.admin@alphapol.es', donde: 'registraCobro', mensaje: 'Could not find the function public.registra_cobro in the schema cache', codigo: 'PGRST202', createdAt: new Date(Date.now() - 864e5).toISOString() },
     ],
   });
 }

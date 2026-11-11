@@ -11,6 +11,7 @@ import {
   cargaFase, borraDemo, ensayoBorrado, estadoDemo, FASES_DEMO, tandasDe,
   type DemoDb, type EnsayoDemo, type EstadoDemo, type Fila, type FaseDemo, type Filtro,
 } from '../lib/demo-motor';
+import { fallo } from '../lib/fallos';
 
 /**
  * DATOS DE DEMOSTRACIÓN (regla 106): el botón de Ajustes.
@@ -89,7 +90,7 @@ const dbDemo: DemoDb = {
     let n = 0;
     for (const lote of lotesDeFiltros(filtros)) {
       const { count, error } = await aplica(supabaseAdmin.from(tabla).select('*', { count: 'exact', head: true }), lote);
-      if (error) return { n, error: error.message };
+      if (error) return { n, error: fallo('lotesDeFiltros', error) };
       n += count ?? 0;
     }
     return { n, error: null };
@@ -127,7 +128,7 @@ const dbDemo: DemoDb = {
 
   async existeCuenta(id) {
     const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
-    if (error) return noExiste(error) ? { existe: false, error: null } : { existe: false, error: error.message };
+    if (error) return noExiste(error) ? { existe: false, error: null } : { existe: false, error: fallo('lotesDeFiltros', error) };
     return { existe: !!data.user, error: null };
   },
 

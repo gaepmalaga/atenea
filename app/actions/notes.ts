@@ -3,6 +3,7 @@
 import { requireUser } from '../lib/auth';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { MAX_NOTE_CHARS, normalizeNote } from '../lib/notes';
+import { fallo } from '../lib/fallos';
 
 /**
  * Las notas que el alumno escribe sobre una pregunta (P3.8).
@@ -50,7 +51,7 @@ export async function getQuestionNote(
   // indistinguible de haberla perdido (regla 4).
   if (error) {
     console.error('getQuestionNote:', error.message);
-    return { success: false, note: null, error: error.message };
+    return { success: false, note: null, error: fallo('getQuestionNote', error) };
   }
 
   return { success: true, note: data?.note ?? null };
@@ -84,7 +85,7 @@ export async function saveQuestionNote(input: unknown): Promise<NoteResult & { d
       .delete()
       .eq('user_id', auth.user.id)
       .eq('question_id', questionId);
-    return { success: !error, error: error?.message, deleted: true };
+    return { success: !error, error: fallo('saveQuestionNote', error), deleted: true };
   }
 
   if (note.length > MAX_NOTE_CHARS) {
@@ -104,5 +105,5 @@ export async function saveQuestionNote(input: unknown): Promise<NoteResult & { d
     { onConflict: 'user_id,question_id' }
   );
 
-  return { success: !error, error: error?.message };
+  return { success: !error, error: fallo('saveQuestionNote', error) };
 }

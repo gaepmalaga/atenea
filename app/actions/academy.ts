@@ -27,6 +27,7 @@ import type { ErrorType } from '../lib/stats';
 import { periodoActual } from '../lib/payments';
 import { confusionDesdeConteos, type ConteoPar, type ParConfuso } from '../lib/question-confusion';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
+import { fallo } from '../lib/fallos';
 
 /**
  * El panel de la academia (P5).
@@ -125,7 +126,7 @@ export async function getAcademyOverview(): Promise<
     .from('academy_members')
     .select('user_id')
     .eq('academy_id', organizationId);
-  if (miembrosErr) return { success: false as const, error: miembrosErr.message };
+  if (miembrosErr) return { success: false as const, error: fallo('getAcademyOverview', miembrosErr) };
   const idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
 
   // LA ULTIMA CONEXION SALE DE `auth.users`, no de las respuestas.
@@ -168,7 +169,18 @@ export async function getAcademyOverview(): Promise<
     // Si esto falla, se sigue: se pierde la fecha de conexion, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
     supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', organizationId).order('name'),
-    supabaseAdmin.from('class_members').select('class_id, user_id'),
+    // Solo los de los grupos de ESTA academia, y paginado (reglas 65 y 74):
+    // antes se leía la tabla entera, de todas las academias.
+    paginaCompleta<{ class_id: string; user_id: string }>(
+      (desde, hasta) =>
+        supabaseAdmin
+          .from('class_members')
+          .select('class_id, user_id, class_groups!inner(organization_id)')
+          .eq('class_groups.organization_id', organizationId)
+          .order('class_id')
+          .order('user_id')
+          .range(desde, hasta) as unknown as Promise<ResultadoPagina<{ class_id: string; user_id: string }>>,
+    ),
     supabaseAdmin.from('memberships').select('user_id, access_status, exempt').eq('organization_id', organizationId),
     supabaseAdmin.from('monthly_payments').select('user_id, paid').eq('organization_id', organizationId).eq('period', periodo).eq('paid', true),
     supabaseAdmin.from('membership_settings').select('required').eq('organization_id', organizationId).maybeSingle(),
@@ -187,8 +199,7 @@ export async function getAcademyOverview(): Promise<
     // No se traga: sin esto el panel diria que no hay alumnos, que es la
     // mentira mas tranquilizadora posible (regla 4).
     const mensaje = perfilesRes.error?.message ?? resumenRes.error?.message ?? confusionRes.error?.message ?? semanaRes.error ?? 'error';
-    console.error('getAcademyOverview:', mensaje);
-    return { success: false as const, error: mensaje };
+    return { success: false as const, error: fallo('getAcademyOverview', { message: String(mensaje) }) };
   }
 
   type Resumen = {

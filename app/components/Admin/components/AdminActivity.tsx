@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, RefreshCw, AlertTriangle, LogIn } from 'lucide-react';
-import { getAdminAuditLog, getInicioSesiones } from '@/actions';
-import type { AuditRow, SesionUsuario } from '@/app/actions/audit';
+import { ShieldCheck, RefreshCw, AlertTriangle, LogIn, Bug } from 'lucide-react';
+import { getAdminAuditLog, getInicioSesiones, getFallosRecientes } from '@/actions';
+import type { AuditRow, SesionUsuario, FalloRow } from '@/app/actions/audit';
 import { ACCION_LABEL, type AccionAuditada } from '@/app/lib/audit-labels';
 import { PanelTitulo, BloqueTitulo, Aviso, Boton, Filtros, FiltroChip, TablaDual, Avatar, Etiqueta, inicialesDeCorreo, EmptyState } from '../../ui';
 
@@ -16,9 +16,13 @@ import { PanelTitulo, BloqueTitulo, Aviso, Boton, Filtros, FiltroChip, TablaDual
  *     «Alumnos» (regla 54): esto audita quién entra, no a quién llamar.
  *   · El REGISTRO de acciones de administración (`admin_audit_log`): quién
  *     borró, publicó o apagó algo.
+ *   · Los FALLOS del servidor (regla 108): a quién le falló qué, y lo que
+ *     dijo la base de datos. Al usuario solo se le enseña un mensaje corto.
  */
 export default function AdminActivity() {
   const [rows, setRows] = useState<AuditRow[]>([]);
+  const [fallos, setFallos] = useState<FalloRow[]>([]);
+  const [errorFallos, setErrorFallos] = useState<string | null>(null);
   const [usuarios, setUsuarios] = useState<SesionUsuario[]>([]);
   const [sinFechas, setSinFechas] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -26,7 +30,14 @@ export default function AdminActivity() {
   const [tablaFalta, setTablaFalta] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [audit, sesiones] = await Promise.all([getAdminAuditLog(), getInicioSesiones()]);
+    const [audit, sesiones, fallosRes] = await Promise.all([getAdminAuditLog(), getInicioSesiones(), getFallosRecientes()]);
+
+    if (fallosRes.success) {
+      setFallos(fallosRes.rows);
+      setErrorFallos(null);
+    } else {
+      setErrorFallos(fallosRes.error);
+    }
 
     if (audit.success) {
       setRows(audit.rows);
@@ -62,7 +73,7 @@ export default function AdminActivity() {
     <div className="space-y-5 animate-in fade-in pb-24">
       <PanelTitulo
         titulo="Logs"
-        sub="Quién entra y cuándo, y quién ha borrado, publicado o apagado algo."
+        sub="Quién entra y cuándo, quién ha borrado, publicado o apagado algo, y qué ha fallado."
         acciones={<Boton variant="secondary" onClick={recargar} icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}>Recargar</Boton>}
       />
 
@@ -151,6 +162,40 @@ export default function AdminActivity() {
               { id: 'quien', titulo: 'Quién', celda: (r) => <span className="break-all">{r.actorEmail ?? 'admin'}</span> },
               { id: 'accion', titulo: 'Acción', celda: (r) => ACCION_LABEL[r.action as AccionAuditada] ?? r.action },
               { id: 'sobre', titulo: 'Sobre qué', celda: (r) => r.target ?? <span className="text-slate-600 dark:text-slate-400">—</span> },
+            ]}
+          />
+        )}
+      </section>
+
+      {/* ───────── FALLOS DEL SERVIDOR (regla 108) ───────── */}
+      <section className="space-y-3 pt-2" hidden={loading}>
+        <BloqueTitulo icon={<Bug size={15} />}>Fallos</BloqueTitulo>
+
+        {errorFallos && <Aviso tono="malo">{errorFallos}</Aviso>}
+
+        {!errorFallos && fallos.length === 0 && (
+          <EmptyState
+            icon={<Bug size={40} />}
+            title="Ningún fallo registrado"
+            hint="Si a alguien no se le guarda algo, aquí sale a quién, en qué y lo que dijo la base de datos."
+            bordered
+          />
+        )}
+
+        {fallos.length > 0 && (
+          <TablaDual
+            soloLectura
+            clave={(f) => f.id}
+            filas={fallos}
+            columnas={[
+              { id: 'cuando', titulo: 'Cuándo', celda: (f) => (
+                <span className="font-semibold tabular-nums">{new Date(f.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              ) },
+              { id: 'quien', titulo: 'A quién', celda: (f) => <span className="break-all">{f.email ?? '(sin correo)'}</span> },
+              { id: 'donde', titulo: 'Dónde', celda: (f) => <code className="font-mono text-xs">{f.donde}</code> },
+              { id: 'que', titulo: 'Qué dijo', celda: (f) => (
+                <span className="break-words text-red-700 dark:text-red-300">{f.mensaje}{f.codigo ? ` (${f.codigo})` : ''}</span>
+              ) },
             ]}
           />
         )}

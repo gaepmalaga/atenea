@@ -9,6 +9,7 @@ import {
   type AcademyStats,
 } from '../lib/academies';
 import { periodoActual } from '../lib/payments';
+import { fallo } from '../lib/fallos';
 
 /**
  * EL PANEL TRANSVERSAL DEL SUPERADMIN (P11f) Y EL ALTA DE ACADEMIAS (P11i).
@@ -43,7 +44,7 @@ export async function getAcademiesOverview(): Promise<
 
   if (academiasRes.error) {
     console.error('getAcademiesOverview:', academiasRes.error.message);
-    return { success: false as const, error: academiasRes.error.message };
+    return { success: false as const, error: fallo('getAcademiesOverview', academiasRes.error) };
   }
 
   const roles = new Map<string, string>();
@@ -107,7 +108,7 @@ export async function createAcademy(
 
   if (error) {
     const duplicada = /duplicate key|unique/i.test(error.message);
-    return { success: false as const, error: duplicada ? `Ya existe una academia con el enlace «${clean.slug}».` : error.message };
+    return { success: false as const, error: duplicada ? `Ya existe una academia con el enlace «${clean.slug}».` : fallo('createAcademy', error) };
   }
 
   registraAccion({ actorId: auth.user.id, action: 'create_academy', target: clean.name, detail: { slug: clean.slug } });
@@ -152,7 +153,7 @@ export async function addAcademyAdmin(
     .select('slug')
     .eq('id', academyId)
     .maybeSingle();
-  if (acadErr) return { success: false, error: acadErr.message };
+  if (acadErr) return { success: false, error: fallo('addAcademyAdmin', acadErr) };
   if (!academia) return { success: false, error: 'Esa academia no existe.' };
 
   let { data: perfil, error: leer } = await supabaseAdmin
@@ -160,7 +161,7 @@ export async function addAcademyAdmin(
     .select('id, role')
     .ilike('email', correo)
     .maybeSingle();
-  if (leer) return { success: false, error: leer.message };
+  if (leer) return { success: false, error: fallo('addAcademyAdmin', leer) };
 
   let invitada = false;
   if (!perfil) {
@@ -176,7 +177,7 @@ export async function addAcademyAdmin(
 
   if (perfil.role === 'student') {
     const { error: rolErr } = await supabaseAdmin.from('profiles').update({ role: 'admin' }).eq('id', perfil.id);
-    if (rolErr) return { success: false, error: rolErr.message };
+    if (rolErr) return { success: false, error: fallo('addAcademyAdmin', rolErr) };
   }
 
   const { error } = await supabaseAdmin
@@ -186,5 +187,5 @@ export async function addAcademyAdmin(
   if (!error) {
     registraAccion({ actorId: auth.user.id, action: 'add_academy_admin', target: correo, detail: { academyId, invitada } });
   }
-  return { success: !error, error: error?.message, invitada };
+  return { success: !error, error: fallo('addAcademyAdmin', error), invitada };
 }

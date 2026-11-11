@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { ArrowRight, AlertTriangle, MailCheck, Eye, EyeOff, Loader2, Mail, LockKeyhole } from 'lucide-react';
 import { TAP, cx } from '../ui';
 import MarcoEntrada from './MarcoEntrada';
+import { MIN_CLAVE } from '@/app/lib/clave';
 import {
   ETIQUETA, campo, ICONO_CAMPO, BOTON_PRINCIPAL, ENLACE, AVISO_ERROR, AVISO_INFO, TITULO, SUBTITULO,
 } from './estilosEntrada';
@@ -153,7 +154,8 @@ export default function LoginScreen({ modo, onModo, onSubmit, onOlvido, cargando
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder={esAlta ? 'Mínimo 6 caracteres' : 'Tu contraseña'}
+              placeholder={esAlta ? `Mínimo ${MIN_CLAVE} caracteres` : 'Tu contraseña'}
+              minLength={esAlta ? MIN_CLAVE : undefined}
               className={cx(campo(true), 'pr-14')}
               autoComplete={esAlta ? 'new-password' : 'current-password'}
               enterKeyHint="go"

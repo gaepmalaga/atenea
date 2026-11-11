@@ -1,3 +1,4 @@
+import { MENSAJE_FALLO } from '../app/lib/fallos';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -58,7 +59,8 @@ describe('paginaCompleta', () => {
     };
     const { data, error } = await paginaCompleta(conFallo, { tamanioPagina: 1000 });
     expect(data).toHaveLength(1000); // solo la primera página, que sí llegó
-    expect(error).toBe('boom');
+    // Lo de Postgres no sale de aquí: va el mensaje corto (regla 108).
+    expect(error).toBe(MENSAJE_FALLO);
   });
 
   it('sin filas, no revienta', async () => {

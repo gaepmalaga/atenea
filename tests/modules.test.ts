@@ -152,7 +152,8 @@ describe('apagar un modulo lo apaga tambien en el servidor', () => {
     it(`${accion} se cierra si '${modulo}' esta apagado`, () => {
       const cuerpo = cuerpoDe(fichero, accion);
       expect(cuerpo, `no se encuentra ${accion} en ${fichero}`).not.toBe('');
-      expect(cuerpo).toContain(`requireModule('${modulo}')`);
+      // Con la academia de la sesión: el interruptor es por academia (regla 109).
+      expect(cuerpo).toContain(`requireModule('${modulo}', auth.user.organizationId)`);
     });
   }
 

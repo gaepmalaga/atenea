@@ -1,6 +1,7 @@
 'use server'
 import { supabaseAdmin } from './core';
 import { requireAdmin } from '../lib/auth';
+import { fallo } from '../lib/fallos';
 
 export type AuditRow = {
   id: string;
@@ -37,6 +38,9 @@ export async function getAdminAuditLog(limit = 50): Promise<
   let q = supabaseAdmin
     .from('admin_audit_log')
     .select('id, actor_id, action, target, detail, created_at')
+    // Los fallos (`action = 'error'`, regla 108) van en su propia lista: aquí
+    // solo lo que alguien HIZO.
+    .neq('action', 'error')
     .order('created_at', { ascending: false })
     .limit(Math.max(1, Math.min(200, limit)));
   if (auth.user.organizationId) q = q.eq('organization_id', auth.user.organizationId);
@@ -45,7 +49,7 @@ export async function getAdminAuditLog(limit = 50): Promise<
   if (error) {
     // PostgREST: "Could not find the table 'public.admin_audit_log' in the schema cache".
     const tablaFalta = /could not find the table/i.test(error.message);
-    return { success: false, error: error.message, tablaFalta };
+    return { success: false, error: fallo('getAdminAuditLog', error), tablaFalta };
   }
 
   const actorIds = [...new Set((data ?? []).map((r) => r.actor_id as string).filter(Boolean))];
@@ -65,6 +69,63 @@ export async function getAdminAuditLog(limit = 50): Promise<
     createdAt: r.created_at as string,
   }));
 
+  return { success: true, rows };
+}
+
+export type FalloRow = {
+  id: string;
+  /** A quién le pasó. */
+  email: string | null;
+  /** En qué acción: `saveCelda`, `registraCobro`… */
+  donde: string;
+  /** Lo que dijo la base de datos, tal cual. */
+  mensaje: string;
+  codigo: string | null;
+  createdAt: string;
+};
+
+/**
+ * LOS FALLOS DEL SERVIDOR (regla 108): lo que `fallo()` guardó en
+ * `admin_audit_log` con `action = 'error'`.
+ *
+ * Al alumno se le dice «no se ha podido completar»; aquí está lo que dijo la
+ * base de datos, a quién y en qué acción. Acotado a la academia del admin; el
+ * superadmin los ve todos, también los que no tienen academia.
+ */
+export async function getFallosRecientes(limit = 50): Promise<
+  { success: true; rows: FalloRow[] } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  let q = supabaseAdmin
+    .from('admin_audit_log')
+    .select('id, actor_id, target, detail, created_at')
+    .eq('action', 'error')
+    .order('created_at', { ascending: false })
+    .limit(Math.max(1, Math.min(200, limit)));
+  if (auth.user.organizationId) q = q.eq('organization_id', auth.user.organizationId);
+  const { data, error } = await q;
+  if (error) return { success: false, error: fallo('getFallosRecientes', error) };
+
+  const actorIds = [...new Set((data ?? []).map((r) => r.actor_id as string).filter(Boolean))];
+  const correos = new Map<string, string>();
+  if (actorIds.length) {
+    const { data: perfiles } = await supabaseAdmin.from('profiles').select('id, email').in('id', actorIds);
+    for (const p of perfiles ?? []) correos.set(p.id as string, (p.email as string) ?? '');
+  }
+
+  const rows: FalloRow[] = (data ?? []).map((r) => {
+    const d = (r.detail ?? {}) as { mensaje?: unknown; codigo?: unknown };
+    return {
+      id: r.id as string,
+      email: correos.get(r.actor_id as string) ?? null,
+      donde: (r.target as string) ?? '—',
+      mensaje: typeof d.mensaje === 'string' ? d.mensaje : '(sin mensaje)',
+      codigo: typeof d.codigo === 'string' ? d.codigo : null,
+      createdAt: r.created_at as string,
+    };
+  });
   return { success: true, rows };
 }
 
@@ -108,7 +169,7 @@ export async function getInicioSesiones(): Promise<
       .from('academy_members')
       .select('user_id')
       .eq('academy_id', auth.user.organizationId);
-    if (miembrosErr) return { success: false, error: miembrosErr.message };
+    if (miembrosErr) return { success: false, error: fallo('getInicioSesiones', miembrosErr) };
     idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
   }
 
@@ -120,7 +181,7 @@ export async function getInicioSesiones(): Promise<
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
   ]);
 
-  if (perfilesRes.error) return { success: false, error: perfilesRes.error.message };
+  if (perfilesRes.error) return { success: false, error: fallo('getInicioSesiones', perfilesRes.error) };
 
   const acceso = new Map<string, string | null>();
   const altaAuth = new Map<string, string | null>();

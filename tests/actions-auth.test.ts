@@ -89,8 +89,6 @@ describe('superficie de las Server Actions', () => {
       // reportes de sus alumnos (moderation.ts acota por organization_id
       // dentro de cada función; ver `debenSerSuperadmin` para lo que NO).
       'getOfficialSyllabus',
-      'getAdminUsersList',
-      'getGlobalActivity',
       'getAdminQuestionBank',
       'getModerationQueue',
       'disableQuestion',

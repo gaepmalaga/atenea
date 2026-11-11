@@ -36,6 +36,7 @@ import {
   type HistoricoCuotas,
   type EstadoPago,
 } from '../lib/cuotas';
+import { fallo } from '../lib/fallos';
 
 /**
  * PAGOS Y CUOTAS (P8, rehecho en la regla 102).
@@ -106,7 +107,7 @@ async function cargaTarifa(organizationId: string): Promise<{ tarifa: Tarifa; er
     supabaseAdmin.from('group_kinds').select('id, label, price_eur, sort_order').eq('organization_id', organizationId).order('sort_order').order('label'),
     supabaseAdmin.from('fee_packs').select('id, name, kinds, price_eur').eq('organization_id', organizationId).order('name'),
   ]);
-  const error = kindsRes.error?.message ?? packsRes.error?.message ?? null;
+  const error = fallo('cargaTarifa', kindsRes.error ?? packsRes.error) ?? null;
   return {
     error,
     tarifa: {
@@ -139,7 +140,7 @@ async function cargaPersonas(organizationId: string): Promise<{ personas: Person
       supabaseAdmin.from('memberships').select('user_id, access_status, exempt, custom_fee_eur, custom_fee_note').eq('organization_id', organizationId).order('user_id').range(d, h)),
     supabaseAdmin.from('class_groups').select('id, name, kind').eq('organization_id', organizationId),
   ]);
-  const error = perfiles.error ?? membresias.error ?? gruposRes.error?.message ?? null;
+  const error = perfiles.error ?? membresias.error ?? fallo('cargaPersonas', gruposRes.error) ?? null;
   if (error) return { personas: [], grupos: new Map(), error };
 
   const grupos = (gruposRes.data ?? []) as { id: string; name: string; kind: string }[];
@@ -243,7 +244,7 @@ async function abreMes(organizationId: string, periodo: string, roster: { userId
       nuevas.map((n) => ({ organization_id: organizationId, user_id: n.userId, period: periodo, paid: false, due_eur: n.due, due_manual: false, updated_at: ahora })),
       { onConflict: 'organization_id,user_id,period', ignoreDuplicates: true },
     );
-    if (e) return e.message;
+    if (e) return fallo('abreMes', e);
   }
   for (const c of cambiar) {
     // Las mismas condiciones en la consulta: si entre medias alguien cobró o
@@ -257,7 +258,7 @@ async function abreMes(organizationId: string, periodo: string, roster: { userId
       .eq('due_manual', false)
       .is('amount_eur', null)
       .or('paid.eq.false,due_eur.eq.0');
-    if (e) return e.message;
+    if (e) return fallo('abreMes', e);
   }
   return null;
 }
@@ -403,7 +404,7 @@ async function aseguraFilaMes(organizationId: string, studentId: string, period:
     .eq('user_id', studentId)
     .eq('period', period)
     .maybeSingle();
-  if (error) return { debido: null, error: error.message };
+  if (error) return { debido: null, error: fallo('aseguraFilaMes', error) };
   if (fila && (fila.due_eur !== null || fila.due_manual === true)) return { debido: numONull(fila.due_eur), error: null };
   const debido = await cuotaDeHoy(organizationId, studentId);
   const { error: e } = fila
@@ -413,7 +414,7 @@ async function aseguraFilaMes(organizationId: string, studentId: string, period:
         { organization_id: organizationId, user_id: studentId, period, paid: false, due_eur: debido, due_manual: false, updated_at: new Date().toISOString() },
         { onConflict: 'organization_id,user_id,period', ignoreDuplicates: true },
       );
-  return { debido, error: e?.message ?? null };
+  return { debido, error: fallo('recalculaDebido', e) ?? null };
 }
 
 /** Lo cobrado de un mes según el libro: la suma de sus cobros no anulados. */
@@ -425,7 +426,7 @@ async function cobradoDelMes(organizationId: string, studentId: string, period: 
     .eq('user_id', studentId)
     .eq('period', period)
     .is('voided_at', null);
-  if (error) return { cobrado: 0, error: error.message };
+  if (error) return { cobrado: 0, error: fallo('cobradoDelMes', error) };
   return { cobrado: centimos((data ?? []).reduce((s, c) => s + (numONull(c.amount_eur) ?? 0), 0)), error: null };
 }
 
@@ -474,7 +475,7 @@ export async function registraCobro(
   });
   if (error) {
     console.error('registraCobro:', error.message);
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('registraCobro', error) };
   }
   const recibo = numONull((Array.isArray(data) ? data[0] : data)?.receipt) ?? 0;
   registraAccion({ actorId: auth.user.id, action: 'registra_cobro', target: studentId, detail: { period, importe, metodo, recibo }, organizationId });
@@ -505,7 +506,7 @@ export async function anulaCobro(input: unknown) {
     p_entry: cobroId,
     p_by: auth.user.id,
   });
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('anulaCobro', error) };
   const anulados = numONull(data) ?? 0;
   if (!anulados) return { success: false as const, error: 'No había nada cobrado que anular.' };
   registraAccion({ actorId: auth.user.id, action: 'anula_cobro', target: studentId, detail: { period, cobroId, anulados }, organizationId });
@@ -547,10 +548,10 @@ export async function setCuotaMes(input: unknown) {
     },
     { onConflict: 'organization_id,user_id,period' },
   );
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('setCuotaMes', error) };
   // `paid` depende de la cuota nueva y de lo cobrado: la cuenta, en la base de datos.
   const { error: e } = await supabaseAdmin.rpc('recalcula_mes', { p_org: organizationId, p_user: studentId, p_period: period });
-  if (e) return { success: false as const, error: e.message };
+  if (e) return { success: false as const, error: fallo('setCuotaMes', e) };
   registraAccion({ actorId: auth.user.id, action: 'set_cuota_mes', target: studentId, detail: { period, cuota: debido, manual }, organizationId });
   return { success: true as const };
 }
@@ -579,7 +580,7 @@ export async function setCuotaPropia(input: unknown) {
     .eq('organization_id', organizationId)
     .eq('user_id', studentId)
     .select('user_id');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('setCuotaPropia', error) };
   if (!data?.length) return { success: false as const, error: 'Ese alumno aún no tiene acceso a la academia.' };
   registraAccion({ actorId: auth.user.id, action: 'set_cuota_propia', target: studentId, detail: { cuota: cuota.valor }, organizationId });
   return { success: true as const };
@@ -614,7 +615,7 @@ export async function setPrecioTipo(kindId: string, precio: unknown) {
     .eq('organization_id', organizationId)
     .eq('id', kindId)
     .select('id');
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('setPrecioTipo', error) };
   if (!data?.length) return { success: false as const, error: 'Ese tipo de grupo no existe.' };
   registraAccion({ actorId: auth.user.id, action: 'set_precio_tipo', target: kindId, detail: { precio: v.valor }, organizationId });
   return { success: true as const };
@@ -644,7 +645,7 @@ export async function savePack(input: unknown) {
     : await supabaseAdmin.from('fee_packs').insert({ organization_id: organizationId, name, kinds: tipos, price_eur: precio.valor });
   if (error) {
     if (error.code === '23505') return { success: false as const, error: 'Ya hay un pack con esos mismos tipos.' };
-    return { success: false as const, error: error.message };
+    return { success: false as const, error: fallo('savePack', error) };
   }
   registraAccion({ actorId: auth.user.id, action: 'save_pack', target: name, detail: { tipos, precio: precio.valor }, organizationId });
   return { success: true as const };
@@ -657,7 +658,7 @@ export async function deletePack(packId: string) {
   const organizationId = auth.user.organizationId;
   if (typeof packId !== 'string' || !packId) return { success: false as const, error: 'Falta el pack.' };
   const { error } = await supabaseAdmin.from('fee_packs').delete().eq('organization_id', organizationId).eq('id', packId);
-  if (error) return { success: false as const, error: error.message };
+  if (error) return { success: false as const, error: fallo('deletePack', error) };
   registraAccion({ actorId: auth.user.id, action: 'delete_pack', target: packId, organizationId });
   return { success: true as const };
 }

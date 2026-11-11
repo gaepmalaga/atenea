@@ -114,17 +114,39 @@ export function todosActivos(): ModuleSettings {
  * Las filas de modulos que ya no existen se ignoran: el dia que se retire uno,
  * su fila se queda ahi sin molestar.
  */
-export function toModuleSettings(filas: { module_id?: unknown; enabled?: unknown }[]): ModuleSettings {
+/**
+ * La fila de un módulo PARA UNA ACADEMIA (regla 109): `test:<uuid>`. El mismo
+ * truco que `training-switches.ts`, y por lo mismo: `module_id` es la clave de
+ * la tabla, así que una fila por academia cabe sin cambiar el esquema. La fila
+ * sin sufijo (`test`) es la de toda la plataforma y solo la toca el superadmin.
+ */
+export function moduleRowId(id: ModuleId, organizationId: string): string {
+  return `${id}:${organizationId}`;
+}
+
+export function toModuleSettings(
+  filas: { module_id?: unknown; enabled?: unknown }[],
+  organizationId?: string | null,
+): ModuleSettings {
   const settings = todosActivos();
+  // Primero lo de la plataforma…
   for (const fila of filas ?? []) {
     if (isModuleId(fila?.module_id) && fila.enabled === false) {
       settings[fila.module_id] = false;
     }
   }
+  // …y encima lo que haya dicho ESTA academia, en un sentido o en otro. Las
+  // filas de otra academia no se miran.
+  if (organizationId) {
+    for (const fila of filas ?? []) {
+      if (typeof fila?.module_id !== 'string' || typeof fila.enabled !== 'boolean') continue;
+      const [id, org, ...resto] = fila.module_id.split(':');
+      if (resto.length === 0 && org === organizationId && isModuleId(id)) settings[id] = fila.enabled;
+    }
+  }
   return settings;
 }
 
-/** Los encendidos, en el orden del menu. */
 export function modulosActivos(settings: ModuleSettings): ModuleId[] {
   return MODULE_IDS.filter((id) => settings[id]);
 }

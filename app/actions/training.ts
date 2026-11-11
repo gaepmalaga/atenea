@@ -30,6 +30,7 @@ import {
 import { requireAdmin } from '../lib/auth';
 import { supabaseAdmin } from './core';
 import { registraAccion } from '../lib/admin-audit';
+import { fallo } from '../lib/fallos';
 
 // `TrainingDayLog` NO se reexporta desde aqui. Este modulo es 'use server' y
 // Next exige que solo exporte funciones async: el bundler convertia el
@@ -71,7 +72,7 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
     const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
-    const modulo = await requireModule('training');
+    const modulo = await requireModule('training', auth.user.organizationId);
     if (!modulo.ok) return { success: false, error: modulo.error };
 
     // El interruptor de «plan con IA», aparte del módulo. Va ANTES de la cuota y
@@ -110,7 +111,7 @@ export async function generateWeeklyPlan(profile: PhysicalProfile) {
         }).select().single();
         // Sin esto, un fallo al insertar devolvia `success: true` con `plan: null`
         // y el entrenador se quedaba en blanco sin decir por que.
-        if (error || !inserted) throw new Error(error?.message || 'No se pudo guardar el plan.');
+        if (error || !inserted) throw new Error(fallo('guardaPlan', error) || 'No se pudo guardar el plan.');
         return { success: true, plan: { id: inserted.id as string, plan_data: plan } };
     } catch (e) { return { success: false, error: errorMessage(e) }; }
 }
@@ -183,7 +184,7 @@ export async function completeTrainingDay(
         .eq('user_id', userId)
         .single();
 
-    if (readError) return { success: false, error: readError.message };
+    if (readError) return { success: false, error: fallo('completeTrainingDay', readError) };
     if (!plan) return { success: false, error: 'Plan no encontrado.' };
 
     const updated = normalizePlan(plan.plan_data);
@@ -199,7 +200,7 @@ export async function completeTrainingDay(
     };
 
     const { error } = await db.from('training_plans').update({ plan_data: updated }).eq('id', planId);
-    if (error) return { success: false, error: error.message };
+    if (error) return { success: false, error: fallo('completeTrainingDay', error) };
 
     // Y ADEMÁS una fila en `workout_logs` (§2.11): con fecha propia, para poder
     // mirar la progresión de un mes sin abrir siete JSON de plan. Best-effort y
@@ -236,7 +237,7 @@ export async function getTrainingHistory(): Promise<
         .order('date', { ascending: false })
         .limit(120);
 
-    if (error) return { success: false as const, error: error.message };
+    if (error) return { success: false as const, error: fallo('getTrainingHistory', error) };
     return { success: true as const, semanas: agrupaHistorialPorSemana(data ?? []) };
 }
 
@@ -253,7 +254,7 @@ export async function generateNextWeek() {
     const db = await createSupabaseServerClient();
     const userId = auth.user.id;
 
-    const modulo = await requireModule('training');
+    const modulo = await requireModule('training', auth.user.organizationId);
     if (!modulo.ok) return { success: false as const, error: modulo.error, plan: null };
 
     const permiteIA = await requireTrainingSwitch('ai', auth.user.organizationId);
@@ -272,7 +273,7 @@ export async function generateNextWeek() {
             .limit(1)
             .single();
 
-        if (readError) throw new Error(readError.message);
+        if (readError) throw new Error(fallo('generateNextWeek', readError));
         if (!current) throw new Error('No hay ningún plan activo del que partir.');
 
         const { data: profile } = await db
@@ -313,7 +314,7 @@ export async function generateNextWeek() {
             .update({ status: 'completed' })
             .eq('id', current.id)
             .eq('user_id', userId);
-        if (closeError) throw new Error(closeError.message);
+        if (closeError) throw new Error(fallo('generateNextWeek', closeError));
 
         const { data: inserted, error } = await db.from('training_plans').insert({
             user_id: userId,
@@ -321,7 +322,7 @@ export async function generateNextWeek() {
             plan_data: plan,
             status: 'active',
         }).select().single();
-        if (error || !inserted) throw new Error(error?.message || 'No se pudo guardar el plan.');
+        if (error || !inserted) throw new Error(fallo('guardaPlan', error) || 'No se pudo guardar el plan.');
 
         return { success: true as const, plan: { id: inserted.id as string, plan_data: plan } };
     } catch (e) {
@@ -368,7 +369,7 @@ export async function savePhysicalProfile(data: PhysicalProfile) {
     }
 
     const { error } = await db.from('profiles_physical').upsert(payload);
-    return { success: !error, error: error?.message };
+    return { success: !error, error: fallo('savePhysicalProfile', error) };
 }
 // ============================================================
 // EL ENTRENADOR REAL (SOLO ADMIN)
@@ -474,5 +475,5 @@ export async function saveManualTrainingPlan(params: {
         });
     }
 
-    return { success: !error, error: error?.message };
+    return { success: !error, error: fallo('saveManualTrainingPlan', error) };
 }
