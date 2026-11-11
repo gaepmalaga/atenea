@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-09",
+  "generado": "2026-11-11",
   "tablas": {
     "academies": {
       "columnas": [
@@ -443,7 +443,9 @@
       ],
       "obligatorias": [
         "clave",
+        "creado_en",
         "fase",
+        "id",
         "organization_id",
         "periodo",
         "tabla"
@@ -526,7 +528,7 @@
       "tipos": {
         "created_at": "timestamp with time zone",
         "id": "uuid",
-        "kinds": "ARRAY",
+        "kinds": "text[]",
         "name": "text",
         "organization_id": "uuid",
         "price_eur": "numeric"
@@ -1031,7 +1033,8 @@
         "seed",
         "started_at",
         "total",
-        "user_id"
+        "user_id",
+        "version"
       ],
       "tipos": {
         "answers": "smallint[]",

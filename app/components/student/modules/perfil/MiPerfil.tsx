@@ -123,7 +123,7 @@ export default function MiPerfil({ user }: { user: { id: string; email?: string 
 
       {/* ───────── MIS DATOS ───────── */}
       <Card>
-        <SectionLabel icon={<Mail size={14} />}>Mis datos</SectionLabel>
+        <SectionLabel icon={<Mail size={14} />}>Mi cuenta</SectionLabel>
         <p className="text-sm font-bold text-slate-900 dark:text-white break-all">{data?.email ?? user.email ?? '—'}</p>
         <p className={cx(TEXT.muted, 'mt-1')}>Para cambiar el correo o la contraseña, habla con tu academia.</p>
       </Card>

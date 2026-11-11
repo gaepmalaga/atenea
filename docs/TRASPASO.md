@@ -197,7 +197,7 @@ desde él, y tiene permitido el host del proyecto
 `ejecutar-sql.mjs` necesita además
 `NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co` delante.
 
-## 2f · Cuatro funciones nuevas (11 nov, reglas 114 a 117, en la rama `claude/trusting-archimedes-air2im`, sin desplegar)
+## 2f · Cuatro funciones nuevas (11 nov, reglas 114 a 117, desplegadas)
 
 Tras desplegar lo de afianzar (PR 27, ya en `main`), se construyó, por este
 orden: perfil del alumno, exámenes en papel, informe semanal y psicotécnicos.
@@ -209,26 +209,26 @@ orden: perfil del alumno, exámenes en papel, informe semanal y psicotécnicos.
 | Informe semanal con señales de abandono, copiar a WhatsApp y PDF | 116 | Panel → «Informe semanal» | `informe-semanal.sql` |
 | Psicotécnicos generados por código (6 tipos, contra el reloj) | 117 | Alumno → «Psicotécnicos» (módulo `psico`) | `psicotecnicos.sql` |
 
-**LOS TRES GUIONES ESTÁN ESCRITOS Y PROBADOS EN UN POSTGRES LOCAL, PERO SIN
-EJECUTAR EN PRODUCCIÓN** (el sistema bloqueó ejecutarlos desde la sesión). Hasta
-que se ejecuten: «Mis datos» y «Alumnos» funcionan sin nombre ni foto, «Informe
-semanal» dice que falta el guion, y «Psicotécnicos» dice que no está activado.
-Ejecutarlos con:
+**Los tres guiones están EJECUTADOS en producción (11 nov)** y comprobados:
+las tres columnas de `profiles`, el cubo `avatars`, la función
+`panel_actividad_semanal` (el alumno no puede llamarla) y `psico_sessions`
+(RLS activa, cero políticas). `supabase/schema.json` está refrescado.
 
-```bash
-for f in perfil-alumno informe-semanal psicotecnicos; do
-  NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co NODE_USE_ENV_PROXY=1 \
-  SUPABASE_ACCESS_TOKEN=proxy-injected node scripts/operacion/ejecutar-sql.mjs docs/sql/$f.sql
-done
-node scripts/schema-snapshot.mjs
-```
+**Probado en la app local contra la base de datos real**, con un admin y un
+alumno temporales que se borraron al terminar (también la foto del
+almacenamiento; no quedó nada):
 
-**Probado:** `npm run check` y el banco de pruebas (las pantallas en móvil y
-escritorio, una sesión entera de psicotécnicos con los seis tipos, y la
-descarga real de un PDF desde el navegador). **Sin probar con la base de datos
-real:** nada de esto, porque los guiones no están ejecutados. Antes de abrirlo
-a alumnos: ejecutar los guiones, y con una cuenta de prueba subir una foto,
-hacer una sesión de psicotécnicos y mirar el informe.
+- Foto: se sube, queda un JPEG de 1 KB en el cubo y su dirección pública
+  responde. Nombre y teléfono se guardan limpios (`600 12 34 56` →
+  `600123456`) y un teléfono inválido se rechaza con su mensaje.
+- «Alumnos»: se busca por NOMBRE, sale la foto en la lista y el teléfono es un
+  enlace `tel:` en la ficha.
+- Psicotécnicos: una sesión de 15 con los seis tipos; 10 contestadas y 5 en
+  blanco; el servidor guardó semilla, versión, respuestas (`-1` los blancos),
+  nota y duración, y la corrigió él.
+- Informe semanal: 48 alumnos reales (de demostración), 5 para llamar y 3 para
+  vigilar, con su motivo; el PDF se descarga.
+- Exámenes en papel: salen los tres PDF con 100 preguntas del banco real.
 
 **Sin probar de ninguna manera:**
 - **Los PDF impresos.** Se han mirado en pantalla; antes de fotocopiar cien,
