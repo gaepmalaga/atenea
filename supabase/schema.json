@@ -1020,6 +1020,7 @@
         "started_at",
         "total",
         "user_id",
+        "version",
         "wrong"
       ],
       "obligatorias": [
@@ -1047,6 +1048,7 @@
         "started_at": "timestamp with time zone",
         "total": "integer",
         "user_id": "uuid",
+        "version": "smallint",
         "wrong": "integer"
       }
     },

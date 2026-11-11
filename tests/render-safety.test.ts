@@ -87,6 +87,7 @@ describe('aislamiento de fallos', () => {
       'MiEvolucion',
       'MiPerfil',
       'BiodataManager',
+      'Psicotecnicos',
     ];
     const boundaries = dashboard.src.match(/<ModuleErrorBoundary/g) ?? [];
     expect(boundaries.length).toBe(modules.length);

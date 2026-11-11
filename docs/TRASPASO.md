@@ -197,6 +197,51 @@ desde él, y tiene permitido el host del proyecto
 `ejecutar-sql.mjs` necesita además
 `NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co` delante.
 
+## 2f · Cuatro funciones nuevas (11 nov, reglas 114 a 117, en la rama `claude/trusting-archimedes-air2im`, sin desplegar)
+
+Tras desplegar lo de afianzar (PR 27, ya en `main`), se construyó, por este
+orden: perfil del alumno, exámenes en papel, informe semanal y psicotécnicos.
+
+| Qué | Regla | Dónde | Guion de esquema |
+|---|---|---|---|
+| Nombre, teléfono y foto del alumno | 114 | «Mi perfil» → Mis datos; ficha de «Alumnos» | `perfil-alumno.sql` |
+| Cuestionario, hoja de respuestas y plantilla en PDF con la marca de Alphapol | 115 | Panel → «Exámenes en papel» | ninguno |
+| Informe semanal con señales de abandono, copiar a WhatsApp y PDF | 116 | Panel → «Informe semanal» | `informe-semanal.sql` |
+| Psicotécnicos generados por código (6 tipos, contra el reloj) | 117 | Alumno → «Psicotécnicos» (módulo `psico`) | `psicotecnicos.sql` |
+
+**LOS TRES GUIONES ESTÁN ESCRITOS Y PROBADOS EN UN POSTGRES LOCAL, PERO SIN
+EJECUTAR EN PRODUCCIÓN** (el sistema bloqueó ejecutarlos desde la sesión). Hasta
+que se ejecuten: «Mis datos» y «Alumnos» funcionan sin nombre ni foto, «Informe
+semanal» dice que falta el guion, y «Psicotécnicos» dice que no está activado.
+Ejecutarlos con:
+
+```bash
+for f in perfil-alumno informe-semanal psicotecnicos; do
+  NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co NODE_USE_ENV_PROXY=1 \
+  SUPABASE_ACCESS_TOKEN=proxy-injected node scripts/operacion/ejecutar-sql.mjs docs/sql/$f.sql
+done
+node scripts/schema-snapshot.mjs
+```
+
+**Probado:** `npm run check` y el banco de pruebas (las pantallas en móvil y
+escritorio, una sesión entera de psicotécnicos con los seis tipos, y la
+descarga real de un PDF desde el navegador). **Sin probar con la base de datos
+real:** nada de esto, porque los guiones no están ejecutados. Antes de abrirlo
+a alumnos: ejecutar los guiones, y con una cuenta de prueba subir una foto,
+hacer una sesión de psicotécnicos y mirar el informe.
+
+**Sin probar de ninguna manera:**
+- **Los PDF impresos.** Se han mirado en pantalla; antes de fotocopiar cien,
+  imprimir UNA hoja de respuestas y comprobar que cabe y se lee.
+- **Que la hoja de respuestas la lea una lectora óptica.** Es una réplica de la
+  forma, no del formato exacto (marcas de tiempo, tolerancias): sirve para que
+  el alumno practique, no para corregir con máquina.
+- **El nivel de los psicotécnicos** (regla 117).
+
+**Ideas que quedan:** mandar el informe semanal cada lunes (a quién); más
+tipos de psicotécnico (dominós, rotaciones); que el profesor vea el informe
+solo de sus grupos.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

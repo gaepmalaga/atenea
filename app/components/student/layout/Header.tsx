@@ -45,7 +45,9 @@ export default function Header({ title }: HeaderProps) {
             en el examen había dos cabeceras seguidas, y entre las dos se comían
             media pantalla de móvil antes del primer control. En la tipografía
             de la marca, con el punto dorado (regla 94). */}
-        <h1 className="font-titulo uppercase font-bold text-4xl sm:text-5xl leading-none text-marino dark:text-white truncate">
+        {/* Un título largo («Psicotécnicos», «Preparación física») baja un punto en
+            el móvil: a 4xl no cabía y salía cortado con puntos suspensivos. */}
+        <h1 className={cx('font-titulo uppercase font-bold leading-none text-marino dark:text-white truncate sm:text-5xl', title.length > 11 ? 'text-3xl' : 'text-4xl')}>
           {title}<span className="text-oro">.</span>
         </h1>
       </div>

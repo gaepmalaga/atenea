@@ -110,6 +110,14 @@ describe('las acciones', () => {
     expect(datos).not.toContain('role:');
   });
 
+  it('la foto se valida ANTES de subirla', () => {
+    const desde = datos.indexOf('export async function saveMiFoto');
+    const cuerpo = datos.slice(desde, datos.indexOf('\nexport async function', desde + 10));
+    expect(cuerpo).toContain('leeFoto(dataUrl)');
+    expect(cuerpo.indexOf('leeFoto(dataUrl)')).toBeLessThan(cuerpo.indexOf('.upload('));
+    expect(cuerpo).toContain('if (!foto.ok)');
+  });
+
   it('la política de contenido deja pintar las fotos de Supabase', () => {
     expect(lee('next.config.ts')).toMatch(/img-src 'self' data: blob:\$\{supabase \? ` \$\{supabase\.https\}` : ''\}/);
   });

@@ -25,6 +25,9 @@ create table if not exists public.psico_sessions (
   user_id         uuid not null references auth.users(id) on delete cascade,
   organization_id uuid not null references public.academies(id) on delete cascade,
   seed            bigint not null,
+  -- La versión de los generadores con la que se creó (`VERSION_PSICO`): si
+  -- cambian entre que se empieza y se entrega, la sesión no se puede corregir.
+  version         smallint not null default 1,
   -- Los tipos pedidos y cuántas preguntas: con la semilla, bastan para volver
   -- a generar exactamente la misma sesión.
   kinds           text[] not null,

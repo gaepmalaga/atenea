@@ -93,7 +93,7 @@ export async function getPsychProfile() {
 }
 
 export async function getModuleSettings() {
-  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, training: true, interview: true, stats: true, profile: true } });
+  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, psico: true, training: true, interview: true, stats: true, profile: true } });
 }
 
 export async function getUserStats() {
@@ -1371,5 +1371,27 @@ export async function getInformeSemanal() {
         fila('i5', 'Pablo Ruiz', 240, 160, 69, 'bajo', []),
       ],
     },
+  });
+}
+
+// ---------- Psicotécnicos (regla 117) ----------
+// El generador de verdad con una semilla fija: lo que se ve aquí es lo que sale.
+import { generaSesion as _genera, aPublica as _publica, corrigeSesion as _corrige, tiposValidos as _tipos, MINUTOS_PSICO as _min } from '@/app/lib/psico';
+let _psico: { tipos: ReturnType<typeof _tipos>; total: number } = { tipos: _tipos([]), total: 15 };
+export async function empiezaPsico(d: { tipos?: string[]; total?: number }) {
+  _psico = { tipos: _tipos(d?.tipos), total: d?.total ?? 15 };
+  return ok({ sesion: { id: '99999999-9999-9999-9999-999999999999', minutos: _min[_psico.total] ?? 8, preguntas: _genera(20261111, _psico.tipos, _psico.total).map(_publica) } });
+}
+export async function entregaPsico(d: { respuestas?: number[] }) {
+  const preguntas = _genera(20261111, _psico.tipos, _psico.total);
+  const respuestas = preguntas.map((_, i) => d?.respuestas?.[i] ?? -1);
+  return ok({ resultado: _corrige(preguntas, respuestas), revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })), duracionMs: 312000 });
+}
+export async function getMisPsico() {
+  return ok({
+    sesiones: [
+      { id: 'p1', fecha: new Date(Date.now() - 864e5).toISOString(), total: 25, aciertos: 17, fallos: 5, blancos: 3, duracionMs: 700000, tipos: _tipos([]), porTipo: { series: { a: 4, t: 5 }, figuras: { a: 2, t: 4 }, calculo: { a: 3, t: 4 } } },
+      { id: 'p2', fecha: new Date(Date.now() - 4 * 864e5).toISOString(), total: 15, aciertos: 6, fallos: 8, blancos: 1, duracionMs: 470000, tipos: _tipos([]), porTipo: { series: { a: 1, t: 3 }, atencion: { a: 2, t: 3 } } },
+    ],
   });
 }

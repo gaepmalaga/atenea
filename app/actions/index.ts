@@ -28,3 +28,4 @@ export * from './superadmin';
 export * from './demo';
 export * from './datos';
 export * from './informe';
+export * from './psico';
