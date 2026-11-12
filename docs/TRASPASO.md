@@ -409,7 +409,7 @@ academia hoy, con la sesión real de Alphapol y sin tocar nada. Conclusiones:
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)
 
-1. **Subdominio propio** (p. ej. `campus.alphapol.es`). Hay que:
+1. **Subdominio propio** (p. ej. `campus.alphapol.es`). **Paso a paso en `docs/DOMINIO-Y-CORREO.md`.** Hay que:
    - añadirlo en Vercel (proyecto `atenea`);
    - crear el CNAME en Hostinger, donde está el DNS de alphapol.es;
    - poner la URL nueva en Supabase (*Authentication → URL Configuration*: Site
