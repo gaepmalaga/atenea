@@ -373,11 +373,17 @@ export default function ActiveTest({
     setIsSubmittingReport(true);
     
     try {
-      await reportQuestion({
+      // La acción NO lanza: devuelve `{ success }`. Sin mirarlo, un reporte
+      // que la base de datos rechazaba se daba al alumno por enviado.
+      const res = await reportQuestion({
         questionId: currentQ.id,
         reportType: reportData.type,
         message: reportData.message
       });
+      if (!res.success) {
+        alert('No se pudo enviar el aviso. Inténtalo de nuevo en un momento.');
+        return;
+      }
       setIsReportModalOpen(false);
       setReportData({ type: '', message: '' });
       alert(`Aviso enviado. Gracias por ayudar a mejorar ${MARCA.nombre}.`);
