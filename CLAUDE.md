@@ -20,7 +20,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 
 ## Cómo se trabaja
 
-1. **`npm run check`** (typecheck + ~1.580 tests) antes de cada commit, y
+1. **`npm run check`** (typecheck + ~1.610 tests) antes de cada commit, y
    **`npm run build`** si tocas la app (necesita las 4 variables de
    `.env.example`, que pueden ser inventadas). CI ejecuta los dos.
 2. **Verde no es visto** (regla 38). Una pantalla cambiada se mira en el banco
@@ -52,6 +52,7 @@ npm run sembrar             # indexa los PDF del temario y llena el banco (de pa
 npm run chat:probar         # qué contesta el chat de verdad (de pago; el chat está fuera del MVP)
 npm run limpiar             # ensayo de dejar la BD solo de Alphapol (regla 81). `-- --hazlo` borra
 npm run sembrar:peso -- --ensayo           # qué preguntas generaría (regla 78). Sin --ensayo, de pago
+npm run familias                           # agrupa las preguntas repetidas (regla 119). `-- --hazlo` guarda
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
@@ -239,6 +240,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 116 | El informe semanal avisa del cambio, no solo del silencio |
 | 117 | Los psicotécnicos los genera el código, no un banco |
 | 118 | El examen en papel se guarda, se pone a un turno y su nota se lleva |
+| 119 | El banco repite el mismo hecho hasta 26 veces: se agrupa, no se borra |
 
 ## Trampas conocidas
 

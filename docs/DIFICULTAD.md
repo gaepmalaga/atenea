@@ -63,7 +63,7 @@ Las del bloque jurídico salen bastante más duras: son artículos, plazos y pen
    los exámenes en clase y desde `question_attempts` real, y que sustituya a la
    estimada a partir de 30 respuestas.
 
-## Lo que salió de paso: preguntas casi repetidas
+## Lo que salió de paso: preguntas casi repetidas (RESUELTO EN PARTE: regla 119)
 
 Al leer las 150 salió un problema que no es de dificultad: **el banco tiene
 muchas preguntas que son la misma con otras palabras**. En la muestra:

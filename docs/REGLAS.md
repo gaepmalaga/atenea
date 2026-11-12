@@ -4654,3 +4654,52 @@ el segundo necesita el proyecto real.
   (`pdftoppm -r 200 -png`) y poniéndolo al lado del original, no leyendo su
   texto. Las proporciones (círculo ~6 pt, relleno en pastilla más ancho que el
   círculo, fila de respuesta blanca) salen de ahí.
+
+### 119 · El banco repite el mismo hecho hasta 26 veces: se agrupa, no se borra
+
+- **Qué pasaba (12 nov):** al leer una muestra del banco salió que muchas
+  preguntas eran la misma con otras palabras. Medido sobre las 4.617 activas:
+  **1.562 (el 34 %) son repeticiones de otra**; hay unos **3.055 hechos
+  distintos**, y el mayor aparece 26 veces («tráfico ilícito de migrantes
+  frente a trata», «seguridad privada, actividad complementaria y subordinada»,
+  el modelo tripartito de las actitudes…). El banco se generó con el modelo a
+  partir de los mismos artículos.
+- **Qué cuesta:** un examen que lleva el mismo hecho dos veces regala puntos a
+  quien lo sabe y castiga dos a quien no; deja menos sitio a los demás temas; y
+  la dificultad medida de una pregunta se reparte entre sus repeticiones. En un
+  examen de 100 de todo el temario son pocas (2,8 de media), pero en uno de un
+  solo tema son muchas (5,6 de 25).
+- **Regla:** las preguntas se agrupan en FAMILIAS (`question_bank.family_id`,
+  mismo valor en todas las de una; NULL = sin repetidas) con
+  `npm run familias` (ensayo) y `npm run familias -- --hazlo` (guarda). NO se
+  borra ni se desactiva ninguna: el generador de exámenes
+  (`planExamenSinFamilias`: simulacro del alumno y examen en papel) pone como
+  mucho una por familia, y solo si no hay bastantes hechos distintos para llegar
+  al tamaño pedido repite, y lo dice (`conRepetidas`): un examen completo con
+  algún hecho repetido es mejor que uno corto, pero hay que saberlo.
+- **Cómo se detecta, sin IA y sin gasto** (`app/lib/familias.ts`): el texto del
+  enunciado más el de la opción CORRECTA (las malas varían, la buena no: es el
+  hecho que se pregunta), pesado por lo raras que son las palabras en todo el
+  banco (TF-IDF), y similitud del coseno ≥ 0,6. Tres salvaguardas que salieron
+  de mirar pares reales, porque sin ellas se juntaban preguntas DISTINTAS:
+  1. la respuesta correcta tiene que parecerse también por sí sola (dos
+     preguntas sobre el mismo artículo que preguntan cosas distintas comparten
+     casi todo el enunciado);
+  2. las cantidades tienen que coincidir («al día siguiente» frente a «a los
+     veinte días» es otro hecho);
+  3. si las dos llevan números o códigos y no coinciden, no son la misma
+     (otro artículo con la misma fecha de respuesta, o C2 frente a C3).
+  Una familia no pasa de 30 (el tope es contra el encadenado A≈B, B≈C…; con 8 se
+  troceaban en tres las que de verdad son una).
+- **Lo que NO está resuelto:** la familia es de TEXTO, no de significado: dos
+  preguntas del mismo hecho con palabras muy distintas no se juntan, y una
+  familia de «dispositivos de red» (hub, switch, router) mezcla varios hechos
+  y limita a una pregunta de las varias legítimas. Es conservador a propósito.
+  Hay que repetir `npm run familias -- --hazlo` cuando entren preguntas nuevas.
+- **Lo más importante que salió: el banco es MUY desigual por tema.** Los
+  hechos distintos por tema (`docs/dificultad/hechos-por-tema.json`): el tema 31
+  (Inmigración) tiene 40 preguntas y **7 hechos**; el 45, 40 → 10; el 39, 39 →
+  12; el 32, 40 → 14; el 33, 40 → 16; el 28, 40 → 18; los temas 3, 8, 16 y 21
+  tienen más de 300 cada uno. Un examen de un tema flojo repite hechos aunque
+  haya 40 preguntas. Esto es lo que dice DÓNDE meter preguntas nuevas del
+  temario propio de Alphapol, y es más importante que la dificultad.
