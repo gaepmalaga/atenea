@@ -53,6 +53,7 @@ npm run chat:probar         # qué contesta el chat de verdad (de pago; el chat 
 npm run limpiar             # ensayo de dejar la BD solo de Alphapol (regla 81). `-- --hazlo` borra
 npm run sembrar:peso -- --ensayo           # qué preguntas generaría (regla 78). Sin --ensayo, de pago
 npm run familias                           # agrupa las preguntas repetidas (regla 119). `-- --hazlo` guarda
+npm run dificultad -- --muestra            # Gemini clasifica la muestra de 150 y se compara (regla 121; solo en producción, vía «Operación»)
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
@@ -242,6 +243,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 118 | El examen en papel se guarda, se pone a un turno y su nota se lleva |
 | 119 | El banco repite el mismo hecho hasta 26 veces: se agrupa, no se borra |
 | 120 | Un aviso solo es «enviado» si la base de datos lo aceptó, y el resultado del simulacro dice dónde se falla |
+| 121 | La dificultad se estima con una vara fijada antes, y nada se rellena con un 2 |
 
 ## Trampas conocidas
 

@@ -48,20 +48,29 @@ Las del bloque jurídico salen bastante más duras: son artículos, plazos y pen
 
 ## Lo que falta
 
-1. **Comparar con Gemini.** Un script que clasifique esa misma muestra con
-   `gemini-3.5-flash-lite` y la rúbrica, y mida el acuerdo con la de arriba
-   (porcentaje de coincidencias y de errores de dos niveles). Gemini solo
-   funciona en producción: va por el flujo «Operación» de GitHub Actions, que
-   tiene su clave. Si coincide bien, se ajusta el prompt y se sigue; si no, se
-   afina la rúbrica.
-2. **Clasificar las 4.617** con el prompt validado (ensayo gratis primero:
-   `--ensayo` enseña qué haría sin gastar) y guardarlas como estimadas.
-3. **Dónde guardar «estimada» frente a «puesta por el preparador»**: hace falta
-   una columna (`difficulty_source`) para que la medida y la mano del preparador
-   no se pisen con una reclasificación. Guion de esquema aparte.
-4. **Calcular la medida** (`global_success_rate` y dificultad observada) desde
+Hecho en el código (12 nov, regla 121), **sin ejecutar todavía en producción**:
+el prompt con la rúbrica, la validación de lo que devuelve el modelo, la medida
+del acuerdo y el script `npm run dificultad`, con tres acciones nuevas en
+«Operación» (Actions → Operación → Run workflow).
+
+1. **`dificultad-muestra`** (de pago, céntimos). Gemini clasifica las 150 de la
+   muestra y se compara con la hecha a mano. No escribe nada. Dice si pasa el
+   criterio, fijado ANTES de mirar: coincidencia exacta ≥ 60 %, errores de dos
+   niveles ≤ 5 % y sesgo medio ≤ ±0,3 niveles (tres niveles dan un 33 % por
+   azar). Enseña las diferencias de dos niveles, para afinar la rúbrica mirándolas.
+2. **`dificultad-ensayo`** (gratis). Cuenta las activas y estima el coste.
+3. **Ejecutar `docs/sql/dificultad-origen.sql`** (una columna, `difficulty_source`)
+   y refrescar el esquema (`node scripts/schema-snapshot.mjs`). Sin ella el
+   script se niega a escribir: no se podría distinguir lo estimado de lo que
+   ponga el preparador, y una reclasificación pisaría su trabajo.
+4. **`dificultad-todas`** (pide escribir CLASIFICAR). Solo si la muestra pasó.
+   Escribe `difficulty_level` y `difficulty_source = 'estimada'`; no toca lo que
+   tenga origen `preparador` ni `medida`; lo que el modelo no clasifica se queda
+   como estaba (no pasa a 2).
+5. **El preparador la corrige desde «Banco oficial»** (pendiente de construir).
+6. **Calcular la medida** (`global_success_rate` y dificultad observada) desde
    los exámenes en clase y desde `question_attempts` real, y que sustituya a la
-   estimada a partir de 30 respuestas.
+   estimada a partir de 30 respuestas, excluyendo las cuentas de demostración.
 
 ## Lo que salió de paso: preguntas casi repetidas (RESUELTO EN PARTE: regla 119)
 

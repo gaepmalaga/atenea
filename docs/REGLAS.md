@@ -4726,3 +4726,26 @@ el segundo necesita el proyecto real.
   Gemini por pregunta fallada, y el chat está fuera del MVP, 58) y el ranking
   nacional (expone al alumno con nota baja; un ranking por turno, si lo pide
   el dueño, saldría de los exámenes en clase, regla 118).
+
+### 121 · La dificultad se estima con una vara fijada antes, y nada se rellena con un 2
+
+*(12 nov 2026.)*
+
+- **Por qué hay que medir el acuerdo.** Las 4.617 preguntas valen 2 porque se
+  sembraron con el valor por defecto, así que los filtros de dificultad de
+  «Exámenes en papel» no filtran nada. Antes de dejar que un modelo clasifique
+  el banco entero se le hace clasificar la muestra de 150 hecha a mano y se
+  compara. El criterio (`CRITERIO_ACUERDO` en `app/lib/dificultad.ts`: ≥ 60 %
+  exacto, ≤ 5 % a dos niveles, sesgo ≤ ±0,3) está puesto ANTES de ver el
+  resultado: si se ajusta a lo que salga, no mide nada. El sesgo cuenta porque
+  un 70 % de acuerdo puede esconder que siempre se equivoca hacia el mismo lado.
+- **`null` no es 2 (regla 16).** Lo que el modelo no contesta, o contesta dos
+  veces, o fuera de 1-3, queda `null` y no se escribe. Rellenarlo con el valor
+  por defecto es justo cómo se llegó a las 4.617 preguntas iguales.
+- **De quién es cada valor.** `difficulty_source`: `NULL` (el 2 de la siembra),
+  `estimada`, `preparador`, `medida`. Una reclasificación solo toca `NULL` y
+  `estimada`; lo que puso una persona o salió de respuestas reales manda sobre
+  la estimación. Por eso el script se niega a escribir sin esa columna.
+- **Dos llaves para escribir.** `--hazlo` y haber pasado la muestra
+  (`--muestra-ok`); en Actions, además, escribir CLASIFICAR. El modo muestra
+  no escribe nunca. Todo vigilado en `tests/operacion.test.ts`.

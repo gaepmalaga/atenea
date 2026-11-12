@@ -343,6 +343,20 @@ con IA). Un ranking por turno queda aparcado hasta que lo decida el dueño. Los
 guiones `examen-completo.cjs` del banco de pruebas están desfasados («Iniciar
 operación» ya no existe) y piden Edge, que no está instalado en la nube.
 
+
+## 2j · Dificultad con Gemini: preparada, sin ejecutar (12 nov, regla 121, en la rama)
+
+El prompt, la validación, la medida del acuerdo y `npm run dificultad` están
+escritos y probados (28 tests nuevos, comprobados rompiendo el código). **No se
+ha llamado a Gemini ni se ha tocado la base de datos**: Gemini solo funciona en
+producción. Para seguir, en este orden (`docs/DIFICULTAD.md`):
+
+1. Actions → Operación → `dificultad-muestra`. Céntimos. Dice si pasa el criterio.
+2. Si pasa: ejecutar `docs/sql/dificultad-origen.sql` y refrescar el esquema.
+3. Actions → Operación → `dificultad-todas`, escribiendo CLASIFICAR.
+
+Si no pasa, el listado de diferencias de dos niveles dice qué afinar en la rúbrica.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)
