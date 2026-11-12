@@ -15,6 +15,7 @@ export type AccionAuditada =
   | 'delete_document'
   | 'delete_topic'
   | 'disable_question'
+  | 'reactivate_question'
   | 'disable_family_duplicates'
   | 'discard_all_candidates'
   | 'approve_questions'
@@ -63,6 +64,7 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   delete_document: 'Borró un documento del temario',
   delete_topic: 'Borró un tema',
   disable_question: 'Descartó una pregunta',
+  reactivate_question: 'Reactivó una pregunta descartada',
   disable_family_duplicates: 'Se quedó con una pregunta y descartó sus repetidas',
   discard_all_candidates: 'Descartó todas las candidatas',
   approve_questions: 'Publicó preguntas al banco',

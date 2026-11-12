@@ -234,3 +234,28 @@ describe('el guion de dificultad medida no escribe sin pedirlo ni pisa al prepar
     expect(flujo).toContain('"MEDIR"');
   });
 });
+
+describe('la medición semanal corre sola y no se pasa de lo que puede', () => {
+  const flujo = leer('.github/workflows/medicion-semanal.yml');
+  const sinC = flujo.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+
+  it('se programa una vez por semana', () => {
+    expect(sinC).toMatch(/schedule:\s*\n\s*- cron: '[\d*]+ [\d*]+ \* \* [0-6]'/);
+  });
+
+  it('escribe con `--hazlo` (sin él solo haría el ensayo)', () => {
+    expect(sinC).toContain('npm run dificultad:medida -- --hazlo');
+  });
+
+  it('no lleva la clave de Gemini: medir no gasta', () => {
+    expect(sinC).not.toMatch(/GEMINI/);
+  });
+
+  it('no tiene permisos sobre el repositorio', () => {
+    expect(sinC).toMatch(/permissions: \{\}/);
+  });
+
+  it('se puede lanzar a mano', () => {
+    expect(sinC).toContain('workflow_dispatch');
+  });
+});

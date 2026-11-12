@@ -367,6 +367,28 @@ Antes de desplegar conviene probar con la base de datos real, con una cuenta
 de prueba: que la etiqueta salga, que guardar una dificultad en «Banco oficial»
 la deje como `preparador`, y que «Preguntas repetidas» liste las 728 familias.
 
+
+## 2k · Una sola academia: el admin toca el banco global; «Reactivar»; medición semanal (12 nov, regla 123)
+
+- **Quién es quién hoy:** `prueba.admin@alphapol.es` es el único admin (una cuenta
+  de PRUEBA, de la academia Alphapol) y `gaepmalaga@gmail.com` el superadmin. **El
+  dueño y los preparadores aún no tienen cuenta.** Las crea el superadmin desde
+  «Academias» → «Añadir admin» (invita por correo).
+- **Admin:** lleva la academia (Calendario, Alumnos, Grupos, Profesores, Asistencia,
+  Prep. física, Pagos, Informe, Banco oficial, Moderación, Exámenes en papel, Ajustes,
+  Logs). **Superadmin:** el técnico (Temario & IA, Banco oficial, Moderación,
+  Consumo IA, Academias); no ve ninguna pantalla de gestión de la academia.
+- **Cambio:** con `UNA_SOLA_ACADEMIA = true` el admin edita, descarta y reactiva el
+  banco global, ve «Preguntas repetidas» y recibe los reportes de los alumnos.
+  Sin tocar: IA, consumo, crear academias y admins, «Vaciar banco».
+- **«Reactivar»** en el editor de «Banco oficial» para las descartadas.
+- **Medición semanal** de la dificultad: `.github/workflows/medicion-semanal.yml`,
+  los lunes 05:17 UTC. Solo corre si está en `main`.
+- **Sin probar contra la base de datos real:** que un admin de verdad vea y edite el
+  banco global, y que le lleguen los reportes. Probarlo con `prueba.admin@alphapol.es`.
+- **Pendiente de decidir con el dueño:** si los preparadores deben ver «Pagos». Hoy
+  no existe un rol intermedio (regla 123).
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

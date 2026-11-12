@@ -17,6 +17,7 @@ import { MAX_IMPORT } from '../lib/question-import';
 import { registraAccion } from '../lib/admin-audit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { fallo } from '../lib/fallos';
+import { filtroEscrituraBanco, puedeEditarBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -82,15 +83,22 @@ export async function getModerationQueue() {
     // `admin` normal ve solo los de SU academia. `!inner` convierte el embed
     // en INNER JOIN, que es lo que deja filtrar por una columna de la tabla
     // embebida (`question.organization_id`).
-    let repQuery = supabaseAdmin
+    const baseReportes = () => supabaseAdmin
       .from('question_reports')
       .select('*, question:question_bank!inner(*)')
       .eq('status', 'open');
-    repQuery =
-      auth.user.role === 'superadmin'
-        ? repQuery.is('question.organization_id', null)
-        : repQuery.eq('question.organization_id', auth.user.organizationId);
-    const { data: rep } = await repQuery;
+    const reportesDonde = (donde: (q: ReturnType<typeof baseReportes>) => ReturnType<typeof baseReportes>) => donde(baseReportes());
+    // Regla 123: con UNA_SOLA_ACADEMIA, al admin de la academia le llegan
+    // también los reportes de las preguntas GLOBALES —que son las 4.617—, porque
+    // es quien puede arreglarlas. Dos consultas y no un `.or` sobre la tabla
+    // embebida: esta forma es la que ya se sabe que funciona.
+    const globales = auth.user.role === 'superadmin' || UNA_SOLA_ACADEMIA
+      ? ((await reportesDonde((q) => q.is('question.organization_id', null))).data ?? [])
+      : [];
+    const propios = auth.user.role === 'superadmin'
+      ? []
+      : ((await reportesDonde((q) => q.eq('question.organization_id', auth.user.organizationId))).data ?? []);
+    const rep = [...globales, ...propios];
 
     /** Aplana `subject.title` a `topic`, que es lo que pinta la interfaz. */
     const conTema = (fila: unknown): ModerationCandidate => {
@@ -150,16 +158,43 @@ export async function disableQuestion(questionId: string): Promise<ModerationRes
     if (!auth.ok) return { success: false, error: auth.error };
 
     let query = supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.DISABLED }).eq('id', questionId);
-    // Un admin normal solo puede tocar SU banco privado — nunca el global ni
-    // el de otra academia. Filtrando en el propio UPDATE, una fila que no le
+    // Un admin solo puede tocar lo que `filtroEscrituraBanco` le deja: su
+    // banco privado y, con UNA_SOLA_ACADEMIA (regla 123), el global; nunca el
+    // de otra academia. Filtrando en el propio UPDATE, una fila que no le
     // pertenece simplemente no cambia, en vez de depender de una lectura
-    // previa que alguien podría olvidar (regla 65: un `superadmin` no se
-    // filtra, administra el banco global y, si hace falta, cualquier otro).
-    if (auth.user.role !== 'superadmin') query = query.eq('organization_id', auth.user.organizationId);
+    // previa que alguien podría olvidar (regla 65: un `superadmin` no se filtra).
+    const alcance = filtroEscrituraBanco(auth.user);
+    if (alcance) query = query.or(alcance);
     const { data, error } = await query.select('id');
     if (error) return { success: false, error: fallo('disableQuestion', error) };
     if (!data || data.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
     registraAccion({ actorId: auth.user.id, action: 'disable_question', target: questionId });
+    return { success: true };
+}
+
+/**
+ * Devuelve al banco una pregunta descartada (regla 123). Antes solo se podía
+ * descartar, y deshacerlo era cosa de la base de datos.
+ *
+ * Solo sobre una descartada (`.eq('status', disabled)`): no convierte en
+ * activa una candidata sin revisar. Con el mismo alcance que descartar.
+ */
+export async function reactivateQuestion(questionId: string): Promise<ModerationResult> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (!questionId) return { success: false, error: 'Falta el id de la pregunta.' };
+
+    let query = supabaseAdmin
+        .from('question_bank')
+        .update({ status: QUESTION_STATUS.ACTIVE })
+        .eq('id', questionId)
+        .eq('status', QUESTION_STATUS.DISABLED);
+    const alcance = filtroEscrituraBanco(auth.user);
+    if (alcance) query = query.or(alcance);
+    const { data, error } = await query.select('id');
+    if (error) return { success: false, error: fallo('reactivateQuestion', error) };
+    if (!data || data.length === 0) return { success: false, error: 'Esa pregunta no existe, no está descartada o no es de tu academia.' };
+    registraAccion({ actorId: auth.user.id, action: 'reactivate_question', target: questionId });
     return { success: true };
 }
 
@@ -212,8 +247,10 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
         .select('question:question_bank!inner(organization_id)')
         .eq('id', reportId)
         .maybeSingle();
-      const orgDeLaPregunta = (rep as { question?: { organization_id: string | null } } | null)?.question?.organization_id ?? null;
-      if (orgDeLaPregunta !== auth.user.organizationId) {
+      // Sin reporte no hay pregunta de la que fiarse: se rechaza, no se trata como «global».
+      if (!rep) return { success: false, error: 'Ese reporte no existe.' };
+      const orgDeLaPregunta = (rep as unknown as { question?: { organization_id: string | null } } | null)?.question?.organization_id ?? null;
+      if (!puedeEditarBanco(auth.user, { organization_id: orgDeLaPregunta })) {
         return { success: false, error: 'Ese reporte no es de tu academia.' };
       }
     }
@@ -261,9 +298,9 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
         // eso se anota de quién es, y una reclasificación no lo pisa.
         ...(cambiaNivel ? { difficulty_level: Number(crudo), difficulty_source: DIFFICULTY_SOURCE.preparador } : {}),
     }).eq('id', questionId);
-    // Mismo criterio que `disableQuestion`: un admin normal solo edita SU
-    // banco privado, nunca el global ni el de otra academia.
-    if (auth.user.role !== 'superadmin') query = query.eq('organization_id', auth.user.organizationId);
+    // Mismo alcance que `disableQuestion` (`filtroEscrituraBanco`, regla 123).
+    const alcance = filtroEscrituraBanco(auth.user);
+    if (alcance) query = query.or(alcance);
     const { data: filas, error } = await query.select('id');
     if (error) return { success: false, error: fallo('updateQuestion', error) };
     if (!filas || filas.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
