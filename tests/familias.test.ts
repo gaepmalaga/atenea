@@ -81,6 +81,15 @@ describe('qué es la misma pregunta', () => {
     expect(hay('e1', 'e2')).toBe(false);
   });
 
+  it('mismo enunciado y respuesta distinta (sin números) NO es la misma pregunta', () => {
+    const enunciado = 'Según la norma de seguridad privada aplicable a los establecimientos abiertos al público, cuando concurre la circunstancia prevista para el supuesto de riesgo grave inminente para las personas, ¿quién decide sobre la clausura temporal del establecimiento durante la tramitación del expediente sancionador?';
+    const g = [q('g1', enunciado, 'La autoridad gubernativa.', 'x', 'y'), q('g2', enunciado, 'El juez instructor.', 'x', 'y')];
+    const v = vectores(g);
+    // El enunciado es idéntico: solo la respuesta los separa. Sin esa salvaguarda serían «la misma».
+    expect(paresParecidos(g, v, UMBRAL_FAMILIA, { umbralRespuesta: 0 })).toHaveLength(1);
+    expect(paresParecidos(g, v, UMBRAL_FAMILIA)).toHaveLength(0);
+  });
+
   it('las familias salen de los pares', () => {
     const { familias } = familiasDelBanco(BANCO);
     expect(familias.map((f) => f.miembros.map((i) => BANCO[i].id).sort())).toEqual([['a1', 'a2', 'a3']]);
@@ -151,6 +160,8 @@ describe('dónde se usa', () => {
 
   it('el simulacro del alumno y el examen en papel usan el planificador con familias', () => {
     expect(exams.match(/planExamenSinFamilias\(\{/g)?.length).toBe(2);
+    // Y los DOS le pasan la familia de cada pregunta: sin ella el planificador no puede hacer nada.
+    expect(exams.match(/familia: f\.family_id \?\? null/g)?.length).toBe(2);
     expect(exams).not.toMatch(/[^a-zA-Z]planExamen\(\{/);
     expect(exams).toContain('familia: f.family_id ?? null');
   });
