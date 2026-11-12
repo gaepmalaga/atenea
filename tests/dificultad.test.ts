@@ -148,3 +148,59 @@ describe('costeEstimado', () => {
     expect(costeEstimado(0, 10)).toEqual({ llamadas: 0, coste: 0 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// El preparador corrige la dificultad desde «Banco oficial» (regla 121)
+// ---------------------------------------------------------------------------
+
+import { origenDeDificultad, DIFFICULTY_SOURCE } from '../app/lib/questions';
+
+const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const codigo = (rel: string) => sinComentarios(readFileSync(join(__dirname, '..', rel), 'utf-8').replace(/\r\n/g, '\n'));
+
+describe('de quién es la dificultad', () => {
+  it('cada origen se explica con palabras, y sin origen es «sin clasificar», no «media»', () => {
+    expect(origenDeDificultad(DIFFICULTY_SOURCE.estimada)).toMatch(/IA/);
+    expect(origenDeDificultad(DIFFICULTY_SOURCE.preparador)).toMatch(/preparador/);
+    expect(origenDeDificultad(DIFFICULTY_SOURCE.medida)).toMatch(/alumnos/);
+    expect(origenDeDificultad(null)).toMatch(/Sin clasificar/);
+    expect(origenDeDificultad(undefined)).toMatch(/Sin clasificar/);
+  });
+});
+
+describe('editar la dificultad: lo que pone una persona manda y se anota', () => {
+  const accion = codigo('app/actions/moderation.ts');
+  const cuerpo = accion.slice(accion.indexOf('export async function updateQuestion'), accion.indexOf('ALTA MANUAL'));
+  const panel = codigo('app/components/Admin/components/AdminBank.tsx');
+
+  it('un nivel que no es 1, 2 o 3 rechaza la edición entera', () => {
+    expect(cuerpo).toMatch(/!\[1, 2, 3\]\.includes\(Number\(crudo\)\)/);
+    expect(cuerpo).toMatch(/La dificultad tiene que ser 1, 2 o 3/);
+  });
+
+  it('al cambiar el nivel se anota `preparador`, y sin cambiarlo no se toca el origen', () => {
+    expect(cuerpo).toMatch(/cambiaNivel \? \{ difficulty_level: Number\(crudo\), difficulty_source: DIFFICULTY_SOURCE\.preparador \} : \{\}/);
+  });
+
+  it('sigue acotada a la academia del admin (regla 75)', () => {
+    expect(cuerpo).toMatch(/auth\.user\.role !== 'superadmin'\) query = query\.eq\('organization_id', auth\.user\.organizationId\)/);
+  });
+
+  it('el panel solo manda el nivel si el preparador lo ha cambiado', () => {
+    expect(panel).toMatch(/const nivelCambiado = editNivel !== editingQ\.difficulty_level/);
+    expect(panel).toMatch(/nivelCambiado \? \{ \.\.\.editForm, difficulty_level: editNivel \} : editForm/);
+  });
+
+  it('un fallo al guardar se enseña, no se calla', () => {
+    expect(panel).toMatch(/setErrorGuardar\(res\.error/);
+  });
+
+  it('una pregunta con origen vacío se enseña «Sin clasificar», no «Media»', () => {
+    expect(panel).toMatch(/if \(!q\.difficulty_source\) return <Dato>Sin clasificar<\/Dato>/);
+  });
+
+  it('el listado se puede filtrar por nivel, y solo un 1, 2 o 3 filtra', () => {
+    const admin = codigo('app/actions/admin.ts');
+    expect(admin).toMatch(/dificultad === 1 \|\| dificultad === 2 \|\| dificultad === 3\) query = query\.eq\('difficulty_level', dificultad\)/);
+  });
+});

@@ -1,10 +1,9 @@
 # La dificultad de las preguntas
 
-**Estado (12 nov 2026):** las 4.617 preguntas activas valen `difficulty_level = 2`
-(se sembraron con el valor por defecto) y `global_success_rate` vale 0 en todas.
-Por eso los filtros de dificultad de «Exámenes en papel» y la mezcla del
-simulacro no cambian nada todavía (regla 118). Esto es el plan para llenarlo,
-y lo que ya se ha hecho.
+**Estado (12 nov 2026):** las 4.617 preguntas activas están clasificadas por la
+IA (ver «Estado» más abajo). Antes valían todas 2 y los filtros de dificultad
+de «Exámenes en papel» y la mezcla del simulacro no cambiaban nada (regla 118).
+Esto es el plan, y lo que ya se ha hecho.
 
 ## Qué mide
 
@@ -72,32 +71,37 @@ pero conviene saberlo: «difícil» según el modelo es algo más exclusivo que
 según el preparador. La corrección del preparador (capa 2) y la medida real
 (capa 3) existen precisamente para esto.
 
-## Lo que falta
+## Estado (12 nov, reglas 121 y 122)
 
-Hecho en el código (12 nov, regla 121), **sin ejecutar todavía en producción**:
-el prompt con la rúbrica, la validación de lo que devuelve el modelo, la medida
-del acuerdo y el script `npm run dificultad`, con tres acciones nuevas en
-«Operación» (Actions → Operación → Run workflow).
+**Hecho y en producción:** las 4.617 preguntas activas están clasificadas por la
+IA (`difficulty_source = 'estimada'`): 472 fáciles (10 %), 2.012 medias (44 %) y
+2.133 difíciles (46 %). La columna `difficulty_source` existe. Coste: unos 5
+céntimos.
 
-1. **`dificultad-muestra`** (de pago, céntimos). Gemini clasifica las 150 de la
-   muestra y se compara con la hecha a mano. No escribe nada. Dice si pasa el
-   criterio, fijado ANTES de mirar: coincidencia exacta ≥ 60 %, errores de dos
-   niveles ≤ 5 % y sesgo medio ≤ ±0,3 niveles (tres niveles dan un 33 % por
-   azar). Enseña las diferencias de dos niveles, para afinar la rúbrica mirándolas.
-2. **`dificultad-ensayo`** (gratis). Cuenta las activas y estima el coste.
-3. ~~**Ejecutar `docs/sql/dificultad-origen.sql`**~~ **HECHO (12 nov):** columna
-   `difficulty_source` creada en producción, las 4.617 con origen `NULL`, y
-   `supabase/schema.json` actualizado y contrastado con la base de datos. Sin ella el
-   script se niega a escribir: no se podría distinguir lo estimado de lo que
-   ponga el preparador, y una reclasificación pisaría su trabajo.
-4. **`dificultad-todas`** (pide escribir CLASIFICAR). Solo si la muestra pasó.
-   Escribe `difficulty_level` y `difficulty_source = 'estimada'`; no toca lo que
-   tenga origen `preparador` ni `medida`; lo que el modelo no clasifica se queda
-   como estaba (no pasa a 2).
-5. **El preparador la corrige desde «Banco oficial»** (pendiente de construir).
-6. **Calcular la medida** (`global_success_rate` y dificultad observada) desde
-   los exámenes en clase y desde `question_attempts` real, y que sustituya a la
-   estimada a partir de 30 respuestas, excluyendo las cuentas de demostración.
+**Hecho en la rama, sin desplegar:**
+- El alumno ve «Fácil / Media / Difícil» en la corrección, nunca antes de contestar.
+- El preparador la corrige desde «Banco oficial» (selector, filtro por nivel y
+  origen a la vista). Lo que pone una persona no lo pisa ni la IA ni la medida.
+- «Preguntas repetidas» (solo superadmin): quedarse con una de cada familia.
+- `npm run dificultad:medida` (acciones `dificultad-medida-ensayo` y
+  `dificultad-medida` en «Operación»): el nivel sale del acierto observado con
+  30 respuestas reales o más, y escribe `global_success_rate`. Sin las cuentas de
+  demostración, con una respuesta por alumno y pregunta, y sin pisar al preparador.
+
+**Lo que falta**
+1. **Esperar datos.** Ninguna pregunta tiene aún 30 respuestas reales (el máximo
+   es 25, y casi todas son de las cuentas de demostración: 9.859 de 9.911).
+   Los exámenes en clase (regla 118) son la mejor fuente: 40 alumnos dan 40
+   respuestas a cada pregunta de golpe. Cuando los haya: `dificultad-medida-ensayo`
+   y, si el reparto es razonable, `dificultad-medida`.
+2. **Revisar los umbrales con datos.** ≥ 75 % de acierto es fácil y < 50 % es
+   difícil. Con tres opciones adivinar da 33 %. Son un punto de partida: con las
+   primeras respuestas reales se mira cómo reparten y se ajustan.
+3. **Revisión de la estimación.** La IA tiende a la media (de las 74 difíciles
+   a mano, 21 las puso medias). Conviene que un preparador repase las «difíciles»
+   y las «fáciles» más dudosas con el filtro de «Banco oficial».
+4. **Si el preparador y la medida discrepan** se ve en el informe del ensayo
+   (conflictos); nunca se escribe solo.
 
 ## Lo que salió de paso: preguntas casi repetidas (RESUELTO EN PARTE: regla 119)
 

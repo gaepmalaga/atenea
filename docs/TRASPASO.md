@@ -344,19 +344,28 @@ guiones `examen-completo.cjs` del banco de pruebas están desfasados («Iniciar
 operación» ya no existe) y piden Edge, que no está instalado en la nube.
 
 
-## 2j · Dificultad con Gemini: preparada, sin ejecutar (12 nov, regla 121, en la rama)
+## 2j · Dificultad: clasificada, visible y corregible (12 nov, reglas 121 y 122)
 
-El prompt, la validación, la medida del acuerdo y `npm run dificultad` están
-escritos y probados (28 tests nuevos, comprobados rompiendo el código). **No se
-ha llamado a Gemini ni se ha tocado la base de datos**: Gemini solo funciona en
-producción. Para seguir, en este orden (`docs/DIFICULTAD.md`):
+Las 4.617 preguntas están clasificadas por la IA **en producción** (472 fáciles,
+2.012 medias, 2.133 difíciles; columna `difficulty_source` creada; 5 céntimos).
+La muestra contra tu clasificación a mano dio 73,3 % de acuerdo y ningún error
+de dos niveles (`docs/DIFICULTAD.md`).
 
-1. Actions → Operación → `dificultad-muestra`. Céntimos. Dice si pasa el criterio.
-2. ~~Ejecutar `docs/sql/dificultad-origen.sql`~~ HECHO el 12 nov: la muestra pasó
-   (73,3 % de acuerdo, ningún error de dos niveles) y la columna está creada.
-3. Actions → Operación → `dificultad-todas`, escribiendo CLASIFICAR. **Pendiente.**
+**En la rama, sin desplegar y sin probar contra la base de datos real** (solo en
+el banco de pruebas, a tamaño móvil y escritorio):
+- Etiqueta «Fácil / Media / Difícil» en la corrección del alumno.
+- «Banco oficial»: columna y filtro de dificultad, y selector para que el
+  preparador la corrija (queda como `preparador` y nada la pisa).
+- «Banco oficial» → «Preguntas repetidas» (solo superadmin): quedarse con una de
+  cada familia. **Descarta de verdad en producción** cuando se despliegue: pide
+  confirmación y no borra, pero este panel no las recupera.
+- `npm run dificultad:medida`, acciones `dificultad-medida-ensayo` y
+  `dificultad-medida`. Ninguna pregunta llega aún a 30 respuestas reales, así que
+  de momento no hay nada que medir.
 
-Si no pasa, el listado de diferencias de dos niveles dice qué afinar en la rúbrica.
+Antes de desplegar conviene probar con la base de datos real, con una cuenta
+de prueba: que la etiqueta salga, que guardar una dificultad en «Banco oficial»
+la deje como `preparador`, y que «Preguntas repetidas» liste las 728 familias.
 
 ## 3 · Lo que falta
 

@@ -202,3 +202,35 @@ describe('el guion de dificultad no pisa lo que no es suyo', () => {
     expect(flujo).toMatch(/dificultad-todas/);
   });
 });
+
+describe('el guion de dificultad medida no escribe sin pedirlo ni pisa al preparador', () => {
+  const guion = sinComentarios(leer('scripts/operacion/medir-dificultad.mjs'));
+  const flujo = leer('.github/workflows/operacion.yml');
+
+  it('la decisión sale de `app/lib/dificultad-medida`, no se reescribe', () => {
+    expect(guion).toContain("from '../../app/lib/dificultad-medida.ts'");
+    for (const f of ['observaciones', 'decideCambios', 'respuestasDeIntentos', 'respuestasDeExamenClase']) expect(guion).toContain(f);
+  });
+
+  it('deja fuera las cuentas de demostración, que hoy son 9.859 de las 9.911 respuestas', () => {
+    expect(guion).toMatch(/from\('demo_registro'\)[\s\S]*\.eq\('tabla', 'auth\.users'\)/);
+    expect(guion).toMatch(/observaciones\(todasLasRespuestas, excluidos\)/);
+  });
+
+  it('solo escribe con `--hazlo`', () => {
+    expect(guion).toMatch(/if \(!HAZLO\)[^\n]*process\.exit\(0\)/);
+    expect(guion.indexOf('if (!HAZLO)')).toBeLessThan(guion.indexOf('.update('));
+  });
+
+  it('solo toca el nivel donde manda la medida: `escribeNivel`', () => {
+    expect(guion).toMatch(/if \(p\.escribeNivel\) Object\.assign\(cambios, \{ difficulty_level: p\.nivel, difficulty_source: 'medida' \}\)/);
+  });
+
+  it('pagina lo que lee (regla 74)', () => {
+    expect(guion).toMatch(/desde \+ 999/);
+  });
+
+  it('el flujo de Actions pide escribir MEDIR', () => {
+    expect(flujo).toContain('"MEDIR"');
+  });
+});

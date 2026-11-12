@@ -67,7 +67,9 @@ const pregunta = (i: number) => ({
   ],
   correct_index: i % 3,
   explanation: 'La respuesta correcta se apoya en la redacción literal del precepto, que distingue el supuesto general de la excepción del apartado segundo.',
-  difficulty_level: 2,
+  // Los tres niveles, y una sin clasificar (origen vacío) para ver la diferencia.
+  difficulty_level: i === 5 ? 2 : (i % 3) + 1,
+  difficulty_source: i === 5 ? null : i === 1 ? 'preparador' : 'estimada',
   status: i % 4 === 0 ? 'candidate' : 'active',
   origin: i % 4 === 0 ? ('live_ai' as const) : ('bank' as const),
   legal_reference: i % 2 === 0 ? `Artículo ${i + 10}` : null,
@@ -461,6 +463,34 @@ export async function approveQuestions() { return { success: true as const, appr
 export async function disableQuestion() { return { success: true as const }; }
 export async function discardAllQuestions() { return { success: true as const, discarded: 6 }; }
 export async function updateQuestion() { return { success: true as const }; }
+// Preguntas repetidas (regla 119): dos familias, una de tres y una de dos. Con
+// estado, para ver cómo desaparecen al quedarse con una.
+let _familias = [
+  { id: 'fam-1', miembros: [0, 1, 2].map((i) => ({ ...fam(i), tema: 3 })) },
+  { id: 'fam-2', miembros: [3, 4].map((i) => ({ ...fam(i), tema: 8 })) },
+];
+function fam(i: number) {
+  const q = pregunta(i + 20);
+  return {
+    id: q.id, question_text: i < 3 ? '¿Qué plazo tiene la persona detenida para ser puesta a disposición judicial?' : '¿Cuál es el órgano competente para declarar la nulidad de la nacionalidad?',
+    options: q.options, correct_index: q.correct_index, explanation: q.explanation, legal_reference: q.legal_reference,
+    difficulty_level: q.difficulty_level, difficulty_source: q.difficulty_source,
+  };
+}
+export async function getFamiliasRepetidas() {
+  return {
+    success: true as const,
+    familias: _familias, totalFamilias: _familias.length,
+    sobran: _familias.reduce((n, f) => n + f.miembros.length - 1, 0),
+    pagina: 1, paginas: 1,
+  };
+}
+export async function quedarseConUna(p: { familyId: string; keepId: string }) {
+  const f = _familias.find((x) => x.id === p.familyId);
+  const descartadas = f ? f.miembros.length - 1 : 0;
+  _familias = _familias.filter((x) => x.id !== p.familyId);
+  return { success: true as const, descartadas };
+}
 export async function resolveReport() { return { success: true as const }; }
 export async function createManualQuestion() { return { success: true as const }; }
 export async function importManualQuestions() { return ok({ inserted: 3, rejected: [] }); }

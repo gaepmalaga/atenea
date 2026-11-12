@@ -8,7 +8,7 @@ import { tipoDeBlanco, TIPO_BLANCO } from '@/app/lib/answer-signals';
 import {
   XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles, CheckCircle2, Scale, Clock, X,
 } from 'lucide-react';
-import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
+import { Card, Button, StatTile, Dificultad, cx, TEXT } from '../../../ui';
 import { resumeDudosas, intentosDePreguntas } from '@/app/lib/dudosas';
 import { rendimientoPorTema } from '@/app/lib/stats';
 import ResumenDudosas from '../../ResumenDudosas';
@@ -274,6 +274,7 @@ function ResultadoSimulacro({
             <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Pregunta {abierta! + 1}
               {q.dudosa && <span className="ml-2 text-amber-600 dark:text-amber-400">· dudosa</span>}
+              <Dificultad nivel={q.difficultyLevel} className="ml-2 align-middle normal-case tracking-normal" />
               {segundos(q.timeMs) && (
                 <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal font-mono text-indigo-500">
                   <Clock size={11} /> {segundos(q.timeMs)}

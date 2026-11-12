@@ -4749,3 +4749,42 @@ el segundo necesita el proyecto real.
 - **Dos llaves para escribir.** `--hazlo` y haber pasado la muestra
   (`--muestra-ok`); en Actions, además, escribir CLASIFICAR. El modo muestra
   no escribe nunca. Todo vigilado en `tests/operacion.test.ts`.
+
+### 122 · La dificultad se enseña después de contestar, la corrige quien la sabe y la manda la medida
+
+*(12 nov 2026. Con las 4.617 preguntas ya clasificadas por la IA, regla 121.)*
+
+- **Después, nunca antes.** El alumno ve «Fácil / Media / Difícil» en la
+  corrección (`Dificultad` en `ui/`, en el resultado del simulacro y en el
+  feedback del entrenamiento), pero NO sobre la pregunta sin contestar: una
+  «difícil» se contesta con más miedo y sesga la respuesta que se quiere medir.
+  Guardado por `afianzar.test.ts`, que acota el test al bloque de corrección.
+  Un nivel que no es 1, 2 o 3 no pinta nada: ni un «Media» inventado ni un hueco.
+- **El preparador la corrige desde «Banco oficial».** Selector de dificultad en
+  el editor, filtro por nivel en la lista, y el origen a la vista («Estimada por
+  la IA», «Puesta por un preparador»). El nivel solo viaja si lo ha cambiado:
+  guardar el texto de una pregunta no puede convertir en «puesta por un
+  preparador» lo que era una estimación. Lo que pone una persona se anota
+  como `preparador` y ni la IA ni la medida lo pisan. Sin origen se enseña
+  «Sin clasificar», no «Media»: es el 2 de la siembra, nadie lo decidió.
+- **Preguntas repetidas (solo superadmin).** «Banco oficial» → «Preguntas
+  repetidas»: cada familia (regla 119) con sus preguntas, y «Quedarme con
+  esta» descarta el resto (`disabled`, no se borra, queda en el registro de
+  acciones). Solo el superadmin: el banco global no es de un admin de academia
+  (75). Una familia con una sola activa ya está resuelta y no vuelve a salir.
+  La acción comprueba que la pregunta que se conserva sea de ESA familia y
+  esté activa: sin eso, un id equivocado descartaría todas. **No es
+  permanente contra `npm run familias -- --hazlo`:** las descartadas siguen
+  siendo `disabled`, pero una pregunta que alguien separe a mano no existe aún.
+- **La medida manda sobre la estimación, no sobre la persona** (`npm run
+  dificultad:medida`, `app/lib/dificultad-medida.ts`). Con 30 respuestas o más
+  de una pregunta, el acierto observado fija el nivel (≥ 75 % fácil, < 50 %
+  difícil) y `global_success_rate`. Tres cosas la hacen honesta: (1) las cuentas
+  de demostración no cuentan — hoy son **9.859 de las 9.911 respuestas**; medir
+  con ellas sería medir datos inventados; (2) una sola respuesta por alumno y
+  pregunta, la primera: una pregunta repasada cinco veces no son cinco
+  alumnos que la saben; (3) un blanco no es un fallo (24). Si la medida
+  discrepa de un preparador, se enseña como conflicto y NO se escribe.
+  Hoy ninguna pregunta llega a 30 respuestas reales (máximo 25, de
+  demostración), así que es infraestructura lista para cuando haya actividad
+  y exámenes en clase.

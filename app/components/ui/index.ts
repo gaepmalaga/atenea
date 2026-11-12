@@ -27,6 +27,7 @@ export { HOJA, HUNDIDO, LINEA, TONO_TEXTO, TONO_ETIQUETA, TONO_PUNTO, type Tono 
 export { default as PanelTitulo } from './panel/PanelTitulo';
 export { default as Pulso, type CifraPulso } from './panel/Pulso';
 export { Etiqueta, Estado, Dato } from './panel/Etiqueta';
+export { default as Dificultad } from './Dificultad';
 export { default as Avatar, inicialesDeCorreo, inicialesDeNombre, nombreDeCorreo } from './panel/Avatar';
 export { Filtros, FiltroChip } from './panel/Filtros';
 export { default as Pestanas, type PestanaItem } from './panel/Pestanas';

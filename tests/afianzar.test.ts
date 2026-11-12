@@ -272,3 +272,19 @@ describe('el resultado del simulacro enseña el rendimiento por tema', () => {
     expect(resultados).toMatch(/porTema\.length >= 2/);
   });
 });
+
+describe('la dificultad se enseña DESPUÉS de contestar, nunca antes', () => {
+  const activa = lee('app/components/student/modules/exams/ActiveTest.tsx');
+  const resultados = lee('app/components/student/modules/exams/ExamResults.tsx');
+
+  it('en el examen solo aparece dentro del bloque de corrección', () => {
+    const desde = activa.indexOf("mode === 'practice' && isAnswered && (");
+    expect(desde).toBeGreaterThan(-1);
+    expect(activa.slice(0, desde)).not.toMatch(/<Dificultad\b/);
+    expect(activa.slice(desde)).toMatch(/<Dificultad nivel=\{currentQ\.difficultyLevel\}/);
+  });
+
+  it('en los resultados va en el detalle de la pregunta abierta', () => {
+    expect(resultados).toMatch(/<Dificultad nivel=\{q\.difficultyLevel\}/);
+  });
+});

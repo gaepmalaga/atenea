@@ -38,9 +38,11 @@ on:
           - dificultad-muestra  # Gemini clasifica la muestra de 150 y se compara con la hecha a mano. No escribe.
           - dificultad-ensayo   # cuenta las preguntas y estima el coste. No llama a Gemini ni escribe.
           - dificultad-todas    # clasifica TODO el banco. Pide escribir CLASIFICAR. Antes, pasa la muestra.
+          - dificultad-medida-ensayo  # lee las respuestas reales y dice qué preguntas ya se pueden medir. No escribe.
+          - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
       confirmacion:
-        description: 'Escribe RESET (acción "reset") o CLASIFICAR (acción "dificultad-todas")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas") o MEDIR ("dificultad-medida")'
         required: false
         type: string
       correo:
@@ -183,3 +185,19 @@ jobs:
             exit 1
           fi
           npm run dificultad -- --todas --hazlo --muestra-ok
+
+      # La dificultad MEDIDA con respuestas reales: no habla con Gemini, no
+      # cuesta nada. El ensayo cuenta y enseña; escribir pide escribir MEDIR.
+      - name: Dificultad medida · ensayo (sin escribir)
+        if: inputs.accion == 'dificultad-medida-ensayo'
+        run: npm run dificultad:medida
+
+      - name: Dificultad medida · escribir
+        if: inputs.accion == 'dificultad-medida'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "MEDIR" ]; then
+            echo "Para escribir hay que escribir MEDIR en el campo de confirmación."
+            echo "Antes, lanza «dificultad-medida-ensayo» y mira qué cambiaría."
+            exit 1
+          fi
+          npm run dificultad:medida -- --hazlo
