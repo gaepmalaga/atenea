@@ -389,6 +389,22 @@ la deje como `preparador`, y que «Preguntas repetidas» liste las 728 familias.
 - **Pendiente de decidir con el dueño:** si los preparadores deben ver «Pagos». Hoy
   no existe un rol intermedio (regla 123).
 
+
+## 2l · Comparativa con OpositandoPN (12 nov, solo documentación)
+
+`docs/COMPARATIVA-OPOSITANDOPN.md`: dos rondas de lectura de la plataforma que usa la
+academia hoy, con la sesión real de Alphapol y sin tocar nada. Conclusiones:
+- **Puntuación idéntica a la nuestra** (regla 22). No hay nada que corregir.
+- **Su motor no hace nada que no hagamos;** lo suyo es contenido: 671 esquemas
+  visuales por subtema, normativa enlazada al BOE y 13 exámenes oficiales
+  (nosotros tenemos 5, y decidimos dejarlo).
+- **No se copia:** ranking (aparece en todos sus simulacros), gemas y duelos,
+  análisis con IA agregado, planes de físicas genéricos.
+- **Ellos solo gestionan licencias** (activo/inactivo): no hay panel pedagógico. La
+  lista de alumnos activos que espera el dueño sale de ahí, con su visto bueno.
+- **Pendiente del dueño:** Inglés (B1), si entra en la convocatoria; y si quiere
+  esquemas visuales (trabajo de diseño).
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)
