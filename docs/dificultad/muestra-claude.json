@@ -1,0 +1,752 @@
+[
+ {
+  "id": "f4bee25c-4e90-4aaa-a020-a6a1bc8f77cb",
+  "tema": 1,
+  "nivel": 3
+ },
+ {
+  "id": "1f3badaf-55cc-434b-97be-fcd51ce669e3",
+  "tema": 1,
+  "nivel": 2
+ },
+ {
+  "id": "cae442c9-e82a-4fd1-93b7-b453344451db",
+  "tema": 1,
+  "nivel": 2
+ },
+ {
+  "id": "28fb98a5-9a4b-4f43-9a93-6e684ee31ed9",
+  "tema": 1,
+  "nivel": 3
+ },
+ {
+  "id": "fe5dd743-bbff-4b7f-8903-a64d4bab25b6",
+  "tema": 2,
+  "nivel": 2
+ },
+ {
+  "id": "7d63c799-908b-426f-81b9-c4571c6e371b",
+  "tema": 2,
+  "nivel": 3
+ },
+ {
+  "id": "40cab8c1-0346-47df-ae3e-48c525d98a7d",
+  "tema": 2,
+  "nivel": 2
+ },
+ {
+  "id": "ad17f9b1-1fd5-40f3-912d-fc7ec779bcfb",
+  "tema": 3,
+  "nivel": 1
+ },
+ {
+  "id": "89b16e41-0998-4175-8d31-a77627d36c04",
+  "tema": 3,
+  "nivel": 2
+ },
+ {
+  "id": "d43eff0c-fd52-4f35-9548-a5ec7c3c3766",
+  "tema": 3,
+  "nivel": 3
+ },
+ {
+  "id": "b82f3d03-8c57-4bb7-a420-7eb2e61ba49d",
+  "tema": 3,
+  "nivel": 2
+ },
+ {
+  "id": "b28eb5ce-6091-4ab6-adf8-dd807ea0d412",
+  "tema": 4,
+  "nivel": 1
+ },
+ {
+  "id": "42936fa5-b631-47c4-a8ee-3a5eba5df4db",
+  "tema": 4,
+  "nivel": 1
+ },
+ {
+  "id": "411dd68c-69c4-49d5-9d5a-62ddb9a23d83",
+  "tema": 4,
+  "nivel": 1
+ },
+ {
+  "id": "5e267d82-ea7c-4c8b-b61c-81f25d4bab7d",
+  "tema": 5,
+  "nivel": 3
+ },
+ {
+  "id": "4fc813aa-de88-4afa-9ae8-a2469b8c6349",
+  "tema": 5,
+  "nivel": 2
+ },
+ {
+  "id": "e3c54fa8-2062-44fe-b101-4e5c9f375e62",
+  "tema": 5,
+  "nivel": 2
+ },
+ {
+  "id": "34f927b3-532d-4259-8f2d-5f55b18b3a45",
+  "tema": 6,
+  "nivel": 2
+ },
+ {
+  "id": "9a17de8e-6987-4106-b609-de256e321ff3",
+  "tema": 6,
+  "nivel": 3
+ },
+ {
+  "id": "b6b96cdf-9bac-4ac4-9464-a4352a6154c2",
+  "tema": 6,
+  "nivel": 3
+ },
+ {
+  "id": "146d8d91-166e-4c1f-a950-39dbfa1dbdb1",
+  "tema": 6,
+  "nivel": 2
+ },
+ {
+  "id": "8def62b6-bb3a-4c5e-9fbe-3693d8570dd7",
+  "tema": 7,
+  "nivel": 3
+ },
+ {
+  "id": "d34a7b5c-7757-4f23-9cbf-43e73a3bdca4",
+  "tema": 7,
+  "nivel": 3
+ },
+ {
+  "id": "3b717ddc-2b73-48af-818f-1b66e1236a7c",
+  "tema": 7,
+  "nivel": 3
+ },
+ {
+  "id": "24c82afb-3c68-4392-8ca2-de1c5c2eee70",
+  "tema": 8,
+  "nivel": 3
+ },
+ {
+  "id": "890724e8-6135-4291-8c46-c2865d210310",
+  "tema": 8,
+  "nivel": 3
+ },
+ {
+  "id": "87daed6b-f646-49b4-8ee0-76631f0067cf",
+  "tema": 8,
+  "nivel": 2
+ },
+ {
+  "id": "325f82b5-3ebd-4070-a4bf-bdfd7e2e6ca1",
+  "tema": 8,
+  "nivel": 3
+ },
+ {
+  "id": "ec05de52-1475-4639-bae6-8183a127ef54",
+  "tema": 9,
+  "nivel": 3
+ },
+ {
+  "id": "205963ea-450a-426a-b2eb-f4143e741186",
+  "tema": 9,
+  "nivel": 2
+ },
+ {
+  "id": "e8957a75-ddfa-483f-a03d-c7a498fa179c",
+  "tema": 9,
+  "nivel": 3
+ },
+ {
+  "id": "8075c394-9265-4daf-bbdb-f794e93f6f67",
+  "tema": 10,
+  "nivel": 2
+ },
+ {
+  "id": "12239457-760e-4838-a3aa-c0e76e531c01",
+  "tema": 10,
+  "nivel": 3
+ },
+ {
+  "id": "962ffab5-24c4-4464-9d85-48e64050952d",
+  "tema": 10,
+  "nivel": 3
+ },
+ {
+  "id": "1a7a859d-0ebc-493a-8368-0378fa073f24",
+  "tema": 10,
+  "nivel": 2
+ },
+ {
+  "id": "83b2fdd1-a67d-4867-b939-7be29eee3d32",
+  "tema": 11,
+  "nivel": 3
+ },
+ {
+  "id": "6113d49d-0c09-4ef7-89cc-1ea0a7bad6e6",
+  "tema": 11,
+  "nivel": 2
+ },
+ {
+  "id": "a815ef25-bc29-45e9-a7d2-126049d3e73a",
+  "tema": 11,
+  "nivel": 3
+ },
+ {
+  "id": "b8dee6c6-6528-48c7-83aa-b2aeffc5ec40",
+  "tema": 12,
+  "nivel": 3
+ },
+ {
+  "id": "a901d4b8-fe1a-42e4-a308-e2875a68b82b",
+  "tema": 12,
+  "nivel": 3
+ },
+ {
+  "id": "eb845fef-25eb-4179-ae7f-6f02aef918d8",
+  "tema": 12,
+  "nivel": 3
+ },
+ {
+  "id": "cfced2e3-9722-41b6-aadb-2eff406dc4ec",
+  "tema": 12,
+  "nivel": 2
+ },
+ {
+  "id": "ea21cf7f-16c4-4b37-8c39-bcfd10251b3c",
+  "tema": 13,
+  "nivel": 3
+ },
+ {
+  "id": "25e350fc-cecb-41ad-822c-fb3909d1291c",
+  "tema": 13,
+  "nivel": 2
+ },
+ {
+  "id": "4c03f491-8d5d-4890-a9ba-ac3597af5ce9",
+  "tema": 13,
+  "nivel": 3
+ },
+ {
+  "id": "1cbed3ab-7d82-4060-b1ba-023fa4105b1c",
+  "tema": 14,
+  "nivel": 2
+ },
+ {
+  "id": "4c88f6d2-976f-49a7-865c-dfdfb1fb4bd7",
+  "tema": 14,
+  "nivel": 3
+ },
+ {
+  "id": "5fe8f317-722a-4b6e-a356-34b857c8c0ed",
+  "tema": 14,
+  "nivel": 2
+ },
+ {
+  "id": "9ec1be67-f07f-41fd-85c2-2fc52a988240",
+  "tema": 14,
+  "nivel": 3
+ },
+ {
+  "id": "7970a81a-191e-4f20-8d02-a450797cf5ab",
+  "tema": 15,
+  "nivel": 2
+ },
+ {
+  "id": "51e8a803-04c7-47b3-8913-25c067c47d92",
+  "tema": 15,
+  "nivel": 3
+ },
+ {
+  "id": "ea359752-660b-4ded-b0d0-477a4cc771e6",
+  "tema": 15,
+  "nivel": 2
+ },
+ {
+  "id": "4505aa5d-944f-4a70-966e-67f644d432c1",
+  "tema": 16,
+  "nivel": 2
+ },
+ {
+  "id": "88e9d973-9881-4e05-ab20-0dcd61c60d35",
+  "tema": 16,
+  "nivel": 3
+ },
+ {
+  "id": "074e751b-1a29-4d1b-8db2-7e6634ef6d0d",
+  "tema": 16,
+  "nivel": 3
+ },
+ {
+  "id": "fb4f8104-bb21-4fa1-b126-4669021fe805",
+  "tema": 16,
+  "nivel": 3
+ },
+ {
+  "id": "e147c5d3-cfd8-474e-aabd-aba24d8d9c4d",
+  "tema": 17,
+  "nivel": 3
+ },
+ {
+  "id": "232ca668-a38c-4147-8e22-92f62b18c8e9",
+  "tema": 17,
+  "nivel": 3
+ },
+ {
+  "id": "1e33dedc-ed4a-4f5d-b3ac-46cf10d7e0a1",
+  "tema": 17,
+  "nivel": 2
+ },
+ {
+  "id": "2424b36b-b861-4c7b-b0fa-20e73ca5cf96",
+  "tema": 17,
+  "nivel": 3
+ },
+ {
+  "id": "3ec46137-09f7-4366-af98-2c1263ac9bd2",
+  "tema": 18,
+  "nivel": 3
+ },
+ {
+  "id": "cdae1a27-058c-4585-9a9f-b83e20b244d7",
+  "tema": 18,
+  "nivel": 2
+ },
+ {
+  "id": "e8da9cc1-f238-4e62-931f-bd3ca23797e0",
+  "tema": 18,
+  "nivel": 3
+ },
+ {
+  "id": "68515894-be89-49a6-a19c-4c2afe8e5f36",
+  "tema": 19,
+  "nivel": 3
+ },
+ {
+  "id": "a497b9fe-413f-4bf7-b66b-5755b7ccf52a",
+  "tema": 19,
+  "nivel": 3
+ },
+ {
+  "id": "7119e3b2-c285-40b9-b2c2-7a9d46d229ed",
+  "tema": 19,
+  "nivel": 3
+ },
+ {
+  "id": "f34ee8cd-1369-4f3f-9ea2-4eb92f08906e",
+  "tema": 20,
+  "nivel": 3
+ },
+ {
+  "id": "605881e2-517a-4c53-bf09-9f8b4734a7d5",
+  "tema": 20,
+  "nivel": 3
+ },
+ {
+  "id": "e96669c6-3cb2-42c5-92d5-fafec69d575a",
+  "tema": 20,
+  "nivel": 3
+ },
+ {
+  "id": "d9020607-51ef-48f9-84b7-8abd28620a50",
+  "tema": 21,
+  "nivel": 1
+ },
+ {
+  "id": "f12b2d94-fe7b-4290-932c-ebfdab84eb27",
+  "tema": 21,
+  "nivel": 3
+ },
+ {
+  "id": "a1c6e8d3-aab2-4ca0-bd29-0c1f90a43cb6",
+  "tema": 21,
+  "nivel": 3
+ },
+ {
+  "id": "1c336c15-5776-4472-a873-99986a5ab096",
+  "tema": 21,
+  "nivel": 3
+ },
+ {
+  "id": "74bcb4b2-49ec-488d-b402-630290b3b6e1",
+  "tema": 22,
+  "nivel": 2
+ },
+ {
+  "id": "7fcefa90-fd03-4938-8152-528e139ec3e2",
+  "tema": 22,
+  "nivel": 1
+ },
+ {
+  "id": "5f5fe635-318b-42db-8a67-c2545240f1b2",
+  "tema": 22,
+  "nivel": 3
+ },
+ {
+  "id": "b94daeff-7e7d-49b4-84a9-e5d3cc549d91",
+  "tema": 23,
+  "nivel": 3
+ },
+ {
+  "id": "eb08d0f7-1d6b-4e2f-aea9-5bfc1280099e",
+  "tema": 23,
+  "nivel": 2
+ },
+ {
+  "id": "b6883050-a369-4cda-966a-e1973e959b54",
+  "tema": 23,
+  "nivel": 3
+ },
+ {
+  "id": "4bbc2b6b-8c02-427d-bb58-a377e29c531f",
+  "tema": 24,
+  "nivel": 1
+ },
+ {
+  "id": "bf050d03-30d7-48ff-b624-b37fc0db116f",
+  "tema": 24,
+  "nivel": 3
+ },
+ {
+  "id": "28f878e9-5d97-431b-8943-9be1cd650d36",
+  "tema": 24,
+  "nivel": 3
+ },
+ {
+  "id": "6bf2fd64-a238-4405-a0e5-9eeee5cde3f5",
+  "tema": 25,
+  "nivel": 3
+ },
+ {
+  "id": "fea57346-19f4-4bf6-9805-58846616aa9a",
+  "tema": 25,
+  "nivel": 3
+ },
+ {
+  "id": "49ba32be-3193-4117-ac0a-83e158e3472c",
+  "tema": 25,
+  "nivel": 2
+ },
+ {
+  "id": "1a847a6a-9e31-48c3-a501-ce1a50ec6ad1",
+  "tema": 26,
+  "nivel": 3
+ },
+ {
+  "id": "bf638ca4-f43c-4f28-a602-65a6431497d0",
+  "tema": 26,
+  "nivel": 3
+ },
+ {
+  "id": "ee2c891c-2ae2-4c39-beb2-0d7956b35300",
+  "tema": 26,
+  "nivel": 3
+ },
+ {
+  "id": "e2a031f9-4bd6-473c-8dad-cb29634d31ab",
+  "tema": 27,
+  "nivel": 3
+ },
+ {
+  "id": "77546943-4d07-4bcf-8807-47869a8fa0f3",
+  "tema": 27,
+  "nivel": 3
+ },
+ {
+  "id": "2fec8194-f5a7-4514-8210-21815fc0e94b",
+  "tema": 27,
+  "nivel": 2
+ },
+ {
+  "id": "a3dcc5c1-3897-4a81-928e-6db6d173172f",
+  "tema": 27,
+  "nivel": 3
+ },
+ {
+  "id": "b5b350f7-a25d-4ec8-831f-30285398d817",
+  "tema": 28,
+  "nivel": 2
+ },
+ {
+  "id": "4f3ff2d5-322e-4b98-b616-f6152a0d3184",
+  "tema": 28,
+  "nivel": 1
+ },
+ {
+  "id": "333d5581-5fb7-492e-9462-ebf31c9d1af4",
+  "tema": 28,
+  "nivel": 2
+ },
+ {
+  "id": "166b2b66-4e3a-4cec-b848-06b00e0b57e5",
+  "tema": 29,
+  "nivel": 2
+ },
+ {
+  "id": "d55eb68d-06c1-4925-8a3b-59ca856a2b44",
+  "tema": 29,
+  "nivel": 2
+ },
+ {
+  "id": "3090baf1-544c-4e1d-8cf0-f1cd27ab8408",
+  "tema": 29,
+  "nivel": 1
+ },
+ {
+  "id": "817dd10a-15ef-442d-960d-851b33c4441c",
+  "tema": 29,
+  "nivel": 2
+ },
+ {
+  "id": "94dca9a5-3779-4af1-9132-0f2173a3137f",
+  "tema": 30,
+  "nivel": 2
+ },
+ {
+  "id": "e4bdd028-8511-4335-9bab-79f1a92dd1f9",
+  "tema": 30,
+  "nivel": 1
+ },
+ {
+  "id": "bdb50ec8-c3d6-4065-9dcf-bb93f0fb086e",
+  "tema": 30,
+  "nivel": 1
+ },
+ {
+  "id": "7ae0d6fc-5aa0-4d51-b9f4-59cdf6af96a1",
+  "tema": 31,
+  "nivel": 2
+ },
+ {
+  "id": "ffcb41d9-b497-4699-9ca8-4d5c1066212a",
+  "tema": 31,
+  "nivel": 2
+ },
+ {
+  "id": "44adb427-6984-4d56-b868-3e81db5430eb",
+  "tema": 31,
+  "nivel": 2
+ },
+ {
+  "id": "e7dcef06-23f6-44a0-9050-58113fc074d5",
+  "tema": 32,
+  "nivel": 3
+ },
+ {
+  "id": "c46395ed-c30b-492b-84cc-0c764e308055",
+  "tema": 32,
+  "nivel": 1
+ },
+ {
+  "id": "150f8f4e-1d0a-46fe-b228-2b0b86e90f32",
+  "tema": 32,
+  "nivel": 2
+ },
+ {
+  "id": "9f5692d9-8c0a-4589-bdf0-409cd4dbedeb",
+  "tema": 33,
+  "nivel": 2
+ },
+ {
+  "id": "9ebbf392-d550-4edf-849e-b4aa8b69e324",
+  "tema": 33,
+  "nivel": 2
+ },
+ {
+  "id": "80c18f03-5257-4791-adfb-dcc3c36639ef",
+  "tema": 33,
+  "nivel": 1
+ },
+ {
+  "id": "2cabe322-f91c-49a8-aa94-f17a47fb89e8",
+  "tema": 34,
+  "nivel": 2
+ },
+ {
+  "id": "3905ee60-911c-4b32-a38e-d5b38d2315b4",
+  "tema": 34,
+  "nivel": 3
+ },
+ {
+  "id": "0ad1f753-ba2f-475c-a6a1-c5dfbd0c0976",
+  "tema": 34,
+  "nivel": 3
+ },
+ {
+  "id": "c6010645-ce4a-466d-afd0-b88c9abb5108",
+  "tema": 35,
+  "nivel": 3
+ },
+ {
+  "id": "f0fcd270-9447-488b-b71b-ae66c173f0c5",
+  "tema": 35,
+  "nivel": 2
+ },
+ {
+  "id": "ac42caa5-18b7-4115-8e1b-6936352ebb85",
+  "tema": 35,
+  "nivel": 3
+ },
+ {
+  "id": "91ce57ba-1b3e-4840-830f-c8d51e67af2f",
+  "tema": 36,
+  "nivel": 2
+ },
+ {
+  "id": "cf4a6a85-0e1b-4497-9e66-fda5f69cfdff",
+  "tema": 36,
+  "nivel": 2
+ },
+ {
+  "id": "3e1d9d6d-817f-4397-819a-ff16f6b2d155",
+  "tema": 36,
+  "nivel": 3
+ },
+ {
+  "id": "6c93e41b-d7ef-4e73-b4d8-3903b3cb5ca3",
+  "tema": 37,
+  "nivel": 2
+ },
+ {
+  "id": "269e0706-f0df-497b-a6f3-e9dc44b6d864",
+  "tema": 37,
+  "nivel": 2
+ },
+ {
+  "id": "8d0f1fad-2ba8-4bd9-9ee0-1d2b8d3b0bfd",
+  "tema": 37,
+  "nivel": 2
+ },
+ {
+  "id": "e374b0b9-51a8-48b9-b2a3-e36f3b757ad3",
+  "tema": 38,
+  "nivel": 3
+ },
+ {
+  "id": "3e48ecc4-e5ff-4263-aed8-19236c2f3826",
+  "tema": 38,
+  "nivel": 3
+ },
+ {
+  "id": "94bd9191-2ecd-471a-baa7-f9b4e91e147e",
+  "tema": 38,
+  "nivel": 2
+ },
+ {
+  "id": "72af9965-5588-411c-860d-03863829a22c",
+  "tema": 39,
+  "nivel": 1
+ },
+ {
+  "id": "0e43aa64-dfe1-4382-b25d-bcb656a68a05",
+  "tema": 39,
+  "nivel": 2
+ },
+ {
+  "id": "d5793726-b499-495f-b6fd-f5f25763bcc9",
+  "tema": 39,
+  "nivel": 2
+ },
+ {
+  "id": "036971e0-6ea1-4a50-96c4-18294a686bc8",
+  "tema": 40,
+  "nivel": 3
+ },
+ {
+  "id": "fc8ca14e-05fb-4b8c-9eca-77aaca852d25",
+  "tema": 40,
+  "nivel": 3
+ },
+ {
+  "id": "0b218565-7eb2-4f88-86b1-f9cc9334d2fc",
+  "tema": 40,
+  "nivel": 3
+ },
+ {
+  "id": "85faca97-de65-4336-a816-3e77655b4c7f",
+  "tema": 40,
+  "nivel": 2
+ },
+ {
+  "id": "249f4386-da8f-4ecb-ab18-e4988e95271a",
+  "tema": 41,
+  "nivel": 3
+ },
+ {
+  "id": "d8020073-038d-4a18-802f-e8ccb600b540",
+  "tema": 41,
+  "nivel": 2
+ },
+ {
+  "id": "1c76337a-3868-4425-817d-28a7feddee08",
+  "tema": 41,
+  "nivel": 2
+ },
+ {
+  "id": "15d966a8-597a-4dc9-bdba-d6b5fb2efbc5",
+  "tema": 41,
+  "nivel": 2
+ },
+ {
+  "id": "1196a7ec-4e9e-4d95-859b-6c2fe850e2a0",
+  "tema": 42,
+  "nivel": 2
+ },
+ {
+  "id": "20c61f3e-6d65-4eee-b4f2-7600e1af7022",
+  "tema": 42,
+  "nivel": 3
+ },
+ {
+  "id": "8bc6d6c8-1e7d-4b61-aae6-4e9cce57bbf3",
+  "tema": 42,
+  "nivel": 2
+ },
+ {
+  "id": "ff2031c5-667d-467b-9461-cdce936e8136",
+  "tema": 43,
+  "nivel": 3
+ },
+ {
+  "id": "676001c5-3b4b-4e64-8111-507c7cfa98e2",
+  "tema": 43,
+  "nivel": 3
+ },
+ {
+  "id": "30a6f8a1-abe9-4afd-b845-b49704ba2eea",
+  "tema": 43,
+  "nivel": 3
+ },
+ {
+  "id": "171dd9e8-ac25-492d-acf3-ba17b453c61e",
+  "tema": 44,
+  "nivel": 2
+ },
+ {
+  "id": "f147100d-2128-48df-8c07-2935dac0d3ce",
+  "tema": 44,
+  "nivel": 2
+ },
+ {
+  "id": "0b7b732c-1940-4c15-8ef3-cc34aaad38a7",
+  "tema": 44,
+  "nivel": 2
+ },
+ {
+  "id": "0a7ff8f0-11ae-4450-9b5a-6a5ea7b1faba",
+  "tema": 44,
+  "nivel": 1
+ },
+ {
+  "id": "b72bd559-8d00-40a8-afd8-f32ef892c2b6",
+  "tema": 45,
+  "nivel": 2
+ },
+ {
+  "id": "d06d5030-f947-4ff2-8d4d-7b84b5948eda",
+  "tema": 45,
+  "nivel": 2
+ },
+ {
+  "id": "b8120210-21d4-4684-911e-d2fbe2499caa",
+  "tema": 45,
+  "nivel": 3
+ }
+]

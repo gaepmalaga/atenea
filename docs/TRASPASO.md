@@ -289,12 +289,17 @@ y mirar la imagen (un PDF que solo se lee como texto no enseña esto).
 **Sin probar contra la base de datos real:** «Que repita», el plazo cerrado,
 y poner el examen solo a ciertos grupos (se probó a toda la academia).
 
-**Siguiente (acordado con el dueño):** la dificultad. Primero una estimación
-inicial: yo clasifico a mano una muestra de ~150 preguntas con una rúbrica,
-Gemini clasifica la misma muestra, se compara y se ajusta el prompt; luego
-Gemini clasifica las 4.617 (ensayo gratis antes de pagar) y las que lleguen.
-Después se sustituye por la dificultad MEDIDA con estos exámenes y con los
-alumnos, y el preparador puede corregirla a mano en «Banco oficial».
+**Siguiente (acordado con el dueño): la dificultad** — detalle, rúbrica y
+método en [`DIFICULTAD.md`](DIFICULTAD.md). **Ya hecho:** una muestra de 150
+preguntas (3 por tema, reproducible) clasificada a mano con la rúbrica:
+10 % fáciles, 41 % medias, 49 % difíciles (el bloque jurídico es mucho más
+duro). **Falta:** que Gemini clasifique esa misma muestra y medir el acuerdo
+(solo funciona en producción: va por el flujo «Operación»); luego clasificar las
+4.617 (con ensayo gratis antes de pagar), una columna `difficulty_source` para
+que la estimación y la mano del preparador no se pisen, y la dificultad medida
+con los exámenes en clase. **De paso salió** que el banco tiene muchas
+preguntas casi repetidas (hasta cuatro variantes del mismo concepto): conviene
+una pasada de similitud antes de que un examen lleve dos de la misma familia.
 
 ## 3 · Lo que falta
 
