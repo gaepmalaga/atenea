@@ -46,6 +46,32 @@ tres opciones numéricas el que no se lo sabe acierta una de cada tres.
 
 Las del bloque jurídico salen bastante más duras: son artículos, plazos y penas.
 
+## Resultado de la comparación con Gemini (12 nov, Actions «Operación» #6)
+
+`gemini-3.5-flash-lite` contra las 150 clasificadas a mano. **Pasa el criterio**
+que se fijó antes de mirar. Coste real: $0,0153.
+
+| | Resultado | Criterio |
+|---|---|---|
+| Coinciden | 110 de 150 (73,3 %) | ≥ 60 % |
+| A un nivel | 40 | |
+| A dos niveles | 0 | ≤ 5 % |
+| Sesgo | −0,04 niveles | ±0,3 |
+| Sin nivel | 0 | |
+
+|  | modelo 1 | modelo 2 | modelo 3 |
+|---|---|---|---|
+| **mano 1** | 7 | 8 | 0 |
+| **mano 2** | 2 | 50 | 9 |
+| **mano 3** | 0 | 21 | 53 |
+
+Reparto: a mano 15 / 61 / 74; el modelo 9 / 79 / 62. **El modelo tiende a la
+media**: de las 74 difíciles a mano, 21 las pone medias; de las 15 fáciles, 8.
+Nunca confunde fácil con difícil. Para un filtro de dificultad esto es útil,
+pero conviene saberlo: «difícil» según el modelo es algo más exclusivo que
+según el preparador. La corrección del preparador (capa 2) y la medida real
+(capa 3) existen precisamente para esto.
+
 ## Lo que falta
 
 Hecho en el código (12 nov, regla 121), **sin ejecutar todavía en producción**:
