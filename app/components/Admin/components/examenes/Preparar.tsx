@@ -34,7 +34,7 @@ export default function Preparar({ onGuardado }: { onGuardado: () => void }) {
   const [evitar, setEvitar] = useState(true);
 
   const [preguntas, setPreguntas] = useState<Pregunta[] | null>(null);
-  const [aviso, setAviso] = useState<{ corto: boolean; niveles: { facil: number; media: number; dificil: number }; repetidas: number } | null>(null);
+  const [aviso, setAviso] = useState<{ corto: boolean; niveles: { facil: number; media: number; dificil: number }; repetidas: number; hechos: boolean } | null>(null);
   const [preparando, setPreparando] = useState(false);
   const [descargando, setDescargando] = useState<TipoPdf | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -70,7 +70,7 @@ export default function Preparar({ onGuardado }: { onGuardado: () => void }) {
     setPreparando(false);
     if (!res.success) { setError(res.error); setPreguntas(null); return; }
     setPreguntas(res.preguntas);
-    setAviso({ corto: res.corto, niveles: res.niveles, repetidas: res.repetidasEvitadas });
+    setAviso({ corto: res.corto, niveles: res.niveles, repetidas: res.repetidasEvitadas, hechos: res.hechosRepetidos });
   }
 
   const datos: DatosExamen | null = useMemo(() => {
@@ -202,6 +202,7 @@ export default function Preparar({ onGuardado }: { onGuardado: () => void }) {
           ]} />
 
           {aviso.corto && <Aviso>El banco no tiene tantas preguntas de esos temas: el examen sale con {preguntas.length}.</Aviso>}
+          {aviso.hechos && <Aviso>Con esos temas no hay bastantes preguntas distintas: el examen repite algún hecho (la misma pregunta con otras palabras). Añade temas para evitarlo.</Aviso>}
           {aviso.repetidas > 0 && evitar && <Aviso tono="info">Se han dejado fuera {aviso.repetidas} preguntas que ya salieron en exámenes guardados.</Aviso>}
           {sinVariedad && dificultad !== 'medium' && (
             <Aviso>

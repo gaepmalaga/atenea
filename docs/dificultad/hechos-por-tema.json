@@ -1,0 +1,272 @@
+[
+ {
+  "tema": 1,
+  "titulo": "El Derecho: concepto y acepciones. Normas jurídicas positivas.",
+  "preguntas": 167,
+  "hechos": 96
+ },
+ {
+  "tema": 2,
+  "titulo": "La Constitución Española (I): estructura y caracteres. Derechos y deberes.",
+  "preguntas": 40,
+  "hechos": 39
+ },
+ {
+  "tema": 3,
+  "titulo": "La Constitución Española (II): Corona, Cortes, Gobierno, Poder Judicial.",
+  "preguntas": 566,
+  "hechos": 301
+ },
+ {
+  "tema": 4,
+  "titulo": "La Unión Europea: Instituciones y Derecho derivado.",
+  "preguntas": 77,
+  "hechos": 25
+ },
+ {
+  "tema": 5,
+  "titulo": "La Administración General del Estado. El Gobierno.",
+  "preguntas": 55,
+  "hechos": 48
+ },
+ {
+  "tema": 6,
+  "titulo": "Los funcionarios públicos: concepto, clases y régimen.",
+  "preguntas": 100,
+  "hechos": 61
+ },
+ {
+  "tema": 7,
+  "titulo": "El Ministerio del Interior y Secretaría de Estado de Seguridad.",
+  "preguntas": 55,
+  "hechos": 49
+ },
+ {
+  "tema": 8,
+  "titulo": "La Dirección General de la Policía. Estructura y funciones.",
+  "preguntas": 495,
+  "hechos": 321
+ },
+ {
+  "tema": 9,
+  "titulo": "La Ley Orgánica 2/1986 de Fuerzas y Cuerpos de Seguridad.",
+  "preguntas": 55,
+  "hechos": 48
+ },
+ {
+  "tema": 10,
+  "titulo": "Entrada, libre circulación y residencia (Extranjería I).",
+  "preguntas": 168,
+  "hechos": 132
+ },
+ {
+  "tema": 11,
+  "titulo": "Infracciones en materia de extranjería (Extranjería II).",
+  "preguntas": 40,
+  "hechos": 36
+ },
+ {
+  "tema": 12,
+  "titulo": "La protección internacional. Asilo y refugio.",
+  "preguntas": 55,
+  "hechos": 54
+ },
+ {
+  "tema": 13,
+  "titulo": "Seguridad Privada: disposiciones generales.",
+  "preguntas": 55,
+  "hechos": 51
+ },
+ {
+  "tema": 14,
+  "titulo": "LO 4/2015 de Protección de la Seguridad Ciudadana.",
+  "preguntas": 272,
+  "hechos": 164
+ },
+ {
+  "tema": 15,
+  "titulo": "Protección de Infraestructuras Críticas.",
+  "preguntas": 55,
+  "hechos": 35
+ },
+ {
+  "tema": 16,
+  "titulo": "Derecho Penal Parte General: principios e infracción penal.",
+  "preguntas": 438,
+  "hechos": 326
+ },
+ {
+  "tema": 17,
+  "titulo": "Derecho Penal Especial (I): Homicidio, lesiones, libertad sexual.",
+  "preguntas": 201,
+  "hechos": 151
+ },
+ {
+  "tema": 18,
+  "titulo": "Derecho Penal Especial (II): Patrimonio y orden socioeconómico.",
+  "preguntas": 55,
+  "hechos": 49
+ },
+ {
+  "tema": 19,
+  "titulo": "Delitos contra el orden público y tenencia de armas.",
+  "preguntas": 55,
+  "hechos": 41
+ },
+ {
+  "tema": 20,
+  "titulo": "Delitos informáticos y prueba digital.",
+  "preguntas": 55,
+  "hechos": 50
+ },
+ {
+  "tema": 21,
+  "titulo": "Derecho Procesal Penal: Jurisdicción, detención y Habeas Corpus.",
+  "preguntas": 441,
+  "hechos": 318
+ },
+ {
+  "tema": 22,
+  "titulo": "Estatuto de la víctima del delito.",
+  "preguntas": 55,
+  "hechos": 51
+ },
+ {
+  "tema": 23,
+  "titulo": "Igualdad, violencia de género y no discriminación.",
+  "preguntas": 55,
+  "hechos": 53
+ },
+ {
+  "tema": 24,
+  "titulo": "Prevención de Riesgos Laborales (I): Conceptos básicos.",
+  "preguntas": 40,
+  "hechos": 19
+ },
+ {
+  "tema": 25,
+  "titulo": "Prevención de Riesgos Laborales (II): Marco normativo.",
+  "preguntas": 40,
+  "hechos": 40
+ },
+ {
+  "tema": 26,
+  "titulo": "Protección de datos personales.",
+  "preguntas": 55,
+  "hechos": 50
+ },
+ {
+  "tema": 27,
+  "titulo": "Derechos Humanos. Declaración Universal y Convenios.",
+  "preguntas": 55,
+  "hechos": 53
+ },
+ {
+  "tema": 28,
+  "titulo": "Globalización y antiglobalización.",
+  "preguntas": 40,
+  "hechos": 18
+ },
+ {
+  "tema": 29,
+  "titulo": "Actitudes y valores sociales. Grupos sociales.",
+  "preguntas": 55,
+  "hechos": 19
+ },
+ {
+  "tema": 30,
+  "titulo": "Principios éticos de la sociedad actual. Delitos de odio.",
+  "preguntas": 40,
+  "hechos": 19
+ },
+ {
+  "tema": 31,
+  "titulo": "Inmigración: movimientos migratorios e integración.",
+  "preguntas": 40,
+  "hechos": 7
+ },
+ {
+  "tema": 32,
+  "titulo": "Geografía humana. La ciudad y demografía.",
+  "preguntas": 40,
+  "hechos": 14
+ },
+ {
+  "tema": 33,
+  "titulo": "La seguridad: conceptos y teorías de la delincuencia.",
+  "preguntas": 40,
+  "hechos": 16
+ },
+ {
+  "tema": 34,
+  "titulo": "Drogodependencias: clasificación y tendencias.",
+  "preguntas": 40,
+  "hechos": 22
+ },
+ {
+  "tema": 35,
+  "titulo": "El desarrollo sostenible.",
+  "preguntas": 55,
+  "hechos": 30
+ },
+ {
+  "tema": 36,
+  "titulo": "Gramática de la lengua española: Morfología y Sintaxis.",
+  "preguntas": 39,
+  "hechos": 20
+ },
+ {
+  "tema": 37,
+  "titulo": "Ortografía de la lengua española.",
+  "preguntas": 39,
+  "hechos": 22
+ },
+ {
+  "tema": 38,
+  "titulo": "Fundamentos de sistemas operativos.",
+  "preguntas": 40,
+  "hechos": 27
+ },
+ {
+  "tema": 39,
+  "titulo": "Redes informáticas: Modelo OSI y TCP/IP.",
+  "preguntas": 39,
+  "hechos": 12
+ },
+ {
+  "tema": 40,
+  "titulo": "Inteligencia: Ciclo, OSINT, Deep/Dark Web.",
+  "preguntas": 55,
+  "hechos": 25
+ },
+ {
+  "tema": 41,
+  "titulo": "Ciberdelincuencia y agentes de la Amenaza.",
+  "preguntas": 80,
+  "hechos": 43
+ },
+ {
+  "tema": 42,
+  "titulo": "Armas de fuego y balística forense.",
+  "preguntas": 55,
+  "hechos": 53
+ },
+ {
+  "tema": 43,
+  "titulo": "El vehículo prioritario: conducción y normativa.",
+  "preguntas": 40,
+  "hechos": 23
+ },
+ {
+  "tema": 44,
+  "titulo": "Seguridad en la conducción de vehículos prioritarios.",
+  "preguntas": 40,
+  "hechos": 23
+ },
+ {
+  "tema": 45,
+  "titulo": "PRL en seguridad vial y mantenimiento.",
+  "preguntas": 40,
+  "hechos": 10
+ }
+]

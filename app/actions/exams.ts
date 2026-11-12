@@ -27,7 +27,7 @@ import { adaptativoEncendido } from '../lib/training-switch-guard';
 import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
 import { entrenoDeHoy, type EntrenoDeHoy } from '../lib/dia';
 import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart-session';
-import { planExamen } from '../lib/exam-blueprint';
+import { planExamenSinFamilias } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 import { fallo } from '../lib/fallos';
@@ -550,13 +550,15 @@ type FilaLigera = {
   global_success_rate?: number | null;
   difficulty_level?: number | null;
   legal_reference?: string | null;
+  /** La familia de preguntas repetidas (regla 119). */
+  family_id?: string | null;
 };
 
 async function bancoLigero(subjectIds: number[] | null, organizationId: string | null): Promise<{ data: FilaLigera[]; error: string | null }> {
   return paginaCompleta<FilaLigera>((desde, hasta) => {
     let consulta = supabase
       .from('question_bank')
-      .select('id, subject_id, global_success_rate, difficulty_level, legal_reference')
+      .select('id, subject_id, global_success_rate, difficulty_level, legal_reference, family_id')
       .eq('status', QUESTION_STATUS.ACTIVE)
       .or(filtroBancoPorAcademia(organizationId));
     if (subjectIds) consulta = consulta.in('subject_id', subjectIds);
@@ -781,12 +783,13 @@ export async function getSimulacro(params: {
   );
   const recientes = new Set(recientesData.map((r) => r.question_id).filter((x): x is string => !!x));
 
-  const plan = planExamen({
+  const plan = planExamenSinFamilias({
     disponibles: filas.map((f) => ({
       questionId: f.id,
       topic: temaDeFila(f),
       difficultyLevel: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
       legalReference: f.legal_reference ?? null,
+      familia: f.family_id ?? null,
     })),
     limit,
     dificultad: nivel,
@@ -1200,6 +1203,8 @@ export async function getExamenImprimible(input: unknown): Promise<
       niveles: { facil: number; media: number; dificil: number };
       /** Cuántas se dejaron fuera por haber salido ya en un examen guardado. */
       repetidasEvitadas: number;
+      /** No había bastantes preguntas distintas y el examen repite algún hecho (regla 119). */
+      hechosRepetidos: boolean;
     }
   | { success: false; error: string }
 > {
@@ -1234,12 +1239,13 @@ export async function getExamenImprimible(input: unknown): Promise<
   const repetidasEvitadas = filas.filter((f) => yaSalieron.has(f.id)).length;
 
   const temaDeFila = (f: { subject_id?: number | null }) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
-  const plan = planExamen({
+  const plan = planExamenSinFamilias({
     disponibles: filas.map((f) => ({
       questionId: f.id,
       topic: temaDeFila(f),
       difficultyLevel: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
       legalReference: f.legal_reference ?? null,
+      familia: f.family_id ?? null,
     })),
     limit,
     dificultad: nivel,
@@ -1265,5 +1271,5 @@ export async function getExamenImprimible(input: unknown): Promise<
     media: filas.filter((f) => f.difficulty_level === 2 || typeof f.difficulty_level !== 'number').length,
     dificil: filas.filter((f) => f.difficulty_level === 3).length,
   };
-  return { success: true as const, preguntas, corto: plan.corto || preguntas.length < limit, niveles, repetidasEvitadas };
+  return { success: true as const, preguntas, corto: plan.corto || preguntas.length < limit, niveles, repetidasEvitadas, hechosRepetidos: plan.conRepetidas === true };
 }

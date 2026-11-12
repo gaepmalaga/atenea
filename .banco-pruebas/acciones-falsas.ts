@@ -1344,6 +1344,7 @@ export async function getExamenImprimible(d: { preguntas?: number }) {
     corto: false,
     niveles: { facil: 0, media: 4617, dificil: 0 },
     repetidasEvitadas: 12,
+    hechosRepetidos: false,
     preguntas: Array.from({ length: n }, (_, i) => ({
       id: `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
       enunciado: `Según el artículo ${i + 1} de la Constitución Española, ¿cuál de las siguientes afirmaciones es correcta?`,

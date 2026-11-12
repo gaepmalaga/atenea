@@ -301,6 +301,29 @@ con los exámenes en clase. **De paso salió** que el banco tiene muchas
 preguntas casi repetidas (hasta cuatro variantes del mismo concepto): conviene
 una pasada de similitud antes de que un examen lleve dos de la misma familia.
 
+## 2h · Preguntas repetidas (12 nov, regla 119, en la rama, sin desplegar)
+
+El banco tiene un 34 % de preguntas que son otra con distintas palabras (1.562
+de 4.617; 3.055 hechos distintos; el mayor, 26 veces). Se agrupan en familias
+(`question_bank.family_id`, `npm run familias`) y los exámenes (simulacro del
+alumno y examen en papel) no meten dos de la misma familia mientras haya
+bastantes. **No se ha borrado ni desactivado nada.**
+
+- **Hecho en producción:** guion `familias-preguntas.sql` ejecutado (una columna)
+  y familias guardadas: 2.290 preguntas en 728 familias, 2.327 sueltas, la mayor
+  de 26. Una segunda pasada no cambia nada.
+- **Probado:** 20 tests nuevos (la detección, las tres salvaguardas contra falsos
+  positivos, el planificador) y una simulación de exámenes sobre el banco real.
+  SIN probar en la pantalla de la app contra la base de datos (no hubo cuenta
+  de prueba): al generar un examen de un tema flojo debe salir el aviso «no hay
+  bastantes preguntas distintas».
+- **Lo que hay que mirar:** los temas con pocos hechos distintos
+  (`docs/dificultad/hechos-por-tema.json`): 31, 45, 39, 32, 33, 28, 29, 30, 24.
+  Ahí es donde meter preguntas nuevas del temario de Alphapol.
+- **Pendiente:** una pantalla en «Moderación» para ver cada familia y desactivar
+  a mano las sobrantes (hoy solo se agrupan); repetir `npm run familias --
+  --hazlo` cuando entren preguntas.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

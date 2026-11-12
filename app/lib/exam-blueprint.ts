@@ -31,10 +31,14 @@ export type CandidataExamen = {
   difficultyLevel?: number | null;
   /** Artículo o disposición del que sale, si consta. Para la cobertura. */
   legalReference?: string | null;
+  /** La familia de preguntas repetidas a la que pertenece (regla 119); `null` si no tiene repetidas. */
+  familia?: string | null;
 };
 
 export type PlanExamen = {
   questionIds: string[];
+  /** Hubo que meter dos preguntas de la misma familia porque no había bastantes distintas (regla 119). */
+  conRepetidas?: boolean;
   /** No se llegó a `limit` ni relajando los filtros. La pantalla ya lo avisa. */
   corto: boolean;
 };
@@ -211,3 +215,28 @@ export function planExamen(params: {
     corto: elegidas.length < limit,
   };
 }
+
+/**
+ * Lo mismo que `planExamen`, sin meter dos preguntas de la MISMA FAMILIA (regla
+ * 119: el mismo hecho con otras palabras): una al azar de cada familia, y las
+ * que no tienen familia, todas. Solo si así no se llega a `limit` se vuelve a
+ * planificar con todas, y el plan lo dice (`conRepetidas`): un examen completo
+ * que repite algún hecho es mejor que uno corto, pero hay que saberlo.
+ */
+export function planExamenSinFamilias(params: Parameters<typeof planExamen>[0]): PlanExamen {
+  const random = params.random ?? Math.random;
+  if (!params.disponibles.some((c) => c.familia)) return planExamen(params);
+
+  const porFamilia = new Map<string, CandidataExamen>();
+  const sueltas: CandidataExamen[] = [];
+  for (const c of shuffle(params.disponibles, random)) {
+    if (!c.familia) sueltas.push(c);
+    else if (!porFamilia.has(c.familia)) porFamilia.set(c.familia, c);
+  }
+  const plan = planExamen({ ...params, disponibles: [...sueltas, ...porFamilia.values()] });
+  if (!plan.corto) return plan;
+
+  const completo = planExamen(params);
+  return { ...completo, conRepetidas: completo.questionIds.length > plan.questionIds.length };
+}
+
