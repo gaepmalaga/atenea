@@ -241,6 +241,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 117 | Los psicotécnicos los genera el código, no un banco |
 | 118 | El examen en papel se guarda, se pone a un turno y su nota se lleva |
 | 119 | El banco repite el mismo hecho hasta 26 veces: se agrupa, no se borra |
+| 120 | Un aviso solo es «enviado» si la base de datos lo aceptó, y el resultado del simulacro dice dónde se falla |
 
 ## Trampas conocidas
 

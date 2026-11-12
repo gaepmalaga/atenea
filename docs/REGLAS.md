@@ -4703,3 +4703,26 @@ el segundo necesita el proyecto real.
   tienen más de 300 cada uno. Un examen de un tema flojo repite hechos aunque
   haya 40 preguntas. Esto es lo que dice DÓNDE meter preguntas nuevas del
   temario propio de Alphapol, y es más importante que la dificultad.
+
+### 120 · Un aviso solo es «enviado» si la base de datos lo aceptó, y el resultado del simulacro dice dónde se falla
+
+*(12 nov 2026, de revisar con capturas la plataforma que usa la academia hoy.)*
+
+- **El fallo.** `reportQuestion` (y toda acción de moderación) devuelve
+  `{ success }` y NO lanza. El cuadro de «Avisar» de `ActiveTest` no lo miraba
+  y daba siempre «Aviso enviado»: un reporte rechazado por la base de datos se
+  le daba al alumno por entregado y la pregunta mala seguía en el banco. Ahora
+  se mira `res.success`; si falla, se avisa y el cuadro queda abierto con lo
+  escrito. Vigilado en `afianzar.test.ts` (acotado al trozo del reporte: otro
+  `if (!res.success)` del mismo fichero habría hecho pasar un test más flojo).
+- **Rendimiento por tema.** El resultado del SIMULACRO enseña, del peor al
+  mejor, aciertos sobre total y porcentaje de cada tema (`rendimientoPorTema`
+  en `app/lib/stats.ts`, regla 8), si hay dos temas o más. El porcentaje es
+  sobre todas las del tema: un blanco no es un fallo (24) pero no es un
+  acierto. Una pregunta sin tema no se agrupa en un «tema» inventado (16). En
+  ENTRENAMIENTO no se enseña: no lleva nota (59).
+- **Lo que se vio en su plataforma y NO se copia:** gemas, puntos y rachas
+  (tono de academia, regla 85), el análisis con IA por cada fallo (un coste de
+  Gemini por pregunta fallada, y el chat está fuera del MVP, 58) y el ranking
+  nacional (expone al alumno con nota baja; un ranking por turno, si lo pide
+  el dueño, saldría de los exámenes en clase, regla 118).

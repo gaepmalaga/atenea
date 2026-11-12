@@ -324,6 +324,25 @@ bastantes. **No se ha borrado ni desactivado nada.**
   a mano las sobrantes (hoy solo se agrupan); repetir `npm run familias --
   --hazlo` cuando entren preguntas.
 
+
+## 2i · Revisión de la plataforma actual y dos arreglos (12 nov, regla 120, en la rama, sin desplegar)
+
+Con capturas de OpositandoPN (la plataforma que usa la academia hoy) se
+comparó su test con el nuestro. Su motor no hace nada que no hagamos; la
+diferencia está en el contenido (una «retroalimentación» propia por pregunta)
+y el acabado. De ahí salieron dos cambios:
+
+- **Arreglo:** el aviso de error de una pregunta decía «enviado» aunque la base
+  de datos lo rechazase. Ya se mira el resultado.
+- **Nuevo:** el resultado del simulacro enseña el rendimiento por tema.
+  Visto en el banco de pruebas a tamaño móvil. SIN probar contra la base de
+  datos real.
+
+**Pendiente de esa comparación:** capturas de lo que no se vio (ranking, análisis
+con IA). Un ranking por turno queda aparcado hasta que lo decida el dueño. Los
+guiones `examen-completo.cjs` del banco de pruebas están desfasados («Iniciar
+operación» ya no existe) y piden Edge, que no está instalado en la nube.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)
