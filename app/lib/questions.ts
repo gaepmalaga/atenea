@@ -175,6 +175,8 @@ export type BankRow = {
   explanation?: string;
   origin?: Question['origin'];
   legal_reference?: string | null;
+  /** 1 fácil · 2 media · 3 alta. */
+  difficulty_level?: number | null;
   /** `null` = banco global (regla 65/78: quien la escribió no importa aquí, solo de dónde es). */
   organization_id?: string | null;
 };

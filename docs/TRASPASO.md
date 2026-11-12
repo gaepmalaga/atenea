@@ -242,6 +242,49 @@ almacenamiento; no quedó nada):
 tipos de psicotécnico (dominós, rotaciones); que el profesor vea el informe
 solo de sus grupos.
 
+## 2g · Exámenes en clase (12 nov, regla 118, en la rama `claude/trusting-archimedes-air2im`, sin desplegar)
+
+Lo que pidió el dueño: generar un examen con filtros, guardarlo, ponerlo a un
+turno (martes y jueves por la mañana), y llevar un registro por alumno de sus
+exámenes presenciales, su nota y su evolución. El profesor NO teclea las
+respuestas: las mete cada alumno, en clase o en casa.
+
+- **Academia** (Exámenes en papel → 3 pestañas): *Preparar* (bloques, temas
+  sueltos, dificultad, no repetir), *Guardados* (reimprimir, ponerlo a un
+  turno) y *En clase* (quién ha entregado, notas, preguntas más falladas, nota
+  oficial, «no se presentó», «que repita», plazo).
+- **Alumno** (módulo `presencial`, «Exámenes»): lista, meter las respuestas
+  (tocando o escribiéndolas de seguido), revisión con la solución, evolución.
+- **Informe semanal:** no presentarse a un examen en clase y suspenderlo son
+  señales de abandono.
+
+**⚠ FALTA EJECUTAR [`docs/sql/examenes-clase.sql`](sql/examenes-clase.sql) EN
+PRODUCCIÓN** (tres tablas nuevas, solo añade; probado en un Postgres local: el
+sistema bloqueó ejecutarlo desde la sesión sin tu visto bueno). Hasta
+entonces, «Guardados» y «En clase» dicen que falta el guion y el alumno ve la
+lista vacía; nada se rompe. `supabase/schema.json` ya trae las tablas escritas a
+mano: regenerarlo después con `node scripts/schema-snapshot.mjs`.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co NODE_USE_ENV_PROXY=1 \
+SUPABASE_ACCESS_TOKEN=proxy-injected node scripts/operacion/ejecutar-sql.mjs docs/sql/examenes-clase.sql
+node scripts/schema-snapshot.mjs
+```
+
+**Probado:** `npm run check` (1.584 tests; las guardas se comprobaron rompiendo
+el código, y una de ellas encontró dos consultas sin la academia dentro, ya
+arregladas) y las pantallas de la academia y del alumno en el banco de pruebas.
+**SIN probar contra la base de datos real:** todo el ciclo (guardar, aplicar,
+entregar, notas, informe), por lo mismo. Al ejecutar el guion, probarlo con un
+admin y un alumno temporales y borrarlos.
+
+**Siguiente (acordado con el dueño):** la dificultad. Primero una estimación
+inicial: yo clasifico a mano una muestra de ~150 preguntas con una rúbrica,
+Gemini clasifica la misma muestra, se compara y se ajusta el prompt; luego
+Gemini clasifica las 4.617 (ensayo gratis antes de pagar) y las que lleguen.
+Después se sustituye por la dificultad MEDIDA con estos exámenes y con los
+alumnos, y el preparador puede corregirla a mano en «Banco oficial».
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

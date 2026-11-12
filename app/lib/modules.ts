@@ -26,6 +26,8 @@ export const MODULE_IDS = [
   'cards',
   // Psicotécnicos generados por código (regla 117).
   'psico',
+  // Exámenes en papel que se ponen en clase y cuya nota se lleva (regla 118).
+  'presencial',
   'training',
   'interview',
   'stats',
@@ -42,6 +44,7 @@ export const MODULE_LABEL: Record<ModuleId, string> = {
   review: 'Repasar fallos',
   cards: 'Fichas',
   psico: 'Psicotécnicos',
+  presencial: 'Exámenes en clase',
   training: 'Preparación física',
   interview: 'Entrevista',
   stats: 'Mi evolución',
@@ -56,6 +59,7 @@ export const MODULE_DESCRIPCION: Record<ModuleId, string> = {
   review: 'Volver sobre las preguntas falladas, con su diagnóstico.',
   cards: 'Repaso espaciado con tarjetas.',
   psico: 'Series, cálculo, atención y figuras, contra el reloj. No gasta IA.',
+  presencial: 'Meter las respuestas de los exámenes en papel de clase y ver la nota y la evolución.',
   training: 'Perfil físico, marcas y plan de entrenamiento.',
   interview: 'Biodata, psicotécnico y simulador de entrevista.',
   stats: 'Simulacros, dominio del temario y cómo respondes.',

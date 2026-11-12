@@ -5,9 +5,10 @@ import { fallo } from '../lib/fallos';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 import { ahoraEnZona } from '../lib/asistencia';
 import { nombreVisible } from '../lib/perfil-alumno';
+import { aNota, notaVigente } from '../lib/examen-clase';
 import {
   construyeInforme, lunesDe, semanaPorDefecto, sumaDias,
-  type AlumnoInforme, type FilaSemana, type InformeSemanal,
+  type AlumnoInforme, type ExamenSemana, type FilaSemana, type InformeSemanal,
 } from '../lib/informe-semanal';
 
 /** Cuántas semanas hacia atrás se le piden a la base de datos: la del informe, cuatro para la media y una de margen. */
@@ -100,6 +101,32 @@ export async function getInformeSemanal(input?: unknown): Promise<
   // Si las faltas no se pueden leer, el informe sale igual sin esa señal.
   if (!faltas.error) for (const f of faltas.data) faltasPorAlumno.set(f.user_id, (faltasPorAlumno.get(f.user_id) ?? 0) + 1);
 
+  // Los exámenes presenciales de esa semana (regla 118), en consultas simples:
+  // las aplicaciones de la semana, sus títulos y sus resultados. Si las tablas
+  // aún no existen, el informe sale igual sin esa señal.
+  const examenes: ExamenSemana[] = [];
+  const { data: sits, error: errSits } = await supabaseAdmin
+    .from('exam_sittings').select('id, paper_id, sat_on')
+    .eq('organization_id', organizationId).gte('sat_on', semana).lte('sat_on', sumaDias(semana, 6));
+  if (errSits) fallo('getInformeSemanal', errSits);
+  if (sits?.length) {
+    const [papers, resultados] = await Promise.all([
+      supabaseAdmin.from('exam_papers').select('id, title').eq('organization_id', organizationId).in('id', [...new Set(sits.map((s) => s.paper_id as string))]),
+      supabaseAdmin.from('exam_results').select('sitting_id, user_id, score, teacher_score, absent').eq('organization_id', organizationId).in('sitting_id', sits.map((s) => s.id as string)).limit(5000),
+    ]);
+    if (papers.error ?? resultados.error) fallo('getInformeSemanal', (papers.error ?? resultados.error)!);
+    const titulo = new Map((papers.data ?? []).map((p) => [p.id as string, p.title as string]));
+    const porSitting = new Map(sits.map((s) => [s.id as string, s]));
+    for (const r of resultados.data ?? []) {
+      const s = porSitting.get(r.sitting_id as string);
+      if (!s) continue;
+      const nota = notaVigente({ teacher_score: aNota(r.teacher_score), score: aNota(r.score) });
+      // Una fila sin nota ni ausencia (a quien se le reinició la entrega) no dice nada.
+      if (r.absent !== true && nota === null) continue;
+      examenes.push({ userId: r.user_id as string, titulo: titulo.get(s.paper_id as string) ?? 'examen', fecha: s.sat_on as string, nota, ausente: r.absent === true });
+    }
+  }
+
   const alumnos: AlumnoInforme[] = perfiles.map((p) => ({
     id: p.id,
     email: p.email,
@@ -112,5 +139,5 @@ export async function getInformeSemanal(input?: unknown): Promise<
     blancos: f.blancos, diasActivos: f.dias_activos, simulacros: f.simulacros, ultima: f.ultima,
   }));
 
-  return { success: true as const, informe: construyeInforme({ hoy, semana, alumnos, filas }), semanas: { actual, anterior } };
+  return { success: true as const, informe: construyeInforme({ hoy, semana, alumnos, filas, examenes }), semanas: { actual, anterior } };
 }

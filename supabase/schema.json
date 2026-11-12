@@ -508,6 +508,108 @@
         "uploaded_at": "timestamp with time zone"
       }
     },
+    "exam_papers": {
+      "columnas": [
+        "created_at",
+        "created_by",
+        "filters",
+        "id",
+        "minutes",
+        "model",
+        "organization_id",
+        "question_ids",
+        "questions",
+        "title",
+        "total"
+      ],
+      "obligatorias": [
+        "minutes",
+        "organization_id",
+        "questions",
+        "title",
+        "total"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "filters": "jsonb",
+        "id": "uuid",
+        "minutes": "integer",
+        "model": "text",
+        "organization_id": "uuid",
+        "question_ids": "uuid[]",
+        "questions": "jsonb",
+        "title": "text",
+        "total": "integer"
+      }
+    },
+    "exam_results": {
+      "columnas": [
+        "absent",
+        "answers",
+        "blank",
+        "correct",
+        "id",
+        "organization_id",
+        "score",
+        "sitting_id",
+        "submitted_at",
+        "teacher_score",
+        "updated_at",
+        "user_id",
+        "wrong"
+      ],
+      "obligatorias": [
+        "organization_id",
+        "sitting_id",
+        "user_id"
+      ],
+      "tipos": {
+        "absent": "boolean",
+        "answers": "smallint[]",
+        "blank": "integer",
+        "correct": "integer",
+        "id": "uuid",
+        "organization_id": "uuid",
+        "score": "numeric",
+        "sitting_id": "uuid",
+        "submitted_at": "timestamp with time zone",
+        "teacher_score": "numeric",
+        "updated_at": "timestamp with time zone",
+        "user_id": "uuid",
+        "wrong": "integer"
+      }
+    },
+    "exam_sittings": {
+      "columnas": [
+        "class_ids",
+        "closes_on",
+        "created_at",
+        "created_by",
+        "id",
+        "label",
+        "organization_id",
+        "paper_id",
+        "sat_on"
+      ],
+      "obligatorias": [
+        "label",
+        "organization_id",
+        "paper_id",
+        "sat_on"
+      ],
+      "tipos": {
+        "class_ids": "uuid[]",
+        "closes_on": "date",
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "id": "uuid",
+        "label": "text",
+        "organization_id": "uuid",
+        "paper_id": "uuid",
+        "sat_on": "date"
+      }
+    },
     "fee_packs": {
       "columnas": [
         "created_at",

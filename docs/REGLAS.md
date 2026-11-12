@@ -4595,3 +4595,56 @@ el segundo necesita el proyecto real.
   real. Se hizo a ojo con lo que se suele pedir; conviene que un opositor que
   ya haya pasado la prueba los pruebe y diga si están más fáciles o más
   difíciles, y qué tipos faltan (dominós, rotaciones, tablas de datos).
+
+### 118 · El examen en papel se guarda, se pone a un turno y su nota se lleva
+
+- **Qué pasaba (12 nov):** «Exámenes en papel» (regla 115) generaba el examen,
+  lo descargaba y se perdía: no se podía reimprimir, ni evitar que el siguiente
+  simulacro repita preguntas, ni saber quién lo hizo y cómo le fue. La academia
+  lo pone en clase a un turno (martes y jueves por la mañana) y quiere un
+  registro por alumno: sus exámenes presenciales, su nota y su evolución.
+- **Tres tablas** (`docs/sql/examenes-clase.sql`; RLS y ninguna política, solo
+  las toca la clave de servicio, regla 34):
+  - `exam_papers`: el examen guardado, con una COPIA de sus preguntas. Si luego
+    se edita o se descarta una del banco, el examen que se repartió en papel
+    sigue siendo el mismo y se corrige contra lo que se imprimió.
+  - `exam_sittings`: una «aplicación»: ese examen, a esos grupos (vacío = toda
+    la academia), ese día, y hasta qué día pueden meter las respuestas.
+  - `exam_results`: un alumno en una aplicación. Un solo resultado por alumno.
+- **Las respuestas las mete EL ALUMNO, no el profesor** (en clase o al llegar a
+  casa; el profesor no va a teclear 40 hojas). Tocando A, B o C pregunta a
+  pregunta, o escribiéndolas de seguido (`abcb-ac…`, con `-` para el blanco,
+  `parseaRespuestas`): si no salen EXACTAMENTE las que son, no se adivina nada,
+  porque un desfase de una descuadra todas. El servidor corrige contra la copia
+  guardada con la fórmula de la convocatoria (`scoreExam`, regla 22), una sola
+  vez, solo el día del examen o después y dentro del plazo; la solución no se
+  enseña hasta entregar (regla 110).
+- **Esas respuestas son DECLARADAS por el alumno**, no recogidas por la
+  academia: sirven para que él se corrija y para medir cómo salió cada
+  pregunta, no como nota oficial. Por eso el profesor puede poner encima la
+  nota oficial del papel (`teacher_score`), que manda sobre la calculada
+  (`notaVigente`), y marcar a quien no se presentó (que no es un 0). Si un
+  alumno se equivoca al teclear, «Que repita» le borra la entrega.
+- **Lo que ve la academia** («En clase»): quién ha entregado, la nota media, la
+  distribución, y las preguntas que más han fallado con qué opción mala engaña:
+  para repasarlas en clase. **Lo que ve el alumno** («Exámenes»): sus notas, la
+  media de su turno (solo si han entregado al menos tres: no señala a nadie, y
+  nunca llegan ids de otros alumnos) y su evolución.
+- **El informe semanal lo cuenta** (regla 116): no presentarse a un examen en
+  clase suma 30 puntos (ya es de «vigilar» por sí solo) y sacar menos del
+  aprobado suma 15.
+- **Filtros del examen** (`getExamenImprimible`): todo el temario, bloques
+  enteros o temas sueltos; dificultad como mezcla (más fáciles, equilibrada,
+  más difíciles; se REPARTE, no se filtra); y «no repetir» las preguntas de los
+  exámenes ya guardados, mientras queden bastantes (`question_ids`). Aviso
+  honesto: hoy las 4.617 preguntas son de dificultad «media» (se sembraron con
+  el valor por defecto), así que pedir más fáciles o más difíciles no cambia
+  nada y la pantalla lo dice. La dificultad real es el paso siguiente.
+- **Módulo `presencial`** («Exámenes» en el alumno), que se enciende y apaga
+  por academia (regla 109). Sin las tablas, el alumno ve la lista vacía y la
+  academia un aviso que dice qué guion falta.
+- **Lo que NO hace todavía:** leer la hoja de respuestas con una foto; contar
+  estas respuestas en «Repasar fallos» ni en el motor adaptativo (no entran en
+  `question_attempts`: no llevan tiempos ni camino de respuesta, y mezclarlas
+  falsearía lo que mide); calcular la dificultad de cada pregunta a partir de
+  ellas (con 40 alumnos por examen, es la mejor fuente que habrá).

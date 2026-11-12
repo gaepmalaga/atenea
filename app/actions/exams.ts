@@ -1180,24 +1180,38 @@ const PREGUNTAS_EXAMEN_PAPEL = [25, 50, 100];
  *
  * Solo la academia: lleva las respuestas. Sale del banco de SU academia (el
  * global más el suyo, regla 75) con el mismo reparto que el simulacro del
- * alumno (`planExamen`): cada tema pesa lo que pesa en el examen de verdad.
- * Sin temas elegidos, entra todo el temario.
+ * alumno (`planExamen`). Los filtros (regla 118):
+ *   · `temas`: los ids elegidos; vacío = todo el temario. El panel los arma
+ *     también por bloques.
+ *   · `dificultad`: la mezcla de fáciles, medias y difíciles (`easy`, `medium`,
+ *     `hard`). Se reparte, no se filtra: si no hay de un nivel, se rellena.
+ *   · `evitarRepetidas`: deja fuera las preguntas de los exámenes ya guardados
+ *     de la academia, mientras queden bastantes.
  *
- * No se guarda en ningún sitio: cada llamada es un examen distinto. El panel
- * lo conserva en memoria para descargar los tres documentos del MISMO examen.
+ * No se guarda aquí: cada llamada es un examen distinto, y quien lo quiera
+ * conservar lo guarda con `guardaExamen` pasando los ids.
  */
 export async function getExamenImprimible(input: unknown): Promise<
-  | { success: true; preguntas: { enunciado: string; opciones: string[]; correcta: number; tema: string }[]; corto: boolean }
+  | {
+      success: true;
+      preguntas: { id: string; enunciado: string; opciones: string[]; correcta: number; tema: string; dificultad: number }[];
+      corto: boolean;
+      /** Cuántas preguntas hay de cada nivel entre las candidatas: para saber si la dificultad se puede pedir. */
+      niveles: { facil: number; media: number; dificil: number };
+      /** Cuántas se dejaron fuera por haber salido ya en un examen guardado. */
+      repetidasEvitadas: number;
+    }
   | { success: false; error: string }
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
-  const d = (input ?? {}) as { preguntas?: unknown; temas?: unknown };
+  const d = (input ?? {}) as { preguntas?: unknown; temas?: unknown; dificultad?: unknown; evitarRepetidas?: unknown };
   const limit = PREGUNTAS_EXAMEN_PAPEL.includes(Number(d.preguntas)) ? Number(d.preguntas) : 100;
   const pedidos = Array.isArray(d.temas)
     ? d.temas.map((t) => Number(t)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 200)
     : [];
+  const nivel: 'easy' | 'medium' | 'hard' = d.dificultad === 'easy' || d.dificultad === 'hard' ? d.dificultad : 'medium';
 
   const { data: temasDb, error: errorTemas } = await supabase.from('subjects').select('id, title');
   if (errorTemas) return { success: false as const, error: fallo('getExamenImprimible', errorTemas) };
@@ -1209,6 +1223,16 @@ export async function getExamenImprimible(input: unknown): Promise<
   if (bancoError) return { success: false as const, error: bancoError };
   if (!filas.length) return { success: false as const, error: 'No hay preguntas en el banco para esos temas.' };
 
+  // Las que ya salieron en un examen guardado de ESTA academia. Si la tabla aún
+  // no existe, no se evita nada: el examen sale igual.
+  const yaSalieron = new Set<string>();
+  if (d.evitarRepetidas !== false && auth.user.organizationId) {
+    const { data: guardados, error: errG } = await supabase
+      .from('exam_papers').select('question_ids').eq('organization_id', auth.user.organizationId).order('created_at', { ascending: false }).limit(60);
+    if (!errG) for (const g of guardados ?? []) for (const q of (g.question_ids as string[]) ?? []) yaSalieron.add(q);
+  }
+  const repetidasEvitadas = filas.filter((f) => yaSalieron.has(f.id)).length;
+
   const temaDeFila = (f: { subject_id?: number | null }) => (f.subject_id != null ? tituloPorId.get(f.subject_id) ?? 'Sin tema' : 'Sin tema');
   const plan = planExamen({
     disponibles: filas.map((f) => ({
@@ -1218,7 +1242,8 @@ export async function getExamenImprimible(input: unknown): Promise<
       legalReference: f.legal_reference ?? null,
     })),
     limit,
-    dificultad: 'medium',
+    dificultad: nivel,
+    recientes: yaSalieron,
   });
 
   const completas = await preguntasCompletas(plan.questionIds);
@@ -1227,11 +1252,18 @@ export async function getExamenImprimible(input: unknown): Promise<
   const preguntas = completas.data
     .filter((f) => Array.isArray(f.options) && f.options.length >= 2 && Number.isInteger(f.correct_index))
     .map((f) => ({
+      id: f.id,
       enunciado: String(f.question_text ?? ''),
       opciones: (f.options as unknown[]).map((o) => String(o ?? '')),
       correcta: f.correct_index as number,
       tema: temaDeFila(f),
+      dificultad: typeof f.difficulty_level === 'number' ? f.difficulty_level : 2,
     }));
 
-  return { success: true as const, preguntas, corto: plan.corto || preguntas.length < limit };
+  const niveles = {
+    facil: filas.filter((f) => f.difficulty_level === 1).length,
+    media: filas.filter((f) => f.difficulty_level === 2 || typeof f.difficulty_level !== 'number').length,
+    dificil: filas.filter((f) => f.difficulty_level === 3).length,
+  };
+  return { success: true as const, preguntas, corto: plan.corto || preguntas.length < limit, niveles, repetidasEvitadas };
 }

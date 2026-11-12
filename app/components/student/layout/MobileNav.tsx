@@ -37,6 +37,7 @@ const ETIQUETA_CORTA: Record<string, string> = {
   review: 'Fallos',
   cards: 'Fichas',
   psico: 'Psico',
+  presencial: 'Clase',
   training: 'Física',
   interview: 'Perfil',
   // "Rango" era el nombre de antes de la regla 77 ("Rango & Estadísticas").

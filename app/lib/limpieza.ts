@@ -56,6 +56,7 @@ export const TABLAS_POR_USUARIO = [
   'training_sessions',
   'training_week_notes',
   'physical_marks',
+  'exam_results',
   'psico_sessions',
   'rm_marks',
   'class_members',
@@ -103,6 +104,9 @@ export const TABLAS_POR_ACADEMIA = [
   'class_week_publications',
   'session_templates',
   'physical_marks',
+  'exam_results',
+  'exam_sittings',
+  'exam_papers',
   'psico_sessions',
   'rm_marks',
   // Los packs de precios (regla 102) nombran tipos de grupo: antes que ellos.
