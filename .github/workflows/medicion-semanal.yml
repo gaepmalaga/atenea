@@ -1,0 +1,46 @@
+# LA DIFICULTAD MEDIDA, CADA SEMANA, SOLA (regla 122).
+#
+# Lee las respuestas reales de los alumnos y, para cada pregunta con 30 o más,
+# fija su dificultad con el acierto observado y guarda `global_success_rate`.
+#
+# POR QUÉ ES SEGURO QUE ESCRIBA SOLO
+#  · Solo toca preguntas con 30 respuestas reales o más: hoy, ninguna.
+#  · Las cuentas de demostración no cuentan.
+#  · NUNCA pisa una dificultad puesta por un preparador: si discrepa, la
+#    enseña en el registro y no la toca.
+#  · No habla con Gemini: no cuesta nada.
+#
+# Si una semana no hay nada que medir, el registro lo dice y termina bien.
+# Para lanzarlo a mano: Actions → Medición semanal → Run workflow.
+name: Medición semanal
+
+on:
+  schedule:
+    # Lunes, 05:17 UTC (06:17 o 07:17 en Málaga): antes de que nadie abra la plataforma.
+    - cron: '17 5 * * 1'
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://ecupmlqimmpybbrlrmpx.supabase.co' }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Comprobar que está la clave
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Falta SUPABASE_SERVICE_ROLE_KEY en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+      - run: npm ci
+      - name: Medir la dificultad con las respuestas reales
+        run: npm run dificultad:medida -- --hazlo
