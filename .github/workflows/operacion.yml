@@ -35,9 +35,14 @@ on:
           - crear-cuenta        # una cuenta con el correo ya confirmado
           - sembrar-indexar     # sube e indexa los 51 documentos
           - sembrar-preguntas   # genera preguntas de cada tema
+          - dificultad-muestra  # Gemini clasifica la muestra de 150 y se compara con la hecha a mano. No escribe.
+          - dificultad-ensayo   # cuenta las preguntas y estima el coste. No llama a Gemini ni escribe.
+          - dificultad-todas    # clasifica TODO el banco. Pide escribir CLASIFICAR. Antes, pasa la muestra.
+          - dificultad-medida-ensayo  # lee las respuestas reales y dice qué preguntas ya se pueden medir. No escribe.
+          - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
       confirmacion:
-        description: 'Escribe RESET (solo para la acción "reset")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas") o MEDIR ("dificultad-medida")'
         required: false
         type: string
       correo:
@@ -99,7 +104,7 @@ jobs:
           faltan=""
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
-          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ]; then
+          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ]; then
             [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
           fi
           if [ -n "$faltan" ]; then
@@ -157,3 +162,42 @@ jobs:
       - name: Generar las preguntas
         if: inputs.accion == 'sembrar-preguntas'
         run: npm run sembrar -- --solo-preguntas --preguntas=${{ inputs.preguntas }} ${{ inputs.tema && format('--tema={0}', inputs.tema) || '' }}
+
+      # La dificultad (docs/DIFICULTAD.md). Primero la muestra: no escribe nada
+      # y dice si el modelo coincide lo bastante con la clasificación a mano.
+      - name: Dificultad · comparar con la muestra
+        if: inputs.accion == 'dificultad-muestra'
+        run: npm run dificultad -- --muestra
+
+      - name: Dificultad · ensayo (sin gasto)
+        if: inputs.accion == 'dificultad-ensayo'
+        run: npm run dificultad -- --todas
+
+      # Escribe `difficulty_level` en el banco entero. Pide escribir
+      # CLASIFICAR, por lo mismo que el reset pide RESET: un desplegable se
+      # pulsa sin leerlo. No pisa lo que haya puesto un preparador.
+      - name: Dificultad · clasificar todo el banco
+        if: inputs.accion == 'dificultad-todas'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "CLASIFICAR" ]; then
+            echo "Para clasificar hay que escribir CLASIFICAR en el campo de confirmación."
+            echo "Antes, lanza «dificultad-muestra» y mira que el modelo sirve."
+            exit 1
+          fi
+          npm run dificultad -- --todas --hazlo --muestra-ok
+
+      # La dificultad MEDIDA con respuestas reales: no habla con Gemini, no
+      # cuesta nada. El ensayo cuenta y enseña; escribir pide escribir MEDIR.
+      - name: Dificultad medida · ensayo (sin escribir)
+        if: inputs.accion == 'dificultad-medida-ensayo'
+        run: npm run dificultad:medida
+
+      - name: Dificultad medida · escribir
+        if: inputs.accion == 'dificultad-medida'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "MEDIR" ]; then
+            echo "Para escribir hay que escribir MEDIR en el campo de confirmación."
+            echo "Antes, lanza «dificultad-medida-ensayo» y mira qué cambiaría."
+            exit 1
+          fi
+          npm run dificultad:medida -- --hazlo

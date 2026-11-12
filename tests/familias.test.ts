@@ -178,3 +178,88 @@ describe('dónde se usa', () => {
     expect(s).not.toMatch(/status:\s*'(disabled|discarded)'/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// La pantalla de «Preguntas repetidas»
+// ---------------------------------------------------------------------------
+
+import { paginaDeFamilias, FAMILIAS_POR_PAGINA } from '../app/lib/familias';
+
+const filasDe = (...familias: [string, number][]) => familias.flatMap(([fam, n]) => Array.from({ length: n }, (_, i) => ({ id: `${fam}-${i}`, family_id: fam })));
+
+describe('paginaDeFamilias', () => {
+  it('solo salen las familias con dos preguntas activas o más', () => {
+    const p = paginaDeFamilias(filasDe(['a', 3], ['b', 1], ['c', 2]));
+    expect(p.familias.map((f) => f.id)).toEqual(['a', 'c']);
+    expect(p.totalFamilias).toBe(2);
+  });
+
+  it('una familia ya resuelta (queda una sola activa) no vuelve a salir', () => {
+    expect(paginaDeFamilias(filasDe(['a', 1])).totalFamilias).toBe(0);
+  });
+
+  it('cuenta las que sobran: de cada familia se queda una', () => {
+    expect(paginaDeFamilias(filasDe(['a', 3], ['c', 2])).sobran).toBe(3);
+  });
+
+  it('de la más repetida a la menos, y con un orden fijo entre empates', () => {
+    const p = paginaDeFamilias(filasDe(['z', 2], ['m', 5], ['b', 2]));
+    expect(p.familias.map((f) => f.id)).toEqual(['m', 'b', 'z']);
+  });
+
+  it('las filas sin familia no cuentan', () => {
+    expect(paginaDeFamilias([{ id: 'x', family_id: null }, { id: 'y', family_id: null }]).totalFamilias).toBe(0);
+  });
+
+  it('pagina sin saltar ni repetir familias', () => {
+    const todas = filasDe(...Array.from({ length: 25 }, (_, i) => [`f${String(i).padStart(2, '0')}`, 2] as [string, number]));
+    const vistas = [1, 2, 3].flatMap((n) => paginaDeFamilias(todas, n).familias.map((f) => f.id));
+    expect(vistas).toHaveLength(25);
+    expect(new Set(vistas).size).toBe(25);
+    expect(paginaDeFamilias(todas, 1).paginas).toBe(3);
+    expect(paginaDeFamilias(todas, 1).familias).toHaveLength(FAMILIAS_POR_PAGINA);
+  });
+
+  it('una página fuera de rango se queda en el borde, no devuelve vacío', () => {
+    const todas = filasDe(['a', 2], ['b', 2]);
+    expect(paginaDeFamilias(todas, 99).pagina).toBe(1);
+    expect(paginaDeFamilias(todas, -3).pagina).toBe(1);
+    expect(paginaDeFamilias(todas, NaN).pagina).toBe(1);
+  });
+});
+
+describe('las acciones de repetidas no se pasan de lo que pueden', () => {
+  const quita = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const accion = quita(readFileSync(join(__dirname, '..', 'app/actions/familias.ts'), 'utf-8'));
+  const quedarse = accion.slice(accion.indexOf('export async function quedarseConUna'));
+
+  it('las dos exigen superadmin: el banco global no es de un admin de academia (regla 75)', () => {
+    expect((accion.match(/await requireSuperadmin\(\)/g) ?? []).length).toBe(2);
+    expect(accion).not.toMatch(/requireAdmin\(\)/);
+  });
+
+  it('lista con `paginaCompleta`, no con un `.select` que PostgREST corta a 1.000 (regla 74)', () => {
+    expect(accion).toMatch(/paginaCompleta</);
+  });
+
+  it('solo conserva una pregunta que sea de ESA familia y esté activa: si no, se descartarían todas', () => {
+    expect(quedarse).toMatch(/if \(!ids\.includes\(keepId\)\)/);
+  });
+
+  it('descarta con `disabled`, no borra, y solo dentro de la familia y de lo activo', () => {
+    expect(quedarse).toMatch(/update\(\{ status: QUESTION_STATUS\.DISABLED \}\)/);
+    expect(quedarse).not.toMatch(/\.delete\(/);
+    expect(quedarse).toMatch(/\.eq\('family_id', familyId\)/);
+    expect(quedarse).toMatch(/\.eq\('status', QUESTION_STATUS\.ACTIVE\)/);
+  });
+
+  it('queda anotado quién lo hizo', () => {
+    expect(quedarse).toMatch(/registraAccion\(\{[\s\S]*actorId: auth\.user\.id/);
+  });
+
+  it('el botón solo se enseña al superadmin', () => {
+    const banco = quita(readFileSync(join(__dirname, '..', 'app/components/Admin/components/AdminBank.tsx'), 'utf-8'));
+    expect(banco).toMatch(/esSuperadmin && <Boton[\s\S]{0,80}setVerRepetidas\(true\)/);
+    expect(banco).toMatch(/verRepetidas && esSuperadmin/);
+  });
+});

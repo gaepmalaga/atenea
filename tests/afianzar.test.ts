@@ -246,3 +246,45 @@ describe('regla 113 · el alumno no descarga el panel de administración', () =>
     }
   });
 });
+
+describe('regla 108 · el aviso de error de una pregunta no miente', () => {
+  const test = lee('app/components/student/modules/exams/ActiveTest.tsx');
+
+  it('`reportQuestion` devuelve `{ success }` y no lanza: se mira antes de dar el aviso por enviado', () => {
+    const desde = test.indexOf('const res = await reportQuestion(');
+    expect(desde).toBeGreaterThan(-1);
+    // Solo el trozo del reporte: `if (!res.success)` aparece también en otros sitios.
+    expect(test.slice(desde, desde + 400)).toMatch(/if \(!res\.success\)/);
+  });
+
+  it('un reporte fallido no cierra el cuadro ni borra lo escrito', () => {
+    const cuerpo = test.slice(test.indexOf('const res = await reportQuestion('));
+    const fallido = cuerpo.slice(cuerpo.indexOf('if (!res.success)'), cuerpo.indexOf('setIsReportModalOpen(false)'));
+    expect(fallido).toContain('return;');
+  });
+});
+
+describe('el resultado del simulacro enseña el rendimiento por tema', () => {
+  const resultados = lee('app/components/student/modules/exams/ExamResults.tsx');
+
+  it('usa `rendimientoPorTema` de stats (regla 8) y solo cuando hay dos temas o más', () => {
+    expect(resultados).toContain("import { rendimientoPorTema } from '@/app/lib/stats'");
+    expect(resultados).toMatch(/porTema\.length >= 2/);
+  });
+});
+
+describe('la dificultad se enseña DESPUÉS de contestar, nunca antes', () => {
+  const activa = lee('app/components/student/modules/exams/ActiveTest.tsx');
+  const resultados = lee('app/components/student/modules/exams/ExamResults.tsx');
+
+  it('en el examen solo aparece dentro del bloque de corrección', () => {
+    const desde = activa.indexOf("mode === 'practice' && isAnswered && (");
+    expect(desde).toBeGreaterThan(-1);
+    expect(activa.slice(0, desde)).not.toMatch(/<Dificultad\b/);
+    expect(activa.slice(desde)).toMatch(/<Dificultad nivel=\{currentQ\.difficultyLevel\}/);
+  });
+
+  it('en los resultados va en el detalle de la pregunta abierta', () => {
+    expect(resultados).toMatch(/<Dificultad nivel=\{q\.difficultyLevel\}/);
+  });
+});

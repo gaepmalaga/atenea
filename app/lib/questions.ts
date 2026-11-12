@@ -30,6 +30,11 @@ export type Question = {
   topic?: string | null;
   origin?: QuestionOrigin;
   /**
+   * 1 fácil · 2 media · 3 alta (`question_bank.difficulty_level`), o `null` si
+   * no se sabe. Se enseña SOLO tras responder: antes sesgaría la respuesta.
+   */
+  difficultyLevel?: number | null;
+  /**
    * Articulo o disposicion del que sale la pregunta (P3.7).
    *
    * `null` tiene DOS significados legitimos y quien lo pinte tiene que contar
@@ -143,6 +148,30 @@ export function difficultyToNumber(d: DifficultyName): DifficultyLevel {
   return DIFFICULTY[d] ?? DIFFICULTY_DEFAULT;
 }
 
+/** Cómo se llama cada nivel, para quien lo lee. */
+export const DIFFICULTY_LABEL: Record<DifficultyLevel, string> = { 1: 'Fácil', 2: 'Media', 3: 'Difícil' };
+
+/** «Fácil», «Media» o «Difícil»; `null` si no es un nivel (no se inventa uno). */
+export function etiquetaDificultad(nivel: unknown): string | null {
+  return typeof nivel === 'number' && nivel in DIFFICULTY_LABEL ? DIFFICULTY_LABEL[nivel as DifficultyLevel] : null;
+}
+
+/**
+ * De quién es la dificultad de una pregunta (`question_bank.difficulty_source`).
+ * `null` es el 2 por defecto de la siembra: nadie lo ha decidido.
+ */
+export const DIFFICULTY_SOURCE = { estimada: 'estimada', preparador: 'preparador', medida: 'medida' } as const;
+export type DifficultySource = (typeof DIFFICULTY_SOURCE)[keyof typeof DIFFICULTY_SOURCE];
+
+export function origenDeDificultad(source: unknown): string {
+  switch (source) {
+    case DIFFICULTY_SOURCE.estimada: return 'Estimada por la IA';
+    case DIFFICULTY_SOURCE.preparador: return 'Puesta por un preparador';
+    case DIFFICULTY_SOURCE.medida: return 'Medida con respuestas de alumnos';
+    default: return 'Sin clasificar (valor por defecto)';
+  }
+}
+
 /** Un nivel valido, o el de por defecto. Protege de lo que llegue del cliente. */
 export function toDifficultyLevel(valor: unknown): DifficultyLevel {
   const n = Number(valor);
@@ -190,6 +219,8 @@ export type BankRow = {
 export type ModerationCandidate = BankRow & {
   status?: string | null;
   difficulty_level?: number | null;
+  /** De quién es `difficulty_level` (`DIFFICULTY_SOURCE`); `null` = el 2 por defecto. */
+  difficulty_source?: string | null;
   created_at?: string | null;
   /**
    * Titulo del tema, resuelto por join contra `subjects`.
@@ -257,6 +288,7 @@ export function mapBankRowToQuestion(row: BankRow): Question {
     userAnswer: null,
     errorType: null,
     origin: row.origin || QUESTION_ORIGIN.BANK,
+    difficultyLevel: typeof row.difficulty_level === 'number' ? row.difficulty_level : null,
   };
 }
 

@@ -1,10 +1,9 @@
 # La dificultad de las preguntas
 
-**Estado (12 nov 2026):** las 4.617 preguntas activas valen `difficulty_level = 2`
-(se sembraron con el valor por defecto) y `global_success_rate` vale 0 en todas.
-Por eso los filtros de dificultad de «Exámenes en papel» y la mezcla del
-simulacro no cambian nada todavía (regla 118). Esto es el plan para llenarlo,
-y lo que ya se ha hecho.
+**Estado (12 nov 2026):** las 4.617 preguntas activas están clasificadas por la
+IA (ver «Estado» más abajo). Antes valían todas 2 y los filtros de dificultad
+de «Exámenes en papel» y la mezcla del simulacro no cambiaban nada (regla 118).
+Esto es el plan, y lo que ya se ha hecho.
 
 ## Qué mide
 
@@ -46,22 +45,63 @@ tres opciones numéricas el que no se lo sabe acierta una de cada tres.
 
 Las del bloque jurídico salen bastante más duras: son artículos, plazos y penas.
 
-## Lo que falta
+## Resultado de la comparación con Gemini (12 nov, Actions «Operación» #6)
 
-1. **Comparar con Gemini.** Un script que clasifique esa misma muestra con
-   `gemini-3.5-flash-lite` y la rúbrica, y mida el acuerdo con la de arriba
-   (porcentaje de coincidencias y de errores de dos niveles). Gemini solo
-   funciona en producción: va por el flujo «Operación» de GitHub Actions, que
-   tiene su clave. Si coincide bien, se ajusta el prompt y se sigue; si no, se
-   afina la rúbrica.
-2. **Clasificar las 4.617** con el prompt validado (ensayo gratis primero:
-   `--ensayo` enseña qué haría sin gastar) y guardarlas como estimadas.
-3. **Dónde guardar «estimada» frente a «puesta por el preparador»**: hace falta
-   una columna (`difficulty_source`) para que la medida y la mano del preparador
-   no se pisen con una reclasificación. Guion de esquema aparte.
-4. **Calcular la medida** (`global_success_rate` y dificultad observada) desde
-   los exámenes en clase y desde `question_attempts` real, y que sustituya a la
-   estimada a partir de 30 respuestas.
+`gemini-3.5-flash-lite` contra las 150 clasificadas a mano. **Pasa el criterio**
+que se fijó antes de mirar. Coste real: $0,0153.
+
+| | Resultado | Criterio |
+|---|---|---|
+| Coinciden | 110 de 150 (73,3 %) | ≥ 60 % |
+| A un nivel | 40 | |
+| A dos niveles | 0 | ≤ 5 % |
+| Sesgo | −0,04 niveles | ±0,3 |
+| Sin nivel | 0 | |
+
+|  | modelo 1 | modelo 2 | modelo 3 |
+|---|---|---|---|
+| **mano 1** | 7 | 8 | 0 |
+| **mano 2** | 2 | 50 | 9 |
+| **mano 3** | 0 | 21 | 53 |
+
+Reparto: a mano 15 / 61 / 74; el modelo 9 / 79 / 62. **El modelo tiende a la
+media**: de las 74 difíciles a mano, 21 las pone medias; de las 15 fáciles, 8.
+Nunca confunde fácil con difícil. Para un filtro de dificultad esto es útil,
+pero conviene saberlo: «difícil» según el modelo es algo más exclusivo que
+según el preparador. La corrección del preparador (capa 2) y la medida real
+(capa 3) existen precisamente para esto.
+
+## Estado (12 nov, reglas 121 y 122)
+
+**Hecho y en producción:** las 4.617 preguntas activas están clasificadas por la
+IA (`difficulty_source = 'estimada'`): 472 fáciles (10 %), 2.012 medias (44 %) y
+2.133 difíciles (46 %). La columna `difficulty_source` existe. Coste: unos 5
+céntimos.
+
+**Hecho en la rama, sin desplegar:**
+- El alumno ve «Fácil / Media / Difícil» en la corrección, nunca antes de contestar.
+- El preparador la corrige desde «Banco oficial» (selector, filtro por nivel y
+  origen a la vista). Lo que pone una persona no lo pisa ni la IA ni la medida.
+- «Preguntas repetidas» (solo superadmin): quedarse con una de cada familia.
+- `npm run dificultad:medida` (acciones `dificultad-medida-ensayo` y
+  `dificultad-medida` en «Operación»): el nivel sale del acierto observado con
+  30 respuestas reales o más, y escribe `global_success_rate`. Sin las cuentas de
+  demostración, con una respuesta por alumno y pregunta, y sin pisar al preparador.
+
+**Lo que falta**
+1. **Esperar datos.** Ninguna pregunta tiene aún 30 respuestas reales (el máximo
+   es 25, y casi todas son de las cuentas de demostración: 9.859 de 9.911).
+   Los exámenes en clase (regla 118) son la mejor fuente: 40 alumnos dan 40
+   respuestas a cada pregunta de golpe. Cuando los haya: `dificultad-medida-ensayo`
+   y, si el reparto es razonable, `dificultad-medida`.
+2. **Revisar los umbrales con datos.** ≥ 75 % de acierto es fácil y < 50 % es
+   difícil. Con tres opciones adivinar da 33 %. Son un punto de partida: con las
+   primeras respuestas reales se mira cómo reparten y se ajustan.
+3. **Revisión de la estimación.** La IA tiende a la media (de las 74 difíciles
+   a mano, 21 las puso medias). Conviene que un preparador repase las «difíciles»
+   y las «fáciles» más dudosas con el filtro de «Banco oficial».
+4. **Si el preparador y la medida discrepan** se ve en el informe del ensayo
+   (conflictos); nunca se escribe solo.
 
 ## Lo que salió de paso: preguntas casi repetidas (RESUELTO EN PARTE: regla 119)
 

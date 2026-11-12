@@ -6,6 +6,7 @@ import {
   QUESTION_STATUS,
   QUESTION_ORIGIN,
   toDifficultyLevel,
+  DIFFICULTY_SOURCE,
   type ModerationCandidate,
   type ModerationQueue,
   type ModerationReport,
@@ -240,6 +241,15 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
     const check = validateGeneratedQuestion(data);
     if (!check.ok) return { success: false, error: `Edición rechazada: ${check.reason}` };
 
+    // La dificultad es opcional: solo viaja si el preparador la ha cambiado.
+    // Si viaja y no es 1, 2 o 3, se rechaza la edición entera en vez de
+    // guardar el resto y tragarse el nivel (regla 10).
+    const crudo = (data as { difficulty_level?: unknown } | null)?.difficulty_level;
+    const cambiaNivel = crudo !== undefined && crudo !== null;
+    if (cambiaNivel && ![1, 2, 3].includes(Number(crudo))) {
+        return { success: false, error: 'La dificultad tiene que ser 1, 2 o 3.' };
+    }
+
     // Se escriben los valores YA normalizados, no los de entrada: es lo que
     // recorta espacios y deja el indice como numero.
     let query = supabaseAdmin.from('question_bank').update({
@@ -247,6 +257,9 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
         options: check.value.options,
         correct_index: check.value.correctIndex,
         explanation: check.value.explanation,
+        // Lo que pone una persona manda sobre la estimación (regla 121): por
+        // eso se anota de quién es, y una reclasificación no lo pisa.
+        ...(cambiaNivel ? { difficulty_level: Number(crudo), difficulty_source: DIFFICULTY_SOURCE.preparador } : {}),
     }).eq('id', questionId);
     // Mismo criterio que `disableQuestion`: un admin normal solo edita SU
     // banco privado, nunca el global ni el de otra academia.

@@ -324,6 +324,49 @@ bastantes. **No se ha borrado ni desactivado nada.**
   a mano las sobrantes (hoy solo se agrupan); repetir `npm run familias --
   --hazlo` cuando entren preguntas.
 
+
+## 2i · Revisión de la plataforma actual y dos arreglos (12 nov, regla 120, en la rama, sin desplegar)
+
+Con capturas de OpositandoPN (la plataforma que usa la academia hoy) se
+comparó su test con el nuestro. Su motor no hace nada que no hagamos; la
+diferencia está en el contenido (una «retroalimentación» propia por pregunta)
+y el acabado. De ahí salieron dos cambios:
+
+- **Arreglo:** el aviso de error de una pregunta decía «enviado» aunque la base
+  de datos lo rechazase. Ya se mira el resultado.
+- **Nuevo:** el resultado del simulacro enseña el rendimiento por tema.
+  Visto en el banco de pruebas a tamaño móvil. SIN probar contra la base de
+  datos real.
+
+**Pendiente de esa comparación:** capturas de lo que no se vio (ranking, análisis
+con IA). Un ranking por turno queda aparcado hasta que lo decida el dueño. Los
+guiones `examen-completo.cjs` del banco de pruebas están desfasados («Iniciar
+operación» ya no existe) y piden Edge, que no está instalado en la nube.
+
+
+## 2j · Dificultad: clasificada, visible y corregible (12 nov, reglas 121 y 122)
+
+Las 4.617 preguntas están clasificadas por la IA **en producción** (472 fáciles,
+2.012 medias, 2.133 difíciles; columna `difficulty_source` creada; 5 céntimos).
+La muestra contra tu clasificación a mano dio 73,3 % de acuerdo y ningún error
+de dos niveles (`docs/DIFICULTAD.md`).
+
+**En la rama, sin desplegar y sin probar contra la base de datos real** (solo en
+el banco de pruebas, a tamaño móvil y escritorio):
+- Etiqueta «Fácil / Media / Difícil» en la corrección del alumno.
+- «Banco oficial»: columna y filtro de dificultad, y selector para que el
+  preparador la corrija (queda como `preparador` y nada la pisa).
+- «Banco oficial» → «Preguntas repetidas» (solo superadmin): quedarse con una de
+  cada familia. **Descarta de verdad en producción** cuando se despliegue: pide
+  confirmación y no borra, pero este panel no las recupera.
+- `npm run dificultad:medida`, acciones `dificultad-medida-ensayo` y
+  `dificultad-medida`. Ninguna pregunta llega aún a 30 respuestas reales, así que
+  de momento no hay nada que medir.
+
+Antes de desplegar conviene probar con la base de datos real, con una cuenta
+de prueba: que la etiqueta salga, que guardar una dificultad en «Banco oficial»
+la deje como `preparador`, y que «Preguntas repetidas» liste las 728 familias.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

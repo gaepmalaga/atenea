@@ -8,6 +8,7 @@ import {
   DIFFICULTY_BRIEF,
   DIFFICULTY_DEFAULT,
   mapBankRowToQuestion,
+  etiquetaDificultad,
   mapCandidateToQuestion,
   filtroBancoPorAcademia,
 } from '../app/lib/questions';
@@ -222,5 +223,23 @@ describe('filtroBancoPorAcademia (P11c: global + privado, nunca de otra academia
     // preguntas del banco global que no podía aprobar ni descartar.
     expect(filtroBancoPorAcademia(null)).toMatch(new RegExp(`status\\.neq\\.candidate`));
     expect(filtroBancoPorAcademia('org-123')).toMatch(new RegExp(`status\\.neq\\.candidate`));
+  });
+});
+
+describe('la dificultad que ve el alumno', () => {
+  it('la pregunta lleva el nivel del banco', () => {
+    expect(mapBankRowToQuestion({ ...bankRow, difficulty_level: 3 }).difficultyLevel).toBe(3);
+  });
+
+  it('sin nivel en la fila, null: no se inventa un 2', () => {
+    expect(mapBankRowToQuestion(bankRow).difficultyLevel).toBeNull();
+    expect(mapBankRowToQuestion({ ...bankRow, difficulty_level: null }).difficultyLevel).toBeNull();
+  });
+
+  it('«Fácil», «Media» y «Difícil», y nada para lo que no es un nivel', () => {
+    expect(etiquetaDificultad(1)).toBe('Fácil');
+    expect(etiquetaDificultad(2)).toBe('Media');
+    expect(etiquetaDificultad(3)).toBe('Difícil');
+    for (const raro of [0, 4, null, undefined, '3', NaN]) expect(etiquetaDificultad(raro)).toBeNull();
   });
 });

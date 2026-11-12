@@ -562,12 +562,14 @@ export async function getAdminQuestionBank(params: {
    * la propia academia ha subido — 'own' | 'global', o sin filtrar ('all').
    */
   origen?: 'all' | 'global' | 'propia';
+  /** 1 fácil · 2 media · 3 difícil, o 'all'. Para que el preparador revise por niveles. */
+  dificultad?: 1 | 2 | 3 | 'all';
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   try {
-    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all' } = params;
+    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all', dificultad = 'all' } = params;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -588,6 +590,9 @@ export async function getAdminQuestionBank(params: {
 
     if (origen === 'global') query = query.is('organization_id', null);
     else if (origen === 'propia') query = query.not('organization_id', 'is', null);
+
+    // Solo un nivel válido filtra: lo que llegue de fuera y no sea 1, 2 o 3 se ignora.
+    if (dificultad === 1 || dificultad === 2 || dificultad === 3) query = query.eq('difficulty_level', dificultad);
 
     if (subjectId) {
       query = query.eq('subject_id', subjectId);

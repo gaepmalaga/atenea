@@ -8,8 +8,9 @@ import { tipoDeBlanco, TIPO_BLANCO } from '@/app/lib/answer-signals';
 import {
   XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles, CheckCircle2, Scale, Clock, X,
 } from 'lucide-react';
-import { Card, Button, StatTile, cx, TEXT } from '../../../ui';
+import { Card, Button, StatTile, Dificultad, cx, TEXT } from '../../../ui';
 import { resumeDudosas, intentosDePreguntas } from '@/app/lib/dudosas';
+import { rendimientoPorTema } from '@/app/lib/stats';
 import ResumenDudosas from '../../ResumenDudosas';
 
 interface ExamResultsProps {
@@ -135,6 +136,9 @@ function ResultadoSimulacro({
   // Lo que le han dado las que marcó como dudosas (regla 80).
   const dudosas = resumeDudosas(intentosDePreguntas(questions));
 
+  // Cómo ha ido en cada tema. Con un solo tema no dice nada que no diga la nota.
+  const porTema = rendimientoPorTema(questions);
+
   const estadoDe = (q: Question): 'ok' | 'mal' | 'blanco' =>
     !q.userAnswer ? 'blanco' : q.userAnswer === q.correctOptionId ? 'ok' : 'mal';
 
@@ -203,6 +207,33 @@ function ResultadoSimulacro({
 
       <ResumenDudosas resumen={dudosas} ambito="examen" />
 
+      {porTema.length >= 2 && (
+        <Card pad="sm" className="mb-4">
+          <p className={cx(TEXT.label, 'text-slate-500 dark:text-slate-400 mb-3')}>Rendimiento por tema</p>
+          <ul className="space-y-3">
+            {porTema.map((t) => (
+              <li key={t.tema}>
+                <div className="flex items-baseline justify-between gap-3 mb-1">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white leading-snug">{t.tema}</span>
+                  <span className="text-xs font-black tabular-nums shrink-0 text-slate-600 dark:text-slate-300">
+                    {t.aciertos}/{t.total} · {t.porcentaje} %
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden" role="presentation">
+                  <div
+                    className={cx(
+                      'h-full rounded-full',
+                      t.porcentaje >= 70 ? 'bg-emerald-500' : t.porcentaje >= 40 ? 'bg-amber-500' : 'bg-red-500',
+                    )}
+                    style={{ width: `${t.porcentaje}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       {/* LA CUADRÍCULA. Verde acertada · rojo fallada · blanco sin contestar.
           Cada celda abre el detalle: qué marcaste, la correcta, por qué, el
           artículo y cuánto tardaste. */}
@@ -243,6 +274,7 @@ function ResultadoSimulacro({
             <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Pregunta {abierta! + 1}
               {q.dudosa && <span className="ml-2 text-amber-600 dark:text-amber-400">· dudosa</span>}
+              <Dificultad nivel={q.difficultyLevel} className="ml-2 align-middle normal-case tracking-normal" />
               {segundos(q.timeMs) && (
                 <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal font-mono text-indigo-500">
                   <Clock size={11} /> {segundos(q.timeMs)}

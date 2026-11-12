@@ -284,3 +284,44 @@ export {
   type PhysicalProfile,
   type BaselineMetrics,
 } from './physical';
+
+// ---------------------------------------------------------------------------
+// Rendimiento por tema al terminar un simulacro
+// ---------------------------------------------------------------------------
+
+export type FilaTema = {
+  tema: string;
+  total: number;
+  aciertos: number;
+  fallos: number;
+  blancos: number;
+  /** Aciertos sobre las preguntas del tema (0-100), redondeado. */
+  porcentaje: number;
+};
+
+/**
+ * Cómo ha ido en cada tema de un test recién terminado, del peor al mejor.
+ *
+ * El porcentaje es aciertos sobre TODAS las del tema, blancos incluidos: un
+ * blanco no es un fallo (regla 24) pero tampoco es un acierto, y el alumno
+ * quiere saber qué parte del tema domina. Las preguntas sin tema no se
+ * agrupan en un «tema» inventado: se dejan fuera (regla 16, «no se sabe» no
+ * es un valor).
+ */
+export function rendimientoPorTema(
+  preguntas: readonly { topic?: string | null; userAnswer?: string | null; correctOptionId: string }[],
+): FilaTema[] {
+  const porTema = new Map<string, FilaTema>();
+  for (const q of preguntas) {
+    const tema = q.topic?.trim();
+    if (!tema) continue;
+    const fila = porTema.get(tema) ?? { tema, total: 0, aciertos: 0, fallos: 0, blancos: 0, porcentaje: 0 };
+    fila.total++;
+    if (!q.userAnswer) fila.blancos++;
+    else if (q.userAnswer === q.correctOptionId) fila.aciertos++;
+    else fila.fallos++;
+    porTema.set(tema, fila);
+  }
+  const filas = [...porTema.values()].map((f) => ({ ...f, porcentaje: Math.round((f.aciertos / f.total) * 100) }));
+  return filas.sort((a, b) => a.porcentaje - b.porcentaje || b.total - a.total || a.tema.localeCompare(b.tema, 'es'));
+}

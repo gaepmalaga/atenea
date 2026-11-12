@@ -8,6 +8,7 @@ import {
   readMaxPullups,
   RANKS,
   HESITATION_THRESHOLD,
+  rendimientoPorTema,
 } from '../app/lib/stats';
 
 const row = (over: Record<string, unknown> = {}) => ({
@@ -243,5 +244,33 @@ describe('un blanco no baja el porcentaje de acierto', () => {
     expect(s.blank).toBe(0);
     expect(s.answered).toBe(3);
     expect(s.winRate).toBe(33);
+  });
+});
+
+describe('rendimientoPorTema (resultado del simulacro)', () => {
+  const q = (topic: string | null | undefined, userAnswer: string | null, correctOptionId = 'a') => ({ topic, userAnswer, correctOptionId });
+
+  it('agrupa por tema y cuenta aciertos, fallos y blancos', () => {
+    const f = rendimientoPorTema([q('Derecho', 'a'), q('Derecho', 'b'), q('Derecho', null), q('Tráfico', 'a')]);
+    const d = f.find((x) => x.tema === 'Derecho')!;
+    expect(d).toMatchObject({ total: 3, aciertos: 1, fallos: 1, blancos: 1, porcentaje: 33 });
+  });
+
+  it('un blanco no es un acierto: cuenta en el total del tema', () => {
+    const [f] = rendimientoPorTema([q('Derecho', null), q('Derecho', null)]);
+    expect(f).toMatchObject({ aciertos: 0, blancos: 2, fallos: 0, porcentaje: 0 });
+  });
+
+  it('va del peor al mejor', () => {
+    const f = rendimientoPorTema([q('Bien', 'a'), q('Mal', 'b'), q('Medio', 'a'), q('Medio', 'b')]);
+    expect(f.map((x) => x.tema)).toEqual(['Mal', 'Medio', 'Bien']);
+  });
+
+  it('una pregunta sin tema no inventa un tema', () => {
+    expect(rendimientoPorTema([q(null, 'a'), q(undefined, 'a'), q('  ', 'a')])).toEqual([]);
+  });
+
+  it('sin preguntas, lista vacía', () => {
+    expect(rendimientoPorTema([])).toEqual([]);
   });
 });

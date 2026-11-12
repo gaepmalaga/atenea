@@ -230,3 +230,59 @@ export function familiasDelBanco(preguntas: readonly PreguntaBanco[], umbral = U
   const pares = paresParecidos(preguntas, vs, umbral);
   return { familias: agrupa(preguntas.length, pares), pares };
 }
+
+// ---------------------------------------------------------------------------
+// La pantalla de «Preguntas repetidas» (regla 119)
+// ---------------------------------------------------------------------------
+
+export const FAMILIAS_POR_PAGINA = 10;
+
+/** Una pregunta de una familia, como la enseña la pantalla de repetidas. */
+export type MiembroDeFamilia = {
+  id: string;
+  question_text: string;
+  options: unknown;
+  correct_index: number;
+  explanation: string | null;
+  legal_reference: string | null;
+  difficulty_level: number | null;
+  difficulty_source: string | null;
+  tema: number | null;
+};
+
+export type FilaDeFamilia = { id: string; family_id: string | null };
+
+export type PaginaDeFamilias = {
+  /** Las familias de ESTA página, de la más repetida a la menos. */
+  familias: { id: string; tamano: number }[];
+  /** Familias con dos preguntas ACTIVAS o más. Una que ya se resolvió no cuenta. */
+  totalFamilias: number;
+  /** Preguntas que sobran si de cada familia se queda una. */
+  sobran: number;
+  pagina: number;
+  paginas: number;
+};
+
+/**
+ * De las preguntas activas con familia, la página de familias que aún tienen
+ * repetidas. Una familia con una sola activa ya está resuelta (el resto se
+ * descartó) y no vuelve a salir.
+ *
+ * Orden fijo —tamaño y luego id— para que paginar no salte ni repita familias
+ * entre una página y la siguiente.
+ */
+export function paginaDeFamilias(filas: readonly FilaDeFamilia[], pagina = 1, porPagina = FAMILIAS_POR_PAGINA): PaginaDeFamilias {
+  const tamanos = new Map<string, number>();
+  for (const f of filas) if (f.family_id) tamanos.set(f.family_id, (tamanos.get(f.family_id) ?? 0) + 1);
+  const vivas = [...tamanos].filter(([, n]) => n >= 2).map(([id, tamano]) => ({ id, tamano }));
+  vivas.sort((a, b) => b.tamano - a.tamano || a.id.localeCompare(b.id));
+  const paginas = Math.max(1, Math.ceil(vivas.length / porPagina));
+  const actual = Math.min(Math.max(1, Math.trunc(pagina) || 1), paginas);
+  return {
+    familias: vivas.slice((actual - 1) * porPagina, actual * porPagina),
+    totalFamilias: vivas.length,
+    sobran: vivas.reduce((n, f) => n + f.tamano - 1, 0),
+    pagina: actual,
+    paginas,
+  };
+}

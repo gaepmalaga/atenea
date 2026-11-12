@@ -24,6 +24,8 @@
     "temario:pdf": "node scripts/temario/generar-pdf.mjs",
     "temario:comprobar": "node --experimental-strip-types scripts/temario/comprobar-tema.mjs",
     "reset": "node --experimental-strip-types scripts/operacion/reset.mjs",
+    "dificultad": "node --experimental-strip-types scripts/operacion/clasificar-dificultad.mjs",
+    "dificultad:medida": "node --experimental-strip-types scripts/operacion/medir-dificultad.mjs",
     "familias": "node --experimental-strip-types scripts/operacion/agrupar-familias.mjs",
     "limpiar": "node --experimental-strip-types scripts/operacion/limpiar-para-alphapol.mjs",
     "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",

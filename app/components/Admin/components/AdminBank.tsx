@@ -15,6 +15,9 @@ import {
   QUESTION_STATUS_LABEL,
   QUESTION_STATUSES,
   DIFFICULTY,
+  DIFFICULTY_LABEL,
+  origenDeDificultad,
+  type DifficultyLevel,
   type QuestionStatus,
   type AdminBankRow,
 } from '@/app/lib/questions';
@@ -22,6 +25,7 @@ import type { SyllabusSubject } from '@/app/actions/admin';
 import QuestionComposer from './QuestionComposer';
 import { PanelTitulo, Aviso, Boton, Campo, CampoSelect, Etiqueta, Dato, TablaDual, PanelLateral, EmptyState, TEXT, type Tono } from '../../ui';
 import EditorPregunta from './EditorPregunta';
+import FamiliasRepetidas from './FamiliasRepetidas';
 
 // El estado de una pregunta, con el color de su significado: activa verde,
 // candidata ámbar (los alumnos aún no la reciben), descartada gris.
@@ -46,10 +50,15 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   // Regla 78: antes el banco global y el privado de la academia se veían
   // mezclados sin forma de auditar aparte lo que la propia academia ha subido.
   const [origenFilter, setOrigenFilter] = useState<'all' | 'global' | 'propia'>('all');
+  // Para revisar por niveles: sobre todo las «difíciles», que son las que más
+  // se discuten y las que más pesan al filtrar un examen.
+  const [dificultadFilter, setDificultadFilter] = useState<DifficultyLevel | 'all'>('all');
   const [bulkRunning, setBulkRunning] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
   const [componiendo, setComponiendo] = useState(false);
+  // Preguntas repetidas (regla 119): solo el superadmin, que es quien puede descartar del banco global.
+  const [verRepetidas, setVerRepetidas] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -61,7 +70,11 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
     correct_index: 0,
     explanation: ''
   });
+  // La dificultad se edita aparte del formulario de la pregunta: es de otra
+  // naturaleza (no es contenido) y solo se manda si el preparador la cambia.
+  const [editNivel, setEditNivel] = useState<DifficultyLevel>(DIFFICULTY.medium);
   const [saving, setSaving] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
 
   // Init
   useEffect(() => {
@@ -75,7 +88,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
     const timer = setTimeout(() => { loadQuestions(1); }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSubject, searchTerm, statusFilter, origenFilter]);
+  }, [selectedSubject, searchTerm, statusFilter, origenFilter, dificultadFilter]);
 
   // --- CARGA DE DATOS ---
   async function loadSyllabus() {
@@ -93,6 +106,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         search: searchTerm,
         status: statusFilter,
         origen: origenFilter,
+        dificultad: dificultadFilter,
         page,
         limit: 15 // Menos preguntas por página para diseño más aireado
     });
@@ -182,6 +196,8 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
 
   function openEditor(q: AdminBankRow) {
       setEditingQ(q);
+      setErrorGuardar(null);
+      setEditNivel(([1, 2, 3] as number[]).includes(q.difficulty_level ?? 0) ? (q.difficulty_level as DifficultyLevel) : DIFFICULTY.medium);
       setEditForm({
           // `options` es jsonb y el enunciado puede llegar nulo: el formulario
           // espera cadenas y un array de tres, siempre.
@@ -195,12 +211,26 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   async function handleSaveEdit() {
       if(!editingQ) return;
       setSaving(true);
-      const res = await updateQuestion(editingQ.id, editForm);
+      setErrorGuardar(null);
+      // El nivel solo viaja si lo ha cambiado: guardar el texto de una pregunta
+      // no puede convertir en «puesta por un preparador» una dificultad que
+      // en realidad era la estimada.
+      const nivelCambiado = editNivel !== editingQ.difficulty_level;
+      const res = await updateQuestion(editingQ.id, nivelCambiado ? { ...editForm, difficulty_level: editNivel } : editForm);
       if(res.success) {
-          setQuestions(prev => prev.map(q => q.id === editingQ.id ? { ...q, ...editForm } : q));
+          setQuestions(prev => prev.map(q => q.id === editingQ.id
+              ? { ...q, ...editForm, ...(nivelCambiado ? { difficulty_level: editNivel, difficulty_source: 'preparador' } : {}) }
+              : q));
           setEditingQ(null);
+      } else {
+          // Antes un fallo al guardar no decía nada y el panel se quedaba como si hubiera ido bien.
+          setErrorGuardar(res.error ?? 'No se pudo guardar.');
       }
       setSaving(false);
+  }
+
+  if (verRepetidas && esSuperadmin) {
+    return <FamiliasRepetidas onVolver={() => { setVerRepetidas(false); loadQuestions(stats.page); }} />;
   }
 
   return (
@@ -210,12 +240,15 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         sub={`${stats.total} ${statusFilter === 'all' ? 'preguntas' : QUESTION_STATUS_LABEL[statusFilter].toLowerCase()} · las que se sirven a los alumnos`}
         acciones={
           /* Nueva pregunta a mano (P2) */
-          <Boton icon={<Plus size={15} />} onClick={() => setComponiendo(true)}>Nueva pregunta</Boton>
+          <div className="flex flex-wrap gap-2">
+            {esSuperadmin && <Boton variant="secondary" onClick={() => setVerRepetidas(true)}>Preguntas repetidas</Boton>}
+            <Boton icon={<Plus size={15} />} onClick={() => setComponiendo(true)}>Nueva pregunta</Boton>
+          </div>
         }
       />
 
       {/* --- FILTROS --- */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Campo
           type="search"
           aria-label="Buscar por contenido"
@@ -236,6 +269,10 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
           <option value="all">Global + propias</option>
           <option value="global">Solo banco global</option>
           <option value="propia">{esSuperadmin ? 'Solo privadas (cualquier academia)' : 'Solo las de tu academia'}</option>
+        </CampoSelect>
+        <CampoSelect aria-label="Dificultad" value={dificultadFilter} onChange={(e) => setDificultadFilter(e.target.value === 'all' ? 'all' : (Number(e.target.value) as DifficultyLevel))}>
+          <option value="all">Toda dificultad</option>
+          {([1, 2, 3] as const).map((n) => <option key={n} value={n}>{DIFFICULTY_LABEL[n]}</option>)}
         </CampoSelect>
         <CampoSelect aria-label="Tema" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}>
           <option value="">Todos los temas</option>
@@ -275,9 +312,15 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               <p className="line-clamp-2 max-w-[34rem] font-medium leading-snug text-slate-900 dark:text-slate-100">
                 {q.question_text}
                 {/* La columna se llama `difficulty_level`, no `difficulty`. Con el estado en `any` esto era siempre undefined y el distintivo no salió nunca. */}
-                {q.difficulty_level === DIFFICULTY.hard && <span className="ml-2 align-middle"><Etiqueta tono="malo">Difícil</Etiqueta></span>}
               </p>
             ) },
+            { id: 'dificultad', titulo: 'Dificultad', celda: (q) => {
+              const n = q.difficulty_level;
+              if (n !== 1 && n !== 2 && n !== 3) return <Dato>—</Dato>;
+              // Sin origen es el 2 que se sembró por defecto: no es «Media», es «sin clasificar».
+              if (!q.difficulty_source) return <Dato>Sin clasificar</Dato>;
+              return <Etiqueta tono={n === 1 ? 'ok' : n === 3 ? 'malo' : 'aviso'}>{DIFFICULTY_LABEL[n]}</Etiqueta>;
+            } },
             { id: 'tema', titulo: 'Tema', celda: (q) => <Dato>Tema {q.subjects?.topic_number ?? '—'}</Dato> },
             { id: 'estado', titulo: 'Estado', celda: (q) => <Etiqueta tono={STATUS_TONO[q.status as QuestionStatus] ?? 'apagado'}>{QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}</Etiqueta> },
             // Regla 78: de dónde viene la pregunta — antes no se veía, mezclada con el resto de la lista.
@@ -352,6 +395,13 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       {editingQ && (
         <PanelLateral titulo="Editar pregunta" sub={`ID ${editingQ.id.substring(0, 8)}`} onCerrar={() => setEditingQ(null)}>
           <EditorPregunta form={editForm} onChange={setEditForm} />
+          <div>
+            <CampoSelect label="Dificultad" value={editNivel} onChange={(e) => setEditNivel(Number(e.target.value) as DifficultyLevel)}>
+              {([1, 2, 3] as const).map((n) => <option key={n} value={n}>{DIFFICULTY_LABEL[n]}</option>)}
+            </CampoSelect>
+            <p className={`${TEXT.muted} mt-1.5`}>{origenDeDificultad(editingQ.difficulty_source)}. Si la cambias, queda como puesta por ti y la IA no la vuelve a tocar.</p>
+          </div>
+          {errorGuardar && <Aviso tono="malo"><p>{errorGuardar}</p></Aviso>}
           <div className="flex flex-wrap gap-2">
             <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
               {saving ? 'Guardando…' : 'Guardar cambios'}

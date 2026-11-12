@@ -7,7 +7,7 @@ import {
   Flag, Send, Eraser, HelpCircle,
   Scale, LayoutGrid, Sparkles
 } from 'lucide-react';
-import { Modal, Button, TextAreaField } from '../../../ui';
+import { Modal, Button, TextAreaField, Dificultad } from '../../../ui';
 import { formatTime } from '@/app/lib/timer';
 import { examClock } from '@/app/lib/scoring';
 import { Question } from './ExamManager';
@@ -373,11 +373,17 @@ export default function ActiveTest({
     setIsSubmittingReport(true);
     
     try {
-      await reportQuestion({
+      // La acción NO lanza: devuelve `{ success }`. Sin mirarlo, un reporte
+      // que la base de datos rechazaba se daba al alumno por enviado.
+      const res = await reportQuestion({
         questionId: currentQ.id,
         reportType: reportData.type,
         message: reportData.message
       });
+      if (!res.success) {
+        alert('No se pudo enviar el aviso. Inténtalo de nuevo en un momento.');
+        return;
+      }
       setIsReportModalOpen(false);
       setReportData({ type: '', message: '' });
       alert(`Aviso enviado. Gracias por ayudar a mejorar ${MARCA.nombre}.`);
@@ -1082,7 +1088,7 @@ export default function ActiveTest({
                   <div className="bg-emerald-500 text-white p-6 rounded-3xl shadow-lg flex items-start gap-4 relative overflow-hidden">
                       <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><CheckCircle2 size={28} /></div>
                       <div className="relative z-10">
-                          <p className="font-black text-lg uppercase tracking-wide">¡Correcto!</p>
+                          <p className="font-black text-lg uppercase tracking-wide">¡Correcto! <Dificultad nivel={currentQ.difficultyLevel} className="ml-1 align-middle normal-case tracking-normal" /></p>
                           <p className="text-emerald-50 font-medium mt-1 leading-relaxed text-sm opacity-90">{currentQ.explanation}</p>
                           {/* De donde sale la pregunta (P3.7). Para un opositor
                               esto vale casi tanto como la explicacion: le dice
@@ -1100,7 +1106,7 @@ export default function ActiveTest({
                       <div className="flex items-start gap-4 mb-6">
                           <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl"><XCircle size={28} /></div>
                           <div>
-                              <p className="font-black text-red-500 uppercase tracking-wide text-sm">Respuesta Incorrecta</p>
+                              <p className="font-black text-red-500 uppercase tracking-wide text-sm">Respuesta Incorrecta <Dificultad nivel={currentQ.difficultyLevel} className="ml-1 align-middle normal-case tracking-normal" /></p>
                               <p className="text-slate-600 dark:text-slate-300 text-sm mt-2 font-medium leading-relaxed">{currentQ.explanation}</p>
                               {currentQ.legalReference && (
                                   <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full">
