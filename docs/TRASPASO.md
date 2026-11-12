@@ -352,8 +352,9 @@ ha llamado a Gemini ni se ha tocado la base de datos**: Gemini solo funciona en
 producción. Para seguir, en este orden (`docs/DIFICULTAD.md`):
 
 1. Actions → Operación → `dificultad-muestra`. Céntimos. Dice si pasa el criterio.
-2. Si pasa: ejecutar `docs/sql/dificultad-origen.sql` y refrescar el esquema.
-3. Actions → Operación → `dificultad-todas`, escribiendo CLASIFICAR.
+2. ~~Ejecutar `docs/sql/dificultad-origen.sql`~~ HECHO el 12 nov: la muestra pasó
+   (73,3 % de acuerdo, ningún error de dos niveles) y la columna está creada.
+3. Actions → Operación → `dificultad-todas`, escribiendo CLASIFICAR. **Pendiente.**
 
 Si no pasa, el listado de diferencias de dos niveles dice qué afinar en la rúbrica.
 

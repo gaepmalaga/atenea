@@ -85,8 +85,9 @@ del acuerdo y el script `npm run dificultad`, con tres acciones nuevas en
    niveles ≤ 5 % y sesgo medio ≤ ±0,3 niveles (tres niveles dan un 33 % por
    azar). Enseña las diferencias de dos niveles, para afinar la rúbrica mirándolas.
 2. **`dificultad-ensayo`** (gratis). Cuenta las activas y estima el coste.
-3. **Ejecutar `docs/sql/dificultad-origen.sql`** (una columna, `difficulty_source`)
-   y refrescar el esquema (`node scripts/schema-snapshot.mjs`). Sin ella el
+3. ~~**Ejecutar `docs/sql/dificultad-origen.sql`**~~ **HECHO (12 nov):** columna
+   `difficulty_source` creada en producción, las 4.617 con origen `NULL`, y
+   `supabase/schema.json` actualizado y contrastado con la base de datos. Sin ella el
    script se niega a escribir: no se podría distinguir lo estimado de lo que
    ponga el preparador, y una reclasificación pisaría su trabajo.
 4. **`dificultad-todas`** (pide escribir CLASIFICAR). Solo si la muestra pasó.
