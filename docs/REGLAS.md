@@ -4648,3 +4648,9 @@ el segundo necesita el proyecto real.
   `question_attempts`: no llevan tiempos ni camino de respuesta, y mezclarlas
   falsearía lo que mide); calcular la dificultad de cada pregunta a partir de
   ellas (con 40 alumnos por examen, es la mejor fuente que habrá).
+- **La hoja de respuestas se compara con el original MIRÁNDOLA** (regla 115):
+  la primera versión pasó los tests y la revisión «a ojo» y aun así se veía
+  fatal. Un PDF se comprueba renderizándolo a 200 ppp
+  (`pdftoppm -r 200 -png`) y poniéndolo al lado del original, no leyendo su
+  texto. Las proporciones (círculo ~6 pt, relleno en pastilla más ancho que el
+  círculo, fila de respuesta blanca) salen de ahí.

@@ -70,6 +70,8 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<'todos' | EstadoEntrega>('todos');
   const [cierre, setCierre] = useState('');
+  // Sube tras cada cambio: los campos de nota vuelven a lo guardado, también si lo escrito era inválido.
+  const [recarga, setRecarga] = useState(0);
 
   const carga = useCallback(async () => {
     const res = await getAplicacion(id);
@@ -80,8 +82,10 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
   async function accion(fn: () => Promise<{ success: boolean; error?: string }>) {
     setError(null);
     const res = await fn();
-    if (!res.success) setError(res.error ?? 'No se ha podido guardar.');
+    // Recargar primero: `carga` limpia el error al salir bien, y se llevaba por delante el mensaje de este fallo.
     await carga();
+    setRecarga((n) => n + 1);
+    if (!res.success) setError(res.error ?? 'No se ha podido guardar.');
   }
 
   async function borra() {
@@ -171,7 +175,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
               p.nota === null ? <span className="text-slate-600 dark:text-slate-400">—</span>
                 : <span className="tabular-nums"><b>{num(p.nota)}</b> <span className="text-xs text-slate-600 dark:text-slate-400">· {p.aciertos}/{p.fallos}/{p.blancos}</span></span>
             ) },
-            { id: 'oficial', titulo: 'Oficial', celda: (p) => <NotaOficial key={`${p.id}:${p.notaProfesor ?? ''}`} p={p} onGuarda={(nota) => accion(() => setResultadoProfesor({ aplicacionId: id, alumnoId: p.id, nota }))} /> },
+            { id: 'oficial', titulo: 'Oficial', celda: (p) => <NotaOficial key={`${p.id}:${p.notaProfesor ?? ''}:${recarga}`} p={p} onGuarda={(nota) => accion(() => setResultadoProfesor({ aplicacionId: id, alumnoId: p.id, nota }))} /> },
             { id: 'acciones', titulo: '', acciones: true, celda: (p) => (
               <div className="flex flex-wrap gap-2">
                 <Boton size="sm" variant="secondary" onClick={() => accion(() => setResultadoProfesor({ aplicacionId: id, alumnoId: p.id, ausente: p.estado !== 'ausente' }))}>

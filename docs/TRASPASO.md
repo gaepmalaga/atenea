@@ -242,7 +242,7 @@ almacenamiento; no quedó nada):
 tipos de psicotécnico (dominós, rotaciones); que el profesor vea el informe
 solo de sus grupos.
 
-## 2g · Exámenes en clase (12 nov, regla 118, en la rama `claude/trusting-archimedes-air2im`, sin desplegar)
+## 2g · Exámenes en clase (12 nov, regla 118)
 
 Lo que pidió el dueño: generar un examen con filtros, guardarlo, ponerlo a un
 turno (martes y jueves por la mañana), y llevar un registro por alumno de sus
@@ -258,25 +258,36 @@ respuestas: las mete cada alumno, en clase o en casa.
 - **Informe semanal:** no presentarse a un examen en clase y suspenderlo son
   señales de abandono.
 
-**⚠ FALTA EJECUTAR [`docs/sql/examenes-clase.sql`](sql/examenes-clase.sql) EN
-PRODUCCIÓN** (tres tablas nuevas, solo añade; probado en un Postgres local: el
-sistema bloqueó ejecutarlo desde la sesión sin tu visto bueno). Hasta
-entonces, «Guardados» y «En clase» dicen que falta el guion y el alumno ve la
-lista vacía; nada se rompe. `supabase/schema.json` ya trae las tablas escritas a
-mano: regenerarlo después con `node scripts/schema-snapshot.mjs`.
+**El guion [`docs/sql/examenes-clase.sql`](sql/examenes-clase.sql) está EJECUTADO
+en producción (12 nov)** (tres tablas, RLS activa y cero políticas) y
+`supabase/schema.json` está refrescado.
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://ecupmlqimmpybbrlrmpx.supabase.co NODE_USE_ENV_PROXY=1 \
-SUPABASE_ACCESS_TOKEN=proxy-injected node scripts/operacion/ejecutar-sql.mjs docs/sql/examenes-clase.sql
-node scripts/schema-snapshot.mjs
-```
+**Probado en la app local contra la base de datos real** con un admin y dos
+alumnos temporales, que se borraron al terminar (también el examen, la
+aplicación y los resultados; no quedó nada):
 
-**Probado:** `npm run check` (1.584 tests; las guardas se comprobaron rompiendo
-el código, y una de ellas encontró dos consultas sin la academia dentro, ya
-arregladas) y las pantallas de la academia y del alumno en el banco de pruebas.
-**SIN probar contra la base de datos real:** todo el ciclo (guardar, aplicar,
-entregar, notas, informe), por lo mismo. Al ejecutar el guion, probarlo con un
-admin y un alumno temporales y borrarlos.
+- Preparar 25 preguntas del temario, guardarlo (queda con sus 25 preguntas
+  COPIADAS y sus ids) y ponerlo a un turno (toda la academia: 49 participantes).
+- El alumno mete sus respuestas escritas de seguido (15 bien, 5 mal, 5 en
+  blanco): el servidor corrige **5,00**, lo guarda una vez, y tras entregar ya
+  no deja volver a meterlas y enseña «Ver la solución».
+- La nota oficial del profesor (7,5) manda sobre la calculada y el alumno la ve
+  como «nota oficial»; una nota de 11 se rechaza con su mensaje y el campo
+  vuelve a lo guardado.
+- Marcar «no se presentó»: el alumno ve «No te presentaste» y el informe
+  semanal lo marca «Vigilar: No se presentó al examen en clase».
+
+**Hoja de respuestas y plantilla rehechas (12 nov):** la primera versión se
+veía mal (círculos tan grandes que se tocaban, relleno encima del vecino, todo
+el fondo rosa, datos desvaídos y 28 marcas de agua). Se midieron las
+proporciones sobre la hoja original a 200 ppp: círculos pequeños con aire,
+relleno en pastilla, fila de respuesta blanca y solo la de «anular» teñida,
+columna del número blanca (zona 1) o naranja (zona 2), datos en azul marino y
+pocas marcas de agua. Para ver un PDF: `pdftoppm -r 200 -png fichero.pdf salida`
+y mirar la imagen (un PDF que solo se lee como texto no enseña esto).
+
+**Sin probar contra la base de datos real:** «Que repita», el plazo cerrado,
+y poner el examen solo a ciertos grupos (se probó a toda la academia).
 
 **Siguiente (acordado con el dueño):** la dificultad. Primero una estimación
 inicial: yo clasifico a mano una muestra de ~150 preguntas con una rúbrica,
