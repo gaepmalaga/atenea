@@ -93,7 +93,7 @@ export async function getPsychProfile() {
 }
 
 export async function getModuleSettings() {
-  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, psico: true, training: true, interview: true, stats: true, profile: true } });
+  return ok({ settings: { home: true, chat: true, test: true, review: true, cards: true, psico: true, presencial: true, training: true, interview: true, stats: true, profile: true } });
 }
 
 export async function getUserStats() {
@@ -1342,11 +1342,15 @@ export async function getExamenImprimible(d: { preguntas?: number }) {
   const n = d?.preguntas ?? 100;
   return ok({
     corto: false,
+    niveles: { facil: 0, media: 4617, dificil: 0 },
+    repetidasEvitadas: 12,
     preguntas: Array.from({ length: n }, (_, i) => ({
+      id: `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
       enunciado: `Según el artículo ${i + 1} de la Constitución Española, ¿cuál de las siguientes afirmaciones es correcta?`,
       opciones: ['La primera opción.', 'La segunda opción, que es bastante más larga que las otras dos y obliga a partir la línea.', 'La tercera opción.'],
       correcta: i % 3,
       tema: TEMAS[i % TEMAS.length],
+      dificultad: 2,
     })),
   });
 }
@@ -1395,3 +1399,76 @@ export async function getMisPsico() {
     ],
   });
 }
+
+// ---------- Exámenes en clase (regla 118) ----------
+const _hoy = new Date().toISOString().slice(0, 10);
+const _dia = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+export async function getExamenesGuardados() {
+  return ok({
+    examenes: [
+      { id: 'p1', titulo: 'Global número 1', modelo: 'A', minutos: 50, total: 100, filtros: { temas: [], dificultad: 'medium' as const, evitarRepetidas: true }, creado: new Date(Date.now() - 3 * 864e5).toISOString(), aplicaciones: 2 },
+      { id: 'p2', titulo: 'Bloque jurídico', modelo: 'B', minutos: 25, total: 50, filtros: { temas: [1, 2, 3], dificultad: 'hard' as const, evitarRepetidas: true }, creado: new Date(Date.now() - 864e5).toISOString(), aplicaciones: 0 },
+    ],
+  });
+}
+export async function guardaExamen() { return ok({ id: 'p3' }); }
+export async function getExamenGuardado() {
+  return ok({
+    examen: { id: 'p1', titulo: 'Global número 1', modelo: 'A', minutos: 50, total: 3, filtros: { temas: [], dificultad: 'medium' as const, evitarRepetidas: true }, creado: new Date().toISOString(), aplicaciones: 0 },
+    preguntas: [0, 1, 2].map((i) => ({ id: `q${i}`, q: `Pregunta ${i + 1} del examen guardado.`, o: ['Primera', 'Segunda', 'Tercera'], c: i, t: 'Constitución', e: null, r: null, d: 2 })),
+  });
+}
+export async function borraExamen() { return ok({}); }
+export async function aplicaExamen() { return ok({ id: 'a1' }); }
+export async function getAplicaciones() {
+  return ok({
+    aplicaciones: [
+      { id: 'a1', paperId: 'p1', titulo: 'Global número 1', etiqueta: 'Turno de mañana, martes y jueves', fecha: _dia(-2), cierre: _dia(5), grupos: ['Promo 44 · Kappa', 'Promo 44 · Alpha'], participantes: 38, entregados: 27, ausentes: 3, media: 5.4 },
+      { id: 'a2', paperId: 'p1', titulo: 'Global número 1', etiqueta: 'Turno de tarde', fecha: _dia(-9), cierre: null, grupos: [], participantes: 12, entregados: 12, ausentes: 0, media: 6.1 },
+    ],
+  });
+}
+export async function getAplicacion() {
+  const nombres = ['Lucía Moreno', 'Pablo Ruiz', 'Marta Jiménez', 'Iván Soto', 'Sara Vidal', 'Marcos Gil'];
+  const estados = ['entregado', 'entregado', 'entregado', 'pendiente', 'ausente', 'entregado'] as const;
+  return ok({
+    detalle: {
+      aplicacion: { id: 'a1', paperId: 'p1', titulo: 'Global número 1', etiqueta: 'Turno de mañana, martes y jueves', fecha: _dia(-2), cierre: _dia(5), grupos: ['Promo 44 · Kappa'], total: 100, minutos: 50 },
+      participantes: nombres.map((n, i) => ({
+        id: `u${i}`, nombre: n, email: `${n.toLowerCase().replace(/ /g, '.').normalize('NFD').replace(/[̀-ͯ]/g, '')}@correo.com`, estado: estados[i],
+        nota: estados[i] === 'entregado' ? 4 + i * 0.7 : null, notaProfesor: i === 0 ? 7.5 : null,
+        aciertos: estados[i] === 'entregado' ? 55 + i * 3 : null, fallos: estados[i] === 'entregado' ? 30 - i : null, blancos: estados[i] === 'entregado' ? 15 - i : null,
+      })),
+      resumen: { participantes: 6, entregados: 4, ausentes: 1, pendientes: 1, media: 5.6, mediaProfesor: 7.5, distribucion: [0, 1, 2, 1, 0] },
+      preguntas: [
+        { n: 17, tema: 'Constitución Española', enunciado: '¿Cuál de las siguientes afirmaciones sobre el artículo 149 es correcta?', contestadas: 25, aciertos: 6, blancos: 2, tasaFallo: 0.76, porOpcion: [4, 6, 15], correcta: 1 },
+        { n: 42, tema: 'Derecho penal', enunciado: 'Señale la pena que corresponde al delito de hurto con violencia.', contestadas: 26, aciertos: 9, blancos: 1, tasaFallo: 0.65, porOpcion: [9, 12, 5], correcta: 0 },
+      ],
+    },
+  });
+}
+export async function setResultadoProfesor() { return ok({}); }
+export async function reiniciaEntrega() { return ok({}); }
+export async function setCierreAplicacion() { return ok({}); }
+export async function borraAplicacion() { return ok({}); }
+export async function getMisExamenesClase() {
+  return ok({
+    examenes: [
+      { aplicacionId: 'a1', titulo: 'Global número 1', etiqueta: 'Turno de mañana, martes y jueves', fecha: _hoy, cierre: _dia(5), total: 20, minutos: 10, estado: 'pendiente' as const, nota: null, notaOficial: false, aciertos: null, fallos: null, blancos: null, mediaTurno: null },
+      { aplicacionId: 'a0', titulo: 'Bloque jurídico', etiqueta: 'Turno de mañana', fecha: _dia(-9), cierre: null, total: 50, minutos: 25, estado: 'entregado' as const, nota: 6.5, notaOficial: true, aciertos: 34, fallos: 10, blancos: 6, mediaTurno: 5.4 },
+      { aplicacionId: 'a9', titulo: 'Global número 0', etiqueta: 'Turno de mañana', fecha: _dia(-16), cierre: null, total: 100, minutos: 50, estado: 'entregado' as const, nota: 4.2, notaOficial: false, aciertos: 52, fallos: 30, blancos: 18, mediaTurno: 4.9 },
+      { aplicacionId: 'a8', titulo: 'Global de octubre', etiqueta: 'Turno de mañana', fecha: _dia(-30), cierre: null, total: 100, minutos: 50, estado: 'ausente' as const, nota: null, notaOficial: false, aciertos: null, fallos: null, blancos: null, mediaTurno: null },
+      { aplicacionId: 'a7', titulo: 'Simulacro final', etiqueta: 'Turno de mañana', fecha: _dia(6), cierre: null, total: 100, minutos: 50, estado: 'proximo' as const, nota: null, notaOficial: false, aciertos: null, fallos: null, blancos: null, mediaTurno: null },
+    ],
+  });
+}
+const _revision = {
+  titulo: 'Global número 1', nota: 5.25, notaOficial: false, aciertos: 14, fallos: 4, blancos: 2,
+  preguntas: Array.from({ length: 6 }, (_, i) => ({
+    n: i + 1, tema: 'Constitución Española', enunciado: `Según el artículo ${i + 10}, ¿cuál de las siguientes afirmaciones es la correcta?`,
+    opciones: ['La primera opción.', 'La segunda, más larga que las otras para ver cómo parte la línea.', 'La tercera.'], correcta: i % 3, marcada: i === 0 ? -1 : i % 2 ? (i + 1) % 3 : i % 3,
+    explicacion: 'Porque así lo dice el artículo, que habla de los derechos fundamentales.', referencia: `art. ${i + 10} CE`, flag: (i === 0 ? 'blanco' : i % 2 ? 'mal' : 'ok') as 'ok' | 'mal' | 'blanco',
+  })),
+};
+export async function entregaExamenClase() { return ok({ revision: _revision }); }
+export async function getRevisionExamenClase() { return ok({ revision: _revision }); }

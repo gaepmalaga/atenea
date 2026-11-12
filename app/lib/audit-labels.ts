@@ -51,6 +51,10 @@ export type AccionAuditada =
   | 'invite_student'
   | 'bulk_add_students'
   | 'cargar_demo'
+  | 'save_exam_paper'
+  | 'apply_exam'
+  | 'delete_exam'
+  | 'set_exam_result'
   | 'borrar_demo';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
@@ -95,4 +99,8 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   bulk_add_students: 'Dio de alta a varios alumnos de golpe',
   cargar_demo: 'Cargó los datos de demostración',
   borrar_demo: 'Borró los datos de demostración',
+  save_exam_paper: 'Guardó un examen en papel',
+  apply_exam: 'Puso un examen a un turno',
+  delete_exam: 'Borró un examen o su aplicación',
+  set_exam_result: 'Puso una nota o una ausencia en un examen',
 };

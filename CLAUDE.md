@@ -20,7 +20,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 
 ## Cómo se trabaja
 
-1. **`npm run check`** (typecheck + ~1.550 tests) antes de cada commit, y
+1. **`npm run check`** (typecheck + ~1.580 tests) antes de cada commit, y
    **`npm run build`** si tocas la app (necesita las 4 variables de
    `.env.example`, que pueden ser inventadas). CI ejecuta los dos.
 2. **Verde no es visto** (regla 38). Una pantalla cambiada se mira en el banco
@@ -238,6 +238,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 115 | El examen en papel tiene la forma del de verdad |
 | 116 | El informe semanal avisa del cambio, no solo del silencio |
 | 117 | Los psicotécnicos los genera el código, no un banco |
+| 118 | El examen en papel se guarda, se pone a un turno y su nota se lleva |
 
 ## Trampas conocidas
 

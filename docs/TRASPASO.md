@@ -242,6 +242,65 @@ almacenamiento; no quedó nada):
 tipos de psicotécnico (dominós, rotaciones); que el profesor vea el informe
 solo de sus grupos.
 
+## 2g · Exámenes en clase (12 nov, regla 118)
+
+Lo que pidió el dueño: generar un examen con filtros, guardarlo, ponerlo a un
+turno (martes y jueves por la mañana), y llevar un registro por alumno de sus
+exámenes presenciales, su nota y su evolución. El profesor NO teclea las
+respuestas: las mete cada alumno, en clase o en casa.
+
+- **Academia** (Exámenes en papel → 3 pestañas): *Preparar* (bloques, temas
+  sueltos, dificultad, no repetir), *Guardados* (reimprimir, ponerlo a un
+  turno) y *En clase* (quién ha entregado, notas, preguntas más falladas, nota
+  oficial, «no se presentó», «que repita», plazo).
+- **Alumno** (módulo `presencial`, «Exámenes»): lista, meter las respuestas
+  (tocando o escribiéndolas de seguido), revisión con la solución, evolución.
+- **Informe semanal:** no presentarse a un examen en clase y suspenderlo son
+  señales de abandono.
+
+**El guion [`docs/sql/examenes-clase.sql`](sql/examenes-clase.sql) está EJECUTADO
+en producción (12 nov)** (tres tablas, RLS activa y cero políticas) y
+`supabase/schema.json` está refrescado.
+
+**Probado en la app local contra la base de datos real** con un admin y dos
+alumnos temporales, que se borraron al terminar (también el examen, la
+aplicación y los resultados; no quedó nada):
+
+- Preparar 25 preguntas del temario, guardarlo (queda con sus 25 preguntas
+  COPIADAS y sus ids) y ponerlo a un turno (toda la academia: 49 participantes).
+- El alumno mete sus respuestas escritas de seguido (15 bien, 5 mal, 5 en
+  blanco): el servidor corrige **5,00**, lo guarda una vez, y tras entregar ya
+  no deja volver a meterlas y enseña «Ver la solución».
+- La nota oficial del profesor (7,5) manda sobre la calculada y el alumno la ve
+  como «nota oficial»; una nota de 11 se rechaza con su mensaje y el campo
+  vuelve a lo guardado.
+- Marcar «no se presentó»: el alumno ve «No te presentaste» y el informe
+  semanal lo marca «Vigilar: No se presentó al examen en clase».
+
+**Hoja de respuestas y plantilla rehechas (12 nov):** la primera versión se
+veía mal (círculos tan grandes que se tocaban, relleno encima del vecino, todo
+el fondo rosa, datos desvaídos y 28 marcas de agua). Se midieron las
+proporciones sobre la hoja original a 200 ppp: círculos pequeños con aire,
+relleno en pastilla, fila de respuesta blanca y solo la de «anular» teñida,
+columna del número blanca (zona 1) o naranja (zona 2), datos en azul marino y
+pocas marcas de agua. Para ver un PDF: `pdftoppm -r 200 -png fichero.pdf salida`
+y mirar la imagen (un PDF que solo se lee como texto no enseña esto).
+
+**Sin probar contra la base de datos real:** «Que repita», el plazo cerrado,
+y poner el examen solo a ciertos grupos (se probó a toda la academia).
+
+**Siguiente (acordado con el dueño): la dificultad** — detalle, rúbrica y
+método en [`DIFICULTAD.md`](DIFICULTAD.md). **Ya hecho:** una muestra de 150
+preguntas (3 por tema, reproducible) clasificada a mano con la rúbrica:
+10 % fáciles, 41 % medias, 49 % difíciles (el bloque jurídico es mucho más
+duro). **Falta:** que Gemini clasifique esa misma muestra y medir el acuerdo
+(solo funciona en producción: va por el flujo «Operación»); luego clasificar las
+4.617 (con ensayo gratis antes de pagar), una columna `difficulty_source` para
+que la estimación y la mano del preparador no se pisen, y la dificultad medida
+con los exámenes en clase. **De paso salió** que el banco tiene muchas
+preguntas casi repetidas (hasta cuatro variantes del mismo concepto): conviene
+una pasada de similitud antes de que un examen lleve dos de la misma familia.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

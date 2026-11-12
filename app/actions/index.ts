@@ -29,3 +29,4 @@ export * from './demo';
 export * from './datos';
 export * from './informe';
 export * from './psico';
+export * from './examenes-clase';

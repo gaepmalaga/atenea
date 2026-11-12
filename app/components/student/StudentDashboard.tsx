@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import {
   LayoutGrid, MessageSquareText, Crosshair, Zap,
-  Fingerprint, TrendingUp, Dumbbell, Target, UserRound, Shapes
+  Fingerprint, TrendingUp, Dumbbell, Target, UserRound, Shapes, ClipboardCheck
 } from 'lucide-react';
 
 // --- LAYOUT COMPONENTS ---
@@ -26,6 +26,7 @@ import MiEvolucion from './modules/evolucion/MiEvolucion';
 import FailedQuestions from './modules/review/FailedQuestions';
 import MiPerfil from './modules/perfil/MiPerfil';
 import Psicotecnicos from './modules/psico/Psicotecnicos';
+import ExamenesClase from './modules/presencial/ExamenesClase';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { getModuleSettings } from '@/actions';
@@ -33,7 +34,7 @@ import { observaTema } from '@/app/lib/theme';
 import { todosActivos, moduloDeEntrada, enElMvp, type ModuleId, type ModuleSettings } from '@/app/lib/modules';
 
 // --- TIPOS ---
-export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'psico' | 'training' | 'interview' | 'stats' | 'profile';
+export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'psico' | 'presencial' | 'training' | 'interview' | 'stats' | 'profile';
 
 interface StudentDashboardProps {
   user: AuthUser;
@@ -63,6 +64,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     { id: 'review', label: 'Repasar fallos', icon: Target },
     { id: 'cards', label: 'Fichas', icon: Zap },
     { id: 'psico', label: 'Psicotécnicos', icon: Shapes },
+    { id: 'presencial', label: 'Exámenes', icon: ClipboardCheck },
     { id: 'training', label: 'Preparación física', icon: Dumbbell },
     { id: 'interview', label: 'Entrevista', icon: Fingerprint },
     { id: 'stats', label: 'Mi evolución', icon: TrendingUp },
@@ -306,6 +308,12 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
             {activeTab === 'cards' && (
                 <ModuleErrorBoundary moduleName="Las fichas">
                     <FlashcardDeck />
+                </ModuleErrorBoundary>
+            )}
+
+            {activeTab === 'presencial' && (
+                <ModuleErrorBoundary moduleName="Los exámenes en clase">
+                    <ExamenesClase />
                 </ModuleErrorBoundary>
             )}
 

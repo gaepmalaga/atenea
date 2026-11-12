@@ -168,15 +168,17 @@ function marcaDeAguaGrande(p: PDFPage, negrita: PDFFont, isotipo: PDFImage) {
   p.drawImage(isotipo, { x: A4.ancho - lado - 34, y: 58, width: lado, height: (lado * isotipo.height) / isotipo.width, opacity: 0.1 });
 }
 
-/** La misma marca, pequeña y repetida: en la hoja de respuestas no puede tapar los círculos. */
+/**
+ * La misma marca, pequeña y en pocas posiciones: en la hoja de respuestas no
+ * puede ensuciar los círculos. En la hoja de verdad hay media docena de
+ * marcas en diagonal, no una cuadrícula; veintiocho eran un ruido que se veía
+ * incluso en la fotocopia. Se dibuja AL FINAL, muy clara, por encima de las
+ * casillas (como en el original).
+ */
 function marcaDeAguaRepetida(p: PDFPage, negrita: PDFFont) {
-  for (let fila = 0; fila < 7; fila++) {
-    for (let col = 0; col < 4; col++) {
-      p.drawText('ALPHAPOL', {
-        x: 60 + col * 150 + (fila % 2) * 60, y: 70 + fila * 118,
-        size: 17, font: negrita, color: MARINO, opacity: 0.07, rotate: degrees(45),
-      });
-    }
+  const sitios: [number, number][] = [[96, 150], [300, 112], [470, 205], [150, 430], [390, 470], [80, 700], [330, 690], [492, 650]];
+  for (const [x, y] of sitios) {
+    p.drawText('ALPHAPOL', { x, y, size: 24, font: negrita, color: MARINO, opacity: 0.06, rotate: degrees(45) });
   }
 }
 
@@ -335,34 +337,58 @@ export async function pdfCuestionario(d: DatosExamen, imagenes: ImagenesExamen):
 // ---------------------------------------------------------------------------
 // La hoja de respuestas
 // ---------------------------------------------------------------------------
+//
+// Las proporciones salen de la hoja de lectora óptica de verdad, medidas sobre
+// una captura a 200 ppp: círculos pequeños (unos 6 pt) con mucho aire entre
+// ellos; el relleno es una PASTILLA negra más ancha que el círculo; la fila de
+// respuesta es blanca y solo la de «ANULAR» va teñida; y la columna del número
+// es blanca en la zona 1 y naranja en la zona 2. La primera versión tenía los
+// círculos tan grandes que se tocaban, con el relleno encima del vecino, y todo
+// el fondo rosa: se veía fatal y se leía peor.
 
-/** Un círculo de la hoja, con su letra dentro; relleno si es la respuesta de la plantilla. */
-function burbuja(p: PDFPage, x: number, y: number, letra: string, f: Fuentes, relleno: boolean, rx = 4.3, ry = 3.1) {
-  p.drawEllipse({ x, y, xScale: rx, yScale: ry, color: relleno ? NEGRO : BLANCO, borderColor: relleno ? NEGRO : ROJO, borderWidth: 0.5 });
-  if (!relleno) {
-    const cuerpo = ry * 1.35;
-    p.drawText(letra, { x: x - f.helv.widthOfTextAtSize(letra, cuerpo) / 2, y: y - cuerpo * 0.36, size: cuerpo, font: f.helv, color: ROJO });
+const ROJO_LINEA = rgb(0.9, 0.55, 0.5);
+const ROSA_ANULAR = rgb(0.99, 0.92, 0.9);
+
+/** El relleno de una respuesta: una pastilla negra, más ancha que alta, que no toca a las vecinas. */
+function pastilla(p: PDFPage, x: number, y: number, ancho: number, alto: number) {
+  const r = alto / 2;
+  p.drawRectangle({ x: x - ancho / 2 + r, y: y - r, width: ancho - 2 * r, height: alto, color: NEGRO });
+  p.drawCircle({ x: x - ancho / 2 + r, y, size: r, color: NEGRO });
+  p.drawCircle({ x: x + ancho / 2 - r, y, size: r, color: NEGRO });
+}
+
+/** Un círculo de la hoja, con su letra dentro; relleno (pastilla) si es la respuesta de la plantilla. */
+function burbuja(p: PDFPage, x: number, y: number, letra: string, f: Fuentes, relleno: boolean, rx = 3.3, ry = 2.6) {
+  if (relleno) {
+    pastilla(p, x, y, rx * 2 + 2.2, ry * 1.9);
+    return;
+  }
+  p.drawEllipse({ x, y, xScale: rx, yScale: ry, color: BLANCO, borderColor: ROJO, borderWidth: 0.5 });
+  if (letra) {
+    const cuerpo = Math.min(ry * 1.55, 4.4);
+    p.drawText(letra, { x: x - f.helv.widthOfTextAtSize(letra, cuerpo) / 2, y: y - cuerpo * 0.35, size: cuerpo, font: f.helv, color: ROJO });
   }
 }
 
 /**
- * Una zona: 100 preguntas en 4 columnas de 25. Cada pregunta, su número, sus
- * círculos y debajo la fila de «anular» (en el examen de verdad, quien se
+ * Una zona: 100 preguntas en 4 columnas de 25. Cada pregunta lleva su número,
+ * sus círculos y debajo la fila de «anular» (en el examen de verdad, quien se
  * equivoca rellena ahí la que marcó mal).
  */
 function zona(
   p: PDFPage, f: Fuentes, titulo: string, x: number, yArriba: number, ancho: number, alto: number,
-  opciones: number, respuestas: (number | null)[] | null, intenso: boolean,
+  opciones: number, respuestas: (number | null)[] | null, naranja: boolean,
 ) {
   const cabecera = 11;
-  p.drawRectangle({ x, y: yArriba - cabecera, width: ancho, height: cabecera, color: intenso ? BLANCO : ROJO, borderColor: ROJO, borderWidth: 0.8 });
-  centrado(p, titulo, yArriba - cabecera + 2.6, f.helvNegrita, 7.2, intenso ? ROJO : BLANCO, x, x + ancho);
+  p.drawRectangle({ x, y: yArriba - cabecera, width: ancho, height: cabecera, color: naranja ? BLANCO : ROJO, borderColor: ROJO, borderWidth: 0.8 });
+  centrado(p, titulo, yArriba - cabecera + 2.8, f.helvNegrita, 7.4, naranja ? ROJO : BLANCO, x, x + ancho);
 
   const columnas = 4, filas = 25;
   const anchoCol = ancho / columnas;
   const altoFila = (alto - cabecera) / filas;
-  const anchoNumero = 17;
-  const paso = (anchoCol - anchoNumero - 6) / opciones;
+  const altoResp = altoFila * 0.58;
+  const anchoNumero = naranja ? 17 : 15;
+  const paso = (anchoCol - anchoNumero - 3) / opciones;
   const letras = ['A', 'B', 'C', 'D', 'E'];
 
   for (let c = 0; c < columnas; c++) {
@@ -370,36 +396,59 @@ function zona(
     for (let r = 0; r < filas; r++) {
       const numero = c * filas + r + 1;
       const yFila = yArriba - cabecera - r * altoFila;
-      const yResp = yFila - altoFila * 0.33;
-      const yAnular = yFila - altoFila * 0.77;
-      p.drawRectangle({ x: x0, y: yFila - altoFila, width: anchoCol, height: altoFila, color: ROJO_SUAVE, borderColor: ROJO, borderWidth: 0.35 });
-      // El número, en su casilla.
-      p.drawRectangle({ x: x0, y: yFila - altoFila * 0.58, width: anchoNumero, height: altoFila * 0.58, color: intenso ? ROJO_MEDIO : ROJO_SUAVE });
-      aLaDerecha(p, String(numero), x0 + anchoNumero - 2.2, yResp - 2.6, f.helvNegrita, 7.4, intenso ? BLANCO : ROJO);
-      p.drawText('ANULAR', { x: x0 + 1.2, y: yAnular - 1.4, size: 3.3, font: f.helvNegrita, color: ROJO });
+      const yResp = yFila - altoResp / 2;
+      const yAnular = yFila - altoResp - (altoFila - altoResp) / 2;
+
+      // La fila de respuesta, blanca; la de «anular», teñida.
+      p.drawRectangle({ x: x0, y: yFila - altoFila, width: anchoCol, height: altoFila - altoResp, color: ROSA_ANULAR });
+      p.drawLine({ start: { x: x0, y: yFila - altoFila }, end: { x: x0 + anchoCol, y: yFila - altoFila }, thickness: 0.35, color: ROJO_LINEA });
+
+      // El número: naranja de arriba abajo en la zona 2, blanco con una muesca roja en la 1.
+      if (naranja) {
+        p.drawRectangle({ x: x0, y: yFila - altoFila, width: anchoNumero, height: altoFila, color: ROJO_MEDIO });
+        aLaDerecha(p, String(numero), x0 + anchoNumero - 2.2, yResp - 2.9, f.helvNegrita, numero >= 100 ? 6.6 : 8.2, BLANCO);
+        p.drawText('ANULAR', { x: x0 + 1.6, y: yAnular - 1.2, size: 3.2, font: f.helvNegrita, color: BLANCO });
+      } else {
+        // El «100» tiene tres cifras y no cabe a 8 pt junto a la muesca.
+        aLaDerecha(p, String(numero), x0 + anchoNumero - (numero >= 100 ? 3.4 : 4), yResp - 2.9, f.helvNegrita, numero >= 100 ? 6.4 : 8.2, ROJO);
+        // `drawSvgPath` usa el eje Y hacia ABAJO desde el punto de origen.
+        p.drawSvgPath(`M 0 0 L 2.4 ${altoResp * 0.28} L 0 ${altoResp * 0.56} Z`, { x: x0 + anchoNumero - 2, y: yFila - altoResp * 0.22, color: ROJO, borderWidth: 0 });
+        p.drawText('ANULAR', { x: x0 + 1.4, y: yAnular - 1.2, size: 3.2, font: f.helvNegrita, color: ROJO });
+      }
+
       const correcta = respuestas ? respuestas[numero - 1] : null;
       for (let o = 0; o < opciones; o++) {
-        const cx = x0 + anchoNumero + 5 + paso * (o + 0.5);
+        const cx = x0 + anchoNumero + 2 + paso * (o + 0.5);
         burbuja(p, cx, yResp, letras[o], f, correcta === o);
-        burbuja(p, cx, yAnular, letras[o], f, false, 3.5, 2.4);
+        burbuja(p, cx, yAnular, letras[o], f, false, 2.8, 2.1);
       }
     }
+    // La línea que separa cada columna.
+    if (c > 0) p.drawLine({ start: { x: x0, y: yArriba - cabecera }, end: { x: x0, y: yArriba - alto }, thickness: 0.7, color: ROJO });
   }
   p.drawRectangle({ x, y: yArriba - alto, width: ancho, height: alto, borderColor: ROJO, borderWidth: 0.9 });
 }
 
 /** El DNI en círculos: ocho columnas del 0 al 9, y las casillas de arriba para escribirlo. */
 function rejillaDni(p: PDFPage, f: Fuentes, x: number, yArriba: number, ancho: number, alto: number) {
-  centrado(p, 'D.N.I.', yArriba + 4, f.helvNegrita, 6.6, NEGRO, x, x + ancho);
-  p.drawRectangle({ x, y: yArriba - alto, width: ancho, height: alto, color: ROJO_SUAVE, borderColor: ROJO, borderWidth: 0.9 });
+  centrado(p, 'D.N.I.', yArriba + 4, f.helvNegrita, 6.8, NEGRO, x, x + ancho);
+  p.drawRectangle({ x, y: yArriba - alto, width: ancho, height: alto, color: ROSA_ANULAR, borderColor: ROJO, borderWidth: 0.9 });
   const columnas = 8;
-  const paso = (ancho - 12) / columnas;
+  const paso = (ancho - 10) / columnas;
   const altoCasilla = 15;
   for (let c = 0; c < columnas; c++) {
-    const cx = x + 6 + paso * (c + 0.5);
-    p.drawRectangle({ x: cx - paso * 0.42, y: yArriba - 5 - altoCasilla, width: paso * 0.84, height: altoCasilla, color: BLANCO, borderColor: ROJO, borderWidth: 0.6 });
-    const pasoY = (alto - altoCasilla - 16) / 10;
-    for (let n = 0; n < 10; n++) burbuja(p, cx, yArriba - altoCasilla - 12 - pasoY * (n + 0.5) + 2, String(n), f, false, 4.6, 3.3);
+    const cx = x + 5 + paso * (c + 0.5);
+    p.drawRectangle({ x: cx - paso * 0.44, y: yArriba - 4 - altoCasilla, width: paso * 0.88, height: altoCasilla, color: BLANCO, borderColor: ROJO, borderWidth: 0.6 });
+    const pasoY = (alto - altoCasilla - 14) / 10;
+    for (let n = 0; n < 10; n++) burbuja(p, cx, yArriba - altoCasilla - 10 - pasoY * (n + 0.5) + 2, String(n), f, false, 4.1, 2.9);
+  }
+}
+
+/** Las casillas para escribir a mano: una línea con marcas, como en el original. */
+function peine(p: PDFPage, x: number, y: number, ancho: number, marcas: number) {
+  for (let k = 1; k < marcas; k++) {
+    const mx = x + (ancho * k) / marcas;
+    p.drawLine({ start: { x: mx, y }, end: { x: mx, y: y + (k % 3 === 0 ? 8 : 5) }, thickness: 0.5, color: NEGRO });
   }
 }
 
@@ -416,7 +465,6 @@ export async function pdfHojaRespuestas(
   pdf.setAuthor('Alphapol · Centro de formación');
   const { f, i } = await prepara(pdf, imagenes);
   const p = pdf.addPage([A4.ancho, A4.alto]);
-  marcaDeAguaRepetida(p, f.helvNegrita);
 
   const izq = 34, der = A4.ancho - 52;
 
@@ -424,23 +472,26 @@ export async function pdfHojaRespuestas(
   placaAlphapol(p, i.logotipo, izq, A4.alto - 26, 118);
   const cajaX = izq, cajaY = A4.alto - 76, cajaAncho = 178, filaAlto = 18;
   const campos = ['1.er APELLIDO', '2.º APELLIDO', 'NOMBRE', 'FIRMA'];
+  // Lo impreso va en azul marino sólido y en negrita, como en el original.
   const impreso = [
     'ESCALA BÁSICA',
     'P. CONOCIMIENTOS',
-    textoImprimible(d.titulo, f.helvNegrita).toUpperCase().slice(0, 26),
+    textoImprimible(d.titulo, f.helvNegrita).toUpperCase().slice(0, 24),
     d.fecha ? textoImprimible(d.fecha, f.helv).toUpperCase().slice(0, 28) : '',
   ];
   campos.forEach((campo, k) => {
     const y = cajaY - k * filaAlto;
     p.drawRectangle({ x: cajaX, y: y - filaAlto, width: cajaAncho, height: filaAlto, color: BLANCO, borderColor: GRIS, borderWidth: 0.5 });
-    p.drawText(campo, { x: cajaX + 3, y: y - 7, size: 4.6, font: f.helvNegrita, color: NEGRO });
-    if (impreso[k]) p.drawText(impreso[k], { x: cajaX + 50, y: y - 12.5, size: k === 3 ? 7 : 7.6, font: k === 3 ? f.helv : f.helvNegrita, color: MARINO, opacity: 0.55 });
+    p.drawText(campo, { x: cajaX + 3, y: y - 7, size: 4.8, font: f.helvNegrita, color: NEGRO });
+    if (impreso[k]) p.drawText(impreso[k], { x: cajaX + 48, y: y - 12.5, size: k === 3 ? 7.2 : 8, font: k === 3 ? f.helv : f.helvNegrita, color: MARINO });
   });
   const yDni = cajaY - campos.length * filaAlto;
   p.drawRectangle({ x: cajaX, y: yDni - filaAlto, width: cajaAncho * 0.6, height: filaAlto, color: BLANCO, borderColor: GRIS, borderWidth: 0.5 });
   p.drawRectangle({ x: cajaX + cajaAncho * 0.6, y: yDni - filaAlto, width: cajaAncho * 0.4, height: filaAlto, color: BLANCO, borderColor: GRIS, borderWidth: 0.5 });
-  p.drawText('D.N.I.', { x: cajaX + 3, y: yDni - 7, size: 4.6, font: f.helvNegrita });
-  p.drawText('FECHA', { x: cajaX + cajaAncho * 0.6 + 3, y: yDni - 7, size: 4.6, font: f.helvNegrita });
+  p.drawText('D.N.I.', { x: cajaX + 3, y: yDni - 7, size: 4.8, font: f.helvNegrita });
+  p.drawText('FECHA', { x: cajaX + cajaAncho * 0.6 + 3, y: yDni - 7, size: 4.8, font: f.helvNegrita });
+  peine(p, cajaX + 3, yDni - filaAlto + 1, cajaAncho * 0.6 - 6, 9);
+  peine(p, cajaX + cajaAncho * 0.6 + 3, yDni - filaAlto + 1, cajaAncho * 0.4 - 6, 8);
 
   // ---- En el centro: cómo se marca, y la letra del modelo ----
   const insX = 228, insY = A4.alto - 52, insAncho = 86, insAlto = 44;
@@ -449,11 +500,11 @@ export async function pdfHojaRespuestas(
   centrado(p, 'INSTRUCCIONES', insY - 7, f.helvNegrita, 3.6, BLANCO, insX + insAncho * 0.46, insX + insAncho * 0.96);
   centrado(p, 'DE MARCADO', insY - 11.4, f.helvNegrita, 3.6, BLANCO, insX + insAncho * 0.46, insX + insAncho * 0.96);
   p.drawText('marque así', { x: insX + 6, y: insY - 24, size: 4.2, font: f.helv });
-  burbuja(p, insX + 18, insY - 33, 'A', f, true, 5, 3.6);
+  pastilla(p, insX + 20, insY - 33, 11, 5.4);
   p.drawText('así no marque', { x: insX + insAncho * 0.48, y: insY - 24, size: 4.2, font: f.helv });
   [0, 1, 2].forEach((k) => {
     const cx = insX + insAncho * 0.56 + k * 13, cy = insY - 33;
-    burbuja(p, cx, cy, '', f, false, 5, 3.6);
+    burbuja(p, cx, cy, '', f, false, 4.6, 3.4);
     if (k === 0) p.drawLine({ start: { x: cx - 4, y: cy - 3 }, end: { x: cx + 4, y: cy + 3 }, thickness: 0.8 });
     if (k === 1) { p.drawLine({ start: { x: cx - 3, y: cy - 3 }, end: { x: cx + 3, y: cy + 3 }, thickness: 0.8 }); p.drawLine({ start: { x: cx - 3, y: cy + 3 }, end: { x: cx + 3, y: cy - 3 }, thickness: 0.8 }); }
     if (k === 2) p.drawCircle({ x: cx, y: cy, size: 1.4, color: NEGRO });
@@ -493,6 +544,9 @@ export async function pdfHojaRespuestas(
 
   p.drawLine({ start: { x: izq + 40, y: 36 }, end: { x: der, y: 36 }, thickness: 1.2, color: NEGRO });
   centrado(p, PIE, 22, f.helv, 6.2, GRIS);
+
+  // La marca de agua, la última y muy clara.
+  marcaDeAguaRepetida(p, f.helvNegrita);
 
   return pdf.save();
 }

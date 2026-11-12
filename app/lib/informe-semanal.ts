@@ -16,6 +16,8 @@
  * datos (`panel_actividad_semanal`, regla 91); aquí solo se comparan.
  */
 
+import { CNP_SCORING } from './scoring';
+
 export type FilaSemana = {
   userId: string;
   /** El lunes de esa semana, `AAAA-MM-DD`, en la hora de la academia. */
@@ -39,6 +41,17 @@ export type AlumnoInforme = {
   faltas14: number;
 };
 
+/** Un examen presencial de esa semana (regla 118). */
+export type ExamenSemana = {
+  userId: string;
+  titulo: string;
+  /** El día del examen, `AAAA-MM-DD`. */
+  fecha: string;
+  /** La nota que vale (la del profesor si la puso); `null` si no hay (regla 16). */
+  nota: number | null;
+  ausente: boolean;
+};
+
 export type NivelRiesgo = 'alto' | 'medio' | 'bajo';
 
 export type Riesgo = { nivel: NivelRiesgo; puntos: number; motivos: string[] };
@@ -59,6 +72,8 @@ export type FilaInforme = {
   simulacros: number;
   /** `null` si no ha contestado nunca en las semanas que se miran. */
   diasSinActividad: number | null;
+  /** El examen presencial de la semana, si tuvo alguno. */
+  examen: { titulo: string; nota: number | null; ausente: boolean } | null;
   riesgo: Riesgo;
 };
 
@@ -130,6 +145,10 @@ export type EntradaRiesgo = {
   base: number;
   basePrevia: number;
   faltas14: number;
+  /** Título del examen presencial de esta semana al que NO se presentó. */
+  examenAusente?: string | null;
+  /** Examen presencial de esta semana en el que sacó menos del aprobado. */
+  examenSuspenso?: { titulo: string; nota: number } | null;
 };
 
 /** Por debajo de esto, la media de un alumno no dice nada: es ruido. */
@@ -169,6 +188,11 @@ export function riesgoDeAbandono(e: EntradaRiesgo): Riesgo {
 
   if (e.faltas14 >= 2) suma(10, `Ha avisado de ${e.faltas14} faltas a clase en dos semanas`);
 
+  // Los exámenes presenciales (regla 118): no presentarse ya es de «vigilar» por
+  // sí solo; suspender suma, pero solo no lo es.
+  if (e.examenAusente) suma(30, `No se presentó al examen en clase «${e.examenAusente}»`);
+  if (e.examenSuspenso) suma(15, `Sacó un ${String(e.examenSuspenso.nota).replace('.', ',')} en «${e.examenSuspenso.titulo}», por debajo del aprobado`);
+
   puntos = Math.min(100, puntos);
   return { nivel: puntos >= 60 ? 'alto' : puntos >= 30 ? 'medio' : 'bajo', puntos, motivos };
 }
@@ -177,7 +201,7 @@ export function riesgoDeAbandono(e: EntradaRiesgo): Riesgo {
  * El informe de UNA semana. `hoy` y `semana` son días `AAAA-MM-DD` en la hora
  * de la academia; `filas` trae la actividad de esa semana y de las anteriores.
  */
-export function construyeInforme(p: { hoy: string; semana: string; alumnos: AlumnoInforme[]; filas: FilaSemana[] }): InformeSemanal {
+export function construyeInforme(p: { hoy: string; semana: string; alumnos: AlumnoInforme[]; filas: FilaSemana[]; examenes?: ExamenSemana[] }): InformeSemanal {
   const semana = lunesDe(p.semana);
   const hasta = sumaDias(semana, 6);
   const enCurso = p.hoy <= hasta && p.hoy >= semana;
@@ -192,6 +216,14 @@ export function construyeInforme(p: { hoy: string; semana: string; alumnos: Alum
     const m = porAlumno.get(f.userId) ?? new Map<string, FilaSemana>();
     m.set(f.semana, f);
     porAlumno.set(f.userId, m);
+  }
+
+  // El examen presencial MÁS RECIENTE de esa semana de cada alumno.
+  const examenDe = new Map<string, ExamenSemana>();
+  for (const x of p.examenes ?? []) {
+    if (x.fecha < semana || x.fecha > hasta) continue;
+    const previo = examenDe.get(x.userId);
+    if (!previo || x.fecha > previo.fecha) examenDe.set(x.userId, x);
   }
 
   const filas: FilaInforme[] = p.alumnos.map((a) => {
@@ -216,6 +248,7 @@ export function construyeInforme(p: { hoy: string; semana: string; alumnos: Alum
     const diasSinActividad = ultima
       ? Math.max(0, Math.floor((aFecha(referencia).getTime() + DIA_MS / 2 - new Date(ultima).getTime()) / DIA_MS))
       : null;
+    const examen = examenDe.get(a.id) ?? null;
     const diasDesdeAlta = a.alta ? Math.max(0, Math.floor((aFecha(referencia).getTime() - new Date(a.alta).getTime()) / DIA_MS)) : null;
 
     const contestadas = esta?.contestadas ?? 0;
@@ -234,9 +267,12 @@ export function construyeInforme(p: { hoy: string; semana: string; alumnos: Alum
       diasActivos: esta?.diasActivos ?? 0,
       simulacros: esta?.simulacros ?? 0,
       diasSinActividad,
+      examen: examen ? { titulo: examen.titulo, nota: examen.nota, ausente: examen.ausente } : null,
       riesgo: riesgoDeAbandono({
         diasSinActividad, diasDesdeAlta, contestadas, mediaPrevia, fraccion, semanasBajando,
         acierto, aciertoPrevio, base: contestadas, basePrevia: previa?.contestadas ?? 0, faltas14: a.faltas14,
+        examenAusente: examen?.ausente ? examen.titulo : null,
+        examenSuspenso: examen && !examen.ausente && examen.nota !== null && examen.nota < CNP_SCORING.passMark ? { titulo: examen.titulo, nota: examen.nota } : null,
       }),
     };
   });

@@ -164,6 +164,11 @@ export default function AdminInforme() {
                       ? <ul className="space-y-0.5 text-sm">{f.riesgo.motivos.map((m) => <li key={m}>{m}</li>)}</ul>
                       : <span className="text-sm text-slate-600 dark:text-slate-400">Sin señales</span>
                   ) },
+                  { id: 'examen', titulo: 'Examen en clase', celda: (f) => (
+                    !f.examen ? <span className="text-slate-600 dark:text-slate-400">—</span>
+                      : f.examen.ausente ? <Etiqueta tono="malo">No se presentó</Etiqueta>
+                      : <span className="tabular-nums"><b>{f.examen.nota === null ? '—' : f.examen.nota.toLocaleString('es-ES')}</b></span>
+                  ) },
                   { id: 'preguntas', titulo: 'Preguntas', celda: (f) => (
                     <span><b className="font-semibold tabular-nums">{f.contestadas}</b> <span className="text-xs text-slate-600 dark:text-slate-400">· antes {f.anteriores}</span></span>
                   ) },
