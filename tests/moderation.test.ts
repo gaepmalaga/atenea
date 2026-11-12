@@ -51,18 +51,21 @@ describe('las candidatas solo las modera el superadmin', () => {
 });
 
 describe('editar o desactivar una pregunta respeta la academia', () => {
-  it('disableQuestion filtra por organization_id salvo para el superadmin', () => {
-    const cuerpo = cuerpoDe('disableQuestion');
-    expect(cuerpo).toMatch(/requireAdmin\(\)/);
-    expect(cuerpo).toMatch(/role !== 'superadmin'/);
-    expect(cuerpo).toMatch(/\.eq\('organization_id', auth\.user\.organizationId\)/);
-  });
+  // Regla 123: el alcance sale de `filtroEscrituraBanco` (su banco y, con
+  // UNA_SOLA_ACADEMIA, el global), y va DENTRO de la consulta.
+  for (const accion of ['disableQuestion', 'updateQuestion', 'reactivateQuestion']) {
+    it(`${accion} acota la consulta con filtroEscrituraBanco, y el superadmin no se filtra`, () => {
+      const cuerpo = cuerpoDe(accion);
+      expect(cuerpo).toMatch(/requireAdmin\(\)/);
+      expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(auth\.user\)/);
+      expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
+    });
+  }
 
-  it('updateQuestion filtra por organization_id salvo para el superadmin', () => {
-    const cuerpo = cuerpoDe('updateQuestion');
-    expect(cuerpo).toMatch(/requireAdmin\(\)/);
-    expect(cuerpo).toMatch(/role !== 'superadmin'/);
-    expect(cuerpo).toMatch(/\.eq\('organization_id', auth\.user\.organizationId\)/);
+  it('reactivar solo devuelve al banco una pregunta DESCARTADA, no convierte en activa una candidata', () => {
+    const cuerpo = cuerpoDe('reactivateQuestion');
+    expect(cuerpo).toMatch(/\.eq\('status', QUESTION_STATUS\.DISABLED\)/);
+    expect(cuerpo).toMatch(/update\(\{ status: QUESTION_STATUS\.ACTIVE \}\)/);
   });
 
   it('discardAllQuestions nunca descarta de golpe TODAS las academias', () => {
@@ -77,5 +80,10 @@ describe('editar o desactivar una pregunta respeta la academia', () => {
     expect(cuerpo).toMatch(/requireAdmin\(\)/);
     expect(cuerpo).toMatch(/question_bank!inner\(organization_id\)/);
     expect(cuerpo).toMatch(/role !== 'superadmin'/);
+    expect(cuerpo).toMatch(/!puedeEditarBanco\(auth\.user, \{ organization_id: orgDeLaPregunta \}\)/);
+  });
+
+  it('resolveReport rechaza un reporte que no existe: no lo trata como una pregunta global', () => {
+    expect(cuerpoDe('resolveReport')).toMatch(/if \(!rep\) return \{ success: false/);
   });
 });

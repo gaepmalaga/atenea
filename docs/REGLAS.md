@@ -4788,3 +4788,41 @@ el segundo necesita el proyecto real.
   Hoy ninguna pregunta llega a 30 respuestas reales (máximo 25, de
   demostración), así que es infraestructura lista para cuando haya actividad
   y exámenes en clase.
+
+### 123 · Esta instalación es de UNA academia: el admin de Alphapol puede tocar el banco global
+
+*(12 nov 2026. Alphapol será la única academia que use la plataforma.)*
+
+- **El problema.** La regla 75 decía: un admin de academia solo toca el banco
+  PRIVADO de su academia; el global es del superadmin. Con varias academias en
+  la misma plataforma era lo correcto. Con una sola, las 4.617 preguntas son
+  globales y **ningún preparador podía corregir una dificultad, descartar una
+  repetida ni atender el reporte de un alumno**: solo el superadmin, que no
+  administra la academia (no ve Alumnos, Pagos ni Calendario).
+- **El interruptor.** `UNA_SOLA_ACADEMIA = true` en `app/lib/permisos-banco.ts`.
+  Con él, el admin edita, descarta y reactiva también el banco global
+  (`puedeEditarBanco`, `filtroEscrituraBanco`), ve «Preguntas repetidas» y
+  recibe los reportes de los alumnos sobre preguntas globales. Con `false`
+  vuelve la regla 75 tal cual. El filtro va DENTRO de cada consulta (65): una
+  fila que no es suya no cambia. El banco de OTRA academia no lo toca nadie
+  salvo el superadmin, con o sin interruptor. Vigilado en
+  `tests/permisos-banco.test.ts`, que compara el filtro del servidor con la
+  función del panel para que no discrepen.
+- **Lo que el interruptor NO abre:** generar con IA, ver el consumo, crear
+  academias y **crear admins** (`requireSuperadmin`: solo tú das de alta al dueño
+  y a quien deba entrar al panel), ni «Vaciar banco», que sigue acotado al
+  banco privado de cada uno: con el global sería una pulsación para vaciar la
+  plataforma.
+- **«Reactivar».** Descartar ya se podía y deshacerlo era cosa de la base de
+  datos. `reactivateQuestion` devuelve una descartada al banco; solo sobre
+  `disabled`, para no convertir en activa una candidata sin revisar. Queda en
+  «Logs» quién descartó y quién reactivó.
+- **La portada del superadmin** pasa de «Academias» a «Banco oficial».
+  «Academias» sigue ahí porque «Añadir admin» es como se crean las cuentas de
+  quien dirige la academia.
+- **Lo que NO existe: un rol de «preparador».** Los roles son `student`, `admin`
+  y `superadmin`. Un profesor dado de alta en «Profesores» es una ficha (nombre,
+  contacto, grupos), no una cuenta; vincularle una cuenta no le da permisos. Un
+  preparador que necesite entrar al panel tiene que ser `admin` y **ve todo**:
+  Alumnos, Pagos, Informe… Si el dueño no quiere que vean Pagos, hace falta un
+  rol intermedio; no está construido.

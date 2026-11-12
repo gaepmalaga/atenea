@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Plus, Copy, Trash2, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Save, Plus, Copy, Trash2, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import {
   getAdminQuestionBank,
   getOfficialSyllabus,
   disableQuestion,
+  reactivateQuestion,
   discardAllQuestions,
   approveQuestions,
   updateQuestion
@@ -23,6 +24,7 @@ import {
 } from '@/app/lib/questions';
 import type { SyllabusSubject } from '@/app/actions/admin';
 import QuestionComposer from './QuestionComposer';
+import { UNA_SOLA_ACADEMIA, puedeEditarFilaVisible } from '@/app/lib/permisos-banco';
 import { PanelTitulo, Aviso, Boton, Campo, CampoSelect, Etiqueta, Dato, TablaDual, PanelLateral, EmptyState, TEXT, type Tono } from '../../ui';
 import EditorPregunta from './EditorPregunta';
 import FamiliasRepetidas from './FamiliasRepetidas';
@@ -57,8 +59,9 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   const [clearingAll, setClearingAll] = useState(false);
   // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
   const [componiendo, setComponiendo] = useState(false);
-  // Preguntas repetidas (regla 119): solo el superadmin, que es quien puede descartar del banco global.
+  // Preguntas repetidas (regla 119). Las ve quien puede descartar del banco global: el superadmin y, con UNA_SOLA_ACADEMIA (regla 123), el admin de la academia.
   const [verRepetidas, setVerRepetidas] = useState(false);
+  const puedeVerRepetidas = esSuperadmin || UNA_SOLA_ACADEMIA;
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -134,6 +137,23 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
           }
       } else {
           alert('No se pudo descartar: ' + res.error);
+      }
+      setIsDeleting(null);
+  }
+
+  async function handleReactivate(id: string) {
+      if (!confirm("¿Reactivar esta pregunta?\nVolverá a servirse a los alumnos en los exámenes.")) return;
+      setIsDeleting(id);
+      const res = await reactivateQuestion(id);
+      if (res.success) {
+          setEditingQ(null);
+          if (statusFilter === 'all') {
+              setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: QUESTION_STATUS.ACTIVE } : q));
+          } else {
+              await loadQuestions(stats.page);
+          }
+      } else {
+          setErrorGuardar(res.error ?? 'No se pudo reactivar.');
       }
       setIsDeleting(null);
   }
@@ -229,7 +249,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       setSaving(false);
   }
 
-  if (verRepetidas && esSuperadmin) {
+  if (verRepetidas && puedeVerRepetidas) {
     return <FamiliasRepetidas onVolver={() => { setVerRepetidas(false); loadQuestions(stats.page); }} />;
   }
 
@@ -241,7 +261,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         acciones={
           /* Nueva pregunta a mano (P2) */
           <div className="flex flex-wrap gap-2">
-            {esSuperadmin && <Boton variant="secondary" onClick={() => setVerRepetidas(true)}>Preguntas repetidas</Boton>}
+            {puedeVerRepetidas && <Boton variant="secondary" onClick={() => setVerRepetidas(true)}>Preguntas repetidas</Boton>}
             <Boton icon={<Plus size={15} />} onClick={() => setComponiendo(true)}>Nueva pregunta</Boton>
           </div>
         }
@@ -391,7 +411,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
 
       {/* --- EDITOR DE UNA PREGUNTA: un panel lateral, no un diálogo ---
           «Descartar del banco» vive aquí y no en cada fila: estaba a un toque
-          de «Editar», y descartar es lo único que no se deshace desde el panel. */}
+          de «Editar». Desde la regla 123 también se puede deshacer («Reactivar»). */}
       {editingQ && (
         <PanelLateral titulo="Editar pregunta" sub={`ID ${editingQ.id.substring(0, 8)}`} onCerrar={() => setEditingQ(null)}>
           <EditorPregunta form={editForm} onChange={setEditForm} />
@@ -402,19 +422,43 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
             <p className={`${TEXT.muted} mt-1.5`}>{origenDeDificultad(editingQ.difficulty_source)}. Si la cambias, queda como puesta por ti y la IA no la vuelve a tocar.</p>
           </div>
           {errorGuardar && <Aviso tono="malo"><p>{errorGuardar}</p></Aviso>}
-          <div className="flex flex-wrap gap-2">
-            <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
-              {saving ? 'Guardando…' : 'Guardar cambios'}
-            </Boton>
-            <Boton variant="ghost" onClick={() => setEditingQ(null)}>Cerrar</Boton>
-          </div>
-          <div className="border-t border-linea pt-4 dark:border-noche-linea">
-            <Boton variant="danger" disabled={editingQ.status === QUESTION_STATUS.DISABLED || isDeleting === editingQ.id} onClick={() => handleDisable(editingQ.id)}
-              icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}>
-              Descartar del banco
-            </Boton>
-            <p className={`${TEXT.muted} mt-2`}>Deja de aparecer en los exámenes. No se borra: queda marcada como descartada.</p>
-          </div>
+          {/* Una pregunta que esta persona no puede tocar (de otra academia, con
+              UNA_SOLA_ACADEMIA en `false`) se ve, pero sin botones que fallarían. */}
+          {!puedeEditarFilaVisible(esSuperadmin, editingQ) ? (
+            <>
+              <Aviso tono="info"><p>Es del banco global: solo la plataforma puede editarla.</p></Aviso>
+              <Boton variant="ghost" onClick={() => setEditingQ(null)}>Cerrar</Boton>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
+                  {saving ? 'Guardando…' : 'Guardar cambios'}
+                </Boton>
+                <Boton variant="ghost" onClick={() => setEditingQ(null)}>Cerrar</Boton>
+              </div>
+              <div className="border-t border-linea pt-4 dark:border-noche-linea">
+                {editingQ.status === QUESTION_STATUS.DISABLED ? (
+                  <>
+                    {/* Descartada: lo que se ofrece es volver atrás, no descartar otra vez. */}
+                    <Boton variant="secondary" disabled={isDeleting === editingQ.id} onClick={() => handleReactivate(editingQ.id)}
+                      icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <RotateCcw size={14} />}>
+                      Reactivar
+                    </Boton>
+                    <p className={`${TEXT.muted} mt-2`}>Está descartada: no se sirve a los alumnos. Al reactivarla vuelve a los exámenes.</p>
+                  </>
+                ) : (
+                  <>
+                    <Boton variant="danger" disabled={isDeleting === editingQ.id} onClick={() => handleDisable(editingQ.id)}
+                      icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}>
+                      Descartar del banco
+                    </Boton>
+                    <p className={`${TEXT.muted} mt-2`}>Deja de aparecer en los exámenes. No se borra: se puede reactivar desde aquí.</p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </PanelLateral>
       )}
     </div>

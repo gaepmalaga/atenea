@@ -70,7 +70,7 @@ const pregunta = (i: number) => ({
   // Los tres niveles, y una sin clasificar (origen vacío) para ver la diferencia.
   difficulty_level: i === 5 ? 2 : (i % 3) + 1,
   difficulty_source: i === 5 ? null : i === 1 ? 'preparador' : 'estimada',
-  status: i % 4 === 0 ? 'candidate' : 'active',
+  status: i % 4 === 0 ? 'candidate' : i === 2 ? 'disabled' : 'active',
   origin: i % 4 === 0 ? ('live_ai' as const) : ('bank' as const),
   legal_reference: i % 2 === 0 ? `Artículo ${i + 10}` : null,
   subject_id: 1,
@@ -461,6 +461,7 @@ export async function getDocumentChunks() {
 export async function approveQuestion() { return { success: true as const }; }
 export async function approveQuestions() { return { success: true as const, approved: 2 }; }
 export async function disableQuestion() { return { success: true as const }; }
+export async function reactivateQuestion() { return { success: true as const }; }
 export async function discardAllQuestions() { return { success: true as const, discarded: 6 }; }
 export async function updateQuestion() { return { success: true as const }; }
 // Preguntas repetidas (regla 119): dos familias, una de tres y una de dos. Con

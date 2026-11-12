@@ -233,9 +233,14 @@ describe('las acciones de repetidas no se pasan de lo que pueden', () => {
   const accion = quita(readFileSync(join(__dirname, '..', 'app/actions/familias.ts'), 'utf-8'));
   const quedarse = accion.slice(accion.indexOf('export async function quedarseConUna'));
 
-  it('las dos exigen superadmin: el banco global no es de un admin de academia (regla 75)', () => {
-    expect((accion.match(/await requireSuperadmin\(\)/g) ?? []).length).toBe(2);
-    expect(accion).not.toMatch(/requireAdmin\(\)/);
+  it('las dos exigen admin y trabajan solo sobre lo que ese admin puede tocar (regla 123)', () => {
+    expect((accion.match(/await requireAdmin\(\)/g) ?? []).length).toBe(2);
+    expect(accion).not.toMatch(/requireSuperadmin\(\)/);
+    expect((accion.match(/filtroEscrituraBanco\(auth\.user\)/g) ?? []).length).toBe(2);
+  });
+
+  it('el alcance va dentro de las tres consultas: la lista, las preguntas de cada familia y el descarte', () => {
+    expect((accion.match(/\.or\(alcance\)/g) ?? []).length).toBe(4);
   });
 
   it('lista con `paginaCompleta`, no con un `.select` que PostgREST corta a 1.000 (regla 74)', () => {
@@ -257,9 +262,10 @@ describe('las acciones de repetidas no se pasan de lo que pueden', () => {
     expect(quedarse).toMatch(/registraAccion\(\{[\s\S]*actorId: auth\.user\.id/);
   });
 
-  it('el botón solo se enseña al superadmin', () => {
+  it('el botón solo se enseña a quien puede descartar del banco global', () => {
     const banco = quita(readFileSync(join(__dirname, '..', 'app/components/Admin/components/AdminBank.tsx'), 'utf-8'));
-    expect(banco).toMatch(/esSuperadmin && <Boton[\s\S]{0,80}setVerRepetidas\(true\)/);
-    expect(banco).toMatch(/verRepetidas && esSuperadmin/);
+    expect(banco).toMatch(/puedeVerRepetidas = esSuperadmin \|\| UNA_SOLA_ACADEMIA/);
+    expect(banco).toMatch(/puedeVerRepetidas && <Boton[\s\S]{0,80}setVerRepetidas\(true\)/);
+    expect(banco).toMatch(/verRepetidas && puedeVerRepetidas/);
   });
 });

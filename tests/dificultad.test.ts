@@ -182,8 +182,8 @@ describe('editar la dificultad: lo que pone una persona manda y se anota', () =>
     expect(cuerpo).toMatch(/cambiaNivel \? \{ difficulty_level: Number\(crudo\), difficulty_source: DIFFICULTY_SOURCE\.preparador \} : \{\}/);
   });
 
-  it('sigue acotada a la academia del admin (regla 75)', () => {
-    expect(cuerpo).toMatch(/auth\.user\.role !== 'superadmin'\) query = query\.eq\('organization_id', auth\.user\.organizationId\)/);
+  it('sigue acotada por `filtroEscrituraBanco` (reglas 75 y 123)', () => {
+    expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(auth\.user\);\s*if \(alcance\) query = query\.or\(alcance\)/);
   });
 
   it('el panel solo manda el nivel si el preparador lo ha cambiado', () => {

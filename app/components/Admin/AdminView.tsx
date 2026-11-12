@@ -99,8 +99,10 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   const tabs = esSuperadmin ? PESTANAS_SUPERADMIN : PESTANAS_ADMIN;
 
   // Un `superadmin` no administra ninguna academia (regla 65): «Alumnos» no
-  // existe para él y su pantalla de entrada es «Academias».
-  const [activeTab, setActiveTab] = useState<AdminTab>(esSuperadmin ? 'academies' : 'students');
+  // existe para él. Su pantalla de entrada es «Banco oficial» (regla 123): con
+  // una sola academia, «Academias» ya no es lo que se mira cada día —sigue ahí,
+  // porque «Añadir admin» es como se crean las cuentas de quien la dirige.
+  const [activeTab, setActiveTab] = useState<AdminTab>(esSuperadmin ? 'bank' : 'students');
 
   // La pestaña guardada se aplica en un efecto, no en el estado inicial: leerla
   // en `useState` provocaría un desajuste de hidratación (el servidor no ve
