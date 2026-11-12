@@ -469,6 +469,22 @@ academia hoy, con la sesión real de Alphapol y sin tocar nada. Conclusiones:
   numéricos caben como un bloque más del banco con reloj por pregunta; los de
   figuras piden preguntas con imagen generada por código). Antes, ver la
   plataforma que usa hoy la academia.
+- **Ideas para CONSULTAR con el dueño y con los alumnos antes de decidir** (no se
+  construye nada sin su opinión; en `docs/COMPARATIVA-OPOSITANDOPN.md` hay lo que
+  hace la plataforma que usan hoy):
+  - **Ranking.** Por turno o por grupo, nunca nacional, y quizá solo con el
+    puesto de cada uno y no la lista completa, para no dejar en evidencia a quien
+    tiene nota baja. Saldría de los exámenes en clase (regla 118).
+  - **Duelos 1 contra 1** de unas 10 preguntas.
+  - **Esquemas visuales** por subtema (trabajo de diseño; empezar por un piloto
+    de 5-10 de los temas con más peso).
+  - **Inglés (B1):** solo si la convocatoria lo exige.
+  - **Un rol de «preparador»** con menos permisos que el admin (hoy no existe).
+- **Estado de las ideas del 11 nov (12 nov):** *exámenes a PDF*, hecho (regla 115 y
+  118); *perfil editable*, hecho (114); *informe semanal*, hecho (116, sin envío
+  automático); *señales de abandono*, hecho en su versión principal (116);
+  *ficha en PDF por alumno*, NO; *preguntas aportadas por los alumnos*, NO;
+  *audio y vídeo en las preguntas*, NO.
 - **Preguntas del temario propio de Alphapol:** generarlas fuera de la
   aplicación y meterlas por la importación que ya valida
   (`importManualQuestions`, regla 27) hacia moderación.
