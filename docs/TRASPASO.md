@@ -565,3 +565,12 @@ el dueño lo pide**, se abre un pull request de esa rama a `main` con las
 herramientas de GitHub y se fusiona (el `git push` directo a `main` está
 bloqueado). Para saber si Vercel ya lo ha desplegado, mira si cambia la lista
 de `/_next/static/chunks/*.js` del HTML de producción.
+
+## 2n · Prep. física, tema del panel, Inicio y psicotécnicos (13 nov, regla 125, en la rama, sin desplegar)
+
+- «Planificar» (semáforo compacto, con nombres) y «Marcas» (tabla por pruebas, «Eliminado»).
+- Selector Sistema/Claro/Oscuro en la barra del panel de administración.
+- «Todos los alumnos (N)» en la pestaña Alumnos.
+- El Inicio no enseña enlaces a módulos apagados (fichas, evolución, entrenar…).
+- Psicotécnicos: cada sesión del historial se puede abrir y repasar.
+- Pendiente de decidir con el dueño: ranking de clase en «Exámenes» y nota en el entrenamiento del test.

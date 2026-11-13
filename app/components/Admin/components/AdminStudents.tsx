@@ -241,7 +241,7 @@ export default function AdminStudents() {
         {grupos.length > 0 && (
           <div className="w-full sm:w-64">
             <CampoSelect aria-label="Grupo" value={filtroGrupo} onChange={(e) => setFiltroGrupo(e.target.value)}>
-              <option value="">Todos los grupos ({alumnos.length})</option>
+              <option value="">Todos los alumnos ({alumnos.length})</option>
               {grupos.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               {hayAlgunSinGrupo && <option value={SIN_GRUPO}>Sin grupo</option>}
             </CampoSelect>

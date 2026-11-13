@@ -9,6 +9,7 @@ import {
 } from '@/app/lib/examen-clase';
 import { Card, Button, SectionLabel, StatTile, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
 import CalculadoraNota from './CalculadoraNota';
+import RankingClaseCard from './RankingClaseCard';
 
 /**
  * EXÁMENES EN CLASE (regla 118): los exámenes en papel que se han puesto a mi
@@ -166,10 +167,11 @@ export default function ExamenesClase() {
               </div>
               {e.mediaTurno !== null && <p className={cx(TEXT.muted, 'mt-1')}>Media de tu turno: <strong>{num(e.mediaTurno)}</strong></p>}
               {e.estado === 'entregado' && (
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-start gap-2">
                   <Button size="sm" variant="secondary" disabled={abriendo === e.aplicacionId} onClick={() => verRevision(e.aplicacionId)}>
                     {abriendo === e.aplicacionId ? 'Abriendo…' : 'Ver la solución'}
                   </Button>
+                  {e.nota !== null && <RankingClaseCard aplicacionId={e.aplicacionId} />}
                 </div>
               )}
             </Card>

@@ -7,6 +7,7 @@ import { fallo } from '../lib/fallos';
 import { paginaCompleta } from '../lib/pagination';
 import { ahoraEnZona, esFecha } from '../lib/asistencia';
 import { nombreVisible } from '../lib/perfil-alumno';
+import { calculaRanking, type RankingClase } from '../lib/ranking-clase';
 import { filtroBancoPorAcademia, QUESTION_STATUS } from '../lib/questions';
 import {
   aNota, corrigeClase, distribucionNotas, esParticipante, estadisticasPorPregunta, estadoEntrega, leeNotaProfesor,
@@ -810,4 +811,81 @@ export async function getRevisionExamenClase(aplicacionId: unknown): Promise<{ s
   const preguntas = comoPreguntas(paper.questions);
   const respuestas = normalizaRespuestas(r.answers, preguntas.length);
   return { success: true as const, revision: aRevision(paper.title as string, preguntas, respuestas, corrigeClase(preguntas, respuestas), aNota(r.teacher_score)) };
+}
+
+// ===========================================================================
+// EL RANKING DE CLASE (regla 126)
+// ===========================================================================
+
+const EN_TROZOS = 100;
+
+/**
+ * El ranking de un examen que ya he entregado: los primeros de mi turno y mi
+ * puesto. Solo cuentan los que no se han salido del ranking (`ranking_oculto`),
+ * y quien se ha salido no lo ve: `oculto: true` y nada más. Sin al menos tres
+ * notas no hay ranking. Nunca se devuelve el correo ni el id de otro alumno.
+ */
+export async function getRankingExamenClase(aplicacionId: unknown): Promise<
+  { success: true; oculto: true } | { success: true; oculto: false; ranking: RankingClase | null } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const modulo = await requireModule('presencial', auth.user.organizationId);
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: 'No hemos encontrado tu academia.' };
+  if (!esUuid(aplicacionId)) return { success: false as const, error: 'Datos no válidos.' };
+
+  const { data: yo, error: eYo } = await supabaseAdmin.from('profiles').select('ranking_oculto').eq('id', auth.user.id).maybeSingle();
+  if (eYo) return { success: false as const, error: fallo('getRankingExamenClase', eYo) };
+  if (yo?.ranking_oculto === true) return { success: true as const, oculto: true as const };
+
+  const { data: s, error } = await supabaseAdmin
+    .from('exam_sittings').select('id, class_ids').eq('organization_id', org).eq('id', aplicacionId).maybeSingle();
+  if (error) return { success: false as const, error: fallo('getRankingExamenClase', error) };
+  if (!s) return { success: false as const, error: 'Ese examen no existe.' };
+  const grupos = await misGrupos(org, auth.user.id);
+  if (grupos.error) return { success: false as const, error: grupos.error };
+  if (!esParticipante((s.class_ids as string[]) ?? [], grupos.data)) return { success: false as const, error: 'Ese examen no es de tu turno.' };
+
+  const [gente, resultados] = await Promise.all([
+    participantesDe(org, (s.class_ids as string[]) ?? []),
+    supabaseAdmin.from('exam_results').select('user_id, score, teacher_score').eq('organization_id', org).eq('sitting_id', aplicacionId).eq('absent', false).limit(5000),
+  ]);
+  if (gente.error) return { success: false as const, error: gente.error };
+  if (resultados.error) return { success: false as const, error: fallo('getRankingExamenClase', resultados.error) };
+
+  const delTurno = new Set(gente.data.map((g) => g.id));
+  const notas = new Map<string, number>();
+  for (const r of resultados.data ?? []) {
+    const id = r.user_id as string;
+    const n = notaVigente({ teacher_score: aNota(r.teacher_score), score: aNota(r.score) });
+    if (delTurno.has(id) && n !== null) notas.set(id, n);
+  }
+  if (!notas.has(auth.user.id)) return { success: true as const, oculto: false as const, ranking: null };
+
+  // Quién se ha salido, de los que tienen nota (en trozos: la dirección no crece sin límite).
+  const ids = [...notas.keys()];
+  const ocultos = new Set<string>();
+  for (let i = 0; i < ids.length; i += EN_TROZOS) {
+    const { data, error: eO } = await supabaseAdmin.from('profiles').select('id').in('id', ids.slice(i, i + EN_TROZOS)).eq('ranking_oculto', true).limit(EN_TROZOS);
+    if (eO) return { success: false as const, error: fallo('getRankingExamenClase', eO) };
+    for (const p of data ?? []) ocultos.add(p.id as string);
+  }
+
+  const nombre = new Map(gente.data.map((g) => [g.id, g.nombre]));
+  const filas = ids.filter((id) => !ocultos.has(id)).map((id) => ({ id, nombre: nombre.get(id) ?? null, nota: notas.get(id)! }));
+  return { success: true as const, oculto: false as const, ranking: calculaRanking(filas, auth.user.id) };
+}
+
+/** Salir del ranking o volver a él. El usuario sale de la sesión, no de un parámetro (regla 1). */
+export async function setMiRanking(input: unknown): Promise<{ success: true; visible: boolean } | { success: false; error: string }> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const visible = (input as { visible?: unknown } | null)?.visible;
+  if (typeof visible !== 'boolean') return { success: false as const, error: 'Datos no válidos.' };
+
+  const { error } = await supabaseAdmin.from('profiles').update({ ranking_oculto: !visible }).eq('id', auth.user.id);
+  if (error) return { success: false as const, error: fallo('setMiRanking', error) };
+  return { success: true as const, visible };
 }

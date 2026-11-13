@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { LogOut, Menu, RefreshCw, X } from 'lucide-react';
 import { cx } from '../tokens';
+import TemaPanel from './TemaPanel';
 
 export type PestanaPanel = { id: string; etiqueta: string; icono: LucideIcon; seccion: string };
 
@@ -66,7 +67,8 @@ export default function PanelShell({
         <div className="border-t border-white/10 px-4.5 py-4">
           <span className="inline-block rounded bg-oro px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-marino-hondo">{rol}</span>
           <p className="mt-1.5 truncate text-[11px] text-indigo-200" title={correo}>{correo}</p>
-          <div className="mt-2.5 flex gap-2">
+          <div className="mt-2.5"><TemaPanel /></div>
+          <div className="mt-2 flex gap-2">
             <button type="button" onClick={onRefrescar} aria-label="Recargar datos" title="Recargar datos" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15 text-indigo-100 hover:bg-white/10">
               <RefreshCw size={16} />
             </button>
@@ -98,7 +100,8 @@ export default function PanelShell({
                 </button>
               ))}
             </div>
-            <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 px-2.5 pt-3">
+            <div className="mt-2 border-t border-white/10 px-2.5 pt-3"><TemaPanel /></div>
+            <div className="mt-2 flex items-center justify-between gap-2 px-2.5">
               <p className="min-w-0 truncate text-[11px] text-indigo-200"><b className="mr-1.5 rounded bg-oro px-1.5 py-0.5 text-[9px] font-black uppercase text-marino-hondo">{rol}</b>{correo}</p>
               <div className="flex shrink-0 gap-2">
                 <button type="button" onClick={onRefrescar} aria-label="Recargar datos" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15"><RefreshCw size={16} /></button>

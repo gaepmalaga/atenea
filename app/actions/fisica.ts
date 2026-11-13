@@ -345,7 +345,7 @@ export async function getAlumnosFisica(params: { lunes: string }): Promise<
   if (!ids.length) return { success: true as const, lunes, hoy, grupos, alumnos: [] };
 
   const [{ data: perfiles }, sesiones] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role').in('id', ids),
+    supabaseAdmin.from('profiles').select('id, email, full_name, role').in('id', ids),
     paginaCompleta<Fila>(async (desde, hasta) => supabaseAdmin.from('training_sessions').select('id, user_id, session_date, kind')
       .eq('organization_id', org).in('user_id', ids).gte('session_date', lunes).lte('session_date', sumaDias(lunes, 13))
       .order('id').range(desde, hasta)),
@@ -367,6 +367,7 @@ export async function getAlumnosFisica(params: { lunes: string }): Promise<
       return {
         id,
         email: (p.email as string | null) ?? '—',
+        nombre: nombreLimpio(p.full_name),
         grupos: gruposDe.get(id) ?? [],
         semanas: resumenSemanasAlumno({
           sesiones: suyas,
@@ -713,8 +714,9 @@ export async function deletePlantilla(params: { id: string }): Promise<{ success
 // ── Las marcas de la academia ────────────────────────────────────────────
 
 export type MarcaGuardada = Marca & { porMi: boolean };
-export type AlumnoConMarcas = { id: string; email: string; sexo: Sexo | null; marcas: Marca[]; rms: MarcaRM[] };
+export type AlumnoConMarcas = { id: string; email: string; nombre: string | null; sexo: Sexo | null; marcas: Marca[]; rms: MarcaRM[] };
 
+const nombreLimpio = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 const aSexo = (v: unknown): Sexo | null => (v === 'male' || v === 'female' ? v : null);
 
 function aMarca(r: Fila): Marca {
@@ -733,7 +735,7 @@ export async function getMarcasAcademia(): Promise<{ success: true; alumnos: Alu
   if (!ids.length) return { success: true as const, alumnos: [], hoy: hoyAcademia() };
 
   const [{ data: perfiles }, { data: fisicos }, { data: marcas, error }, { data: rms }] = await Promise.all([
-    supabaseAdmin.from('profiles').select('id, email, role').in('id', ids),
+    supabaseAdmin.from('profiles').select('id, email, full_name, role').in('id', ids),
     // Un admin leyendo el sexo de OTRO alumno: la sesión del alumno no sirve aquí
     // (regla 48). Detrás de `requireAdmin`.
     supabaseAdmin.from('profiles_physical').select('user_id, gender').in('user_id', ids),
@@ -751,6 +753,7 @@ export async function getMarcasAcademia(): Promise<{ success: true; alumnos: Alu
       .map((p) => ({
         id: p.id as string,
         email: (p.email as string | null) ?? '—',
+        nombre: nombreLimpio(p.full_name),
         sexo: sexo.get(p.id as string) ?? null,
         marcas: (marcas ?? []).filter((m) => m.user_id === p.id).map(aMarca),
         rms: (rms ?? []).filter((m) => m.user_id === p.id).map(aMarcaRM),
