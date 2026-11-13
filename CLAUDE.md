@@ -249,6 +249,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 123 | Esta instalación es de UNA academia: el admin de Alphapol puede tocar el banco global |
 | 124 | Los exámenes en clase: nombre automático, no se repite sin avisar, y las notas se pegan |
 | 125 | Prep. física con nombres y columnas, tema en el panel y el Inicio respeta los módulos |
+| 126 | Ranking de clase (cada uno decide si sale) y «acierto de la sesión» sin nota en el entrenamiento |
 
 ## Trampas conocidas
 
