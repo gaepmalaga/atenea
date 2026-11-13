@@ -8,6 +8,7 @@ import type { GroupRow } from '@/app/actions/groups';
 import { fechaCortaEs } from '@/app/lib/examen-clase';
 import { Hoja, Aviso, Boton, Campo, EmptyState, Etiqueta } from '../../../ui';
 import { bajaPdf, datosDeGuardado, type TipoPdf } from './descargas';
+import { confirmar } from '@/app/lib/dialogos';
 
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 const masDias = (d: string, n: number) => new Date(new Date(`${d}T12:00:00Z`).getTime() + n * 86_400_000).toISOString().slice(0, 10);
@@ -43,7 +44,7 @@ export default function Guardados({ onAplicado }: { onAplicado: (id: string) => 
   }
 
   async function borra(e: ExamenGuardado) {
-    if (!confirm(`¿Borrar «${e.titulo}»? No se puede deshacer.`)) return;
+    if (!(await confirmar(`¿Borrar «${e.titulo}»? No se puede deshacer.`))) return;
     const res = await borraExamen(e.id);
     if (!res.success) { setError(res.error ?? 'No se ha podido borrar.'); return; }
     carga();

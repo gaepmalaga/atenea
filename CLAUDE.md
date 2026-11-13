@@ -251,6 +251,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 125 | Prep. física con nombres y columnas, tema en el panel y el Inicio respeta los módulos |
 | 126 | Ranking de clase (cada uno decide si sale) y «acierto de la sesión» sin nota en el entrenamiento |
 | 127 | Psicotécnicos en clase (mismo examen para un turno, filtrado por tipo) y los tipos visuales |
+| 128 | Las ventanas son de la app, no del navegador; y un resultado se cierra con «Volver» |
 
 ## Trampas conocidas
 

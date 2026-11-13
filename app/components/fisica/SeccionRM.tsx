@@ -5,6 +5,7 @@ import { Dumbbell, Plus, Trash2, Loader2 } from 'lucide-react';
 import { EJERCICIOS_FUERZA, rmDe, rmVigentes, formateaKg, MAX_REPS_ESTIMACION, estima1RM, leeKg, type MarcaRM } from '@/app/lib/rm';
 import { etiquetaDia } from '@/app/lib/sesiones';
 import { Button, TextField, SectionLabel, TEXT, cx } from '../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 type Entrada = { ejercicio: string; pesoKg: string; reps: string; fecha: string };
 
@@ -66,7 +67,7 @@ export default function SeccionRM({ marcas, hoy, quien, puedeBorrar, onApuntar, 
               <span className="shrink-0 font-mono text-slate-600 dark:text-slate-300">{formateaKg(m.pesoKg)}{m.reps > 1 ? ` × ${m.reps}` : ''}</span>
               <span className="shrink-0 font-mono font-black text-slate-900 dark:text-white w-16 text-right">{rmDe(m) !== null ? formateaKg(rmDe(m)!) : '—'}</span>
               {puedeBorrar(m) ? (
-                <button aria-label="Borrar" onClick={async () => { if (confirm('¿Borrar esta marca?')) await onBorrar(m.id); }}
+                <button aria-label="Borrar" onClick={async () => { if ((await confirmar('¿Borrar esta marca?'))) await onBorrar(m.id); }}
                   className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
                   <Trash2 size={14} />
                 </button>

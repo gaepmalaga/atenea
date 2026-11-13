@@ -24,6 +24,7 @@ import {
   seedFlashcardBank,
   getFlashcardBankCounts
 } from '@/actions'; 
+import { avisar, confirmar } from '@/app/lib/dialogos';
 
 // --- TIPOS DE DATOS (CORREGIDOS Y COMPLETOS) ---
 type DocFile = {
@@ -128,10 +129,10 @@ export default function AdminContent() {
   // --- SUBIDA DE ARCHIVOS ---
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || e.target.files.length === 0) return;
-    if (!selectedSubject) { alert("Primero selecciona un TEMA de la lista."); return; }
+    if (!selectedSubject) { void avisar("Primero selecciona un TEMA de la lista."); return; }
 
     const file = e.target.files[0];
-    if (file.type !== 'application/pdf') { alert("Solo se admiten archivos PDF."); return; }
+    if (file.type !== 'application/pdf') { void avisar("Solo se admiten archivos PDF."); return; }
 
     setUploading(true);
     const formData = new FormData();
@@ -142,7 +143,7 @@ export default function AdminContent() {
     setUploading(false);
 
     if (!res.success) {
-        alert("❌ Error: " + res.error);
+        void avisar("❌ Error: " + res.error);
         return;
     }
 
@@ -152,9 +153,9 @@ export default function AdminContent() {
     // está en el buscador y el chat no lo encontrará. Antes se pintaba el
     // mismo "✅" en ambos casos.
     if (res.complete) {
-        alert("✅ " + res.message);
+        void avisar("✅ " + res.message);
     } else {
-        alert(
+        void avisar(
             "⚠️ " + res.message +
             "\n\nEse contenido NO aparecerá en las búsquedas del chat." +
             (res.failures?.length ? "\n\nPrimeros errores:\n" + res.failures.join("\n") : "") +
@@ -176,7 +177,7 @@ export default function AdminContent() {
       const res = await reindexDocument(docId);
 
       if (!res.success) {
-        alert(`No se pudo reindexar "${docName}":\n${res.error}`);
+        void avisar(`No se pudo reindexar "${docName}":\n${res.error}`);
         return;
       }
 
@@ -184,7 +185,7 @@ export default function AdminContent() {
         ? `\n${res.withReference} de ellos con su referencia legal.`
         : '';
 
-      alert(
+      void avisar(
         res.status === 'indexado'
           ? `"${docName}" reindexado: ${res.indexed} fragmentos.${conRef}`
           : `"${docName}" quedo en ${res.status}: ${res.indexed} de ${res.total} fragmentos.${conRef}`
@@ -210,7 +211,7 @@ export default function AdminContent() {
       const res = await getDocumentChunks(docId);
 
       if (!res.success) {
-        alert(`No se han podido leer los fragmentos de "${docName}":\n${res.error}`);
+        void avisar(`No se han podido leer los fragmentos de "${docName}":\n${res.error}`);
         return;
       }
 
@@ -223,13 +224,13 @@ export default function AdminContent() {
   }
 
   async function handleDeleteDoc(docId: string, docName: string) {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el archivo "${docName}"?\nSe borrarán también los vectores de búsqueda asociados.`)) return;
+    if (!(await confirmar(`¿Estás seguro de que quieres eliminar el archivo "${docName}"?\nSe borrarán también los vectores de búsqueda asociados.`))) return;
     
     const res = await deleteDocument(docId);
     if (res.success) {
         await load();
     } else {
-        alert("Error al borrar: " + res.error);
+        void avisar("Error al borrar: " + res.error);
     }
   }
 

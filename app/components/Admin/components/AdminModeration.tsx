@@ -12,6 +12,7 @@ import {
   updateQuestion 
 } from '@/actions';
 import type { ModerationCandidate, ModerationQueue, ModerationReport } from '@/app/lib/questions';
+import { avisar, confirmar } from '@/app/lib/dialogos';
 
 // Cómo se pinta cada tipo de queja. El color es el del estado: rojo la que
 // invalida la pregunta, ámbar la que la deja dudosa, gris lo menor.
@@ -64,7 +65,7 @@ export default function AdminModeration() {
   }
 
   async function handleDisable(id: string, isReport = false) {
-      if(!confirm("¿Confirmas que esta pregunta no tiene salvación y debe ser DESACTIVADA?")) return;
+      if(!(await confirmar("¿Confirmas que esta pregunta no tiene salvación y debe ser DESACTIVADA?"))) return;
       
       // Optimistic remove
       if (isReport) {
@@ -84,7 +85,7 @@ export default function AdminModeration() {
 
   // --- LÓGICA DE EDICIÓN ---
   function openEditor(q: ModerationCandidate | null | undefined, reportData: ModerationReport | null = null) {
-    if (!q) return alert("Error: No se han cargado los datos de la pregunta. Revisa actions.ts");
+    if (!q) return void avisar("Error: No se han cargado los datos de la pregunta. Revisa actions.ts");
     
     setEditingQ(q);
     setReportContext(reportData); // Si existe, mostramos la "misión" en el editor
@@ -119,7 +120,7 @@ export default function AdminModeration() {
         setEditingQ(null);
         setReportContext(null);
     } else {
-        alert("Error al guardar: " + res.error);
+        void avisar("Error al guardar: " + res.error);
     }
     setSaving(false);
   }

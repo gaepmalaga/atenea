@@ -23,6 +23,7 @@ import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
 import TarjetaClase from '@/app/components/fisica/TarjetaClase';
 import { Boton, EmptyState, Modal, CampoSelect, Campo, Filtros, FiltroChip, TEXT, cx } from '../../../ui';
 import EditorSesion from './EditorSesion';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * «PLANIFICAR»: EL ENTRENO DE CADA ALUMNO (reglas 86 y 97).
@@ -833,7 +834,7 @@ function Biblioteca({ plantillas, onColocar, onCambio, onArrastrar }: {
                     <Icono size={13} className="shrink-0" /> <span className="truncate">{p.title}</span>
                   </button>
                   <button aria-label={`Borrar la plantilla ${p.title}`}
-                    onClick={async () => { if (confirm(`¿Borrar la plantilla «${p.title}»? Las sesiones ya puestas no cambian.`)) { const r = await deletePlantilla({ id: p.id }); if (r.success) onCambio(); } }}
+                    onClick={async () => { if ((await confirmar(`¿Borrar la plantilla «${p.title}»? Las sesiones ya puestas no cambian.`))) { const r = await deletePlantilla({ id: p.id }); if (r.success) onCambio(); } }}
                     className="min-h-[40px] px-2 opacity-60 hover:opacity-100">
                     <Trash2 size={13} />
                   </button>

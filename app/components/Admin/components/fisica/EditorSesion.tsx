@@ -11,6 +11,7 @@ import type { ApunteConCorreo, RMVigente } from '@/app/actions/fisica';
 import { EJERCICIOS_FUERZA, claveEjercicio, kgDeCarga, formateaKg, type Carga } from '@/app/lib/rm';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
 import { Modal, Boton, Campo, CampoArea, CampoSelect, TEXT, cx } from '../../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * CREAR O CAMBIAR UNA SESIÓN (regla 86).
@@ -102,7 +103,7 @@ export default function EditorSesion({
                 <Copy size={16} /> Duplicar
               </Boton>
               <Boton variant="danger" disabled={!!ocupado} className="sm:ml-auto"
-                onClick={() => { if (confirm('¿Borrar esta sesión? Se pierde también lo que hayan apuntado los alumnos.')) haz('borrar', () => deleteSesion({ id: sesion.id })); }}>
+                onClick={async () => { if ((await confirmar('¿Borrar esta sesión? Se pierde también lo que hayan apuntado los alumnos.'))) haz('borrar', () => deleteSesion({ id: sesion.id })); }}>
                 <Trash2 size={16} /> Borrar
               </Boton>
             </>

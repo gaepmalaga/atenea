@@ -20,6 +20,7 @@ import AltaMasiva from './AltaMasiva';
 import DatosContacto from './DatosContacto';
 import { nombreVisible, type DatosAlumno } from '@/app/lib/perfil-alumno';
 import { Hoja, BloqueTitulo, Boton, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, Estado, Dato, Avatar, TablaDual, inicialesDeCorreo, nombreDeCorreo, type Tono } from '../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * «Alumnos» (P8) — un solo panel que junta lo que antes eran tres pestañas:
@@ -433,11 +434,11 @@ function FichaAlumno({
             </Boton>
           )}
           {a.acceso !== 'suspended' && (
-            <Boton variant="danger" disabled={busy} onClick={() => {
+            <Boton variant="danger" disabled={busy} onClick={async () => {
               // Suspender deja al alumno fuera en ese momento: un toque sin
               // querer en el móvil no puede bastar.
               const quien = nombreVisible(personales?.nombre, a.email) || a.email || 'este alumno';
-              if (confirm(a.acceso === 'pending' ? `¿Rechazar la solicitud de ${quien}?` : `¿Suspender a ${quien}? Deja de poder entrar hasta que le vuelvas a dar acceso.`)) {
+              if ((await confirmar(a.acceso === 'pending' ? `¿Rechazar la solicitud de ${quien}?` : `¿Suspender a ${quien}? Deja de poder entrar hasta que le vuelvas a dar acceso.`))) {
                 onAccion(() => setMemberAccess(a.id, 'suspended'));
               }
             }}>

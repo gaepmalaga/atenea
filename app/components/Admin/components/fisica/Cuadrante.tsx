@@ -23,6 +23,7 @@ import { MARCA } from '@/app/lib/marca';
 import { profesorSugerido } from '@/app/lib/profesores';
 import { Boton, Hoja, EmptyState, Modal, CampoSelect, Campo, TEXT, cx } from '../../../ui';
 import EditorSesion from './EditorSesion';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * EL CUADRANTE SEMANAL (reglas 96 y 97).
@@ -123,7 +124,7 @@ export default function Cuadrante() {
 
   /** Mandar el cuadrante es avisar a los alumnos: si no está publicado, se ofrece publicarlo. */
   async function ofrecePublicar() {
-    if (datos && !datos.publicada && confirm('Esta semana aún no está publicada: los alumnos solo ven el horario. ¿La publico también?')) await publica(true);
+    if (datos && !datos.publicada && (await confirmar('Esta semana aún no está publicada: los alumnos solo ven el horario. ¿La publico también?'))) await publica(true);
   }
 
   async function bajaImagen() {
@@ -189,7 +190,7 @@ export default function Cuadrante() {
                 <b className="inline-flex items-center gap-1"><Check size={13} /> Publicada</b> el {cuando(datos.publicada)}. Lo que cambies lo ven al momento.
               </p>
               <Boton size="sm" variant="ghost" disabled={ocupado !== null} icon={<EyeOff size={14} />}
-                onClick={() => { if (confirm('¿Retirar la publicación? Los alumnos volverán a ver solo el horario.')) publica(false); }}>
+                onClick={async () => { if ((await confirmar('¿Retirar la publicación? Los alumnos volverán a ver solo el horario.'))) publica(false); }}>
                 Retirar
               </Boton>
             </div>
@@ -427,7 +428,7 @@ function EditorCelda({ edicion, datos, cuadrante, onClose, onGuardado, onCambio,
   }
 
   async function quita() {
-    if (!s || !confirm(`¿Quitar «${s.titulo}» de ${fila.grupo.corto} el ${tituloDia.toLowerCase()}? Se pierde también lo que hayan apuntado los alumnos.`)) return;
+    if (!s || !(await confirmar(`¿Quitar «${s.titulo}» de ${fila.grupo.corto} el ${tituloDia.toLowerCase()}? Se pierde también lo que hayan apuntado los alumnos.`))) return;
     setGuardando(true); setError(null);
     const res = await deleteSesion({ id: s.id });
     if (res.success) await onGuardado('Sesión quitada.');
@@ -579,7 +580,7 @@ function Asistentes({ datos, cuadrante, grupo, fecha, onCambio }: {
   async function haz(que: string, fn: (forzar: boolean) => Promise<{ success: boolean; error?: string; completa?: boolean }>) {
     setOcupado(que); setError(null);
     let r = await fn(false);
-    if (!r.success && r.completa && confirm('Esa clase está completa. ¿Lo apunto igualmente, por encima del aforo?')) r = await fn(true);
+    if (!r.success && r.completa && (await confirmar('Esa clase está completa. ¿Lo apunto igualmente, por encima del aforo?'))) r = await fn(true);
     if (!r.success && !(r.completa)) setError(r.error ?? 'No se ha podido.');
     setOcupado(null);
     if (r.success) { setNuevo(''); setMoviendo(null); await onCambio(); }

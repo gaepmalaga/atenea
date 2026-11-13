@@ -17,6 +17,7 @@ import {
 import { lunesDe, etiquetaSemana } from '@/app/lib/sesiones';
 import { sumaDias, etiquetaFecha, diaSemanaDe, DIAS_SEMANA } from '@/app/lib/asistencia';
 import { Hoja, Boton, Modal, Campo, CampoSelect, BloqueTitulo, EmptyState, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, Dato, Etiqueta, Avatar, inicialesDeNombre, TablaDual } from '../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * PROFESORES (regla 99): el equipo de la academia, de teoría y de física.
@@ -106,7 +107,7 @@ export default function AdminProfesores() {
     const aviso = a && (a.grupos.length || a.clases.length)
       ? ` Lleva ${a.grupos.length} ${a.grupos.length === 1 ? 'grupo' : 'grupos'}; sus clases del cuadrante se quedan sin profesor.`
       : '';
-    if (!confirm(`¿Borrar a ${s.name}?${aviso} Si solo ha dejado de dar clase, mejor desmárcalo como activo.`)) return;
+    if (!(await confirmar(`¿Borrar a ${s.name}?${aviso} Si solo ha dejado de dar clase, mejor desmárcalo como activo.`))) return;
     setBorrando(s.id);
     const res = await deleteStaff(s.id);
     setBorrando(null);
@@ -382,7 +383,7 @@ function ClasesHabituales({ habituales, staff, onCambio }: { habituales: ClaseHa
             <div className="flex gap-2 w-full">
               {!editando.nueva && (
                 <Boton variant="ghost" icon={<Trash2 size={14} />} disabled={guardando}
-                  onClick={() => { if (confirm(`¿Quitar «${editando.actividad}» de la lista? Las celdas ya escritas no cambian.`)) guarda([]); }}>
+                  onClick={async () => { if ((await confirmar(`¿Quitar «${editando.actividad}» de la lista? Las celdas ya escritas no cambian.`))) guarda([]); }}>
                   Quitar
                 </Boton>
               )}

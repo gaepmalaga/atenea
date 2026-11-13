@@ -32,6 +32,7 @@ export type { Question } from '@/app/lib/questions';
 export type { ExamSettings } from '@/app/lib/exam-session';
 
 import type { ExamSettings } from '@/app/lib/exam-session';
+import { avisar } from '@/app/lib/dialogos';
 
 interface ExamManagerProps {
   onZenToggle: (active: boolean) => void;
@@ -181,7 +182,7 @@ export default function ExamManager({ onZenToggle, onRepasarFallos }: ExamManage
       onZenToggle(true);
 
     } catch (error) {
-      alert(`Error iniciando el test: ${error instanceof Error ? error.message : 'desconocido'}`);
+      void avisar(`Error iniciando el test: ${error instanceof Error ? error.message : 'desconocido'}`);
     } finally {
       setLoading(false);
     }

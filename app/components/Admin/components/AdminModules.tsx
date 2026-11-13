@@ -16,6 +16,7 @@ import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC } from '@/app/lib/training-
 import AcademyIdentity from './AcademyIdentity';
 import AdminDemo from './AdminDemo';
 import { PanelTitulo, Hoja, BloqueTitulo, Aviso, Conmutador } from '../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * Los interruptores de los módulos del alumno (P4).
@@ -78,8 +79,8 @@ export default function AdminModules() {
 
   // Apagar un módulo lo apaga para TODOS los alumnos y al instante (también en
   // el servidor), así que se pregunta. Encender no hace falta preguntarlo.
-  function pideAlternar(id: ModuleId) {
-    if (settings[id] && !confirm(`¿Apagar «${MODULE_LABEL[id]}»? Los alumnos dejan de verlo y de poder usarlo en este mismo momento.`)) return;
+  async function pideAlternar(id: ModuleId) {
+    if (settings[id] && !(await confirmar(`¿Apagar «${MODULE_LABEL[id]}»? Los alumnos dejan de verlo y de poder usarlo en este mismo momento.`))) return;
     alterna(id);
   }
 

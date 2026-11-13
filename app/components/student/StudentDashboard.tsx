@@ -32,6 +32,7 @@ import type { AuthUser } from '@/app/lib/auth';
 import { getModuleSettings } from '@/actions';
 import { observaTema } from '@/app/lib/theme';
 import { todosActivos, moduloDeEntrada, enElMvp, type ModuleId, type ModuleSettings } from '@/app/lib/modules';
+import { confirmar } from '@/app/lib/dialogos';
 
 // --- TIPOS ---
 export type TabId = 'home' | 'chat' | 'test' | 'review' | 'cards' | 'psico' | 'presencial' | 'training' | 'interview' | 'stats' | 'profile';
@@ -144,7 +145,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     // dos Atras para salir de la aplicacion desde el inicio.
     window.history.replaceState({ atenea: 'home' }, '');
 
-    const alVolver = (e: PopStateEvent) => {
+    const alVolver = async (e: PopStateEvent) => {
       const destino = (e.state as { atenea?: string } | null)?.atenea;
 
       // La sala de voz es una capa a pantalla completa que no depende de la
@@ -163,9 +164,13 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       // confirmarlo.
       if (zenModeRef.current) {
         window.history.pushState({ atenea: 'test' }, '');
-        const salir = window.confirm(
-          'Tienes un examen en curso.\n\n¿Salir? Se guarda y podrás reanudarlo desde donde lo dejaste.',
-        );
+        const salir = (await confirmar({
+          titulo: 'Tienes un examen en curso',
+          texto: '¿Salir? Se guarda y podrás reanudarlo desde donde lo dejaste.',
+          confirmar: 'Salir',
+          cancelar: 'Seguir con el examen',
+          peligro: false,
+        }));
         if (salir) {
           setZenMode(false);
           setActiveTab('test');

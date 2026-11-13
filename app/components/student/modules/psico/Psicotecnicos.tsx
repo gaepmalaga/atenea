@@ -1,18 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock, Flag, Play, RotateCcw, Shapes, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock, Flag, Play, Shapes, X } from 'lucide-react';
 import { empiezaPsico, entregaPsico, getMisPsico, getRevisionPsico, getMisPsicoClase, empiezaPsicoClase, entregaPsicoClase, getRevisionPsicoClase } from '@/actions';
 import type { MiPsicoClase } from '@/app/actions/psico-clase';
 import { parseaRespuestasPsico } from '@/app/lib/psico-clase';
 import type { RevisionPsico, SesionPsico, SesionPsicoHecha } from '@/app/actions/psico';
 import {
-  TIPOS_PSICO, TIPO_PSICO_LABEL, TIPO_PSICO_DESC, TAMANOS_PSICO, MINUTOS_PSICO, EJERCICIOS_PSICO, opcionesDe, textoPenalizacion,
-  type NumeroEjercicio,
+  TIPOS_PSICO, TIPO_PSICO_LABEL, TIPO_PSICO_DESC, TAMANOS_PSICO, MINUTOS_PSICO, textoPenalizacion,
   type OpcionPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '@/app/lib/psico';
 import { Card, Button, SectionLabel, StatTile, OptionCard, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
 import FiguraPsico, { FichaDomino, RejillaPsico, FilaSimbolos, TablaSimbolos, CubosPsico, DesarrolloPsico, AgujerosPsico, FiguraGiro } from './FiguraPsico';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * PSICOTÉCNICOS (regla 117): elegir, hacer contra el reloj, y repasar.
@@ -214,11 +214,11 @@ export default function Psicotecnicos() {
     window.scrollTo(0, 0);
   }
 
-  /** Libre (los tipos y el tamaño que elija) o un ejercicio del examen (todo fijo, lo pone el servidor). */
-  async function empezar(ejercicio?: NumeroEjercicio) {
+  /** Entrenar: los tipos y el tamaño que elija el alumno. */
+  async function empezar() {
     setOcupado(true);
     setError(null);
-    const res = await empiezaPsico(ejercicio ? { ejercicio } : { tipos: [...tipos], total });
+    const res = await empiezaPsico({ tipos: [...tipos], total });
     setOcupado(false);
     if (!res.success) { setError(res.error); return; }
     inicio.current = Date.now();
@@ -338,9 +338,9 @@ export default function Psicotecnicos() {
             variant="secondary"
             disabled={ocupado}
             icon={<Flag size={16} />}
-            onClick={() => {
+            onClick={async () => {
               const faltan = sesion.preguntas.length - contestadas;
-              if (confirm(faltan ? `Te quedan ${faltan} sin contestar. ¿Entregar ya?` : '¿Entregar la sesión?')) entregar(sesion.id);
+              if ((await confirmar({ titulo: 'Entregar', texto: faltan ? `Te quedan ${faltan} sin contestar. ¿Entregar ya?` : '¿Entregar la sesión?', confirmar: 'Entregar' }))) entregar(sesion.id);
             }}
           >
             {ocupado ? 'Entregando…' : 'Entregar'}
@@ -383,7 +383,7 @@ export default function Psicotecnicos() {
           </ul>
         </Card>
 
-        <Button onClick={() => setResultado(null)} icon={<RotateCcw size={16} />}>Volver y hacer otra</Button>
+        <Button onClick={() => setResultado(null)} icon={<ArrowLeft size={16} />}>Volver</Button>
 
         <SectionLabel>Repaso, pregunta a pregunta</SectionLabel>
         {revision.map((q, i) => (
@@ -411,7 +411,7 @@ export default function Psicotecnicos() {
 function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error, repasar, clase, empezarClase, repasarClase, hoja, setHoja, onHojaEntregada }: {
   tipos: Set<TipoPsico>; setTipos: (f: (prev: Set<TipoPsico>) => Set<TipoPsico>) => void;
   total: number; setTotal: (n: number) => void;
-  historial: SesionPsicoHecha[]; empezar: (ejercicio?: NumeroEjercicio) => void; ocupado: boolean; error: string | null;
+  historial: SesionPsicoHecha[]; empezar: () => void; ocupado: boolean; error: string | null;
   repasar: (id: string) => void;
   clase: MiPsicoClase[]; empezarClase: (id: string) => void; repasarClase: (id: string) => void;
   hoja: MiPsicoClase | null; setHoja: (e: MiPsicoClase | null) => void;
@@ -431,8 +431,6 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
     }
     return suma;
   }, [historial]);
-
-  const [modo, setModo] = useState<'examen' | 'libre'>('examen');
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 pb-6 animate-in fade-in duration-150">
@@ -470,35 +468,6 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
         </Card>
       )}
 
-      {/* Dos maneras de hacerlo, y se elige una: así no se mezclan en la pantalla. */}
-      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Cómo quieres hacerlo">
-        <OptionCard title="Simulacro del examen" description="Los 3 ejercicios del cuadernillo, con su tiempo. Para medirte." selected={modo === 'examen'} onClick={() => setModo('examen')} />
-        <OptionCard title="Entrenar por tipos" description="Tú eliges qué tipos y cuántas. Para practicar lo que peor llevas." selected={modo === 'libre'} onClick={() => setModo('libre')} />
-      </div>
-
-      {modo === 'examen' && (
-      <Card pad="lg">
-        <SectionLabel>Simulacro del examen</SectionLabel>
-        <p className={cx(TEXT.muted, 'mb-3')}>Igual que el examen real: las mismas preguntas, el mismo tiempo y las mismas opciones. Las preguntas son nuevas cada vez. Cada ejercicio se hace por separado.</p>
-        <div className="grid gap-2">
-          {([1, 2, 3] as const).map((n) => {
-            const e = EJERCICIOS_PSICO[n];
-            return (
-              <button key={n} type="button" disabled={ocupado} onClick={() => empezar(n)}
-                className={cx('flex w-full items-center justify-between gap-3 border-2 border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900', RADIUS.md, TAP)}>
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold text-slate-900 dark:text-white">{e.nombre} · {e.descripcion}</span>
-                  <span className={cx(TEXT.muted, 'block')}>{e.total} preguntas · {e.minutos} min · {opcionesDe(e.tipos[0])} opciones</span>
-                </span>
-                <Play size={16} className="shrink-0 text-marino dark:text-oro-claro" aria-hidden />
-              </button>
-            );
-          })}
-        </div>
-      </Card>
-      )}
-
-      {modo === 'libre' && (
       <Card pad="lg">
         <SectionLabel>Entrenar por tipos</SectionLabel>
         <p className={cx(TEXT.body, 'mb-4 text-slate-700 dark:text-slate-300')}>Eliges los tipos de pregunta y cuántas hacer; el tiempo se ajusta solo. Preguntas nuevas cada vez: no hay nada que memorizar.</p>
@@ -538,7 +507,6 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
         </div>
         <p className={cx(TEXT.muted, 'mt-3')}>Cuatro opciones por pregunta, como en el examen. Cada fallo resta según las opciones; los blancos no restan.</p>
       </Card>
-      )}
 
       <Card>
         <SectionLabel>Mis últimas sesiones</SectionLabel>
@@ -590,7 +558,7 @@ function PasarHoja({ examen, onCancelar, onEntregada }: {
   async function entrega() {
     const p = parseaRespuestasPsico(texto, examen.opciones);
     if (!p.ok) { setError(p.error); return; }
-    if (!confirm('¿Entregar estas respuestas? Solo se puede una vez.')) return;
+    if (!(await confirmar({ titulo: 'Entregar', texto: '¿Entregar estas respuestas? Solo se puede una vez.', confirmar: 'Entregar' }))) return;
     setEnviando(true);
     setError(null);
     const res = await entregaPsicoClase({ id: examen.id, respuestas: p.respuestas, via: 'hoja' });

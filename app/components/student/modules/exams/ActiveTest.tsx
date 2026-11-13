@@ -16,6 +16,7 @@ import { countChange, confianzaDeDuda } from '@/app/lib/exam-results';
 import { mereceLaPenaPreguntar } from '@/app/lib/answer-signals';
 import QuestionNote from '../../QuestionNote';
 import { MARCA } from '@/app/lib/marca';
+import { avisar } from '@/app/lib/dialogos';
 
 interface ActiveTestProps {
   questions: Question[];
@@ -381,14 +382,14 @@ export default function ActiveTest({
         message: reportData.message
       });
       if (!res.success) {
-        alert('No se pudo enviar el aviso. Inténtalo de nuevo en un momento.');
+        void avisar('No se pudo enviar el aviso. Inténtalo de nuevo en un momento.');
         return;
       }
       setIsReportModalOpen(false);
       setReportData({ type: '', message: '' });
-      alert(`Aviso enviado. Gracias por ayudar a mejorar ${MARCA.nombre}.`);
+      void avisar(`Aviso enviado. Gracias por ayudar a mejorar ${MARCA.nombre}.`);
     } catch {
-      alert("Error enviando reporte.");
+      void avisar("Error enviando reporte.");
     } finally {
       setIsSubmittingReport(false);
     }

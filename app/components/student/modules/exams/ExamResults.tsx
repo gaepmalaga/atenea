@@ -8,7 +8,7 @@ import { tendenciaDeSesion, type Acierto } from '@/app/lib/tendencia-entrenamien
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
 import { tipoDeBlanco, TIPO_BLANCO } from '@/app/lib/answer-signals';
 import {
-  XCircle, RotateCcw, Award, AlertTriangle, Target, Sparkles, CheckCircle2, Scale, Clock, X,
+  XCircle, ArrowLeft, Award, AlertTriangle, Target, Sparkles, CheckCircle2, Scale, Clock, X,
 } from 'lucide-react';
 import { Card, Button, StatTile, Dificultad, cx, TEXT } from '../../../ui';
 import { resumeDudosas, intentosDePreguntas } from '@/app/lib/dudosas';
@@ -129,9 +129,9 @@ function ResultadoEntrenamiento({
             size="lg"
             variant={fallos > 0 && onRepasarFallos ? 'secondary' : 'primary'}
             onClick={onRetry}
-            icon={<RotateCcw size={18} />}
+            icon={<ArrowLeft size={18} />}
           >
-            Nueva sesión
+            Volver
           </Button>
         </div>
       </Card>
@@ -375,9 +375,9 @@ function ResultadoSimulacro({
           size="lg"
           variant={wrong > 0 && onRepasarFallos ? 'secondary' : 'primary'}
           onClick={onRetry}
-          icon={<RotateCcw size={18} />}
+          icon={<ArrowLeft size={18} />}
         >
-          Nuevo simulacro
+          Volver
         </Button>
       </div>
     </div>

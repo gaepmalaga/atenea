@@ -7,6 +7,7 @@ import type { Aplicacion, DetalleAplicacion, FilaParticipante } from '@/app/acti
 import { LETRAS_CLASE, leeNotasPegadas, nombreDeAplicacion, resumenDeNotas, variacionDeMedia, type EstadoEntrega } from '@/app/lib/examen-clase';
 import { CNP_SCORING } from '@/app/lib/scoring';
 import { Hoja, BloqueTitulo, Aviso, Boton, Campo, CampoArea, EmptyState, Etiqueta, Filtros, FiltroChip, PanelLateral, Pestanas, Pulso, TONO_PUNTO, cx } from '../../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 const fechaLarga = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 const num = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
@@ -102,7 +103,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
   }
 
   async function borra() {
-    if (!d || !confirm('¿Borrar este examen puesto y todas sus notas? No se puede deshacer.')) return;
+    if (!d || !(await confirmar('¿Borrar este examen puesto y todas sus notas? No se puede deshacer.'))) return;
     const res = await borraAplicacion(id);
     if (!res.success) { setError(res.error ?? 'No se ha podido borrar.'); return; }
     onVolver();
@@ -334,7 +335,7 @@ function Notas({ d, id, filtro, setFiltro, busca, setBusca, cuenta, recarga, acc
                     {p.estado === 'entregado' && (
                       <button type="button" className="mt-0.5 min-h-[28px] text-[11.5px] font-semibold text-indigo-900 underline underline-offset-2 dark:text-indigo-200"
                         aria-label={`${p.nombre}: que repita`}
-                        onClick={() => { if (confirm(`¿Dejar que ${p.nombre} vuelva a meter sus respuestas? Se borra lo que entregó.`)) accion(() => reiniciaEntrega({ aplicacionId: id, alumnoId: p.id })); }}>
+                        onClick={async () => { if ((await confirmar(`¿Dejar que ${p.nombre} vuelva a meter sus respuestas? Se borra lo que entregó.`))) accion(() => reiniciaEntrega({ aplicacionId: id, alumnoId: p.id })); }}>
                         Que repita
                       </button>
                     )}

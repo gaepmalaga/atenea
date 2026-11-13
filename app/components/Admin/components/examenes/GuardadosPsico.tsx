@@ -8,6 +8,7 @@ import type { GroupRow } from '@/app/actions/groups';
 import { TIPOS_PSICO, TIPO_PSICO_LABEL } from '@/app/lib/psico';
 import { Hoja, Aviso, Boton, Campo, EmptyState, Etiqueta } from '../../../ui';
 import { imprimeHojaPsico } from './hojaPsico';
+import { confirmar } from '@/app/lib/dialogos';
 
 const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const masDias = (f: string, n: number) => { const d = new Date(`${f}T12:00:00`); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -42,7 +43,7 @@ export default function GuardadosPsico({ onAplicado }: { onAplicado: (id: string
     if (!ok) setAviso('El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes para esta página y vuelve a probar.');
   }
   async function borra(e: PsicoGuardado) {
-    if (!confirm(`¿Borrar «${e.titulo}»${e.puestos.length ? ' y las notas de los turnos a los que se puso' : ''}? No se puede deshacer.`)) return;
+    if (!(await confirmar(`¿Borrar «${e.titulo}»${e.puestos.length ? ' y las notas de los turnos a los que se puso' : ''}? No se puede deshacer.`))) return;
     const r = await borraPsicoExamen(e.id);
     if (!r.success) { setAviso(r.error ?? 'No se ha podido borrar.'); return; }
     cargar();
