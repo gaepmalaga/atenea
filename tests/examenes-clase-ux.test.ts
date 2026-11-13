@@ -127,6 +127,11 @@ describe('la pantalla En clase', () => {
     expect(src).toMatch(/onBlur=\{\(\) => \{ const antes/);
   });
 
+  it('los filtros van dentro de la tarjeta y saltan de línea: no se asoman fuera de ella', () => {
+    expect(src).toMatch(/<Filtros etiqueta="Qué alumnos ver" enHoja>/);
+    expect(lee('app/components/ui/panel/Filtros.tsx')).toMatch(/enHoja \? 'flex flex-wrap gap-1\.5'/);
+  });
+
   it('el nombre del alumno se puede leer entero: dos líneas antes que cortarlo', () => {
     expect(src).toMatch(/line-clamp-2/);
     expect(src).not.toMatch(/truncate[^\n]*\{p\.nombre\}/);

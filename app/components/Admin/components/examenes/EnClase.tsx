@@ -177,7 +177,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
             </div>
           </Hoja>
         ) : (
-          <EmptyState icon={<Users size={36} />} title="Todavía no ha entregado nadie" hint="Cuando los alumnos metan sus respuestas, aquí verás cómo ha ido la clase." bordered />
+          <EmptyState icon={<Users size={36} />} title="Todavía no ha entregado nadie" hint="Cuando los alumnos metan sus respuestas, aquí verás cuántos hay en cada tramo de nota (0-2, 2-4, 4-6…). La nota media y la oficial ya salen arriba." bordered />
         )
       )}
 
@@ -203,7 +203,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
             </ol>
           </Hoja>
         ) : (
-          <EmptyState icon={<Users size={36} />} title="Aún no hay preguntas que mirar" hint="Salen cuando al menos tres alumnos han entregado." bordered />
+          <EmptyState icon={<Users size={36} />} title="Aún no hay preguntas que mirar" hint="Salen cuando al menos tres alumnos han entregado: las diez que más se han fallado, con el porcentaje que falló y qué opción marcó cada uno, para repasarlas en clase." bordered />
         )
       )}
 
@@ -262,7 +262,7 @@ function Notas({ d, id, filtro, setFiltro, busca, setBusca, cuenta, recarga, acc
       <p className="text-[13px] text-slate-600 dark:text-slate-400">
         La nota <b>calculada</b> sale de las respuestas del alumno. La <b>oficial</b>, la del papel, manda si la escribes.
       </p>
-      <Filtros etiqueta="Qué alumnos ver">
+      <Filtros etiqueta="Qué alumnos ver" enHoja>
         <FiltroChip activo={filtro === 'todos'} onClick={() => setFiltro('todos')} cuenta={d.participantes.length}>Todos</FiltroChip>
         <FiltroChip activo={filtro === 'pendiente'} onClick={() => setFiltro('pendiente')} cuenta={cuenta('pendiente')}>Sin entregar</FiltroChip>
         <FiltroChip activo={filtro === 'entregado'} onClick={() => setFiltro('entregado')} cuenta={cuenta('entregado')}>Entregaron</FiltroChip>
