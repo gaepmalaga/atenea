@@ -9,7 +9,7 @@ import {
   type OpcionPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '@/app/lib/psico';
 import { Card, Button, SectionLabel, StatTile, OptionCard, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
-import FiguraPsico from './FiguraPsico';
+import FiguraPsico, { FichaDomino, RejillaPsico } from './FiguraPsico';
 
 /**
  * PSICOTÉCNICOS (regla 117): elegir, hacer contra el reloj, y repasar.
@@ -52,6 +52,10 @@ function Opcion({ opcion, letra, estado, onClick }: {
       <span className={cx(TEXT.hud, 'grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-current text-sm')}>{letra}</span>
       {opcion.celda
         ? <FiguraPsico celda={opcion.celda} className="h-12 w-[72px] text-slate-900 dark:text-white" />
+        : opcion.ficha
+        ? <FichaDomino ficha={opcion.ficha} className="h-[4.5rem] w-10 text-slate-900 dark:text-white" />
+        : opcion.rejilla
+        ? <RejillaPsico rejilla={opcion.rejilla} className="h-14 w-14 text-slate-900 dark:text-white" />
         : <span className="text-base font-semibold text-slate-900 dark:text-white">{opcion.texto}</span>}
       {estado === 'buena' && <Check size={18} className="ml-auto shrink-0 text-emerald-700 dark:text-emerald-300" aria-label="Correcta" />}
       {estado === 'mala' && <X size={18} className="ml-auto shrink-0 text-red-700 dark:text-red-300" aria-label="Tu respuesta, incorrecta" />}
@@ -70,6 +74,38 @@ function Enunciado({ q }: { q: PreguntaPsicoPublica }) {
               {q.lineas!.length > 1 ? `${i + 1}.  ` : ''}{l}
             </p>
           ))}
+        </div>
+      )}
+      {q.fichas && (
+        <div className="mt-3 flex items-end justify-center gap-2 overflow-x-auto py-1" role="group" aria-label="La serie de fichas">
+          {q.fichas.map((f, i) => (
+            <FichaDomino key={i} ficha={f} className={cx('h-24 w-[52px] shrink-0 text-slate-900 dark:text-white', !f && 'text-indigo-600 dark:text-indigo-300')} />
+          ))}
+        </div>
+      )}
+      {q.rejilla && (
+        <div className="mt-3 flex justify-center">
+          <RejillaPsico rejilla={q.rejilla} className="h-28 w-28 text-slate-900 dark:text-white" />
+        </div>
+      )}
+      {q.tabla && (
+        <div className={cx('mt-3 overflow-x-auto border border-slate-200 dark:border-slate-700', RADIUS.md)}>
+          <table className="w-full min-w-[16rem] border-collapse text-left text-sm tabular-nums">
+            <thead>
+              <tr className="bg-slate-100 dark:bg-slate-800">
+                {q.tabla.cabecera.map((c, i) => <th key={i} scope="col" className={cx('px-3 py-2 font-bold text-slate-900 dark:text-white', i > 0 && 'text-right')}>{c}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {q.tabla.filas.map((fila, i) => (
+                <tr key={i} className="border-t border-slate-200 dark:border-slate-700">
+                  {fila.map((c, k) => k === 0
+                    ? <th key={k} scope="row" className="px-3 py-2 text-left font-semibold text-slate-900 dark:text-white">{c}</th>
+                    : <td key={k} className="px-3 py-2 text-right text-slate-800 dark:text-slate-200">{c}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       {q.matriz && (

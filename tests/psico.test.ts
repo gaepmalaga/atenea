@@ -1,16 +1,17 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   generaSesion, corrigeSesion, notaPsico, normalizaRespuesta, aPublica, tiposValidos, azarDe,
-  TIPOS_PSICO, OPCIONES_PSICO, SINONIMOS, ANTONIMOS, ABECEDARIO, type PreguntaPsico, type TipoPsico,
+  TIPOS_PSICO, OPCIONES_PSICO, SINONIMOS, ANTONIMOS, ABECEDARIO, girar, type PreguntaPsico, type TipoPsico,
 } from '../app/lib/psico';
 
 /** Regla 117 · psicotécnicos generados por código. */
 
 const SEMILLAS = Array.from({ length: 400 }, (_, i) => i * 7919 + 13);
 const deTipo = (tipo: TipoPsico, n = 400): PreguntaPsico[] => SEMILLAS.slice(0, n).flatMap((s) => generaSesion(s, [tipo], 3));
-const clave = (q: PreguntaPsico) => q.opciones.map((o) => o.texto ?? JSON.stringify(o.celda));
+const clave = (q: PreguntaPsico) => q.opciones.map((o) => o.texto ?? JSON.stringify(o.celda ?? o.ficha ?? o.rejilla));
 
 describe('la semilla', () => {
   it('la misma semilla da siempre la misma sesión', () => {
@@ -28,8 +29,8 @@ describe('la semilla', () => {
 
   it('los tipos se reparten por igual', () => {
     const cuenta = new Map<string, number>();
-    for (const q of generaSesion(7, [...TIPOS_PSICO], 30)) cuenta.set(q.tipo, (cuenta.get(q.tipo) ?? 0) + 1);
-    expect([...cuenta.values()]).toEqual([5, 5, 5, 5, 5, 5]);
+    for (const q of generaSesion(7, [...TIPOS_PSICO], 27)) cuenta.set(q.tipo, (cuenta.get(q.tipo) ?? 0) + 1);
+    expect([...cuenta.values()]).toEqual(TIPOS_PSICO.map(() => 3));
   });
 
   it('sin tipos válidos entran todos; los inventados se ignoran', () => {
@@ -131,6 +132,99 @@ describe('toda pregunta se puede contestar', () => {
       expect(new Set(palabras).size).toBe(palabras.length);
       // Una palabra de la lista no puede salir de distractor de sí misma.
       for (const [palabra, respuesta] of lista) expect(palabra).not.toBe(respuesta);
+    }
+  });
+});
+
+describe('los tipos añadidos el 13 nov', () => {
+  it('van al final de la lista: una sesión vieja se regenera igual', () => {
+    expect(TIPOS_PSICO.slice(0, 6)).toEqual(['series', 'letras', 'calculo', 'verbal', 'atencion', 'figuras']);
+    // La huella de 300 sesiones de los seis tipos de antes, calculada con el código de antes de añadir los nuevos.
+    // Si esto falla, un generador antiguo ha cambiado: una sesión empezada antes del despliegue se corregiría
+    // contra otras preguntas, y hay que subir `VERSION_PSICO` (regla 117).
+    const huella = createHash('sha256')
+      .update(JSON.stringify(Array.from({ length: 300 }, (_, i) => generaSesion(i * 7919 + 13, TIPOS_PSICO.slice(0, 6), 25))))
+      .digest('hex');
+    expect(huella).toBe('3bdeaea1e7d7a4f452f1369fa22c9206440aad5f47769418b7565883bcbbf939');
+  });
+
+  it('dominós: la ficha buena sigue la regla de cada mitad, y ninguna mala es la misma ficha dada la vuelta', () => {
+    for (const q of deTipo('dominos')) {
+      const f = q.fichas!;
+      expect(f).toHaveLength(5);
+      expect(f[4]).toBeNull();
+      const dado = f.slice(0, 4) as [number, number][];
+      const paso = (k: 0 | 1) => (((dado[1][k] - dado[0][k]) % 7) + 7) % 7;
+      for (let i = 1; i < 4; i++) for (const k of [0, 1] as const) expect((((dado[i][k] - dado[i - 1][k]) % 7) + 7) % 7).toBe(paso(k));
+      const esperada = [(dado[3][0] + paso(0)) % 7, (dado[3][1] + paso(1)) % 7];
+      expect(q.opciones[q.correcta].ficha).toEqual(esperada);
+      const llaves = q.opciones.map((o) => [...o.ficha!].sort().join('-'));
+      expect(new Set(llaves).size).toBe(OPCIONES_PSICO);
+      for (const o of q.opciones) for (const n of o.ficha!) expect(n >= 0 && n <= 6 && Number.isInteger(n)).toBe(true);
+    }
+  });
+
+  it('rotaciones: la correcta es el giro que dice el enunciado, y las 8 versiones de la figura son distintas', () => {
+    for (const q of deTipo('rotaciones')) {
+      const grados = Number(/gira (\d+)°/.exec(q.enunciado)![1]);
+      const esperada = JSON.stringify(girar(q.rejilla!, grados));
+      expect(JSON.stringify(q.opciones[q.correcta].rejilla)).toBe(esperada);
+      expect(q.opciones.filter((o) => JSON.stringify(o.rejilla) === esperada)).toHaveLength(1);
+      expect(q.rejilla!.flat().filter(Boolean)).toHaveLength(5);
+      const todas = [0, 90, 180, 270].flatMap((d) => { const g = girar(q.rejilla!, d); return [JSON.stringify(g), JSON.stringify(g.map((f) => [...f].reverse()))]; });
+      expect(new Set(todas).size).toBe(8);
+    }
+  });
+
+  it('girar: cuatro giros de 90° devuelven la figura, y 180° son dos de 90°', () => {
+    const g = [[true, false, false], [true, true, false], [false, true, true]];
+    expect(girar(girar(girar(girar(g, 90), 90), 90), 90)).toEqual(g);
+    expect(girar(g, 180)).toEqual(girar(girar(g, 90), 90));
+    expect(girar(g, 90)[0][2]).toBe(g[0][0]); // la esquina de arriba a la izquierda pasa a arriba a la derecha
+  });
+
+  it('tablas: números enteros y la cuenta de la explicación da la respuesta', () => {
+    for (const q of deTipo('tablas')) {
+      expect(q.tabla!.filas).toHaveLength(4);
+      for (const fila of q.tabla!.filas) for (const c of fila.slice(1)) expect(Number.isInteger(Number(c))).toBe(true);
+      const resultado = Number(/= (\d+)\.$/.exec(q.explicacion)![1]);
+      expect(q.opciones[q.correcta].texto).toBe(String(resultado));
+    }
+  });
+
+  it('tablas: la suma de una columna sale de la tabla que se enseña', () => {
+    let vistas = 0;
+    for (const q of deTipo('tablas')) {
+      const m = /Suma de (\w+): (.+) = (\d+)\./.exec(q.explicacion);
+      if (!m || !/hubo entre los cuatro meses/.test(q.enunciado)) continue;
+      const k = q.tabla!.cabecera.findIndex((c) => c.toLowerCase() === m[1]);
+      expect(k).toBeGreaterThan(0);
+      expect(q.tabla!.filas.map((f) => f[k]).join(' + ')).toBe(m[2]);
+      vistas++;
+    }
+    expect(vistas).toBeGreaterThan(20);
+  });
+
+  it('tablas: la media sale entera de la tabla', () => {
+    let vistas = 0;
+    for (const q of deTipo('tablas')) {
+      if (!/media mensual/.test(q.enunciado)) continue;
+      const col = q.tabla!.cabecera.findIndex((c) => q.enunciado.toLowerCase().includes(c.toLowerCase()));
+      const suma = q.tabla!.filas.reduce((a, f) => a + Number(f[col]), 0);
+      expect(suma % 4).toBe(0);
+      expect(q.opciones[q.correcta].texto).toBe(String(suma / 4));
+      vistas++;
+    }
+    expect(vistas).toBeGreaterThan(20);
+  });
+
+  it('lo que viaja al navegador lleva la figura y la tabla, pero no la respuesta', () => {
+    for (const tipo of ['dominos', 'rotaciones', 'tablas'] as const) {
+      const q = generaSesion(5, [tipo], 1)[0];
+      const p = aPublica(q) as Record<string, unknown>;
+      expect(p.fichas ?? p.rejilla ?? p.tabla).toBeDefined();
+      expect(p.correcta).toBeUndefined();
+      expect(p.explicacion).toBeUndefined();
     }
   });
 });
