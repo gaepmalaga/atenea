@@ -24,10 +24,17 @@
  * cada sesión para poder detectarlo: súbela al tocar cualquier generador.
  */
 
-export const VERSION_PSICO = 1;
+export const VERSION_PSICO = 2;
 
-export const TIPOS_PSICO = ['series', 'letras', 'calculo', 'verbal', 'atencion', 'figuras'] as const;
-export type TipoPsico = (typeof TIPOS_PSICO)[number];
+import {
+  TIPOS_PSICO, esTipoPsico, OPCIONES_PSICO, FORMAS, RELLENOS, azarDe, entero, elige, baraja, conDistractores, numericas,
+  type TipoPsico, type Azar, type Celda, type Ficha, type Rejilla, type Tabla, type Forma, type Relleno,
+  type OpcionPsico, type PreguntaPsico, type PreguntaPsicoPublica,
+} from './psico-comun';
+export * from './psico-comun';
+import { conteo, dobles, problemas, abecedario, logica, cuadros, cifrado, ordenes, simbolos, leyendaDe } from './psico-nuevos';
+export { aplicaOrdenes, ORDENES, leyendaDe, NOMBRES_SIMBOLOS } from './psico-nuevos';
+
 
 export const TIPO_PSICO_LABEL: Record<TipoPsico, string> = {
   series: 'Series numéricas',
@@ -36,6 +43,18 @@ export const TIPO_PSICO_LABEL: Record<TipoPsico, string> = {
   verbal: 'Sinónimos y antónimos',
   atencion: 'Atención',
   figuras: 'Figuras',
+  dominos: 'Dominós',
+  rotaciones: 'Rotaciones',
+  tablas: 'Tablas de datos',
+  conteo: 'Contar números',
+  dobles: 'Series dobles',
+  problemas: 'Problemas',
+  abecedario: 'Abecedario',
+  logica: 'Lógica',
+  cuadros: 'Cuadros con una X',
+  cifrado: 'Palabras en símbolos',
+  simbolos: 'Símbolos y nombres',
+  ordenes: 'Órdenes sobre una frase',
 };
 
 export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
@@ -45,109 +64,70 @@ export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
   verbal: 'La palabra que significa lo mismo, o lo contrario.',
   atencion: 'Cuenta las parejas de códigos que son idénticas.',
   figuras: 'La figura que falta en la tabla.',
+  dominos: 'La ficha que continúa la serie.',
+  rotaciones: 'La figura que queda al girarla.',
+  tablas: 'Sumas, diferencias y porcentajes sobre una tabla.',
+  conteo: 'Cuántos números hay entre dos, quitando algunos.',
+  dobles: 'Dos series mezcladas: encuentra el siguiente.',
+  problemas: 'El aceite, la cuenta del bar, los grifos, las edades…',
+  abecedario: 'Posiciones de letras y palabras ordenadas.',
+  logica: 'Quién es más alto, y qué se deduce de unas afirmaciones.',
+  cuadros: 'El número que falta en una tabla, con su regla.',
+  cifrado: 'Una palabra escrita en símbolos y su anagrama.',
+  simbolos: 'Ejercicio 2: cambia símbolos por nombres y busca el orden alfabético.',
+  ordenes: 'Ejercicio 3: aplica órdenes en cadena a una frase.',
 };
 
-export function esTipoPsico(v: unknown): v is TipoPsico {
-  return typeof v === 'string' && (TIPOS_PSICO as readonly string[]).includes(v);
+/**
+ * LOS TRES EJERCICIOS DEL EXAMEN (docs/PSICOTECNICO-REAL.md): cuántas
+ * preguntas, cuántos minutos y cuántas opciones tiene cada uno. El ejercicio 1
+ * mezcla los tipos de razonamiento; el 2 y el 3 son de un solo tipo.
+ */
+export const EJERCICIOS_PSICO = {
+  1: {
+    nombre: 'Ejercicio 1', descripcion: 'Razonamiento numérico, verbal y espacial', total: 40, minutos: 23,
+    tipos: ['series', 'letras', 'calculo', 'verbal', 'figuras', 'dominos', 'rotaciones', 'tablas', 'conteo', 'dobles', 'problemas', 'abecedario', 'logica', 'cuadros', 'cifrado'] as TipoPsico[],
+  },
+  2: { nombre: 'Ejercicio 2', descripcion: 'Símbolos y nombres en orden alfabético', total: 34, minutos: 18, tipos: ['simbolos'] as TipoPsico[] },
+  3: { nombre: 'Ejercicio 3', descripcion: 'Órdenes sobre una frase', total: 30, minutos: 18, tipos: ['ordenes'] as TipoPsico[] },
+} as const;
+export type NumeroEjercicio = keyof typeof EJERCICIOS_PSICO;
+export const esEjercicio = (v: unknown): v is NumeroEjercicio => v === 1 || v === 2 || v === 3;
+
+/**
+ * Las versiones que el servidor sabe regenerar. La 1 tenía siempre 5 opciones;
+ * la 2 (13 nov) tiene 4 opciones, o 3 en los ejercicios 2 y 3, como el examen.
+ * Una sesión empezada con la 1 se sigue corrigiendo y repasando como la 1.
+ */
+export const VERSIONES_PSICO = [1, 2] as const;
+export const esVersionPsico = (v: unknown): v is (typeof VERSIONES_PSICO)[number] => (VERSIONES_PSICO as readonly unknown[]).includes(v);
+
+/** Cuántas opciones tiene una pregunta de este tipo en esta versión. */
+export function opcionesDe(tipo: TipoPsico, version: number = VERSION_PSICO): number {
+  if (version < 2) return OPCIONES_PSICO;
+  return tipo === 'simbolos' || tipo === 'ordenes' ? 3 : 4;
 }
+
+/**
+ * Deja la correcta y `n − 1` distractores elegidos al azar, en su orden. Un
+ * generador hace siempre 5 opciones; recortar después deja intactas las
+ * sesiones de la versión 1 (no se gasta ni un número aleatorio más en ellas).
+ */
+function recorta(q: PreguntaPsico, n: number, r: Azar): PreguntaPsico {
+  if (q.opciones.length <= n) return q;
+  const otras = baraja(r, q.opciones.map((_, i) => i).filter((i) => i !== q.correcta)).slice(0, n - 1);
+  const quedan = [...otras, q.correcta].sort((a, b) => a - b);
+  return { ...q, opciones: quedan.map((i) => q.opciones[i]), correcta: quedan.indexOf(q.correcta) };
+}
+
 
 /** Cuántas preguntas se pueden pedir, y los minutos de cada tamaño (unos 30 s por pregunta). */
 export const TAMANOS_PSICO = [15, 25, 40] as const;
 export const MINUTOS_PSICO: Record<number, number> = { 15: 8, 25: 12, 40: 20 };
-export const OPCIONES_PSICO = 5;
 
-// ---------------------------------------------------------------------------
-// Figuras
-// ---------------------------------------------------------------------------
-
-export const FORMAS = ['circulo', 'cuadrado', 'triangulo', 'rombo', 'cruz'] as const;
-export type Forma = (typeof FORMAS)[number];
-export const RELLENOS = ['vacio', 'gris', 'negro'] as const;
-export type Relleno = (typeof RELLENOS)[number];
-
-/** Una casilla: una forma, repetida `n` veces, con un relleno. */
-export type Celda = { forma: Forma; n: number; relleno: Relleno };
-
-export type OpcionPsico = { texto?: string; celda?: Celda };
-
-export type PreguntaPsico = {
-  tipo: TipoPsico;
-  enunciado: string;
-  /** Líneas en letra de ancho fijo: la serie, o las parejas de códigos. */
-  lineas?: string[];
-  /** La tabla de 3×3; la última casilla (`null`) es la que falta. */
-  matriz?: (Celda | null)[];
-  opciones: OpcionPsico[];
-  correcta: number;
-  explicacion: string;
-};
-
-/** Lo que viaja al navegador: sin la respuesta ni la explicación. */
-export type PreguntaPsicoPublica = Omit<PreguntaPsico, 'correcta' | 'explicacion'>;
 
 export function aPublica(q: PreguntaPsico): PreguntaPsicoPublica {
-  return { tipo: q.tipo, enunciado: q.enunciado, lineas: q.lineas, matriz: q.matriz, opciones: q.opciones };
-}
-
-// ---------------------------------------------------------------------------
-// Azar reproducible
-// ---------------------------------------------------------------------------
-
-export type Azar = () => number;
-
-/** mulberry32: pequeño, rápido y con la misma salida en cualquier motor de JavaScript. */
-export function azarDe(semilla: number): Azar {
-  let a = semilla >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const entero = (r: Azar, min: number, max: number) => min + Math.floor(r() * (max - min + 1));
-const elige = <T,>(r: Azar, lista: readonly T[]): T => lista[Math.floor(r() * lista.length)];
-
-/** Fisher-Yates (regla 15), con el azar de la sesión. */
-function baraja<T>(r: Azar, lista: readonly T[]): T[] {
-  const out = lista.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(r() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-/**
- * Cinco opciones de texto: la correcta y cuatro distractores DISTINTOS entre
- * sí y de ella, barajadas. Si los candidatos no dan para cuatro, se rellenan
- * con `relleno(k)` hasta que los haya.
- */
-function conDistractores(r: Azar, correcta: string, candidatos: string[], relleno: (k: number) => string): { opciones: OpcionPsico[]; correcta: number } {
-  const vistos = new Set<string>([correcta]);
-  const malos: string[] = [];
-  for (const c of baraja(r, candidatos)) {
-    if (malos.length === OPCIONES_PSICO - 1) break;
-    if (!vistos.has(c)) { vistos.add(c); malos.push(c); }
-  }
-  for (let k = 1; malos.length < OPCIONES_PSICO - 1 && k < 200; k++) {
-    const c = relleno(k);
-    if (!vistos.has(c)) { vistos.add(c); malos.push(c); }
-  }
-  const todas = baraja(r, [correcta, ...malos]);
-  return { opciones: todas.map((texto) => ({ texto })), correcta: todas.indexOf(correcta) };
-}
-
-/** Lo mismo, para una respuesta numérica: los distractores son los errores típicos. */
-function numericas(r: Azar, correcta: number, errores: number[]) {
-  return conDistractores(
-    r,
-    String(correcta),
-    errores.filter((n) => Number.isFinite(n)).map((n) => String(n)),
-    (k) => String(correcta + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.abs(correcta) > 60 ? 5 : 1)),
-  );
+  return { tipo: q.tipo, enunciado: q.enunciado, lineas: q.lineas, matriz: q.matriz, fichas: q.fichas, rejilla: q.rejilla, tabla: q.tabla, leyenda: q.leyenda, opciones: q.opciones };
 }
 
 // ---------------------------------------------------------------------------
@@ -484,10 +464,181 @@ function figuras(r: Azar): PreguntaPsico {
 }
 
 // ---------------------------------------------------------------------------
+// Dominós
+// ---------------------------------------------------------------------------
+
+const PUNTOS = 7; // de 0 a 6
+const mod7 = (n: number) => ((n % PUNTOS) + PUNTOS) % PUNTOS;
+
+const regla = (paso: number, mitad: string) =>
+  paso === 0 ? `la mitad de ${mitad} se queda igual`
+    : `la mitad de ${mitad} ${paso > 0 ? 'sube' : 'baja'} ${Math.abs(paso)} en cada ficha`;
+
+/**
+ * Una serie de cuatro fichas y la que sigue. Cada mitad sigue su propia regla:
+ * sube o baja un número fijo de puntos en cada ficha, y después del 6 viene el 0
+ * (y antes del 0, el 6). Una ficha de dominó se puede dar la vuelta, así que
+ * ningún distractor es la misma ficha que la buena puesta del revés.
+ */
+function dominos(r: Azar): PreguntaPsico {
+  let pasoArriba = 0, pasoAbajo = 0;
+  while (pasoArriba === 0 && pasoAbajo === 0) { pasoArriba = entero(r, -3, 3); pasoAbajo = entero(r, -3, 3); }
+  const a0 = entero(r, 0, 6), b0 = entero(r, 0, 6);
+  const ficha = (i: number): Ficha => [mod7(a0 + i * pasoArriba), mod7(b0 + i * pasoAbajo)];
+  const buena = ficha(4);
+
+  const llave = (f: Ficha) => `${Math.min(...f)}-${Math.max(...f)}`;
+  const vistas = new Set<string>([llave(buena)]);
+  const malas: Ficha[] = [];
+  const candidatas: Ficha[] = baraja(r, [
+    [mod7(buena[0] + 1), buena[1]], [mod7(buena[0] - 1), buena[1]],
+    [buena[0], mod7(buena[1] + 1)], [buena[0], mod7(buena[1] - 1)],
+    [mod7(buena[0] + pasoArriba), buena[1]], [buena[0], mod7(buena[1] + pasoAbajo)],
+    [mod7(buena[0] + 2), mod7(buena[1] - 2)], [mod7(buena[0] - pasoArriba), mod7(buena[1] - pasoAbajo)],
+  ] as Ficha[]);
+  for (const c of candidatas) if (!vistas.has(llave(c))) { vistas.add(llave(c)); malas.push(c); }
+  for (let a = 0; malas.length < OPCIONES_PSICO - 1 && a < PUNTOS; a++) {
+    for (let b = 0; malas.length < OPCIONES_PSICO - 1 && b < PUNTOS; b++) {
+      const f: Ficha = [a, b];
+      if (!vistas.has(llave(f))) { vistas.add(llave(f)); malas.push(f); }
+    }
+  }
+  const todas = baraja(r, [buena, ...malas.slice(0, OPCIONES_PSICO - 1)]);
+
+  return {
+    tipo: 'dominos',
+    enunciado: '¿Qué ficha continúa la serie?',
+    fichas: [ficha(0), ficha(1), ficha(2), ficha(3), null],
+    opciones: todas.map((f) => ({ ficha: f })),
+    correcta: todas.findIndex((f) => f === buena),
+    explicacion: `En la serie, ${regla(pasoArriba, 'arriba')} y ${regla(pasoAbajo, 'abajo')} (después del 6 viene el 0). La que sigue es ${buena[0]} arriba y ${buena[1]} abajo.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Rotaciones
+// ---------------------------------------------------------------------------
+
+const LADO = 3;
+const giraDerecha = (g: Rejilla): Rejilla => g.map((_, i) => g.map((__, j) => g[LADO - 1 - j][i]));
+const espejo = (g: Rejilla): Rejilla => g.map((fila) => [...fila].reverse());
+const llaveRejilla = (g: Rejilla) => g.map((f) => f.map((x) => (x ? '1' : '0')).join('')).join('/');
+const VUELTAS: Record<number, number> = { 90: 1, 180: 2, 270: 3 };
+export const girar = (g: Rejilla, grados: number): Rejilla => {
+  let out = g;
+  for (let k = 0; k < (VUELTAS[grados] ?? 0); k++) out = giraDerecha(out);
+  return out;
+};
+
+/** La figura «F»: no tiene ningún eje de simetría, así que sus 8 versiones son distintas. */
+const FIGURA_F: Rejilla = [[false, true, true], [true, true, false], [false, true, false]];
+
+/**
+ * Una figura de cinco cuadraditos y lo que queda al girarla 90°, 180° o 270° a
+ * la derecha. Los distractores son las otras siete versiones: las demás
+ * vueltas y los espejos, que es en lo que se equivoca quien gira «a ojo».
+ * La figura se elige SIN simetrías, para que ninguna versión se repita.
+ */
+function rotaciones(r: Azar): PreguntaPsico {
+  let figura = FIGURA_F;
+  for (let intento = 0; intento < 60; intento++) {
+    const celdas = baraja(r, Array.from({ length: LADO * LADO }, (_, i) => i)).slice(0, 5);
+    const g: Rejilla = Array.from({ length: LADO }, (_, i) => Array.from({ length: LADO }, (__, j) => celdas.includes(i * LADO + j)));
+    const versiones = [0, 90, 180, 270].flatMap((d) => [girar(g, d), espejo(girar(g, d))]).map(llaveRejilla);
+    // Conexa por lados sería más bonita, pero lo que importa es que las 8 versiones sean distintas.
+    if (new Set(versiones).size === 8) { figura = g; break; }
+  }
+  const grados = elige(r, [90, 180, 270]);
+  const buena = girar(figura, grados);
+  const otras = baraja(r, [90, 180, 270, 0].flatMap((d) => [girar(figura, d), espejo(girar(figura, d))])
+    .filter((g) => llaveRejilla(g) !== llaveRejilla(buena))).slice(0, OPCIONES_PSICO - 1);
+  const todas = baraja(r, [buena, ...otras]);
+
+  return {
+    tipo: 'rotaciones',
+    enunciado: `Esta figura se gira ${grados}° a la derecha, en el sentido de las agujas del reloj. ¿Cómo queda?`,
+    rejilla: figura,
+    opciones: todas.map((g) => ({ rejilla: g })),
+    correcta: todas.findIndex((g) => llaveRejilla(g) === llaveRejilla(buena)),
+    explicacion: `Un giro de ${grados}° a la derecha lleva ${grados === 90 ? 'lo de arriba a la derecha' : grados === 180 ? 'lo de arriba abajo y lo de la izquierda a la derecha' : 'lo de arriba a la izquierda'}. Las otras opciones son otros giros o la figura en espejo.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tablas de datos
+// ---------------------------------------------------------------------------
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'septiembre', 'octubre'];
+const DELITOS = ['Robos', 'Hurtos', 'Daños', 'Estafas', 'Amenazas'];
+const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
+
+/**
+ * Una tabla de denuncias por mes y tipo, y una pregunta que se resuelve con la
+ * tabla delante: un total, una diferencia, una media o una variación en tanto
+ * por ciento. Los números salen para que el resultado sea siempre entero.
+ */
+function tablas(r: Azar): PreguntaPsico {
+  const inicio = entero(r, 0, MESES.length - 4);
+  const meses = MESES.slice(inicio, inicio + 4);
+  const delitos = baraja(r, DELITOS).slice(0, 3);
+  const datos = meses.map(() => delitos.map(() => entero(r, 4, 20) * 5)); // múltiplos de 5: los porcentajes salen limpios
+  const tabla: Tabla = {
+    cabecera: ['Mes', ...delitos],
+    filas: meses.map((m, i) => [cap(m), ...datos[i].map(String)]),
+  };
+  const col = entero(r, 0, 2);
+  const suma = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  const variante = entero(r, 0, 3);
+  let enunciado = '', correcta = 0, errores: number[] = [], explicacion = '';
+
+  if (variante === 0) {
+    const columna = datos.map((f) => f[col]);
+    correcta = suma(columna);
+    enunciado = `¿Cuántas denuncias de ${delitos[col].toLowerCase()} hubo entre los cuatro meses?`;
+    errores = [correcta - columna[0], correcta - columna[3], correcta + columna[1], suma(datos.map((f) => f[(col + 1) % 3])), correcta - 5, correcta + 10];
+    explicacion = `Suma de ${delitos[col].toLowerCase()}: ${columna.join(' + ')} = ${correcta}.`;
+  } else if (variante === 1) {
+    const i = entero(r, 0, 3);
+    correcta = suma(datos[i]);
+    enunciado = `¿Cuántas denuncias se presentaron en total en ${meses[i]}?`;
+    errores = [correcta - datos[i][0], correcta - datos[i][2], correcta + datos[i][1], suma(datos[(i + 1) % 4]), correcta - 5, correcta + 10];
+    explicacion = `Suma de ${meses[i]}: ${datos[i].join(' + ')} = ${correcta}.`;
+  } else if (variante === 2) {
+    // La diferencia entre dos meses de un mismo tipo.
+    const a = entero(r, 0, 3);
+    const b = (a + entero(r, 1, 3)) % 4;
+    if (datos[a][col] === datos[b][col]) { datos[b][col] += 10; tabla.filas[b][col + 1] = String(datos[b][col]); }
+    const mayor = datos[a][col] > datos[b][col] ? a : b;
+    const menor = mayor === a ? b : a;
+    correcta = datos[mayor][col] - datos[menor][col];
+    enunciado = `¿Cuántas denuncias de ${delitos[col].toLowerCase()} más hubo en ${meses[mayor]} que en ${meses[menor]}?`;
+    errores = [datos[mayor][col] + datos[menor][col], correcta + 5, correcta - 5, correcta + 10, datos[mayor][col]];
+    explicacion = `${datos[mayor][col]} − ${datos[menor][col]} = ${correcta}.`;
+  } else {
+    // La media de un tipo: se ajusta el último mes para que la suma sea múltiplo de 4.
+    const columna = datos.map((f) => f[col]);
+    const resto = suma(columna) % 4;
+    if (resto !== 0) { datos[3][col] += 4 - resto; columna[3] = datos[3][col]; tabla.filas[3][col + 1] = String(columna[3]); }
+    correcta = suma(columna) / 4;
+    enunciado = `¿Cuál es la media mensual de denuncias de ${delitos[col].toLowerCase()}?`;
+    errores = [suma(columna), suma(columna) / 3, correcta + 5, correcta - 5, Math.max(...columna), correcta + 10];
+    explicacion = `(${columna.join(' + ')}) ÷ 4 = ${suma(columna)} ÷ 4 = ${correcta}.`;
+  }
+
+  const o = numericas(r, correcta, errores.map((n) => Math.round(n)));
+  return { tipo: 'tablas', enunciado, tabla, opciones: o.opciones, correcta: o.correcta, explicacion };
+}
+
+// ---------------------------------------------------------------------------
 // La sesión
 // ---------------------------------------------------------------------------
 
-const GENERADORES: Record<TipoPsico, (r: Azar) => PreguntaPsico> = { series, letras, calculo, verbal, atencion, figuras };
+type Contexto = { leyenda: ReturnType<typeof leyendaDe> };
+const GENERADORES: Record<TipoPsico, (r: Azar, ctx: Contexto) => PreguntaPsico> = {
+  series, letras, calculo, verbal, atencion, figuras, dominos, rotaciones, tablas,
+  conteo, dobles, problemas, abecedario, logica, cuadros, cifrado, ordenes,
+  simbolos: (r, ctx) => simbolos(r, ctx.leyenda),
+};
 
 /** Los tipos pedidos, limpios y en el orden de siempre; sin ninguno válido, todos. */
 export function tiposValidos(tipos: unknown): TipoPsico[] {
@@ -502,11 +653,16 @@ export function tiposValidos(tipos: unknown): TipoPsico[] {
  *
  * MISMA semilla, MISMOS tipos y MISMO total → las mismas preguntas, siempre.
  */
-export function generaSesion(semilla: number, tipos: readonly TipoPsico[], total: number): PreguntaPsico[] {
+export function generaSesion(semilla: number, tipos: readonly TipoPsico[], total: number, version: number = VERSION_PSICO): PreguntaPsico[] {
   const r = azarDe(semilla);
   const lista = tipos.length ? tipos : TIPOS_PSICO;
   const orden = baraja(r, Array.from({ length: total }, (_, i) => lista[i % lista.length]));
-  return orden.map((tipo) => GENERADORES[tipo](r));
+  // La tabla de símbolos sale de OTRA semilla derivada: no gasta números del azar de la sesión.
+  const ctx: Contexto = { leyenda: leyendaDe(semilla) };
+  return orden.map((tipo) => {
+    const q = GENERADORES[tipo](r, ctx);
+    return version >= 2 ? recorta(q, opcionesDe(tipo, version), r) : q;
+  });
 }
 
 export type ResultadoPsico = {
@@ -516,7 +672,8 @@ export type ResultadoPsico = {
   blancos: number;
   /** Sobre 10, con la penalización: cada fallo resta 1/(opciones − 1) de un acierto. */
   nota: number;
-  porTipo: Partial<Record<TipoPsico, { a: number; t: number }>>;
+  /** `a` aciertos, `t` preguntas, `f` fallos (solo en la versión 2; la 1 no lo guardaba). */
+  porTipo: Partial<Record<TipoPsico, { a: number; t: number; f?: number }>>;
 };
 
 /**
@@ -524,28 +681,55 @@ export type ResultadoPsico = {
  * misma fórmula de la prueba de conocimientos (regla 22, con 3 opciones cada
  * dos fallos quitan un acierto) llevada a cinco opciones: cada cuatro fallos.
  */
-export function notaPsico(aciertos: number, fallos: number, total: number): number {
+export function notaPsico(aciertos: number, fallos: number, total: number, opciones: number = OPCIONES_PSICO): number {
   if (total <= 0) return 0;
-  const netos = Math.max(0, aciertos - fallos / (OPCIONES_PSICO - 1));
+  const netos = Math.max(0, aciertos - fallos / (opciones - 1));
   return Math.round((netos / total) * 1000) / 100;
 }
 
+/** Los fallos de un tipo valen lo que dicen sus opciones: con 3 son medio acierto, con 4 un tercio. */
+const restaPorFallo = (tipo: TipoPsico, version: number) => 1 / (opcionesDe(tipo, version) - 1);
+
+/**
+ * La nota de una sesión YA guardada, sin volver a generarla: de los totales y
+ * del desglose por tipo. Una sesión de la versión 1, o una sin los fallos por
+ * tipo, se calcula con 5 opciones como siempre.
+ */
+export function notaDeSesionGuardada(s: { version: number; total: number; aciertos: number; fallos: number; porTipo: ResultadoPsico['porTipo'] }): number {
+  const tipos = Object.entries(s.porTipo) as [TipoPsico, { a: number; t: number; f?: number }][];
+  if (s.version < 2 || tipos.length === 0 || tipos.some(([, v]) => typeof v.f !== 'number')) return notaPsico(s.aciertos, s.fallos, s.total);
+  const resta = tipos.reduce((acc, [t, v]) => acc + (v.f ?? 0) * restaPorFallo(t, s.version), 0);
+  if (s.total <= 0) return 0;
+  return Math.round((Math.max(0, s.aciertos - resta) / s.total) * 1000) / 100;
+}
+
+/** Cómo se dice la penalización de una sesión, según las opciones de sus preguntas. */
+export function textoPenalizacion(opciones: readonly number[]): string {
+  const ns = [...new Set(opciones)];
+  if (ns.length !== 1) return 'Los fallos restan según las opciones de cada pregunta; los blancos no restan.';
+  const f = ns[0] - 1;
+  return `Cada ${f === 1 ? 'fallo' : `${f} fallos`} ${f === 1 ? 'quita' : 'quitan'} un acierto; los blancos no restan.`;
+}
+
 /** `-1` (o cualquier cosa que no sea una opción) es blanco: ni acierto ni fallo (regla 24). */
-export function normalizaRespuesta(v: unknown): number {
-  return Number.isInteger(v) && (v as number) >= 0 && (v as number) < OPCIONES_PSICO ? (v as number) : -1;
+export function normalizaRespuesta(v: unknown, opciones: number = OPCIONES_PSICO): number {
+  return Number.isInteger(v) && (v as number) >= 0 && (v as number) < opciones ? (v as number) : -1;
 }
 
 export function corrigeSesion(preguntas: readonly PreguntaPsico[], respuestas: readonly unknown[]): ResultadoPsico {
-  let aciertos = 0, fallos = 0, blancos = 0;
+  let aciertos = 0, fallos = 0, blancos = 0, resta = 0;
   const porTipo: ResultadoPsico['porTipo'] = {};
   preguntas.forEach((q, i) => {
-    const marcada = normalizaRespuesta(respuestas[i]);
-    const t = porTipo[q.tipo] ?? { a: 0, t: 0 };
+    // Una opción que esta pregunta no tiene (un 4 en una de 3) es un blanco.
+    const marcada = normalizaRespuesta(respuestas[i], q.opciones.length);
+    const t = porTipo[q.tipo] ?? { a: 0, t: 0, f: 0 };
     t.t++;
     if (marcada === -1) blancos++;
     else if (marcada === q.correcta) { aciertos++; t.a++; }
-    else fallos++;
+    else { fallos++; t.f = (t.f ?? 0) + 1; resta += 1 / (q.opciones.length - 1); }
     porTipo[q.tipo] = t;
   });
-  return { total: preguntas.length, aciertos, fallos, blancos, nota: notaPsico(aciertos, fallos, preguntas.length), porTipo };
+  const total = preguntas.length;
+  const nota = total <= 0 ? 0 : Math.round((Math.max(0, aciertos - resta) / total) * 1000) / 100;
+  return { total, aciertos, fallos, blancos, nota, porTipo };
 }

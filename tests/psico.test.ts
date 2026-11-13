@@ -1,16 +1,17 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   generaSesion, corrigeSesion, notaPsico, normalizaRespuesta, aPublica, tiposValidos, azarDe,
-  TIPOS_PSICO, OPCIONES_PSICO, SINONIMOS, ANTONIMOS, ABECEDARIO, type PreguntaPsico, type TipoPsico,
+  TIPOS_PSICO, OPCIONES_PSICO, VERSION_PSICO, opcionesDe, notaDeSesionGuardada, textoPenalizacion, EJERCICIOS_PSICO, aplicaOrdenes, leyendaDe, NOMBRES_SIMBOLOS, SINONIMOS, ANTONIMOS, ABECEDARIO, girar, type PreguntaPsico, type TipoPsico,
 } from '../app/lib/psico';
 
 /** Regla 117 · psicotécnicos generados por código. */
 
 const SEMILLAS = Array.from({ length: 400 }, (_, i) => i * 7919 + 13);
-const deTipo = (tipo: TipoPsico, n = 400): PreguntaPsico[] => SEMILLAS.slice(0, n).flatMap((s) => generaSesion(s, [tipo], 3));
-const clave = (q: PreguntaPsico) => q.opciones.map((o) => o.texto ?? JSON.stringify(o.celda));
+const deTipo = (tipo: TipoPsico, n = 400, version: number = VERSION_PSICO): PreguntaPsico[] => SEMILLAS.slice(0, n).flatMap((s) => generaSesion(s, [tipo], 3, version));
+const clave = (q: PreguntaPsico) => q.opciones.map((o) => o.texto ?? JSON.stringify(o.celda ?? o.ficha ?? o.rejilla ?? o.fila));
 
 describe('la semilla', () => {
   it('la misma semilla da siempre la misma sesión', () => {
@@ -28,8 +29,8 @@ describe('la semilla', () => {
 
   it('los tipos se reparten por igual', () => {
     const cuenta = new Map<string, number>();
-    for (const q of generaSesion(7, [...TIPOS_PSICO], 30)) cuenta.set(q.tipo, (cuenta.get(q.tipo) ?? 0) + 1);
-    expect([...cuenta.values()]).toEqual([5, 5, 5, 5, 5, 5]);
+    for (const q of generaSesion(7, [...TIPOS_PSICO], 3 * TIPOS_PSICO.length)) cuenta.set(q.tipo, (cuenta.get(q.tipo) ?? 0) + 1);
+    expect([...cuenta.values()]).toEqual(TIPOS_PSICO.map(() => 3));
   });
 
   it('sin tipos válidos entran todos; los inventados se ignoran', () => {
@@ -41,11 +42,13 @@ describe('la semilla', () => {
 
 describe('toda pregunta se puede contestar', () => {
   for (const tipo of TIPOS_PSICO) {
-    it(`${tipo}: cinco opciones distintas y una sola correcta`, () => {
+    it(`${tipo}: las opciones del examen (4, o 3 en los ejercicios 2 y 3), distintas y una sola correcta`, () => {
+      const n = opcionesDe(tipo);
+      expect(n).toBe(tipo === 'simbolos' || tipo === 'ordenes' ? 3 : 4);
       for (const q of deTipo(tipo)) {
-        expect(q.opciones).toHaveLength(OPCIONES_PSICO);
-        expect(new Set(clave(q)).size, `${q.enunciado} ${q.lineas?.join(' | ')} → ${clave(q).join(', ')}`).toBe(OPCIONES_PSICO);
-        expect(q.correcta >= 0 && q.correcta < OPCIONES_PSICO).toBe(true);
+        expect(q.opciones).toHaveLength(n);
+        expect(new Set(clave(q)).size, `${q.enunciado} ${q.lineas?.join(' | ')} → ${clave(q).join(', ')}`).toBe(n);
+        expect(q.correcta >= 0 && q.correcta < n).toBe(true);
         expect(q.explicacion.length).toBeGreaterThan(5);
         expect(q.enunciado).not.toMatch(/NaN|undefined|Infinity/);
         expect(clave(q).join(' ')).not.toMatch(/NaN|undefined|Infinity/);
@@ -88,7 +91,8 @@ describe('toda pregunta se puede contestar', () => {
   it('atención: la respuesta es el número de parejas que de verdad son iguales', () => {
     for (const q of deTipo('atencion')) {
       const iguales = q.lineas!.filter((l) => { const [a, b] = l.trim().split(/\s+/); return a === b; }).length;
-      expect(q.correcta).toBe(iguales);
+      const t = q.opciones[q.correcta].texto;
+      expect(t === 'Ninguna' ? 0 : Number(t)).toBe(iguales);
       expect(q.lineas).toHaveLength(4);
       // Las que no son iguales difieren de verdad, y solo un poco.
       for (const l of q.lineas!) { const [a, b] = l.trim().split(/\s+/); expect(a.length).toBe(b.length); }
@@ -135,6 +139,397 @@ describe('toda pregunta se puede contestar', () => {
   });
 });
 
+describe('los tipos añadidos el 13 nov', () => {
+  it('van al final de la lista: una sesión vieja se regenera igual', () => {
+    expect(TIPOS_PSICO.slice(0, 6)).toEqual(['series', 'letras', 'calculo', 'verbal', 'atencion', 'figuras']);
+    // La huella de 300 sesiones de los seis tipos de antes, calculada con el código de antes de añadir los nuevos.
+    // Si esto falla, un generador antiguo ha cambiado: una sesión empezada antes del despliegue se corregiría
+    // contra otras preguntas, y hay que subir `VERSION_PSICO` (regla 117).
+    const huella = createHash('sha256')
+      .update(JSON.stringify(Array.from({ length: 300 }, (_, i) => generaSesion(i * 7919 + 13, TIPOS_PSICO.slice(0, 6), 25, 1))))
+      .digest('hex');
+    expect(huella).toBe('3bdeaea1e7d7a4f452f1369fa22c9206440aad5f47769418b7565883bcbbf939');
+  });
+
+  it('dominós: la ficha buena sigue la regla de cada mitad, y ninguna mala es la misma ficha dada la vuelta', () => {
+    for (const q of deTipo('dominos')) {
+      const f = q.fichas!;
+      expect(f).toHaveLength(5);
+      expect(f[4]).toBeNull();
+      const dado = f.slice(0, 4) as [number, number][];
+      const paso = (k: 0 | 1) => (((dado[1][k] - dado[0][k]) % 7) + 7) % 7;
+      for (let i = 1; i < 4; i++) for (const k of [0, 1] as const) expect((((dado[i][k] - dado[i - 1][k]) % 7) + 7) % 7).toBe(paso(k));
+      const esperada = [(dado[3][0] + paso(0)) % 7, (dado[3][1] + paso(1)) % 7];
+      expect(q.opciones[q.correcta].ficha).toEqual(esperada);
+      const llaves = q.opciones.map((o) => [...o.ficha!].sort().join('-'));
+      expect(new Set(llaves).size).toBe(q.opciones.length);
+      for (const o of q.opciones) for (const n of o.ficha!) expect(n >= 0 && n <= 6 && Number.isInteger(n)).toBe(true);
+    }
+  });
+
+  it('rotaciones: la correcta es el giro que dice el enunciado, y las 8 versiones de la figura son distintas', () => {
+    for (const q of deTipo('rotaciones')) {
+      const grados = Number(/gira (\d+)°/.exec(q.enunciado)![1]);
+      const esperada = JSON.stringify(girar(q.rejilla!, grados));
+      expect(JSON.stringify(q.opciones[q.correcta].rejilla)).toBe(esperada);
+      expect(q.opciones.filter((o) => JSON.stringify(o.rejilla) === esperada)).toHaveLength(1);
+      expect(q.rejilla!.flat().filter(Boolean)).toHaveLength(5);
+      const todas = [0, 90, 180, 270].flatMap((d) => { const g = girar(q.rejilla!, d); return [JSON.stringify(g), JSON.stringify(g.map((f) => [...f].reverse()))]; });
+      expect(new Set(todas).size).toBe(8);
+    }
+  });
+
+  it('girar: cuatro giros de 90° devuelven la figura, y 180° son dos de 90°', () => {
+    const g = [[true, false, false], [true, true, false], [false, true, true]];
+    expect(girar(girar(girar(girar(g, 90), 90), 90), 90)).toEqual(g);
+    expect(girar(g, 180)).toEqual(girar(girar(g, 90), 90));
+    expect(girar(g, 90)[0][2]).toBe(g[0][0]); // la esquina de arriba a la izquierda pasa a arriba a la derecha
+  });
+
+  it('tablas: números enteros y la cuenta de la explicación da la respuesta', () => {
+    for (const q of deTipo('tablas')) {
+      expect(q.tabla!.filas).toHaveLength(4);
+      for (const fila of q.tabla!.filas) for (const c of fila.slice(1)) expect(Number.isInteger(Number(c))).toBe(true);
+      const resultado = Number(/= (\d+)\.$/.exec(q.explicacion)![1]);
+      expect(q.opciones[q.correcta].texto).toBe(String(resultado));
+    }
+  });
+
+  it('tablas: la suma de una columna sale de la tabla que se enseña', () => {
+    let vistas = 0;
+    for (const q of deTipo('tablas')) {
+      const m = /Suma de (\w+): (.+) = (\d+)\./.exec(q.explicacion);
+      if (!m || !/hubo entre los cuatro meses/.test(q.enunciado)) continue;
+      const k = q.tabla!.cabecera.findIndex((c) => c.toLowerCase() === m[1]);
+      expect(k).toBeGreaterThan(0);
+      expect(q.tabla!.filas.map((f) => f[k]).join(' + ')).toBe(m[2]);
+      vistas++;
+    }
+    expect(vistas).toBeGreaterThan(20);
+  });
+
+  it('tablas: la media sale entera de la tabla', () => {
+    let vistas = 0;
+    for (const q of deTipo('tablas')) {
+      if (!/media mensual/.test(q.enunciado)) continue;
+      const col = q.tabla!.cabecera.findIndex((c) => q.enunciado.toLowerCase().includes(c.toLowerCase()));
+      const suma = q.tabla!.filas.reduce((a, f) => a + Number(f[col]), 0);
+      expect(suma % 4).toBe(0);
+      expect(q.opciones[q.correcta].texto).toBe(String(suma / 4));
+      vistas++;
+    }
+    expect(vistas).toBeGreaterThan(20);
+  });
+
+  it('lo que viaja al navegador lleva la figura y la tabla, pero no la respuesta', () => {
+    for (const tipo of ['dominos', 'rotaciones', 'tablas'] as const) {
+      const q = generaSesion(5, [tipo], 1)[0];
+      const p = aPublica(q) as Record<string, unknown>;
+      expect(p.fichas ?? p.rejilla ?? p.tabla).toBeDefined();
+      expect(p.correcta).toBeUndefined();
+      expect(p.explicacion).toBeUndefined();
+    }
+  });
+});
+
+describe('los ejercicios del examen real (13 nov)', () => {
+  const nums = (t: string) => (t.match(/-?\d+/g) ?? []).map(Number);
+
+  it('v1 sigue con 5 opciones y v2 con 4 (o 3)', () => {
+    for (const tipo of ['series', 'calculo', 'figuras'] as const) {
+      expect(deTipo(tipo, 30, 1).every((q) => q.opciones.length === 5)).toBe(true);
+      expect(deTipo(tipo, 30, 2).every((q) => q.opciones.length === 4)).toBe(true);
+    }
+    expect(deTipo('ordenes', 30, 2).every((q) => q.opciones.length === 3)).toBe(true);
+    expect(deTipo('simbolos', 30, 2).every((q) => q.opciones.length === 3)).toBe(true);
+  });
+
+  it('los tres ejercicios tienen las preguntas y los minutos del examen', () => {
+    expect(EJERCICIOS_PSICO[1]).toMatchObject({ total: 40, minutos: 23 });
+    expect(EJERCICIOS_PSICO[2]).toMatchObject({ total: 34, minutos: 18, tipos: ['simbolos'] });
+    expect(EJERCICIOS_PSICO[3]).toMatchObject({ total: 30, minutos: 18, tipos: ['ordenes'] });
+    expect(EJERCICIOS_PSICO[1].tipos).not.toContain('atencion');
+    for (const e of [1, 2, 3] as const) {
+      const sesion = generaSesion(11, [...EJERCICIOS_PSICO[e].tipos], EJERCICIOS_PSICO[e].total);
+      expect(sesion).toHaveLength(EJERCICIOS_PSICO[e].total);
+    }
+  });
+
+  it('conteo: la respuesta es la cuenta de verdad', () => {
+    let vistas = 0;
+    for (const q of deTipo('conteo')) {
+      let m = /del (\d+) al (\d+), ambos incluidos, sin contar los que acaban en ([\d, y]+)\?/.exec(q.enunciado);
+      let cuenta: number | null = null;
+      if (m) {
+        const finales = nums(m[3]);
+        cuenta = 0; for (let n = +m[1]; n <= +m[2]; n++) if (!finales.includes(n % 10)) cuenta++;
+      } else if ((m = /divisibles por (\d+) hay entre el (\d+) y el (\d+), ambos exclusive/.exec(q.enunciado))) {
+        cuenta = 0; for (let n = +m[2] + 1; n < +m[3]; n++) if (n % +m[1] === 0) cuenta++;
+      } else if ((m = /del (\d+) al (\d+), ambos inclusive, sin contar los números (pares|impares) de 2 cifras/.exec(q.enunciado))) {
+        cuenta = 0; for (let n = +m[1]; n <= +m[2]; n++) if (!(n >= 10 && n <= 99 && (m[3] === 'pares' ? n % 2 === 0 : n % 2 === 1))) cuenta++;
+      }
+      expect(cuenta, q.enunciado).not.toBeNull();
+      expect(Number(q.opciones[q.correcta].texto), q.enunciado).toBe(cuenta);
+      vistas++;
+    }
+    expect(vistas).toBe(1200);
+  });
+
+  it('dobles: son dos series aritméticas entrelazadas y la correcta continúa la de los lugares impares', () => {
+    for (const q of deTipo('dobles')) {
+      const t = nums(q.lineas![0]);
+      expect(t).toHaveLength(8);
+      const imp = [t[0], t[2], t[4], t[6]], par = [t[1], t[3], t[5], t[7]];
+      const dif = (x: number[]) => new Set([x[1] - x[0], x[2] - x[1], x[3] - x[2]]);
+      expect(dif(imp).size).toBe(1); expect(dif(par).size).toBe(1);
+      expect(Number(q.opciones[q.correcta].texto)).toBe(imp[3] + (imp[1] - imp[0]));
+      expect(t.every((n) => n >= 0)).toBe(true);
+    }
+  });
+
+  it('problemas: números enteros, y la cuenta de la explicación da la respuesta', () => {
+    for (const q of deTipo('problemas')) {
+      const m = /= (\d+)\.$/.exec(q.explicacion) ?? /= (\d+)\.?$/.exec(q.explicacion);
+      expect(m, q.explicacion).not.toBeNull();
+      expect(parseInt(q.opciones[q.correcta].texto!, 10), q.enunciado).toBe(Number(m![1]));
+      expect(q.opciones.every((o) => /^\d+( €| horas| minutos| años)?$/.test(o.texto!))).toBe(true);
+    }
+  });
+
+  it('problemas: el del aceite (media del precio) se comprueba contra el enunciado', () => {
+    let vistas = 0;
+    for (const q of deTipo('problemas')) {
+      const m = /^Compro (\d+) litros a (\d+) € el litro, otros (\d+) litros a (\d+) € el litro y otros (\d+) litros a (\d+) € el litro\./.exec(q.enunciado);
+      if (!m) continue;
+      const [l1, p1, l2, p2, l3, p3] = m.slice(1).map(Number);
+      const media = (l1 * p1 + l2 * p2 + l3 * p3) / (l1 + l2 + l3);
+      expect(Number.isInteger(media)).toBe(true);
+      expect(parseInt(q.opciones[q.correcta].texto!, 10)).toBe(media);
+      vistas++;
+    }
+    expect(vistas).toBeGreaterThan(20);
+  });
+
+  it('problemas: el de la cuenta del bar y el del precio X salen bien', () => {
+    let bar = 0, equis = 0;
+    for (const q of deTipo('problemas')) {
+      let m = /^(\d+) amigos toman algo en un bar y la cuenta es de (\d+) €\. (Uno|Dos) de ellos/.exec(q.enunciado);
+      if (m) {
+        const n = +m[1], cuenta = +m[2], fuera = m[3] === 'Uno' ? 1 : 2;
+        expect(cuenta % n).toBe(0); expect(cuenta % (n - fuera)).toBe(0);
+        const cada = cuenta / (n - fuera);
+        const pide = /cuánto más/i.test(q.enunciado) ? cada - cuenta / n : cada;
+        expect(parseInt(q.opciones[q.correcta].texto!, 10)).toBe(pide);
+        bar++;
+      }
+      m = /^Compro (\d+) litros de aceite a (\d+) € el litro y otros (\d+) litros a (\d+) € el litro\. Después compro (\d+) litros más, a X € el litro, y el precio medio de todo el aceite sale a (\d+) €/.exec(q.enunciado);
+      if (m) {
+        const [l1, p1, l2, p2, l3, media] = m.slice(1).map(Number);
+        const x = (media * (l1 + l2 + l3) - l1 * p1 - l2 * p2) / l3;
+        expect(Number.isInteger(x) && x > 0).toBe(true);
+        expect(parseInt(q.opciones[q.correcta].texto!, 10)).toBe(x);
+        equis++;
+      }
+    }
+    expect(bar).toBeGreaterThan(20); expect(equis).toBeGreaterThan(20);
+  });
+
+  it('abecedario: las cuatro variantes dan la respuesta que dicen', () => {
+    const ABC = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
+    const visto = [0, 0, 0, 0];
+    for (const q of deTipo('abecedario')) {
+      const r = q.opciones[q.correcta].texto!;
+      let m = /^Eliminando del abecedario las letras que forman la palabra (\w+), ¿qué letra ocupa el lugar (\d+)\?/.exec(q.enunciado);
+      if (m) { const quedan = [...ABC].filter((l) => !m![1].includes(l)); expect(r).toBe(quedan[+m[2] - 1]); visto[0]++; continue; }
+      m = /posición de la (\S) por la de la (\S) y dividir el resultado entre la posición de la (\S)\?/.exec(q.enunciado);
+      if (m) { const p = (l: string) => ABC.indexOf(l) + 1; const v = (p(m[1]) * p(m[2])) / p(m[3]); expect(Number.isInteger(v)).toBe(true); expect(Number(r)).toBe(v); visto[1]++; continue; }
+      m = /^Ordena alfabéticamente estas palabras: (.+)\. ¿Qué letra ocupa el lugar (\d+) de la (\w+) palabra\?/.exec(q.enunciado);
+      if (m) {
+        const orden = m[1].split(', ').sort((a, b) => a.localeCompare(b, 'es'));
+        const j = ['primera', 'segunda', 'tercera', 'cuarta', 'quinta'].indexOf(m[3]);
+        const letra = orden[j].normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()[+m[2] - 1];
+        expect(r).toBe(letra); visto[2]++; continue;
+      }
+      m = /cada letra vale su posición en el abecedario (más|menos) (\d+) .+ ¿Cuánto vale \((\S) − (\S)\) × (\S)\?/.exec(q.enunciado);
+      if (m) {
+        const k = (m[1] === 'más' ? 1 : -1) * +m[2]; const val = (l: string) => ABC.indexOf(l) + 1 + k;
+        expect(Number(r)).toBe((val(m[3]) - val(m[4])) * val(m[5])); visto[3]++; continue;
+      }
+      throw new Error(`sin reconocer: ${q.enunciado}`);
+    }
+    for (const v of visto) expect(v).toBeGreaterThan(100);
+  });
+
+  it('lógica: la estatura se deduce de las frases y los silogismos se comprueban con todos los mundos posibles', async () => {
+    const { TRIPLES } = await import('../app/lib/psico-nuevos');
+    let est = 0, sil = 0;
+    for (const q of deTipo('logica')) {
+      const correcta = q.opciones[q.correcta].texto!;
+      if (/más alto|menos alto/.test(q.enunciado)) {
+        const frases = q.enunciado.split('. ').slice(0, 3);
+        const mayor: [string, string][] = frases.map((f) => { const a = /^(\w+) es más alto que (\w+)/.exec(f); const b = /^(\w+) es menos alto que (\w+)/.exec(f); return a ? [a[1], a[2]] : [b![2], b![1]]; });
+        const gente = [...new Set(mayor.flat())];
+        const alto = gente.find((g) => mayor.every(([, menor]) => menor !== g))!;
+        const bajo = gente.find((g) => mayor.every(([m]) => m !== g))!;
+        const segundo = mayor.find(([m]) => m === alto)![1];
+        const quien = /el más alto/.test(q.enunciado) ? alto : /el más bajo/.test(q.enunciado) ? bajo : segundo;
+        expect(correcta).toBe(quien); est++;
+        continue;
+      }
+      // Silogismo: se enumeran los mundos de 3 conjuntos sobre 4 individuos.
+      const nombres = new Map<string, number>();
+      for (const [a, b, c] of TRIPLES) for (const [i, [pl, sg]] of [a, b, c].entries()) { void i; nombres.set(pl, 0); nombres.set(sg, 0); }
+      const tripleDe = (txt: string) => TRIPLES.find((t) => t.some(([pl, sg]) => new RegExp(`\\b(${pl}|${sg})\\b`).test(txt)))!;
+      const t = tripleDe(q.enunciado);
+      const id = (palabra: string) => t.findIndex(([pl, sg]) => palabra === pl || palabra === sg);
+      type Fr = { k: 'todos' | 'ninguno' | 'algunos' | 'algunos-no'; a: number; b: number };
+      const lee = (f: string): Fr => {
+        let m = /^Todos los (\S+) son (\S+?)\.?$/.exec(f); if (m) return { k: 'todos', a: id(m[1]), b: id(m[2]) };
+        m = /^Ningún (\S+) es (\S+?)\.?$/.exec(f); if (m) return { k: 'ninguno', a: id(m[1]), b: id(m[2]) };
+        m = /^Algunos (\S+) no son (\S+?)\.?$/.exec(f); if (m) return { k: 'algunos-no', a: id(m[1]), b: id(m[2]) };
+        m = /^Algunos (\S+) son (\S+?)\.?$/.exec(f); if (m) return { k: 'algunos', a: id(m[1]), b: id(m[2]) };
+        throw new Error(f);
+      };
+      const premisas = q.enunciado.split('afirmaciones? ')[1].split(/(?<=\.) /).map(lee);
+      const verdad = (f: Fr, w: number[][]) => {
+        const A = w[f.a], B = w[f.b];
+        if (f.k === 'todos') return A.every((x) => B.includes(x));
+        if (f.k === 'ninguno') return A.every((x) => !B.includes(x));
+        if (f.k === 'algunos') return A.some((x) => B.includes(x));
+        return A.some((x) => !B.includes(x));
+      };
+      const mundos: number[][][] = [];
+      for (let a = 0; a < 16; a++) for (let b = 0; b < 16; b++) for (let c = 0; c < 16; c++) {
+        const sub = (m: number) => [0, 1, 2, 3].filter((i) => m & (1 << i));
+        mundos.push([sub(a), sub(b), sub(c)]);
+      }
+      const posibles = mundos.filter((w) => premisas.every((p) => verdad(p, w)));
+      expect(posibles.length).toBeGreaterThan(0);
+      q.opciones.forEach((o, i) => {
+        const vale = posibles.every((w) => verdad(lee(o.texto!), w));
+        expect(vale, `${o.texto} (${q.enunciado})`).toBe(i === q.correcta);
+      });
+      sil++;
+    }
+    expect(est).toBeGreaterThan(50); expect(sil).toBeGreaterThan(50);
+  });
+
+  it('cuadros: la X sale de la regla que cumplen las otras filas', () => {
+    const reglas: ((a: number, b: number) => number)[] = [(a, b) => a + b, (a, b) => a - b, (a, b) => a * b, (a, b) => 2 * a + b];
+    for (const q of deTipo('cuadros')) {
+      const f = q.tabla!.filas;
+      expect(f).toHaveLength(3);
+      const num = (x: string) => Number(x);
+      const consistentes = reglas.filter((g) => [0, 1].every((i) => g(num(f[i][0]), num(f[i][1])) === num(f[i][2])));
+      expect(consistentes.length).toBeGreaterThanOrEqual(1);
+      const k = f[2].indexOf('X');
+      const respuestas = consistentes.map((g) => {
+        if (k === 2) return g(num(f[2][0]), num(f[2][1]));
+        for (let x = 0; x < 400; x++) { const fila = f[2].map((c, i) => (i === k ? x : num(c))); if (g(fila[0], fila[1]) === fila[2]) return x; }
+        return -1;
+      });
+      expect(respuestas).toContain(Number(q.opciones[q.correcta].texto));
+    }
+  });
+
+  it('cifrado: la palabra nueva es un anagrama de la dada y se escribe con los mismos símbolos', () => {
+    for (const q of deTipo('cifrado')) {
+      const m = /^(\w+) se escribe así: (.+)\. ¿Cómo se escribe (\w+)\?$/.exec(q.enunciado)!;
+      const [, w1, g1, w2] = m;
+      expect([...w1].sort().join('')).toBe([...w2].sort().join(''));
+      expect(w2).not.toBe(w1);
+      const glifos = g1.split(' ');
+      expect(glifos).toHaveLength(w1.length);
+      const mapa = new Map<string, string>();
+      [...w1].forEach((l, i) => { if (mapa.has(l)) expect(mapa.get(l)).toBe(glifos[i]); mapa.set(l, glifos[i]); });
+      expect(new Set(mapa.values()).size).toBe(mapa.size); // letra distinta, símbolo distinto
+      expect(q.opciones[q.correcta].texto).toBe([...w2].map((l) => mapa.get(l)).join(' '));
+    }
+  });
+
+  it('órdenes: aplicar las órdenes en cadena a la frase da la opción correcta, y la tabla es la de las 8 órdenes', () => {
+    for (const q of deTipo('ordenes')) {
+      const claves = /órdenes ([A-H](?:-[A-H])+),/.exec(q.enunciado)![1].split('-');
+      const frase = /«(.+)»/.exec(q.lineas![0])![1];
+      const res = aplicaOrdenes(frase, claves)!;
+      expect(res).not.toBeNull();
+      expect(q.opciones[q.correcta].texto).toBe(res.final);
+      expect(res.final).not.toBe(frase);
+      expect(q.tabla!.filas.map((f) => f[0])).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+    }
+  });
+
+  it('órdenes: cada orden hace lo que dice', () => {
+    const f = 'uno dos tres cuatro cinco seis siete';
+    expect(aplicaOrdenes(f, ['A'])!.final).toBe('dos tres cuatro cinco seis siete uno');
+    expect(aplicaOrdenes(f, ['B'])!.final).toBe('siete dos tres cuatro cinco seis uno');
+    expect(aplicaOrdenes(f, ['C'])!.final).toBe('uno dos seis cuatro cinco tres siete');
+    expect(aplicaOrdenes(f, ['D'])!.final).toBe('cinco dos tres cuatro uno seis siete');
+    expect(aplicaOrdenes(f, ['E'])!.final).toBe('uno dos tres cinco seis siete');
+    expect(aplicaOrdenes(f, ['F'])!.final).toBe('uno dos tres cuatro cinco seis siete cuatro');
+    expect(aplicaOrdenes(f, ['G'])!.final).toBe('uno doss tress cuatro cinco seiss siete');
+    expect(aplicaOrdenes(f, ['H'])!.final).toBe('dos tres cuatro cinco seis siete');
+    expect(aplicaOrdenes('a b c', ['C'])).toBeNull(); // faltan palabras: no se inventa nada
+  });
+
+  it('símbolos: 20 nombres y 20 símbolos distintos, la misma tabla en toda la sesión y una sola fila ordenada', () => {
+    const l = leyendaDe(99);
+    expect(l).toHaveLength(20);
+    expect(new Set(l.map((x) => x.nombre)).size).toBe(20);
+    expect(new Set(l.map((x) => x.simbolo)).size).toBe(20);
+    expect(l.map((x) => x.simbolo).sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i));
+    expect(NOMBRES_SIMBOLOS).toHaveLength(20);
+    expect(leyendaDe(99)).toEqual(l);
+    expect(leyendaDe(100)).not.toEqual(l);
+    const sesion = generaSesion(99, ['simbolos'], 34);
+    for (const q of sesion) {
+      expect(q.leyenda).toEqual(l);
+      const nombreDe = new Map(l.map((x) => [x.simbolo, x.nombre]));
+      const ordenada = (f: number[]) => { const n = f.map((x) => nombreDe.get(x)!); return n.every((x, i) => i === 0 || x.localeCompare(n[i - 1], 'es') > 0); };
+      const buenas = q.opciones.map((o) => ordenada(o.fila!));
+      expect(buenas.filter(Boolean)).toHaveLength(1);
+      expect(buenas.indexOf(true)).toBe(q.correcta);
+      for (const o of q.opciones) { expect(new Set(o.fila).size).toBe(o.fila!.length); expect(o.fila!.length).toBeGreaterThanOrEqual(3); }
+    }
+  });
+
+  it('símbolos: sacar la tabla no gasta números del azar de la sesión (las demás preguntas no cambian)', () => {
+    const solo = generaSesion(5, ['series'], 10);
+    expect(solo).toEqual(generaSesion(5, ['series'], 10));
+  });
+
+  it('la nota usa las opciones de cada pregunta: con 3 opciones un fallo vale medio acierto', () => {
+    const preguntas = generaSesion(3, ['ordenes'], 4);
+    const mal = preguntas.map((q) => (q.correcta + 1) % 3);
+    const r = corrigeSesion(preguntas, [preguntas[0].correcta, preguntas[1].correcta, mal[2], mal[3]]);
+    expect(r.aciertos).toBe(2); expect(r.fallos).toBe(2);
+    expect(r.nota).toBe(notaPsico(2, 2, 4, 3));
+    expect(notaPsico(2, 2, 4, 3)).toBe(2.5);
+    expect(notaPsico(2, 2, 4, 5)).toBe(3.75);
+    expect(r.porTipo.ordenes).toEqual({ a: 2, t: 4, f: 2 });
+  });
+
+  it('una respuesta de una opción que la pregunta no tiene es un blanco', () => {
+    const preguntas = generaSesion(3, ['ordenes'], 3);
+    const r = corrigeSesion(preguntas, [3, 4, 9]);
+    expect(r.blancos).toBe(3); expect(r.fallos).toBe(0);
+  });
+
+  it('la nota de una sesión guardada: la v1 con 5 opciones como siempre, la v2 con las de cada tipo', () => {
+    expect(notaDeSesionGuardada({ version: 1, total: 20, aciertos: 10, fallos: 4, porTipo: { series: { a: 10, t: 20 } } })).toBe(4.5);
+    expect(notaDeSesionGuardada({ version: 2, total: 4, aciertos: 2, fallos: 2, porTipo: { ordenes: { a: 2, t: 4, f: 2 } } })).toBe(2.5);
+    expect(notaDeSesionGuardada({ version: 2, total: 6, aciertos: 3, fallos: 3, porTipo: { series: { a: 3, t: 3, f: 0 }, ordenes: { a: 0, t: 3, f: 3 } } })).toBe(2.5);
+    // Sin los fallos por tipo (una sesión antigua) no se inventa nada: se usa la fórmula de siempre.
+    expect(notaDeSesionGuardada({ version: 2, total: 20, aciertos: 10, fallos: 4, porTipo: { series: { a: 10, t: 20 } } })).toBe(4.5);
+  });
+
+  it('el texto de la penalización dice lo que es', () => {
+    expect(textoPenalizacion([4, 4])).toBe('Cada 3 fallos quitan un acierto; los blancos no restan.');
+    expect(textoPenalizacion([3])).toBe('Cada 2 fallos quitan un acierto; los blancos no restan.');
+    expect(textoPenalizacion([4, 3])).toContain('según las opciones');
+  });
+});
+
 describe('la corrección', () => {
   const preguntas = generaSesion(2024, [...TIPOS_PSICO], 20);
 
@@ -164,8 +559,11 @@ describe('la corrección', () => {
   });
 
   it('lo que no es una opción cuenta como blanco', () => {
-    expect([5, -3, 2.5, '1', null, undefined, NaN].map(normalizaRespuesta)).toEqual([-1, -1, -1, -1, -1, -1, -1]);
-    expect([0, 4].map(normalizaRespuesta)).toEqual([0, 4]);
+    expect([5, -3, 2.5, '1', null, undefined, NaN].map((v) => normalizaRespuesta(v))).toEqual([-1, -1, -1, -1, -1, -1, -1]);
+    expect([0, 4].map((v) => normalizaRespuesta(v))).toEqual([0, 4]);
+    // Una opción que la pregunta no tiene (un 3 en una de tres) también es un blanco.
+    expect(normalizaRespuesta(3, 3)).toBe(-1);
+    expect(normalizaRespuesta(2, 3)).toBe(2);
   });
 
   it('el desglose por tipo suma el total', () => {
@@ -203,7 +601,7 @@ describe('las acciones', () => {
 
   it('una sesión se entrega una vez y solo si es de la misma versión', () => {
     expect(src).toContain(".is('finished_at', null)");
-    expect(src).toContain('fila.version !== VERSION_PSICO');
+    expect(src).toContain('!esVersionPsico(fila.version)');
   });
 
   it('la semilla sale del azar del sistema, no del cliente', () => {

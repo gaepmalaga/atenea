@@ -4591,6 +4591,25 @@ el segundo necesita el proyecto real.
   correcta, enteros sin decimales, y en las figuras que NINGÚN distractor
   completa también la tabla. Es módulo propio (`psico`): se enciende y apaga
   por academia desde «Ajustes» (regla 109).
+- **Tipos añadidos el 13 nov: dominós, rotaciones y tablas de datos.** Salen de
+  lo que describen las academias (no hay examen oficial publicado: el cuerpo no
+  difunde preguntas reales). Dominós: cuatro fichas y la que sigue, cada mitad
+  con su regla (sube, baja o se queda; después del 6 viene el 0), y ningún
+  distractor es la buena puesta del revés. Rotaciones: una figura de cinco
+  cuadraditos SIN simetrías (las 8 versiones distintas) girada 90°, 180° o 270° a
+  la derecha; los distractores son las otras vueltas y los espejos. Tablas:
+  denuncias por mes y tipo; total, suma de un mes, diferencia o media, siempre
+  con resultado entero. Van AL FINAL de `TIPOS_PSICO`: una sesión guarda sus
+  tipos y se regenera con ellos. Un test lleva la huella de 300 sesiones de los
+  seis tipos de antes: si cambia, un generador antiguo se ha tocado y hay que
+  subir `VERSION_PSICO`.
+- **Segunda versión (13 nov, a partir de dos modelos del examen real,
+  `docs/PSICOTECNICO-REAL.md`):** `VERSION_PSICO = 2`, con 4 opciones (3 en los
+  ejercicios 2 y 3) y la nota con las opciones de cada pregunta. Los generadores
+  siguen haciendo 5 y la versión 2 los recorta, para que las sesiones de la
+  versión 1 se regeneren idénticas. Una sesión guarda su versión y se corrige y
+  repasa con ella. Los tipos nuevos viven en `psico-nuevos.ts` y lo común en
+  `psico-comun.ts`. Se añaden los ejercicios 2 y 3 y los tipos del 1.
 - **Lo que NO se sabe:** si el nivel de dificultad se parece al del examen
   real. Se hizo a ojo con lo que se suele pedir; conviene que un opositor que
   ya haya pasado la prueba los pruebe y diga si están más fáciles o más

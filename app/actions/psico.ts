@@ -5,8 +5,8 @@ import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { fallo } from '../lib/fallos';
 import {
-  VERSION_PSICO, TAMANOS_PSICO, MINUTOS_PSICO, OPCIONES_PSICO,
-  aPublica, corrigeSesion, generaSesion, normalizaRespuesta, tiposValidos,
+  VERSION_PSICO, TAMANOS_PSICO, MINUTOS_PSICO, EJERCICIOS_PSICO, esEjercicio, esVersionPsico,
+  aPublica, corrigeSesion, generaSesion, normalizaRespuesta, tiposValidos, notaDeSesionGuardada,
   type PreguntaPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '../lib/psico';
 
@@ -38,10 +38,13 @@ export async function empiezaPsico(input: unknown): Promise<{ success: true; ses
   const organizationId = auth.user.organizationId;
   if (!organizationId) return { success: false as const, error: 'No hemos encontrado tu academia.' };
 
-  const d = (input ?? {}) as { tipos?: unknown; total?: unknown };
-  const tipos = tiposValidos(d.tipos);
-  const total = (TAMANOS_PSICO as readonly number[]).includes(Number(d.total)) ? Number(d.total) : TAMANOS_PSICO[0];
-  const minutos = MINUTOS_PSICO[total];
+  const d = (input ?? {}) as { tipos?: unknown; total?: unknown; ejercicio?: unknown };
+  // Un ejercicio del examen lleva sus tipos, preguntas y minutos fijos (docs/PSICOTECNICO-REAL.md);
+  // en libre elige el alumno entre los tamaños de siempre.
+  const ejercicio = esEjercicio(d.ejercicio) ? EJERCICIOS_PSICO[d.ejercicio] : null;
+  const tipos = ejercicio ? [...ejercicio.tipos] : tiposValidos(d.tipos);
+  const total = ejercicio ? ejercicio.total : (TAMANOS_PSICO as readonly number[]).includes(Number(d.total)) ? Number(d.total) : TAMANOS_PSICO[0];
+  const minutos = ejercicio ? ejercicio.minutos : MINUTOS_PSICO[total];
   const seed = randomInt(1, 2 ** 31 - 1);
 
   const { data, error } = await supabaseAdmin
@@ -56,7 +59,7 @@ export async function empiezaPsico(input: unknown): Promise<{ success: true; ses
 
   return {
     success: true as const,
-    sesion: { id: data.id as string, minutos, preguntas: generaSesion(seed, tipos, total).map(aPublica) },
+    sesion: { id: data.id as string, minutos, preguntas: generaSesion(seed, tipos, total, VERSION_PSICO).map(aPublica) },
   };
 }
 
@@ -89,13 +92,13 @@ export async function entregaPsico(input: unknown): Promise<
   if (leer) return { success: false as const, error: fallo('entregaPsico', leer) };
   if (!fila) return { success: false as const, error: 'Esa sesión no existe.' };
   if (fila.finished_at) return { success: false as const, error: 'Esa sesión ya estaba entregada.' };
-  if (fila.version !== VERSION_PSICO) {
+  if (!esVersionPsico(fila.version)) {
     return { success: false as const, error: 'La aplicación se ha actualizado mientras hacías esta sesión y ya no se puede corregir. Empieza otra.' };
   }
 
   const total = fila.total as number;
-  const preguntas = generaSesion(Number(fila.seed), tiposValidos(fila.kinds) as TipoPsico[], total);
-  const respuestas = Array.from({ length: total }, (_, i) => normalizaRespuesta(Array.isArray(d.respuestas) ? d.respuestas[i] : -1));
+  const preguntas = generaSesion(Number(fila.seed), tiposValidos(fila.kinds) as TipoPsico[], total, fila.version);
+  const respuestas = preguntas.map((q, i) => normalizaRespuesta(Array.isArray(d.respuestas) ? d.respuestas[i] : -1, q.opciones.length));
   const resultado = corrigeSesion(preguntas, respuestas);
 
   // La duración sale del reloj del servidor (regla 14), con tope en lo que duraba la sesión.
@@ -130,6 +133,8 @@ export async function entregaPsico(input: unknown): Promise<
 
 export type SesionPsicoHecha = {
   id: string;
+  /** Con la fórmula de SU versión (4 o 3 opciones desde el 13 nov; 5 antes). */
+  nota: number;
   fecha: string;
   total: number;
   aciertos: number;
@@ -149,7 +154,7 @@ export async function getMisPsico(): Promise<{ success: true; sesiones: SesionPs
 
   const { data, error } = await supabaseAdmin
     .from('psico_sessions')
-    .select('id, finished_at, total, correct, wrong, blank, duration_ms, kinds, by_kind')
+    .select('id, finished_at, version, total, correct, wrong, blank, duration_ms, kinds, by_kind')
     .eq('user_id', auth.user.id)
     .not('finished_at', 'is', null)
     .order('finished_at', { ascending: false })
@@ -164,6 +169,10 @@ export async function getMisPsico(): Promise<{ success: true; sesiones: SesionPs
     success: true as const,
     sesiones: (data ?? []).map((f) => ({
       id: f.id as string,
+      nota: notaDeSesionGuardada({
+        version: (f.version as number) ?? 1, total: f.total as number, aciertos: (f.correct as number) ?? 0, fallos: (f.wrong as number) ?? 0,
+        porTipo: (f.by_kind as ResultadoPsico['porTipo']) ?? {},
+      }),
       fecha: f.finished_at as string,
       total: f.total as number,
       aciertos: (f.correct as number) ?? 0,
@@ -202,14 +211,14 @@ export async function getRevisionPsico(input: unknown): Promise<
     .maybeSingle();
   if (error) return { success: false as const, error: fallo('getRevisionPsico', error) };
   if (!fila || !fila.finished_at) return { success: false as const, error: 'Esa sesión no existe.' };
-  if (fila.version !== VERSION_PSICO) {
+  if (!esVersionPsico(fila.version)) {
     return { success: false as const, error: 'Esta sesión es de una versión anterior de los psicotécnicos y ya no se puede repasar.' };
   }
 
   const total = fila.total as number;
-  const preguntas = generaSesion(Number(fila.seed), tiposValidos(fila.kinds) as TipoPsico[], total);
+  const preguntas = generaSesion(Number(fila.seed), tiposValidos(fila.kinds) as TipoPsico[], total, fila.version);
   const guardadas = Array.isArray(fila.answers) ? fila.answers : [];
-  const respuestas = Array.from({ length: total }, (_, i) => normalizaRespuesta(guardadas[i]));
+  const respuestas = preguntas.map((q, i) => normalizaRespuesta(guardadas[i], q.opciones.length));
   return {
     success: true as const,
     revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })),

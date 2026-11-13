@@ -5,17 +5,18 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock, Flag, Play, RotateCc
 import { empiezaPsico, entregaPsico, getMisPsico, getRevisionPsico } from '@/actions';
 import type { RevisionPsico, SesionPsico, SesionPsicoHecha } from '@/app/actions/psico';
 import {
-  TIPOS_PSICO, TIPO_PSICO_LABEL, TIPO_PSICO_DESC, TAMANOS_PSICO, MINUTOS_PSICO, notaPsico,
+  TIPOS_PSICO, TIPO_PSICO_LABEL, TIPO_PSICO_DESC, TAMANOS_PSICO, MINUTOS_PSICO, EJERCICIOS_PSICO, opcionesDe, textoPenalizacion,
+  type NumeroEjercicio,
   type OpcionPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '@/app/lib/psico';
 import { Card, Button, SectionLabel, StatTile, OptionCard, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
-import FiguraPsico from './FiguraPsico';
+import FiguraPsico, { FichaDomino, RejillaPsico, FilaSimbolos, TablaSimbolos } from './FiguraPsico';
 
 /**
  * PSICOTÉCNICOS (regla 117): elegir, hacer contra el reloj, y repasar.
  *
  * Tres pantallas en una: la configuración (qué tipos y cuántas), la sesión
- * (una pregunta cada vez, cinco opciones, el reloj arriba) y el resultado (la
+ * (una pregunta cada vez, con 4 o 3 opciones como el examen, el reloj arriba) y el resultado (la
  * nota, por tipo, y cada pregunta con su explicación).
  *
  * El reloj se DERIVA de cuándo empezó (regla 14), no cuenta intervalos: si el
@@ -52,6 +53,12 @@ function Opcion({ opcion, letra, estado, onClick }: {
       <span className={cx(TEXT.hud, 'grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-current text-sm')}>{letra}</span>
       {opcion.celda
         ? <FiguraPsico celda={opcion.celda} className="h-12 w-[72px] text-slate-900 dark:text-white" />
+        : opcion.ficha
+        ? <FichaDomino ficha={opcion.ficha} className="h-[4.5rem] w-10 text-slate-900 dark:text-white" />
+        : opcion.rejilla
+        ? <RejillaPsico rejilla={opcion.rejilla} className="h-14 w-14 text-slate-900 dark:text-white" />
+        : opcion.fila
+        ? <FilaSimbolos fila={opcion.fila} />
         : <span className="text-base font-semibold text-slate-900 dark:text-white">{opcion.texto}</span>}
       {estado === 'buena' && <Check size={18} className="ml-auto shrink-0 text-emerald-700 dark:text-emerald-300" aria-label="Correcta" />}
       {estado === 'mala' && <X size={18} className="ml-auto shrink-0 text-red-700 dark:text-red-300" aria-label="Tu respuesta, incorrecta" />}
@@ -60,16 +67,51 @@ function Opcion({ opcion, letra, estado, onClick }: {
 }
 
 function Enunciado({ q }: { q: PreguntaPsicoPublica }) {
+  // Una tabla de datos alinea las cifras a la derecha; una de texto (las órdenes) va a la izquierda.
+  const esNumerica = !!q.tabla && q.tabla.filas.every((f) => f.slice(1).every((c) => /^-?\d+$|^X$/.test(c)));
   return (
     <>
       <p className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">{q.enunciado}</p>
       {q.lineas && (
         <div className={cx('mt-3 space-y-1 overflow-x-auto bg-slate-100 p-3 dark:bg-slate-800', RADIUS.md)}>
           {q.lineas.map((l, i) => (
-            <p key={i} className="whitespace-pre font-mono text-base font-bold tabular-nums text-slate-900 dark:text-white sm:text-lg">
+            <p key={i} className="whitespace-pre-wrap break-words font-mono text-base font-bold tabular-nums text-slate-900 dark:text-white sm:text-lg">
               {q.lineas!.length > 1 ? `${i + 1}.  ` : ''}{l}
             </p>
           ))}
+        </div>
+      )}
+      {q.fichas && (
+        <div className="mt-3 flex items-end justify-center gap-2 overflow-x-auto py-1" role="group" aria-label="La serie de fichas">
+          {q.fichas.map((f, i) => (
+            <FichaDomino key={i} ficha={f} className={cx('h-24 w-[52px] shrink-0 text-slate-900 dark:text-white', !f && 'text-indigo-600 dark:text-indigo-300')} />
+          ))}
+        </div>
+      )}
+      {q.rejilla && (
+        <div className="mt-3 flex justify-center">
+          <RejillaPsico rejilla={q.rejilla} className="h-28 w-28 text-slate-900 dark:text-white" />
+        </div>
+      )}
+      {q.leyenda && <TablaSimbolos leyenda={q.leyenda} />}
+      {q.tabla && (
+        <div className={cx('mt-3 overflow-x-auto border border-slate-200 dark:border-slate-700', RADIUS.md)}>
+          <table className="w-full min-w-[16rem] border-collapse text-left text-sm tabular-nums">
+            <thead>
+              <tr className={cx('bg-slate-100 dark:bg-slate-800', !q.tabla.cabecera.some(Boolean) && 'hidden')}>
+                {q.tabla.cabecera.map((c, i) => <th key={i} scope="col" className={cx('px-3 py-2 font-bold text-slate-900 dark:text-white', i > 0 && esNumerica && 'text-right')}>{c}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {q.tabla.filas.map((fila, i) => (
+                <tr key={i} className="border-t border-slate-200 dark:border-slate-700">
+                  {fila.map((c, k) => k === 0
+                    ? <th key={k} scope="row" className="px-3 py-2 text-left font-semibold text-slate-900 dark:text-white">{c}</th>
+                    : <td key={k} className={cx('px-3 text-slate-800 dark:text-slate-200', esNumerica ? 'py-2 text-right' : 'py-1.5 text-left text-[13px] leading-snug')}>{c}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       {q.matriz && (
@@ -117,10 +159,11 @@ export default function Psicotecnicos() {
     window.scrollTo(0, 0);
   }
 
-  async function empezar() {
+  /** Libre (los tipos y el tamaño que elija) o un ejercicio del examen (todo fijo, lo pone el servidor). */
+  async function empezar(ejercicio?: NumeroEjercicio) {
     setOcupado(true);
     setError(null);
-    const res = await empiezaPsico({ tipos: [...tipos], total });
+    const res = await empiezaPsico(ejercicio ? { ejercicio } : { tipos: [...tipos], total });
     setOcupado(false);
     if (!res.success) { setError(res.error); return; }
     inicio.current = Date.now();
@@ -186,8 +229,8 @@ export default function Psicotecnicos() {
 
         <Card pad="lg">
           <Enunciado q={q} />
-          {/* Las figuras, de dos en dos: en una columna la tabla y las cinco no cabían en la pantalla. */}
-          <div className={cx('mt-4 grid gap-2', q.matriz ? 'grid-cols-2' : 'grid-cols-1')}>
+          {/* Las figuras, de dos en dos: en una columna la tabla y las opciones no cabían en la pantalla. */}
+          <div className={cx('mt-4 grid gap-2', q.matriz || q.fichas || q.rejilla ? 'grid-cols-2' : 'grid-cols-1')}>
             {q.opciones.map((o, i) => (
               <Opcion
                 key={i}
@@ -199,7 +242,7 @@ export default function Psicotecnicos() {
               />
             ))}
           </div>
-          <p className={cx(TEXT.muted, 'mt-3')}>Cada cuatro fallos quitan un acierto. Si dudas entre todas, déjala en blanco: toca otra vez la que marcaste.</p>
+          <p className={cx(TEXT.muted, 'mt-3')}>{textoPenalizacion(sesion.preguntas.map((x) => x.opciones.length))} Si dudas entre todas, déjala en blanco: toca otra vez la que marcaste.</p>
         </Card>
 
         <div className="flex items-center justify-between gap-3">
@@ -259,7 +302,7 @@ export default function Psicotecnicos() {
         <Card pad="lg" elevation="raised">
           <p className={cx(TEXT.label, 'text-slate-600 dark:text-slate-400')}>Tu nota · {r.total} preguntas en {mmss(resultado.duracionMs)}</p>
           <p className={cx(TEXT.display, r.nota >= 5 ? 'text-marino dark:text-oro-claro' : 'text-red-700 dark:text-red-300')}>{r.nota.toLocaleString('es-ES')}</p>
-          <p className={cx(TEXT.muted)}>Sobre 10, descontando los fallos: cada cuatro quitan un acierto.</p>
+          <p className={cx(TEXT.muted)}>Sobre 10, descontando los fallos. {textoPenalizacion(revision.map((x) => x.opciones.length))}</p>
         </Card>
 
         <div className="grid grid-cols-3 gap-3">
@@ -311,7 +354,7 @@ export default function Psicotecnicos() {
 function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error, repasar }: {
   tipos: Set<TipoPsico>; setTipos: (f: (prev: Set<TipoPsico>) => Set<TipoPsico>) => void;
   total: number; setTotal: (n: number) => void;
-  historial: SesionPsicoHecha[]; empezar: () => void; ocupado: boolean; error: string | null;
+  historial: SesionPsicoHecha[]; empezar: (ejercicio?: NumeroEjercicio) => void; ocupado: boolean; error: string | null;
   repasar: (id: string) => void;
 }) {
   // Cómo va en cada tipo, sumando sus últimas sesiones.
@@ -332,6 +375,27 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
   return (
     <div className="mx-auto max-w-2xl space-y-4 pb-6 animate-in fade-in duration-150">
       <Card pad="lg">
+        <SectionLabel>Como en el examen</SectionLabel>
+        <p className={cx(TEXT.muted, 'mb-3')}>Los tres ejercicios del psicotécnico, con sus preguntas y su tiempo. Las preguntas son nuevas cada vez.</p>
+        <div className="grid gap-2">
+          {([1, 2, 3] as const).map((n) => {
+            const e = EJERCICIOS_PSICO[n];
+            return (
+              <button key={n} type="button" disabled={ocupado} onClick={() => empezar(n)}
+                className={cx('flex w-full items-center justify-between gap-3 border-2 border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900', RADIUS.md, TAP)}>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-slate-900 dark:text-white">{e.nombre} · {e.descripcion}</span>
+                  <span className={cx(TEXT.muted, 'block')}>{e.total} preguntas · {e.minutos} min · {opcionesDe(e.tipos[0])} opciones</span>
+                </span>
+                <Play size={16} className="shrink-0 text-marino dark:text-oro-claro" aria-hidden />
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card pad="lg">
+        <SectionLabel>Práctica libre</SectionLabel>
         <p className={cx(TEXT.body, 'mb-4 text-slate-700 dark:text-slate-300')}>Preguntas nuevas cada vez, contra el reloj. No se repiten: no hay nada que memorizar.</p>
         <SectionLabel>Qué entrenar</SectionLabel>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -365,9 +429,9 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
         {error && <p role="alert" className="mt-4 text-sm font-semibold text-red-700 dark:text-red-300">{error}</p>}
 
         <div className="mt-5">
-          <Button onClick={empezar} disabled={ocupado} icon={<Play size={16} />}>{ocupado ? 'Preparando…' : 'Empezar'}</Button>
+          <Button onClick={() => empezar()} disabled={ocupado} icon={<Play size={16} />}>{ocupado ? 'Preparando…' : 'Empezar'}</Button>
         </div>
-        <p className={cx(TEXT.muted, 'mt-3')}>Cinco opciones por pregunta. Cada cuatro fallos quitan un acierto; los blancos no restan.</p>
+        <p className={cx(TEXT.muted, 'mt-3')}>Cuatro opciones por pregunta (tres en los ejercicios 2 y 3), como en el examen. Cada fallo resta según las opciones; los blancos no restan.</p>
       </Card>
 
       <Card>
@@ -378,7 +442,7 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
         ) : (
           <ul className="divide-y divide-slate-200 dark:divide-slate-800">
             {historial.slice(0, 10).map((s) => {
-              const nota = notaPsico(s.aciertos, s.fallos, s.total);
+              const nota = s.nota;
               return (
                 <li key={s.id}>
                   <button type="button" disabled={ocupado} onClick={() => repasar(s.id)} aria-label={`Repasar la sesión del ${new Date(s.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}`}
