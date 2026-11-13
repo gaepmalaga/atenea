@@ -26,6 +26,7 @@ import { buildQuestionPrompt } from '../lib/question-prompt';
 import { adaptativoEncendido } from '../lib/training-switch-guard';
 import { computeQuestionStates, estaVencida, resumeCajonesPorTema, type IntentoPregunta, type ResumenTema } from '../lib/question-scheduler';
 import { entrenoDeHoy, type EntrenoDeHoy } from '../lib/dia';
+import { DIAS_TENDENCIA, HORAS_DE_LA_SESION } from '../lib/tendencia-entrenamiento';
 import { buildSmartSession, razonRepaso, type ResumenSesion } from '../lib/smart-session';
 import { planExamenSinFamilias } from '../lib/exam-blueprint';
 import { resumeSimulacros, type IntentoSimulacro, type ResumenSimulacros } from '../lib/simulacros';
@@ -1175,6 +1176,32 @@ export async function saveExamResults(results: ExamResultPayload[]) {
 
 /** Lo que el panel puede pedir para un examen en papel (regla 115). */
 const PREGUNTAS_EXAMEN_PAPEL = [25, 50, 100];
+
+/**
+ * Cómo venía respondiendo el alumno en el ENTRENAMIENTO (no en simulacros: los
+ * suyos llevan `exam_id`), en los últimos `DIAS_TENDENCIA` días y sin contar lo
+ * de la propia sesión que acaba de terminar. Para decir si el acierto de hoy
+ * sube o baja (regla 126). Un blanco (`-1`) y lo que no se sabe (`null`) no
+ * cuentan (regla 24). Dos cuentas, no se traen filas: no hay tope de 1.000.
+ */
+export async function getAciertoHabitual(): Promise<
+  { success: true; historia: { acertadas: number; contestadas: number } } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const modulo = await requireModule('test', auth.user.organizationId);
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const hasta = new Date(Date.now() - HORAS_DE_LA_SESION * 3_600_000).toISOString();
+  const desde = new Date(Date.now() - DIAS_TENDENCIA * 86_400_000).toISOString();
+  const db = await createSupabaseServerClient();
+  const base = () => db.from('question_attempts').select('id', { count: 'exact', head: true })
+    .eq('user_id', auth.user.id).is('exam_id', null).neq('selected_index', -1).gte('created_at', desde).lt('created_at', hasta);
+
+  const [todas, buenas] = await Promise.all([base(), base().eq('is_correct', true)]);
+  if (todas.error || buenas.error) return { success: false as const, error: fallo('getAciertoHabitual', (todas.error ?? buenas.error)!) };
+  return { success: true as const, historia: { acertadas: buenas.count ?? 0, contestadas: todas.count ?? 0 } };
+}
 
 /**
  * UN EXAMEN PARA IMPRIMIR (regla 115): las preguntas con su respuesta

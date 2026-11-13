@@ -1007,6 +1007,7 @@
         "full_name",
         "id",
         "phone",
+        "ranking_oculto",
         "role"
       ],
       "obligatorias": [
@@ -1020,6 +1021,7 @@
         "full_name": "text",
         "id": "uuid",
         "phone": "text",
+        "ranking_oculto": "boolean",
         "role": "text"
       }
     },

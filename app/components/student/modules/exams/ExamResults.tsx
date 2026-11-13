@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Question } from './ExamManager';
 import type { AdaptiveSession } from '@/app/actions/exams';
+import { getAciertoHabitual } from '@/actions';
+import { tendenciaDeSesion, type Acierto } from '@/app/lib/tendencia-entrenamiento';
 import { scoreExam, penaltyPerError, CNP_SCORING } from '@/app/lib/scoring';
 import { tipoDeBlanco, TIPO_BLANCO } from '@/app/lib/answer-signals';
 import {
@@ -39,6 +41,17 @@ function ResultadoEntrenamiento({
   const acertadas = contestadas.filter((q) => q.userAnswer === q.correctOptionId).length;
   const fallos = contestadas.length - acertadas;
 
+  // Cómo venía respondiendo, para decir si hoy sube o baja. Sin historia (o si
+  // falla la lectura) se enseña solo el porcentaje de hoy: la tendencia es un
+  // añadido, no puede tumbar el resultado (regla 108).
+  const [historia, setHistoria] = useState<Acierto | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    getAciertoHabitual().then((r) => { if (vivo && r.success) setHistoria(r.historia); });
+    return () => { vivo = false; };
+  }, []);
+  const tendencia = tendenciaDeSesion({ acertadas, contestadas: contestadas.length }, historia);
+
   // Las que marcó como dudosas antes de contestar (regla 80).
   const dudadas = contestadas.filter((q) => q.dudosa);
   const dudadasAcertadas = dudadas.filter((q) => q.userAnswer === q.correctOptionId).length;
@@ -57,10 +70,24 @@ function ResultadoEntrenamiento({
         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-1">
           {contestadas.length} {contestadas.length === 1 ? 'pregunta' : 'preguntas'}
         </h2>
-        <p className={cx(TEXT.muted, 'mb-6')}>
+        <p className={cx(TEXT.muted, 'mb-2')}>
           {acertadas} {acertadas === 1 ? 'acertada' : 'acertadas'}
           {fallos > 0 && ` · ${fallos} para volver`}
         </p>
+        {tendencia && (
+          <div className="mb-6">
+            <p className="font-titulo text-4xl font-bold text-marino dark:text-oro-claro">{tendencia.actual} %</p>
+            <p className={TEXT.muted}>de acierto en esta sesión</p>
+            {tendencia.rumbo && tendencia.habitual !== null && (
+              <p className={cx('mt-1 text-sm font-semibold', tendencia.rumbo === 'sube' ? 'text-emerald-700 dark:text-emerald-300' : tendencia.rumbo === 'baja' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-700 dark:text-slate-300')}>
+                {tendencia.rumbo === 'sube' && `Por encima de lo habitual (${tendencia.habitual} % estos días).`}
+                {tendencia.rumbo === 'baja' && `Por debajo de lo habitual (${tendencia.habitual} % estos días). Una sesión mala no es una tendencia.`}
+                {tendencia.rumbo === 'igual' && `En tu línea de estos días (${tendencia.habitual} %).`}
+              </p>
+            )}
+            <p className={cx(TEXT.muted, 'mt-1')}>No es una nota: el entrenamiento te pone las preguntas a tu medida. La nota es la del simulacro.</p>
+          </div>
+        )}
 
         <Card tone="sunken" pad="sm" className="mb-5 text-left space-y-1.5">
           <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">

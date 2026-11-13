@@ -1521,3 +1521,13 @@ const _revision = {
 };
 export async function entregaExamenClase() { return ok({ revision: _revision }); }
 export async function getRevisionExamenClase() { return ok({ revision: _revision }); }
+// El ranking de clase (regla 126): estado en memoria para poder salir y volver.
+let _rankingOculto = false;
+export async function getRankingExamenClase() {
+  if (_rankingOculto) return { success: true as const, oculto: true as const };
+  const nombres = ['Nerea Vázquez', 'Iván Castro', 'Sofía Marín', 'Álvaro Ortega', 'Lucía Fernández', 'Marcos Gil', 'Irene Soto', 'Daniel Pons', 'Carla Rubio', 'Hugo Navarro'];
+  const primeros = nombres.map((nombre, i) => ({ puesto: i + 1, nombre, nota: 9.1 - i * 0.4, soyYo: i === 4 }));
+  return { success: true as const, oculto: false as const, ranking: { total: 24, miPuesto: 5, miNota: 7.5, primeros } };
+}
+export async function setMiRanking(d?: { visible?: boolean }) { _rankingOculto = d?.visible === false; return { success: true as const, visible: !_rankingOculto }; }
+export async function getAciertoHabitual() { return ok({ historia: { acertadas: 140, contestadas: 220 } }); }
