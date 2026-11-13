@@ -1434,6 +1434,16 @@ export async function getMisPsico() {
   });
 }
 
+export async function getPsicoDeAlumno() {
+  return ok({ resumen: {
+    sesiones: 7, notaMedia: 4.2, ultimaNota: 5.1, ultimaFecha: new Date(Date.now() - 2 * 864e5).toISOString(),
+    tipos: [
+      { tipo: 'figuras' as const, acierto: 0.25, preguntas: 12 }, { tipo: 'problemas' as const, acierto: 0.38, preguntas: 16 },
+      { tipo: 'series' as const, acierto: 0.62, preguntas: 20 }, { tipo: 'abecedario' as const, acierto: 0.8, preguntas: 10 },
+    ],
+    flojos: [{ tipo: 'figuras' as const, acierto: 0.25, preguntas: 12 }, { tipo: 'problemas' as const, acierto: 0.38, preguntas: 16 }],
+  } });
+}
 export async function getRevisionPsico() {
   const tipos = _tipos([]);
   const preguntas = _genera(20261110, tipos, 15);

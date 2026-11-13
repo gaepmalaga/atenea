@@ -612,3 +612,49 @@ describe('las acciones', () => {
     expect(readFileSync(join(__dirname, '..', 'app/lib/modules.ts'), 'utf-8')).toContain("'psico'");
   });
 });
+
+describe('la ficha de psicotécnicos de un alumno (admin)', () => {
+  const ses = (fecha: string, tot: number, a: number, f: number, porTipo: Record<string, { a: number; t: number; f?: number }>) => ({ version: 2, fecha, total: tot, aciertos: a, fallos: f, blancos: tot - a - f, porTipo: porTipo as never });
+
+  it('sin sesiones: nada que decir, y la nota media es null, no 0 (regla 16)', async () => {
+    const { resumenPsicoAlumno } = await import('../app/lib/psico');
+    expect(resumenPsicoAlumno([])).toEqual({ sesiones: 0, notaMedia: null, ultimaNota: null, ultimaFecha: null, tipos: [], flojos: [] });
+  });
+
+  it('cuenta sesiones, saca la nota media y la última, y el acierto por tipo del peor al mejor', async () => {
+    const { resumenPsicoAlumno } = await import('../app/lib/psico');
+    const r = resumenPsicoAlumno([
+      ses('2026-11-12', 10, 6, 2, { series: { a: 4, t: 5, f: 1 }, figuras: { a: 2, t: 5, f: 1 } }),
+      ses('2026-11-10', 10, 2, 6, { series: { a: 2, t: 5, f: 3 }, figuras: { a: 0, t: 5, f: 3 } }),
+    ]);
+    expect(r.sesiones).toBe(2);
+    expect(r.ultimaFecha).toBe('2026-11-12');
+    expect(r.ultimaNota).toBe(notaDeSesionGuardada({ version: 2, total: 10, aciertos: 6, fallos: 2, porTipo: { series: { a: 4, t: 5, f: 1 }, figuras: { a: 2, t: 5, f: 1 } } }));
+    expect(r.tipos.map((t) => t.tipo)).toEqual(['figuras', 'series']);
+    expect(r.tipos[0]).toEqual({ tipo: 'figuras', acierto: 0.2, preguntas: 10 });
+    expect(r.notaMedia).toBe(Math.round(((r.ultimaNota! + notaDeSesionGuardada({ version: 2, total: 10, aciertos: 2, fallos: 6, porTipo: { series: { a: 2, t: 5, f: 3 }, figuras: { a: 0, t: 5, f: 3 } } })) / 2) * 100) / 100);
+  });
+
+  it('«flojo» pide acierto bajo Y preguntas suficientes: dos fallos seguidos no son una tendencia', async () => {
+    const { resumenPsicoAlumno, MIN_PREGUNTAS_TIPO_FLOJO, UMBRAL_TIPO_FLOJO } = await import('../app/lib/psico');
+    const poco = resumenPsicoAlumno([ses('2026-11-12', 2, 0, 2, { dominos: { a: 0, t: 2, f: 2 } })]);
+    expect(poco.flojos).toEqual([]);
+    const mucho = resumenPsicoAlumno([ses('2026-11-12', MIN_PREGUNTAS_TIPO_FLOJO, 1, 5, { dominos: { a: 1, t: MIN_PREGUNTAS_TIPO_FLOJO, f: 5 } })]);
+    expect(mucho.flojos.map((t) => t.tipo)).toEqual(['dominos']);
+    expect(UMBRAL_TIPO_FLOJO).toBe(0.5);
+    const bien = resumenPsicoAlumno([ses('2026-11-12', 10, 8, 2, { series: { a: 8, t: 10, f: 2 } })]);
+    expect(bien.flojos).toEqual([]);
+  });
+
+  it('la acción solo la usa un admin, del alumno de SU academia, y no lleva el mensaje de la base de datos', () => {
+    const fuente = readFileSync(join(__dirname, '..', 'app/actions/psico.ts'), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const a = fuente.slice(fuente.indexOf('export async function getPsicoDeAlumno'));
+    void (0);
+    expect(a).toContain('requireAdmin()');
+    expect(a).toMatch(/\.eq\('academy_id', org\)\s*\.eq\('user_id', alumnoId\)/);
+    expect(a).toMatch(/\.eq\('organization_id', org\)\s*\.eq\('user_id', alumnoId\)/);
+    expect(a).toContain(".not('finished_at', 'is', null)");
+    expect(a).toContain(".limit(40)");
+    expect(a).not.toMatch(/error\.message/);
+  });
+});

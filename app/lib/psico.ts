@@ -733,3 +733,60 @@ export function corrigeSesion(preguntas: readonly PreguntaPsico[], respuestas: r
   const nota = total <= 0 ? 0 : Math.round((Math.max(0, aciertos - resta) / total) * 1000) / 100;
   return { total, aciertos, fallos, blancos, nota, porTipo };
 }
+
+// ---------------------------------------------------------------------------
+// Lo que ve el admin de un alumno
+// ---------------------------------------------------------------------------
+
+/** Por debajo de esto, un tipo no dice nada: dos fallos seguidos no son «flojo». */
+export const MIN_PREGUNTAS_TIPO_FLOJO = 6;
+/** Hasta qué acierto (0-1) un tipo se llama flojo. */
+export const UMBRAL_TIPO_FLOJO = 0.5;
+
+export type SesionParaResumen = {
+  version: number; fecha: string; total: number; aciertos: number; fallos: number; blancos: number;
+  porTipo: ResultadoPsico['porTipo'];
+};
+
+export type ResumenPsicoAlumno = {
+  sesiones: number;
+  /** Media de las notas de sus sesiones; `null` si no ha hecho ninguna (regla 16: no es un 0). */
+  notaMedia: number | null;
+  /** Nota de la última y de la anterior, para ver si sube. */
+  ultimaNota: number | null;
+  ultimaFecha: string | null;
+  /** Acierto por tipo, del peor al mejor, con las preguntas que lo sostienen. */
+  tipos: { tipo: TipoPsico; acierto: number; preguntas: number }[];
+  /** Los tipos con acierto bajo y preguntas suficientes, del peor al mejor. */
+  flojos: { tipo: TipoPsico; acierto: number; preguntas: number }[];
+};
+
+/**
+ * La ficha de psicotécnicos de un alumno a partir de sus sesiones entregadas
+ * (de la más nueva a la más vieja). Puro (regla 21). Un blanco no es un fallo
+ * (regla 24): el acierto de un tipo es sobre lo que se contestó de verdad.
+ */
+export function resumenPsicoAlumno(sesiones: readonly SesionParaResumen[]): ResumenPsicoAlumno {
+  if (sesiones.length === 0) return { sesiones: 0, notaMedia: null, ultimaNota: null, ultimaFecha: null, tipos: [], flojos: [] };
+  const notas = sesiones.map((s) => notaDeSesionGuardada({ version: s.version, total: s.total, aciertos: s.aciertos, fallos: s.fallos, porTipo: s.porTipo }));
+  const suma = new Map<TipoPsico, { a: number; t: number }>();
+  for (const s of sesiones) {
+    for (const [tipo, v] of Object.entries(s.porTipo) as [TipoPsico, { a: number; t: number; f?: number }][]) {
+      const x = suma.get(tipo) ?? { a: 0, t: 0 };
+      x.a += v.a; x.t += v.t;
+      suma.set(tipo, x);
+    }
+  }
+  const tipos = [...suma.entries()]
+    .filter(([, v]) => v.t > 0)
+    .map(([tipo, v]) => ({ tipo, acierto: v.a / v.t, preguntas: v.t }))
+    .sort((a, b) => a.acierto - b.acierto || b.preguntas - a.preguntas);
+  return {
+    sesiones: sesiones.length,
+    notaMedia: Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100,
+    ultimaNota: notas[0],
+    ultimaFecha: sesiones[0].fecha,
+    tipos,
+    flojos: tipos.filter((t) => t.preguntas >= MIN_PREGUNTAS_TIPO_FLOJO && t.acierto < UMBRAL_TIPO_FLOJO).slice(0, 4),
+  };
+}
