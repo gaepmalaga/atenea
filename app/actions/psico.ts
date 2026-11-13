@@ -1,12 +1,13 @@
 'use server'
 import { randomInt } from 'node:crypto';
 import { supabaseAdmin } from './core';
-import { requireUser } from '../lib/auth';
+import { requireUser, requireAdmin } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { fallo } from '../lib/fallos';
 import {
   VERSION_PSICO, TAMANOS_PSICO, MINUTOS_PSICO, EJERCICIOS_PSICO, esEjercicio, esVersionPsico,
-  aPublica, corrigeSesion, generaSesion, normalizaRespuesta, tiposValidos, notaDeSesionGuardada,
+  aPublica, corrigeSesion, generaSesion, normalizaRespuesta, tiposValidos, notaDeSesionGuardada, resumenPsicoAlumno,
+  type ResumenPsicoAlumno,
   type PreguntaPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '../lib/psico';
 
@@ -224,5 +225,47 @@ export async function getRevisionPsico(input: unknown): Promise<
     revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })),
     resultado: corrigeSesion(preguntas, respuestas),
     duracionMs: (fila.duration_ms as number) ?? 0,
+  };
+}
+
+/**
+ * Lo que el ADMIN ve de los psicotécnicos de un alumno (su ficha): cuántas
+ * sesiones, la nota media y en qué tipos flojea. Acepta un `alumnoId`, y no
+ * contradice la regla 1: el permiso sale de `requireAdmin`, y el alumno tiene
+ * que ser de ESTA academia (como `getStudentDetail`). Solo se leen sesiones
+ * entregadas de esa academia, con las 40 últimas.
+ */
+export async function getPsicoDeAlumno(alumnoId: unknown): Promise<{ success: true; resumen: ResumenPsicoAlumno } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  if (typeof alumnoId !== 'string' || !/^[0-9a-f-]{36}$/i.test(alumnoId)) return { success: false as const, error: 'Falta el alumno.' };
+
+  const { data: esMiembro, error: eM } = await supabaseAdmin
+    .from('academy_members').select('user_id').eq('academy_id', org).eq('user_id', alumnoId).maybeSingle();
+  if (eM) return { success: false as const, error: fallo('getPsicoDeAlumno', eM) };
+  if (!esMiembro) return { success: false as const, error: 'Ese alumno no pertenece a tu academia.' };
+
+  const { data, error } = await supabaseAdmin
+    .from('psico_sessions')
+    .select('finished_at, version, total, correct, wrong, blank, by_kind')
+    .eq('organization_id', org)
+    .eq('user_id', alumnoId)
+    .not('finished_at', 'is', null)
+    .order('finished_at', { ascending: false })
+    .limit(40);
+  if (error) {
+    // Sin la tabla todavía, la ficha se abre igual: simplemente no hay psicotécnicos.
+    fallo('getPsicoDeAlumno', error);
+    return { success: true as const, resumen: resumenPsicoAlumno([]) };
+  }
+  return {
+    success: true as const,
+    resumen: resumenPsicoAlumno((data ?? []).map((f) => ({
+      version: (f.version as number) ?? 1, fecha: f.finished_at as string, total: f.total as number,
+      aciertos: (f.correct as number) ?? 0, fallos: (f.wrong as number) ?? 0, blancos: (f.blank as number) ?? 0,
+      porTipo: (f.by_kind as ResultadoPsico['porTipo']) ?? {},
+    }))),
   };
 }

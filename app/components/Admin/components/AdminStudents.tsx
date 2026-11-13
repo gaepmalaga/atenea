@@ -4,15 +4,16 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Loader2, AlertTriangle, Layers, Target,
   BookOpen, GraduationCap, UserCheck, UserX, Clock, BadgeEuro,
-  Mail, Send, Shuffle, Brain, Archive, HelpCircle,
+  Mail, Send, Shuffle, Brain, Archive, HelpCircle, Shapes,
 } from 'lucide-react';
 import {
-  getAcademyOverview, getStudentDetail,
+  getAcademyOverview, getStudentDetail, getPsicoDeAlumno,
   setMemberAccess, activateAllCurrentStudents, setStudentGroups, inviteStudent, getDatosAlumnos,
 } from '@/actions';
 import type { AcademyOverview, StudentDetail } from '@/app/actions/academy';
 import { ESTADO_ALUMNO_LABEL, DIAS_ABANDONO, type EstadoAlumno, type FilaAlumno } from '@/app/lib/academy';
 import { ERROR_LABELS } from '@/app/lib/stats';
+import { TIPO_PSICO_LABEL, type ResumenPsicoAlumno } from '@/app/lib/psico';
 import { formateaPeriodo } from '@/app/lib/payments';
 import { fraseDudosas, umbralEnTexto, porcentajeEnTexto, netoEnTexto } from '@/app/lib/dudosas';
 import AltaMasiva from './AltaMasiva';
@@ -45,6 +46,7 @@ export default function AdminStudents() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [ficha, setFicha] = useState<StudentDetail | null>(null);
   const [cargandoFicha, setCargandoFicha] = useState(false);
+  const [psico, setPsico] = useState<ResumenPsicoAlumno | null>(null);
 
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const SIN_GRUPO = '__sin__';
@@ -103,9 +105,12 @@ export default function AdminStudents() {
     window.scrollTo({ top: 0 });
     setFicha(null);
     setCargandoFicha(true);
-    const detalle = await getStudentDetail(id);
+    setPsico(null);
+    const [detalle, ps] = await Promise.all([getStudentDetail(id), getPsicoDeAlumno(id)]);
     setCargandoFicha(false);
     if (detalle.success) setFicha(detalle.data);
+    // Un fallo aquí no tumba la ficha: el bloque de psicotécnicos sencillamente no sale (regla 108).
+    if (ps.success) setPsico(ps.resumen);
   }
 
   if (cargando) {
@@ -156,7 +161,7 @@ export default function AdminStudents() {
     return (
       <div className="space-y-5 animate-in fade-in pb-24">
         <Atras onClick={() => { setAbierto(null); setFicha(null); }}>Alumnos</Atras>
-        <FichaAlumno a={fa} personales={datosAlumnos[fa.id]} onPersonales={(d) => setDatosAlumnos((prev) => ({ ...prev, [fa.id]: d }))} grupos={grupos} periodo={periodoActual} ficha={ficha} cargandoFicha={cargandoFicha} busy={busy} onAccion={accion} />
+        <FichaAlumno a={fa} personales={datosAlumnos[fa.id]} onPersonales={(d) => setDatosAlumnos((prev) => ({ ...prev, [fa.id]: d }))} grupos={grupos} periodo={periodoActual} ficha={ficha} psico={psico} cargandoFicha={cargandoFicha} busy={busy} onAccion={accion} />
       </div>
     );
   }
@@ -387,7 +392,7 @@ const TONO_ACCESO: Record<FilaAlumno['acceso'], Tono> = { active: 'ok', pending:
  * falla. Va a pantalla completa, con su flecha para volver a la lista.
  */
 function FichaAlumno({
-  a, personales, onPersonales, grupos, periodo, ficha, cargandoFicha, busy, onAccion,
+  a, personales, onPersonales, grupos, periodo, ficha, psico, cargandoFicha, busy, onAccion,
 }: {
   a: FilaAlumno;
   personales: DatosAlumno | undefined;
@@ -395,6 +400,7 @@ function FichaAlumno({
   grupos: { id: string; name: string; kind: string }[];
   periodo: string;
   ficha: StudentDetail | null;
+  psico: ResumenPsicoAlumno | null;
   cargandoFicha: boolean;
   busy: boolean;
   onAccion: (fn: () => Promise<{ success: boolean; error?: string }>) => Promise<void>;
@@ -516,6 +522,36 @@ function FichaAlumno({
               ))}
             </div>
           </Hoja>
+          {psico && (
+            <Hoja pad="md" className="min-w-0 space-y-3">
+              <BloqueTitulo icon={<Shapes size={15} />}>Psicotécnicos</BloqueTitulo>
+              {psico.sesiones === 0 ? <p className={TEXT.muted}>Todavía no ha entregado ninguna sesión.</p> : (
+                <>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div><p className="font-titulo text-2xl font-bold tabular-nums">{psico.sesiones}</p><p className={TEXT.muted}>{psico.sesiones === 1 ? 'sesión' : 'sesiones'}</p></div>
+                    <div><p className="font-titulo text-2xl font-bold tabular-nums">{psico.notaMedia !== null ? psico.notaMedia.toLocaleString('es-ES') : '—'}</p><p className={TEXT.muted}>nota media</p></div>
+                    <div><p className="font-titulo text-2xl font-bold tabular-nums">{psico.ultimaNota !== null ? psico.ultimaNota.toLocaleString('es-ES') : '—'}</p><p className={TEXT.muted}>la última{psico.ultimaFecha ? `, ${new Date(psico.ultimaFecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : ''}</p></div>
+                  </div>
+                  <div>
+                    <p className={cx(TEXT.muted, 'mb-1.5 font-semibold')}>{psico.flojos.length ? 'Donde flojea' : 'Sin tipos flojos todavía'}</p>
+                    <div className="space-y-2">
+                      {(psico.flojos.length ? psico.flojos : psico.tipos.slice(0, 3)).map((t) => (
+                        <div key={t.tipo} className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px]">{TIPO_PSICO_LABEL[t.tipo]} <span className="text-slate-600 dark:text-slate-400">· {t.preguntas} preguntas</span></p>
+                            <div className="mt-1 h-2 overflow-hidden rounded-full border border-linea bg-hundido dark:border-noche-linea dark:bg-noche-hondo">
+                              <div className="h-full bg-indigo-900 dark:bg-indigo-300" style={{ width: `${Math.round(t.acierto * 100)}%` }} />
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs font-semibold tabular-nums">{Math.round(t.acierto * 100)} %</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </Hoja>
+          )}
           <Hoja pad="md" className="min-w-0 space-y-3">
             <BloqueTitulo icon={<Target size={15} />}>Cómo se equivoca</BloqueTitulo>
             {ficha.errores.porTipo.length === 0 && ficha.errores.sinClasificar === 0 && <p className={TEXT.muted}>Sin fallos registrados.</p>}

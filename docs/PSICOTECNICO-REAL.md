@@ -49,9 +49,9 @@ de cubo, fichas de dominó, plegados.
   abecedario (4 variantes), lógica (estatura y silogismos, comprobados contra todos
   los mundos posibles), cuadros con una X, palabras en símbolos, símbolos y nombres
   (ejercicio 2) y órdenes sobre una frase (ejercicio 3).
-- **Lo que NO está:** lo visual complejo del ejercicio 1 (cubos contados, desarrollos
-  de cubo, plegados, rotaciones de figuras con varios elementos, series de figuras
-  con flechas) y los parentescos. Requieren dibujo por código; se hacen si compensa.
+- **Visual del ejercicio 1 (13 nov):** cubos contados, desarrollos de cubo, plegados de
+  papel, giros de figuras con varios elementos y parentescos. **Lo que sigue sin estar:**
+  el plegado de un prisma y las series de figuras con flechas en tablas.
 
 ## Qué se guarda y dónde se ve
 

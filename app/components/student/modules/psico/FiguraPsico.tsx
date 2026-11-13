@@ -158,3 +158,98 @@ export function TablaSimbolos({ leyenda }: { leyenda: { nombre: string; simbolo:
     </div>
   );
 }
+
+// ── Cubos, desarrollos, plegados y giros (13 nov) ──
+
+/** Una figura de cubos en perspectiva isométrica: `alturas[fila][columna]` cubos apilados en cada columna. */
+export function CubosPsico({ alturas, className }: { alturas: number[][]; className?: string }) {
+  const lado = 14, dx = lado * 0.866, dy = lado * 0.5;
+  type Cara = { puntos: [number, number][]; opacidad: number };
+  const caras: Cara[] = [];
+  const celdas: { x: number; y: number; z: number }[] = [];
+  alturas.forEach((fila, y) => fila.forEach((h, x) => { for (let z = 0; z < h; z++) celdas.push({ x, y, z }); }));
+  // De atrás hacia delante (más cerca = más abajo en pantalla = mayor x + y) y de abajo arriba.
+  celdas.sort((a, b) => a.x + a.y - (b.x + b.y) || a.z - b.z);
+  for (const { x, y, z } of celdas) {
+    const ax = (x - y) * dx, ay = (x + y) * dy - (z + 1) * lado;
+    caras.push({ opacidad: 0.2, puntos: [[ax, ay], [ax + dx, ay + dy], [ax, ay + 2 * dy], [ax - dx, ay + dy]] });                                   // arriba
+    caras.push({ opacidad: 0.5, puntos: [[ax - dx, ay + dy], [ax, ay + 2 * dy], [ax, ay + 2 * dy + lado], [ax - dx, ay + dy + lado]] });           // izquierda
+    caras.push({ opacidad: 0.8, puntos: [[ax, ay + 2 * dy], [ax + dx, ay + dy], [ax + dx, ay + dy + lado], [ax, ay + 2 * dy + lado]] });           // derecha
+  }
+  const xs = caras.flatMap((c) => c.puntos.map((p) => p[0])), ys = caras.flatMap((c) => c.puntos.map((p) => p[1]));
+  const minX = Math.min(...xs) - 3, minY = Math.min(...ys) - 3;
+  const ancho = Math.max(...xs) - minX + 3, alto = Math.max(...ys) - minY + 3;
+  const total = alturas.flat().reduce((a, b) => a + b, 0);
+  return (
+    <svg viewBox={`${minX} ${minY} ${ancho} ${alto}`} className={className} role="img" aria-label={`Figura de cubos apilados (columnas de ${alturas.map((f) => f.join(', ')).join(' / ')}); en total ${total}`}>
+      {caras.map((c, i) => {
+        const puntos = c.puntos.map((p) => p.join(',')).join(' ');
+        // Primero un fondo opaco: las caras de atrás no se ven a través de las de delante.
+        return (
+          <g key={i}>
+            <polygon points={puntos} fill="#fff" className="fill-white dark:fill-slate-900" />
+            <polygon points={puntos} fill="currentColor" fillOpacity={c.opacidad} stroke="currentColor" strokeWidth={0.9} strokeLinejoin="round" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** El desarrollo de un cubo: seis casillas con su símbolo. */
+export function DesarrolloPsico({ desarrollo, className }: { desarrollo: { x: number; y: number; s: string }[]; className?: string }) {
+  const L = 26;
+  const ancho = (Math.max(...desarrollo.map((c) => c.x)) + 1) * L + 4, alto = (Math.max(...desarrollo.map((c) => c.y)) + 1) * L + 4;
+  return (
+    <svg viewBox={`0 0 ${ancho} ${alto}`} className={className} role="img" aria-label={`Desarrollo de un cubo con las figuras ${desarrollo.map((c) => c.s).join(' ')}`}>
+      {desarrollo.map((c) => (
+        <g key={`${c.x}-${c.y}`}>
+          <rect x={2 + c.x * L} y={2 + c.y * L} width={L} height={L} fill="none" stroke="currentColor" strokeWidth={1.6} />
+          <text x={2 + c.x * L + L / 2} y={2 + c.y * L + L / 2 + 5} textAnchor="middle" fontSize={15} fill="currentColor">{c.s}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Un papel abierto: casillas con un agujero (círculo) donde se ha perforado. */
+export function AgujerosPsico({ agujeros, className }: { agujeros: boolean[][]; className?: string }) {
+  const L = 16, n = agujeros.length;
+  return (
+    <svg viewBox={`0 0 ${n * L + 4} ${n * L + 4}`} className={className} role="img"
+      aria-label={`Papel abierto con ${agujeros.flat().filter(Boolean).length} agujeros, en las casillas ${agujeros.flatMap((f, y) => f.map((a, x) => (a ? `fila ${y + 1} columna ${x + 1}` : ''))).filter(Boolean).join(', ')}`}>
+      <rect x={2} y={2} width={n * L} height={n * L} fill="none" stroke="currentColor" strokeWidth={1.8} />
+      {Array.from({ length: n - 1 }, (_, i) => (
+        <g key={i} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1}>
+          <line x1={2 + (i + 1) * L} y1={2} x2={2 + (i + 1) * L} y2={2 + n * L} />
+          <line x1={2} y1={2 + (i + 1) * L} x2={2 + n * L} y2={2 + (i + 1) * L} />
+        </g>
+      ))}
+      {agujeros.map((f, y) => f.map((a, x) => a && <circle key={`${x}-${y}`} cx={2 + x * L + L / 2} cy={2 + y * L + L / 2} r={4.6} fill="currentColor" />))}
+    </svg>
+  );
+}
+
+/** Un elemento de la figura de giros, dibujado en 0,0 apuntando hacia arriba. */
+function ElementoGiro({ forma }: { forma: 'flecha' | 'triangulo' | 'cruz' | 'cuadrado' }) {
+  if (forma === 'flecha') return <path d="M0 10 V-10 M-6 -4 L0 -10 L6 -4" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />;
+  if (forma === 'triangulo') return <polygon points="0,-10 9,8 -9,8" fill="currentColor" />;
+  if (forma === 'cruz') return <path d="M-9 0 H9 M0 -9 V9" stroke="currentColor" strokeWidth={4} strokeLinecap="round" />;
+  return <rect x={-8} y={-8} width={16} height={16} fill="currentColor" />;
+}
+
+/** Una figura de giros: un aro con cuatro elementos (arriba, derecha, abajo, izquierda). */
+export function FiguraGiro({ figura, className }: { figura: { forma: 'flecha' | 'triangulo' | 'cruz' | 'cuadrado'; giro: number }[]; className?: string }) {
+  const centros: [number, number][] = [[50, 17], [83, 50], [50, 83], [17, 50]];
+  const donde = ['arriba', 'a la derecha', 'abajo', 'a la izquierda'];
+  const sentido = ['hacia arriba', 'hacia la derecha', 'hacia abajo', 'hacia la izquierda'];
+  return (
+    <svg viewBox="0 0 100 100" className={className} role="img"
+      aria-label={`Figura con ${figura.map((e, i) => `${e.forma}${e.forma === 'flecha' || e.forma === 'triangulo' ? ` ${sentido[e.giro]}` : ''} ${donde[i]}`).join(', ')}`}>
+      <circle cx={50} cy={50} r={44} fill="none" stroke="currentColor" strokeWidth={2} strokeOpacity={0.45} />
+      {figura.map((e, i) => (
+        <g key={i} transform={`translate(${centros[i][0]} ${centros[i][1]}) rotate(${e.giro * 90})`}><ElementoGiro forma={e.forma} /></g>
+      ))}
+    </svg>
+  );
+}

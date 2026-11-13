@@ -15,6 +15,7 @@ export const OPCIONES_PSICO = 5;
 export const TIPOS_PSICO = [
   'series', 'letras', 'calculo', 'verbal', 'atencion', 'figuras', 'dominos', 'rotaciones', 'tablas',
   'conteo', 'dobles', 'problemas', 'abecedario', 'logica', 'cuadros', 'cifrado', 'simbolos', 'ordenes',
+  'cubos', 'desarrollos', 'plegados', 'giros', 'parentescos',
 ] as const;
 export type TipoPsico = (typeof TIPOS_PSICO)[number];
 
@@ -40,10 +41,23 @@ export type Ficha = [number, number];
 export type Rejilla = boolean[][];
 export type Tabla = { cabecera: string[]; filas: string[][] };
 
+/** Una figura con cuatro huecos (arriba, derecha, abajo, izquierda), cada uno con un elemento que se puede girar. */
+export type Elemento = { forma: 'flecha' | 'triangulo' | 'cruz' | 'cuadrado'; /** 0 arriba, 1 derecha, 2 abajo, 3 izquierda */ giro: number };
+export type FiguraCompleja = Elemento[];
+/** Un desarrollo de cubo: las seis casillas con su símbolo. */
+export type Desarrollo = { x: number; y: number; s: string }[];
+/** Las alturas de las columnas de una figura de cubos (filas × columnas). */
+export type Alturas = number[][];
+
 /** Un símbolo del ejercicio 2: del 0 al 19 (5 dibujos × 4 giros). */
 export type Leyenda = { nombre: string; simbolo: number }[];
 
-export type OpcionPsico = { texto?: string; celda?: Celda; ficha?: Ficha; rejilla?: Rejilla; /** una fila de símbolos */ fila?: number[] };
+export type OpcionPsico = {
+  texto?: string; celda?: Celda; ficha?: Ficha; rejilla?: Rejilla;
+  /** una fila de símbolos */ fila?: number[];
+  /** un papel desplegado: `true` = agujero */ agujeros?: boolean[][];
+  figura?: FiguraCompleja;
+};
 
 export type PreguntaPsico = {
   tipo: TipoPsico;
@@ -60,6 +74,12 @@ export type PreguntaPsico = {
   tabla?: Tabla;
   /** La tabla de símbolos y nombres del ejercicio 2. */
   leyenda?: Leyenda;
+  /** Figuras de cubos (de una a tres), cada una con las alturas de sus columnas. */
+  cubos?: Alturas[];
+  /** El desarrollo de un cubo. */
+  desarrollo?: Desarrollo;
+  /** La figura de varios elementos que se gira. */
+  figura?: FiguraCompleja;
   opciones: OpcionPsico[];
   correcta: number;
   explicacion: string;

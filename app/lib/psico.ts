@@ -32,8 +32,10 @@ import {
   type OpcionPsico, type PreguntaPsico, type PreguntaPsicoPublica,
 } from './psico-comun';
 export * from './psico-comun';
+import { cubos, desarrollos, plegados, giros, parentescos } from './psico-visual';
 import { conteo, dobles, problemas, abecedario, logica, cuadros, cifrado, ordenes, simbolos, leyendaDe } from './psico-nuevos';
 export { aplicaOrdenes, ORDENES, leyendaDe, NOMBRES_SIMBOLOS } from './psico-nuevos';
+export { parentesco, carasDelDesarrollo, agujerosAlAbrir, posicionTrasPliegues, giraFigura, espejoFigura, totalDeCubos, figuraDeCubos, DESARROLLOS } from './psico-visual';
 
 
 export const TIPO_PSICO_LABEL: Record<TipoPsico, string> = {
@@ -55,6 +57,11 @@ export const TIPO_PSICO_LABEL: Record<TipoPsico, string> = {
   cifrado: 'Palabras en símbolos',
   simbolos: 'Símbolos y nombres',
   ordenes: 'Órdenes sobre una frase',
+  cubos: 'Cubos contados',
+  desarrollos: 'Desarrollos de cubo',
+  plegados: 'Plegados de papel',
+  giros: 'Giros de figuras',
+  parentescos: 'Parentescos',
 };
 
 export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
@@ -76,6 +83,11 @@ export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
   cifrado: 'Una palabra escrita en símbolos y su anagrama.',
   simbolos: 'Ejercicio 2: cambia símbolos por nombres y busca el orden alfabético.',
   ordenes: 'Ejercicio 3: aplica órdenes en cadena a una frase.',
+  cubos: 'Cuenta los cubos de una figura, sumando o restando figuras.',
+  desarrollos: 'Qué cara queda frente a otra al plegar un cubo.',
+  plegados: 'Cómo queda un papel doblado y agujereado al abrirlo.',
+  giros: 'Una figura con varios elementos, girada 90°, 180° o 270°.',
+  parentescos: 'Quién es quién en una familia.',
 };
 
 /**
@@ -86,7 +98,7 @@ export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
 export const EJERCICIOS_PSICO = {
   1: {
     nombre: 'Ejercicio 1', descripcion: 'Razonamiento numérico, verbal y espacial', total: 40, minutos: 23,
-    tipos: ['series', 'letras', 'calculo', 'verbal', 'figuras', 'dominos', 'rotaciones', 'tablas', 'conteo', 'dobles', 'problemas', 'abecedario', 'logica', 'cuadros', 'cifrado'] as TipoPsico[],
+    tipos: ['series', 'letras', 'calculo', 'verbal', 'figuras', 'dominos', 'rotaciones', 'tablas', 'conteo', 'dobles', 'problemas', 'abecedario', 'logica', 'cuadros', 'cifrado', 'cubos', 'desarrollos', 'plegados', 'giros', 'parentescos'] as TipoPsico[],
   },
   2: { nombre: 'Ejercicio 2', descripcion: 'Símbolos y nombres en orden alfabético', total: 34, minutos: 18, tipos: ['simbolos'] as TipoPsico[] },
   3: { nombre: 'Ejercicio 3', descripcion: 'Órdenes sobre una frase', total: 30, minutos: 18, tipos: ['ordenes'] as TipoPsico[] },
@@ -127,7 +139,7 @@ export const MINUTOS_PSICO: Record<number, number> = { 15: 8, 25: 12, 40: 20 };
 
 
 export function aPublica(q: PreguntaPsico): PreguntaPsicoPublica {
-  return { tipo: q.tipo, enunciado: q.enunciado, lineas: q.lineas, matriz: q.matriz, fichas: q.fichas, rejilla: q.rejilla, tabla: q.tabla, leyenda: q.leyenda, opciones: q.opciones };
+  return { tipo: q.tipo, enunciado: q.enunciado, lineas: q.lineas, matriz: q.matriz, fichas: q.fichas, rejilla: q.rejilla, tabla: q.tabla, leyenda: q.leyenda, cubos: q.cubos, desarrollo: q.desarrollo, figura: q.figura, opciones: q.opciones };
 }
 
 // ---------------------------------------------------------------------------
@@ -638,6 +650,7 @@ const GENERADORES: Record<TipoPsico, (r: Azar, ctx: Contexto) => PreguntaPsico> 
   series, letras, calculo, verbal, atencion, figuras, dominos, rotaciones, tablas,
   conteo, dobles, problemas, abecedario, logica, cuadros, cifrado, ordenes,
   simbolos: (r, ctx) => simbolos(r, ctx.leyenda),
+  cubos, desarrollos, plegados, giros, parentescos,
 };
 
 /** Los tipos pedidos, limpios y en el orden de siempre; sin ninguno válido, todos. */
@@ -732,4 +745,61 @@ export function corrigeSesion(preguntas: readonly PreguntaPsico[], respuestas: r
   const total = preguntas.length;
   const nota = total <= 0 ? 0 : Math.round((Math.max(0, aciertos - resta) / total) * 1000) / 100;
   return { total, aciertos, fallos, blancos, nota, porTipo };
+}
+
+// ---------------------------------------------------------------------------
+// Lo que ve el admin de un alumno
+// ---------------------------------------------------------------------------
+
+/** Por debajo de esto, un tipo no dice nada: dos fallos seguidos no son «flojo». */
+export const MIN_PREGUNTAS_TIPO_FLOJO = 6;
+/** Hasta qué acierto (0-1) un tipo se llama flojo. */
+export const UMBRAL_TIPO_FLOJO = 0.5;
+
+export type SesionParaResumen = {
+  version: number; fecha: string; total: number; aciertos: number; fallos: number; blancos: number;
+  porTipo: ResultadoPsico['porTipo'];
+};
+
+export type ResumenPsicoAlumno = {
+  sesiones: number;
+  /** Media de las notas de sus sesiones; `null` si no ha hecho ninguna (regla 16: no es un 0). */
+  notaMedia: number | null;
+  /** Nota de la última y de la anterior, para ver si sube. */
+  ultimaNota: number | null;
+  ultimaFecha: string | null;
+  /** Acierto por tipo, del peor al mejor, con las preguntas que lo sostienen. */
+  tipos: { tipo: TipoPsico; acierto: number; preguntas: number }[];
+  /** Los tipos con acierto bajo y preguntas suficientes, del peor al mejor. */
+  flojos: { tipo: TipoPsico; acierto: number; preguntas: number }[];
+};
+
+/**
+ * La ficha de psicotécnicos de un alumno a partir de sus sesiones entregadas
+ * (de la más nueva a la más vieja). Puro (regla 21). Un blanco no es un fallo
+ * (regla 24): el acierto de un tipo es sobre lo que se contestó de verdad.
+ */
+export function resumenPsicoAlumno(sesiones: readonly SesionParaResumen[]): ResumenPsicoAlumno {
+  if (sesiones.length === 0) return { sesiones: 0, notaMedia: null, ultimaNota: null, ultimaFecha: null, tipos: [], flojos: [] };
+  const notas = sesiones.map((s) => notaDeSesionGuardada({ version: s.version, total: s.total, aciertos: s.aciertos, fallos: s.fallos, porTipo: s.porTipo }));
+  const suma = new Map<TipoPsico, { a: number; t: number }>();
+  for (const s of sesiones) {
+    for (const [tipo, v] of Object.entries(s.porTipo) as [TipoPsico, { a: number; t: number; f?: number }][]) {
+      const x = suma.get(tipo) ?? { a: 0, t: 0 };
+      x.a += v.a; x.t += v.t;
+      suma.set(tipo, x);
+    }
+  }
+  const tipos = [...suma.entries()]
+    .filter(([, v]) => v.t > 0)
+    .map(([tipo, v]) => ({ tipo, acierto: v.a / v.t, preguntas: v.t }))
+    .sort((a, b) => a.acierto - b.acierto || b.preguntas - a.preguntas);
+  return {
+    sesiones: sesiones.length,
+    notaMedia: Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100,
+    ultimaNota: notas[0],
+    ultimaFecha: sesiones[0].fecha,
+    tipos,
+    flojos: tipos.filter((t) => t.preguntas >= MIN_PREGUNTAS_TIPO_FLOJO && t.acierto < UMBRAL_TIPO_FLOJO).slice(0, 4),
+  };
 }

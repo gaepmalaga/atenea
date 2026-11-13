@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock, Flag, Play, RotateCcw, Shapes, X } from 'lucide-react';
-import { empiezaPsico, entregaPsico, getMisPsico, getRevisionPsico } from '@/actions';
+import { empiezaPsico, entregaPsico, getMisPsico, getRevisionPsico, getMisPsicoClase, empiezaPsicoClase, entregaPsicoClase, getRevisionPsicoClase } from '@/actions';
+import type { MiPsicoClase } from '@/app/actions/psico-clase';
+import { parseaRespuestasPsico } from '@/app/lib/psico-clase';
 import type { RevisionPsico, SesionPsico, SesionPsicoHecha } from '@/app/actions/psico';
 import {
   TIPOS_PSICO, TIPO_PSICO_LABEL, TIPO_PSICO_DESC, TAMANOS_PSICO, MINUTOS_PSICO, EJERCICIOS_PSICO, opcionesDe, textoPenalizacion,
@@ -10,7 +12,7 @@ import {
   type OpcionPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '@/app/lib/psico';
 import { Card, Button, SectionLabel, StatTile, OptionCard, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
-import FiguraPsico, { FichaDomino, RejillaPsico, FilaSimbolos, TablaSimbolos } from './FiguraPsico';
+import FiguraPsico, { FichaDomino, RejillaPsico, FilaSimbolos, TablaSimbolos, CubosPsico, DesarrolloPsico, AgujerosPsico, FiguraGiro } from './FiguraPsico';
 
 /**
  * PSICOTÉCNICOS (regla 117): elegir, hacer contra el reloj, y repasar.
@@ -59,6 +61,10 @@ function Opcion({ opcion, letra, estado, onClick }: {
         ? <RejillaPsico rejilla={opcion.rejilla} className="h-14 w-14 text-slate-900 dark:text-white" />
         : opcion.fila
         ? <FilaSimbolos fila={opcion.fila} />
+        : opcion.agujeros
+        ? <AgujerosPsico agujeros={opcion.agujeros} className="h-[4.5rem] w-[4.5rem] text-slate-900 dark:text-white" />
+        : opcion.figura
+        ? <FiguraGiro figura={opcion.figura} className="h-[5rem] w-[5rem] text-slate-900 dark:text-white" />
         : <span className="text-base font-semibold text-slate-900 dark:text-white">{opcion.texto}</span>}
       {estado === 'buena' && <Check size={18} className="ml-auto shrink-0 text-emerald-700 dark:text-emerald-300" aria-label="Correcta" />}
       {estado === 'mala' && <X size={18} className="ml-auto shrink-0 text-red-700 dark:text-red-300" aria-label="Tu respuesta, incorrecta" />}
@@ -94,6 +100,18 @@ function Enunciado({ q }: { q: PreguntaPsicoPublica }) {
         </div>
       )}
       {q.leyenda && <TablaSimbolos leyenda={q.leyenda} />}
+      {q.cubos && (
+        <div className="mt-3 flex flex-wrap items-end justify-center gap-4" role="group" aria-label="Las figuras de cubos">
+          {q.cubos.map((f, i) => (
+            <figure key={i} className="grid justify-items-center gap-1">
+              <CubosPsico alturas={f} className="h-28 w-auto max-w-[9.5rem] text-slate-900 dark:text-white" />
+              {q.cubos!.length > 1 && <figcaption className={cx(TEXT.hud, 'text-sm')}>{'ABC'[i]}</figcaption>}
+            </figure>
+          ))}
+        </div>
+      )}
+      {q.desarrollo && <div className="mt-3 flex justify-center"><DesarrolloPsico desarrollo={q.desarrollo} className="h-auto max-h-36 w-full max-w-[17rem] text-slate-900 dark:text-white" /></div>}
+      {q.figura && <div className="mt-3 flex justify-center"><FiguraGiro figura={q.figura} className="h-32 w-32 text-slate-900 dark:text-white" /></div>}
       {q.tabla && (
         <div className={cx('mt-3 overflow-x-auto border border-slate-200 dark:border-slate-700', RADIUS.md)}>
           <table className="w-full min-w-[16rem] border-collapse text-left text-sm tabular-nums">
@@ -131,6 +149,11 @@ export default function Psicotecnicos() {
   const [tipos, setTipos] = useState<Set<TipoPsico>>(new Set(TIPOS_PSICO));
   const [total, setTotal] = useState<number>(TAMANOS_PSICO[0]);
   const [historial, setHistorial] = useState<SesionPsicoHecha[]>([]);
+  /** Los exámenes que la academia ha puesto a mi turno (regla 127). */
+  const [clase, setClase] = useState<MiPsicoClase[]>([]);
+  /** Si lo que se está haciendo es uno de esos exámenes, su id: la entrega va por otro camino. */
+  const claseRef = useRef<string | null>(null);
+  const [hoja, setHoja] = useState<MiPsicoClase | null>(null);
 
   const [sesion, setSesion] = useState<SesionPsico | null>(null);
   const [respuestas, setRespuestas] = useState<number[]>([]);
@@ -147,6 +170,38 @@ export default function Psicotecnicos() {
     if (res.success) setHistorial(res.sesiones);
   }, []);
   useEffect(() => { cargaHistorial(); }, [cargaHistorial]);
+  const cargaClase = useCallback(async () => {
+    const res = await getMisPsicoClase();
+    if (res.success) setClase(res.examenes);
+  }, []);
+  useEffect(() => { cargaClase(); }, [cargaClase]);
+
+  /** Empezar (o seguir) un examen de mi clase en la pantalla: el reloj es el del servidor. */
+  async function empezarClase(id: string) {
+    setOcupado(true);
+    setError(null);
+    const res = await empiezaPsicoClase(id);
+    setOcupado(false);
+    if (!res.success) { setError(res.error); return; }
+    claseRef.current = id;
+    inicio.current = Date.now();
+    setRespuestas(Array(res.sesion.preguntas.length).fill(-1));
+    setActual(0);
+    setRestante(res.sesion.minutos * 60_000);
+    setResultado(null);
+    setSesion(res.sesion);
+    window.scrollTo(0, 0);
+  }
+
+  async function repasarClase(id: string) {
+    setOcupado(true);
+    setError(null);
+    const res = await getRevisionPsicoClase(id);
+    setOcupado(false);
+    if (!res.success) { setError(res.error); return; }
+    setResultado({ r: res.resultado, revision: res.revision, duracionMs: res.duracionMs });
+    window.scrollTo(0, 0);
+  }
 
   /** Repasar una sesión ya entregada: las mismas preguntas, lo que marcó y por qué. */
   async function repasar(id: string) {
@@ -185,15 +240,17 @@ export default function Psicotecnicos() {
     entregando.current = true;
     setOcupado(true);
     setError(null);
-    const res = await entregaPsico({ id, respuestas: respuestasRef.current });
+    const res = claseRef.current
+      ? await entregaPsicoClase({ id: claseRef.current, respuestas: respuestasRef.current })
+      : await entregaPsico({ id, respuestas: respuestasRef.current });
     entregando.current = false;
     setOcupado(false);
     if (!res.success) { setError(res.error); return; }
     setResultado({ r: res.resultado, revision: res.revision, duracionMs: res.duracionMs });
     setSesion(null);
     window.scrollTo(0, 0);
-    cargaHistorial();
-  }, [cargaHistorial]);
+    if (claseRef.current) { claseRef.current = null; cargaClase(); } else cargaHistorial();
+  }, [cargaHistorial, cargaClase]);
 
   // El reloj: se deriva de cuándo empezó. A cero, se entrega solo.
   useEffect(() => {
@@ -230,7 +287,7 @@ export default function Psicotecnicos() {
         <Card pad="lg">
           <Enunciado q={q} />
           {/* Las figuras, de dos en dos: en una columna la tabla y las opciones no cabían en la pantalla. */}
-          <div className={cx('mt-4 grid gap-2', q.matriz || q.fichas || q.rejilla ? 'grid-cols-2' : 'grid-cols-1')}>
+          <div className={cx('mt-4 grid gap-2', q.matriz || q.fichas || q.rejilla || q.opciones.some((o) => o.agujeros || o.figura) ? 'grid-cols-2' : 'grid-cols-1')}>
             {q.opciones.map((o, i) => (
               <Opcion
                 key={i}
@@ -348,14 +405,17 @@ export default function Psicotecnicos() {
   }
 
   // ───────────────────────── LA CONFIGURACIÓN ─────────────────────────
-  return <Configuracion {...{ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error, repasar }} />;
+  return <Configuracion {...{ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error, repasar, clase, empezarClase, repasarClase, hoja, setHoja, onHojaEntregada: (r: { r: ResultadoPsico; revision: RevisionPsico; duracionMs: number }) => { setHoja(null); setResultado(r); cargaClase(); window.scrollTo(0, 0); } }} />;
 }
 
-function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error, repasar }: {
+function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, ocupado, error, repasar, clase, empezarClase, repasarClase, hoja, setHoja, onHojaEntregada }: {
   tipos: Set<TipoPsico>; setTipos: (f: (prev: Set<TipoPsico>) => Set<TipoPsico>) => void;
   total: number; setTotal: (n: number) => void;
   historial: SesionPsicoHecha[]; empezar: (ejercicio?: NumeroEjercicio) => void; ocupado: boolean; error: string | null;
   repasar: (id: string) => void;
+  clase: MiPsicoClase[]; empezarClase: (id: string) => void; repasarClase: (id: string) => void;
+  hoja: MiPsicoClase | null; setHoja: (e: MiPsicoClase | null) => void;
+  onHojaEntregada: (r: { r: ResultadoPsico; revision: RevisionPsico; duracionMs: number }) => void;
 }) {
   // Cómo va en cada tipo, sumando sus últimas sesiones.
   const porTipo = useMemo(() => {
@@ -374,6 +434,40 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 pb-6 animate-in fade-in duration-150">
+      {(clase.length > 0 || hoja) && (
+        <Card pad="lg">
+          <SectionLabel>Los exámenes de tu clase</SectionLabel>
+          {error && <p role="alert" className="mb-2 text-sm font-semibold text-red-700 dark:text-red-300">{error}</p>}
+          <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+            {clase.map((e) => (
+              <li key={e.id} className="space-y-2 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{e.titulo}</p>
+                    <p className={TEXT.muted}>
+                      {new Date(`${e.fecha}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} · {e.total} preguntas · {e.minutos} min
+                    </p>
+                    {e.estado === 'entregado' && e.aciertos !== null && <p className={TEXT.muted}>{e.aciertos} aciertos · {e.fallos} fallos · {e.blancos} en blanco</p>}
+                    {e.estado === 'proximo' && <p className={TEXT.muted}>Todavía no es el día.</p>}
+                    {e.estado === 'cerrado' && <p className={TEXT.muted}>No lo entregaste a tiempo.</p>}
+                    {e.estado === 'pendiente' && e.cierre && <p className={TEXT.muted}>Puedes entregarlo hasta el {new Date(`${e.cierre}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}.</p>}
+                  </div>
+                  {e.nota !== null && <span className={cx(TEXT.hud, 'text-lg', e.nota >= 5 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{e.nota.toLocaleString('es-ES')}</span>}
+                </div>
+                {e.estado === 'pendiente' && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" disabled={ocupado} icon={<Play size={14} />} onClick={() => empezarClase(e.id)}>{e.empezado ? 'Seguir' : 'Hacerlo ahora'} ({e.minutos} min)</Button>
+                    <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => setHoja(e)}>Ya lo hice en papel</Button>
+                  </div>
+                )}
+                {e.estado === 'entregado' && <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => repasarClase(e.id)}>Ver la solución</Button>}
+              </li>
+            ))}
+          </ul>
+          {hoja && <PasarHoja examen={hoja} onCancelar={() => setHoja(null)} onEntregada={onHojaEntregada} />}
+        </Card>
+      )}
+
       <Card pad="lg">
         <SectionLabel>Como en el examen</SectionLabel>
         <p className={cx(TEXT.muted, 'mb-3')}>Los tres ejercicios del psicotécnico, con sus preguntas y su tiempo. Las preguntas son nuevas cada vez.</p>
@@ -462,6 +556,52 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+
+/**
+ * Pasar a la plataforma la hoja de respuestas que se hizo en papel: se escriben
+ * de seguido («abcd-ab…», con `-` para el blanco). Si no salen EXACTAMENTE las
+ * que son, no se corrige: un desfase de una lo descuadraría todo (regla 118).
+ */
+function PasarHoja({ examen, onCancelar, onEntregada }: {
+  examen: MiPsicoClase; onCancelar: () => void;
+  onEntregada: (r: { r: ResultadoPsico; revision: RevisionPsico; duracionMs: number }) => void;
+}) {
+  const [texto, setTexto] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const parseo = texto.trim() ? parseaRespuestasPsico(texto, examen.opciones) : null;
+
+  async function entrega() {
+    const p = parseaRespuestasPsico(texto, examen.opciones);
+    if (!p.ok) { setError(p.error); return; }
+    if (!confirm('¿Entregar estas respuestas? Solo se puede una vez.')) return;
+    setEnviando(true);
+    setError(null);
+    const res = await entregaPsicoClase({ id: examen.id, respuestas: p.respuestas, via: 'hoja' });
+    setEnviando(false);
+    if (!res.success) { setError(res.error); return; }
+    onEntregada({ r: res.resultado, revision: res.revision, duracionMs: res.duracionMs });
+  }
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+      <p className="text-sm font-bold text-slate-900 dark:text-white">Tus respuestas de «{examen.titulo}»</p>
+      <p className={TEXT.muted}>Escríbelas de seguido, una letra por pregunta, y un guion (-) para las que dejaste en blanco. Son {examen.total}: por ejemplo «abcd-ab…».</p>
+      <textarea
+        value={texto} onChange={(e) => { setTexto(e.target.value); setError(null); }} rows={3} spellCheck={false} autoCapitalize="none" autoCorrect="off"
+        aria-label="Tus respuestas de la hoja"
+        className={cx('w-full border-2 border-slate-300 bg-white p-3 font-mono text-base tracking-widest text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white', RADIUS.md)}
+      />
+      {parseo?.ok && <p className={cx(TEXT.muted, 'font-semibold text-emerald-700 dark:text-emerald-300')}>{parseo.respuestas.length} respuestas, {parseo.respuestas.filter((x) => x === -1).length} en blanco.</p>}
+      {(error || (parseo && !parseo.ok)) && <p role="alert" className="text-sm font-semibold text-red-700 dark:text-red-300">{error ?? (parseo && !parseo.ok ? parseo.error : '')}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={enviando || !parseo?.ok} onClick={entrega}>{enviando ? 'Entregando…' : 'Entregar'}</Button>
+        <Button size="sm" variant="ghost" onClick={onCancelar}>Cancelar</Button>
+      </div>
     </div>
   );
 }

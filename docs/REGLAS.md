@@ -4918,3 +4918,40 @@ el segundo necesita el proyecto real.
 - **Repasar una sesión de psicotécnicos** (`getRevisionPsico`): se vuelven a
   generar las preguntas con la semilla guardada y las respuestas guardadas;
   solo las del propio usuario y solo si `VERSION_PSICO` no ha cambiado.
+
+### 127 · Psicotécnicos en clase, y los tipos visuales
+
+- **Qué pedía el dueño (13 nov):** poner psicotécnicos «en clase» como los
+  exámenes de teoría, filtrando por tipo, y que existieran los ejercicios
+  visuales y de parentescos del examen real.
+- **El mismo proceso que la teoría** (decisión del dueño, 13 nov): en «Exámenes en
+  papel» se elige primero Teoría o Psicotécnicos y los dos siguen PREPARAR (con su
+  filtro: temas, o tipos de pregunta) → GUARDADOS (poner a un turno, imprimir) →
+  EN CLASE. Tres tablas, `psico_examenes` (el guardado), `psico_clase` (puesto a un
+  turno) y `psico_clase_resultados` (`docs/sql/psico-clase.sql`; RLS y ninguna
+  política, regla 34). No se guardan
+  preguntas: se guarda la SEMILLA, los tipos elegidos (el filtro), el total y los
+  minutos, y con eso se regenera idéntico, como una sesión de práctica (regla 117).
+  Va en tablas propias y no reutiliza `exam_papers`/`exam_sittings`: esas llevan
+  una copia de preguntas de TEORÍA y ocho consultas (informe semanal incluido) las
+  leen como tales.
+- **Dos maneras de hacerlo:** en la pantalla, con el reloj del servidor (la fila
+  se crea al empezar y el tiempo que queda sale de ahí, regla 14), o en papel: el
+  admin imprime la hoja (preguntas, hoja de respuestas y, en otra página, el
+  solucionario) y el alumno pasa luego sus respuestas escritas de seguido
+  (`parseaRespuestasPsico`: si no salen EXACTAMENTE las que son, no se adivina nada,
+  regla 118). Se entrega una sola vez, solo desde el día del examen y dentro del
+  plazo; la corrige el servidor (regla 110) y la solución no se ve hasta entregar.
+- **El admin ve** quién ha entregado, su nota y cómo lo hizo (pantalla o papel), la
+  nota media y **dónde falla la clase por tipo**.
+- **La hoja impresa** se pinta con los mismos dibujos SVG que la pantalla, en una
+  ventana propia sin Tailwind (`hojaPsico.tsx`): los tamaños van en su hoja de
+  estilos.
+- **Tipos visuales** (`psico-visual.ts`), cada uno comprobado con un cálculo
+  independiente en los tests: cubos contados (columnas que bajan hacia el
+  observador: se ven todas, sin huecos), desarrollos de cubo (se rueda un cubo
+  sobre las casillas; se pregunta lo opuesto o el grupo de tres caras imposible, que
+  no depende de la quiralidad), plegados de papel (se enumeran las capas), giros de
+  figuras con varios elementos (con el espejo como distractor) y parentescos (un
+  árbol de abuelos, hijos con pareja y nietos). Quedan fuera los plegados de un
+  prisma y las figuras de flechas en tablas: piden dibujar mucho más.
