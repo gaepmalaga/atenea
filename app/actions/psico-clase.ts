@@ -8,7 +8,7 @@ import { ahoraEnZona } from '../lib/asistencia';
 import { estadoEntrega, esParticipante, type EstadoEntrega } from '../lib/examen-clase';
 import { nombreVisible } from '../lib/perfil-alumno';
 import { participantesDe, misGrupos } from '../lib/participantes-clase';
-import { validaExamenClase, resumenDeClase, type ExamenValido, type FilaResultado } from '../lib/psico-clase';
+import { validaExamenPsico, validaAplicacion, resumenDeClase, type FilaResultado } from '../lib/psico-clase';
 import {
   VERSION_PSICO, aPublica, corrigeSesion, generaSesion, normalizaRespuesta, tiposValidos, notaDeSesionGuardada, esVersionPsico,
   type PreguntaPsico, type ResultadoPsico, type TipoPsico,
@@ -31,11 +31,28 @@ const UUID = /^[0-9a-f-]{36}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
 const hoyAcademia = () => ahoraEnZona(Date.now()).fecha;
 
+/** Una aplicación (el examen puesto a un turno) con los datos del examen: lo que hace falta para regenerarlo. */
 type FilaClase = {
-  id: string; title: string; seed: number; version: number; kinds: string[]; total: number; minutes: number;
-  class_ids: string[] | null; sat_on: string; closes_on: string | null;
+  id: string; examen_id: string; label: string; class_ids: string[] | null; sat_on: string; closes_on: string | null;
+  seed: number; version: number; kinds: string[]; total: number; minutes: number; title: string;
 };
-const COLS_CLASE = 'id, title, seed, version, kinds, total, minutes, class_ids, sat_on, closes_on';
+const COLS_APLICACION = 'id, examen_id, label, class_ids, sat_on, closes_on';
+const COLS_EXAMEN = 'id, title, seed, version, kinds, total, minutes';
+type FilaExamen = { id: string; title: string; seed: number; version: number; kinds: string[]; total: number; minutes: number };
+
+/** Une cada aplicación con su examen (dos consultas acotadas por la academia, sin depender de un embed). */
+async function conExamen(org: string, aplicaciones: { id: string; examen_id: string; label: string; class_ids: string[] | null; sat_on: string; closes_on: string | null }[]): Promise<{ data: FilaClase[]; error: string | null }> {
+  if (!aplicaciones.length) return { data: [], error: null };
+  const { data, error } = await supabaseAdmin.from('psico_examenes').select(COLS_EXAMEN).eq('organization_id', org).in('id', [...new Set(aplicaciones.map((a) => a.examen_id))]);
+  if (error) return { data: [], error: fallo('psico-clase', error) };
+  const porId = new Map(((data ?? []) as FilaExamen[]).map((e) => [e.id, e]));
+  const out: FilaClase[] = [];
+  for (const a of aplicaciones) {
+    const e = porId.get(a.examen_id);
+    if (e) out.push({ ...a, seed: e.seed, version: e.version, kinds: e.kinds, total: e.total, minutes: e.minutes, title: e.title });
+  }
+  return { data: out, error: null };
+}
 
 /** Las preguntas de un examen de clase, regeneradas con su semilla y la versión que tenía. */
 function preguntasDe(f: Pick<FilaClase, 'seed' | 'kinds' | 'total' | 'version'>): PreguntaPsico[] | null {
@@ -46,6 +63,113 @@ function preguntasDe(f: Pick<FilaClase, 'seed' | 'kinds' | 'total' | 'version'>)
 // ===========================================================================
 // LA ACADEMIA
 // ===========================================================================
+
+// ── El examen guardado (PREPARAR y GUARDAR) ──
+
+export type PsicoGuardado = {
+  id: string; titulo: string; total: number; minutos: number; tipos: TipoPsico[]; creado: string;
+  /** A qué grupos y qué día se ha puesto ya: para avisar antes de repetir. */
+  puestos: { fecha: string; classIds: string[] }[];
+};
+
+export async function getPsicoGuardados(): Promise<{ success: true; examenes: PsicoGuardado[] } | { success: false; error: string; faltaGuion?: boolean }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: SIN_ACADEMIA };
+
+  const { data, error } = await supabaseAdmin.from('psico_examenes').select(`${COLS_EXAMEN}, created_at`).eq('organization_id', org).order('created_at', { ascending: false }).limit(200);
+  if (error) { fallo('getPsicoGuardados', error); return { success: false as const, error: FALTA_GUION, faltaGuion: true }; }
+  const examenes = (data ?? []) as (FilaExamen & { created_at: string })[];
+  if (!examenes.length) return { success: true as const, examenes: [] };
+  const { data: aps, error: e2 } = await supabaseAdmin.from('psico_clase').select('examen_id, sat_on, class_ids').eq('organization_id', org).in('examen_id', examenes.map((e) => e.id)).limit(2000);
+  if (e2) return { success: false as const, error: fallo('getPsicoGuardados', e2) };
+  return {
+    success: true as const,
+    examenes: examenes.map((e) => ({
+      id: e.id, titulo: e.title, total: e.total, minutos: e.minutes, tipos: tiposValidos(e.kinds), creado: e.created_at,
+      puestos: (aps ?? []).filter((a) => a.examen_id === e.id).map((a) => ({ fecha: a.sat_on as string, classIds: (a.class_ids as string[]) ?? [] })),
+    })),
+  };
+}
+
+/** Guarda un examen: la semilla la elige el servidor y es la misma para todo el que lo haga. */
+export async function guardaPsicoExamen(input: unknown): Promise<{ success: true; id: string } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: SIN_ACADEMIA };
+  const d = (input ?? {}) as Record<string, unknown>;
+  const v = validaExamenPsico({ titulo: d.titulo, ejercicio: d.ejercicio, tipos: d.tipos, total: d.total, minutos: d.minutos, hoy: hoyAcademia() });
+  if (!v.ok) return { success: false as const, error: v.error };
+
+  const { data, error } = await supabaseAdmin.from('psico_examenes').insert({
+    organization_id: org, title: v.valor.titulo, seed: randomInt(1, 2 ** 31 - 1), version: VERSION_PSICO, kinds: v.valor.tipos,
+    total: v.valor.total, minutes: v.valor.minutos, created_by: auth.user.id,
+  }).select('id').single();
+  if (error || !data) { fallo('guardaPsicoExamen', error ?? { message: 'sin fila' }); return { success: false as const, error: FALTA_GUION }; }
+  return { success: true as const, id: data.id as string };
+}
+
+export async function borraPsicoExamen(id: unknown): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false, error: SIN_ACADEMIA };
+  if (!esUuid(id)) return { success: false, error: 'Datos no válidos.' };
+  const { error } = await supabaseAdmin.from('psico_examenes').delete().eq('organization_id', org).eq('id', id);
+  if (error) return { success: false, error: fallo('borraPsicoExamen', error) };
+  return { success: true };
+}
+
+/** El examen guardado para IMPRIMIRLO: preguntas con respuesta y explicación (solo el admin las ve). */
+export async function getHojaPsicoExamen(id: unknown): Promise<
+  { success: true; titulo: string; minutos: number; preguntas: PreguntaPsico[] } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: SIN_ACADEMIA };
+  if (!esUuid(id)) return { success: false as const, error: 'Datos no válidos.' };
+  const { data: e, error } = await supabaseAdmin.from('psico_examenes').select(COLS_EXAMEN).eq('organization_id', org).eq('id', id).maybeSingle();
+  if (error) return { success: false as const, error: fallo('getHojaPsicoExamen', error) };
+  if (!e) return { success: false as const, error: 'Ese examen no existe.' };
+  const f = e as FilaExamen;
+  const preguntas = preguntasDe(f);
+  if (!preguntas) return { success: false as const, error: 'Este examen es de una versión anterior y ya no se puede imprimir.' };
+  return { success: true as const, titulo: f.title, minutos: f.minutes, preguntas };
+}
+
+// ── Ponerlo a un turno ──
+
+/** Pone un examen guardado a un turno: los grupos tienen que ser de ESTA academia (regla 65). */
+export async function aplicaPsicoExamen(input: unknown): Promise<{ success: true; id: string } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: SIN_ACADEMIA };
+  const d = (input ?? {}) as Record<string, unknown>;
+  if (!esUuid(d.examenId)) return { success: false as const, error: 'Datos no válidos.' };
+  const v = validaAplicacion({ etiqueta: d.etiqueta, fecha: d.fecha, cierre: d.cierre, classIds: d.grupos });
+  if (!v.ok) return { success: false as const, error: v.error };
+  const a = v.valor;
+
+  const { data: e, error: e1 } = await supabaseAdmin.from('psico_examenes').select('id, title').eq('organization_id', org).eq('id', d.examenId).maybeSingle();
+  if (e1) return { success: false as const, error: fallo('aplicaPsicoExamen', e1) };
+  if (!e) return { success: false as const, error: 'Ese examen no existe.' };
+  if (a.classIds.length) {
+    const { data, error } = await supabaseAdmin.from('class_groups').select('id').eq('organization_id', org).in('id', a.classIds);
+    if (error) return { success: false as const, error: fallo('aplicaPsicoExamen', error) };
+    if ((data ?? []).length !== a.classIds.length) return { success: false as const, error: 'Alguno de los grupos no es de tu academia.' };
+  }
+  const { data, error } = await supabaseAdmin.from('psico_clase').insert({
+    organization_id: org, examen_id: e.id, label: a.etiqueta ?? (e.title as string), class_ids: a.classIds, sat_on: a.fecha, closes_on: a.cierre, created_by: auth.user.id,
+  }).select('id').single();
+  if (error || !data) { fallo('aplicaPsicoExamen', error ?? { message: 'sin fila' }); return { success: false as const, error: FALTA_GUION }; }
+  return { success: true as const, id: data.id as string };
+}
+
+// ── En clase ──
 
 export type PsicoClaseResumen = {
   id: string; titulo: string; fecha: string; cierre: string | null; total: number; minutos: number;
@@ -59,9 +183,11 @@ export async function getPsicoClases(): Promise<{ success: true; examenes: Psico
   if (!org) return { success: false as const, error: SIN_ACADEMIA };
 
   const { data: filas, error } = await supabaseAdmin
-    .from('psico_clase').select(COLS_CLASE).eq('organization_id', org).order('sat_on', { ascending: false }).order('created_at', { ascending: false }).limit(200);
+    .from('psico_clase').select(COLS_APLICACION).eq('organization_id', org).order('sat_on', { ascending: false }).order('created_at', { ascending: false }).limit(200);
   if (error) { fallo('getPsicoClases', error); return { success: false as const, error: FALTA_GUION, faltaGuion: true }; }
-  const examenes = (filas ?? []) as FilaClase[];
+  const unidos = await conExamen(org, (filas ?? []) as Parameters<typeof conExamen>[1]);
+  if (unidos.error) return { success: false as const, error: unidos.error };
+  const examenes = unidos.data;
   if (!examenes.length) return { success: true as const, examenes: [] };
 
   const [grupos, resultados] = await Promise.all([
@@ -86,7 +212,7 @@ export async function getPsicoClases(): Promise<{ success: true; examenes: Psico
     }));
     const resumen = resumenDeClase(filasRes, gente.data.length);
     out.push({
-      id: e.id, titulo: e.title, fecha: e.sat_on, cierre: e.closes_on, total: e.total, minutos: e.minutes,
+      id: e.id, titulo: e.label, fecha: e.sat_on, cierre: e.closes_on, total: e.total, minutos: e.minutes,
       tipos: tiposValidos(e.kinds), grupos: (e.class_ids ?? []).map((c) => nombreGrupo.get(c) ?? '(grupo borrado)'),
       participantes: resumen.participantes, entregados: resumen.entregados, notaMedia: resumen.notaMedia,
     });
@@ -94,38 +220,12 @@ export async function getPsicoClases(): Promise<{ success: true; examenes: Psico
   return { success: true as const, examenes: out };
 }
 
-/** Pone un psicotécnico en clase: la semilla la elige el servidor y es la misma para todo el turno. */
-export async function creaPsicoClase(input: unknown): Promise<{ success: true; id: string } | { success: false; error: string }> {
-  const auth = await requireAdmin();
-  if (!auth.ok) return { success: false as const, error: auth.error };
-  const org = auth.user.organizationId;
-  if (!org) return { success: false as const, error: SIN_ACADEMIA };
-
-  const v = validaExamenClase((input ?? {}) as Parameters<typeof validaExamenClase>[0]);
-  if (!v.ok) return { success: false as const, error: v.error };
-  const e: ExamenValido = v.valor;
-
-  // Los grupos tienen que ser de ESTA academia (regla 65): un id de otra no vale.
-  if (e.classIds.length) {
-    const { data, error } = await supabaseAdmin.from('class_groups').select('id').eq('organization_id', org).in('id', e.classIds);
-    if (error) return { success: false as const, error: fallo('creaPsicoClase', error) };
-    if ((data ?? []).length !== e.classIds.length) return { success: false as const, error: 'Alguno de los grupos no es de tu academia.' };
-  }
-
-  const { data, error } = await supabaseAdmin.from('psico_clase').insert({
-    organization_id: org, title: e.titulo, seed: randomInt(1, 2 ** 31 - 1), version: VERSION_PSICO, kinds: e.tipos, total: e.total, minutes: e.minutos,
-    class_ids: e.classIds, sat_on: e.fecha, closes_on: e.cierre, created_by: auth.user.id,
-  }).select('id').single();
-  if (error || !data) { fallo('creaPsicoClase', error ?? { message: 'sin fila' }); return { success: false as const, error: FALTA_GUION }; }
-  return { success: true as const, id: data.id as string };
-}
-
 export type ParticipantePsico = {
   id: string; nombre: string; email: string | null; estado: EstadoEntrega; via: 'app' | 'hoja' | null;
   nota: number | null; aciertos: number | null; fallos: number | null; blancos: number | null;
 };
 export type DetallePsicoClase = {
-  examen: Omit<PsicoClaseResumen, 'participantes' | 'entregados' | 'notaMedia'>;
+  examen: Omit<PsicoClaseResumen, 'participantes' | 'entregados' | 'notaMedia'> & { examenId: string };
   participantes: ParticipantePsico[];
   resumen: ReturnType<typeof resumenDeClase>;
 };
@@ -137,10 +237,13 @@ export async function getDetallePsicoClase(id: unknown): Promise<{ success: true
   if (!org) return { success: false as const, error: SIN_ACADEMIA };
   if (!esUuid(id)) return { success: false as const, error: 'Datos no válidos.' };
 
-  const { data: e, error } = await supabaseAdmin.from('psico_clase').select(COLS_CLASE).eq('organization_id', org).eq('id', id).maybeSingle();
+  const { data: a, error } = await supabaseAdmin.from('psico_clase').select(COLS_APLICACION).eq('organization_id', org).eq('id', id).maybeSingle();
   if (error) return { success: false as const, error: fallo('getDetallePsicoClase', error) };
-  if (!e) return { success: false as const, error: 'Ese examen no existe.' };
-  const f = e as FilaClase;
+  if (!a) return { success: false as const, error: 'Ese examen no existe.' };
+  const unidos = await conExamen(org, [a as Parameters<typeof conExamen>[1][number]]);
+  if (unidos.error) return { success: false as const, error: unidos.error };
+  const f = unidos.data[0];
+  if (!f) return { success: false as const, error: 'El examen de este turno ya no existe.' };
 
   const [grupos, resultados, gente] = await Promise.all([
     supabaseAdmin.from('class_groups').select('id, name').eq('organization_id', org),
@@ -154,19 +257,19 @@ export async function getDetallePsicoClase(id: unknown): Promise<{ success: true
   const hoy = hoyAcademia();
   const nombreGrupo = new Map((grupos.data ?? []).map((g) => [g.id as string, g.name as string]));
   const porAlumno = new Map((resultados.data ?? []).map((r) => [r.user_id as string, r]));
-  const participantes: ParticipantePsico[] = gente.data.map((a) => {
-    const r = porAlumno.get(a.id);
+  const participantes: ParticipantePsico[] = gente.data.map((al) => {
+    const r = porAlumno.get(al.id);
     const entregado = !!r?.finished_at;
     const porTipo = (r?.by_kind as ResultadoPsico['porTipo']) ?? {};
     return {
-      id: a.id, nombre: nombreVisible(a.nombre, a.email) || 'Alumno', email: a.email,
+      id: al.id, nombre: nombreVisible(al.nombre, al.email) || 'Alumno', email: al.email,
       estado: estadoEntrega({ satOn: f.sat_on, closesOn: f.closes_on, hoy, absent: false, entregado }),
       via: entregado ? ((r?.via as 'app' | 'hoja') ?? 'app') : null,
       nota: entregado ? notaDeSesionGuardada({ version: f.version, total: f.total, aciertos: (r?.correct as number) ?? 0, fallos: (r?.wrong as number) ?? 0, porTipo }) : null,
       aciertos: entregado ? ((r?.correct as number) ?? 0) : null, fallos: entregado ? ((r?.wrong as number) ?? 0) : null, blancos: entregado ? ((r?.blank as number) ?? 0) : null,
     };
   });
-  participantes.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  participantes.sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
 
   const filasRes: FilaResultado[] = (resultados.data ?? []).filter((r) => gente.data.some((g) => g.id === r.user_id)).map((r) => ({
     userId: r.user_id as string, entregado: !!r.finished_at, version: f.version, total: f.total,
@@ -176,7 +279,7 @@ export async function getDetallePsicoClase(id: unknown): Promise<{ success: true
     success: true as const,
     detalle: {
       examen: {
-        id: f.id, titulo: f.title, fecha: f.sat_on, cierre: f.closes_on, total: f.total, minutos: f.minutes,
+        id: f.id, examenId: f.examen_id, titulo: f.label, fecha: f.sat_on, cierre: f.closes_on, total: f.total, minutos: f.minutes,
         tipos: tiposValidos(f.kinds), grupos: (f.class_ids ?? []).map((c) => nombreGrupo.get(c) ?? '(grupo borrado)'),
       },
       participantes,
@@ -185,6 +288,7 @@ export async function getDetallePsicoClase(id: unknown): Promise<{ success: true
   };
 }
 
+/** Borra la aplicación (y sus notas); el examen guardado se queda para ponerlo a otro turno. */
 export async function borraPsicoClase(id: unknown): Promise<{ success: boolean; error?: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
@@ -194,24 +298,6 @@ export async function borraPsicoClase(id: unknown): Promise<{ success: boolean; 
   const { error } = await supabaseAdmin.from('psico_clase').delete().eq('organization_id', org).eq('id', id);
   if (error) return { success: false, error: fallo('borraPsicoClase', error) };
   return { success: true };
-}
-
-/** El examen entero para IMPRIMIRLO: preguntas con respuesta y explicación (solo el admin las ve). */
-export async function getHojaPsicoClase(id: unknown): Promise<
-  { success: true; titulo: string; fecha: string; minutos: number; preguntas: PreguntaPsico[] } | { success: false; error: string }
-> {
-  const auth = await requireAdmin();
-  if (!auth.ok) return { success: false as const, error: auth.error };
-  const org = auth.user.organizationId;
-  if (!org) return { success: false as const, error: SIN_ACADEMIA };
-  if (!esUuid(id)) return { success: false as const, error: 'Datos no válidos.' };
-  const { data: e, error } = await supabaseAdmin.from('psico_clase').select(COLS_CLASE).eq('organization_id', org).eq('id', id).maybeSingle();
-  if (error) return { success: false as const, error: fallo('getHojaPsicoClase', error) };
-  if (!e) return { success: false as const, error: 'Ese examen no existe.' };
-  const preguntas = preguntasDe(e as FilaClase);
-  if (!preguntas) return { success: false as const, error: 'Este examen es de una versión anterior y ya no se puede imprimir.' };
-  const f = e as FilaClase;
-  return { success: true as const, titulo: f.title, fecha: f.sat_on, minutos: f.minutes, preguntas };
 }
 
 // ===========================================================================
@@ -229,13 +315,16 @@ export type MiPsicoClase = {
 async function acotado(org: string | null, userId: string, id: unknown): Promise<{ ok: true; org: string; fila: FilaClase } | { ok: false; error: string }> {
   if (!org) return { ok: false, error: 'No hemos encontrado tu academia.' };
   if (!esUuid(id)) return { ok: false, error: 'Datos no válidos.' };
-  const { data: e, error } = await supabaseAdmin.from('psico_clase').select(COLS_CLASE).eq('organization_id', org).eq('id', id).maybeSingle();
+  const { data: a, error } = await supabaseAdmin.from('psico_clase').select(COLS_APLICACION).eq('organization_id', org).eq('id', id).maybeSingle();
   if (error) return { ok: false, error: fallo('psico-clase', error) };
-  if (!e) return { ok: false, error: 'Ese examen no existe.' };
+  if (!a) return { ok: false, error: 'Ese examen no existe.' };
   const grupos = await misGrupos(org, userId);
   if (grupos.error) return { ok: false, error: grupos.error };
-  if (!esParticipante((e as FilaClase).class_ids ?? [], grupos.data)) return { ok: false, error: 'Ese examen no es de tu turno.' };
-  return { ok: true, org, fila: e as FilaClase };
+  if (!esParticipante((a.class_ids as string[]) ?? [], grupos.data)) return { ok: false, error: 'Ese examen no es de tu turno.' };
+  const unidos = await conExamen(org, [a as Parameters<typeof conExamen>[1][number]]);
+  if (unidos.error) return { ok: false, error: unidos.error };
+  if (!unidos.data[0]) return { ok: false, error: 'El examen de este turno ya no existe.' };
+  return { ok: true, org, fila: unidos.data[0] };
 }
 
 export async function getMisPsicoClase(): Promise<{ success: true; examenes: MiPsicoClase[] } | { success: false; error: string }> {
@@ -246,7 +335,7 @@ export async function getMisPsicoClase(): Promise<{ success: true; examenes: MiP
   const org = auth.user.organizationId;
   if (!org) return { success: false as const, error: 'No hemos encontrado tu academia.' };
 
-  const { data, error } = await supabaseAdmin.from('psico_clase').select(COLS_CLASE).eq('organization_id', org).order('sat_on', { ascending: false }).limit(100);
+  const { data, error } = await supabaseAdmin.from('psico_clase').select(COLS_APLICACION).eq('organization_id', org).order('sat_on', { ascending: false }).limit(100);
   if (error) {
     // Sin las tablas todavía, el módulo se abre igual: simplemente no hay exámenes de clase.
     fallo('getMisPsicoClase', error);
@@ -254,7 +343,10 @@ export async function getMisPsicoClase(): Promise<{ success: true; examenes: MiP
   }
   const grupos = await misGrupos(org, auth.user.id);
   if (grupos.error) return { success: false as const, error: grupos.error };
-  const mios = ((data ?? []) as FilaClase[]).filter((e) => esParticipante(e.class_ids ?? [], grupos.data));
+  const suyas = ((data ?? []) as Parameters<typeof conExamen>[1]).filter((e) => esParticipante(e.class_ids ?? [], grupos.data));
+  const unidos = await conExamen(org, suyas);
+  if (unidos.error) return { success: false as const, error: unidos.error };
+  const mios = unidos.data;
   if (!mios.length) return { success: true as const, examenes: [] };
 
   const { data: res, error: eR } = await supabaseAdmin.from('psico_clase_resultados')
@@ -270,7 +362,7 @@ export async function getMisPsicoClase(): Promise<{ success: true; examenes: MiP
       const entregado = !!r?.finished_at;
       const preguntas = preguntasDe(e);
       return {
-        id: e.id, titulo: e.title, fecha: e.sat_on, cierre: e.closes_on, total: e.total, minutos: e.minutes, tipos: tiposValidos(e.kinds),
+        id: e.id, titulo: e.label, fecha: e.sat_on, cierre: e.closes_on, total: e.total, minutos: e.minutes, tipos: tiposValidos(e.kinds),
         estado: estadoEntrega({ satOn: e.sat_on, closesOn: e.closes_on, hoy, absent: false, entregado }),
         empezado: !!r && !entregado,
         nota: entregado ? notaDeSesionGuardada({ version: e.version, total: e.total, aciertos: (r!.correct as number) ?? 0, fallos: (r!.wrong as number) ?? 0, porTipo: (r!.by_kind as ResultadoPsico['porTipo']) ?? {} }) : null,
@@ -390,7 +482,7 @@ export async function getRevisionPsicoClase(id: unknown): Promise<
   const guardadas = Array.isArray(r.answers) ? r.answers : [];
   const respuestas = preguntas.map((q, i) => normalizaRespuesta(guardadas[i], q.opciones.length));
   return {
-    success: true as const, titulo: c.fila.title,
+    success: true as const, titulo: c.fila.label,
     revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })),
     resultado: corrigeSesion(preguntas, respuestas), duracionMs: (r.duration_ms as number) ?? 0,
   };

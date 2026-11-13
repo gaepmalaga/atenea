@@ -17,18 +17,11 @@ export const MAX_MINUTOS_CLASE = 120;
 /** Por defecto, medio minuto por pregunta, como en el examen. */
 export const SEGUNDOS_POR_PREGUNTA = 33;
 
-export type EntradaClase = {
-  titulo: unknown; ejercicio: unknown; tipos: unknown; total: unknown; minutos: unknown;
-  classIds: unknown; fecha: unknown; cierre: unknown;
-};
-
-export type ExamenValido = {
-  titulo: string; tipos: TipoPsico[]; total: number; minutos: number;
-  classIds: string[]; fecha: string; cierre: string | null; ejercicio: NumeroEjercicio | null;
-};
+export type EntradaExamen = { titulo: unknown; ejercicio: unknown; tipos: unknown; total: unknown; minutos: unknown; hoy: string };
+export type ExamenValido = { titulo: string; tipos: TipoPsico[]; total: number; minutos: number; ejercicio: NumeroEjercicio | null };
 
 /** Una fecha que existe de verdad: el 31 de febrero no (V8 lo «arregla» a marzo, y aquí no se arregla nada). */
-const esFecha = (v: unknown): v is string => {
+export const esFecha = (v: unknown): v is string => {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
   const [y, m, d] = v.split('-').map(Number);
   const f = new Date(Date.UTC(y, m - 1, d));
@@ -53,12 +46,12 @@ export function tituloAutomatico(tipos: readonly TipoPsico[], total: number, fec
 }
 
 /**
- * Lo que manda el navegador, validado (regla 27). Un ejercicio del examen lleva
- * sus tipos, preguntas y minutos fijos. En libre, los tipos son los elegidos (al
- * menos uno) y el total y los minutos están dentro de los topes. Devuelve el
- * error en castellano, para enseñarlo tal cual.
+ * EL EXAMEN que se prepara (regla 27): los tipos elegidos (el filtro), el total
+ * y los minutos. Un ejercicio del examen lleva sus tipos, preguntas y minutos
+ * fijos, aunque el navegador mande otros. En libre, al menos un tipo y el total
+ * y los minutos dentro de los topes. Devuelve el error en castellano.
  */
-export function validaExamenClase(d: EntradaClase): { ok: true; valor: ExamenValido } | { ok: false; error: string } {
+export function validaExamenPsico(d: EntradaExamen): { ok: true; valor: ExamenValido } | { ok: false; error: string } {
   const ejercicio = esEjercicio(d.ejercicio) ? d.ejercicio : null;
   const tiposPedidos = Array.isArray(d.tipos) ? d.tipos.filter(esTipoPsico) : [];
   const tipos = ejercicio ? [...EJERCICIOS_PSICO[ejercicio].tipos] : TIPOS_PSICO.filter((t) => tiposPedidos.includes(t));
@@ -69,12 +62,20 @@ export function validaExamenClase(d: EntradaClase): { ok: true; valor: ExamenVal
   const minPedidos = d.minutos === undefined || d.minutos === null || d.minutos === '' ? null : Number(d.minutos);
   const minutos = ejercicio ? EJERCICIOS_PSICO[ejercicio].minutos : minPedidos === null ? minutosPorDefecto(total) : minPedidos;
   if (!Number.isInteger(minutos) || minutos < 1 || minutos > MAX_MINUTOS_CLASE) return { ok: false, error: `Los minutos van de 1 a ${MAX_MINUTOS_CLASE}.` };
+  const titulo = limpia(d.titulo, 80) || tituloAutomatico(tipos, total, d.hoy, ejercicio);
+  return { ok: true, valor: { titulo, tipos, total, minutos, ejercicio } };
+}
+
+export type EntradaAplicacion = { etiqueta: unknown; fecha: unknown; cierre: unknown; classIds: unknown };
+export type AplicacionValida = { etiqueta: string | null; fecha: string; cierre: string | null; classIds: string[] };
+
+/** PONERLO A UN TURNO: el día, el plazo y los grupos (vacío = toda la academia). */
+export function validaAplicacion(d: EntradaAplicacion): { ok: true; valor: AplicacionValida } | { ok: false; error: string } {
   if (!esFecha(d.fecha)) return { ok: false, error: 'Elige el día del examen.' };
   const cierre = d.cierre === undefined || d.cierre === null || d.cierre === '' ? null : d.cierre;
   if (cierre !== null && (!esFecha(cierre) || cierre < d.fecha)) return { ok: false, error: 'El último día para entregarlo no puede ser anterior al del examen.' };
   const classIds = Array.isArray(d.classIds) ? [...new Set(d.classIds.filter(esUuid))].slice(0, 100) : [];
-  const titulo = limpia(d.titulo, 80) || tituloAutomatico(tipos, total, d.fecha, ejercicio);
-  return { ok: true, valor: { titulo, tipos, total, minutos, classIds, fecha: d.fecha, cierre, ejercicio } };
+  return { ok: true, valor: { etiqueta: limpia(d.etiqueta, 80) || null, fecha: d.fecha, cierre, classIds } };
 }
 
 /** Las respuestas escritas de seguido («abcd-ab…»; `-` es blanco), contra cuántas opciones tiene cada pregunta. */

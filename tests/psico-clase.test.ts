@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  validaExamenClase, minutosPorDefecto, tituloAutomatico, parseaRespuestasPsico, resumenDeClase, MAX_TOTAL_CLASE, MAX_MINUTOS_CLASE,
+  validaExamenPsico, validaAplicacion, minutosPorDefecto, tituloAutomatico, parseaRespuestasPsico, resumenDeClase, MAX_TOTAL_CLASE, MAX_MINUTOS_CLASE,
 } from '../app/lib/psico-clase';
 import { EJERCICIOS_PSICO, TIPOS_PSICO } from '../app/lib/psico';
 
@@ -10,24 +10,24 @@ import { EJERCICIOS_PSICO, TIPOS_PSICO } from '../app/lib/psico';
 
 const quita = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const lee = (rel: string) => quita(readFileSync(join(__dirname, '..', rel), 'utf-8').replace(/\r\n/g, '\n'));
-const base = { titulo: '', ejercicio: null, tipos: ['series', 'cubos'], total: 20, minutos: '', classIds: [], fecha: '2026-11-17', cierre: '' };
 const G1 = '11111111-1111-1111-1111-111111111111';
 
-describe('validaExamenClase', () => {
+describe('validaExamenPsico (preparar y guardar)', () => {
+  const base = { titulo: '', ejercicio: null, tipos: ['series', 'cubos'], total: 20, minutos: '', hoy: '2026-11-17' };
+
   it('acepta un examen libre y pone nombre y minutos si no se dan', () => {
-    const r = validaExamenClase(base);
+    const r = validaExamenPsico(base);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.valor.tipos).toEqual(['series', 'cubos']);
     expect(r.valor.total).toBe(20);
     expect(r.valor.minutos).toBe(minutosPorDefecto(20));
     expect(r.valor.titulo).toMatch(/^Psicotécnico · Series numéricas y Cubos contados · 20 preguntas · /);
-    expect(r.valor.cierre).toBeNull();
   });
 
   it('un ejercicio del examen lleva sus tipos, preguntas y minutos, aunque el navegador mande otros', () => {
     for (const n of [1, 2, 3] as const) {
-      const r = validaExamenClase({ ...base, ejercicio: n, tipos: ['series'], total: 5, minutos: 3 });
+      const r = validaExamenPsico({ ...base, ejercicio: n, tipos: ['series'], total: 5, minutos: 3 });
       expect(r.ok).toBe(true);
       if (!r.ok) continue;
       expect(r.valor.total).toBe(EJERCICIOS_PSICO[n].total);
@@ -38,34 +38,22 @@ describe('validaExamenClase', () => {
   });
 
   it('exige al menos un tipo válido y descarta los inventados', () => {
-    expect(validaExamenClase({ ...base, tipos: [] })).toMatchObject({ ok: false });
-    expect(validaExamenClase({ ...base, tipos: ['inventado'] })).toMatchObject({ ok: false });
-    const r = validaExamenClase({ ...base, tipos: ['inventado', 'series'] });
+    expect(validaExamenPsico({ ...base, tipos: [] })).toMatchObject({ ok: false });
+    expect(validaExamenPsico({ ...base, tipos: ['inventado'] })).toMatchObject({ ok: false });
+    const r = validaExamenPsico({ ...base, tipos: ['inventado', 'series'] });
     expect(r.ok && r.valor.tipos).toEqual(['series']);
-    expect(validaExamenClase({ ...base, tipos: 'series' })).toMatchObject({ ok: false });
+    expect(validaExamenPsico({ ...base, tipos: 'series' })).toMatchObject({ ok: false });
   });
 
   it('el total y los minutos tienen tope', () => {
-    for (const total of [0, -1, 1.5, MAX_TOTAL_CLASE + 1, NaN, 'abc']) expect(validaExamenClase({ ...base, total })).toMatchObject({ ok: false });
-    expect(validaExamenClase({ ...base, total: MAX_TOTAL_CLASE })).toMatchObject({ ok: true });
-    for (const minutos of [0, -5, 2.5, MAX_MINUTOS_CLASE + 1]) expect(validaExamenClase({ ...base, minutos })).toMatchObject({ ok: false });
-    expect(validaExamenClase({ ...base, minutos: MAX_MINUTOS_CLASE })).toMatchObject({ ok: true });
-  });
-
-  it('las fechas se comprueban: el cierre no puede ser anterior al día', () => {
-    expect(validaExamenClase({ ...base, fecha: 'mañana' })).toMatchObject({ ok: false });
-    expect(validaExamenClase({ ...base, fecha: '2026-02-31' })).toMatchObject({ ok: false });
-    expect(validaExamenClase({ ...base, cierre: '2026-11-10' })).toMatchObject({ ok: false });
-    expect(validaExamenClase({ ...base, cierre: '2026-11-24' })).toMatchObject({ ok: true });
-  });
-
-  it('los grupos: solo ids con forma de uuid y sin repetir', () => {
-    const r = validaExamenClase({ ...base, classIds: [G1, G1, 'no-es-un-id', 7] });
-    expect(r.ok && r.valor.classIds).toEqual([G1]);
+    for (const total of [0, -1, 1.5, MAX_TOTAL_CLASE + 1, NaN, 'abc']) expect(validaExamenPsico({ ...base, total })).toMatchObject({ ok: false });
+    expect(validaExamenPsico({ ...base, total: MAX_TOTAL_CLASE })).toMatchObject({ ok: true });
+    for (const minutos of [0, -5, 2.5, MAX_MINUTOS_CLASE + 1]) expect(validaExamenPsico({ ...base, minutos })).toMatchObject({ ok: false });
+    expect(validaExamenPsico({ ...base, minutos: MAX_MINUTOS_CLASE })).toMatchObject({ ok: true });
   });
 
   it('el nombre propio se limpia de controles y se corta (regla 71)', () => {
-    const r = validaExamenClase({ ...base, titulo: `  Hola\u0000   mundo ${'x'.repeat(200)}` });
+    const r = validaExamenPsico({ ...base, titulo: `  Hola\u0000   mundo ${'x'.repeat(200)}` });
     expect(r.ok && r.valor.titulo).toMatch(/^Hola mundo x+$/);
     expect(r.ok && r.valor.titulo.length).toBe(80);
     expect(r.ok && r.valor.titulo).not.toContain('\u0000');
@@ -81,6 +69,29 @@ describe('validaExamenClase', () => {
     expect(minutosPorDefecto(50)).toBe(28);
     expect(minutosPorDefecto(100)).toBeLessThanOrEqual(MAX_MINUTOS_CLASE);
     expect(minutosPorDefecto(1)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('validaAplicacion (ponerlo a un turno)', () => {
+  const base = { etiqueta: '', fecha: '2026-11-17', cierre: '', classIds: [] };
+  it('acepta el día y el plazo, y sin nombre propio sale null (el servidor pone el del examen)', () => {
+    const r = validaAplicacion(base);
+    expect(r.ok && r.valor).toEqual({ etiqueta: null, fecha: '2026-11-17', cierre: null, classIds: [] });
+  });
+  it('las fechas se comprueban: el cierre no puede ser anterior al día, y el 31 de febrero no existe', () => {
+    expect(validaAplicacion({ ...base, fecha: 'mañana' })).toMatchObject({ ok: false });
+    expect(validaAplicacion({ ...base, fecha: '2026-02-31' })).toMatchObject({ ok: false });
+    expect(validaAplicacion({ ...base, cierre: '2026-11-10' })).toMatchObject({ ok: false });
+    expect(validaAplicacion({ ...base, cierre: '2026-11-24' })).toMatchObject({ ok: true });
+  });
+  it('los grupos: solo ids con forma de uuid y sin repetir', () => {
+    const r = validaAplicacion({ ...base, classIds: [G1, G1, 'no-es-un-id', 7] });
+    expect(r.ok && r.valor.classIds).toEqual([G1]);
+  });
+  it('el nombre propio se limpia y se corta', () => {
+    const r = validaAplicacion({ ...base, etiqueta: ` Turno\u0000  de   mañana ${'y'.repeat(200)}` });
+    expect(r.ok && r.valor.etiqueta).toMatch(/^Turno de mañana y+$/);
+    expect(r.ok && (r.valor.etiqueta ?? '').length).toBe(80);
   });
 });
 
@@ -132,7 +143,7 @@ describe('resumenDeClase', () => {
 describe('las acciones de psicotécnicos en clase', () => {
   const a = lee('app/actions/psico-clase.ts');
   const cuerpo = (n: string) => { const i = a.indexOf(`export async function ${n}`); expect(i, n).toBeGreaterThan(-1); const s = a.indexOf('\nexport async function', i + 10); return a.slice(i, s === -1 ? undefined : s); };
-  const admin = ['getPsicoClases', 'creaPsicoClase', 'getDetallePsicoClase', 'borraPsicoClase', 'getHojaPsicoClase'];
+  const admin = ['getPsicoGuardados', 'guardaPsicoExamen', 'borraPsicoExamen', 'getHojaPsicoExamen', 'aplicaPsicoExamen', 'getPsicoClases', 'getDetallePsicoClase', 'borraPsicoClase'];
   const alumno = ['getMisPsicoClase', 'empiezaPsicoClase', 'entregaPsicoClase', 'getRevisionPsicoClase'];
 
   it('las de la academia piden admin y se acotan por su academia dentro de la consulta (reglas 65 y 75)', () => {
@@ -140,7 +151,8 @@ describe('las acciones de psicotécnicos en clase', () => {
       const c = cuerpo(n);
       expect(c, n).toContain('requireAdmin()');
       expect(c, n).not.toContain('requireUser()');
-      expect(c, n).toMatch(/\.eq\('organization_id', org\)/);
+      // Una lectura se acota con `.eq`; una escritura, con el valor que se inserta.
+      expect(c, n).toMatch(/\.eq\('organization_id', org\)|organization_id: org/);
     }
   });
   it('las del alumno piden usuario y módulo, y su identidad sale de la sesión (regla 1)', () => {
@@ -158,11 +170,21 @@ describe('las acciones de psicotécnicos en clase', () => {
     expect(ac).toContain('misGrupos(org, userId)');
     for (const n of ['empiezaPsicoClase', 'entregaPsicoClase', 'getRevisionPsicoClase']) expect(cuerpo(n), n).toContain('acotado(');
   });
-  it('los grupos de un examen nuevo tienen que ser de la academia', () => {
-    const c = cuerpo('creaPsicoClase');
-    expect(c).toContain(".from('class_groups').select('id').eq('organization_id', org).in('id', e.classIds)");
-    expect(c).toContain('validaExamenClase(');
+  it('los grupos de un turno tienen que ser de la academia, y el examen también', () => {
+    const c = cuerpo('aplicaPsicoExamen');
+    expect(c).toContain(".from('class_groups').select('id').eq('organization_id', org).in('id', a.classIds)");
+    expect(c).toContain(".from('psico_examenes').select('id, title').eq('organization_id', org).eq('id', d.examenId)");
+    expect(c).toContain('validaAplicacion(');
+  });
+  it('al guardar un examen la semilla la elige el servidor', () => {
+    const c = cuerpo('guardaPsicoExamen');
+    expect(c).toContain('validaExamenPsico(');
     expect(c).toContain('randomInt(');
+    expect(c).not.toMatch(/seed: d\./);
+  });
+  it('el examen de una aplicación se busca siempre dentro de la academia', () => {
+    const c = a.slice(a.indexOf('async function conExamen'), a.indexOf('/** Las preguntas de un examen de clase'));
+    expect(c).toContain(".from('psico_examenes').select(COLS_EXAMEN).eq('organization_id', org)");
   });
   it('la solución solo se ve después de entregar, y las preguntas viajan sin respuesta', () => {
     expect(cuerpo('getRevisionPsicoClase')).toContain('if (!r?.finished_at)');
@@ -185,10 +207,12 @@ describe('las acciones de psicotécnicos en clase', () => {
   });
   it('el navegador nunca recibe el mensaje de la base de datos (regla 108)', () => {
     expect(a).not.toMatch(/error\.message/);
-    expect(a).toMatch(/fallo\('creaPsicoClase'/);
+    expect(a).toMatch(/fallo\('guardaPsicoExamen'/);
+    expect(a).toMatch(/fallo\('aplicaPsicoExamen'/);
   });
   it('el guion SQL crea las dos tablas con RLS y un resultado por alumno y examen', () => {
     const sql = readFileSync(join(__dirname, '..', 'docs/sql/psico-clase.sql'), 'utf-8');
+    expect(sql).toContain('alter table public.psico_examenes enable row level security');
     expect(sql).toContain('alter table public.psico_clase enable row level security');
     expect(sql).toContain('alter table public.psico_clase_resultados enable row level security');
     expect(sql).toContain('unique (psico_clase_id, user_id)');
@@ -197,16 +221,21 @@ describe('las acciones de psicotécnicos en clase', () => {
 });
 
 describe('las pantallas', () => {
-  it('«Exámenes en papel» tiene la pestaña de psicotécnicos', () => {
+  it('«Exámenes en papel» elige primero teoría o psicotécnicos, y los dos siguen Preparar → Guardados → En clase', () => {
     const s = lee('app/components/Admin/components/AdminExamenes.tsx');
-    expect(s).toContain("{ id: 'psico', etiqueta: 'Psicotécnicos' }");
-    expect(s).toContain("seccion === 'psico' && <PsicoClase />");
+    expect(s).toContain("cambiaTipo('psico')");
+    for (const t of ['<PrepararPsico ', '<GuardadosPsico ', '<PsicoClase ']) expect(s).toContain(t);
+    for (const t of ['<Preparar ', '<Guardados ', '<EnClase ']) expect(s).toContain(t);
   });
-  it('al poner un examen se puede filtrar por tipo (los 23 chips) y elegir un ejercicio', () => {
-    const s = lee('app/components/Admin/components/examenes/PsicoClase.tsx');
+  it('al preparar se puede filtrar por tipo (los 23 chips) y elegir un ejercicio, y se guarda', () => {
+    const s = lee('app/components/Admin/components/examenes/PrepararPsico.tsx');
     expect(s).toContain('TIPOS_PSICO.map((t) => <FiltroChip');
     expect(s).toContain('EJERCICIOS_PSICO[n]');
-    expect(s).toContain('creaPsicoClase(');
+    expect(s).toContain('guardaPsicoExamen(');
+  });
+  it('desde «Guardados» se pone a un turno, se imprime y se borra', () => {
+    const s = lee('app/components/Admin/components/examenes/GuardadosPsico.tsx');
+    for (const t of ['aplicaPsicoExamen(', 'getHojaPsicoExamen(', 'borraPsicoExamen(', 'Ya puesto el']) expect(s).toContain(t);
   });
   it('el alumno puede hacerlo en la pantalla o pasar la hoja, y ver la solución', () => {
     const s = lee('app/components/student/modules/psico/Psicotecnicos.tsx');

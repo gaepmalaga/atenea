@@ -1459,11 +1459,19 @@ export async function getPsicoClases() {
     { id: '22222222-2222-2222-2222-222222222222', titulo: 'Psicotécnico · Ejercicio 3 · 6 nov', fecha: '2026-11-06', cierre: null, total: 30, minutos: 18, tipos: ['ordenes' as const], grupos: [], participantes: 39, entregados: 31, notaMedia: 6.1 },
   ] });
 }
-export async function creaPsicoClase() { return ok({ id: _clase.id }); }
+export async function getPsicoGuardados() {
+  return ok({ examenes: [
+    { id: 'e1', titulo: 'Psicotécnico · Ejercicio 1 · 13 nov', total: 40, minutos: 23, tipos: [...(_ejer[1].tipos)], creado: new Date().toISOString(), puestos: [{ fecha: _clase.fecha, classIds: ['g-kappa'] }] },
+    { id: 'e2', titulo: 'Psicotécnico · Problemas y cubos · 13 nov', total: 15, minutos: 8, tipos: ['problemas' as const, 'cubos' as const], creado: new Date().toISOString(), puestos: [] },
+  ] });
+}
+export async function guardaPsicoExamen() { return ok({ id: 'e3' }); }
+export async function borraPsicoExamen() { return { success: true as const }; }
+export async function aplicaPsicoExamen() { return ok({ id: _clase.id }); }
 export async function borraPsicoClase() { return { success: true as const }; }
 export async function getDetallePsicoClase() {
   return ok({ detalle: {
-    examen: { id: _clase.id, titulo: _clase.titulo, fecha: _clase.fecha, cierre: null as string | null, total: 15, minutos: 8, tipos: ['problemas' as const, 'cubos' as const, 'desarrollos' as const], grupos: ['Promo 44 · Kappa'] },
+    examen: { id: _clase.id, examenId: 'e1', titulo: _clase.titulo, fecha: _clase.fecha, cierre: null as string | null, total: 15, minutos: 8, tipos: ['problemas' as const, 'cubos' as const, 'desarrollos' as const], grupos: ['Promo 44 · Kappa'] },
     participantes: [
       { id: 'u2', nombre: 'Lucía Fernández', email: 'l@x.es', estado: 'entregado' as const, via: 'app' as const, nota: 6.4, aciertos: 11, fallos: 3, blancos: 1 },
       { id: 'u4', nombre: 'María López', email: 'm@x.es', estado: 'entregado' as const, via: 'hoja' as const, nota: 3.2, aciertos: 7, fallos: 6, blancos: 2 },
@@ -1474,9 +1482,9 @@ export async function getDetallePsicoClase() {
     ] },
   } });
 }
-export async function getHojaPsicoClase() {
+export async function getHojaPsicoExamen() {
   const preguntas = _genera(777, _tipos(['problemas', 'cubos', 'desarrollos', 'plegados', 'giros', 'simbolos', 'ordenes', 'dominos', 'tablas']), 18);
-  return ok({ titulo: _clase.titulo, fecha: _clase.fecha, minutos: 8, preguntas });
+  return ok({ titulo: _clase.titulo, minutos: 8, preguntas });
 }
 let _claseHecha = false;
 export async function getMisPsicoClase() {

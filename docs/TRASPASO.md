@@ -579,4 +579,5 @@ de `/_next/static/chunks/*.js` del HTML de producción.
 
 - Ya desplegado: ejercicios 1, 2 y 3 «como en el examen» y los tipos de texto (PR 36).
 - En la rama: ficha del alumno con sus psicotécnicos; cubos, desarrollos, plegados, giros y parentescos; y los **psicotécnicos en clase** (pestaña «Psicotécnicos» de «Exámenes en papel»).
-- **Antes de desplegar lo de clase hay que ejecutar `docs/sql/psico-clase.sql`** (dos tablas nuevas con RLS). Sin ellas, la pestaña avisa y el alumno simplemente no ve exámenes de clase.
+- `docs/sql/psico-clase.sql` **ya ejecutado en la BD real** (13 nov): `psico_examenes`, `psico_clase` y `psico_clase_resultados`, con RLS y sin políticas.
+- «Exámenes en papel»: se elige Teoría o Psicotécnicos y los dos siguen Preparar → Guardados → En clase.

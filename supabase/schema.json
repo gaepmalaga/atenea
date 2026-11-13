@@ -1127,43 +1127,31 @@
         "closes_on",
         "created_at",
         "created_by",
+        "examen_id",
         "id",
-        "kinds",
-        "minutes",
+        "label",
         "organization_id",
-        "sat_on",
-        "seed",
-        "title",
-        "total",
-        "version"
+        "sat_on"
       ],
       "obligatorias": [
         "class_ids",
         "created_at",
+        "examen_id",
         "id",
-        "kinds",
-        "minutes",
+        "label",
         "organization_id",
-        "sat_on",
-        "seed",
-        "title",
-        "total",
-        "version"
+        "sat_on"
       ],
       "tipos": {
         "class_ids": "uuid[]",
         "closes_on": "date",
         "created_at": "timestamp with time zone",
         "created_by": "uuid",
+        "examen_id": "uuid",
         "id": "uuid",
-        "kinds": "text[]",
-        "minutes": "integer",
+        "label": "text",
         "organization_id": "uuid",
-        "sat_on": "date",
-        "seed": "bigint",
-        "title": "text",
-        "total": "integer",
-        "version": "smallint"
+        "sat_on": "date"
       }
     },
     "psico_clase_resultados": {
@@ -1206,6 +1194,43 @@
         "user_id": "uuid",
         "via": "text",
         "wrong": "integer"
+      }
+    },
+    "psico_examenes": {
+      "columnas": [
+        "created_at",
+        "created_by",
+        "id",
+        "kinds",
+        "minutes",
+        "organization_id",
+        "seed",
+        "title",
+        "total",
+        "version"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "kinds",
+        "minutes",
+        "organization_id",
+        "seed",
+        "title",
+        "total",
+        "version"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "id": "uuid",
+        "kinds": "text[]",
+        "minutes": "integer",
+        "organization_id": "uuid",
+        "seed": "bigint",
+        "title": "text",
+        "total": "integer",
+        "version": "smallint"
       }
     },
     "psico_sessions": {

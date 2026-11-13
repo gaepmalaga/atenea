@@ -4924,8 +4924,12 @@ el segundo necesita el proyecto real.
 - **Qué pedía el dueño (13 nov):** poner psicotécnicos «en clase» como los
   exámenes de teoría, filtrando por tipo, y que existieran los ejercicios
   visuales y de parentescos del examen real.
-- **El mismo examen para todo un turno** (`psico_clase`, `psico_clase_resultados`,
-  `docs/sql/psico-clase.sql`; RLS y ninguna política, regla 34). No se guardan
+- **El mismo proceso que la teoría** (decisión del dueño, 13 nov): en «Exámenes en
+  papel» se elige primero Teoría o Psicotécnicos y los dos siguen PREPARAR (con su
+  filtro: temas, o tipos de pregunta) → GUARDADOS (poner a un turno, imprimir) →
+  EN CLASE. Tres tablas, `psico_examenes` (el guardado), `psico_clase` (puesto a un
+  turno) y `psico_clase_resultados` (`docs/sql/psico-clase.sql`; RLS y ninguna
+  política, regla 34). No se guardan
   preguntas: se guarda la SEMILLA, los tipos elegidos (el filtro), el total y los
   minutos, y con eso se regenera idéntico, como una sesión de práctica (regla 117).
   Va en tablas propias y no reutiliza `exam_papers`/`exam_sittings`: esas llevan

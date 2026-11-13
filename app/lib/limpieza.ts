@@ -111,6 +111,7 @@ export const TABLAS_POR_ACADEMIA = [
   'psico_sessions',
   'psico_clase_resultados',
   'psico_clase',
+  'psico_examenes',
   'rm_marks',
   // Los packs de precios (regla 102) nombran tipos de grupo: antes que ellos.
   'fee_packs',
