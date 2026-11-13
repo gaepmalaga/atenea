@@ -5,7 +5,7 @@ import {
   parseaRespuestas, respuestasEnTexto, normalizaRespuesta, normalizaRespuestas, corrigeClase, notaVigente, aNota,
   leeNotaProfesor, estadoEntrega, esParticipante, estadisticasPorPregunta, distribucionNotas, tendenciaDeNotas, mediaNotas,
   BLANCO, type PreguntaGuardada,
-  fechaCortaEs, nombreDeAplicacion, aplicacionesQueSeSolapan, leeNotasPegadas, MAX_ETIQUETA,
+  fechaCortaEs, nombreDeAplicacion, aplicacionesQueSeSolapan, leeNotasPegadas, MAX_ETIQUETA, resumenDeNotas, variacionDeMedia,
 } from '../app/lib/examen-clase';
 import { construyeInforme, riesgoDeAbandono, type EntradaRiesgo } from '../app/lib/informe-semanal';
 
@@ -445,5 +445,67 @@ describe('leeNotasPegadas', () => {
   it('un 0 es una nota, no «sin nota» (regla 16)', () => {
     const r = leeNotasPegadas('Pablo Esteban;0', alumnos);
     expect(r.reconocidas[0].nota).toBe(0);
+  });
+});
+
+
+describe('resumenDeNotas: de un vistazo', () => {
+  const f = (nombre: string, nota: number | null, notaProfesor: number | null = null, estado: 'entregado' | 'pendiente' | 'ausente' = 'entregado') => ({ nombre, estado, nota, notaProfesor });
+
+  it('máxima, mínima, aprobados y los que están por debajo, del peor al mejor', () => {
+    const r = resumenDeNotas([f('Ana', 6), f('Beto', 2), f('Carla', 8.5), f('Dani', 1.25), f('Eva', 3)], 3);
+    expect(r.conNota).toBe(5);
+    expect(r.maxima).toEqual({ nombre: 'Carla', nota: 8.5 });
+    expect(r.minima).toEqual({ nombre: 'Dani', nota: 1.25 });
+    expect(r.aprobados).toBe(3);
+    expect(r.suspensos).toEqual([{ nombre: 'Dani', nota: 1.25 }, { nombre: 'Beto', nota: 2 }]);
+  });
+
+  it('el mínimo cuenta como aprobado: «a partir de», no «por encima de»', () => {
+    expect(resumenDeNotas([f('Eva', 3)], 3).aprobados).toBe(1);
+    expect(resumenDeNotas([f('Eva', 2.99)], 3).suspensos).toHaveLength(1);
+  });
+
+  it('manda la nota del papel sobre la calculada', () => {
+    const r = resumenDeNotas([f('Ana', 2, 6)], 3);
+    expect(r.maxima).toEqual({ nombre: 'Ana', nota: 6 });
+    expect(r.suspensos).toEqual([]);
+  });
+
+  it('un 0 es una nota y es un suspenso; no es «sin nota» (regla 16)', () => {
+    const r = resumenDeNotas([f('Ana', 0)], 3);
+    expect(r.conNota).toBe(1);
+    expect(r.suspensos).toEqual([{ nombre: 'Ana', nota: 0 }]);
+  });
+
+  it('quien no vino no cuenta, ni como suspenso', () => {
+    const r = resumenDeNotas([f('Ana', null, null, 'ausente'), f('Beto', 5)], 3);
+    expect(r.conNota).toBe(1);
+    expect(r.suspensos).toEqual([]);
+  });
+
+  it('quien no ha entregado y no tiene nota no cuenta', () => {
+    expect(resumenDeNotas([f('Ana', null, null, 'pendiente')], 3)).toEqual({ conNota: 0, maxima: null, minima: null, aprobados: 0, suspensos: [] });
+  });
+
+  it('sin filas, todo vacío, no ceros', () => {
+    expect(resumenDeNotas([], 3)).toEqual({ conNota: 0, maxima: null, minima: null, aprobados: 0, suspensos: [] });
+  });
+
+  it('si el ausente tenía una nota guardada, tampoco cuenta: estuvo ausente', () => {
+    expect(resumenDeNotas([f('Ana', 7, null, 'ausente')], 3).conNota).toBe(0);
+  });
+});
+
+describe('variacionDeMedia', () => {
+  it('sube (+) o baja (−), con dos decimales', () => {
+    expect(variacionDeMedia(5.6, 5.2)).toBe(0.4);
+    expect(variacionDeMedia(4.1, 5.25)).toBe(-1.15);
+    expect(variacionDeMedia(5, 5)).toBe(0);
+  });
+
+  it('si falta una de las dos medias, no se inventa: null', () => {
+    expect(variacionDeMedia(null, 5)).toBeNull();
+    expect(variacionDeMedia(5, null)).toBeNull();
   });
 });

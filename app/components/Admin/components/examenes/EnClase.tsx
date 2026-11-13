@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarClock, ChevronLeft, ClipboardPaste, RotateCcw, Trash2, UserX, Users } from 'lucide-react';
 import { borraAplicacion, getAplicacion, getAplicaciones, reiniciaEntrega, setCierreAplicacion, setResultadoProfesor, setResultadosProfesor } from '@/actions';
 import type { Aplicacion, DetalleAplicacion, FilaParticipante } from '@/app/actions/examenes-clase';
-import { LETRAS_CLASE, leeNotasPegadas, nombreDeAplicacion, type EstadoEntrega } from '@/app/lib/examen-clase';
+import { LETRAS_CLASE, leeNotasPegadas, nombreDeAplicacion, resumenDeNotas, variacionDeMedia, type EstadoEntrega } from '@/app/lib/examen-clase';
+import { CNP_SCORING } from '@/app/lib/scoring';
 import { Hoja, BloqueTitulo, Aviso, Boton, Campo, CampoArea, EmptyState, Etiqueta, Filtros, FiltroChip, PanelLateral, Pestanas, Pulso, TONO_PUNTO, cx } from '../../../ui';
 
 const fechaLarga = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 const num = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+const fechaCorta = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 
 /** El nombre que se puso a mano. El de siempre («Promo 44 · 13 nov») repite el grupo y el día, y no se enseña. */
 const esNombrePropio = (a: { etiqueta: string; grupos: string[]; fecha: string }) => a.etiqueta !== nombreDeAplicacion(a.grupos, a.fecha);
@@ -121,6 +123,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
     .filter((p) => p.contestadas >= 3 && p.tasaFallo !== null)
     .slice().sort((x, y) => (y.tasaFallo ?? 0) - (x.tasaFallo ?? 0)).slice(0, 10);
   const maxCubo = Math.max(1, ...r.distribucion);
+  const mirada = resumenDeNotas(d.participantes, CNP_SCORING.passMark);
 
   return (
     <div className="space-y-4">
@@ -162,22 +165,62 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
       )}
 
       {pestana === 'resumen' && (
-        r.entregados > 0 ? (
-          <Hoja pad="lg" className="space-y-3">
-            <BloqueTitulo>Cómo ha ido</BloqueTitulo>
-            {/* Las barras miden en píxeles: un porcentaje de la altura no se resuelve dentro de un flex sin altura propia. */}
-            <div className="flex items-end gap-2" role="img" aria-label={`Notas por tramos: ${r.distribucion.join(', ')}`}>
-              {r.distribucion.map((n, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
-                  <span className="text-xs font-semibold tabular-nums">{n}</span>
-                  <div className="w-full rounded-t bg-indigo-600 dark:bg-indigo-400" style={{ height: n ? Math.max(6, Math.round((n / maxCubo) * 88)) : 0 }} />
-                  <span className="text-[11px] text-slate-600 dark:text-slate-400">{i * 2}-{i * 2 + 2}</span>
-                </div>
-              ))}
-            </div>
-          </Hoja>
+        mirada.conNota > 0 ? (
+          <div className="space-y-4">
+            {/* De un vistazo: la nota más alta, la más baja y cuántos aprueban. */}
+            <Hoja pad="lg" className="space-y-4">
+              <BloqueTitulo>De un vistazo</BloqueTitulo>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="min-w-0"><p className="text-2xl font-bold tabular-nums text-emerald-800 dark:text-emerald-300">{num(mirada.maxima!.nota)}</p><p className="text-xs text-slate-600 dark:text-slate-400">Más alta</p><p className="line-clamp-2 break-words text-xs font-semibold text-slate-800 dark:text-slate-200" title={mirada.maxima!.nombre}>{mirada.maxima!.nombre}</p></div>
+                <div className="min-w-0"><p className="text-2xl font-bold tabular-nums text-red-700 dark:text-red-300">{num(mirada.minima!.nota)}</p><p className="text-xs text-slate-600 dark:text-slate-400">Más baja</p><p className="line-clamp-2 break-words text-xs font-semibold text-slate-800 dark:text-slate-200" title={mirada.minima!.nombre}>{mirada.minima!.nombre}</p></div>
+                <div className="min-w-0"><p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{mirada.aprobados}<span className="text-base font-semibold text-slate-600 dark:text-slate-400"> de {mirada.conNota}</span></p><p className="text-xs text-slate-600 dark:text-slate-400">Aprueban</p><p className="text-xs text-slate-600 dark:text-slate-400">mínimo {num(CNP_SCORING.passMark)}</p></div>
+              </div>
+              {d.anterior && (
+                <p className="rounded-lg bg-hundido px-3 py-2 text-sm text-slate-800 dark:bg-noche-hondo dark:text-slate-200">
+                  {d.anterior.media === null || r.media === null
+                    ? <>Examen anterior: <b>{d.anterior.titulo}</b> ({fechaCorta(d.anterior.fecha)}). Aún no hay medias que comparar.</>
+                    : <>Media del examen anterior (<b>{d.anterior.titulo}</b>, {fechaCorta(d.anterior.fecha)}): <b>{num(d.anterior.media)}</b>. Ahora: <b>{num(r.media)}</b>{' '}
+                      {(() => {
+                        const v = variacionDeMedia(r.media, d.anterior.media);
+                        return v === null || v === 0
+                          ? <span className="font-semibold text-slate-600 dark:text-slate-400">(igual)</span>
+                          : <span className={cx('font-bold', v > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>({v > 0 ? '▲ +' : '▼ −'}{num(Math.abs(v))})</span>;
+                      })()}</>}
+                </p>
+              )}
+            </Hoja>
+
+            {mirada.suspensos.length > 0 && (
+              <Hoja pad="lg" className="space-y-2">
+                <BloqueTitulo>Por debajo del aprobado</BloqueTitulo>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Con menos de {num(CNP_SCORING.passMark)}: a quién mirar esta semana. De la nota más baja a la más alta.</p>
+                <ul className="divide-y divide-linea dark:divide-noche-linea">
+                  {mirada.suspensos.map((x) => (
+                    <li key={x.nombre} className="flex min-h-[40px] items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate text-slate-900 dark:text-white">{x.nombre}</span>
+                      <b className="shrink-0 tabular-nums text-red-700 dark:text-red-300">{num(x.nota)}</b>
+                    </li>
+                  ))}
+                </ul>
+              </Hoja>
+            )}
+
+            <Hoja pad="lg" className="space-y-3">
+              <BloqueTitulo>Cómo ha ido</BloqueTitulo>
+              {/* Las barras miden en píxeles: un porcentaje de la altura no se resuelve dentro de un flex sin altura propia. */}
+              <div className="flex items-end gap-2" role="img" aria-label={`Notas por tramos: ${r.distribucion.join(', ')}`}>
+                {r.distribucion.map((n, i) => (
+                  <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
+                    <span className="text-xs font-semibold tabular-nums">{n}</span>
+                    <div className="w-full rounded-t bg-indigo-600 dark:bg-indigo-400" style={{ height: n ? Math.max(6, Math.round((n / maxCubo) * 88)) : 0 }} />
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400">{i * 2}-{i * 2 + 2}</span>
+                  </div>
+                ))}
+              </div>
+            </Hoja>
+          </div>
         ) : (
-          <EmptyState icon={<Users size={36} />} title="Todavía no ha entregado nadie" hint="Cuando los alumnos metan sus respuestas, aquí verás cómo ha ido la clase." bordered />
+          <EmptyState icon={<Users size={36} />} title="Todavía no ha entregado nadie" hint="Cuando los alumnos metan sus respuestas, aquí verás la nota más alta y la más baja, cuántos aprueban, a quién mirar y cómo se reparten las notas. Si hay un examen anterior de este grupo, también cómo ha cambiado la media." bordered />
         )
       )}
 
@@ -203,7 +246,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
             </ol>
           </Hoja>
         ) : (
-          <EmptyState icon={<Users size={36} />} title="Aún no hay preguntas que mirar" hint="Salen cuando al menos tres alumnos han entregado." bordered />
+          <EmptyState icon={<Users size={36} />} title="Aún no hay preguntas que mirar" hint="Salen cuando al menos tres alumnos han entregado: las diez que más se han fallado, con el porcentaje que falló y qué opción marcó cada uno, para repasarlas en clase." bordered />
         )
       )}
 
@@ -262,7 +305,7 @@ function Notas({ d, id, filtro, setFiltro, busca, setBusca, cuenta, recarga, acc
       <p className="text-[13px] text-slate-600 dark:text-slate-400">
         La nota <b>calculada</b> sale de las respuestas del alumno. La <b>oficial</b>, la del papel, manda si la escribes.
       </p>
-      <Filtros etiqueta="Qué alumnos ver">
+      <Filtros etiqueta="Qué alumnos ver" enHoja>
         <FiltroChip activo={filtro === 'todos'} onClick={() => setFiltro('todos')} cuenta={d.participantes.length}>Todos</FiltroChip>
         <FiltroChip activo={filtro === 'pendiente'} onClick={() => setFiltro('pendiente')} cuenta={cuenta('pendiente')}>Sin entregar</FiltroChip>
         <FiltroChip activo={filtro === 'entregado'} onClick={() => setFiltro('entregado')} cuenta={cuenta('entregado')}>Entregaron</FiltroChip>

@@ -4865,3 +4865,12 @@ el segundo necesita el proyecto real.
   (regla 22), no se reescribe: 4 aciertos y 11 fallos de 15 da 0, y la
   penalización que enseña la plataforma anterior (−3,67 PTS) son puntos sobre
   10, no aciertos.
+- **El «Resumen» de un examen puesto** enseña, de un vistazo: la nota más alta y
+  la más baja (con el nombre), cuántos aprueban (el mínimo sale de la convocatoria,
+  `CNP_SCORING.passMark`, no de un número a mano), **a quién mirar** (los que están
+  por debajo, de la peor nota a la mejor) y cómo ha cambiado la media respecto al
+  examen anterior de ese mismo grupo. Cuenta la nota vigente (la del papel manda).
+  Quien no vino no cuenta ni como suspenso. Sin ninguna nota no hay resumen de
+  ceros: un aviso que dice qué saldrá (regla 16). El «examen anterior» es el más
+  reciente, de fecha anterior, que coincida en algún grupo (`aplicacionesQueSeSolapan`),
+  de esta academia; si falla leerlo, la pantalla sigue sin comparación.

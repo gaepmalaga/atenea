@@ -127,6 +127,11 @@ describe('la pantalla En clase', () => {
     expect(src).toMatch(/onBlur=\{\(\) => \{ const antes/);
   });
 
+  it('los filtros van dentro de la tarjeta y saltan de línea: no se asoman fuera de ella', () => {
+    expect(src).toMatch(/<Filtros etiqueta="Qué alumnos ver" enHoja>/);
+    expect(lee('app/components/ui/panel/Filtros.tsx')).toMatch(/enHoja \? 'flex flex-wrap gap-1\.5'/);
+  });
+
   it('el nombre del alumno se puede leer entero: dos líneas antes que cortarlo', () => {
     expect(src).toMatch(/line-clamp-2/);
     expect(src).not.toMatch(/truncate[^\n]*\{p\.nombre\}/);
@@ -150,5 +155,45 @@ describe('la calculadora de nota del alumno', () => {
   it('la fórmula no se reescribe: sale de `scoreExam` (regla 22)', () => {
     expect(lib).toMatch(/scoreExam\(hechas, reglas\)/);
     expect(lib).not.toMatch(/\(alternativas - 1\)|options - 1/);
+  });
+});
+
+
+describe('el Resumen de un examen puesto', () => {
+  const f = cuerpo('getAplicacion(');
+  const ui = lee('app/components/Admin/components/examenes/EnClase.tsx');
+
+  it('el examen anterior sale de la academia, es de una fecha ANTERIOR y no es este mismo', () => {
+    expect(f).toMatch(/\.eq\('organization_id', org\)\.lt\('sat_on', s\.sat_on as string\)\.neq\('id', id as string\)/);
+    expect(f).toMatch(/\.order\('sat_on', \{ ascending: false \}\)/);
+  });
+
+  it('solo cuenta un examen que coincida en algún grupo, y el más reciente', () => {
+    expect(f).toMatch(/aplicacionesQueSeSolapan\([\s\S]*?\(s\.class_ids as string\[\]\) \?\? \[\],\s*\)\[0\]/);
+  });
+
+  it('las notas del anterior se leen de esa academia y quien no vino no cuenta', () => {
+    expect(f).toMatch(/from\('exam_results'\)\.select\('score, teacher_score, absent'\)\.eq\('organization_id', org\)\.eq\('sitting_id', previo\.id\)/);
+    expect(f).toMatch(/r\.absent !== true/);
+  });
+
+  it('si falla leer el anterior, la pantalla sigue: se queda sin comparación', () => {
+    expect(f).toMatch(/if \(ePrev\) fallo\('getAplicacion', ePrev\)/);
+    expect(f).toMatch(/if \(rs\.error\) fallo\('getAplicacion', rs\.error\)/);
+  });
+
+  it('la pantalla usa la función pura y el mínimo de la convocatoria, no un número a mano', () => {
+    expect(ui).toMatch(/resumenDeNotas\(d\.participantes, CNP_SCORING\.passMark\)/);
+    expect(ui).toMatch(/variacionDeMedia\(r\.media, d\.anterior\.media\)/);
+  });
+
+  it('enseña a quién mirar: los que están por debajo del aprobado', () => {
+    expect(ui).toMatch(/mirada\.suspensos\.length > 0/);
+    expect(ui).toContain('Por debajo del aprobado');
+  });
+
+  it('sin ninguna nota, el aviso dice qué saldrá, en vez de un resumen de ceros', () => {
+    expect(ui).toMatch(/mirada\.conNota > 0 \?/);
+    expect(ui).toContain('la nota más alta y la más baja');
   });
 });

@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react';
 import { cx } from '../tokens';
 
-/** Una fila de filtros: en móvil se desplaza hacia los lados, sin saltar de línea. */
-export function Filtros({ children, etiqueta }: { children: ReactNode; etiqueta?: string }) {
+/**
+ * Una fila de filtros: en móvil se desplaza hacia los lados, sin saltar de línea.
+ *
+ * `enHoja` es para cuando van DENTRO de una tarjeta: ahí no pueden salirse al
+ * margen de la página (se asomaban 4 px por fuera de la tarjeta) ni esconder un
+ * chip fuera de pantalla, así que saltan de línea.
+ */
+export function Filtros({ children, etiqueta, enHoja }: { children: ReactNode; etiqueta?: string; enHoja?: boolean }) {
   return (
-    <div role="group" aria-label={etiqueta} className="flex gap-1.5 overflow-x-auto scrollbar-hide max-sm:-mx-4 max-sm:px-4 sm:flex-wrap">
+    <div role="group" aria-label={etiqueta} className={enHoja ? 'flex flex-wrap gap-1.5' : 'flex gap-1.5 overflow-x-auto scrollbar-hide max-sm:-mx-4 max-sm:px-4 sm:flex-wrap'}>
       {children}
     </div>
   );
