@@ -385,3 +385,48 @@ export function leeNotasPegadas(texto: string, alumnos: readonly AlumnoParaNotas
   res.reconocidas = [...porAlumno.values()];
   return res;
 }
+
+// ---------------------------------------------------------------------------
+// El resumen de un examen puesto: de un vistazo
+// ---------------------------------------------------------------------------
+
+export type FilaParaResumen = { nombre: string; estado: EstadoEntrega; nota: number | null; notaProfesor: number | null };
+
+export type ResumenDeNotas = {
+  /** Con nota vigente (la oficial si la hay, y si no, la calculada). Los que no vinieron no cuentan. */
+  conNota: number;
+  maxima: { nombre: string; nota: number } | null;
+  minima: { nombre: string; nota: number } | null;
+  aprobados: number;
+  /** Por debajo del mínimo, de la peor nota a la mejor: a quién hay que mirar. */
+  suspensos: { nombre: string; nota: number }[];
+};
+
+/**
+ * Quién ha sacado qué, de un vistazo. La nota que vale es la vigente
+ * (`notaVigente`: la del papel manda sobre la calculada). Sin ninguna nota todo
+ * queda en `null` o vacío, no en un 0 (regla 16). Quien no vino no tiene nota y
+ * no cuenta ni como suspenso: no se presentó, que es otra cosa.
+ */
+export function resumenDeNotas(filas: readonly FilaParaResumen[], minimo: number): ResumenDeNotas {
+  const con = filas
+    .filter((f) => f.estado !== 'ausente')
+    .map((f) => ({ nombre: f.nombre, nota: notaVigente({ teacher_score: f.notaProfesor, score: f.nota }) }))
+    .filter((f): f is { nombre: string; nota: number } => f.nota !== null);
+  if (con.length === 0) return { conNota: 0, maxima: null, minima: null, aprobados: 0, suspensos: [] };
+
+  const porNota = con.slice().sort((a, b) => a.nota - b.nota || a.nombre.localeCompare(b.nombre, 'es'));
+  return {
+    conNota: con.length,
+    maxima: porNota[porNota.length - 1],
+    minima: porNota[0],
+    aprobados: con.filter((f) => f.nota >= minimo).length,
+    suspensos: porNota.filter((f) => f.nota < minimo),
+  };
+}
+
+/** Cuánto ha subido (+) o bajado (−) la media respecto a la anterior; `null` si falta una de las dos. */
+export function variacionDeMedia(actual: number | null, anterior: number | null): number | null {
+  if (actual === null || anterior === null) return null;
+  return redondea(actual - anterior);
+}

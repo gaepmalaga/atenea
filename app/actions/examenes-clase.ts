@@ -389,6 +389,8 @@ export type DetalleAplicacion = {
   participantes: FilaParticipante[];
   resumen: { participantes: number; entregados: number; ausentes: number; pendientes: number; media: number | null; mediaProfesor: number | null; distribucion: number[] };
   preguntas: FilaPregunta[];
+  /** El examen anterior puesto a alguno de estos grupos, para comparar la media. `null` si no hay. */
+  anterior: { titulo: string; fecha: string; media: number | null } | null;
 };
 
 export async function getAplicacion(id: unknown): Promise<{ success: true; detalle: DetalleAplicacion } | { success: false; error: string }> {
@@ -431,6 +433,32 @@ export async function getAplicacion(id: unknown): Promise<{ success: true; detal
   });
   participantes.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
+  // El examen anterior del mismo grupo (o de toda la academia), para decir si la media sube o baja.
+  // Un fallo aquí no tumba la pantalla: se queda sin comparación (regla 108).
+  let anterior: DetalleAplicacion['anterior'] = null;
+  const { data: previos, error: ePrev } = await supabaseAdmin
+    .from('exam_sittings').select('id, paper_id, label, sat_on, class_ids')
+    .eq('organization_id', org).lt('sat_on', s.sat_on as string).neq('id', id as string)
+    .order('sat_on', { ascending: false }).limit(50);
+  if (ePrev) fallo('getAplicacion', ePrev);
+  const previo = aplicacionesQueSeSolapan(
+    (previos ?? []).map((p) => ({ id: p.id as string, fecha: p.sat_on as string, classIds: (p.class_ids as string[]) ?? [], etiqueta: p.label as string })),
+    (s.class_ids as string[]) ?? [],
+  )[0];
+  if (previo) {
+    const prevPaperId = (previos ?? []).find((p) => p.id === previo.id)?.paper_id as string | undefined;
+    const [t, rs] = await Promise.all([
+      prevPaperId ? supabaseAdmin.from('exam_papers').select('title').eq('organization_id', org).eq('id', prevPaperId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      supabaseAdmin.from('exam_results').select('score, teacher_score, absent').eq('organization_id', org).eq('sitting_id', previo.id).limit(5000),
+    ]);
+    if (rs.error) fallo('getAplicacion', rs.error);
+    else {
+      const notas = (rs.data ?? []).filter((r) => r.absent !== true)
+        .map((r) => notaVigente({ teacher_score: aNota(r.teacher_score), score: aNota(r.score) })).filter((n): n is number => n !== null);
+      anterior = { titulo: ((t.data as { title?: string } | null)?.title) ?? '(examen borrado)', fecha: previo.fecha, media: mediaNotas(notas) };
+    }
+  }
+
   const vigentes = participantes.map((p) => notaVigente({ teacher_score: p.notaProfesor, score: p.nota })).filter((n): n is number => n !== null);
   const delProfesor = participantes.map((p) => p.notaProfesor).filter((n): n is number => n !== null);
   const entregas = (resultados.data ?? []).filter((r) => r.submitted_at && Array.isArray(r.answers) && porAlumno.has(r.user_id as string)
@@ -454,6 +482,7 @@ export async function getAplicacion(id: unknown): Promise<{ success: true; detal
         media: mediaNotas(vigentes), mediaProfesor: mediaNotas(delProfesor), distribucion: distribucionNotas(vigentes),
       },
       preguntas: entregas.length ? estadisticasPorPregunta(comoPreguntas(paper.data.questions), entregas) : [],
+      anterior,
     },
   };
 }

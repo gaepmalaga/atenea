@@ -1475,7 +1475,7 @@ export async function getAplicacion() {
       aplicacion: { id: 'a1', paperId: 'p1', titulo: 'Global número 1', etiqueta: 'Promo 44 · Kappa · 11 nov', fecha: _dia(-2), cierre: _dia(5), grupos: ['Promo 44 · Kappa'], total: 100, minutos: 50 },
       participantes: nombres.map((n, i) => ({
         id: `u${i}`, nombre: n, email: `${n.toLowerCase().replace(/ /g, '.').normalize('NFD').replace(/[̀-ͯ]/g, '')}@correo.com`, estado: estados[i],
-        nota: estados[i] === 'entregado' ? 4 + (i % 5) * 0.7 : null, notaProfesor: i === 0 ? 7.5 : i === 13 ? 5 : null,
+        nota: estados[i] === 'entregado' ? (i === 5 ? 1.75 : i === 8 ? 2.5 : 4 + (i % 5) * 0.7) : null, notaProfesor: i === 0 ? 7.5 : i === 13 ? 5 : null,
         aciertos: estados[i] === 'entregado' ? 55 + i : null, fallos: estados[i] === 'entregado' ? 30 - (i % 6) : null, blancos: estados[i] === 'entregado' ? 15 - (i % 6) : null,
       })),
       resumen: { participantes: 16, entregados: 7, ausentes: 1, pendientes: 8, media: 5.6, mediaProfesor: 6.25, distribucion: [0, 1, 3, 2, 1] },
@@ -1483,6 +1483,7 @@ export async function getAplicacion() {
         { n: 17, tema: 'Constitución Española', enunciado: '¿Cuál de las siguientes afirmaciones sobre el artículo 149 es correcta?', contestadas: 25, aciertos: 6, blancos: 2, tasaFallo: 0.76, porOpcion: [4, 6, 15], correcta: 1 },
         { n: 42, tema: 'Derecho penal', enunciado: 'Señale la pena que corresponde al delito de hurto con violencia.', contestadas: 26, aciertos: 9, blancos: 1, tasaFallo: 0.65, porOpcion: [9, 12, 5], correcta: 0 },
       ],
+      anterior: { titulo: 'Bloque jurídico', fecha: _dia(-9), media: 5.2 },
     },
   });
 }
