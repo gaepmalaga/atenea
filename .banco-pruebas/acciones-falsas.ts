@@ -1451,6 +1451,56 @@ export async function getRevisionPsico() {
   return ok({ resultado: _corrige(preguntas, respuestas), revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })), duracionMs: 470000 });
 }
 
+// ---------- Psicotécnicos en clase (regla 127) ----------
+const _clase = { id: '11111111-1111-1111-1111-111111111111', titulo: 'Psicotécnico · Problemas y cubos · 13 nov', fecha: new Date().toISOString().slice(0, 10), cierre: null as string | null, total: 15, minutos: 8 };
+export async function getPsicoClases() {
+  return ok({ examenes: [
+    { ..._clase, tipos: ['problemas' as const, 'cubos' as const], grupos: ['Promo 44 · Kappa'], participantes: 28, entregados: 19, notaMedia: 4.6 },
+    { id: '22222222-2222-2222-2222-222222222222', titulo: 'Psicotécnico · Ejercicio 3 · 6 nov', fecha: '2026-11-06', cierre: null, total: 30, minutos: 18, tipos: ['ordenes' as const], grupos: [], participantes: 39, entregados: 31, notaMedia: 6.1 },
+  ] });
+}
+export async function creaPsicoClase() { return ok({ id: _clase.id }); }
+export async function borraPsicoClase() { return { success: true as const }; }
+export async function getDetallePsicoClase() {
+  return ok({ detalle: {
+    examen: { id: _clase.id, titulo: _clase.titulo, fecha: _clase.fecha, cierre: null as string | null, total: 15, minutos: 8, tipos: ['problemas' as const, 'cubos' as const, 'desarrollos' as const], grupos: ['Promo 44 · Kappa'] },
+    participantes: [
+      { id: 'u2', nombre: 'Lucía Fernández', email: 'l@x.es', estado: 'entregado' as const, via: 'app' as const, nota: 6.4, aciertos: 11, fallos: 3, blancos: 1 },
+      { id: 'u4', nombre: 'María López', email: 'm@x.es', estado: 'entregado' as const, via: 'hoja' as const, nota: 3.2, aciertos: 7, fallos: 6, blancos: 2 },
+      { id: 'u3', nombre: 'Pablo Esteban', email: 'p@x.es', estado: 'pendiente' as const, via: null, nota: null, aciertos: null, fallos: null, blancos: null },
+    ],
+    resumen: { participantes: 3, entregados: 2, notaMedia: 4.8, porTipo: [
+      { tipo: 'cubos' as const, acierto: 0.33, preguntas: 12 }, { tipo: 'desarrollos' as const, acierto: 0.5, preguntas: 8 }, { tipo: 'problemas' as const, acierto: 0.74, preguntas: 14 },
+    ] },
+  } });
+}
+export async function getHojaPsicoClase() {
+  const preguntas = _genera(777, _tipos(['problemas', 'cubos', 'desarrollos', 'plegados', 'giros', 'simbolos', 'ordenes', 'dominos', 'tablas']), 18);
+  return ok({ titulo: _clase.titulo, fecha: _clase.fecha, minutos: 8, preguntas });
+}
+let _claseHecha = false;
+export async function getMisPsicoClase() {
+  return ok({ examenes: [
+    { ..._clase, tipos: ['problemas' as const, 'cubos' as const], estado: (_claseHecha ? 'entregado' : 'pendiente') as 'entregado' | 'pendiente', empezado: false, nota: _claseHecha ? 5.5 : null, aciertos: _claseHecha ? 9 : null, fallos: _claseHecha ? 4 : null, blancos: _claseHecha ? 2 : null, opciones: Array(15).fill(4) },
+    { id: '33333333-3333-3333-3333-333333333333', titulo: 'Psicotécnico · Ejercicio 2 · 6 nov', fecha: '2026-11-06', cierre: null, total: 34, minutos: 18, tipos: ['simbolos' as const], estado: 'entregado' as const, empezado: false, nota: 7.2, aciertos: 27, fallos: 5, blancos: 2, opciones: Array(34).fill(3) },
+  ] });
+}
+export async function empiezaPsicoClase() {
+  _psico = { tipos: _tipos(['problemas', 'cubos']), total: 15 };
+  return ok({ sesion: { id: _clase.id, minutos: 8, preguntas: _genera(20261111, _psico.tipos, 15).map(_publica) } });
+}
+export async function entregaPsicoClase(d?: { respuestas?: number[] }) {
+  _claseHecha = true;
+  const preguntas = _genera(20261111, _psico.tipos, _psico.total);
+  const respuestas = preguntas.map((_, i) => d?.respuestas?.[i] ?? -1);
+  return ok({ resultado: _corrige(preguntas, respuestas), revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })), duracionMs: 312000 });
+}
+export async function getRevisionPsicoClase() {
+  const preguntas = _genera(20261110, _tipos(['problemas', 'cubos']), 15);
+  const respuestas = preguntas.map((q, i) => (i % 3 === 0 ? (q.correcta + 1) % q.opciones.length : q.correcta));
+  return ok({ titulo: _clase.titulo, resultado: _corrige(preguntas, respuestas), revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })), duracionMs: 400000 });
+}
+
 // ---------- Exámenes en clase (regla 118) ----------
 const _hoy = new Date().toISOString().slice(0, 10);
 const _dia = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);

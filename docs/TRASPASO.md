@@ -574,3 +574,9 @@ de `/_next/static/chunks/*.js` del HTML de producción.
 - El Inicio no enseña enlaces a módulos apagados (fichas, evolución, entrenar…).
 - Psicotécnicos: cada sesión del historial se puede abrir y repasar.
 - Pendiente de decidir con el dueño: ranking de clase en «Exámenes» y nota en el entrenamiento del test.
+
+## 2o · Psicotécnicos: ejercicios del examen, tipos visuales y en clase (13 nov, regla 127)
+
+- Ya desplegado: ejercicios 1, 2 y 3 «como en el examen» y los tipos de texto (PR 36).
+- En la rama: ficha del alumno con sus psicotécnicos; cubos, desarrollos, plegados, giros y parentescos; y los **psicotécnicos en clase** (pestaña «Psicotécnicos» de «Exámenes en papel»).
+- **Antes de desplegar lo de clase hay que ejecutar `docs/sql/psico-clase.sql`** (dos tablas nuevas con RLS). Sin ellas, la pestaña avisa y el alumno simplemente no ve exámenes de clase.

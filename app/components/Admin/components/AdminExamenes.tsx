@@ -5,13 +5,14 @@ import { PanelTitulo, Pestanas } from '../../ui';
 import Preparar from './examenes/Preparar';
 import Guardados from './examenes/Guardados';
 import EnClase from './examenes/EnClase';
+import PsicoClase from './examenes/PsicoClase';
 
-type Seccion = 'preparar' | 'guardados' | 'clase';
+type Seccion = 'preparar' | 'guardados' | 'clase' | 'psico';
 
 /**
  * EXÁMENES EN PAPEL (regla 115 y 118).
  *
- * Tres pasos en tres pestañas: PREPARAR un examen del banco con sus filtros,
+ * Cuatro pestañas: PREPARAR un examen del banco con sus filtros,
  * GUARDARLO (para reimprimirlo y ponerlo a un turno) y seguir cómo va EN CLASE:
  * quién ha entregado, las notas y qué preguntas se han fallado más.
  */
@@ -34,11 +35,13 @@ export default function AdminExamenes() {
           { id: 'preparar', etiqueta: 'Preparar' },
           { id: 'guardados', etiqueta: 'Guardados' },
           { id: 'clase', etiqueta: 'En clase' },
+          { id: 'psico', etiqueta: 'Psicotécnicos' },
         ]}
       />
       {seccion === 'preparar' && <Preparar onGuardado={() => setSeccion('guardados')} />}
       {seccion === 'guardados' && <Guardados onAplicado={(id) => { setAbrir(id); setSeccion('clase'); }} />}
       {seccion === 'clase' && <EnClase abrirId={abrir} onAbierto={abierto} />}
+      {seccion === 'psico' && <PsicoClase />}
     </div>
   );
 }

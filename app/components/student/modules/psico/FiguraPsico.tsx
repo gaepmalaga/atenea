@@ -187,7 +187,7 @@ export function CubosPsico({ alturas, className }: { alturas: number[][]; classN
         // Primero un fondo opaco: las caras de atrás no se ven a través de las de delante.
         return (
           <g key={i}>
-            <polygon points={puntos} className="fill-white dark:fill-slate-900" />
+            <polygon points={puntos} fill="#fff" className="fill-white dark:fill-slate-900" />
             <polygon points={puntos} fill="currentColor" fillOpacity={c.opacidad} stroke="currentColor" strokeWidth={0.9} strokeLinejoin="round" />
           </g>
         );

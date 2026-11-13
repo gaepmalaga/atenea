@@ -1121,6 +1121,93 @@
         "user_id": "uuid"
       }
     },
+    "psico_clase": {
+      "columnas": [
+        "class_ids",
+        "closes_on",
+        "created_at",
+        "created_by",
+        "id",
+        "kinds",
+        "minutes",
+        "organization_id",
+        "sat_on",
+        "seed",
+        "title",
+        "total",
+        "version"
+      ],
+      "obligatorias": [
+        "class_ids",
+        "created_at",
+        "id",
+        "kinds",
+        "minutes",
+        "organization_id",
+        "sat_on",
+        "seed",
+        "title",
+        "total",
+        "version"
+      ],
+      "tipos": {
+        "class_ids": "uuid[]",
+        "closes_on": "date",
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "id": "uuid",
+        "kinds": "text[]",
+        "minutes": "integer",
+        "organization_id": "uuid",
+        "sat_on": "date",
+        "seed": "bigint",
+        "title": "text",
+        "total": "integer",
+        "version": "smallint"
+      }
+    },
+    "psico_clase_resultados": {
+      "columnas": [
+        "answers",
+        "blank",
+        "by_kind",
+        "correct",
+        "duration_ms",
+        "finished_at",
+        "id",
+        "organization_id",
+        "psico_clase_id",
+        "score",
+        "started_at",
+        "user_id",
+        "via",
+        "wrong"
+      ],
+      "obligatorias": [
+        "id",
+        "organization_id",
+        "psico_clase_id",
+        "started_at",
+        "user_id",
+        "via"
+      ],
+      "tipos": {
+        "answers": "smallint[]",
+        "blank": "integer",
+        "by_kind": "jsonb",
+        "correct": "integer",
+        "duration_ms": "integer",
+        "finished_at": "timestamp with time zone",
+        "id": "uuid",
+        "organization_id": "uuid",
+        "psico_clase_id": "uuid",
+        "score": "numeric",
+        "started_at": "timestamp with time zone",
+        "user_id": "uuid",
+        "via": "text",
+        "wrong": "integer"
+      }
+    },
     "psico_sessions": {
       "columnas": [
         "answers",
