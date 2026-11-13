@@ -1068,7 +1068,8 @@ export async function getAlumnosFisica(params?: { lunes?: string }) {
   const lunes = params?.lunes ?? lunesFis(0);
   const sem = (l: string, sesiones: number, vencidas: number, apuntadas: number) => ({ lunes: l, sesiones, vencidas, apuntadas });
   const sig = (() => { const [y, m, d] = lunes.split('-').map(Number); const x = new Date(Date.UTC(y, m - 1, d + 7)); return x.toISOString().slice(0, 10); })();
-  const al = (id: string, email: string, grupos: string[], a: [number, number, number], b: number) => ({ id, email, grupos, semanas: [sem(lunes, ...a), sem(sig, b, 0, 0)] });
+  const NOMBRES: Record<string, string> = { u2: 'Lucía Fernández Ruiz', u4: 'María López García', u8: 'Pablo Esteban' };
+  const al = (id: string, email: string, grupos: string[], a: [number, number, number], b: number) => ({ id, email, nombre: NOMBRES[id] ?? null, grupos, semanas: [sem(lunes, ...a), sem(sig, b, 0, 0)] });
   return ok({
     lunes, hoy: fFis(0),
     grupos: [
@@ -1100,10 +1101,10 @@ export async function getMarcasAcademia() {
   return ok({
     hoy: fFis(0),
     alumnos: [
-      { id: 'u2', email: 'alumno@atenea.com', sexo: 'male' as const, marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)], rms: RMS_FIS },
-      { id: 'u3', email: 'alumno.flojo@ejemplo.com', sexo: 'male' as const, marcas: [m('m5', 'agilidad', 11.9, 5), m('m6', 'dominadas', 6, 5)], rms: [] },
-      { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', sexo: 'female' as const, marcas: [m('m7', 'agilidad', 10.6, 2), m('m8', 'suspension', 64, 2), m('m9', 'carrera_1000', 238, 2)], rms: [] },
-      { id: 'u5', email: 'sin.sexo@ejemplo.com', sexo: null, marcas: [], rms: [] },
+      { id: 'u2', email: 'alumno@atenea.com', nombre: 'Lucía Fernández Ruiz', sexo: 'male' as const, marcas: [m('m1', 'agilidad', 9.6, 30), m('m2', 'agilidad', 9.1, 3), m('m3', 'dominadas', 11, 3), m('m4', 'carrera_1000', 212, 3)], rms: RMS_FIS },
+      { id: 'u3', email: 'alumno.flojo@ejemplo.com', nombre: null, sexo: 'male' as const, marcas: [m('m5', 'agilidad', 11.9, 5), m('m6', 'dominadas', 6, 5)], rms: [] },
+      { id: 'u4', email: 'maria.lopez.garcia.larguisimo@gmail.com', nombre: 'María López García', sexo: 'female' as const, marcas: [m('m7', 'agilidad', 10.6, 2), m('m8', 'suspension', 64, 2), m('m9', 'carrera_1000', 238, 2)], rms: [] },
+      { id: 'u5', email: 'sin.sexo@ejemplo.com', nombre: null, sexo: null, marcas: [], rms: [] },
     ],
   });
 }
@@ -1430,6 +1431,13 @@ export async function getMisPsico() {
       { id: 'p2', fecha: new Date(Date.now() - 4 * 864e5).toISOString(), total: 15, aciertos: 6, fallos: 8, blancos: 1, duracionMs: 470000, tipos: _tipos([]), porTipo: { series: { a: 1, t: 3 }, atencion: { a: 2, t: 3 } } },
     ],
   });
+}
+
+export async function getRevisionPsico() {
+  const tipos = _tipos([]);
+  const preguntas = _genera(20261110, tipos, 15);
+  const respuestas = preguntas.map((q, i) => (i % 3 === 0 ? (q.correcta + 1) % 5 : i % 5 === 4 ? -1 : q.correcta));
+  return ok({ resultado: _corrige(preguntas, respuestas), revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })), duracionMs: 470000 });
 }
 
 // ---------- Exámenes en clase (regla 118) ----------

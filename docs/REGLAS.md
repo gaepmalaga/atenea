@@ -4874,3 +4874,28 @@ el segundo necesita el proyecto real.
   ceros: un aviso que dice qué saldrá (regla 16). El «examen anterior» es el más
   reciente, de fecha anterior, que coincida en algún grupo (`aplicacionesQueSeSolapan`),
   de esta academia; si falla leerlo, la pantalla sigue sin comparación.
+
+### 125 · Prep. física con nombres y columnas, tema en el panel y el Inicio respeta los módulos
+
+- **Qué pasaba (13 nov):** «Todos los grupos (47)» contaba alumnos y parecía que
+  había 47 grupos. En «Planificar» cada alumno gastaba dos líneas y dos pastillas
+  largas, con el correo por nombre. En «Marcas», el «Elim.» rojo se leía como un
+  botón de borrar (es «eliminado»: un 0 en una prueba). Los alumnos elegían tema
+  claro u oscuro y el admin no. El Inicio ofrecía «Repaso rápido con fichas» con
+  el módulo apagado. Y las sesiones de psicotécnicos del historial no se podían
+  abrir.
+- **Regla:** un contador dice QUÉ cuenta («Todos los alumnos (47)»). Una lista
+  de alumnos usa `quienEs` (nombre, y el correo si no lo ha puesto) y se busca
+  por los dos. «Planificar» es una fila por alumno con un cuadradito por semana
+  (verde al día, ámbar faltan por apuntar, azul planificada, discontinuo sin
+  planificar), leyenda y el número de sesiones. «Marcas» es una tabla con una
+  columna por prueba y «Eliminado» escrito.
+- **El tema del panel** (`ui/panel/TemaPanel.tsx`) usa la misma clave y las
+  mismas funciones que el alumno (`app/lib/theme.ts`); vive en la barra marino
+  (regla 45), con colores fijos.
+- **Un enlace del Inicio a un módulo apagado no se pinta** (`DashboardHome`
+  recibe `modulos`). Quitar el enlace no sustituye a cerrar la acción en el
+  servidor (regla 31), que ya estaba.
+- **Repasar una sesión de psicotécnicos** (`getRevisionPsico`): se vuelven a
+  generar las preguntas con la semilla guardada y las respuestas guardadas;
+  solo las del propio usuario y solo si `VERSION_PSICO` no ha cambiado.

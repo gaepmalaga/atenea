@@ -16,7 +16,7 @@ import {
   type Destino, type Sesion, type Plantilla,
 } from '@/app/lib/sesiones';
 import { sumaDias } from '@/app/lib/asistencia';
-import { agrupaAlumnos, estadoSemana, diasEntre, type GrupoPlan, type ResumenSemanaAlumno } from '@/app/lib/planificar';
+import { agrupaAlumnos, estadoSemana, quienEs, diasEntre, type GrupoPlan, type ResumenSemanaAlumno } from '@/app/lib/planificar';
 import { clasesPorDia, type ClaseFisica } from '@/app/lib/clases-fisica';
 import { nombreCorto } from '@/app/lib/cuadrante';
 import { ESTILO_TIPO } from '@/app/components/fisica/estiloTipo';
@@ -103,13 +103,6 @@ export default function Planificador() {
 
 // ── La lista de alumnos ──
 
-const ESTILO_ESTADO = {
-  sin_planificar: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100',
-  por_apuntar: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
-  al_dia: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
-  planificada: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200',
-} as const;
-
 function textoSemana(r: ResumenSemanaAlumno): string {
   const e = estadoSemana(r);
   if (e === 'sin_planificar') return 'Sin planificar';
@@ -117,6 +110,14 @@ function textoSemana(r: ResumenSemanaAlumno): string {
   if (e === 'planificada') return n;
   return `${n} · ${r.apuntadas}/${r.vencidas} apuntadas`;
 }
+
+/** El cuadradito de cada semana: color por estado, y un borde discontinuo si no hay nada planificado. */
+const PUNTO_ESTADO = {
+  sin_planificar: 'border-2 border-dashed border-amber-500 dark:border-amber-400',
+  por_apuntar: 'bg-amber-400 dark:bg-amber-500',
+  al_dia: 'bg-emerald-600 dark:bg-emerald-500',
+  planificada: 'bg-indigo-500 dark:bg-indigo-400',
+} as const;
 
 type Filtro = 'todos' | 'esta' | 'siguiente';
 
@@ -161,7 +162,7 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
         <>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <div className="flex-1 min-w-0">
-              <Campo label="Buscar alumno" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Correo…" autoComplete="off" />
+              <Campo label="Buscar alumno" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nombre o correo…" autoComplete="off" />
             </div>
             <Filtros etiqueta="Qué alumnos ver">
               {([['todos', 'Todos', lista.alumnos.length], ['esta', `Sin ${esEsta ? 'esta semana' : 'la 1.ª'}`, faltan(0)], ['siguiente', 'Sin la siguiente', faltan(1)]] as const).map(([v, t, n]) => (
@@ -181,6 +182,13 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
           )}
           {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"><Check size={14} /> {aviso}</p>}
 
+          <p className={cx(TEXT.muted, 'flex flex-wrap items-center gap-x-4 gap-y-1')} aria-label="Leyenda de los cuadraditos">
+            {([['al_dia', 'al día'], ['por_apuntar', 'faltan por apuntar'], ['planificada', 'planificada'], ['sin_planificar', 'sin planificar']] as const).map(([e, t]) => (
+              <span key={e} className="inline-flex items-center gap-1.5"><span aria-hidden className={cx('h-3 w-3 rounded', PUNTO_ESTADO[e])} />{t}</span>
+            ))}
+            <span>· el número son las sesiones de la semana</span>
+          </p>
+
           {secciones.length === 0 && <p className={cx(TEXT.muted, 'text-center py-6')}>Nadie coincide con eso.</p>}
           {secciones.map(({ grupo, alumnos }) => {
             const todos = alumnos.every((a) => marcados.has(a.id));
@@ -188,8 +196,12 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
               <section key={grupo.id} className="rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2 overflow-hidden">
                 <header className="flex items-center justify-between gap-2 px-3 py-1.5 bg-hundido dark:bg-noche-hondo/40 border-b border-slate-100 dark:border-slate-800">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                    {nombreCorto(grupo.nombre)} <span className="font-medium text-slate-600 dark:text-slate-400">· {alumnos.length}{!grupo.conHorario && !grupo.esMulti ? ' · plan común' : ''}</span>
+                    {nombreCorto(grupo.nombre)} <span className="font-medium text-slate-600 dark:text-slate-400">· {alumnos.length} {alumnos.length === 1 ? 'alumno' : 'alumnos'}{!grupo.conHorario && !grupo.esMulti ? ' · plan común' : ''}</span>
                   </h4>
+                  <span aria-hidden className="flex shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                    <span className="w-11 text-right">{esEsta ? 'Esta' : etiquetaSemana(lunes)}</span>
+                    <span className="w-11 text-right">Sig.</span>
+                  </span>
                   <button onClick={() => setMarcados((prev) => { const n = new Set(prev); for (const a of alumnos) { if (todos) n.delete(a.id); else n.add(a.id); } return n; })}
                     className="min-h-[44px] px-2 text-xs font-bold text-indigo-700 dark:text-indigo-300">
                     {todos ? 'Desmarcar todos' : 'Marcar todos'}
@@ -201,16 +213,23 @@ function ListaAlumnos({ lista, lunes, onLunes, onAbrir, onCambio }: {
                       <label className="w-12 shrink-0 flex items-center justify-center cursor-pointer" aria-label={`Marcar a ${a.email}`}>
                         <input type="checkbox" className="w-5 h-5" checked={marcados.has(a.id)} onChange={() => alterna(a.id)} />
                       </label>
-                      <button onClick={() => onAbrir({ destino: { tipo: 'alumno', id: a.id }, titulo: a.email })}
-                        className="flex-1 min-w-0 min-h-[56px] py-2 pr-3 text-left flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                        <span className="flex-1 min-w-0 truncate text-sm font-bold text-slate-800 dark:text-slate-100">{a.email}</span>
-                        <span className="flex flex-wrap gap-1.5">
-                          {a.semanas.map((r, i) => (
-                            <span key={r.lunes} className={cx('text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap', ESTILO_ESTADO[estadoSemana(r)])}>
-                              {i === 0 ? (esEsta ? 'Esta' : etiquetaSemana(r.lunes)) : 'Siguiente'}: {textoSemana(r)}
-                            </span>
-                          ))}
+                      <button onClick={() => onAbrir({ destino: { tipo: 'alumno', id: a.id }, titulo: quienEs(a) })}
+                        aria-label={`${quienEs(a)}. ${a.semanas.map((r, i) => `${i === 0 ? (esEsta ? 'Esta semana' : etiquetaSemana(r.lunes)) : 'La siguiente'}: ${textoSemana(r)}`).join('. ')}`}
+                        className="flex-1 min-w-0 min-h-[44px] py-1 pr-3 text-left flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate text-sm font-bold text-slate-800 dark:text-slate-100">{quienEs(a)}</span>
+                          {a.nombre && <span className="block truncate text-[11px] text-slate-600 dark:text-slate-400">{a.email}</span>}
                         </span>
+                        {a.semanas.map((r, i) => {
+                          const e = estadoSemana(r);
+                          return (
+                            <span key={r.lunes} title={`${i === 0 ? 'Esta semana' : 'La siguiente'}: ${textoSemana(r)}`}
+                              className="w-11 shrink-0 flex items-center justify-end gap-1.5 text-xs font-bold tabular-nums text-slate-700 dark:text-slate-200">
+                              <span aria-hidden className={cx('h-3.5 w-3.5 rounded', PUNTO_ESTADO[e])} />
+                              <span aria-hidden className="w-3 text-right">{r.sesiones || '–'}</span>
+                            </span>
+                          );
+                        })}
                       </button>
                     </li>
                   ))}
@@ -338,7 +357,7 @@ function CopiarAVarios({ alumnos, grupos, lunes, origen, destinos: iniciales, on
         {diasEntre(desde, a) === 0 && <p className={TEXT.muted}>A los mismos días.</p>}
 
         <div className="space-y-2">
-          <Campo label={`A quiénes (${destinos.size})`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por correo…" autoComplete="off" />
+          <Campo label={`A quiénes (${destinos.size} ${destinos.size === 1 ? 'alumno' : 'alumnos'})`} value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre o correo…" autoComplete="off" />
           <div className="max-h-72 overflow-y-auto rounded-lg border border-linea dark:border-noche-linea divide-y divide-slate-100 dark:divide-slate-800">
             {secciones.map(({ grupo, alumnos: delGrupo }) => {
               const todos = delGrupo.every((x) => destinos.has(x.id));

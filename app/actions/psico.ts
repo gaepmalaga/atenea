@@ -175,3 +175,45 @@ export async function getMisPsico(): Promise<{ success: true; sesiones: SesionPs
     })),
   };
 }
+
+/**
+ * El repaso de una sesión YA entregada: las mismas preguntas, con lo que marcó
+ * el alumno y la explicación. Se vuelven a generar con la semilla guardada, así
+ * que no hace falta guardar el examen. Solo las suyas (regla 1) y solo si el
+ * generador no ha cambiado desde entonces (`VERSION_PSICO`): si cambió, las
+ * preguntas serían otras y mostrarlas sería mentir.
+ */
+export async function getRevisionPsico(input: unknown): Promise<
+  { success: true; revision: RevisionPsico; resultado: ResultadoPsico; duracionMs: number } | { success: false; error: string }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const modulo = await requireModule('psico', auth.user.organizationId);
+  if (!modulo.ok) return { success: false as const, error: modulo.error };
+
+  const id = (input as { id?: unknown } | null)?.id;
+  if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) return { success: false as const, error: 'Datos no válidos.' };
+
+  const { data: fila, error } = await supabaseAdmin
+    .from('psico_sessions')
+    .select('seed, version, kinds, total, answers, duration_ms, finished_at')
+    .eq('id', id)
+    .eq('user_id', auth.user.id)
+    .maybeSingle();
+  if (error) return { success: false as const, error: fallo('getRevisionPsico', error) };
+  if (!fila || !fila.finished_at) return { success: false as const, error: 'Esa sesión no existe.' };
+  if (fila.version !== VERSION_PSICO) {
+    return { success: false as const, error: 'Esta sesión es de una versión anterior de los psicotécnicos y ya no se puede repasar.' };
+  }
+
+  const total = fila.total as number;
+  const preguntas = generaSesion(Number(fila.seed), tiposValidos(fila.kinds) as TipoPsico[], total);
+  const guardadas = Array.isArray(fila.answers) ? fila.answers : [];
+  const respuestas = Array.from({ length: total }, (_, i) => normalizaRespuesta(guardadas[i]));
+  return {
+    success: true as const,
+    revision: preguntas.map((q, i) => ({ ...q, marcada: respuestas[i] })),
+    resultado: corrigeSesion(preguntas, respuestas),
+    duracionMs: (fila.duration_ms as number) ?? 0,
+  };
+}

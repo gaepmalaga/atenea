@@ -280,7 +280,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                 el dashboard entero en blanco (pasaba con 'home' y 'stats'). */}
             {activeTab === 'home' && (
                 <ModuleErrorBoundary moduleName="Inicio">
-                    <DashboardHome user={user} onNavigate={irAPestana} />
+                    <DashboardHome user={user} onNavigate={irAPestana} modulos={modules} />
                 </ModuleErrorBoundary>
             )}
 

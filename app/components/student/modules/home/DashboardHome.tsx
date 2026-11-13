@@ -7,11 +7,14 @@ import { TabId } from '../../StudentDashboard';
 import { ahoraEnZona } from '@/app/lib/asistencia';
 import { claseDeHoy, fisicaDeHoy, claseFisicaDeHoy, type EntrenoDeHoy, type ClaseDeHoy, type FisicaDeHoy, type ClaseFisicaDeHoy } from '@/app/lib/dia';
 import { ETIQUETA_TIPO, type TipoSesion } from '@/app/lib/sesiones';
+import type { ModuleSettings } from '@/app/lib/modules';
 import { Card, Button, HeroMarino, Kicker, EmptyState, cx, TAP } from '../../../ui';
 
 interface DashboardHomeProps {
   user: { id: string; email?: string };
   onNavigate: (tab: TabId) => void;
+  /** Los módulos que la academia tiene encendidos: un enlace a uno apagado no se pinta. */
+  modulos?: Partial<ModuleSettings>;
 }
 
 /** Lo que el Inicio sabe de hoy. `null` = no se pudo leer, que no es «no hay» (regla 8). */
@@ -37,7 +40,8 @@ type Hoy = {
  *
  * Cada lectura es independiente: si falla una, las demás se pintan igual.
  */
-export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) {
+export default function DashboardHome({ user, onNavigate, modulos }: DashboardHomeProps) {
+  const on = (t: TabId) => modulos?.[t as keyof ModuleSettings] !== false;
   const [hoy, setHoy] = useState<Hoy | null>(null);
   const [saludo, setSaludo] = useState('');
 
@@ -112,16 +116,18 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
                       ? <>Lo que toca repasar y lo nuevo. Donde más fallas ahora: <strong className="text-white">{(entreno.temaConMasFallos.tema ?? '').replace(/\.$/, '')}</strong></>
                       : 'Lo que toca repasar y lo nuevo, con medida.'}
                 </p>
-                <Button variant="oro" size="lg" className="mt-5" onClick={() => onNavigate('test')} icon={<Play size={18} fill="currentColor" />}>
-                  Entrenar
-                </Button>
+                {on('test') && (
+                  <Button variant="oro" size="lg" className="mt-5" onClick={() => onNavigate('test')} icon={<Play size={18} fill="currentColor" />}>
+                    Entrenar
+                  </Button>
+                )}
               </>
             )}
           </HeroMarino>
         </Hito>
 
         {/* 2 · LOS FALLOS CON EL REPASO VENCIDO — solo si hay alguno. */}
-        {entreno && entreno.porRepasar > 0 && (
+        {on('review') && entreno && entreno.porRepasar > 0 && (
           <Hito icono={<Target size={18} />}>
             <FilaDelDia
               onClick={() => onNavigate('review')}
@@ -133,7 +139,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
         )}
 
         {/* 3 · LA CLASE DE HOY — solo si tiene clase. */}
-        {hoy.clase && (
+        {on('profile') && hoy.clase && (
           <Hito icono={<Clock size={18} />}>
             <FilaDelDia
               onClick={() => onNavigate('profile')}
@@ -146,7 +152,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
 
         {/* 4 · LA CLASE DE FÍSICA DE HOY — la de su grupo, con su profesor.
             Si la academia la ha quitado (festivo), también se dice. */}
-        {hoy.claseFisica && (
+        {on('training') && hoy.claseFisica && (
           <Hito icono={<Users size={18} />}>
             <FilaDelDia
               onClick={() => onNavigate('training')}
@@ -161,7 +167,7 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
 
         {/* 5 · TU ENTRENO DE HOY — solo si el preparador ha puesto una sesión.
             Hay academias que aún no la llevan aquí: entonces no hay fila. */}
-        {hoy.fisica && (
+        {on('training') && hoy.fisica && (
           <Hito icono={<Dumbbell size={18} />}>
             <FilaDelDia
               onClick={() => onNavigate('training')}
@@ -175,14 +181,16 @@ export default function DashboardHome({ user, onNavigate }: DashboardHomeProps) 
 
       {/* LO DE «CÓMO VOY» Y LO SUELTO: enlaces, no cifras. */}
       <div className="flex flex-wrap gap-x-5">
-        {!sinActividad && (
+        {on('stats') && !sinActividad && (
           <button onClick={() => onNavigate('stats')} className={cx('inline-flex items-center gap-1.5 text-sm font-semibold text-marino dark:text-white', TAP)}>
             <Brain size={16} className="text-oro-oscuro dark:text-oro-claro" /> Ver mi evolución <ChevronRight size={16} className="text-oro-oscuro dark:text-oro-claro" />
           </button>
         )}
-        <button onClick={() => onNavigate('cards')} className={cx('inline-flex items-center gap-1.5 text-sm font-semibold text-marino dark:text-white', TAP)}>
-          <Zap size={16} className="text-oro-oscuro dark:text-oro-claro" /> Repaso rápido con fichas <ChevronRight size={16} className="text-oro-oscuro dark:text-oro-claro" />
-        </button>
+        {on('cards') && (
+          <button onClick={() => onNavigate('cards')} className={cx('inline-flex items-center gap-1.5 text-sm font-semibold text-marino dark:text-white', TAP)}>
+            <Zap size={16} className="text-oro-oscuro dark:text-oro-claro" /> Repaso rápido con fichas <ChevronRight size={16} className="text-oro-oscuro dark:text-oro-claro" />
+          </button>
+        )}
       </div>
 
       {/* Si no se pudo leer NADA de hoy, no se deja la pantalla muda. */}

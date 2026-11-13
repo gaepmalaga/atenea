@@ -59,7 +59,10 @@ export function resumenSemanasAlumno(params: {
 }
 
 export type GrupoPlan = { id: string; nombre: string; esMulti: boolean; conHorario: boolean };
-export type AlumnoPlan = { id: string; email: string; grupos: string[] };
+export type AlumnoPlan = { id: string; email: string; /** Lo que escribió el alumno; sin él se enseña el correo. */ nombre?: string | null; grupos: string[] };
+
+/** Cómo se llama a un alumno en una lista: su nombre, o su correo si no lo ha puesto. */
+export const quienEs = (a: { email: string; nombre?: string | null }): string => a.nombre?.trim() || a.email;
 
 /** Sin acentos ni mayúsculas, para buscar. */
 const plano = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -77,9 +80,9 @@ export function agrupaAlumnos<A extends AlumnoPlan>(alumnos: A[], grupos: GrupoP
   for (const g of orden) {
     const suyos = alumnos
       .filter((a) => a.grupos.includes(g.id) && !visto.has(a.id))
-      .sort((a, b) => a.email.localeCompare(b.email, 'es'));
+      .sort((a, b) => quienEs(a).localeCompare(quienEs(b), 'es'));
     for (const a of suyos) visto.add(a.id);
-    const filtrados = q ? suyos.filter((a) => plano(a.email).includes(q)) : suyos;
+    const filtrados = q ? suyos.filter((a) => plano(`${a.nombre ?? ''} ${a.email}`).includes(q)) : suyos;
     if (filtrados.length) out.push({ grupo: g, alumnos: filtrados });
   }
   return out;

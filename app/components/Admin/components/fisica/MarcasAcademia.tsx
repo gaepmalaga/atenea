@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Trash2, Plus, ChevronRight } from 'lucide-react';
+import { Loader2, Trash2, Plus } from 'lucide-react';
 import { getMarcasAcademia, addMarca, deleteMarca, setSexoAlumno, addRM, deleteRM } from '@/actions';
 import type { AlumnoConMarcas } from '@/app/actions/fisica';
 import {
@@ -9,6 +9,7 @@ import {
   type Prueba,
 } from '@/app/lib/baremo-fisico';
 import { etiquetaDia } from '@/app/lib/sesiones';
+import { quienEs } from '@/app/lib/planificar';
 import { colorPuntos } from '@/app/components/fisica/estiloTipo';
 import SeccionRM from '@/app/components/fisica/SeccionRM';
 import { rmVigentes, formateaKg } from '@/app/lib/rm';
@@ -56,45 +57,64 @@ export default function MarcasAcademia() {
     if (nota.eliminado) return -1;
     return nota.media ?? 99;
   };
-  const lista = [...alumnos].sort((a, b) => orden(a) - orden(b) || a.email.localeCompare(b.email));
+  const lista = [...alumnos].sort((a, b) => orden(a) - orden(b) || quienEs(a).localeCompare(quienEs(b), 'es'));
   const actual = alumnos.find((a) => a.id === abierto) ?? null;
 
   return (
     <div className="space-y-3">
       <p className={TEXT.muted}>
-        Puntos según el baremo de la convocatoria ({BAREMO_CNP.fuente}). La nota es la media de las tres pruebas; un 0 en cualquiera elimina y hace falta un 5 para aprobar.
+        Puntos según el baremo de la convocatoria ({BAREMO_CNP.fuente}). La nota es la media de las tres pruebas; un 0 en cualquiera elimina («Eliminado») y hace falta un 5 para aprobar.
       </p>
-      <div className="rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
-        {lista.map((a) => {
-          const { pruebas, puntos, nota } = resumen(a);
-          return (
-            <button key={a.id} onClick={() => setAbierto(a.id)} className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40">
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-bold text-slate-900 dark:text-white truncate">{a.email}</span>
-                <span className="flex flex-wrap gap-1 mt-1">
-                  {!a.sexo && <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">Falta el sexo para puntuar</span>}
-                  {[...rmVigentes(a.rms).values()].slice(0, 3).map((v) => (
-                    <span key={v.ejercicio} className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      1RM {v.ejercicio} {formateaKg(v.rm)}
+      <div className="overflow-x-auto rounded-lg border border-linea dark:border-noche-linea bg-white dark:bg-noche-2">
+        <table className="w-full min-w-[34rem] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              <th scope="col" className="px-3 py-2">Alumno</th>
+              <th scope="col" className="px-2 py-2">Agilidad</th>
+              <th scope="col" className="px-2 py-2">Fuerza</th>
+              <th scope="col" className="px-2 py-2">1.000 m</th>
+              <th scope="col" className="px-3 py-2 text-right">Nota</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {lista.map((a) => {
+              const { pruebas, puntos, nota } = resumen(a);
+              const celda = (p: Prueba | undefined) => {
+                if (!a.sexo || !p) return <span className="text-slate-400">—</span>;
+                const u = ultimaMarca(a.marcas, p);
+                const pts = puntos[pruebas.indexOf(p)] ?? null;
+                if (!u) return <span className="text-slate-400">Sin marca</span>;
+                return (
+                  <span className={cx('inline-block rounded-md px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap', colorPuntos(pts))}>
+                    {formateaMarca(p, u.valor)}{pts != null && ` · ${pts}`}
+                  </span>
+                );
+              };
+              const fuerza = pruebas.find((p) => p !== 'agilidad' && p !== 'carrera_1000');
+              const rms = [...rmVigentes(a.rms).values()].slice(0, 3);
+              return (
+                <tr key={a.id} onClick={() => setAbierto(a.id)} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                  <td className="px-3 py-2 max-w-[14rem]">
+                    <button type="button" onClick={() => setAbierto(a.id)} className="block w-full min-h-[44px] text-left">
+                      <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{quienEs(a)}</span>
+                      {!a.sexo
+                        ? <span className="block text-[11px] font-bold text-amber-700 dark:text-amber-300">Falta el sexo para puntuar</span>
+                        : rms.length > 0 && <span className="block truncate text-[11px] text-slate-600 dark:text-slate-400">{rms.map((v) => `1RM ${v.ejercicio} ${formateaKg(v.rm)}`).join(' · ')}</span>}
+                    </button>
+                  </td>
+                  <td className="px-2 py-2">{celda('agilidad')}</td>
+                  <td className="px-2 py-2">{celda(fuerza)}</td>
+                  <td className="px-2 py-2">{celda('carrera_1000')}</td>
+                  <td className="px-3 py-2 text-right">
+                    <span className={cx('inline-block min-w-[3.5rem] rounded-lg px-2 py-1 text-center text-xs font-bold', nota.eliminado ? 'bg-red-600 text-white' : nota.media === null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : nota.apto ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200')}>
+                      {nota.eliminado ? 'Eliminado' : nota.media !== null ? numES(nota.media) : '—'}
                     </span>
-                  ))}
-                  {a.sexo && pruebas.map((p, i) => {
-                    const u = ultimaMarca(a.marcas, p);
-                    return (
-                      <span key={p} className={cx('text-[10px] font-bold px-1.5 py-0.5 rounded-md', colorPuntos(puntos[i] ?? null))}>
-                        {INFO_PRUEBA[p].corto} {u ? formateaMarca(p, u.valor) : '—'}{puntos[i] != null && ` · ${puntos[i]}`}
-                      </span>
-                    );
-                  })}
-                </span>
-              </span>
-              <span className={cx('shrink-0 w-14 text-center px-1 py-1 rounded-lg text-sm font-bold', nota.eliminado ? 'bg-red-600 text-white' : nota.media === null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : nota.apto ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200')}>
-                {nota.eliminado ? 'Elim.' : nota.media !== null ? numES(nota.media) : '—'}
-              </span>
-              <ChevronRight size={16} className="shrink-0 text-slate-400" />
-            </button>
-          );
-        })}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {actual && <FichaMarcas alumno={actual} hoy={hoy} onCerrar={() => setAbierto(null)} onCambio={cargar} />}
@@ -123,7 +143,7 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
   }
 
   return (
-    <Modal title={alumno.email} subtitle="Marcas en las pruebas oficiales" onClose={onCerrar} width="md">
+    <Modal title={quienEs(alumno)}  subtitle="Marcas en las pruebas oficiales" onClose={onCerrar} width="md">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Sexo (decide la prueba de fuerza y el baremo):</span>
