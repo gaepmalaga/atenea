@@ -247,6 +247,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 121 | La dificultad se estima con una vara fijada antes, y nada se rellena con un 2 |
 | 122 | La dificultad se enseña después de contestar, la corrige quien la sabe y la manda la medida |
 | 123 | Esta instalación es de UNA academia: el admin de Alphapol puede tocar el banco global |
+| 124 | Los exámenes en clase: nombre automático, no se repite sin avisar, y las notas se pegan |
 
 ## Trampas conocidas
 

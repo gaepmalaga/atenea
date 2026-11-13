@@ -389,11 +389,45 @@ la deje como `preparador`, y que «Preguntas repetidas» liste las 728 familias.
 - **Pendiente de decidir con el dueño:** si los preparadores deben ver «Pagos». Hoy
   no existe un rol intermedio (regla 123).
 
+
+## 2l · Comparativa con OpositandoPN (12 nov, solo documentación)
+
+`docs/COMPARATIVA-OPOSITANDOPN.md`: dos rondas de lectura de la plataforma que usa la
+academia hoy, con la sesión real de Alphapol y sin tocar nada. Conclusiones:
+- **Puntuación idéntica a la nuestra** (regla 22). No hay nada que corregir.
+- **Su motor no hace nada que no hagamos;** lo suyo es contenido: 671 esquemas
+  visuales por subtema, normativa enlazada al BOE y 13 exámenes oficiales
+  (nosotros tenemos 5, y decidimos dejarlo).
+- **No se copia:** ranking (aparece en todos sus simulacros), gemas y duelos,
+  análisis con IA agregado, planes de físicas genéricos.
+- **Ellos solo gestionan licencias** (activo/inactivo): no hay panel pedagógico. La
+  lista de alumnos activos que espera el dueño sale de ahí, con su visto bueno.
+- **Pendiente del dueño:** Inglés (B1), si entra en la convocatoria; y si quiere
+  esquemas visuales (trabajo de diseño).
+
+
+## 2m · Exámenes en clase más cómodos (13 nov, regla 124, en la rama, sin desplegar)
+
+Salió de probar la pantalla con la academia:
+- **Sin «Cómo lo llamas»:** el nombre se pone solo (grupo y día), y es opcional.
+- **Aviso de duplicados:** poner el mismo examen al mismo grupo dos veces pide
+  confirmación (antes duplicaba a los alumnos sin avisar).
+- **«En clase» en cuatro pestañas**, con una tabla compacta de alumnos, y
+  **«Pegar notas»** para meter una columna del Excel de una vez.
+- **Calculadora de nota** para el alumno, en «Exámenes».
+- «Aplicación» desaparece de las pantallas: ahora «Exámenes puestos a un turno».
+
+**Visto en el banco de pruebas, a tamaño móvil. Sin probar contra la base de datos
+real.** Antes de dar nada por cerrado: ponerle un examen a un grupo con alumnos
+reales, pegar unas notas, y comprobar que el aviso de repetir sale.
+**Ojo:** el grupo «Promo 44» (28 alumnos) son 27 cuentas de demostración, que no
+pueden entregar nada.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)
 
-1. **Subdominio propio** (p. ej. `campus.alphapol.es`). Hay que:
+1. **Subdominio propio** (p. ej. `campus.alphapol.es`). **Paso a paso en `docs/DOMINIO-Y-CORREO.md`.** Hay que:
    - añadirlo en Vercel (proyecto `atenea`);
    - crear el CNAME en Hostinger, donde está el DNS de alphapol.es;
    - poner la URL nueva en Supabase (*Authentication → URL Configuration*: Site
@@ -453,6 +487,22 @@ la deje como `preparador`, y que «Preguntas repetidas» liste las 728 familias.
   numéricos caben como un bloque más del banco con reloj por pregunta; los de
   figuras piden preguntas con imagen generada por código). Antes, ver la
   plataforma que usa hoy la academia.
+- **Ideas para CONSULTAR con el dueño y con los alumnos antes de decidir** (no se
+  construye nada sin su opinión; en `docs/COMPARATIVA-OPOSITANDOPN.md` hay lo que
+  hace la plataforma que usan hoy):
+  - **Ranking.** Por turno o por grupo, nunca nacional, y quizá solo con el
+    puesto de cada uno y no la lista completa, para no dejar en evidencia a quien
+    tiene nota baja. Saldría de los exámenes en clase (regla 118).
+  - **Duelos 1 contra 1** de unas 10 preguntas.
+  - **Esquemas visuales** por subtema (trabajo de diseño; empezar por un piloto
+    de 5-10 de los temas con más peso).
+  - **Inglés (B1):** solo si la convocatoria lo exige.
+  - **Un rol de «preparador»** con menos permisos que el admin (hoy no existe).
+- **Estado de las ideas del 11 nov (12 nov):** *exámenes a PDF*, hecho (regla 115 y
+  118); *perfil editable*, hecho (114); *informe semanal*, hecho (116, sin envío
+  automático); *señales de abandono*, hecho en su versión principal (116);
+  *ficha en PDF por alumno*, NO; *preguntas aportadas por los alumnos*, NO;
+  *audio y vídeo en las preguntas*, NO.
 - **Preguntas del temario propio de Alphapol:** generarlas fuera de la
   aplicación y meterlas por la importación que ya valida
   (`importManualQuestions`, regla 27) hacia moderación.
