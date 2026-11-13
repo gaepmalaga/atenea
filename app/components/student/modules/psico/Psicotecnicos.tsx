@@ -10,7 +10,7 @@ import {
   type OpcionPsico, type PreguntaPsicoPublica, type ResultadoPsico, type TipoPsico,
 } from '@/app/lib/psico';
 import { Card, Button, SectionLabel, StatTile, OptionCard, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
-import FiguraPsico, { FichaDomino, RejillaPsico, FilaSimbolos, TablaSimbolos } from './FiguraPsico';
+import FiguraPsico, { FichaDomino, RejillaPsico, FilaSimbolos, TablaSimbolos, CubosPsico, DesarrolloPsico, AgujerosPsico, FiguraGiro } from './FiguraPsico';
 
 /**
  * PSICOTÉCNICOS (regla 117): elegir, hacer contra el reloj, y repasar.
@@ -59,6 +59,10 @@ function Opcion({ opcion, letra, estado, onClick }: {
         ? <RejillaPsico rejilla={opcion.rejilla} className="h-14 w-14 text-slate-900 dark:text-white" />
         : opcion.fila
         ? <FilaSimbolos fila={opcion.fila} />
+        : opcion.agujeros
+        ? <AgujerosPsico agujeros={opcion.agujeros} className="h-[4.5rem] w-[4.5rem] text-slate-900 dark:text-white" />
+        : opcion.figura
+        ? <FiguraGiro figura={opcion.figura} className="h-[5rem] w-[5rem] text-slate-900 dark:text-white" />
         : <span className="text-base font-semibold text-slate-900 dark:text-white">{opcion.texto}</span>}
       {estado === 'buena' && <Check size={18} className="ml-auto shrink-0 text-emerald-700 dark:text-emerald-300" aria-label="Correcta" />}
       {estado === 'mala' && <X size={18} className="ml-auto shrink-0 text-red-700 dark:text-red-300" aria-label="Tu respuesta, incorrecta" />}
@@ -94,6 +98,18 @@ function Enunciado({ q }: { q: PreguntaPsicoPublica }) {
         </div>
       )}
       {q.leyenda && <TablaSimbolos leyenda={q.leyenda} />}
+      {q.cubos && (
+        <div className="mt-3 flex flex-wrap items-end justify-center gap-4" role="group" aria-label="Las figuras de cubos">
+          {q.cubos.map((f, i) => (
+            <figure key={i} className="grid justify-items-center gap-1">
+              <CubosPsico alturas={f} className="h-28 w-auto max-w-[9.5rem] text-slate-900 dark:text-white" />
+              {q.cubos!.length > 1 && <figcaption className={cx(TEXT.hud, 'text-sm')}>{'ABC'[i]}</figcaption>}
+            </figure>
+          ))}
+        </div>
+      )}
+      {q.desarrollo && <div className="mt-3 flex justify-center"><DesarrolloPsico desarrollo={q.desarrollo} className="h-auto max-h-36 w-full max-w-[17rem] text-slate-900 dark:text-white" /></div>}
+      {q.figura && <div className="mt-3 flex justify-center"><FiguraGiro figura={q.figura} className="h-32 w-32 text-slate-900 dark:text-white" /></div>}
       {q.tabla && (
         <div className={cx('mt-3 overflow-x-auto border border-slate-200 dark:border-slate-700', RADIUS.md)}>
           <table className="w-full min-w-[16rem] border-collapse text-left text-sm tabular-nums">
@@ -230,7 +246,7 @@ export default function Psicotecnicos() {
         <Card pad="lg">
           <Enunciado q={q} />
           {/* Las figuras, de dos en dos: en una columna la tabla y las opciones no cabían en la pantalla. */}
-          <div className={cx('mt-4 grid gap-2', q.matriz || q.fichas || q.rejilla ? 'grid-cols-2' : 'grid-cols-1')}>
+          <div className={cx('mt-4 grid gap-2', q.matriz || q.fichas || q.rejilla || q.opciones.some((o) => o.agujeros || o.figura) ? 'grid-cols-2' : 'grid-cols-1')}>
             {q.opciones.map((o, i) => (
               <Opcion
                 key={i}

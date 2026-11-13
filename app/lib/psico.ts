@@ -32,8 +32,10 @@ import {
   type OpcionPsico, type PreguntaPsico, type PreguntaPsicoPublica,
 } from './psico-comun';
 export * from './psico-comun';
+import { cubos, desarrollos, plegados, giros, parentescos } from './psico-visual';
 import { conteo, dobles, problemas, abecedario, logica, cuadros, cifrado, ordenes, simbolos, leyendaDe } from './psico-nuevos';
 export { aplicaOrdenes, ORDENES, leyendaDe, NOMBRES_SIMBOLOS } from './psico-nuevos';
+export { parentesco, carasDelDesarrollo, agujerosAlAbrir, posicionTrasPliegues, giraFigura, espejoFigura, totalDeCubos, figuraDeCubos, DESARROLLOS } from './psico-visual';
 
 
 export const TIPO_PSICO_LABEL: Record<TipoPsico, string> = {
@@ -55,6 +57,11 @@ export const TIPO_PSICO_LABEL: Record<TipoPsico, string> = {
   cifrado: 'Palabras en símbolos',
   simbolos: 'Símbolos y nombres',
   ordenes: 'Órdenes sobre una frase',
+  cubos: 'Cubos contados',
+  desarrollos: 'Desarrollos de cubo',
+  plegados: 'Plegados de papel',
+  giros: 'Giros de figuras',
+  parentescos: 'Parentescos',
 };
 
 export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
@@ -76,6 +83,11 @@ export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
   cifrado: 'Una palabra escrita en símbolos y su anagrama.',
   simbolos: 'Ejercicio 2: cambia símbolos por nombres y busca el orden alfabético.',
   ordenes: 'Ejercicio 3: aplica órdenes en cadena a una frase.',
+  cubos: 'Cuenta los cubos de una figura, sumando o restando figuras.',
+  desarrollos: 'Qué cara queda frente a otra al plegar un cubo.',
+  plegados: 'Cómo queda un papel doblado y agujereado al abrirlo.',
+  giros: 'Una figura con varios elementos, girada 90°, 180° o 270°.',
+  parentescos: 'Quién es quién en una familia.',
 };
 
 /**
@@ -86,7 +98,7 @@ export const TIPO_PSICO_DESC: Record<TipoPsico, string> = {
 export const EJERCICIOS_PSICO = {
   1: {
     nombre: 'Ejercicio 1', descripcion: 'Razonamiento numérico, verbal y espacial', total: 40, minutos: 23,
-    tipos: ['series', 'letras', 'calculo', 'verbal', 'figuras', 'dominos', 'rotaciones', 'tablas', 'conteo', 'dobles', 'problemas', 'abecedario', 'logica', 'cuadros', 'cifrado'] as TipoPsico[],
+    tipos: ['series', 'letras', 'calculo', 'verbal', 'figuras', 'dominos', 'rotaciones', 'tablas', 'conteo', 'dobles', 'problemas', 'abecedario', 'logica', 'cuadros', 'cifrado', 'cubos', 'desarrollos', 'plegados', 'giros', 'parentescos'] as TipoPsico[],
   },
   2: { nombre: 'Ejercicio 2', descripcion: 'Símbolos y nombres en orden alfabético', total: 34, minutos: 18, tipos: ['simbolos'] as TipoPsico[] },
   3: { nombre: 'Ejercicio 3', descripcion: 'Órdenes sobre una frase', total: 30, minutos: 18, tipos: ['ordenes'] as TipoPsico[] },
@@ -127,7 +139,7 @@ export const MINUTOS_PSICO: Record<number, number> = { 15: 8, 25: 12, 40: 20 };
 
 
 export function aPublica(q: PreguntaPsico): PreguntaPsicoPublica {
-  return { tipo: q.tipo, enunciado: q.enunciado, lineas: q.lineas, matriz: q.matriz, fichas: q.fichas, rejilla: q.rejilla, tabla: q.tabla, leyenda: q.leyenda, opciones: q.opciones };
+  return { tipo: q.tipo, enunciado: q.enunciado, lineas: q.lineas, matriz: q.matriz, fichas: q.fichas, rejilla: q.rejilla, tabla: q.tabla, leyenda: q.leyenda, cubos: q.cubos, desarrollo: q.desarrollo, figura: q.figura, opciones: q.opciones };
 }
 
 // ---------------------------------------------------------------------------
@@ -638,6 +650,7 @@ const GENERADORES: Record<TipoPsico, (r: Azar, ctx: Contexto) => PreguntaPsico> 
   series, letras, calculo, verbal, atencion, figuras, dominos, rotaciones, tablas,
   conteo, dobles, problemas, abecedario, logica, cuadros, cifrado, ordenes,
   simbolos: (r, ctx) => simbolos(r, ctx.leyenda),
+  cubos, desarrollos, plegados, giros, parentescos,
 };
 
 /** Los tipos pedidos, limpios y en el orden de siempre; sin ninguno válido, todos. */

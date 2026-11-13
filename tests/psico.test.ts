@@ -4,14 +4,14 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   generaSesion, corrigeSesion, notaPsico, normalizaRespuesta, aPublica, tiposValidos, azarDe,
-  TIPOS_PSICO, OPCIONES_PSICO, VERSION_PSICO, opcionesDe, notaDeSesionGuardada, textoPenalizacion, EJERCICIOS_PSICO, aplicaOrdenes, leyendaDe, NOMBRES_SIMBOLOS, SINONIMOS, ANTONIMOS, ABECEDARIO, girar, type PreguntaPsico, type TipoPsico,
+  TIPOS_PSICO, OPCIONES_PSICO, VERSION_PSICO, opcionesDe, notaDeSesionGuardada, textoPenalizacion, EJERCICIOS_PSICO, aplicaOrdenes, leyendaDe, carasDelDesarrollo, agujerosAlAbrir, giraFigura, espejoFigura, totalDeCubos, DESARROLLOS, parentesco, NOMBRES_SIMBOLOS, SINONIMOS, ANTONIMOS, ABECEDARIO, girar, type PreguntaPsico, type TipoPsico,
 } from '../app/lib/psico';
 
 /** Regla 117 · psicotécnicos generados por código. */
 
 const SEMILLAS = Array.from({ length: 400 }, (_, i) => i * 7919 + 13);
 const deTipo = (tipo: TipoPsico, n = 400, version: number = VERSION_PSICO): PreguntaPsico[] => SEMILLAS.slice(0, n).flatMap((s) => generaSesion(s, [tipo], 3, version));
-const clave = (q: PreguntaPsico) => q.opciones.map((o) => o.texto ?? JSON.stringify(o.celda ?? o.ficha ?? o.rejilla ?? o.fila));
+const clave = (q: PreguntaPsico) => q.opciones.map((o) => o.texto ?? JSON.stringify(o.celda ?? o.ficha ?? o.rejilla ?? o.fila ?? o.agujeros ?? o.figura));
 
 describe('la semilla', () => {
   it('la misma semilla da siempre la misma sesión', () => {
@@ -527,6 +527,198 @@ describe('los ejercicios del examen real (13 nov)', () => {
     expect(textoPenalizacion([4, 4])).toBe('Cada 3 fallos quitan un acierto; los blancos no restan.');
     expect(textoPenalizacion([3])).toBe('Cada 2 fallos quitan un acierto; los blancos no restan.');
     expect(textoPenalizacion([4, 3])).toContain('según las opciones');
+  });
+});
+
+describe('los tipos visuales y los parentescos (13 nov)', () => {
+  it('cubos: las columnas bajan hacia el observador (se ven todas) y la respuesta es la suma que dice el enunciado', () => {
+    for (const q of deTipo('cubos')) {
+      const n = q.cubos!.map(totalDeCubos);
+      for (const f of q.cubos!) for (let y = 0; y < f.length; y++) for (let x = 0; x < f[0].length; x++) {
+        if (y > 0) expect(f[y][x]).toBeLessThanOrEqual(f[y - 1][x]);
+        if (x > 0) expect(f[y][x]).toBeLessThanOrEqual(f[y][x - 1]);
+        expect(f[y][x] >= 0 && f[y][x] <= 4).toBe(true);
+      }
+      const esperado = /A \+ B − C/.test(q.enunciado) ? n[0] + n[1] - n[2] : /A \+ B/.test(q.enunciado) ? n[0] + n[1] : n[0];
+      expect(Number(q.opciones[q.correcta].texto), q.enunciado).toBe(esperado);
+      expect(q.cubos!.length).toBe(/A \+ B − C/.test(q.enunciado) ? 3 : /A \+ B/.test(q.enunciado) ? 2 : 1);
+      expect(esperado).toBeGreaterThan(0);
+    }
+  });
+
+  it('desarrollos: todos los desarrollos se pliegan en un cubo, y lo comprobamos sin rodar nada', () => {
+    expect(DESARROLLOS.length).toBe(18);
+    for (const red of DESARROLLOS) {
+      const cara = carasDelDesarrollo(red)!;
+      expect(cara, JSON.stringify(red)).not.toBeNull();
+      expect(new Set(cara).size).toBe(6);
+      const op = (i: number, j: number) => Math.floor(cara[i] / 2) === Math.floor(cara[j] / 2);
+      // En los desarrollos 1-4-1 (la fila de cuatro con una casilla encima y otra debajo) las opuestas se leen a ojo:
+      const fila = red.slice(0, 4);
+      if (red.slice(0, 4).every(([, y]) => y === 1) && red.length === 6 && fila.map(([x]) => x).join() === '0,1,2,3') {
+        expect(op(0, 2)).toBe(true); expect(op(1, 3)).toBe(true);
+        expect(op(4, 5)).toBe(true); // la de encima y la de debajo son las tapas
+        expect(op(0, 1)).toBe(false);
+      }
+    }
+    // Lo que no es un desarrollo de cubo no se pliega: un bloque de 2×3, o una cruz con dos casillas en el mismo sitio.
+    expect(carasDelDesarrollo([[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1]])).toBeNull();
+    expect(carasDelDesarrollo([[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]])).toBeNull();
+  });
+
+  it('desarrollos: lo que se pregunta (la opuesta, o el grupo imposible) sale de las caras opuestas del cubo', () => {
+    const cara = (q: PreguntaPsico) => {
+      const red = q.desarrollo!.map((c) => [c.x, c.y] as [number, number]);
+      const etiquetas = carasDelDesarrollo(red)!;
+      const simboloDe = new Map<string, number>(q.desarrollo!.map((c, i) => [c.s, etiquetas[i]]));
+      expect(simboloDe.size).toBe(6);
+      return simboloDe;
+    };
+    let uno = 0, dos = 0;
+    for (const q of deTipo('desarrollos')) {
+      const m = cara(q);
+      const opuestas = (a: string, b: string) => Math.floor(m.get(a)! / 2) === Math.floor(m.get(b)! / 2) && a !== b;
+      const d = /opuesta a la (\S+)\?/.exec(q.enunciado);
+      if (d) {
+        const buena = q.opciones[q.correcta].texto!;
+        expect(opuestas(d[1], buena)).toBe(true);
+        expect(q.opciones.filter((o) => opuestas(d[1], o.texto!))).toHaveLength(1);
+        uno++;
+      } else {
+        const tiene = (t: string) => { const c = t.split('   '); return c.some((a, i) => c.some((b, k) => i < k && opuestas(a, b))); };
+        q.opciones.forEach((o, i) => expect(tiene(o.texto!), q.enunciado).toBe(i === q.correcta));
+        dos++;
+      }
+    }
+    expect(uno).toBeGreaterThan(100); expect(dos).toBeGreaterThan(100);
+  });
+
+  it('plegados: el papel abierto coincide con apilar las capas de verdad', () => {
+    const pliegaCapas = (n: number, pliegues: string[], hx: number, hy: number) => {
+      // Cada casilla del papel doblado guarda las casillas originales apiladas en ella.
+      let capas: [number, number][][][] = Array.from({ length: n }, (_, y) => Array.from({ length: n }, (__, x) => [[x, y] as [number, number]]));
+      for (const p of pliegues) {
+        const h = capas.length, w = capas[0].length;
+        if (p.startsWith('izquierda') || p.startsWith('derecha')) {
+          const medio = w / 2;
+          const izq = capas.map((f) => f.slice(0, medio)), der = capas.map((f) => f.slice(medio));
+          const mover = p.startsWith('izquierda') ? izq : der, quieto = p.startsWith('izquierda') ? der : izq;
+          capas = quieto.map((f, y) => f.map((c, x) => [...c, ...mover[y][medio - 1 - x]]));
+        } else {
+          const medio = h / 2;
+          const arr = capas.slice(0, medio), aba = capas.slice(medio);
+          const mover = p.startsWith('arriba') ? arr : aba, quieto = p.startsWith('arriba') ? aba : arr;
+          capas = quieto.map((f, y) => f.map((c, x) => [...c, ...mover[medio - 1 - y][x]]));
+        }
+      }
+      const grid = Array.from({ length: n }, () => Array(n).fill(false));
+      for (const [x, y] of capas[hy][hx]) grid[y][x] = true;
+      return grid;
+    };
+    for (const hxy of [[0, 0], [1, 0], [0, 1], [1, 1]]) for (const p1 of ['izquierda-sobre-derecha', 'derecha-sobre-izquierda'] as const) for (const p2 of ['arriba-sobre-abajo', 'abajo-sobre-arriba'] as const) {
+      expect(agujerosAlAbrir(4, [p1, p2], hxy[0], hxy[1])).toEqual(pliegaCapas(4, [p1, p2], hxy[0], hxy[1]));
+      expect(agujerosAlAbrir(4, [p2, p1], hxy[0], hxy[1])).toEqual(pliegaCapas(4, [p2, p1], hxy[0], hxy[1]));
+    }
+  });
+
+  it('plegados: la pregunta describe los pliegues y la buena es la del papel abierto, con 4 agujeros', () => {
+    const lados: Record<string, string> = {
+      'se dobla la mitad izquierda sobre la derecha': 'izquierda-sobre-derecha', 'se dobla la mitad derecha sobre la izquierda': 'derecha-sobre-izquierda',
+      'se dobla la mitad de arriba sobre la de abajo': 'arriba-sobre-abajo', 'se dobla la mitad de abajo sobre la de arriba': 'abajo-sobre-arriba',
+    };
+    for (const q of deTipo('plegados')) {
+      const m = /Un papel cuadrado (.+) y, después, (.+)\. Se hace un agujero en la casilla de (arriba|abajo) a la (izquierda|derecha)/.exec(q.enunciado)!;
+      const pliegues = [lados[m[1]], lados[m[2]]] as never;
+      const esperado = agujerosAlAbrir(4, pliegues, m[4] === 'izquierda' ? 0 : 1, m[3] === 'arriba' ? 0 : 1);
+      expect(q.opciones[q.correcta].agujeros).toEqual(esperado);
+      expect(new Set(q.opciones.map((o) => JSON.stringify(o.agujeros))).size).toBe(q.opciones.length);
+      for (const o of q.opciones) expect(o.agujeros!.flat().filter(Boolean)).toHaveLength(4);
+    }
+  });
+
+  it('giros: girar cuatro veces devuelve la figura y el espejo se deshace al repetirlo', () => {
+    const f = [{ forma: 'flecha', giro: 1 }, { forma: 'cruz', giro: 0 }, { forma: 'triangulo', giro: 3 }, { forma: 'cuadrado', giro: 0 }] as never;
+    expect(giraFigura(giraFigura(giraFigura(giraFigura(f, 1), 1), 1), 1)).toEqual(f);
+    expect(espejoFigura(espejoFigura(f))).toEqual(f);
+    expect(giraFigura(f, 2)).toEqual(giraFigura(giraFigura(f, 1), 1));
+    // la flecha de arriba, al girar 90° a la derecha, pasa al hueco de la derecha y apunta a la derecha
+    const g = giraFigura(f, 1) as { forma: string; giro: number }[];
+    expect(g[1]).toEqual({ forma: 'flecha', giro: 2 });
+  });
+
+  it('giros: la correcta es el giro del enunciado y las demás, otra cosa', () => {
+    for (const q of deTipo('giros')) {
+      const grados = Number(/figura (\d+)° a la derecha/.exec(q.enunciado)![1]);
+      const llave = (f: unknown) => JSON.stringify(f);
+      expect(llave(q.opciones[q.correcta].figura)).toBe(llave(giraFigura(q.figura!, grados / 90)));
+      expect(q.opciones.filter((o) => llave(o.figura) === llave(giraFigura(q.figura!, grados / 90)))).toHaveLength(1);
+      expect(q.figura!.filter((e) => e.forma === 'flecha' || e.forma === 'triangulo').length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('parentescos: un árbol conocido da los parentescos de siempre', () => {
+    const P = (nombre: string, mujer: boolean) => ({ nombre, mujer });
+    const abuelo = P('Antonio', false), abuela = P('Pilar', true), c1 = P('Luis', false), c2 = P('Ana', true), p1 = P('Rosa', true), p2 = P('Pablo', false), k1 = P('Marta', true), k2 = P('Javier', false);
+    const f = { abuelo, abuela, hijos: [c1, c2], pareja: [p1, p2], nietos: [k1, k2] } as never;
+    expect(parentesco(f, k1, k2)).toBe('prima');
+    expect(parentesco(f, k2, k1)).toBe('primo');
+    expect(parentesco(f, c2, k1)).toBe('tía');
+    expect(parentesco(f, k1, c2)).toBe('sobrina');
+    expect(parentesco(f, k2, c1)).toBe('sobrino');
+    expect(parentesco(f, p2, c1)).toBe('cuñado');
+    expect(parentesco(f, p1, c2)).toBe('cuñada');
+    expect(parentesco(f, c1, p2)).toBe('cuñado');
+    expect(parentesco(f, abuelo, p1)).toBe('suegro');
+    expect(parentesco(f, abuela, p2)).toBe('suegra');
+    expect(parentesco(f, p1, abuelo)).toBe('nuera');
+    expect(parentesco(f, p2, abuela)).toBe('yerno');
+    expect(parentesco(f, k1, abuelo)).toBe('nieta');
+    expect(parentesco(f, abuela, k2)).toBe('abuela');
+    expect(parentesco(f, c1, c2)).toBe('hermano');
+    expect(parentesco(f, p1, p2)).toBeNull();   // concuñados: no se pregunta
+    expect(parentesco(f, p2, k1)).toBeNull();   // tío político: no se pregunta
+  });
+
+  it('parentescos: la respuesta sale de lo que dicen las frases, reconstruyendo el árbol', () => {
+    for (const q of deTipo('parentescos')) {
+      const [cuerpo, pregunta] = q.enunciado.split('. ¿');
+      const frases = cuerpo.split('. ');
+      const padres = new Map<string, string[]>(), pareja = new Map<string, string>(), mujer = new Map<string, boolean>();
+      for (const fr of frases) {
+        let m = /^(\S+) es (hijo|hija) de (\S+) y de (\S+)$/.exec(fr);
+        if (m) { padres.set(m[1], [m[3], m[4]]); mujer.set(m[1], m[2] === 'hija'); continue; }
+        m = /^(\S+) y (\S+) están casados$/.exec(fr);
+        if (m) { pareja.set(m[1], m[2]); pareja.set(m[2], m[1]); continue; }
+        m = /^(\S+) está (casado|casada) con (\S+)$/.exec(fr);
+        if (m) { pareja.set(m[1], m[3]); pareja.set(m[3], m[1]); mujer.set(m[1], m[2] === 'casada'); continue; }
+        throw new Error(fr);
+      }
+      const m = /^Qué es (\S+) de (\S+)\?$/.exec(pregunta)!;
+      const [a, b] = [m[1], m[2]];
+      const pa = (x: string) => padres.get(x) ?? [];
+      const hermanos = (x: string, y: string) => x !== y && pa(x).length > 0 && pa(x).every((p) => pa(y).includes(p));
+      const gen = (x: string) => (mujer.get(x) ? 1 : 0);
+      void gen;
+      const r = q.opciones[q.correcta].texto!;
+      const posibles: boolean[] = [];
+      // Cada parentesco se comprueba con la definición, no con el código del generador.
+      if (/^(abuel)/.test(r)) posibles.push(pa(b).some((x) => pa(x).includes(a)));
+      if (/^(niet)/.test(r)) posibles.push(pa(a).some((x) => pa(x).includes(b)));
+      if (/^(tí)/.test(r)) posibles.push(pa(b).some((x) => hermanos(a, x)));
+      if (/^(sobrin)/.test(r)) posibles.push(pa(a).some((x) => hermanos(b, x)));
+      if (/^(prim)/.test(r)) posibles.push(pa(a).some((x) => pa(b).some((y) => hermanos(x, y))));
+      if (/^(suegr)/.test(r)) posibles.push(pa(pareja.get(b) ?? '').includes(a));
+      if (/^(yern|nuer)/.test(r)) posibles.push(pa(pareja.get(a) ?? '').includes(b));
+      if (/^(cuñad)/.test(r)) posibles.push(hermanos(pareja.get(a) ?? '', b) || hermanos(a, pareja.get(b) ?? ''));
+      if (/^(hermano|hermana)/.test(r)) posibles.push(hermanos(a, b));
+      expect(posibles.length, `${r} ${q.enunciado}`).toBeGreaterThan(0);
+      expect(posibles.every(Boolean), `${r} ${q.enunciado}`).toBe(true);
+      // El género de la respuesta es el de la persona por la que se pregunta.
+      const esFem = /a$/.test(r);
+      // (el sexo de los abuelos no lo dice ninguna frase: solo se comprueba cuando se sabe)
+      if (mujer.has(a)) expect(esFem).toBe(mujer.get(a) === true);
+      expect(new Set(q.opciones.map((o) => o.texto)).size).toBe(q.opciones.length);
+    }
   });
 });
 
