@@ -241,6 +241,14 @@ describe('las pantallas', () => {
     const s = lee('app/components/student/modules/psico/Psicotecnicos.tsx');
     for (const t of ['empiezaPsicoClase(id)', "via: 'hoja'", 'getRevisionPsicoClase(id)', 'Ya lo hice en papel', 'parseaRespuestasPsico(']) expect(s).toContain(t);
   });
+  it('el alumno elige entre «Simulacro del examen» y «Entrenar por tipos», y solo ve una a la vez', () => {
+    const s = lee('app/components/student/modules/psico/Psicotecnicos.tsx');
+    expect(s).toContain('title="Simulacro del examen"');
+    expect(s).toContain('title="Entrenar por tipos"');
+    expect(s).toContain("modo === 'examen' && (");
+    expect(s).toContain("modo === 'libre' && (");
+    expect(s).not.toContain('Práctica libre');
+  });
   it('la hoja imprimible lleva preguntas, hoja de respuestas y solucionario en páginas distintas', () => {
     const s = lee('app/components/Admin/components/examenes/hojaPsico.tsx');
     expect(s).toContain('Hoja de respuestas');

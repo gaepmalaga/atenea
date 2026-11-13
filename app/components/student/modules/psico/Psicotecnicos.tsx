@@ -432,6 +432,8 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
     return suma;
   }, [historial]);
 
+  const [modo, setModo] = useState<'examen' | 'libre'>('examen');
+
   return (
     <div className="mx-auto max-w-2xl space-y-4 pb-6 animate-in fade-in duration-150">
       {(clase.length > 0 || hoja) && (
@@ -468,9 +470,16 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
         </Card>
       )}
 
+      {/* Dos maneras de hacerlo, y se elige una: así no se mezclan en la pantalla. */}
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Cómo quieres hacerlo">
+        <OptionCard title="Simulacro del examen" description="Los 3 ejercicios del cuadernillo, con su tiempo. Para medirte." selected={modo === 'examen'} onClick={() => setModo('examen')} />
+        <OptionCard title="Entrenar por tipos" description="Tú eliges qué tipos y cuántas. Para practicar lo que peor llevas." selected={modo === 'libre'} onClick={() => setModo('libre')} />
+      </div>
+
+      {modo === 'examen' && (
       <Card pad="lg">
-        <SectionLabel>Como en el examen</SectionLabel>
-        <p className={cx(TEXT.muted, 'mb-3')}>Los tres ejercicios del psicotécnico, con sus preguntas y su tiempo. Las preguntas son nuevas cada vez.</p>
+        <SectionLabel>Simulacro del examen</SectionLabel>
+        <p className={cx(TEXT.muted, 'mb-3')}>Igual que el examen real: las mismas preguntas, el mismo tiempo y las mismas opciones. Las preguntas son nuevas cada vez. Cada ejercicio se hace por separado.</p>
         <div className="grid gap-2">
           {([1, 2, 3] as const).map((n) => {
             const e = EJERCICIOS_PSICO[n];
@@ -487,10 +496,12 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
           })}
         </div>
       </Card>
+      )}
 
+      {modo === 'libre' && (
       <Card pad="lg">
-        <SectionLabel>Práctica libre</SectionLabel>
-        <p className={cx(TEXT.body, 'mb-4 text-slate-700 dark:text-slate-300')}>Preguntas nuevas cada vez, contra el reloj. No se repiten: no hay nada que memorizar.</p>
+        <SectionLabel>Entrenar por tipos</SectionLabel>
+        <p className={cx(TEXT.body, 'mb-4 text-slate-700 dark:text-slate-300')}>Eliges los tipos de pregunta y cuántas hacer; el tiempo se ajusta solo. Preguntas nuevas cada vez: no hay nada que memorizar.</p>
         <SectionLabel>Qué entrenar</SectionLabel>
         <div className="grid gap-2 sm:grid-cols-2">
           {TIPOS_PSICO.map((t) => {
@@ -525,8 +536,9 @@ function Configuracion({ tipos, setTipos, total, setTotal, historial, empezar, o
         <div className="mt-5">
           <Button onClick={() => empezar()} disabled={ocupado} icon={<Play size={16} />}>{ocupado ? 'Preparando…' : 'Empezar'}</Button>
         </div>
-        <p className={cx(TEXT.muted, 'mt-3')}>Cuatro opciones por pregunta (tres en los ejercicios 2 y 3), como en el examen. Cada fallo resta según las opciones; los blancos no restan.</p>
+        <p className={cx(TEXT.muted, 'mt-3')}>Cuatro opciones por pregunta, como en el examen. Cada fallo resta según las opciones; los blancos no restan.</p>
       </Card>
+      )}
 
       <Card>
         <SectionLabel>Mis últimas sesiones</SectionLabel>
