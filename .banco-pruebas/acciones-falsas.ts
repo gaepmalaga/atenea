@@ -1413,11 +1413,12 @@ export async function getInformeSemanal() {
 
 // ---------- Psicotécnicos (regla 117) ----------
 // El generador de verdad con una semilla fija: lo que se ve aquí es lo que sale.
-import { generaSesion as _genera, aPublica as _publica, corrigeSesion as _corrige, tiposValidos as _tipos, MINUTOS_PSICO as _min } from '@/app/lib/psico';
+import { generaSesion as _genera, aPublica as _publica, corrigeSesion as _corrige, tiposValidos as _tipos, MINUTOS_PSICO as _min, EJERCICIOS_PSICO as _ejer, esEjercicio as _esEj } from '@/app/lib/psico';
 let _psico: { tipos: ReturnType<typeof _tipos>; total: number } = { tipos: _tipos([]), total: 15 };
-export async function empiezaPsico(d: { tipos?: string[]; total?: number }) {
-  _psico = { tipos: _tipos(d?.tipos), total: d?.total ?? 15 };
-  return ok({ sesion: { id: '99999999-9999-9999-9999-999999999999', minutos: _min[_psico.total] ?? 8, preguntas: _genera(20261111, _psico.tipos, _psico.total).map(_publica) } });
+export async function empiezaPsico(d: { tipos?: string[]; total?: number; ejercicio?: number }) {
+  const ej = _esEj(d?.ejercicio) ? _ejer[d.ejercicio] : null;
+  _psico = ej ? { tipos: [...ej.tipos], total: ej.total } : { tipos: _tipos(d?.tipos), total: d?.total ?? 15 };
+  return ok({ sesion: { id: '99999999-9999-9999-9999-999999999999', minutos: ej ? ej.minutos : _min[_psico.total] ?? 8, preguntas: _genera(20261111, _psico.tipos, _psico.total).map(_publica) } });
 }
 export async function entregaPsico(d: { respuestas?: number[] }) {
   const preguntas = _genera(20261111, _psico.tipos, _psico.total);
@@ -1427,8 +1428,8 @@ export async function entregaPsico(d: { respuestas?: number[] }) {
 export async function getMisPsico() {
   return ok({
     sesiones: [
-      { id: 'p1', fecha: new Date(Date.now() - 864e5).toISOString(), total: 25, aciertos: 17, fallos: 5, blancos: 3, duracionMs: 700000, tipos: _tipos([]), porTipo: { series: { a: 4, t: 5 }, figuras: { a: 2, t: 4 }, calculo: { a: 3, t: 4 } } },
-      { id: 'p2', fecha: new Date(Date.now() - 4 * 864e5).toISOString(), total: 15, aciertos: 6, fallos: 8, blancos: 1, duracionMs: 470000, tipos: _tipos([]), porTipo: { series: { a: 1, t: 3 }, atencion: { a: 2, t: 3 } } },
+      { id: 'p1', nota: 5.4, fecha: new Date(Date.now() - 864e5).toISOString(), total: 25, aciertos: 17, fallos: 5, blancos: 3, duracionMs: 700000, tipos: _tipos([]), porTipo: { series: { a: 4, t: 5 }, figuras: { a: 2, t: 4 }, calculo: { a: 3, t: 4 } } },
+      { id: 'p2', nota: 1.7, fecha: new Date(Date.now() - 4 * 864e5).toISOString(), total: 15, aciertos: 6, fallos: 8, blancos: 1, duracionMs: 470000, tipos: _tipos([]), porTipo: { series: { a: 1, t: 3 }, atencion: { a: 2, t: 3 } } },
     ],
   });
 }

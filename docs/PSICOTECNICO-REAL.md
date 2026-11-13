@@ -31,15 +31,31 @@ silogismos, parentescos y orden de estatura; tablas 3×3 con una X; y lo visual:
 series de figuras, rotaciones de figuras complejas, cubos contados, desarrollos
 de cubo, fichas de dominó, plegados.
 
-## Qué tenemos y qué falta (regla 117)
+## Qué hay ahora (13 nov, en la rama)
 
-- Tenemos: series, letras, cálculo, sinónimos, atención, figuras (tabla 3×3),
-  dominós, rotaciones (rejilla 3×3) y tablas de datos.
-- **Diferencia grande:** generamos con **5** opciones; el examen real usa **4 o 3**.
-  Cambiarlo obliga a subir `VERSION_PSICO` (cambia lo que se genera).
-- **Diferencia grande:** no existen los ejercicios 2 y 3 (símbolos→nombres en
-  orden alfabético; órdenes sobre una frase). Son los más fáciles de generar con
-  exactitud por código.
-- Los minutos por pregunta (~30 s) y el número (40) son parecidos.
-- La penalización exacta del psicotécnico hay que leerla en las bases de la
-  convocatoria: no se asume.
+- **VERSION_PSICO = 2.** Preguntas con **4 opciones** (3 en los ejercicios 2 y 3), como
+  el examen. Una sesión empezada con la versión 1 (5 opciones) se corrige y se repasa
+  como la 1 (`VERSIONES_PSICO`). Los generadores hacen 5 opciones y la versión 2 las
+  recorta (`recorta`), así que las sesiones de la versión 1 salen idénticas: un test
+  lleva la huella de 300.
+- **Nota:** cada fallo resta 1/(opciones − 1) de un acierto, con las opciones de
+  CADA pregunta. Es una suposición (la fórmula de la regla 22 generalizada): la
+  penalización exacta hay que leerla en las bases de la convocatoria.
+- **«Como en el examen»:** los tres ejercicios con sus preguntas y minutos
+  (`EJERCICIOS_PSICO`). El ejercicio 1 mezcla 15 tipos.
+- **Tipos nuevos:** conteo, series dobles, problemas (12 modelos: el aceite a
+  precios distintos, el precio X, la cuenta del bar, los invitados, ocas y ovejas,
+  porcentajes, grifos, reparto proporcional, minutos, ciclistas, impresoras, edades),
+  abecedario (4 variantes), lógica (estatura y silogismos, comprobados contra todos
+  los mundos posibles), cuadros con una X, palabras en símbolos, símbolos y nombres
+  (ejercicio 2) y órdenes sobre una frase (ejercicio 3).
+- **Lo que NO está:** lo visual complejo del ejercicio 1 (cubos contados, desarrollos
+  de cubo, plegados, rotaciones de figuras con varios elementos, series de figuras
+  con flechas) y los parentescos. Requieren dibujo por código; se hacen si compensa.
+
+## Qué se guarda y dónde se ve
+
+- Se guarda la SESIÓN (semilla, tipos, respuestas y resultado), no las preguntas:
+  con la semilla se regeneran idénticas. Por eso el alumno puede repasar cualquier
+  sesión ya hecha («Mis últimas sesiones» → tocar una).
+- El admin todavía no ve las sesiones de psicotécnicos de sus alumnos.

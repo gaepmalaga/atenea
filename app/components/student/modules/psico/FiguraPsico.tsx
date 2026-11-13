@@ -108,3 +108,53 @@ export function RejillaPsico({ rejilla, className }: { rejilla: boolean[][]; cla
     </svg>
   );
 }
+
+// ── Ejercicio 2: símbolos y nombres ──
+
+/**
+ * Los cinco dibujos base del ejercicio 2, en una caja de 24×24; cada uno se
+ * gira 0, 90, 180 y 270 grados y da 5 × 4 = 20 símbolos distintos (ninguno
+ * tiene simetría, así que no hay dos iguales). `id = dibujo * 4 + giro`.
+ */
+const DIBUJOS = [
+  ['M6 18 V6 H18'],
+  ['M5 19 V5 H19', 'M9 19 V9 H19'],
+  ['M5 7 H19', 'M12 7 V19'],
+  ['M5 6 H19', 'M5 10 H19', 'M12 10 V19'],
+  ['M6 18 V6 H18', 'M6 12 H11'],
+] as const;
+
+export function SimboloPsico({ id, className }: { id: number; className?: string }) {
+  const dibujo = DIBUJOS[Math.floor(id / 4) % DIBUJOS.length];
+  const giro = (id % 4) * 90;
+  return (
+    <svg viewBox="0 0 24 24" className={className} role="img" aria-label={`Símbolo ${id + 1}`}>
+      <g transform={`rotate(${giro} 12 12)`} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="square">
+        {dibujo.map((d) => <path key={d} d={d} />)}
+      </g>
+    </svg>
+  );
+}
+
+/** Una fila de símbolos (una opción del ejercicio 2). */
+export function FilaSimbolos({ fila }: { fila: number[] }) {
+  return (
+    <span className="flex flex-wrap items-center gap-1.5 text-slate-900 dark:text-white">
+      {fila.map((id, i) => <SimboloPsico key={i} id={id} className="h-7 w-7" />)}
+    </span>
+  );
+}
+
+/** La tabla de los 20 símbolos con sus nombres, como en la hoja del examen. */
+export function TablaSimbolos({ leyenda }: { leyenda: { nombre: string; simbolo: number }[] }) {
+  return (
+    <div className="mt-3 grid grid-cols-5 gap-px overflow-hidden rounded-lg border border-slate-300 bg-slate-300 dark:border-slate-700 dark:bg-slate-700" role="group" aria-label="La tabla de símbolos y nombres">
+      {leyenda.map((x) => (
+        <div key={x.nombre} className="grid justify-items-center gap-0.5 bg-white px-0.5 py-1.5 dark:bg-slate-900">
+          <SimboloPsico id={x.simbolo} className="h-6 w-6 text-slate-900 dark:text-white" />
+          <span className="max-w-full truncate text-[10px] font-semibold text-slate-800 dark:text-slate-200">{x.nombre}</span>
+        </div>
+      ))}
+    </div>
+  );
+}

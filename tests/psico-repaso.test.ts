@@ -20,7 +20,7 @@ describe('repasar una sesión de psicotécnicos ya entregada', () => {
     expect(accion).toContain('finished_at');
   });
   it('si el generador cambió, no enseña preguntas que ya no son las suyas', () => {
-    expect(accion).toMatch(/fila\.version !== VERSION_PSICO/);
+    expect(accion).toMatch(/!esVersionPsico\(fila\.version\)/);
   });
   it('el error no lleva el mensaje de la base de datos al navegador (regla 108)', () => {
     expect(accion).toContain("fallo('getRevisionPsico', error)");
