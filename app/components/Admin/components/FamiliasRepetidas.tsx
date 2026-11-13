@@ -6,6 +6,7 @@ import { getFamiliasRepetidas, quedarseConUna } from '@/actions';
 import type { MiembroDeFamilia } from '@/app/lib/familias';
 import { DIFFICULTY_LABEL, type DifficultyLevel } from '@/app/lib/questions';
 import { PanelTitulo, Aviso, Boton, Hoja, Atras, Dato, Etiqueta, EmptyState, TEXT } from '../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 type Familia = { id: string; miembros: MiembroDeFamilia[] };
 type Pagina = { familias: Familia[]; totalFamilias: number; sobran: number; pagina: number; paginas: number };
@@ -35,7 +36,7 @@ export default function FamiliasRepetidas({ onVolver }: { onVolver: () => void }
 
   async function quedarme(f: Familia, keep: MiembroDeFamilia) {
     const otras = f.miembros.length - 1;
-    if (!confirm(`Te quedas con esta pregunta y se descartan las otras ${otras}.\nDejan de servirse a los alumnos. No se borran, pero este panel no las recupera.`)) return;
+    if (!(await confirmar(`Te quedas con esta pregunta y se descartan las otras ${otras}.\nDejan de servirse a los alumnos. No se borran, pero este panel no las recupera.`))) return;
     setTrabajando(f.id);
     const res = await quedarseConUna({ familyId: f.id, keepId: keep.id });
     setTrabajando(null);

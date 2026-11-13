@@ -14,6 +14,7 @@ import { colorPuntos } from '@/app/components/fisica/estiloTipo';
 import SeccionRM from '@/app/components/fisica/SeccionRM';
 import { rmVigentes, formateaKg } from '@/app/lib/rm';
 import { Boton, EmptyState, Modal, CampoSelect, Campo, TEXT, cx } from '../../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * LAS MARCAS DE LA ACADEMIA (regla 86).
@@ -171,7 +172,7 @@ function FichaMarcas({ alumno, hoy, onCerrar, onCambio }: { alumno: AlumnoConMar
                         <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{formateaMarca(p, m.valor)}</span>
                         <span className={cx('px-1.5 py-0.5 rounded-md text-[10px] font-bold', colorPuntos(pts))}>{pts ?? '—'}</span>
                         <span className="flex-1 truncate text-slate-600 dark:text-slate-400">{m.nota}</span>
-                        <button aria-label="Borrar la marca" onClick={async () => { if (confirm('¿Borrar esta marca?')) { const r = await deleteMarca({ id: m.id }); if (r.success) onCambio(); } }}
+                        <button aria-label="Borrar la marca" onClick={async () => { if ((await confirmar('¿Borrar esta marca?'))) { const r = await deleteMarca({ id: m.id }); if (r.success) onCambio(); } }}
                           className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
                           <Trash2 size={14} />
                         </button>

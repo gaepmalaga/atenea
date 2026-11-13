@@ -10,6 +10,7 @@ import {
 import { Card, Button, SectionLabel, StatTile, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
 import CalculadoraNota from './CalculadoraNota';
 import RankingClaseCard from './RankingClaseCard';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * EXÁMENES EN CLASE (regla 118): los exámenes en papel que se han puesto a mi
@@ -223,9 +224,9 @@ function Entrada({ examen, onCancelar, onEntregado }: {
   async function entregar() {
     if (modo === 'escribir' && lectura && !lectura.ok) { setError(lectura.error); return; }
     const faltan = total - contestadas;
-    if (!confirm(faltan
+    if (!(await confirmar({ titulo: 'Entregar', confirmar: 'Entregar', texto: faltan
       ? `Te quedan ${faltan} en blanco. Solo se entrega una vez y no se puede cambiar. ¿Entregar?`
-      : 'Solo se entrega una vez y no se puede cambiar. ¿Entregar?')) return;
+      : 'Solo se entrega una vez y no se puede cambiar. ¿Entregar?' }))) return;
     setEnviando(true);
     setError(null);
     const res = await entregaExamenClase({ aplicacionId: examen.aplicacionId, respuestas });

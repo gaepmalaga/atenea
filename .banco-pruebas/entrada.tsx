@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import DialogosHost from '@/app/components/ui/DialogosHost';
 import StudentDashboard from '@/app/components/student/StudentDashboard';
 import AdminView from '@/app/components/Admin/AdminView';
 import LoginScreen, { type ModoAuth } from '@/app/components/auth/LoginScreen';
@@ -44,12 +45,15 @@ function Entrada() {
 }
 
 createRoot(document.getElementById('raiz')!).render(
-  vista === 'admin' ? <AdminView user={usuario as never} onLogout={() => console.log('logout')} />
+  <>
+  {vista === 'admin' ? <AdminView user={usuario as never} onLogout={() => console.log('logout')} />
   : vista === 'login' ? <Entrada />
   : vista === 'carga' ? <PantallaCarga />
   : vista === 'clave' ? <SetPasswordScreen email="preparador@alphapol.es" onSubmit={() => console.log('clave')} cargando={false} error={null} />
   : vista === 'clave-provisional' ? <SetPasswordScreen provisional email="alumno@correo.com" onSubmit={() => console.log('clave')} onLogout={() => console.log('logout')} cargando={false} error={null} />
   : vista === 'academia' ? <SelectAcademyScreen academias={[{ slug: 'alphapol', name: 'Alphapol' }, { slug: 'otra', name: 'Academia de prueba con un nombre largo' }]} email="alumno@correo.com" onLogout={() => console.log('logout')} />
   : vista === 'bloqueado' ? <AccessLocked motivo="pending" email="alumno@correo.com" onLogout={() => console.log('logout')} />
-  : <StudentDashboard user={usuario as never} onLogout={() => console.log('logout')} />,
+  : <StudentDashboard user={usuario as never} onLogout={() => console.log('logout')} />}
+  <DialogosHost />
+  </>,
 );

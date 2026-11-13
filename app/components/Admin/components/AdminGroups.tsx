@@ -16,6 +16,7 @@ import { DIAS_SEMANA, horarioEnTexto } from '@/app/lib/asistencia';
 import {
   PanelTitulo, Hoja, BloqueTitulo, Rotulo, Aviso, Atras, Boton, Campo, CampoSelect, Filtros, FiltroChip, Etiqueta, EmptyState, TablaDual, TEXT, cx,
 } from '../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * «Grupos» (P7 · rehecho en P8 · rediseñado en noviembre 2026) — aquí se
@@ -95,11 +96,11 @@ export default function AdminGroups() {
             }}
             onDescartar={() => setEditando(null)}
             puedeBorrar={!!g}
-            onBorrar={() => {
+            onBorrar={async () => {
               // Borrar un grupo arrastra sus clases, faltas, multis apuntados y
               // la pertenencia de sus alumnos, y la base de datos del plan
               // gratuito no tiene copias: el 6 nov se perdió así un grupo entero.
-              if (g && confirm(`¿Borrar «${g.name}»? Se pierden también sus clases del cuadrante, las faltas avisadas y quién estaba dentro (${g.miembros} ${g.miembros === 1 ? 'alumno' : 'alumnos'}). No se puede deshacer.`)) {
+              if (g && (await confirmar(`¿Borrar «${g.name}»? Se pierden también sus clases del cuadrante, las faltas avisadas y quién estaba dentro (${g.miembros} ${g.miembros === 1 ? 'alumno' : 'alumnos'}). No se puede deshacer.`))) {
                 accion(() => deleteGroup(g.id)).then((ok) => { if (ok) setEditando(null); });
               }
             }}
@@ -274,7 +275,7 @@ function Tipos({ kinds, tarifa, busy, onAccion }: { kinds: GroupKindRow[]; tarif
               </span>
               <span className="flex shrink-0 items-center gap-1">
                 <CampoPrecio valor={precioDe(k.id)} busy={busy} etiqueta={`Precio de ${k.label}`} onGuardar={(v) => onAccion(() => setPrecioTipo(k.id, v))} />
-                <button type="button" onClick={() => { if (confirm(`¿Borrar el tipo «${k.label}»?`)) onAccion(() => deleteGroupKind(k.id)); }} disabled={busy}
+                <button type="button" onClick={async () => { if ((await confirmar(`¿Borrar el tipo «${k.label}»?`))) onAccion(() => deleteGroupKind(k.id)); }} disabled={busy}
                   className="grid h-11 w-11 place-items-center text-slate-500 hover:text-red-700 dark:hover:text-red-300" aria-label={`Borrar el tipo ${k.label}`}>
                   <Trash2 size={15} />
                 </button>
@@ -349,7 +350,7 @@ function Packs({ kinds, tarifa, busy, onAccion }: { kinds: GroupKindRow[]; tarif
             </span>
             <span className="flex shrink-0">
               <button type="button" onClick={() => setEditando(pk)} disabled={busy} className="grid h-11 w-11 place-items-center text-slate-500 hover:text-indigo-900 dark:hover:text-indigo-200" aria-label={`Cambiar el pack ${pk.nombre}`}><Pencil size={14} /></button>
-              <button type="button" onClick={() => { if (confirm(`¿Borrar el pack «${pk.nombre}»?`)) onAccion(() => deletePack(pk.id)); }} disabled={busy}
+              <button type="button" onClick={async () => { if ((await confirmar(`¿Borrar el pack «${pk.nombre}»?`))) onAccion(() => deletePack(pk.id)); }} disabled={busy}
                 className="grid h-11 w-11 place-items-center text-slate-500 hover:text-red-700 dark:hover:text-red-300" aria-label={`Borrar el pack ${pk.nombre}`}><Trash2 size={14} /></button>
             </span>
           </div>

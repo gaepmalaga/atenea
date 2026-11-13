@@ -8,6 +8,7 @@ import type { EstadoEntrega } from '@/app/lib/examen-clase';
 import { TIPOS_PSICO, TIPO_PSICO_LABEL } from '@/app/lib/psico';
 import { Hoja, BloqueTitulo, Aviso, Boton, EmptyState, Etiqueta, cx } from '../../../ui';
 import { imprimeHojaPsico } from './hojaPsico';
+import { confirmar } from '@/app/lib/dialogos';
 
 const fechaCorta = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 const num = (n: number) => n.toLocaleString('es-ES', { maximumFractionDigits: 2 });
@@ -97,7 +98,7 @@ function Detalle({ id, onVolver }: { id: string; onVolver: () => void }) {
     if (!ok) setAviso('El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes para esta página y vuelve a probar.');
   }
   async function borra() {
-    if (!confirm('¿Borrar este turno y las notas que ya tenga? El examen sigue guardado. No se puede deshacer.')) return;
+    if (!(await confirmar('¿Borrar este turno y las notas que ya tenga? El examen sigue guardado. No se puede deshacer.'))) return;
     setBorrando(true);
     const r = await borraPsicoClase(id);
     if (!r.success) { setBorrando(false); setAviso(r.error ?? 'No se ha podido borrar.'); return; }

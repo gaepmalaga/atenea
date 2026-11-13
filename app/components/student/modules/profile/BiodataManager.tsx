@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { getBiodata, saveBiodata } from '@/actions';
 import InformesEntrevista from '../interview/InformesEntrevista';
+import { avisar } from '@/app/lib/dialogos';
 
 interface BiodataManagerProps {
   user: AuthUser;
@@ -173,7 +174,7 @@ export default function BiodataManager({ user, onExit }: BiodataManagerProps) {
     const res = await saveBiodata(formData);
     setSaving(false);
     if (res.success) setLastSaved(new Date());
-    else alert("Error: " + res.error);
+    else void avisar("Error: " + res.error);
   };
 
   const handleChange = (field: keyof BiodataForm, value: string) => {

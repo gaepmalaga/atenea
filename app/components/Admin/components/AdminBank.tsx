@@ -28,6 +28,7 @@ import { UNA_SOLA_ACADEMIA, puedeEditarFilaVisible } from '@/app/lib/permisos-ba
 import { PanelTitulo, Aviso, Boton, Campo, CampoSelect, Etiqueta, Dato, TablaDual, PanelLateral, EmptyState, TEXT, type Tono } from '../../ui';
 import EditorPregunta from './EditorPregunta';
 import FamiliasRepetidas from './FamiliasRepetidas';
+import { avisar, confirmar, pedirTexto } from '@/app/lib/dialogos';
 
 // El estado de una pregunta, con el color de su significado: activa verde,
 // candidata ámbar (los alumnos aún no la reciben), descartada gris.
@@ -123,7 +124,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
 
   // --- ACCIONES ---
   async function handleDisable(id: string) {
-      if(!confirm("¿Descartar esta pregunta?\nDejará de aparecer en los exámenes de los alumnos. No se borra: queda marcada como descartada y no vuelve al banco aunque se resiembre el tema.")) return;
+      if(!(await confirmar("¿Descartar esta pregunta?\nDejará de aparecer en los exámenes de los alumnos. No se borra: queda marcada como descartada y no vuelve al banco aunque se resiembre el tema."))) return;
       setIsDeleting(id);
       const res = await disableQuestion(id);
       if (res.success) {
@@ -136,13 +137,13 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               await loadQuestions(stats.page);
           }
       } else {
-          alert('No se pudo descartar: ' + res.error);
+          void avisar('No se pudo descartar: ' + res.error);
       }
       setIsDeleting(null);
   }
 
   async function handleReactivate(id: string) {
-      if (!confirm("¿Reactivar esta pregunta?\nVolverá a servirse a los alumnos en los exámenes.")) return;
+      if (!(await confirmar("¿Reactivar esta pregunta?\nVolverá a servirse a los alumnos en los exámenes."))) return;
       setIsDeleting(id);
       const res = await reactivateQuestion(id);
       if (res.success) {
@@ -163,7 +164,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   async function handleApproveVisible() {
       const ids = visibleCandidates.map(q => q.id);
       if (!ids.length) return;
-      if (!confirm(`Se publicaran ${ids.length} preguntas en el banco de los alumnos. ¿Continuar?`)) return;
+      if (!(await confirmar(`Se publicaran ${ids.length} preguntas en el banco de los alumnos. ¿Continuar?`))) return;
 
       setBulkRunning(true);
       const res = await approveQuestions(ids);
@@ -172,7 +173,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               ids.includes(q.id) ? { ...q, status: QUESTION_STATUS.ACTIVE } : q
           ));
       } else {
-          alert('No se pudieron aprobar: ' + res.error);
+          void avisar('No se pudieron aprobar: ' + res.error);
       }
       setBulkRunning(false);
   }
@@ -192,11 +193,11 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       const alcance = esSuperadmin
         ? 'TODAS las preguntas del banco GLOBAL (activas y candidatas)'
         : 'TODAS las preguntas de TU banco privado (activas y candidatas) — el banco global, que también ves aquí, no se toca';
-      const escrito = window.prompt(
+      const escrito = (await pedirTexto(
           `Vas a descartar ${alcance}, no solo las de este filtro.\n` +
           `Dejan de servirse a los alumnos y no se borran: es reversible desde la base de datos, pero no desde este panel.\n\n` +
           `Escribe BORRAR para confirmar:`
-      );
+      ));
       if (escrito !== 'BORRAR') return;
 
       setClearingAll(true);
@@ -204,13 +205,13 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       setClearingAll(false);
 
       if (res.success) {
-          alert(`Banco vaciado: ${res.discarded} preguntas descartadas.`);
+          void avisar(`Banco vaciado: ${res.discarded} preguntas descartadas.`);
           setStatusFilter('all');
           setSelectedSubject(undefined);
           setSearchTerm('');
           await loadQuestions(1);
       } else {
-          alert('No se pudo vaciar el banco: ' + res.error);
+          void avisar('No se pudo vaciar el banco: ' + res.error);
       }
   }
 

@@ -14,6 +14,7 @@ import {
   PanelTitulo, Pestanas, Pulso, Filtros, FiltroChip, Hoja, BloqueTitulo, Rotulo, Aviso, Atras, Boton, Etiqueta, Estado,
   Avatar, inicialesDeCorreo, nombreDeCorreo, TablaDual, Campo, CampoSelect, EmptyState, cx, type Tono,
 } from '../../ui';
+import { confirmar } from '@/app/lib/dialogos';
 
 /**
  * «Pagos» (P8 · rediseño del panel, regla 101 · cuotas y libro de cobros, regla 104).
@@ -523,7 +524,7 @@ function FichaAlumno({ data, ficha, acciones, cambiaMes, onVolver }: {
                       <Boton size="sm" variant="ghost" icon={<Printer size={14} />} onClick={() => imprimeRecibo(c)}>Recibo</Boton>
                       {!c.anulado && (
                         <Boton size="sm" variant="danger" disabled={!!acciones.ocupado}
-                          onClick={() => { if (confirm(`¿Anular el recibo nº ${c.recibo} (${eur(c.importe)})? Queda en el libro como anulado.`)) acciones.anular(userId, periodo, c.id); }}>
+                          onClick={async () => { if ((await confirmar(`¿Anular el recibo nº ${c.recibo} (${eur(c.importe)})? Queda en el libro como anulado.`))) acciones.anular(userId, periodo, c.id); }}>
                           Anular
                         </Boton>
                       )}

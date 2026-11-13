@@ -4955,3 +4955,23 @@ el segundo necesita el proyecto real.
   figuras con varios elementos (con el espejo como distractor) y parentescos (un
   árbol de abuelos, hijos con pareja y nietos). Quedan fuera los plegados de un
   prisma y las figuras de flechas en tablas: piden dibujar mucho más.
+
+### 128 · Las ventanas son de la app, no del navegador; y un resultado se cierra con «Volver»
+
+- **Qué pasaba (13 nov):** al entregar un psicotécnico salía «ateneapolicial.com
+  dice: ¿Entregar la sesión?», el diálogo del navegador, con su estilo y sus
+  botones, ajeno a la plataforma y feo en el móvil. Había 52 así (`confirm`,
+  `alert` y un `prompt` para escribir «BORRAR») en 26 ficheros.
+- **Regla:** NINGÚN `window.confirm`/`alert`/`prompt`. Se usan `confirmar`, `avisar` y
+  `pedirTexto` de `app/lib/dialogos.ts`, que se pueden llamar desde cualquier
+  sitio (también desde un `onClick`, con `await`) y las pinta UNA ventana
+  montada en la raíz (`ui/DialogosHost.tsx`): abajo en el móvil, Escape cancela,
+  rojo si la pregunta va de borrar. Sin ventana montada se cae al diálogo del
+  navegador. Un test recorre `app/` y falla si vuelve alguna.
+- **Un resultado se cierra con «Volver».** Al terminar un test, un psicotécnico o
+  una revisión, el botón decía «Nueva sesión», «Nuevo simulacro» o «Volver y hacer
+  otra»: empujaban a hacer otro cuando lo único que se quería era salir de la
+  corrección. Todos dicen «Volver» y llevan a la pantalla de elegir.
+- **El «Simulacro del examen» por partes se quitó del alumno** (a petición del
+  dueño): queda «Entrenar por tipos», que ya ofrece los 23 tipos. Las partes del
+  examen real siguen disponibles para el admin al preparar un psicotécnico en clase.

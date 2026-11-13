@@ -152,7 +152,7 @@ describe('grupos: Multi, horas a mano y borrar con cuidado (regla 99)', () => {
 
   it('la pantalla pregunta antes de borrar un grupo (el 6 nov se perdió uno así)', () => {
     const src = lee('components/Admin/components/AdminGroups.tsx');
-    expect(src).toMatch(/onBorrar=\{\(\) => \{[\s\S]*?confirm\([\s\S]*?deleteGroup\(g\.id\)/);
+    expect(src).toMatch(/onBorrar=\{async \(\) => \{[\s\S]*?if \(g && \(await confirmar\([\s\S]*?deleteGroup\(g\.id\)/);
   });
 
   it('las horas del grupo no usan type="time" (en Android salía vacío)', () => {

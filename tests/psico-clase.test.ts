@@ -241,6 +241,12 @@ describe('las pantallas', () => {
     const s = lee('app/components/student/modules/psico/Psicotecnicos.tsx');
     for (const t of ['empiezaPsicoClase(id)', "via: 'hoja'", 'getRevisionPsicoClase(id)', 'Ya lo hice en papel', 'parseaRespuestasPsico(']) expect(s).toContain(t);
   });
+  it('el alumno solo ve «Entrenar por tipos»: el simulacro por partes se quitó (13 nov)', () => {
+    const s = lee('app/components/student/modules/psico/Psicotecnicos.tsx');
+    expect(s).toContain('<SectionLabel>Entrenar por tipos</SectionLabel>');
+    for (const t of ['Simulacro del examen', 'Como en el examen', 'Práctica libre', 'EJERCICIOS_PSICO']) expect(s, t).not.toContain(t);
+    expect(s).toContain('empiezaPsico({ tipos: [...tipos], total })');
+  });
   it('la hoja imprimible lleva preguntas, hoja de respuestas y solucionario en páginas distintas', () => {
     const s = lee('app/components/Admin/components/examenes/hojaPsico.tsx');
     expect(s).toContain('Hoja de respuestas');
