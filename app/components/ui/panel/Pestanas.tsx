@@ -4,8 +4,8 @@ export type PestanaItem<T extends string> = { id: T; etiqueta: string; cuenta?: 
 
 /** Pestañas dentro de una pantalla: subrayado dorado en la activa. */
 export default function Pestanas<T extends string>({
-  items, activa, onCambia, etiqueta,
-}: { items: readonly PestanaItem<T>[]; activa: T; onCambia: (id: T) => void; etiqueta: string }) {
+  items, activa, onCambia, etiqueta, compacta,
+}: { items: readonly PestanaItem<T>[]; activa: T; onCambia: (id: T) => void; etiqueta: string; compacta?: boolean }) {
   return (
     <div role="tablist" aria-label={etiqueta} className="flex gap-0.5 overflow-x-auto scrollbar-hide border-b border-linea dark:border-noche-linea">
       {items.map((p) => {
@@ -18,7 +18,7 @@ export default function Pestanas<T extends string>({
             aria-selected={on}
             onClick={() => onCambia(p.id)}
             className={cx(
-              '-mb-px flex min-h-[46px] shrink-0 items-center gap-2 border-b-[3px] px-4 text-sm font-semibold transition-colors',
+              '-mb-px flex min-h-[46px] shrink-0 items-center gap-2 border-b-[3px] text-sm font-semibold transition-colors', compacta ? 'px-3' : 'px-4',
               on ? 'border-oro text-indigo-900 dark:text-indigo-200' : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white',
             )}
           >

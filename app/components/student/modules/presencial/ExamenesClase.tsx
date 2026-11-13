@@ -8,6 +8,7 @@ import {
   BLANCO, LETRAS_CLASE, OPCIONES_CLASE, parseaRespuestas, respuestasEnTexto, tendenciaDeNotas,
 } from '@/app/lib/examen-clase';
 import { Card, Button, SectionLabel, StatTile, EmptyState, TEXT, TAP, RADIUS, cx } from '../../../ui';
+import CalculadoraNota from './CalculadoraNota';
 
 /**
  * EXÁMENES EN CLASE (regla 118): los exámenes en papel que se han puesto a mi
@@ -175,6 +176,9 @@ export default function ExamenesClase() {
           ))}
         </section>
       )}
+
+      {/* Una herramienta suelta (regla 124): no guarda nada y sirve aunque no haya ningún examen puesto. */}
+      {examenes !== null && <CalculadoraNota />}
     </div>
   );
 }

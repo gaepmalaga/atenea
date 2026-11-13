@@ -5,6 +5,7 @@ import {
   parseaRespuestas, respuestasEnTexto, normalizaRespuesta, normalizaRespuestas, corrigeClase, notaVigente, aNota,
   leeNotaProfesor, estadoEntrega, esParticipante, estadisticasPorPregunta, distribucionNotas, tendenciaDeNotas, mediaNotas,
   BLANCO, type PreguntaGuardada,
+  fechaCortaEs, nombreDeAplicacion, aplicacionesQueSeSolapan, leeNotasPegadas, MAX_ETIQUETA,
 } from '../app/lib/examen-clase';
 import { construyeInforme, riesgoDeAbandono, type EntradaRiesgo } from '../app/lib/informe-semanal';
 
@@ -301,5 +302,148 @@ describe('el esquema', () => {
   it('la nota va de 0 a 10', () => {
     expect(sql).toMatch(/teacher_score[^\n]*between 0 and 10/);
     expect(sql).toMatch(/score[^\n]*between 0 and 10/);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// Poner un examen a un turno (regla 124)
+// ---------------------------------------------------------------------------
+
+describe('nombreDeAplicacion: el nombre se pone solo', () => {
+  it('un grupo y la fecha', () => {
+    expect(nombreDeAplicacion(['Promo 44'], '2026-11-13')).toBe('Promo 44 · 13 nov');
+  });
+
+  it('varios grupos, hasta tres por su nombre', () => {
+    expect(nombreDeAplicacion(['Alpha', 'Kappa'], '2026-11-03')).toBe('Alpha, Kappa · 3 nov');
+  });
+
+  it('más de tres, se cuentan', () => {
+    expect(nombreDeAplicacion(['A', 'B', 'C', 'D'], '2026-12-01')).toBe('4 grupos · 1 dic');
+  });
+
+  it('sin grupos es toda la academia', () => {
+    expect(nombreDeAplicacion([], '2026-11-13')).toBe('Toda la academia · 13 nov');
+  });
+
+  it('nunca pasa del máximo, aunque el nombre del grupo sea larguísimo', () => {
+    const n = nombreDeAplicacion(['x'.repeat(200)], '2026-11-13');
+    expect(n.length).toBeLessThanOrEqual(MAX_ETIQUETA);
+    expect(n.endsWith(' · 13 nov')).toBe(true);
+  });
+
+  it('una fecha rara no sale como «NaN»', () => {
+    expect(fechaCortaEs('mañana')).toBe('mañana');
+    expect(fechaCortaEs('2026-13-01')).toBe('2026-13-01');
+  });
+});
+
+describe('aplicacionesQueSeSolapan: no se repite sin avisar', () => {
+  const ap = (id: string, classIds: string[]) => ({ id, fecha: '2026-11-13', classIds, etiqueta: id });
+
+  it('el mismo grupo coincide', () => {
+    expect(aplicacionesQueSeSolapan([ap('a', ['g1'])], ['g1']).map((x) => x.id)).toEqual(['a']);
+  });
+
+  it('otro grupo no coincide', () => {
+    expect(aplicacionesQueSeSolapan([ap('a', ['g1'])], ['g2'])).toEqual([]);
+  });
+
+  it('basta que coincida uno de varios', () => {
+    expect(aplicacionesQueSeSolapan([ap('a', ['g1', 'g2'])], ['g2', 'g3'])).toHaveLength(1);
+  });
+
+  it('«toda la academia» coincide con cualquier grupo, y al revés', () => {
+    expect(aplicacionesQueSeSolapan([ap('todos', [])], ['g1'])).toHaveLength(1);
+    expect(aplicacionesQueSeSolapan([ap('a', ['g1'])], [])).toHaveLength(1);
+  });
+
+  it('sin nada puesto antes, no hay coincidencias', () => {
+    expect(aplicacionesQueSeSolapan([], ['g1'])).toEqual([]);
+  });
+});
+
+describe('leeNotasPegadas', () => {
+  const alumnos = [
+    { id: '1', nombre: 'Marta Álvarez Gil' },
+    { id: '2', nombre: 'Sergio Beltrán Ruiz' },
+    { id: '3', nombre: 'Lucía Domínguez Soto' },
+    { id: '4', nombre: 'Lucía Domínguez Vera' },
+    { id: '5', nombre: 'Pablo Esteban' },
+  ];
+
+  it('lee «nombre;nota» con coma decimal', () => {
+    const r = leeNotasPegadas('Álvarez Gil;7,5\nBeltrán Ruiz;5', alumnos);
+    expect(r.reconocidas.map((x) => [x.alumnoId, x.nota])).toEqual([['1', 7.5], ['2', 5]]);
+  });
+
+  it('lee lo que se copia de un Excel (tabulador) y «nombre nota» sin separador', () => {
+    const r = leeNotasPegadas('Álvarez Gil\t7,25\nBeltrán Ruiz 6', alumnos);
+    expect(r.reconocidas.map((x) => x.nota)).toEqual([7.25, 6]);
+  });
+
+  it('un nombre con coma («Apellidos, Nombre») no rompe la línea', () => {
+    const r = leeNotasPegadas('Álvarez Gil, Marta;8', alumnos);
+    expect(r.reconocidas[0]).toMatchObject({ alumnoId: '1', nota: 8 });
+  });
+
+  it('no mira acentos, mayúsculas ni el orden de las palabras', () => {
+    const r = leeNotasPegadas('GIL ALVAREZ;6', alumnos);
+    expect(r.reconocidas[0].alumnoId).toBe('1');
+  });
+
+  it('«no vino» y sus variantes son ausencia, sin nota', () => {
+    for (const v of ['no vino', 'No se presentó', 'ausente', 'NV', 'np']) {
+      const r = leeNotasPegadas(`Pablo Esteban;${v}`, alumnos);
+      expect(r.reconocidas[0], v).toMatchObject({ alumnoId: '5', ausente: true, nota: null });
+    }
+    expect(leeNotasPegadas('Pablo Esteban no vino', alumnos).reconocidas[0].ausente).toBe(true);
+  });
+
+  it('nunca adivina entre dos alumnos que encajan', () => {
+    const r = leeNotasPegadas('Lucía Domínguez;6', alumnos);
+    expect(r.reconocidas).toEqual([]);
+    expect(r.ambiguas[0].candidatos).toEqual(['Lucía Domínguez Soto', 'Lucía Domínguez Vera']);
+  });
+
+  it('con un apellido más, deja de ser ambiguo', () => {
+    expect(leeNotasPegadas('Domínguez Vera;6', alumnos).reconocidas[0].alumnoId).toBe('4');
+  });
+
+  it('un nombre que no está se dice, con una sugerencia si hay una sola', () => {
+    const r = leeNotasPegadas('Beltran Rubio;5', alumnos);
+    expect(r.sinCoincidencia[0]).toEqual({ linea: 'Beltran Rubio;5', sugerencia: 'Sergio Beltrán Ruiz' });
+    expect(leeNotasPegadas('Zutano Mengano;5', alumnos).sinCoincidencia[0].sugerencia).toBeNull();
+  });
+
+  it('una nota fuera de 0-10 o que no es un número no se guarda', () => {
+    const r = leeNotasPegadas('Pablo Esteban;11\nBeltrán Ruiz;abc', alumnos);
+    expect(r.reconocidas).toEqual([]);
+    expect(r.invalidas).toHaveLength(2);
+  });
+
+  it('una línea sin nota se salta sin quejarse', () => {
+    const r = leeNotasPegadas('Pablo Esteban;\nBeltrán Ruiz;-', alumnos);
+    expect(r).toMatchObject({ reconocidas: [], invalidas: [], sinCoincidencia: [], ambiguas: [] });
+  });
+
+  it('si un alumno sale dos veces vale la última, y se avisa', () => {
+    const r = leeNotasPegadas('Pablo Esteban;4\nPablo Esteban;6', alumnos);
+    expect(r.reconocidas).toHaveLength(1);
+    expect(r.reconocidas[0].nota).toBe(6);
+    expect(r.repetidas).toEqual(['Pablo Esteban']);
+  });
+
+  it('líneas vacías, saltos de Windows y texto vacío no revientan', () => {
+    expect(leeNotasPegadas('\r\n\r\n', alumnos).reconocidas).toEqual([]);
+    expect(leeNotasPegadas('', alumnos).reconocidas).toEqual([]);
+    expect(leeNotasPegadas(undefined as unknown as string, alumnos).reconocidas).toEqual([]);
+    expect(leeNotasPegadas('Pablo Esteban;3\r\nBeltrán Ruiz;4', alumnos).reconocidas).toHaveLength(2);
+  });
+
+  it('un 0 es una nota, no «sin nota» (regla 16)', () => {
+    const r = leeNotasPegadas('Pablo Esteban;0', alumnos);
+    expect(r.reconocidas[0].nota).toBe(0);
   });
 });

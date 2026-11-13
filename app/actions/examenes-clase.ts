@@ -12,6 +12,7 @@ import {
   aNota, corrigeClase, distribucionNotas, esParticipante, estadisticasPorPregunta, estadoEntrega, leeNotaProfesor,
   mediaNotas, normalizaRespuestas, notaVigente, MIN_PARA_MEDIA,
   type EstadoEntrega, type FilaPregunta, type FiltrosExamen, type PreguntaGuardada,
+  MAX_ETIQUETA, fechaCortaEs, nombreDeAplicacion, aplicacionesQueSeSolapan,
 } from '../lib/examen-clase';
 
 /**
@@ -87,6 +88,8 @@ async function participantesDe(organizationId: string, classIds: string[]): Prom
 export type ExamenGuardado = {
   id: string; titulo: string; modelo: string; minutos: number; total: number;
   filtros: FiltrosExamen; creado: string; aplicaciones: number;
+  /** A qué grupos y qué día se ha puesto ya: para avisar antes de repetir (regla 124). */
+  puestos: { fecha: string; classIds: string[] }[];
 };
 
 const aFiltros = (v: unknown): FiltrosExamen => {
@@ -113,16 +116,23 @@ export async function getExamenesGuardados(): Promise<{ success: true; examenes:
   }
   const filas = (data ?? []) as FilaPaper[];
   const cuenta = new Map<string, number>();
+  const puestosDe = new Map<string, { fecha: string; classIds: string[] }[]>();
   if (filas.length) {
-    const { data: aps, error: e2 } = await supabaseAdmin.from('exam_sittings').select('paper_id').eq('organization_id', org).in('paper_id', filas.map((f) => f.id));
+    const { data: aps, error: e2 } = await supabaseAdmin.from('exam_sittings').select('paper_id, sat_on, class_ids').eq('organization_id', org).in('paper_id', filas.map((f) => f.id)).limit(2000);
     if (e2) fallo('getExamenesGuardados', e2);
-    for (const a of aps ?? []) cuenta.set(a.paper_id as string, (cuenta.get(a.paper_id as string) ?? 0) + 1);
+    for (const a of aps ?? []) {
+      const pid = a.paper_id as string;
+      cuenta.set(pid, (cuenta.get(pid) ?? 0) + 1);
+      const l = puestosDe.get(pid) ?? [];
+      l.push({ fecha: a.sat_on as string, classIds: (a.class_ids as string[]) ?? [] });
+      puestosDe.set(pid, l);
+    }
   }
   return {
     success: true as const,
     examenes: filas.map((f) => ({
       id: f.id, titulo: f.title, modelo: f.model, minutos: f.minutes, total: f.total,
-      filtros: aFiltros(f.filters), creado: f.created_at, aplicaciones: cuenta.get(f.id) ?? 0,
+      filtros: aFiltros(f.filters), creado: f.created_at, aplicaciones: cuenta.get(f.id) ?? 0, puestos: puestosDe.get(f.id) ?? [],
     })),
   };
 }
@@ -209,7 +219,7 @@ export async function getExamenGuardado(id: unknown): Promise<
   const f = data as FilaPaper;
   return {
     success: true as const,
-    examen: { id: f.id, titulo: f.title, modelo: f.model, minutos: f.minutes, total: f.total, filtros: aFiltros(f.filters), creado: f.created_at, aplicaciones: 0 },
+    examen: { id: f.id, titulo: f.title, modelo: f.model, minutos: f.minutes, total: f.total, filtros: aFiltros(f.filters), creado: f.created_at, aplicaciones: 0, puestos: [] },
     preguntas: comoPreguntas(f.questions),
   };
 }
@@ -223,7 +233,7 @@ export async function borraExamen(id: unknown): Promise<{ success: boolean; erro
 
   const { data: aps, error: leer } = await supabaseAdmin.from('exam_sittings').select('id').eq('organization_id', org).eq('paper_id', id).limit(1);
   if (leer) return { success: false, error: fallo('borraExamen', leer) };
-  if (aps?.length) return { success: false, error: 'Este examen se ha puesto a un turno: borra primero esa aplicación.' };
+  if (aps?.length) return { success: false, error: 'Este examen se ha puesto a un turno: borra primero el examen puesto en «Exámenes en clase».' };
 
   const { data, error } = await supabaseAdmin.from('exam_papers').delete().eq('organization_id', org).eq('id', id).select('title');
   if (error) return { success: false, error: fallo('borraExamen', error) };
@@ -242,16 +252,14 @@ export type Aplicacion = {
   media: number | null;
 };
 
-export async function aplicaExamen(input: unknown): Promise<{ success: true; id: string } | { success: false; error: string }> {
+export async function aplicaExamen(input: unknown): Promise<{ success: true; id: string } | { success: false; error: string; yaPuesto?: string[] }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const org = auth.user.organizationId;
   if (!org) return { success: false as const, error: SIN_ACADEMIA };
 
-  const d = (input ?? {}) as { paperId?: unknown; etiqueta?: unknown; fecha?: unknown; grupos?: unknown; cierre?: unknown };
+  const d = (input ?? {}) as { paperId?: unknown; etiqueta?: unknown; fecha?: unknown; grupos?: unknown; cierre?: unknown; confirmaRepetido?: unknown };
   if (!esUuid(d.paperId)) return { success: false as const, error: 'Datos no válidos.' };
-  const etiqueta = texto(d.etiqueta, 80);
-  if (!etiqueta) return { success: false as const, error: 'Ponle un nombre a la aplicación, por ejemplo «Turno de mañana, martes y jueves».' };
   if (!esFecha(d.fecha)) return { success: false as const, error: 'Falta el día del examen.' };
   const fecha = d.fecha as string;
   let cierre: string | null = null;
@@ -266,18 +274,42 @@ export async function aplicaExamen(input: unknown): Promise<{ success: true; id:
   if (e1) return { success: false as const, error: fallo('aplicaExamen', e1) };
   if (!paper) return { success: false as const, error: 'Ese examen no existe.' };
 
-  if (grupos.length) {
-    const { data: gs, error: e2 } = await supabaseAdmin.from('class_groups').select('id').eq('organization_id', org).in('id', grupos);
-    if (e2) return { success: false as const, error: fallo('aplicaExamen', e2) };
-    if ((gs ?? []).length !== grupos.length) return { success: false as const, error: 'Algún grupo no es de tu academia.' };
+  const { data: todos, error: e2 } = await supabaseAdmin.from('class_groups').select('id, name').eq('organization_id', org);
+  if (e2) return { success: false as const, error: fallo('aplicaExamen', e2) };
+  const nombreGrupo = new Map((todos ?? []).map((g) => [g.id as string, g.name as string]));
+  if (grupos.some((g) => !nombreGrupo.has(g))) return { success: false as const, error: 'Algún grupo no es de tu academia.' };
+
+  // El mismo examen al mismo grupo dos veces duplica a esos alumnos (lo ven dos
+  // veces y sus notas cuentan dos veces): solo se hace si se confirma (regla 124).
+  const { data: previos, error: e3 } = await supabaseAdmin
+    .from('exam_sittings').select('id, label, sat_on, class_ids').eq('organization_id', org).eq('paper_id', paper.id).limit(500);
+  if (e3) return { success: false as const, error: fallo('aplicaExamen', e3) };
+  const solapan = aplicacionesQueSeSolapan(
+    (previos ?? []).map((p) => ({ id: p.id as string, fecha: p.sat_on as string, classIds: (p.class_ids as string[]) ?? [], etiqueta: p.label as string })),
+    grupos,
+  );
+  if (solapan.length && d.confirmaRepetido !== true) {
+    const cuales = solapan.map((p) => {
+      const quien = p.classIds.length ? p.classIds.map((c) => nombreGrupo.get(c) ?? 'un grupo borrado').join(', ') : 'toda la academia';
+      return `${quien} el ${fechaCortaEs(p.fecha)}`;
+    });
+    return {
+      success: false as const,
+      error: `Ya has puesto «${paper.title}» a ${cuales.join('; ')}. Si lo pones otra vez, esos alumnos lo verán dos veces y sus notas contarán dos veces.`,
+      yaPuesto: cuales,
+    };
   }
+
+  // Sin nombre propio, se llama como lo que es: a quién y qué día.
+  const propio = texto(d.etiqueta, MAX_ETIQUETA);
+  const etiqueta = propio || nombreDeAplicacion(grupos.map((g) => nombreGrupo.get(g) ?? ''), fecha);
 
   const { data, error } = await supabaseAdmin
     .from('exam_sittings')
     .insert({ organization_id: org, paper_id: paper.id, label: etiqueta, sat_on: fecha, class_ids: grupos, closes_on: cierre, created_by: auth.user.id })
     .select('id').single();
   if (error || !data) return { success: false as const, error: fallo('aplicaExamen', error ?? { message: 'sin fila' }) };
-  registraAccion({ actorId: auth.user.id, action: 'apply_exam', target: `${paper.title} · ${etiqueta}`, detail: { fecha, grupos: grupos.length }, organizationId: org });
+  registraAccion({ actorId: auth.user.id, action: 'apply_exam', target: `${paper.title} · ${etiqueta}`, detail: { fecha, grupos: grupos.length, repetido: solapan.length > 0 }, organizationId: org });
   return { success: true as const, id: data.id as string };
 }
 
@@ -369,7 +401,7 @@ export async function getAplicacion(id: unknown): Promise<{ success: true; detal
   const { data: s, error } = await supabaseAdmin
     .from('exam_sittings').select('id, paper_id, label, sat_on, closes_on, class_ids').eq('organization_id', org).eq('id', id).maybeSingle();
   if (error) return { success: false as const, error: fallo('getAplicacion', error) };
-  if (!s) return { success: false as const, error: 'Esa aplicación no existe.' };
+  if (!s) return { success: false as const, error: 'Ese examen puesto no existe.' };
 
   const [paper, grupos, resultados, gente] = await Promise.all([
     supabaseAdmin.from('exam_papers').select('title, minutes, total, questions').eq('organization_id', org).eq('id', s.paper_id as string).maybeSingle(),
@@ -380,7 +412,7 @@ export async function getAplicacion(id: unknown): Promise<{ success: true; detal
   const errorBase = paper.error ?? grupos.error ?? resultados.error;
   if (errorBase) return { success: false as const, error: fallo('getAplicacion', errorBase) };
   if (gente.error) return { success: false as const, error: gente.error };
-  if (!paper.data) return { success: false as const, error: 'El examen de esta aplicación ya no existe.' };
+  if (!paper.data) return { success: false as const, error: 'El examen de este turno ya no existe.' };
 
   const hoy = hoyAcademia();
   const nombreGrupo = new Map((grupos.data ?? []).map((g) => [g.id as string, g.name as string]));
@@ -452,10 +484,10 @@ export async function setResultadoProfesor(input: unknown): Promise<{ success: b
 
   const { data: s, error } = await supabaseAdmin.from('exam_sittings').select('id, class_ids').eq('organization_id', org).eq('id', d.aplicacionId).maybeSingle();
   if (error) return { success: false, error: fallo('setResultadoProfesor', error) };
-  if (!s) return { success: false, error: 'Esa aplicación no existe.' };
+  if (!s) return { success: false, error: 'Ese examen puesto no existe.' };
   const gente = await participantesDe(org, (s.class_ids as string[]) ?? []);
   if (gente.error) return { success: false, error: gente.error };
-  if (!gente.data.some((a) => a.id === d.alumnoId)) return { success: false, error: 'Ese alumno no es de esta aplicación.' };
+  if (!gente.data.some((a) => a.id === d.alumnoId)) return { success: false, error: 'Ese alumno no es de este examen.' };
 
   const { error: e2 } = await supabaseAdmin
     .from('exam_results')
@@ -463,6 +495,59 @@ export async function setResultadoProfesor(input: unknown): Promise<{ success: b
   if (e2) return { success: false, error: fallo('setResultadoProfesor', e2) };
   registraAccion({ actorId: auth.user.id, action: 'set_exam_result', target: d.alumnoId as string, detail: { ...cambios }, organizationId: org });
   return { success: true };
+}
+
+/** Cuántas notas se pueden guardar de una vez: una clase entera con holgura. */
+const MAX_LOTE = 300;
+
+/**
+ * Guarda de golpe las notas oficiales que el profesor ha pegado (regla 124).
+ *
+ * TODO O NADA: si una fila no vale o un alumno no es de este examen, no se
+ * guarda ninguna, y se dice cuál. Una nota a medias es peor que ninguna: el
+ * profesor creería que la clase entera está puesta.
+ *
+ * Quien trae nota estuvo, así que se le quita la marca de «no se presentó»; y a
+ * quien se marca ausente se le quita la nota oficial, que ya no puede tener.
+ * Lo que el alumno entregó (sus respuestas y la nota calculada) no se toca.
+ */
+export async function setResultadosProfesor(input: unknown): Promise<{ success: true; guardadas: number } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  if (!org) return { success: false as const, error: SIN_ACADEMIA };
+
+  const d = (input ?? {}) as { aplicacionId?: unknown; filas?: unknown };
+  if (!esUuid(d.aplicacionId) || !Array.isArray(d.filas)) return { success: false as const, error: 'Datos no válidos.' };
+  if (d.filas.length === 0) return { success: false as const, error: 'No hay ninguna nota que guardar.' };
+  if (d.filas.length > MAX_LOTE) return { success: false as const, error: `Demasiadas notas de una vez (máximo ${MAX_LOTE}).` };
+
+  const filas = new Map<string, { teacher_score: number | null; absent: boolean }>();
+  for (const f of d.filas) {
+    const x = (f ?? {}) as { alumnoId?: unknown; nota?: unknown; ausente?: unknown };
+    if (!esUuid(x.alumnoId)) return { success: false as const, error: 'Datos no válidos.' };
+    if (x.ausente === true) { filas.set(x.alumnoId as string, { teacher_score: null, absent: true }); continue; }
+    const n = leeNotaProfesor(x.nota);
+    if (!n.ok) return { success: false as const, error: n.error };
+    if (n.nota === null) return { success: false as const, error: 'Falta una nota.' };
+    filas.set(x.alumnoId as string, { teacher_score: n.nota, absent: false });
+  }
+
+  const { data: s, error } = await supabaseAdmin.from('exam_sittings').select('id, class_ids').eq('organization_id', org).eq('id', d.aplicacionId).maybeSingle();
+  if (error) return { success: false as const, error: fallo('setResultadosProfesor', error) };
+  if (!s) return { success: false as const, error: 'Ese examen puesto no existe.' };
+  const gente = await participantesDe(org, (s.class_ids as string[]) ?? []);
+  if (gente.error) return { success: false as const, error: gente.error };
+  const suyos = new Set(gente.data.map((a) => a.id));
+  if ([...filas.keys()].some((id) => !suyos.has(id))) return { success: false as const, error: 'Algún alumno no es de este examen.' };
+
+  const ahora = new Date().toISOString();
+  const { error: e2 } = await supabaseAdmin
+    .from('exam_results')
+    .upsert([...filas].map(([alumnoId, v]) => ({ sitting_id: s.id, organization_id: org, user_id: alumnoId, ...v, updated_at: ahora })), { onConflict: 'sitting_id,user_id' });
+  if (e2) return { success: false as const, error: fallo('setResultadosProfesor', e2) };
+  registraAccion({ actorId: auth.user.id, action: 'set_exam_result', target: d.aplicacionId as string, detail: { lote: filas.size }, organizationId: org });
+  return { success: true as const, guardadas: filas.size };
 }
 
 /** Que el alumno pueda volver a meter sus respuestas (se equivocó al teclearlas). */

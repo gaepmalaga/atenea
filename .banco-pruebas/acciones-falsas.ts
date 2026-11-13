@@ -1438,20 +1438,26 @@ const _dia = (n: number) => new Date(Date.now() + n * 864e5).toISOString().slice
 export async function getExamenesGuardados() {
   return ok({
     examenes: [
-      { id: 'p1', titulo: 'Global número 1', modelo: 'A', minutos: 50, total: 100, filtros: { temas: [], dificultad: 'medium' as const, evitarRepetidas: true }, creado: new Date(Date.now() - 3 * 864e5).toISOString(), aplicaciones: 2 },
-      { id: 'p2', titulo: 'Bloque jurídico', modelo: 'B', minutos: 25, total: 50, filtros: { temas: [1, 2, 3], dificultad: 'hard' as const, evitarRepetidas: true }, creado: new Date(Date.now() - 864e5).toISOString(), aplicaciones: 0 },
+      { id: 'p1', titulo: 'Global número 1', modelo: 'A', minutos: 50, total: 100, filtros: { temas: [], dificultad: 'medium' as const, evitarRepetidas: true }, creado: new Date(Date.now() - 3 * 864e5).toISOString(), aplicaciones: 2, puestos: [{ fecha: _dia(-2), classIds: ['g3', 'g4'] }, { fecha: _dia(-9), classIds: [] }] },
+      { id: 'p2', titulo: 'Bloque jurídico', modelo: 'B', minutos: 25, total: 50, filtros: { temas: [1, 2, 3], dificultad: 'hard' as const, evitarRepetidas: true }, creado: new Date(Date.now() - 864e5).toISOString(), aplicaciones: 0, puestos: [] },
     ],
   });
 }
 export async function guardaExamen() { return ok({ id: 'p3' }); }
 export async function getExamenGuardado() {
   return ok({
-    examen: { id: 'p1', titulo: 'Global número 1', modelo: 'A', minutos: 50, total: 3, filtros: { temas: [], dificultad: 'medium' as const, evitarRepetidas: true }, creado: new Date().toISOString(), aplicaciones: 0 },
+    examen: { id: 'p1', titulo: 'Global número 1', modelo: 'A', minutos: 50, total: 3, filtros: { temas: [], dificultad: 'medium' as const, evitarRepetidas: true }, creado: new Date().toISOString(), aplicaciones: 0, puestos: [] },
     preguntas: [0, 1, 2].map((i) => ({ id: `q${i}`, q: `Pregunta ${i + 1} del examen guardado.`, o: ['Primera', 'Segunda', 'Tercera'], c: i, t: 'Constitución', e: null, r: null, d: 2 })),
   });
 }
 export async function borraExamen() { return ok({}); }
-export async function aplicaExamen() { return ok({ id: 'a1' }); }
+export async function aplicaExamen(p?: { grupos?: string[]; confirmaRepetido?: boolean }): Promise<{ success: true; id: string } | { success: false; error: string; yaPuesto?: string[] }> {
+  // Como el servidor: si ya se puso a Alpha o Kappa y no se confirma, avisa.
+  if (p?.grupos?.some((g) => g === 'g3' || g === 'g4') && !p.confirmaRepetido) {
+    return { success: false, error: 'Ya has puesto «Global número 1» a Promo 44 · Alpha, Promo 44 · Kappa el 11 nov. Si lo pones otra vez, esos alumnos lo verán dos veces y sus notas contarán dos veces.', yaPuesto: ['Promo 44 · Alpha, Promo 44 · Kappa el 11 nov'] };
+  }
+  return { success: true, id: 'a1' };
+}
 export async function getAplicaciones() {
   return ok({
     aplicaciones: [
@@ -1461,17 +1467,18 @@ export async function getAplicaciones() {
   });
 }
 export async function getAplicacion() {
-  const nombres = ['Lucía Moreno', 'Pablo Ruiz', 'Marta Jiménez', 'Iván Soto', 'Sara Vidal', 'Marcos Gil'];
-  const estados = ['entregado', 'entregado', 'entregado', 'pendiente', 'ausente', 'entregado'] as const;
+  const nombres = ['Lucía Moreno Cano', 'Pablo Ruiz Soto', 'Marta Jiménez Gil', 'Iván Soto Vera', 'Sara Vidal Lara', 'Marcos Gil Pardo', 'Alba Cabrera Rubio', 'Sergio Beltrán Ruiz',
+    'Adrián Cano Moreno', 'Carmen Fernández Lara', 'Noa Herrera Mota', 'Rubén Iglesias Pons', 'Eva Jiménez Cruz', 'Daniel Lozano Ríos', 'Sara Martín Peña', 'Hugo Navarro Ortiz'];
+  const estados = ['entregado', 'entregado', 'entregado', 'pendiente', 'ausente', 'entregado', 'pendiente', 'pendiente', 'entregado', 'pendiente', 'pendiente', 'pendiente', 'pendiente', 'entregado', 'pendiente', 'pendiente'] as const;
   return ok({
     detalle: {
-      aplicacion: { id: 'a1', paperId: 'p1', titulo: 'Global número 1', etiqueta: 'Turno de mañana, martes y jueves', fecha: _dia(-2), cierre: _dia(5), grupos: ['Promo 44 · Kappa'], total: 100, minutos: 50 },
+      aplicacion: { id: 'a1', paperId: 'p1', titulo: 'Global número 1', etiqueta: 'Promo 44 · Kappa · 11 nov', fecha: _dia(-2), cierre: _dia(5), grupos: ['Promo 44 · Kappa'], total: 100, minutos: 50 },
       participantes: nombres.map((n, i) => ({
         id: `u${i}`, nombre: n, email: `${n.toLowerCase().replace(/ /g, '.').normalize('NFD').replace(/[̀-ͯ]/g, '')}@correo.com`, estado: estados[i],
-        nota: estados[i] === 'entregado' ? 4 + i * 0.7 : null, notaProfesor: i === 0 ? 7.5 : null,
-        aciertos: estados[i] === 'entregado' ? 55 + i * 3 : null, fallos: estados[i] === 'entregado' ? 30 - i : null, blancos: estados[i] === 'entregado' ? 15 - i : null,
+        nota: estados[i] === 'entregado' ? 4 + (i % 5) * 0.7 : null, notaProfesor: i === 0 ? 7.5 : i === 13 ? 5 : null,
+        aciertos: estados[i] === 'entregado' ? 55 + i : null, fallos: estados[i] === 'entregado' ? 30 - (i % 6) : null, blancos: estados[i] === 'entregado' ? 15 - (i % 6) : null,
       })),
-      resumen: { participantes: 6, entregados: 4, ausentes: 1, pendientes: 1, media: 5.6, mediaProfesor: 7.5, distribucion: [0, 1, 2, 1, 0] },
+      resumen: { participantes: 16, entregados: 7, ausentes: 1, pendientes: 8, media: 5.6, mediaProfesor: 6.25, distribucion: [0, 1, 3, 2, 1] },
       preguntas: [
         { n: 17, tema: 'Constitución Española', enunciado: '¿Cuál de las siguientes afirmaciones sobre el artículo 149 es correcta?', contestadas: 25, aciertos: 6, blancos: 2, tasaFallo: 0.76, porOpcion: [4, 6, 15], correcta: 1 },
         { n: 42, tema: 'Derecho penal', enunciado: 'Señale la pena que corresponde al delito de hurto con violencia.', contestadas: 26, aciertos: 9, blancos: 1, tasaFallo: 0.65, porOpcion: [9, 12, 5], correcta: 0 },
@@ -1480,6 +1487,7 @@ export async function getAplicacion() {
   });
 }
 export async function setResultadoProfesor() { return ok({}); }
+export async function setResultadosProfesor(p?: { filas?: unknown[] }) { return { success: true as const, guardadas: p?.filas?.length ?? 0 }; }
 export async function reiniciaEntrega() { return ok({}); }
 export async function setCierreAplicacion() { return ok({}); }
 export async function borraAplicacion() { return ok({}); }

@@ -405,6 +405,24 @@ academia hoy, con la sesión real de Alphapol y sin tocar nada. Conclusiones:
 - **Pendiente del dueño:** Inglés (B1), si entra en la convocatoria; y si quiere
   esquemas visuales (trabajo de diseño).
 
+
+## 2m · Exámenes en clase más cómodos (13 nov, regla 124, en la rama, sin desplegar)
+
+Salió de probar la pantalla con la academia:
+- **Sin «Cómo lo llamas»:** el nombre se pone solo (grupo y día), y es opcional.
+- **Aviso de duplicados:** poner el mismo examen al mismo grupo dos veces pide
+  confirmación (antes duplicaba a los alumnos sin avisar).
+- **«En clase» en cuatro pestañas**, con una tabla compacta de alumnos, y
+  **«Pegar notas»** para meter una columna del Excel de una vez.
+- **Calculadora de nota** para el alumno, en «Exámenes».
+- «Aplicación» desaparece de las pantallas: ahora «Exámenes puestos a un turno».
+
+**Visto en el banco de pruebas, a tamaño móvil. Sin probar contra la base de datos
+real.** Antes de dar nada por cerrado: ponerle un examen a un grupo con alumnos
+reales, pegar unas notas, y comprobar que el aviso de repetir sale.
+**Ojo:** el grupo «Promo 44» (28 alumnos) son 27 cuentas de demostración, que no
+pueden entregar nada.
+
 ## 3 · Lo que falta
 
 ### 3a · Necesita al dueño o a Alphapol (no es código)

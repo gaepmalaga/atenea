@@ -257,3 +257,131 @@ export function tendenciaDeNotas(cronologicas: readonly number[]): 'sube' | 'baj
   const d = (mediaNotas(ultimas) ?? 0) - (mediaNotas(previas) ?? 0);
   return d >= 0.5 ? 'sube' : d <= -0.5 ? 'baja' : 'estable';
 }
+
+// ---------------------------------------------------------------------------
+// Poner un examen a un turno: el nombre se pone solo y no se repite sin avisar
+// ---------------------------------------------------------------------------
+
+export const MAX_ETIQUETA = 80;
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] as const;
+
+/** «2026-11-13» → «13 nov». Lo que no es una fecha se devuelve tal cual, no «NaN». */
+export function fechaCortaEs(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const mes = MESES_CORTOS[Number(m[2]) - 1];
+  return mes ? `${Number(m[3])} ${mes}` : iso;
+}
+
+/**
+ * El nombre de un examen puesto a un turno cuando nadie le ha puesto uno:
+ * «Promo 44 · Alpha, Kappa · 13 nov». El grupo ya dice a quién se pone, así
+ * que pedir un nombre aparte era escribir lo mismo dos veces.
+ */
+export function nombreDeAplicacion(grupos: readonly string[], fecha: string): string {
+  const g = grupos.map((x) => x.trim()).filter(Boolean);
+  const quien = g.length === 0 ? 'Toda la academia' : g.length <= 3 ? g.join(', ') : `${g.length} grupos`;
+  const cuando = fechaCortaEs(fecha);
+  const sufijo = ` · ${cuando}`;
+  return `${quien.slice(0, Math.max(1, MAX_ETIQUETA - sufijo.length))}${sufijo}`;
+}
+
+export type AplicacionPuesta = { id: string; fecha: string; classIds: readonly string[]; etiqueta: string };
+
+/**
+ * De los exámenes ya puestos, los que coinciden en algún grupo con el que se
+ * quiere poner ahora. «Ningún grupo» es TODA la academia, así que coincide con
+ * cualquiera: poner dos veces el mismo examen a la vez a todos y a un grupo
+ * duplica a esos alumnos igual que repetir el grupo.
+ */
+export function aplicacionesQueSeSolapan(existentes: readonly AplicacionPuesta[], nuevos: readonly string[]): AplicacionPuesta[] {
+  return existentes.filter((e) => e.classIds.length === 0 || nuevos.length === 0 || e.classIds.some((c) => nuevos.includes(c)));
+}
+
+// ---------------------------------------------------------------------------
+// Las notas oficiales pegadas desde un Excel o el chat
+// ---------------------------------------------------------------------------
+
+export type AlumnoParaNotas = { id: string; nombre: string };
+export type NotaPegada = { alumnoId: string; nombre: string; nota: number | null; ausente: boolean; linea: string };
+export type ResultadoPegado = {
+  reconocidas: NotaPegada[];
+  /** El nombre encaja con más de un alumno: no se adivina cuál. */
+  ambiguas: { linea: string; candidatos: string[] }[];
+  /** Ningún alumno encaja; si uno se parece, se sugiere. */
+  sinCoincidencia: { linea: string; sugerencia: string | null }[];
+  invalidas: { linea: string; motivo: string }[];
+  /** Alumnos que salen en más de una línea: vale la última. */
+  repetidas: string[];
+};
+
+const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const palabrasDe = (s: string): string[] => sinAcentos(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+const FRASE_AUSENTE = /^(no\s*vino|no\s*se\s*present[oó]|ausente|aus|nv|np|n\.?\s?p\.?|falt[oó])$/i;
+const FRASE_AUSENTE_AL_FINAL = /^(.*\S)\s+(no\s+vino|no\s+se\s+present[oó]|ausente)\s*$/i;
+
+/** Parte «nombre» y «valor» de una línea: por tabulador, «;» o «|» si los hay, y si no, por la última palabra. */
+function partirLinea(linea: string): { nombre: string; valor: string } {
+  // Solo se quitan espacios: un tabulador o un «;» al final son una celda vacía, y la última palabra del nombre no es la nota.
+  const base = linea.replace(/^ +/, '').replace(/ +$/, '');
+  if (/[;|\t]$/.test(base)) return { nombre: base.replace(/[;|\t]+$/, '').trim(), valor: '' };
+  const corte = Math.max(base.lastIndexOf(';'), base.lastIndexOf('\t'), base.lastIndexOf('|'));
+  if (corte >= 0) return { nombre: base.slice(0, corte), valor: base.slice(corte + 1).trim() };
+  const frase = FRASE_AUSENTE_AL_FINAL.exec(base);
+  if (frase) return { nombre: frase[1], valor: frase[2] };
+  const m = /^(.*\S)\s+(\S+)$/.exec(base);
+  return m ? { nombre: m[1], valor: m[2] } : { nombre: base, valor: '' };
+}
+
+/**
+ * Lee unas notas pegadas, una línea por alumno («Álvarez Gil;7,5», «Beltrán 5»,
+ * «Domínguez;no vino»), y las casa con los alumnos del examen. Casar es que
+ * TODAS las palabras del nombre escrito estén en el nombre del alumno, sin
+ * mirar acentos, mayúsculas ni el orden: «Álvarez Gil» y «gil alvarez» son la
+ * misma persona.
+ *
+ * Nunca adivina: si dos alumnos encajan, o ninguno, la línea no se guarda y
+ * se dice cuál es. Una nota fuera de 0-10 tampoco (regla 27: lo que se pega
+ * se valida igual que lo que se escribe a mano).
+ */
+export function leeNotasPegadas(texto: string, alumnos: readonly AlumnoParaNotas[]): ResultadoPegado {
+  const res: ResultadoPegado = { reconocidas: [], ambiguas: [], sinCoincidencia: [], invalidas: [], repetidas: [] };
+  const palabrasAlumno = alumnos.map((a) => ({ a, set: new Set(palabrasDe(a.nombre)) }));
+  const porAlumno = new Map<string, NotaPegada>();
+
+  for (const cruda of String(texto ?? '').split(/\r?\n/)) {
+    const linea = cruda.trim();
+    if (!linea) continue;
+    const { nombre, valor } = partirLinea(cruda);
+    const w = palabrasDe(nombre);
+    if (w.length === 0) { res.invalidas.push({ linea, motivo: 'Falta el nombre del alumno.' }); continue; }
+
+    // Sin nota no hay nada que guardar: se salta sin quejarse.
+    if (valor === '' || /^[-–—]+$/.test(valor)) continue;
+    let nota: number | null = null;
+    let ausente = false;
+    if (FRASE_AUSENTE.test(valor)) ausente = true;
+    else {
+      const n = leeNotaProfesor(valor);
+      if (!n.ok || n.nota === null) { res.invalidas.push({ linea, motivo: `«${valor}» no es una nota de 0 a 10.` }); continue; }
+      nota = n.nota;
+    }
+
+    const candidatos = palabrasAlumno.filter(({ set }) => w.every((p) => set.has(p)));
+    if (candidatos.length === 1) {
+      const { a } = candidatos[0];
+      if (porAlumno.has(a.id)) res.repetidas.push(a.nombre);
+      porAlumno.set(a.id, { alumnoId: a.id, nombre: a.nombre, nota, ausente, linea });
+    } else if (candidatos.length > 1) {
+      res.ambiguas.push({ linea, candidatos: candidatos.map(({ a }) => a.nombre) });
+    } else {
+      // El que más palabras comparte, si es uno solo y comparte alguna.
+      const puntos = palabrasAlumno.map(({ a, set }) => ({ a, n: w.filter((p) => set.has(p)).length }));
+      const mejor = Math.max(0, ...puntos.map((p) => p.n));
+      const mejores = mejor > 0 ? puntos.filter((p) => p.n === mejor) : [];
+      res.sinCoincidencia.push({ linea, sugerencia: mejores.length === 1 ? mejores[0].a.nombre : null });
+    }
+  }
+  res.reconocidas = [...porAlumno.values()];
+  return res;
+}

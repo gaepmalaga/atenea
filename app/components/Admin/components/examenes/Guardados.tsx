@@ -5,6 +5,7 @@ import { CalendarPlus, ClipboardCheck, FileDown, Trash2 } from 'lucide-react';
 import { aplicaExamen, borraExamen, getExamenGuardado, getExamenesGuardados, getGroups } from '@/actions';
 import type { ExamenGuardado } from '@/app/actions/examenes-clase';
 import type { GroupRow } from '@/app/actions/groups';
+import { fechaCortaEs } from '@/app/lib/examen-clase';
 import { Hoja, Aviso, Boton, Campo, EmptyState, Etiqueta } from '../../../ui';
 import { bajaPdf, datosDeGuardado, type TipoPdf } from './descargas';
 
@@ -100,22 +101,31 @@ function FormAplicar({ examen, grupos, onListo, onCancelar }: {
   const [elegidos, setElegidos] = useState<Set<string>>(new Set());
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Si ya se ha puesto a esos grupos, el servidor lo dice y aquí se pide confirmar (regla 124).
+  const [repetido, setRepetido] = useState(false);
 
   const conAlumnos = grupos.filter((g) => g.miembros > 0);
 
-  async function aplica() {
+  // A qué grupos ya se ha puesto este examen, y el día: se ve antes de marcar nada.
+  const yaPuesto = new Map<string, string[]>();
+  let aTodos: string[] = [];
+  for (const p of examen.puestos) {
+    if (p.classIds.length === 0) aTodos = [...aTodos, fechaCortaEs(p.fecha)];
+    for (const c of p.classIds) yaPuesto.set(c, [...(yaPuesto.get(c) ?? []), fechaCortaEs(p.fecha)]);
+  }
+
+  async function aplica(confirmaRepetido = false) {
     setEnviando(true);
     setError(null);
-    const res = await aplicaExamen({ paperId: examen.id, etiqueta, fecha, cierre: cierre || null, grupos: [...elegidos] });
+    const res = await aplicaExamen({ paperId: examen.id, etiqueta, fecha, cierre: cierre || null, grupos: [...elegidos], confirmaRepetido });
     setEnviando(false);
-    if (!res.success) { setError(res.error); return; }
+    if (!res.success) { setError(res.error); setRepetido(!!res.yaPuesto?.length); return; }
     onListo(res.id);
   }
 
   return (
     <div className="space-y-4 rounded-lg border border-linea p-4 dark:border-noche-linea">
       <p className="text-sm font-semibold text-slate-900 dark:text-white">Poner «{examen.titulo}» a un turno</p>
-      <Campo label="Cómo lo llamas" value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} maxLength={80} placeholder="Turno de mañana, martes y jueves" />
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo label="Día del examen" type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); if (cierre && cierre < e.target.value) setCierre(masDias(e.target.value, 7)); }} />
         <Campo label="Pueden meter sus respuestas hasta" type="date" value={cierre} min={fecha} onChange={(e) => setCierre(e.target.value)} hint="Vacío = sin límite." />
@@ -123,24 +133,39 @@ function FormAplicar({ examen, grupos, onListo, onCancelar }: {
 
       <div>
         <p className="mb-1.5 text-[12.5px] font-semibold text-slate-800 dark:text-slate-200">Qué grupos lo hacen</p>
+        {aTodos.length > 0 && <p className="mb-1.5 text-xs text-amber-800 dark:text-amber-300">Ya se puso a toda la academia ({aTodos.join(', ')}).</p>}
         <div className="max-h-56 overflow-y-auto rounded-lg border border-linea p-1 dark:border-noche-linea">
           {conAlumnos.length === 0 && <p className="p-2 text-sm text-slate-600 dark:text-slate-400">Todavía no hay grupos con alumnos: se pondrá a toda la academia.</p>}
-          {conAlumnos.map((g) => (
-            <label key={g.id} className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-md px-2 hover:bg-black/5 dark:hover:bg-white/5">
-              <input type="checkbox" className="h-5 w-5 shrink-0" checked={elegidos.has(g.id)}
-                onChange={() => setElegidos((prev) => { const n = new Set(prev); if (n.has(g.id)) n.delete(g.id); else n.add(g.id); return n; })} />
-              <span className="min-w-0 flex-1 text-sm text-slate-900 dark:text-white">{g.name} <span className="text-slate-600 dark:text-slate-400">· {g.miembros} alumnos{g.kindLabel ? ` · ${g.kindLabel}` : ''}</span></span>
-            </label>
-          ))}
+          {conAlumnos.map((g) => {
+            const antes = yaPuesto.get(g.id);
+            return (
+              <label key={g.id} className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-md px-2 hover:bg-black/5 dark:hover:bg-white/5">
+                <input type="checkbox" className="h-5 w-5 shrink-0" checked={elegidos.has(g.id)}
+                  onChange={() => { setRepetido(false); setElegidos((prev) => { const n = new Set(prev); if (n.has(g.id)) n.delete(g.id); else n.add(g.id); return n; }); }} />
+                <span className="min-w-0 flex-1 text-sm text-slate-900 dark:text-white">
+                  {g.name} <span className="text-slate-600 dark:text-slate-400">· {g.miembros} alumnos{g.kindLabel ? ` · ${g.kindLabel}` : ''}</span>
+                  {antes && <span className="ml-1.5 inline-block"><Etiqueta tono="aviso">Ya puesto el {antes.join(', ')}</Etiqueta></span>}
+                </span>
+              </label>
+            );
+          })}
         </div>
         <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
-          {elegidos.size === 0 ? 'Ninguno marcado: lo harán todos los alumnos de la academia.' : `${elegidos.size} ${elegidos.size === 1 ? 'grupo' : 'grupos'}: los alumnos de esos grupos verán el examen en «Exámenes en clase».`}
+          {elegidos.size === 0 ? 'Ninguno marcado: lo harán todos los alumnos de la academia.' : `${elegidos.size} ${elegidos.size === 1 ? 'grupo' : 'grupos'}: los alumnos de esos grupos verán el examen en «Exámenes».`}
         </p>
       </div>
 
-      {error && <Aviso tono="malo">{error}</Aviso>}
+      {/* El nombre ya no es obligatorio: sin él, sale «Promo 44 · 13 nov» (a quién y qué día). */}
+      <Campo label="Nombre propio (opcional)" value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} maxLength={80}
+        placeholder="Si lo dejas vacío se llama como el grupo y el día" />
+
+      {error && <Aviso tono={repetido ? 'aviso' : 'malo'}>{error}</Aviso>}
       <div className="flex flex-wrap gap-2">
-        <Boton onClick={aplica} disabled={enviando || !etiqueta.trim()}>{enviando ? 'Poniéndolo…' : 'Ponerlo'}</Boton>
+        {repetido ? (
+          <Boton onClick={() => aplica(true)} disabled={enviando}>{enviando ? 'Poniéndolo…' : 'Ponerlo otra vez de todos modos'}</Boton>
+        ) : (
+          <Boton onClick={() => aplica()} disabled={enviando}>{enviando ? 'Poniéndolo…' : 'Ponerlo'}</Boton>
+        )}
         <Boton variant="secondary" onClick={onCancelar} disabled={enviando}>Cancelar</Boton>
       </div>
     </div>

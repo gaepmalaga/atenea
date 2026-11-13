@@ -4826,3 +4826,42 @@ el segundo necesita el proyecto real.
   preparador que necesite entrar al panel tiene que ser `admin` y **ve todo**:
   Alumnos, Pagos, Informe… Si el dueño no quiere que vean Pagos, hace falta un
   rol intermedio; no está construido.
+
+### 124 · Los exámenes en clase: un nombre que se pone solo, un examen que no se repite sin avisar, y notas que se pegan
+
+*(13 nov 2026. Salió de probar la pantalla con la academia en la mano.)*
+
+- **«Cómo lo llamas» sobraba.** Al poner un examen a un turno ya se marcan los
+  grupos, así que pedir un nombre aparte era escribir lo mismo dos veces. Ahora
+  el nombre es opcional y, vacío, se pone solo: «Promo 44 · Alpha, Kappa · 13
+  nov» (`nombreDeAplicacion`). El nombre del grupo y el día ya no se repiten en
+  el encabezado: solo se enseña el nombre si se escribió a mano.
+- **El mismo examen al mismo grupo dos veces duplicaba a los alumnos** (lo veían
+  dos veces y sus notas contaban dos veces) y nada lo impedía. Ahora el
+  formulario marca los grupos «Ya puesto el 11 nov», y el servidor se niega
+  mientras no se confirme con «Ponerlo otra vez de todos modos»
+  (`aplicacionesQueSeSolapan`). «Toda la academia» coincide con cualquier grupo.
+  Si se repite a sabiendas, queda anotado en el registro.
+- **La pantalla «En clase» tiene cuatro pestañas** (Notas, Resumen, Preguntas,
+  Ajustes) en vez de una página de siete pantallas. «Notas» es una fila por
+  alumno (nombre, calculada, oficial y «No vino»); «Que repita» queda bajo el
+  nombre del que ha entregado. El nombre manda: se parte en dos líneas antes
+  que cortarse. «Aplicación» era jerga del código y se fue de las pantallas:
+  ahora son «Exámenes puestos a un turno».
+- **«Pegar notas»** (`leeNotasPegadas` + `setResultadosProfesor`): se pega una
+  columna del Excel o del chat («Álvarez Gil;7,5», «Beltrán 5», «Domínguez;no
+  vino»). Casa por apellido sin mirar acentos, mayúsculas ni orden: todas las
+  palabras escritas tienen que estar en el nombre del alumno. **Nunca adivina**:
+  si encajan dos alumnos o ninguno, o la nota no es de 0 a 10, esa línea no se
+  guarda y se dice cuál. Se ve lo reconocido ANTES de guardar. El guardado es
+  todo o nada y de esta academia (regla 65): si un id no es del examen, no se
+  escribe ninguno. Quien trae nota estuvo; a quien no vino se le quita la nota
+  oficial. No toca lo que entregó el alumno.
+- **La calculadora de nota del alumno** (`calculaNota`, en «Exámenes»): aciertos
+  y fallos → nota. Herramienta suelta, no guarda nada. **No** se deja que el
+  alumno escriba directamente su nota: un número no lo puede comprobar nadie
+  (regla 110), y sin sus respuestas se pierde qué preguntas falla cada uno, que
+  es lo que da valor a que las metan ellos. La fórmula sale de `scoreExam`
+  (regla 22), no se reescribe: 4 aciertos y 11 fallos de 15 da 0, y la
+  penalización que enseña la plataforma anterior (−3,67 PTS) son puntos sobre
+  10, no aciertos.
