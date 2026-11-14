@@ -4975,3 +4975,21 @@ el segundo necesita el proyecto real.
 - **El «Simulacro del examen» por partes se quitó del alumno** (a petición del
   dueño): queda «Entrenar por tipos», que ya ofrece los 23 tipos. Las partes del
   examen real siguen disponibles para el admin al preparar un psicotécnico en clase.
+
+### 129 · El enlace de «¿Olvidaste tu contraseña?» pide una contraseña nueva, y el admin puede cambiar la suya
+
+- **Qué pasó (14 nov):** al probar la recuperación en el dominio nuevo, el correo
+  llegó bien, pero al pulsar «Elegir mi contraseña» la persona entraba directa en
+  la plataforma, sin que nadie le pidiera la contraseña nueva. Y en el panel de
+  administración no había ningún sitio para cambiarla (el alumno sí tiene «Cambiar
+  mi contraseña» en Mi perfil).
+- **Causa:** la regla 67 daba por hecho que la recuperación vuelve con el flujo
+  implícito (`#access_token…&type=recovery`). Pero el cliente de `@supabase/ssr`
+  es SIEMPRE PKCE: vuelve con `?code=…`, que solo se canjeaba y dejaba pasar.
+- **Regla:** `AppShell` escucha `PASSWORD_RECOVERY` (`onAuthStateChange`, ANTES de
+  canjear el código) y entonces enseña `SetPasswordScreen`, igual que con una
+  invitación. Un test lee el cliente de `@supabase/ssr` y falla si dejara de ser
+  PKCE sin que se revise esto.
+- **El admin** tiene un botón con una llave en la barra del panel (y en el menú
+  del móvil) que abre la misma pieza que el alumno (`CambiarClave`), con la sesión
+  propia. `PanelShell` solo lo pinta si recibe `onClave`.

@@ -25,7 +25,8 @@ import AdminCalendario from './components/AdminCalendario';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
 import { MARCA } from '@/app/lib/marca';
-import { PanelShell, type PestanaPanel } from '../ui';
+import { PanelShell, Modal, Button, type PestanaPanel } from '../ui';
+import CambiarClave from '../student/CambiarClave';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
 type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies' | 'exams' | 'report';
@@ -123,6 +124,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
   // Truco para forzar recarga de componentes hijos sin recargar la página entera
   const [refreshKey, setRefreshKey] = useState(0);
+  const [cambiandoClave, setCambiandoClave] = useState(false);
 
   // Al cambiar de sección, arriba del todo. Mismo motivo que en el alumno: el
   // panel es UNA sola ruta con pestañas, así que sin esto entras en la sección
@@ -155,6 +157,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
       onCambia={(id) => cambiaTab(id as AdminTab)}
       onRefrescar={() => setRefreshKey((n) => n + 1)}
       onSalir={onLogout}
+      onClave={() => setCambiandoClave(true)}
     >
       {/* Usamos la 'key' para forzar remontaje si pulsamos Recargar */}
       <div key={refreshKey} className="animate-in fade-in duration-300">
@@ -178,6 +181,12 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
           {activeTab === 'academies' && esSuperadmin && <AdminAcademies />}
         </ModuleErrorBoundary>
       </div>
+      {cambiandoClave && (
+        <Modal title="Cambiar mi contraseña" subtitle={user.email ?? undefined} width="sm" onClose={() => setCambiandoClave(false)}
+          footer={<Button variant="secondary" onClick={() => setCambiandoClave(false)}>Cerrar</Button>}>
+          <CambiarClave inicialAbierta />
+        </Modal>
+      )}
     </PanelShell>
   );
 }

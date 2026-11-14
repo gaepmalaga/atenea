@@ -66,6 +66,18 @@ export default function AppShell({ academiaSlug }: { academiaSlug?: string } = {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // «¿Olvidaste tu contraseña?» vuelve con `?code=`: el cliente de `@supabase/ssr`
+  // es SIEMPRE PKCE, no el flujo implícito de más abajo. Al canjear el código,
+  // Supabase avisa con `PASSWORD_RECOVERY` si venía de una recuperación: se le
+  // pide la contraseña nueva en vez de dejarla entrar sin más (regla 129). Va
+  // ANTES del efecto de `checkSession` para no perder el aviso.
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'PASSWORD_RECOVERY') setNeedsPassword(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, [supabase]);
+
   useEffect(() => {
     async function checkSession() {
       // El enlace de confirmación de correo (registro, P11j), el de
