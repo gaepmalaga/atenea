@@ -20,9 +20,9 @@ import { MIN_CLAVE, META_CLAVE_PROVISIONAL } from '@/app/lib/clave';
  * pide volver a identificarse para esto en este proyecto
  * (`security_update_password_require_reauthentication = false`).
  */
-export default function CambiarClave() {
+export default function CambiarClave({ inicialAbierta = false }: { inicialAbierta?: boolean }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [abierta, setAbierta] = useState(false);
+  const [abierta, setAbierta] = useState(inicialAbierta);
   const [clave, setClave] = useState('');
   const [repetida, setRepetida] = useState('');
   const [guardando, setGuardando] = useState(false);

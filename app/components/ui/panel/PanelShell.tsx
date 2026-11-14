@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { LogOut, Menu, RefreshCw, X } from 'lucide-react';
+import { KeyRound, LogOut, Menu, RefreshCw, X } from 'lucide-react';
 import { cx } from '../tokens';
 import TemaPanel from './TemaPanel';
 
@@ -21,7 +21,7 @@ export type PestanaPanel = { id: string; etiqueta: string; icono: LucideIcon; se
  * estás en el de estudiar (regla 45).
  */
 export default function PanelShell({
-  nombre, logo, rol, correo, pestanas, principales, activa, onCambia, onRefrescar, onSalir, children,
+  nombre, logo, rol, correo, pestanas, principales, activa, onCambia, onRefrescar, onSalir, onClave, children,
 }: {
   nombre: string;
   logo: string;
@@ -34,6 +34,8 @@ export default function PanelShell({
   onCambia: (id: string) => void;
   onRefrescar: () => void;
   onSalir: () => void;
+  /** Cambiar mi contraseña. Sin él no se pinta el botón. */
+  onClave?: () => void;
   children: ReactNode;
 }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -72,6 +74,11 @@ export default function PanelShell({
             <button type="button" onClick={onRefrescar} aria-label="Recargar datos" title="Recargar datos" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15 text-indigo-100 hover:bg-white/10">
               <RefreshCw size={16} />
             </button>
+            {onClave && (
+              <button type="button" onClick={onClave} aria-label="Cambiar mi contraseña" title="Cambiar mi contraseña" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15 text-indigo-100 hover:bg-white/10">
+                <KeyRound size={16} />
+              </button>
+            )}
             <button type="button" onClick={onSalir} aria-label="Cerrar sesión" className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg border border-white/15 text-sm font-semibold text-indigo-100 hover:bg-white/10">
               <LogOut size={15} /> Salir
             </button>
@@ -105,6 +112,7 @@ export default function PanelShell({
               <p className="min-w-0 truncate text-[11px] text-indigo-200"><b className="mr-1.5 rounded bg-oro px-1.5 py-0.5 text-[9px] font-black uppercase text-marino-hondo">{rol}</b>{correo}</p>
               <div className="flex shrink-0 gap-2">
                 <button type="button" onClick={onRefrescar} aria-label="Recargar datos" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15"><RefreshCw size={16} /></button>
+                {onClave && <button type="button" onClick={() => { setMenuAbierto(false); onClave(); }} aria-label="Cambiar mi contraseña" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15"><KeyRound size={16} /></button>}
                 <button type="button" onClick={onSalir} aria-label="Cerrar sesión" className="grid h-11 w-11 place-items-center rounded-lg border border-white/15"><LogOut size={16} /></button>
               </div>
             </div>
