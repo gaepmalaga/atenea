@@ -9,6 +9,7 @@ import {
   saveConvocatoria,
   listStaff,
 } from '@/actions';
+import { daClase } from '@/app/lib/personal';
 import type { AcademySettings, StaffMember } from '@/app/lib/academy-settings';
 import { diasHasta, textoCuentaAtras, type Convocatoria } from '@/app/lib/convocatoria';
 import { Hoja, Boton, Campo, CampoArea, BloqueTitulo, TEXT, cx } from '../../ui';
@@ -69,7 +70,7 @@ export default function AcademyIdentity() {
       <CardEnlace slug={slug} />
       <CardConvocatoria />
       <FichaAcademia inicial={settings} error={error} />
-      <EnlaceProfesores cuantos={staff.length} />
+      <EnlaceProfesores cuantos={staff.filter((s) => daClase(s.role)).length} />
     </div>
   );
 }

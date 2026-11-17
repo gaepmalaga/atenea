@@ -8,6 +8,7 @@ import {
   getTarifa, setPrecioTipo, savePack, deletePack,
 } from '@/actions';
 import type { GroupRow } from '@/app/actions/groups';
+import { daClase } from '@/app/lib/personal';
 import type { StaffMember } from '@/app/lib/academy-settings';
 import type { GroupKindRow } from '@/app/lib/groups';
 import { nombreCorto, colorDeGrupo } from '@/app/lib/cuadrante';
@@ -44,7 +45,7 @@ export default function AdminGroups() {
     if (g.success) setGroups(g.groups); else setError(g.error);
     if (k.success) setKinds(k.kinds);
     if (t.success) setTarifa(t.tarifa);
-    if (s.success) setStaff(s.staff.filter((x) => x.active));
+    if (s.success) setStaff(s.staff.filter((x) => x.active && daClase(x.role)));
     setLoading(false);
   }, []);
 

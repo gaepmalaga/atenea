@@ -581,3 +581,11 @@ de `/_next/static/chunks/*.js` del HTML de producción.
 - En la rama: ficha del alumno con sus psicotécnicos; cubos, desarrollos, plegados, giros y parentescos; y los **psicotécnicos en clase** (pestaña «Psicotécnicos» de «Exámenes en papel»).
 - `docs/sql/psico-clase.sql` **ya ejecutado en la BD real** (13 nov): `psico_examenes`, `psico_clase` y `psico_clase_resultados`, con RLS y sin políticas.
 - «Exámenes en papel»: se elige Teoría o Psicotécnicos y los dos siguen Preparar → Guardados → En clase.
+
+## 2p · El equipo real de Alphapol (17 nov, regla 130, en la rama, sin desplegar)
+
+- **Grupos de teoría reales** (en la BD, 17 nov): se borró el inventado «Promo 44» y se crearon los tres de la hoja de control: **L-X MAÑANAS** (lunes y miércoles 10-14), **M-J MAÑANAS** (martes y jueves 10-14) y **M-J TARDE** (martes y jueves 16-20). Horario PROVISIONAL a petición del dueño, aforo 35 los tres. Sin alumnos todavía: los 147 de `Control_Alumnos_Noviembre_2026.xlsx` no están cargados (faltan correos).
+- **Profesorado de teoría** en los tres grupos: Sofía, Dorado, Sergio, Lucio y Enrique (todos rotan por todos). Alexys, de comisión en la ENP, está dado de alta como inactivo. Sofía y José Morato son los DUEÑOS (ella da teoría, él físicas) y los únicos que entrarán con cuenta de admin por ahora.
+- **No hay selector de «quién da clase cada día» para teoría** (solo existe en el cuadrante de físicas). Lo que hay: profesores asignados al grupo y temas por profesor (regla 100).
+- **Gabinete y secretaría** (Mariana y Sara) pasan a contar como equipo sin salir como profesoras: ver la regla 130. Sus altas en la BD se hacen DESPUÉS de desplegar (con el código viejo saldrían como opción de profesor).
+- Los grupos de físicas de la hoja (Físicas 43 Clinic, Físicas 44 y Atletas) NO coinciden con los 8 de la plataforma (Alpha, Betta, Delta, Kappa, Omega, Sigma, Zetta y Multi): pendiente de que el dueño diga cómo encajan.

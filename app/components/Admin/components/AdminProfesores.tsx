@@ -18,6 +18,7 @@ import { lunesDe, etiquetaSemana } from '@/app/lib/sesiones';
 import { sumaDias, etiquetaFecha, diaSemanaDe, DIAS_SEMANA } from '@/app/lib/asistencia';
 import { Hoja, Boton, Modal, Campo, CampoSelect, BloqueTitulo, EmptyState, TEXT, cx, PanelTitulo, Pulso, Aviso, Atras, Dato, Etiqueta, Avatar, inicialesDeNombre, TablaDual } from '../../ui';
 import { confirmar } from '@/app/lib/dialogos';
+import { PUESTOS, daClase, etiquetaPuesto, soloQuienDaClase, soloApoyo } from '@/app/lib/personal';
 
 /**
  * PROFESORES (regla 99): el equipo de la academia, de teoría y de física.
@@ -86,6 +87,10 @@ export default function AdminProfesores() {
   }, [lunes, vuelta]);
 
   const agendaDe = useMemo(() => new Map(agenda.map((a) => [a.profesorId, a])), [agenda]);
+  // Gabinete y secretaría son del equipo pero no dan clase (regla 130): fuera de
+  // las horas, del cuadrante, de las clases habituales y de los temas.
+  const profesorado = useMemo(() => soloQuienDaClase(staff ?? []), [staff]);
+  const apoyo = useMemo(() => soloApoyo(staff ?? []), [staff]);
   const temasDe = (id: string) => temas.filter((t) => t.profesorIds.includes(id));
   const clasesDe = (id: string) => habituales.filter((h) => h.profesorIds.includes(id)).map((h) => h.actividad);
   // Los exámenes oficiales (46-50) no los «da» nadie: no cuentan como sin profesor.
@@ -124,10 +129,10 @@ export default function AdminProfesores() {
     (agendaDe.get(id)?.clases ?? []).map((c) => ({ ...c, dia: diaSemanaDe(c.fecha) })),
   );
   // Si alguna clase cae en sábado o domingo, esos días también salen.
-  const diasSemana = [...diasDeLaSemana, ...DIAS_SEMANA.slice(5).filter((d) => (staff ?? []).some((s) => clasesDeProfe(s.id).some((c) => c.dia === d.n)))];
+  const diasSemana = [...diasDeLaSemana, ...DIAS_SEMANA.slice(5).filter((d) => profesorado.some((s) => clasesDeProfe(s.id).some((c) => c.dia === d.n)))];
   const horasDe = (id: string) => horasDeClases(clasesDeProfe(id));
   const fmtH = (x: number) => `${Math.round(x * 10) / 10}`.replace('.', ',');
-  const activos = (staff ?? []).filter((s) => s.active);
+  const activos = profesorado.filter((s) => s.active);
   const pill = (c: ClaseDeSemana) => (
     <span key={c.clave} className={cx('mb-1 block rounded px-2 py-1 text-[11.5px] leading-tight', c.fisica ? 'border border-oro bg-oro/20 text-oro-oscuro dark:bg-oro/15 dark:text-oro-claro' : 'bg-indigo-900 text-white dark:bg-indigo-300 dark:text-marino-hondo')}>
       <b className="tabular-nums">{c.inicio}</b> {c.texto}
@@ -154,8 +159,8 @@ export default function AdminProfesores() {
         <div className="flex flex-wrap items-center gap-4">
           <Avatar size="lg" iniciales={inicialesDeNombre(editando.name || '?')} />
           <div className="min-w-0 flex-1">
-            <h2 className="font-titulo text-3xl font-bold uppercase leading-none tracking-wide">{editando.name || 'Nuevo profesor'}</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{editando.role || 'Sin puesto'}{!editando.active && ' · inactivo'}</p>
+            <h2 className="font-titulo text-3xl font-bold uppercase leading-none tracking-wide">{editando.name || 'Nueva persona del equipo'}</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{etiquetaPuesto(editando.role)}{!editando.active && ' · inactivo'}</p>
           </div>
           <Etiqueta tono={sucio ? 'aviso' : 'ok'}>{sucio ? 'Cambios sin guardar' : 'Guardado'}</Etiqueta>
         </div>
@@ -165,7 +170,11 @@ export default function AdminProfesores() {
           <Hoja pad="lg" className="space-y-5">
             <BloqueTitulo>Datos</BloqueTitulo>
             <Campo label="Nombre" value={editando.name} onChange={(e) => setEditando({ ...editando, name: e.target.value })} />
-            <Campo label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })} placeholder="profesor de teoría, preparador físico…" />
+            <CampoSelect label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })}
+              hint="Gabinete y secretaría forman parte del equipo, pero no salen al elegir profesor ni cuentan horas de clase.">
+              {PUESTOS.map((p) => <option key={p.valor} value={p.valor}>{p.etiqueta}</option>)}
+              {!PUESTOS.some((p) => p.valor === editando.role) && <option value={editando.role}>{editando.role}</option>}
+            </CampoSelect>
             <div className="grid gap-4 sm:grid-cols-2">
               <Campo label="Correo" type="email" inputMode="email" value={editando.email} onChange={(e) => setEditando({ ...editando, email: e.target.value })} />
               <Campo label="Teléfono" type="tel" inputMode="tel" value={editando.phone} onChange={(e) => setEditando({ ...editando, phone: e.target.value })} />
@@ -177,14 +186,14 @@ export default function AdminProfesores() {
             </CampoSelect>
             <label className="flex min-h-[44px] items-center gap-3 text-[13.5px]">
               <input type="checkbox" checked={editando.active} onChange={(e) => setEditando({ ...editando, active: e.target.checked })} className="h-5 w-5 accent-indigo-900" />
-              Activo (los inactivos no salen al elegir profesor en el cuadrante)
+              {daClase(editando.role) ? 'Activo (los inactivos no salen al elegir profesor en el cuadrante)' : 'Activo en el equipo'}
             </label>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-linea pt-5 dark:border-noche-linea">
               <div className="max-w-xs">
                 {sFicha && (
                   <>
-                    <p className={TEXT.muted}>Borrar a un profesor lo quita de sus grupos, de sus clases y de sus temas. Si solo ha dejado de dar clase, mejor desmárcalo como activo.</p>
-                    <Boton variant="danger" className="mt-2" disabled={borrando === sFicha.id} onClick={() => borrar(sFicha)} icon={borrando === sFicha.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}>Borrar profesor</Boton>
+                    <p className={TEXT.muted}>{daClase(sFicha.role) ? 'Borrar a un profesor lo quita de sus grupos, de sus clases y de sus temas. Si solo ha dejado de dar clase, mejor desmárcalo como activo.' : 'Si ya no trabaja aquí, mejor desmárcala como activa que borrarla.'}</p>
+                    <Boton variant="danger" className="mt-2" disabled={borrando === sFicha.id} onClick={() => borrar(sFicha)} icon={borrando === sFicha.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}>{daClase(sFicha.role) ? 'Borrar profesor' : 'Borrar'}</Boton>
                   </>
                 )}
               </div>
@@ -195,7 +204,7 @@ export default function AdminProfesores() {
             </div>
           </Hoja>
 
-          {sFicha && (
+          {sFicha && daClase(sFicha.role) && (
             <div className="space-y-4">
               <Hoja pad="md" className="grid grid-cols-3 gap-2 text-center">
                 <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{fmtH(horasDe(sFicha.id))} h</strong><span className="text-xs text-slate-600 dark:text-slate-400">a la semana</span></div>
@@ -209,7 +218,7 @@ export default function AdminProfesores() {
                   <div className="flex flex-wrap gap-1.5">{a.grupos.map((g) => <Dato key={g.id}>{g.nombre} · {g.tipo}</Dato>)}</div>
                 ) : <p className={TEXT.muted}>No lleva ningún grupo. Se asignan en «Grupos».</p>}
               </Hoja>
-              <Hoja pad="md"><TemasDelProfesor profesorId={sFicha.id} temas={temasDe(sFicha.id)} todos={temas} staff={staff ?? []} onCambio={() => setVuelta((n) => n + 1)} /></Hoja>
+              <Hoja pad="md"><TemasDelProfesor profesorId={sFicha.id} temas={temasDe(sFicha.id)} todos={temas} staff={profesorado} onCambio={() => setVuelta((n) => n + 1)} /></Hoja>
               {clasesDe(sFicha.id).length > 0 && (
                 <Hoja pad="md" className="space-y-2"><BloqueTitulo icon={<Dumbbell size={15} />}>Habitual de</BloqueTitulo>
                   <div className="flex flex-wrap gap-1.5">{clasesDe(sFicha.id).map((c) => <Etiqueta key={c} tono="oro">{c}</Etiqueta>)}</div></Hoja>
@@ -242,16 +251,16 @@ export default function AdminProfesores() {
   }
 
   // ── LA CARGA SEMANAL: la vista principal ──
-  const filas = staff ?? [];
+  const filas = profesorado;
   return (
     <div className="space-y-5 animate-in fade-in pb-24">
       <PanelTitulo
         titulo="Profesores"
-        sub="Quién da clase cuándo. Toca «+» para ver y editar a cada profesor."
+        sub="Quién da clase cuándo, y el equipo de gabinete y secretaría. Toca «+» para ver y editar a cada persona."
         acciones={
           <>
             <Boton variant="secondary" onClick={() => irAPestana('groups')}>Ir a Grupos</Boton>
-            <Boton icon={<Plus size={15} />} onClick={() => abreFicha(null)}>Añadir profesor</Boton>
+            <Boton icon={<Plus size={15} />} onClick={() => abreFicha(null)}>Añadir al equipo</Boton>
           </>
         }
       />
@@ -301,7 +310,7 @@ export default function AdminProfesores() {
               { id: 'profe', titulo: 'Profesor', celda: (s) => (
                 <div className={cx('flex min-w-0 items-center gap-3', !s.active && 'opacity-60')}>
                   <Avatar iniciales={inicialesDeNombre(s.name)} />
-                  <div className="min-w-0"><p className="truncate font-semibold">{s.name}</p><p className={cx(TEXT.muted, 'truncate')}>{s.role}{!s.active && ' · inactivo'}</p></div>
+                  <div className="min-w-0"><p className="truncate font-semibold">{s.name}</p><p className={cx(TEXT.muted, 'truncate')}>{etiquetaPuesto(s.role)}{!s.active && ' · inactivo'}</p></div>
                 </div>
               ) },
               ...diasSemana.map((d) => ({
@@ -319,7 +328,29 @@ export default function AdminProfesores() {
             ]}
           />
 
-          <ClasesHabituales habituales={habituales} staff={staff} onCambio={() => setVuelta((n) => n + 1)} />
+          {apoyo.length > 0 && (
+            <div className="space-y-3">
+              <BloqueTitulo>Gabinete y secretaría</BloqueTitulo>
+              <p className={TEXT.muted}>Forman parte del equipo, pero no dan clase: no salen al elegir profesor ni cuentan horas.</p>
+              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {apoyo.map((s) => (
+                  <li key={s.id}>
+                    <Hoja pad="md" className={cx('flex items-center gap-3', !s.active && 'opacity-60')}>
+                      <Avatar iniciales={inicialesDeNombre(s.name)} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">{s.name}</p>
+                        <p className={cx(TEXT.muted, 'truncate')}>{etiquetaPuesto(s.role)}{!s.active && ' · inactiva'}{s.email ? ` · ${s.email}` : ''}</p>
+                      </div>
+                      <button type="button" onClick={() => abreFicha(s)} aria-label={`Abrir la ficha de ${s.name}`} title="Ficha"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-linea bg-white text-2xl leading-none text-indigo-900 hover:border-indigo-700 dark:border-noche-linea dark:bg-noche-2 dark:text-indigo-200">+</button>
+                    </Hoja>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <ClasesHabituales habituales={habituales} staff={profesorado} onCambio={() => setVuelta((n) => n + 1)} />
         </>
       )}
     </div>

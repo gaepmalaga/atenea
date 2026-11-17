@@ -554,6 +554,9 @@ export async function listStaff() {
       { id: 's1', name: 'Marta Ortega', role: 'profesora', email: 'marta@academia-atenea.es', phone: '600 222 333', active: true, userId: null },
       { id: 's2', name: 'Javier Ruiz', role: 'entrenador', email: null, phone: '600 333 444', active: true, userId: 'u-prep' },
       { id: 's3', name: 'Sonia Vidal', role: 'coordinadora', email: 'sonia@academia-atenea.es', phone: null, active: false, userId: null },
+      // Gabinete y secretaría (regla 130): del equipo, pero no dan clase.
+      { id: 's4', name: 'Mariana', role: 'gabinete', email: null, phone: null, active: true, userId: null },
+      { id: 's5', name: 'Sara', role: 'secretaria', email: 'sara@academia-atenea.es', phone: '600 444 555', active: true, userId: null },
     ],
   });
 }

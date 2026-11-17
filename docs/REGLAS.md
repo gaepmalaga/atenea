@@ -4993,3 +4993,31 @@ el segundo necesita el proyecto real.
 - **El admin** tiene un botón con una llave en la barra del panel (y en el menú
   del móvil) que abre la misma pieza que el alumno (`CambiarClave`), con la sesión
   propia. `PanelShell` solo lo pinta si recibe `onClave`.
+
+### 130 · Gabinete y secretaría son del equipo, pero no dan clase
+
+- **Qué pasó (17 nov):** el equipo de Alphapol no son solo profesores: están
+  también Mariana y Sara (gabinete y secretaría), y el dueño pidió «poder
+  contarlas como parte del equipo». `academy_staff` nació solo para profesores
+  (regla 96) y TODO lo que ofrece «elegir profesor» —el desplegable del
+  cuadrante, el selector de un grupo, las clases habituales, los temas— lee esa
+  tabla entera. Meterlas tal cual las habría puesto como opción de profesor en
+  el cuadrante de físicas y les habría contado «0 h de clase».
+- **Regla:** el puesto (`academy_staff.role`) ya era un texto libre; lo que
+  faltaba era saber CUÁL no da clase. Lo decide `daClase()` en
+  `app/lib/personal.ts`, un solo sitio, con una lista corta de puestos de apoyo
+  (gabinete, secretaría, administrativo, recepción). **Lo que no se reconoce
+  —vacío incluido o un «preparador físico» escrito a mano— sigue contando como
+  quien da clase:** equivocarse hacia ese lado no esconde a nadie; el contrario
+  sí. Sin cambios de esquema.
+- **Dónde se aplica:** el desplegable del cuadrante (`profesoresDe`) y, en el
+  servidor, quien asigna una celda, las clases habituales y los temas rechazan a
+  quien no da clase (una Server Action es un endpoint público, regla 1); el
+  selector de profesores de un grupo; el recuento de «Ajustes»; y en
+  «Profesores» el panel de horas, el recuento de activos y los temas. Gabinete y
+  secretaría salen en su propia sección, «Gabinete y secretaría», con su ficha.
+- **El formulario** ofrece un desplegable de puesto (Profesor/a, Gabinete,
+  Secretaría) en vez del texto libre; un puesto antiguo escrito a mano se
+  conserva como opción.
+- `tests/personal.test.ts` vigila `daClase` y que cada sitio que ofrece «elegir
+  profesor» lo use (comprobado rompiendo cada uno a propósito).
