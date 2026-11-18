@@ -605,4 +605,5 @@ cómo lleva el temario ese grupo. Sin pestaña aparte.
 - Regla 132: la física de grupo también se programa desde el Calendario (el
   editor del cuadrante, la barra de la semana, publicar y WhatsApp). «Prep.
   física» se queda con Planificar y Marcas.
+- Regla 133: el último acceso (Logs y Alumnos) sale de la sesión renovada, no solo del último inicio de sesión. Función `ultimo_acceso_usuarios` creada en la BD real el 18 nov (`docs/sql/ultimo-acceso.sql`).
 - Pendiente de mejora: aviso de «clases sin rellenar» en el Inicio del admin.

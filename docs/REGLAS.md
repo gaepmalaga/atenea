@@ -5093,3 +5093,19 @@ el segundo necesita el proyecto real.
 - `tests/teoria.test.ts` vigila que la pestaña ya no esté en «Prep. física»,
   que cada clase abra su editor y que copiar la semana copie las dos cosas.
 
+### 133 · El último acceso es cuándo USÓ la app, no cuándo escribió la clave
+- **Qué pasó (18 nov):** el dueño estaba conectado y la pestaña «Logs» decía
+  que el último en conectarse fue «hace 4 días». «Último acceso» salía de
+  `auth.users.last_sign_in_at`, que solo cambia al INICIAR SESIÓN de verdad: la
+  app renueva la sesión sola cada hora, así que quien la deja abierta en el
+  móvil no vuelve a iniciarla. Lo mismo falseaba el «hace días que no entra»
+  de «Alumnos».
+- **Regla:** el último acceso es la fecha MÁS RECIENTE entre `last_sign_in_at`
+  y la última renovación de sus sesiones (`auth.sessions.refreshed_at`), que da
+  la función `ultimo_acceso_usuarios` (`docs/sql/ultimo-acceso.sql`, solo para
+  la clave de servicio). `combinaAccesos` (`app/lib/accesos.ts`) las junta; sin
+  la función en la base de datos vale `last_sign_in_at` como antes.
+- Un acceso cuenta con hasta una hora de retraso: es lo que tarda en
+  renovarse la sesión.
+- `tests/accesos.test.ts` vigila la combinación y que Logs y Alumnos la usen.
+
