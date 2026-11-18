@@ -597,8 +597,8 @@ salen vacías desde su horario; se apunta UN profesor y los temas, con
 antelación o después. Segunda vista «Temas dados»: el temario de cada grupo
 (dado / programado / pendiente).
 
-- **Falta ejecutar `docs/sql/teoria-cuadrante.sql` en la BD real** (tabla
-  `theory_sessions`) y luego `node scripts/schema-snapshot.mjs`. Sin eso, la
+- **Ejecutado el 18 nov** `docs/sql/teoria-cuadrante.sql` en la BD real (tabla
+  `theory_sessions`, autorizado por el dueño; esquema actualizado). Antes, la
   pantalla da error al cargar. Es un cambio de esquema: lo autoriza el dueño.
 - Código: `app/lib/teoria.ts`, `app/actions/teoria.ts`,
   `app/components/Admin/components/AdminTeoria.tsx`, `tests/teoria.test.ts`.
