@@ -5044,7 +5044,7 @@ el segundo necesita el proyecto real.
   dueño, 18 nov: una pestaña «Cuadrante teoría» duplicaba la programación y
   se quitó). Cada clase de teoría sale en el calendario; si no tiene profesor
   ni tema sale «sin planificar» (cursiva, borde ámbar). Al abrirla, la ficha
-  deja elegir quién la da, los temas y una nota, y enseña cómo lleva el
+  deja elegir quién la da, los temas (un selector con buscador, que marca los ya dados o programados al grupo) y una nota, y enseña cómo lleva el
   temario ese grupo (dados, programados, pendientes, con fecha y profesor).
   «Copiar la teoría de la semana anterior» (vista semana) no pisa nada. En
   teoría el profesor de la clase es SOLO el apuntado: el del grupo no vale como
