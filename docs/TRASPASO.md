@@ -602,6 +602,6 @@ antelación o después. Segunda vista «Temas dados»: el temario de cada grupo
   pantalla da error al cargar. Es un cambio de esquema: lo autoriza el dueño.
 - Código: `app/lib/teoria.ts`, `app/actions/teoria.ts`,
   `app/components/Admin/components/AdminTeoria.tsx`, `tests/teoria.test.ts`.
-- Pendiente de mejora: que las horas de «Profesores» salgan de estas
-  asignaciones y no del horario del grupo; aviso de «clases sin rellenar» en el
-  Inicio del admin.
+- «Profesores» cuenta DÍAS dados de teoría y de física por mes (se paga por
+  día), no horas (regla 131).
+- Pendiente de mejora: aviso de «clases sin rellenar» en el Inicio del admin.

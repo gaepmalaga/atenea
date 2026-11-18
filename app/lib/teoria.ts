@@ -176,3 +176,30 @@ export function leeTemas(texto: string): number[] {
   }
   return normalizaTemas(out);
 }
+
+/** Una clase dada (o programada) por un profesor, de teoría o de física. */
+export type ClaseDeProfesor = { profesorId: string; fecha: string; tipo: 'teoria' | 'fisica' };
+
+export type DiasDeProfesor = { teoria: number; fisica: number; teoriaProgramada: number; fisicaProgramada: number };
+
+/**
+ * LOS DÍAS QUE HA DADO CADA PROFESOR. A los profesores se les paga un importe
+ * por cada DÍA que van a dar teoría y otro por cada día de física: cuentan
+ * días, no horas ni clases (dos clases de teoría el mismo día, mañana y
+ * tarde, son un día). Hasta hoy (incluido) es «dado»; lo posterior, programado.
+ */
+export function diasDados(clases: ClaseDeProfesor[], hoy: string): Map<string, DiasDeProfesor> {
+  const vistos = new Set<string>();
+  const out = new Map<string, DiasDeProfesor>();
+  for (const c of clases) {
+    const k = `${c.profesorId}|${c.tipo}|${c.fecha}`;
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    const d = out.get(c.profesorId) ?? { teoria: 0, fisica: 0, teoriaProgramada: 0, fisicaProgramada: 0 };
+    const futuro = c.fecha > hoy;
+    if (c.tipo === 'teoria') d[futuro ? 'teoriaProgramada' : 'teoria'] += 1;
+    else d[futuro ? 'fisicaProgramada' : 'fisica'] += 1;
+    out.set(c.profesorId, d);
+  }
+  return out;
+}
