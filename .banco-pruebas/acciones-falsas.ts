@@ -554,6 +554,9 @@ export async function listStaff() {
       { id: 's1', name: 'Marta Ortega', role: 'profesora', email: 'marta@academia-atenea.es', phone: '600 222 333', active: true, userId: null },
       { id: 's2', name: 'Javier Ruiz', role: 'entrenador', email: null, phone: '600 333 444', active: true, userId: 'u-prep' },
       { id: 's3', name: 'Sonia Vidal', role: 'coordinadora', email: 'sonia@academia-atenea.es', phone: null, active: false, userId: null },
+      // Gabinete y secretaría (regla 130): del equipo, pero no dan clase.
+      { id: 's4', name: 'Mariana', role: 'gabinete', email: null, phone: null, active: true, userId: null },
+      { id: 's5', name: 'Sara', role: 'secretaria', email: 'sara@academia-atenea.es', phone: '600 444 555', active: true, userId: null },
     ],
   });
 }
@@ -1600,3 +1603,33 @@ export async function getRankingExamenClase() {
 }
 export async function setMiRanking(d?: { visible?: boolean }) { _rankingOculto = d?.visible === false; return { success: true as const, visible: !_rankingOculto }; }
 export async function getAciertoHabitual() { return ok({ historia: { acertadas: 140, contestadas: 220 } }); }
+
+// ── Cuadrante de teoría (regla 131) ──
+export async function getTeoria(params?: { lunes?: string }) {
+  const lunes = params?.lunes ?? '2026-11-16';
+  const dia = (n: number) => new Date(Date.UTC(+lunes.slice(0, 4), +lunes.slice(5, 7) - 1, +lunes.slice(8, 10) + n)).toISOString().slice(0, 10);
+  const grupos = [
+    { id: 'tm', nombre: 'M-J MAÑANAS', weekdays: [2, 4], inicio: '10:00', fin: '14:00' },
+    { id: 'tt', nombre: 'M-J TARDE', weekdays: [2, 4], inicio: '16:00', fin: '20:00' },
+  ];
+  const historico = [
+    { classId: 'tm', fecha: '2026-11-10', profesorId: 's1', temas: [1, 2], nota: null },
+    { classId: 'tm', fecha: dia(1), profesorId: 's1', temas: [8], nota: null },
+    { classId: 'tt', fecha: dia(1), profesorId: 's2', temas: [10], nota: null },
+  ];
+  const temario = Array.from({ length: 45 }, (_, i) => ({ numero: i + 1, titulo: `Tema ${i + 1} del temario` }));
+  return ok({
+    datos: {
+      lunes, hoy: '2026-11-18', grupos,
+      profesores: [{ id: 's1', nombre: 'Lucio Ortega' }, { id: 's2', nombre: 'Sofía' }],
+      clases: grupos.flatMap((g) => g.weekdays.map((w) => {
+        const fecha = dia(w - 1);
+        const a = historico.find((h) => h.classId === g.id && h.fecha === fecha);
+        return { classId: g.id, fecha, grupo: g.nombre, inicio: g.inicio, fin: g.fin, profesorId: a?.profesorId ?? null, temas: a?.temas ?? [], nota: null, vacia: !a };
+      })).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.inicio.localeCompare(b.inicio)),
+      sinClase: [], temario, historico,
+    },
+  });
+}
+export async function saveClaseTeoria() { return { success: true as const, borrada: false }; }
+export async function copiarSemanaTeoria() { return { success: true as const, creadas: 2, omitidas: 0 }; }

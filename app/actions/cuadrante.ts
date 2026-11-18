@@ -26,6 +26,7 @@
  */
 
 import { supabaseAdmin } from './core';
+import { daClase } from '../lib/personal';
 import { requireUser, requireAdmin } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { leeTrainingSwitches } from '../lib/training-switch-guard';
@@ -72,8 +73,9 @@ const aSesion = (r: Fila): SesionCuadrante => ({
 });
 
 async function profesoresDe(org: string): Promise<Profesor[]> {
-  const { data } = await supabaseAdmin.from('academy_staff').select('id, name').eq('organization_id', org).eq('active', true).order('name');
-  return (data ?? []).map((p) => ({ id: p.id as string, nombre: p.name as string }));
+  const { data } = await supabaseAdmin.from('academy_staff').select('id, name, role').eq('organization_id', org).eq('active', true).order('name');
+  // Gabinete y secretaría forman parte del equipo, pero no dan clase (regla 130).
+  return (data ?? []).filter((p) => daClase(p.role as string | null)).map((p) => ({ id: p.id as string, nombre: p.name as string }));
 }
 
 /** Cuántos van a cada sesión de unos grupos entre dos fechas: propios, faltas y multis. */
@@ -360,8 +362,9 @@ export async function saveCelda(params: {
   const { data: grupo } = await supabaseAdmin.from('class_groups').select('id').eq('id', classId).eq('organization_id', org).maybeSingle();
   if (!grupo) return { success: false as const, error: 'Ese grupo no es de tu academia.' };
   if (c.valor.profesorId) {
-    const { data: prof } = await supabaseAdmin.from('academy_staff').select('id').eq('id', c.valor.profesorId).eq('organization_id', org).maybeSingle();
+    const { data: prof } = await supabaseAdmin.from('academy_staff').select('id, role').eq('id', c.valor.profesorId).eq('organization_id', org).maybeSingle();
     if (!prof) return { success: false as const, error: 'Ese profesor no es de tu academia.' };
+    if (!daClase(prof.role as string | null)) return { success: false as const, error: 'Esa persona es del equipo, pero no da clase.' };
   }
   const r = await ponCelda(org, auth.user.id, classId, fecha, c.valor);
   return r.ok ? { success: true as const, id: r.id } : { success: false as const, error: r.error };

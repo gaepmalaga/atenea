@@ -21,6 +21,7 @@ import {
   type ClaseHabitual,
 } from '../lib/profesores';
 import { fallo } from '../lib/fallos';
+import { daClase } from '../lib/personal';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
@@ -65,8 +66,9 @@ export async function setClaseHabitual(params: { actividad: string; profesorIds:
     return { success: false as const, error: 'Escribe la clase (como «Boxeo» o «FLK») y elige sus profesores.' };
   }
   if (ids.length) {
-    const { data: profes } = await supabaseAdmin.from('academy_staff').select('id').eq('organization_id', org).in('id', ids);
+    const { data: profes } = await supabaseAdmin.from('academy_staff').select('id, role').eq('organization_id', org).in('id', ids);
     if ((profes ?? []).length !== ids.length) return { success: false as const, error: 'Algún profesor no es de tu academia.' };
+    if ((profes ?? []).some((p) => !daClase(p.role as string | null))) return { success: false as const, error: 'Gabinete y secretaría no dan clase: elige profesores.' };
   }
 
   // La misma clase escrita de otra forma es la misma clase.
@@ -170,8 +172,9 @@ export async function setTemasProfesor(params: { profesorId: string; temas: stri
   const lista = leeListaTemas(params?.temas);
   if (!lista.ok) return { success: false as const, error: lista.error };
 
-  const { data: profe } = await supabaseAdmin.from('academy_staff').select('id').eq('id', profesorId).eq('organization_id', org).maybeSingle();
+  const { data: profe } = await supabaseAdmin.from('academy_staff').select('id, role').eq('id', profesorId).eq('organization_id', org).maybeSingle();
   if (!profe) return { success: false as const, error: 'Ese profesor no es de tu academia.' };
+  if (!daClase(profe.role as string | null)) return { success: false as const, error: 'Gabinete y secretaría no dan clase: no tienen temas.' };
 
   const { data: temas, error: e0 } = lista.temas.length
     ? await supabaseAdmin.from('subjects').select('id, topic_number').in('topic_number', lista.temas)

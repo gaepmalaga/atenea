@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-12",
+  "generado": "2026-11-18",
   "tablas": {
     "academies": {
       "columnas": [
@@ -1583,6 +1583,38 @@
         "id": "integer",
         "title": "text",
         "topic_number": "integer"
+      }
+    },
+    "theory_sessions": {
+      "columnas": [
+        "class_id",
+        "created_at",
+        "created_by",
+        "note",
+        "organization_id",
+        "session_date",
+        "teacher_id",
+        "topics",
+        "updated_at"
+      ],
+      "obligatorias": [
+        "class_id",
+        "created_at",
+        "organization_id",
+        "session_date",
+        "topics",
+        "updated_at"
+      ],
+      "tipos": {
+        "class_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "note": "text",
+        "organization_id": "uuid",
+        "session_date": "date",
+        "teacher_id": "uuid",
+        "topics": "integer[]",
+        "updated_at": "timestamp with time zone"
       }
     },
     "training_plans": {

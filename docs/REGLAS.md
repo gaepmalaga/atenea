@@ -4993,3 +4993,60 @@ el segundo necesita el proyecto real.
 - **El admin** tiene un botón con una llave en la barra del panel (y en el menú
   del móvil) que abre la misma pieza que el alumno (`CambiarClave`), con la sesión
   propia. `PanelShell` solo lo pinta si recibe `onClave`.
+
+### 130 · Gabinete y secretaría son del equipo, pero no dan clase
+
+- **Qué pasó (17 nov):** el equipo de Alphapol no son solo profesores: están
+  también Mariana y Sara (gabinete y secretaría), y el dueño pidió «poder
+  contarlas como parte del equipo». `academy_staff` nació solo para profesores
+  (regla 96) y TODO lo que ofrece «elegir profesor» —el desplegable del
+  cuadrante, el selector de un grupo, las clases habituales, los temas— lee esa
+  tabla entera. Meterlas tal cual las habría puesto como opción de profesor en
+  el cuadrante de físicas y les habría contado «0 h de clase».
+- **Regla:** el puesto (`academy_staff.role`) ya era un texto libre; lo que
+  faltaba era saber CUÁL no da clase. Lo decide `daClase()` en
+  `app/lib/personal.ts`, un solo sitio, con una lista corta de puestos de apoyo
+  (gabinete, secretaría, administrativo, recepción). **Lo que no se reconoce
+  —vacío incluido o un «preparador físico» escrito a mano— sigue contando como
+  quien da clase:** equivocarse hacia ese lado no esconde a nadie; el contrario
+  sí. Sin cambios de esquema.
+- **Dónde se aplica:** el desplegable del cuadrante (`profesoresDe`) y, en el
+  servidor, quien asigna una celda, las clases habituales y los temas rechazan a
+  quien no da clase (una Server Action es un endpoint público, regla 1); el
+  selector de profesores de un grupo; el recuento de «Ajustes»; y en
+  «Profesores» el panel de horas, el recuento de activos y los temas. Gabinete y
+  secretaría salen en su propia sección, «Gabinete y secretaría», con su ficha.
+- **El formulario** ofrece un desplegable de puesto (Profesor/a, Gabinete,
+  Secretaría) en vez del texto libre; un puesto antiguo escrito a mano se
+  conserva como opción.
+- `tests/personal.test.ts` vigila `daClase` y que cada sitio que ofrece «elegir
+  profesor» lo use (comprobado rompiendo cada uno a propósito).
+
+### 131 · El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable
+- **Qué pasó (18 nov):** en teoría no hay un profesor fijo por tema: cada día va
+  UNO distinto y da uno o varios temas, y los profesores rotan por los tres
+  grupos (L-X mañanas, M-J mañanas, M-J tarde). La plataforma solo sabía «qué
+  profesores lleva un grupo» y «qué temas sabe cada profesor» (regla 100), pero
+  no quién da CADA clase ni qué tema se dio, así que nadie podía llevar la
+  cuenta de qué temario lleva cada grupo. El dueño pidió sentarse y programar
+  «la semana que viene, el martes por la mañana va Lucio al tema 8, por la
+  tarde va Sofía al tema 10», con antelación y modificable después.
+- **Regla:** las clases salen DEL HORARIO del grupo, vacías; lo apuntado se
+  guarda en `theory_sessions` (una fila por grupo y fecha; sin fila = sin
+  asignar; `docs/sql/teoria-cuadrante.sql`, RLS y cero políticas). Nada se
+  inventa: una clase solo existe si el grupo tiene clase ese día y no está
+  marcada «sin clase» (`class_days_off`, los mismos días que en física).
+- **UN profesor por clase**, y solo quien da clase (regla 130, comprobado en el
+  servidor). Los temas son números del temario (`subjects.topic_number`), de 1
+  a 8 por clase. Una clase sin profesor, sin tema y sin nota vuelve a «sin
+  asignar» y se borra la fila.
+- **Se ve de dos maneras:** la semana (clases por día, las vacías en ámbar y la
+  cuenta de «sin rellenar», aviso de choque si un profesor da dos clases a la
+  vez, horas de la semana por profesor y «Copiar semana anterior», que no pisa
+  nada) y el avance de cada grupo (temas dados, programados y pendientes, con
+  fecha y profesor).
+- Las horas de la pantalla de cada profesor siguen saliendo de su horario de
+  grupo; usar estas asignaciones reales ahí queda como mejora.
+- `tests/teoria.test.ts` vigila la lógica pura y que cada acción exija admin,
+  acote por academia y valide grupo, día y profesor (comprobado rompiendo el
+  código a propósito).
