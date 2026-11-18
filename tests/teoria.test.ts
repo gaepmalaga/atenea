@@ -142,8 +142,13 @@ describe('clases dadas (lo que se paga)', () => {
     const d = diasDados([c('l', '2026-11-17', 'teoria', 'manana'), c('l', '2026-11-17', 'teoria', 'tarde'), c('l', '2026-11-19', 'teoria', 'manana')], '2026-11-30').get('l')!;
     expect(d.teoria).toBe(3);
   });
-  it('la misma clase repetida (mismo grupo y día) cuenta una vez', () => {
+  it('la misma clase repetida (mismo identificador y día) cuenta una vez', () => {
     expect(diasDados([c('l', '2026-11-17', 'fisica'), c('l', '2026-11-17', 'fisica')], '2026-11-30').get('l')!.fisica).toBe(1);
+  });
+  it('el ejemplo del dueño: física de lunes a jueves una al día y teoría martes y jueves = 4 físicas y 2 teorías', () => {
+    const fis = ['16', '17', '18', '19'].map((d) => c('lucio', `2026-11-${d}`, 'fisica', `s${d}`));
+    const teo = ['17', '19'].map((d) => c('lucio', `2026-11-${d}`, 'teoria', 'tarde'));
+    expect(diasDados([...fis, ...teo], '2026-11-30').get('lucio')).toMatchObject({ fisica: 4, teoria: 2 });
   });
   it('teoría y física el mismo día suman cada una: se cobran aparte', () => {
     const d = diasDados([c('l', '2026-11-17', 'teoria'), c('l', '2026-11-17', 'fisica')], '2026-11-30').get('l')!;

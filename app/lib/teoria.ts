@@ -185,9 +185,9 @@ export type DiasDeProfesor = { teoria: number; fisica: number; teoriaProgramada:
 /**
  * LAS CLASES QUE HA DADO CADA PROFESOR. A los profesores se les paga un importe
  * por cada clase de teoría y otro por cada clase de física, y cada clase suma
- * 1: dos clases de teoría el mismo día (mañana y tarde) son 2. Una clase es un
- * grupo en una fecha; la misma clase repetida (varias filas de la sesión de
- * física del mismo grupo y día) cuenta una vez. Hasta hoy (incluido) es
+ * 1: dos clases de teoría el mismo día (mañana y tarde) son 2. En teoría, una
+ * clase es un grupo en una fecha; en física, cada sesión. Lo mismo repetido
+ * (misma `classId` y fecha) cuenta una vez. Hasta hoy (incluido) es
  * «dada»; lo posterior, programada.
  */
 export function diasDados(clases: ClaseDeProfesor[], hoy: string): Map<string, DiasDeProfesor> {

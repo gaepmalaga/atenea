@@ -241,7 +241,8 @@ export async function getDiasDados(params: { mes: string }): Promise<
     ...teo.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
       .map((r) => ({ profesorId: r.teacher_id as string, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'teoria' as const })),
     ...fis.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
-      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'fisica' as const })),
+      // Cada sesión de física suma 1: su id es la «clase» (no el grupo y día).
+      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.id as string, fecha: r.session_date as string, tipo: 'fisica' as const })),
   ];
   const hoy = ahoraEnZona(Date.now()).fecha;
   return {
