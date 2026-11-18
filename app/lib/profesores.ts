@@ -218,8 +218,14 @@ export function clasesDeLaSemana(
   profesorId: string,
   grupos: { id: string; name: string; llevaPlan: boolean; esMulti: boolean; staffIds: string[]; horario: { weekdays: number[] | null; startTime: string | null; endTime: string | null } }[],
   fisica: { fecha: string; dia: number; grupo: string; titulo: string; hora: string | null; fin: string | null }[],
+  /** Las clases de teoría apuntadas en el cuadrante de teoría (regla 131). Si se pasan, mandan sobre el horario de los grupos. */
+  teoriaApuntada?: { fecha: string; dia: number; grupo: string; titulo: string; hora: string | null; fin: string | null }[],
 ): ClaseDeSemana[] {
-  const teoria = grupos
+  const teoria = teoriaApuntada
+    ? teoriaApuntada.map((c, i) => ({
+        clave: `t|${c.fecha}|${c.grupo}|${i}`, dia: c.dia, inicio: c.hora, fin: c.fin, texto: `${c.titulo} · ${c.grupo}`, fisica: false,
+      }))
+    : grupos
     .filter((g) => !g.llevaPlan && !g.esMulti && g.staffIds.includes(profesorId) && g.horario.weekdays?.length)
     .flatMap((g) => (g.horario.weekdays ?? []).map((d) => ({
       clave: `${g.id}|${d}`, dia: d, inicio: g.horario.startTime, fin: g.horario.endTime, texto: g.name, fisica: false,

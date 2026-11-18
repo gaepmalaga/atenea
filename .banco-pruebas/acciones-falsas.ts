@@ -1633,3 +1633,12 @@ export async function getTeoria(params?: { lunes?: string }) {
 }
 export async function saveClaseTeoria() { return { success: true as const, borrada: false }; }
 export async function copiarSemanaTeoria() { return { success: true as const, creadas: 2, omitidas: 0 }; }
+export async function getDiasDados(params?: { mes?: string }) {
+  return ok({
+    mes: params?.mes ?? '2026-11', hoy: '2026-11-18',
+    dias: [
+      { profesorId: 's1', teoria: 5, fisica: 3, teoriaProgramada: 2, fisicaProgramada: 0 },
+      { profesorId: 's2', teoria: 0, fisica: 8, teoriaProgramada: 0, fisicaProgramada: 4 },
+    ],
+  });
+}

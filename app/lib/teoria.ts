@@ -176,3 +176,32 @@ export function leeTemas(texto: string): number[] {
   }
   return normalizaTemas(out);
 }
+
+/** Una clase dada (o programada) por un profesor, de teoría o de física. */
+export type ClaseDeProfesor = { profesorId: string; classId: string; fecha: string; tipo: 'teoria' | 'fisica' };
+
+export type DiasDeProfesor = { teoria: number; fisica: number; teoriaProgramada: number; fisicaProgramada: number };
+
+/**
+ * LAS CLASES QUE HA DADO CADA PROFESOR. A los profesores se les paga un importe
+ * por cada clase de teoría y otro por cada clase de física, y cada clase suma
+ * 1: dos clases de teoría el mismo día (mañana y tarde) son 2. En teoría, una
+ * clase es un grupo en una fecha; en física, cada sesión. Lo mismo repetido
+ * (misma `classId` y fecha) cuenta una vez. Hasta hoy (incluido) es
+ * «dada»; lo posterior, programada.
+ */
+export function diasDados(clases: ClaseDeProfesor[], hoy: string): Map<string, DiasDeProfesor> {
+  const vistos = new Set<string>();
+  const out = new Map<string, DiasDeProfesor>();
+  for (const c of clases) {
+    const k = `${c.profesorId}|${c.tipo}|${c.classId}|${c.fecha}`;
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    const d = out.get(c.profesorId) ?? { teoria: 0, fisica: 0, teoriaProgramada: 0, fisicaProgramada: 0 };
+    const futuro = c.fecha > hoy;
+    if (c.tipo === 'teoria') d[futuro ? 'teoriaProgramada' : 'teoria'] += 1;
+    else d[futuro ? 'fisicaProgramada' : 'fisica'] += 1;
+    out.set(c.profesorId, d);
+  }
+  return out;
+}

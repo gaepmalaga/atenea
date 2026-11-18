@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   normalizaTemas, normalizaNotaTeoria, textoTemas, leeTemas, fechasDeGrupoEntre, clasesDeTeoria, sinRellenar,
-  choquesDeTeoria, temasDeAsignaciones, avanceDeGrupo, horasDeTeoria, type GrupoTeoria, type AsignacionTeoria,
+  choquesDeTeoria, diasDados, temasDeAsignaciones, avanceDeGrupo, horasDeTeoria, type GrupoTeoria, type AsignacionTeoria,
 } from '../app/lib/teoria';
 
 /** Regla 131 · El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable. */
@@ -133,5 +133,43 @@ describe('seguridad de las acciones', () => {
     const sql = readFileSync(join(__dirname, '..', 'docs/sql/teoria-cuadrante.sql'), 'utf-8');
     expect(sql).toContain('enable row level security');
     expect(sql).not.toMatch(/create policy/i);
+  });
+});
+
+describe('clases dadas (lo que se paga)', () => {
+  const c = (profesorId: string, fecha: string, tipo: 'teoria' | 'fisica', classId = 'g1') => ({ profesorId, classId, fecha, tipo });
+  it('dos clases de teoría el mismo día (mañana y tarde) son DOS: cada clase suma 1', () => {
+    const d = diasDados([c('l', '2026-11-17', 'teoria', 'manana'), c('l', '2026-11-17', 'teoria', 'tarde'), c('l', '2026-11-19', 'teoria', 'manana')], '2026-11-30').get('l')!;
+    expect(d.teoria).toBe(3);
+  });
+  it('la misma clase repetida (mismo identificador y día) cuenta una vez', () => {
+    expect(diasDados([c('l', '2026-11-17', 'fisica'), c('l', '2026-11-17', 'fisica')], '2026-11-30').get('l')!.fisica).toBe(1);
+  });
+  it('el ejemplo del dueño: física de lunes a jueves una al día y teoría martes y jueves = 4 físicas y 2 teorías', () => {
+    const fis = ['16', '17', '18', '19'].map((d) => c('lucio', `2026-11-${d}`, 'fisica', `s${d}`));
+    const teo = ['17', '19'].map((d) => c('lucio', `2026-11-${d}`, 'teoria', 'tarde'));
+    expect(diasDados([...fis, ...teo], '2026-11-30').get('lucio')).toMatchObject({ fisica: 4, teoria: 2 });
+  });
+  it('teoría y física el mismo día suman cada una: se cobran aparte', () => {
+    const d = diasDados([c('l', '2026-11-17', 'teoria'), c('l', '2026-11-17', 'fisica')], '2026-11-30').get('l')!;
+    expect([d.teoria, d.fisica]).toEqual([1, 1]);
+  });
+  it('solo teoría o solo física deja el otro en cero', () => {
+    const m = diasDados([c('a', '2026-11-03', 'fisica'), c('b', '2026-11-04', 'teoria')], '2026-11-30');
+    expect(m.get('a')).toMatchObject({ teoria: 0, fisica: 1 });
+    expect(m.get('b')).toMatchObject({ teoria: 1, fisica: 0 });
+  });
+  it('hasta hoy (incluido) es dado; lo posterior, programado', () => {
+    const d = diasDados([c('l', '2026-11-18', 'teoria'), c('l', '2026-11-19', 'teoria'), c('l', '2026-11-20', 'fisica')], '2026-11-18').get('l')!;
+    expect(d).toMatchObject({ teoria: 1, teoriaProgramada: 1, fisica: 0, fisicaProgramada: 1 });
+  });
+  it('la acción exige admin, acota por academia y descuenta los días sin clase', () => {
+    const src = lee('app/actions/profesores.ts');
+    const i = src.indexOf('export async function getDiasDados');
+    const cuerpo = src.slice(i);
+    expect(cuerpo).toContain('requireAdmin()');
+    expect(cuerpo.match(/\.eq\('organization_id', org\)/g)!.length).toBeGreaterThanOrEqual(3);
+    expect(cuerpo).toContain('class_days_off');
+    expect(cuerpo.match(/filter\(\(r\) => !quitados\.has\(/g)).toHaveLength(2);
   });
 });

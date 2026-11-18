@@ -531,6 +531,8 @@ export type AgendaProfesor = {
   grupos: { id: string; nombre: string; tipo: string }[];
   /** Sus clases de física de la semana, del cuadrante (sin los días quitados). */
   clases: ClaseProfesor[];
+  /** Sus clases de teoría de la semana, las apuntadas en el cuadrante de teoría (regla 131). */
+  teoria: ClaseProfesor[];
 };
 
 /** Qué lleva cada profesor: sus grupos y sus clases de física de una semana. */
@@ -545,14 +547,17 @@ export async function getAgendaProfesores(params: { lunes: string }): Promise<
   if (!esLunes(lunes)) return { success: false as const, error: 'Datos no válidos.' };
   const domingo = sumaDias(lunes, 6);
 
-  const [staffRes, gruposRes, kindsRes, sesRes] = await Promise.all([
+  const [staffRes, gruposRes, kindsRes, sesRes, teoRes] = await Promise.all([
     supabaseAdmin.from('academy_staff').select('id').eq('organization_id', org),
     supabaseAdmin.from('class_groups').select(COLS_GRUPO + ', kind').eq('organization_id', org).order('created_at'),
     supabaseAdmin.from('group_kinds').select('id, label').eq('organization_id', org),
     supabaseAdmin.from('training_sessions').select('class_id, session_date, title, teacher_id, start_time')
       .eq('organization_id', org).not('teacher_id', 'is', null).not('class_id', 'is', null)
       .gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
+    supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, topics')
+      .eq('organization_id', org).not('teacher_id', 'is', null).gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
   ]);
+  if (teoRes.error) return { success: false as const, error: fallo('getAgendaProfesores', teoRes.error) };
   if (staffRes.error) return { success: false as const, error: fallo('getAgendaProfesores', staffRes.error) };
   if (gruposRes.error) return { success: false as const, error: fallo('getAgendaProfesores', gruposRes.error) };
   if (sesRes.error) return { success: false as const, error: fallo('getAgendaProfesores', sesRes.error) };
@@ -571,6 +576,14 @@ export async function getAgendaProfesores(params: { lunes: string }): Promise<
     const id = p.id as string;
     return {
       profesorId: id,
+      teoria: (teoRes.data ?? [])
+        .filter((x) => x.teacher_id === id && porId.has(x.class_id as string) && !off.has(`${x.class_id}|${x.session_date}`))
+        .map((x) => {
+          const g = porId.get(x.class_id as string)!;
+          const h = horarioDeFila(g);
+          const temas = ((x.topics as number[] | null) ?? []).join(', ');
+          return { fecha: x.session_date as string, grupo: nombreCorto(g.name as string), titulo: temas ? `Tema ${temas}` : 'Teoría', hora: h.startTime, fin: h.endTime };
+        }),
       grupos: (asignados.data ?? []).filter((a) => a.staff_id === id).flatMap((a) => {
         const g = porId.get(a.class_id as string);
         return g ? [{ id: g.id as string, nombre: g.name as string, tipo: tipo.get(g.kind as string) ?? (g.kind as string) }] : [];

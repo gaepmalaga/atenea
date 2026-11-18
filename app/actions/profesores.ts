@@ -22,6 +22,9 @@ import {
 } from '../lib/profesores';
 import { fallo } from '../lib/fallos';
 import { daClase } from '../lib/personal';
+import { ahoraEnZona, esFecha, sumaDias } from '../lib/asistencia';
+import { diasDados, type DiasDeProfesor, type ClaseDeProfesor } from '../lib/teoria';
+import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
@@ -193,4 +196,57 @@ export async function setTemasProfesor(params: { profesorId: string; temas: stri
     if (error) return { success: false as const, error: fallo('setTemasProfesor', error) };
   }
   return { success: true as const, temas: lista.temas };
+}
+
+export type DiasDadosProfesor = { profesorId: string } & DiasDeProfesor;
+
+/**
+ * Cuántas CLASES ha dado cada profesor de teoría y de física en un mes (`mes`
+ * = «2026-11»). Es lo que se paga: un importe por clase de teoría y otro por
+ * clase de física; cada clase suma 1. La teoría sale del cuadrante de teoría (`theory_sessions`); la
+ * física, de las sesiones de grupo con profesor (`training_sessions`), sin los
+ * días marcados «sin clase».
+ */
+export async function getDiasDados(params: { mes: string }): Promise<
+  { success: true; mes: string; hoy: string; dias: DiasDadosProfesor[] } | { success: false; error: string }
+> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const org = auth.user.organizationId;
+  const mes = params?.mes;
+  if (!org) return { success: false as const, error: 'No hay una academia seleccionada.' };
+  if (typeof mes !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return { success: false as const, error: 'Datos no válidos.' };
+  const desde = `${mes}-01`;
+  const siguiente = new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7), 1)).toISOString().slice(0, 10);
+  const hasta = sumaDias(siguiente, -1);
+  if (!esFecha(desde)) return { success: false as const, error: 'Datos no válidos.' };
+
+  type F = Record<string, unknown>;
+  const [teo, fis, off] = await Promise.all([
+    paginaCompleta<F>((d, h) => supabaseAdmin.from('theory_sessions').select('teacher_id, session_date, class_id')
+      .eq('organization_id', org).not('teacher_id', 'is', null).gte('session_date', desde).lte('session_date', hasta)
+      .order('session_date').order('class_id').range(d, h) as unknown as Promise<ResultadoPagina<F>>),
+    paginaCompleta<F>((d, h) => supabaseAdmin.from('training_sessions').select('id, teacher_id, session_date, class_id')
+      .eq('organization_id', org).not('teacher_id', 'is', null).not('class_id', 'is', null)
+      .gte('session_date', desde).lte('session_date', hasta)
+      .order('id').range(d, h) as unknown as Promise<ResultadoPagina<F>>),
+    supabaseAdmin.from('class_days_off').select('class_id, session_date').eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta),
+  ]);
+  if (teo.error) return { success: false as const, error: teo.error };
+  if (fis.error) return { success: false as const, error: fis.error };
+  if (off.error) return { success: false as const, error: fallo('getDiasDados', off.error) };
+
+  const quitados = new Set((off.data ?? []).map((d) => `${d.class_id}|${d.session_date}`));
+  const clases: ClaseDeProfesor[] = [
+    ...teo.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
+      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'teoria' as const })),
+    ...fis.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
+      // Cada sesión de física suma 1: su id es la «clase» (no el grupo y día).
+      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.id as string, fecha: r.session_date as string, tipo: 'fisica' as const })),
+  ];
+  const hoy = ahoraEnZona(Date.now()).fecha;
+  return {
+    success: true as const, mes, hoy,
+    dias: [...diasDados(clases, hoy)].map(([profesorId, d]) => ({ profesorId, ...d })),
+  };
 }
