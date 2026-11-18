@@ -254,6 +254,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 128 | Las ventanas son de la app, no del navegador; y un resultado se cierra con «Volver» |
 | 129 | El enlace de «¿Olvidaste tu contraseña?» pide una contraseña nueva, y el admin puede cambiar la suya |
 | 130 | Gabinete y secretaría son del equipo, pero no dan clase |
+| 131 | El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable |
 
 ## Trampas conocidas
 

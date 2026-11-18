@@ -1,0 +1,178 @@
+/**
+ * EL CUADRANTE DE TEORÍA (regla 131).
+ *
+ * Cada clase de un grupo de teoría (la que el horario del grupo pone en un día)
+ * sale en el cuadrante VACÍA. La responsable apunta quién va (UN profesor) y
+ * qué tema(s) da, con antelación o después, y lo puede cambiar. De ahí salen
+ * los temas dados de cada grupo y las horas reales de cada profesor.
+ *
+ * No hay fila guardada = clase sin asignar. Módulo PURO (regla 21).
+ */
+
+import { sumaDias, diaSemanaDe } from './asistencia';
+import { horasEntre } from './profesores';
+
+export type GrupoTeoria = {
+  id: string;
+  nombre: string;
+  weekdays: number[];
+  inicio: string | null;
+  fin: string | null;
+};
+
+/** Lo guardado de una clase: quién la da, qué temas y una nota. */
+export type AsignacionTeoria = {
+  classId: string;
+  fecha: string;
+  profesorId: string | null;
+  temas: number[];
+  nota: string | null;
+};
+
+export type ClaseTeoria = AsignacionTeoria & {
+  grupo: string;
+  inicio: string | null;
+  fin: string | null;
+  /** `true` si no hay nada apuntado (ni profesor ni tema). */
+  vacia: boolean;
+};
+
+export const MAX_TEMAS_CLASE = 8;
+export const MAX_NOTA_TEORIA = 200;
+export const MAX_TEMA = 200;
+
+/** Números de tema válidos, sin repetir y en orden. Lo que no es un número entero 1..MAX_TEMA se descarta. */
+export function normalizaTemas(v: unknown): number[] {
+  if (!Array.isArray(v)) return [];
+  const set = new Set<number>();
+  for (const x of v) {
+    const n = typeof x === 'number' ? x : typeof x === 'string' && /^\d{1,3}$/.test(x.trim()) ? Number(x) : NaN;
+    if (Number.isInteger(n) && n >= 1 && n <= MAX_TEMA) set.add(n);
+  }
+  return [...set].sort((a, b) => a - b).slice(0, MAX_TEMAS_CLASE);
+}
+
+/** La nota, sin NUL ni espacios de más; vacía es `null`. */
+export function normalizaNotaTeoria(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.replace(/\0/g, '').replace(/\s+/g, ' ').trim();
+  return t ? t.slice(0, MAX_NOTA_TEORIA) : null;
+}
+
+/** «8» · «8 y 9» · «1, 2 y 3». */
+export function textoTemas(temas: number[]): string {
+  if (!temas.length) return '';
+  if (temas.length === 1) return String(temas[0]);
+  return `${temas.slice(0, -1).join(', ')} y ${temas[temas.length - 1]}`;
+}
+
+/** Las fechas de un grupo entre dos fechas (ambas incluidas), por sus días de la semana. */
+export function fechasDeGrupoEntre(weekdays: number[], desde: string, hasta: string): string[] {
+  const out: string[] = [];
+  for (let f = desde; f <= hasta; f = sumaDias(f, 1)) {
+    if (weekdays.includes(diaSemanaDe(f))) out.push(f);
+  }
+  return out;
+}
+
+/**
+ * Las clases de teoría entre dos fechas: una por grupo y día de horario, sin
+ * los días «sin clase», con lo apuntado encima. Ordenadas por fecha y hora.
+ */
+export function clasesDeTeoria(params: {
+  grupos: GrupoTeoria[];
+  asignaciones: AsignacionTeoria[];
+  sinClase?: { classId: string; fecha: string }[];
+  desde: string;
+  hasta: string;
+}): ClaseTeoria[] {
+  const off = new Set((params.sinClase ?? []).map((x) => `${x.classId}|${x.fecha}`));
+  const por = new Map(params.asignaciones.map((a) => [`${a.classId}|${a.fecha}`, a]));
+  const out: ClaseTeoria[] = [];
+  for (const g of params.grupos) {
+    for (const fecha of fechasDeGrupoEntre(g.weekdays, params.desde, params.hasta)) {
+      const k = `${g.id}|${fecha}`;
+      if (off.has(k)) continue;
+      const a = por.get(k);
+      const temas = a?.temas ?? [];
+      const profesorId = a?.profesorId ?? null;
+      out.push({
+        classId: g.id, fecha, grupo: g.nombre, inicio: g.inicio, fin: g.fin,
+        profesorId, temas, nota: a?.nota ?? null,
+        vacia: !profesorId && temas.length === 0,
+      });
+    }
+  }
+  return out.sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.inicio ?? '99').localeCompare(b.inicio ?? '99') || a.grupo.localeCompare(b.grupo, 'es'));
+}
+
+/** Cuántas clases de la lista están sin rellenar. */
+export const sinRellenar = (clases: ClaseTeoria[]) => clases.filter((c) => c.vacia).length;
+
+/**
+ * Un profesor no puede dar dos clases a la vez. Devuelve, por `classId|fecha`,
+ * con quién choca. Sin hora conocida no se compara (sería ruido).
+ */
+export function choquesDeTeoria(clases: ClaseTeoria[], nombres: Map<string, string>): Map<string, string> {
+  const min = (t: string | null) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t ?? '');
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const out = new Map<string, string>();
+  const con = clases.filter((c) => c.profesorId && min(c.inicio) !== null && min(c.fin) !== null);
+  for (let i = 0; i < con.length; i++) {
+    for (let j = i + 1; j < con.length; j++) {
+      const a = con[i];
+      const b = con[j];
+      if (a.profesorId !== b.profesorId || a.fecha !== b.fecha) continue;
+      if (min(a.inicio)! < min(b.fin)! && min(b.inicio)! < min(a.fin)!) {
+        const quien = nombres.get(a.profesorId!) ?? 'El profesor';
+        out.set(`${a.classId}|${a.fecha}`, `${quien} también da ${b.grupo} a esa hora.`);
+        out.set(`${b.classId}|${b.fecha}`, `${quien} también da ${a.grupo} a esa hora.`);
+      }
+    }
+  }
+  return out;
+}
+
+/** Un tema dado (o programado) a un grupo. */
+export type TemaDado = { classId: string; tema: number; fecha: string; profesorId: string | null };
+
+/** Las asignaciones guardadas → un renglón por grupo y tema, quedándose con la última vez. */
+export function temasDeAsignaciones(asignaciones: AsignacionTeoria[]): TemaDado[] {
+  const ultimo = new Map<string, TemaDado>();
+  for (const a of [...asignaciones].sort((x, y) => x.fecha.localeCompare(y.fecha))) {
+    for (const t of a.temas) ultimo.set(`${a.classId}|${t}`, { classId: a.classId, tema: t, fecha: a.fecha, profesorId: a.profesorId });
+  }
+  return [...ultimo.values()];
+}
+
+/**
+ * El avance de un grupo: temas ya dados (fecha pasada o de hoy), programados
+ * (futura) y pendientes (del temario, ni una cosa ni la otra).
+ */
+export function avanceDeGrupo(dados: TemaDado[], classId: string, temario: number[], hoy: string) {
+  const propios = dados.filter((d) => d.classId === classId);
+  const dado = propios.filter((d) => d.fecha <= hoy).sort((a, b) => a.tema - b.tema);
+  const programado = propios.filter((d) => d.fecha > hoy).sort((a, b) => a.tema - b.tema);
+  const hechos = new Set(propios.map((d) => d.tema));
+  return { dado, programado, pendientes: temario.filter((t) => !hechos.has(t)) };
+}
+
+/** Las horas que da un profesor en unas clases: solo las que tienen hora de inicio y de fin. */
+export function horasDeTeoria(clases: ClaseTeoria[], profesorId: string): number {
+  return clases.filter((c) => c.profesorId === profesorId).reduce((n, c) => n + horasEntre(c.inicio, c.fin), 0);
+}
+
+/** Lo que se teclea en «Temas»: «8», «8, 9», «1-3 y 5». Rangos incluidos; lo que no es número se ignora. */
+export function leeTemas(texto: string): number[] {
+  const out: number[] = [];
+  for (const parte of texto.split(/[,;\s]+|\by\b/i)) {
+    const r = /^(\d{1,3})\s*[-–]\s*(\d{1,3})$/.exec(parte);
+    if (r) {
+      const [a, b] = [Number(r[1]), Number(r[2])];
+      for (let n = Math.min(a, b); n <= Math.max(a, b) && out.length < 50; n++) out.push(n);
+    } else if (/^\d{1,3}$/.test(parte)) out.push(Number(parte));
+  }
+  return normalizaTemas(out);
+}

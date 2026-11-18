@@ -5021,3 +5021,32 @@ el segundo necesita el proyecto real.
   conserva como opción.
 - `tests/personal.test.ts` vigila `daClase` y que cada sitio que ofrece «elegir
   profesor» lo use (comprobado rompiendo cada uno a propósito).
+
+### 131 · El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable
+- **Qué pasó (18 nov):** en teoría no hay un profesor fijo por tema: cada día va
+  UNO distinto y da uno o varios temas, y los profesores rotan por los tres
+  grupos (L-X mañanas, M-J mañanas, M-J tarde). La plataforma solo sabía «qué
+  profesores lleva un grupo» y «qué temas sabe cada profesor» (regla 100), pero
+  no quién da CADA clase ni qué tema se dio, así que nadie podía llevar la
+  cuenta de qué temario lleva cada grupo. El dueño pidió sentarse y programar
+  «la semana que viene, el martes por la mañana va Lucio al tema 8, por la
+  tarde va Sofía al tema 10», con antelación y modificable después.
+- **Regla:** las clases salen DEL HORARIO del grupo, vacías; lo apuntado se
+  guarda en `theory_sessions` (una fila por grupo y fecha; sin fila = sin
+  asignar; `docs/sql/teoria-cuadrante.sql`, RLS y cero políticas). Nada se
+  inventa: una clase solo existe si el grupo tiene clase ese día y no está
+  marcada «sin clase» (`class_days_off`, los mismos días que en física).
+- **UN profesor por clase**, y solo quien da clase (regla 130, comprobado en el
+  servidor). Los temas son números del temario (`subjects.topic_number`), de 1
+  a 8 por clase. Una clase sin profesor, sin tema y sin nota vuelve a «sin
+  asignar» y se borra la fila.
+- **Se ve de dos maneras:** la semana (clases por día, las vacías en ámbar y la
+  cuenta de «sin rellenar», aviso de choque si un profesor da dos clases a la
+  vez, horas de la semana por profesor y «Copiar semana anterior», que no pisa
+  nada) y el avance de cada grupo (temas dados, programados y pendientes, con
+  fecha y profesor).
+- Las horas de la pantalla de cada profesor siguen saliendo de su horario de
+  grupo; usar estas asignaciones reales ahí queda como mejora.
+- `tests/teoria.test.ts` vigila la lógica pura y que cada acción exija admin,
+  acote por academia y valide grupo, día y profesor (comprobado rompiendo el
+  código a propósito).
