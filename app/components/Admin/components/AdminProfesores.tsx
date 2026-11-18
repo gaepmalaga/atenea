@@ -86,7 +86,7 @@ export default function AdminProfesores() {
     return () => { vivo = false; };
   }, [lunes, vuelta]);
 
-  // Los DÍAS dados de teoría y de física en un mes: es lo que se paga (días, no horas).
+  // Las CLASES dadas de teoría y de física en un mes: es lo que se paga (cada clase suma 1, no horas).
   const [mes, setMes] = useState(() => hoyLocal().slice(0, 7));
   const [diasMes, setDiasMes] = useState<DiasDadosProfesor[] | null>(null);
   const [hoyServidor, setHoyServidor] = useState('');
@@ -147,8 +147,8 @@ export default function AdminProfesores() {
   );
   // Si alguna clase cae en sábado o domingo, esos días también salen.
   const diasSemana = [...diasDeLaSemana, ...DIAS_SEMANA.slice(5).filter((d) => profesorado.some((s) => clasesDeProfe(s.id).some((c) => c.dia === d.n)))];
-  // Se cuentan DÍAS, no horas: los profesores cobran por día de teoría y por día de física.
-  const diasSemanaDe = (id: string) => new Set(clasesDeProfe(id).map((c) => c.dia)).size;
+  // Se cuentan CLASES, no horas: se cobra por clase de teoría y por clase de física.
+  const diasSemanaDe = (id: string) => clasesDeProfe(id).length;
   const mesAnterior = (m: string, n: number) => {
     const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1));
     return d.toISOString().slice(0, 7);
@@ -194,7 +194,7 @@ export default function AdminProfesores() {
             <BloqueTitulo>Datos</BloqueTitulo>
             <Campo label="Nombre" value={editando.name} onChange={(e) => setEditando({ ...editando, name: e.target.value })} />
             <CampoSelect label="Puesto" value={editando.role} onChange={(e) => setEditando({ ...editando, role: e.target.value })}
-              hint="Gabinete y secretaría forman parte del equipo, pero no salen al elegir profesor ni cuentan días de clase.">
+              hint="Gabinete y secretaría forman parte del equipo, pero no salen al elegir profesor ni cuentan clases dadas.">
               {PUESTOS.map((p) => <option key={p.valor} value={p.valor}>{p.etiqueta}</option>)}
               {!PUESTOS.some((p) => p.valor === editando.role) && <option value={editando.role}>{editando.role}</option>}
             </CampoSelect>
@@ -230,7 +230,7 @@ export default function AdminProfesores() {
           {sFicha && daClase(sFicha.role) && (
             <div className="space-y-4">
               <Hoja pad="md" className="grid grid-cols-3 gap-2 text-center">
-                <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{(diasDe.get(sFicha.id)?.teoria ?? 0) + (diasDe.get(sFicha.id)?.fisica ?? 0)}</strong><span className="text-xs text-slate-600 dark:text-slate-400">días en {nombreMes(mes)}</span></div>
+                <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{(diasDe.get(sFicha.id)?.teoria ?? 0) + (diasDe.get(sFicha.id)?.fisica ?? 0)}</strong><span className="text-xs text-slate-600 dark:text-slate-400">clases en {nombreMes(mes)}</span></div>
                 <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{a?.grupos.length ?? 0}</strong><span className="text-xs text-slate-600 dark:text-slate-400">grupos</span></div>
                 <div><strong className="block font-titulo text-2xl font-bold leading-tight tabular-nums">{temasDe(sFicha.id).length}</strong><span className="text-xs text-slate-600 dark:text-slate-400">temas</span></div>
               </Hoja>
@@ -300,7 +300,7 @@ export default function AdminProfesores() {
           <Pulso
             cifras={[
               { valor: activos.length, etiqueta: activos.length === 1 ? 'profesor activo' : 'profesores activos' },
-              { valor: diasMes ? activos.reduce((n, s) => n + (diasDe.get(s.id)?.teoria ?? 0) + (diasDe.get(s.id)?.fisica ?? 0), 0) : null, etiqueta: `días dados en ${nombreMes(mes)}` },
+              { valor: diasMes ? activos.reduce((n, s) => n + (diasDe.get(s.id)?.teoria ?? 0) + (diasDe.get(s.id)?.fisica ?? 0), 0) : null, etiqueta: `clases dadas en ${nombreMes(mes)}` },
               { valor: temas.length ? sinProfesor.length : null, etiqueta: 'temas sin profesor', tono: sinProfesor.length ? 'aviso' : 'ok' },
               { valor: activos.filter((s) => s.userId).length, etiqueta: 'con cuenta en la plataforma' },
             ]}
@@ -315,8 +315,8 @@ export default function AdminProfesores() {
           <Hoja pad="md" className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <BloqueTitulo>Días dados · {nombreMes(mes)}</BloqueTitulo>
-                <p className={TEXT.muted}>Para pagar: un día de teoría y un día de física cuentan una vez, den las clases que den ese día.</p>
+                <BloqueTitulo>Clases dadas · {nombreMes(mes)}</BloqueTitulo>
+                <p className={TEXT.muted}>Para pagar: cada clase de teoría y cada clase de física suma 1. Dos clases el mismo día, mañana y tarde, son 2.</p>
               </div>
               <div className="flex items-center gap-1">
                 <Boton size="sm" variant="secondary" aria-label="Mes anterior" onClick={() => setMes(mesAnterior(mes, -1))} icon={<ChevronLeft size={15} />} />
@@ -340,7 +340,7 @@ export default function AdminProfesores() {
                       const prog = (d?.teoriaProgramada ?? 0) + (d?.fisicaProgramada ?? 0);
                       return (
                         <tr key={s.id} className="min-h-[44px]">
-                          <td className="py-2 pr-3 font-semibold">{s.name}{prog > 0 && <span className="block text-xs font-normal text-slate-600 dark:text-slate-400">{prog} {prog === 1 ? 'día programado' : 'días programados'} aún</span>}</td>
+                          <td className="py-2 pr-3 font-semibold">{s.name}{prog > 0 && <span className="block text-xs font-normal text-slate-600 dark:text-slate-400">{prog} {prog === 1 ? 'clase programada' : 'clases programadas'} aún</span>}</td>
                           <td className="px-3 text-right tabular-nums">{d?.teoria ?? 0}</td>
                           <td className="px-3 text-right tabular-nums">{d?.fisica ?? 0}</td>
                           <td className="pl-3 text-right font-titulo text-lg font-bold tabular-nums">{(d?.teoria ?? 0) + (d?.fisica ?? 0)}</td>
@@ -385,7 +385,7 @@ export default function AdminProfesores() {
               { id: 'semana', titulo: 'Semana', soloTarjeta: true, celda: (s) => (
                 <div className="text-left">{clasesDeProfe(s.id).length === 0 && <span className="text-slate-500">Sin clases</span>}{clasesDeProfe(s.id).map((c) => <p key={c.clave} className="mb-1 flex gap-2 text-[13px]"><span className="w-8 shrink-0 text-slate-600 dark:text-slate-400">{DIAS_SEMANA[c.dia - 1].largo.slice(0, 3)}</span>{pill(c)}</p>)}</div>
               ) },
-              { id: 'total', titulo: 'Días', celda: (s) => <span className="whitespace-nowrap font-titulo text-xl font-bold tabular-nums">{diasSemanaDe(s.id)}</span> },
+              { id: 'total', titulo: 'Clases', celda: (s) => <span className="whitespace-nowrap font-titulo text-xl font-bold tabular-nums">{diasSemanaDe(s.id)}</span> },
               { id: 'ficha', titulo: '', acciones: true, derecha: true, celda: (s) => (
                 <button type="button" onClick={() => abreFicha(s)} aria-label={`Abrir la ficha de ${s.name}`} title="Ficha del profesor"
                   className="grid h-11 w-11 place-items-center rounded-lg border border-linea bg-white text-2xl leading-none text-indigo-900 hover:border-indigo-700 dark:border-noche-linea dark:bg-noche-2 dark:text-indigo-200">+</button>
@@ -396,7 +396,7 @@ export default function AdminProfesores() {
           {apoyo.length > 0 && (
             <div className="space-y-3">
               <BloqueTitulo>Gabinete y secretaría</BloqueTitulo>
-              <p className={TEXT.muted}>Forman parte del equipo, pero no dan clase: no salen al elegir profesor ni cuentan días de clase.</p>
+              <p className={TEXT.muted}>Forman parte del equipo, pero no dan clase: no salen al elegir profesor ni cuentan clases dadas.</p>
               <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {apoyo.map((s) => (
                   <li key={s.id}>

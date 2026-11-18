@@ -5045,15 +5045,16 @@ el segundo necesita el proyecto real.
   vez, horas de la semana por profesor y «Copiar semana anterior», que no pisa
   nada) y el avance de cada grupo (temas dados, programados y pendientes, con
   fecha y profesor).
-- **Se paga por DÍAS, no por horas** (aclaración del dueño, 18 nov): un importe
-  por cada día que el profesor da teoría y otro por cada día que da física. Lo
-  que necesita la academia es cuántos días ha dado cada uno de cada tipo
-  (`getDiasDados`, `diasDados` en `app/lib/teoria.ts`): dos clases de teoría el
-  mismo día son UN día; teoría y física el mismo día cuentan cada una. Hasta
-  hoy es «dado», lo posterior «programado». La teoría sale de las asignaciones
-  reales de `theory_sessions` (no del horario del grupo) y la física de las
-  sesiones con profesor, sin los días «sin clase». En «Profesores» las horas se
-  quitaron: sale el bloque «Días dados» por mes y los días de cada semana.
+- **Se paga por CLASE, no por horas** (aclaración del dueño, 18 nov): un
+  importe por cada clase de teoría y otro por cada clase de física, y **cada
+  clase suma 1**: dos clases de teoría el mismo día (mañana y tarde) son 2.
+  Lo que necesita la academia es cuántas ha dado cada profesor de cada tipo
+  (`getDiasDados`, `diasDados` en `app/lib/teoria.ts`). Una clase es un grupo
+  en una fecha: la misma repetida cuenta una vez. Hasta hoy es «dada», lo
+  posterior «programada». La teoría sale de las asignaciones reales de
+  `theory_sessions` (no del horario del grupo) y la física de las sesiones con
+  profesor, sin los días «sin clase». En «Profesores» las horas se quitaron:
+  sale el bloque «Clases dadas» por mes y las clases de cada semana.
 - `tests/teoria.test.ts` vigila la lógica pura y que cada acción exija admin,
   acote por academia y valide grupo, día y profesor (comprobado rompiendo el
   código a propósito).

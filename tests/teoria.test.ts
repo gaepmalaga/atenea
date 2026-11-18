@@ -136,13 +136,16 @@ describe('seguridad de las acciones', () => {
   });
 });
 
-describe('días dados (lo que se paga)', () => {
-  const c = (profesorId: string, fecha: string, tipo: 'teoria' | 'fisica') => ({ profesorId, fecha, tipo });
-  it('dos clases de teoría el mismo día son UN día', () => {
-    const d = diasDados([c('l', '2026-11-17', 'teoria'), c('l', '2026-11-17', 'teoria'), c('l', '2026-11-19', 'teoria')], '2026-11-30').get('l')!;
-    expect(d.teoria).toBe(2);
+describe('clases dadas (lo que se paga)', () => {
+  const c = (profesorId: string, fecha: string, tipo: 'teoria' | 'fisica', classId = 'g1') => ({ profesorId, classId, fecha, tipo });
+  it('dos clases de teoría el mismo día (mañana y tarde) son DOS: cada clase suma 1', () => {
+    const d = diasDados([c('l', '2026-11-17', 'teoria', 'manana'), c('l', '2026-11-17', 'teoria', 'tarde'), c('l', '2026-11-19', 'teoria', 'manana')], '2026-11-30').get('l')!;
+    expect(d.teoria).toBe(3);
   });
-  it('teoría y física el mismo día cuentan cada una: se cobran aparte', () => {
+  it('la misma clase repetida (mismo grupo y día) cuenta una vez', () => {
+    expect(diasDados([c('l', '2026-11-17', 'fisica'), c('l', '2026-11-17', 'fisica')], '2026-11-30').get('l')!.fisica).toBe(1);
+  });
+  it('teoría y física el mismo día suman cada una: se cobran aparte', () => {
     const d = diasDados([c('l', '2026-11-17', 'teoria'), c('l', '2026-11-17', 'fisica')], '2026-11-30').get('l')!;
     expect([d.teoria, d.fisica]).toEqual([1, 1]);
   });

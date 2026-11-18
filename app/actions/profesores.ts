@@ -201,9 +201,9 @@ export async function setTemasProfesor(params: { profesorId: string; temas: stri
 export type DiasDadosProfesor = { profesorId: string } & DiasDeProfesor;
 
 /**
- * Cuántos DÍAS ha dado cada profesor de teoría y de física en un mes (`mes`
- * = «2026-11»). Es lo que se paga: un importe por día de teoría y otro por día
- * de física. La teoría sale del cuadrante de teoría (`theory_sessions`); la
+ * Cuántas CLASES ha dado cada profesor de teoría y de física en un mes (`mes`
+ * = «2026-11»). Es lo que se paga: un importe por clase de teoría y otro por
+ * clase de física; cada clase suma 1. La teoría sale del cuadrante de teoría (`theory_sessions`); la
  * física, de las sesiones de grupo con profesor (`training_sessions`), sin los
  * días marcados «sin clase».
  */
@@ -239,9 +239,9 @@ export async function getDiasDados(params: { mes: string }): Promise<
   const quitados = new Set((off.data ?? []).map((d) => `${d.class_id}|${d.session_date}`));
   const clases: ClaseDeProfesor[] = [
     ...teo.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
-      .map((r) => ({ profesorId: r.teacher_id as string, fecha: r.session_date as string, tipo: 'teoria' as const })),
+      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'teoria' as const })),
     ...fis.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
-      .map((r) => ({ profesorId: r.teacher_id as string, fecha: r.session_date as string, tipo: 'fisica' as const })),
+      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'fisica' as const })),
   ];
   const hoy = ahoraEnZona(Date.now()).fecha;
   return {

@@ -178,21 +178,23 @@ export function leeTemas(texto: string): number[] {
 }
 
 /** Una clase dada (o programada) por un profesor, de teoría o de física. */
-export type ClaseDeProfesor = { profesorId: string; fecha: string; tipo: 'teoria' | 'fisica' };
+export type ClaseDeProfesor = { profesorId: string; classId: string; fecha: string; tipo: 'teoria' | 'fisica' };
 
 export type DiasDeProfesor = { teoria: number; fisica: number; teoriaProgramada: number; fisicaProgramada: number };
 
 /**
- * LOS DÍAS QUE HA DADO CADA PROFESOR. A los profesores se les paga un importe
- * por cada DÍA que van a dar teoría y otro por cada día de física: cuentan
- * días, no horas ni clases (dos clases de teoría el mismo día, mañana y
- * tarde, son un día). Hasta hoy (incluido) es «dado»; lo posterior, programado.
+ * LAS CLASES QUE HA DADO CADA PROFESOR. A los profesores se les paga un importe
+ * por cada clase de teoría y otro por cada clase de física, y cada clase suma
+ * 1: dos clases de teoría el mismo día (mañana y tarde) son 2. Una clase es un
+ * grupo en una fecha; la misma clase repetida (varias filas de la sesión de
+ * física del mismo grupo y día) cuenta una vez. Hasta hoy (incluido) es
+ * «dada»; lo posterior, programada.
  */
 export function diasDados(clases: ClaseDeProfesor[], hoy: string): Map<string, DiasDeProfesor> {
   const vistos = new Set<string>();
   const out = new Map<string, DiasDeProfesor>();
   for (const c of clases) {
-    const k = `${c.profesorId}|${c.tipo}|${c.fecha}`;
+    const k = `${c.profesorId}|${c.tipo}|${c.classId}|${c.fecha}`;
     if (vistos.has(k)) continue;
     vistos.add(k);
     const d = out.get(c.profesorId) ?? { teoria: 0, fisica: 0, teoriaProgramada: 0, fisicaProgramada: 0 };
