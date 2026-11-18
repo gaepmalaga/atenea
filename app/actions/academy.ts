@@ -28,6 +28,7 @@ import { periodoActual } from '../lib/payments';
 import { confusionDesdeConteos, type ConteoPar, type ParConfuso } from '../lib/question-confusion';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 import { fallo } from '../lib/fallos';
+import { combinaAccesos, type FilaAcceso } from '../lib/accesos';
 
 /**
  * El panel de la academia (P5).
@@ -147,7 +148,7 @@ export async function getAcademyOverview(): Promise<
   // a confusión (`panel_academia_confusion`) y, para el progreso semanal, solo
   // el histórico de las preguntas tocadas en los últimos 7 días
   // (`panel_academia_semana`), que da el mismo resultado (ver el guion).
-  const [perfilesRes, resumenRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosGrupoRes, membresiasRes, pagosRes, ajustesRes, confusionRes, semanaRes] = await Promise.all([
+  const [perfilesRes, resumenRes, temasRes, bancoRes, sesionesRes, gruposRes, miembrosGrupoRes, membresiasRes, pagosRes, ajustesRes, confusionRes, semanaRes, accesosRes] = await Promise.all([
     idsAcademia.length
       ? supabaseAdmin.from('profiles').select('id, email, role, created_at').in('id', idsAcademia)
       : Promise.resolve({ data: [], error: null }),
@@ -193,6 +194,8 @@ export async function getAcademyOverview(): Promise<
           .range(desde, hasta) as unknown as Promise<ResultadoPagina<IntentoAlumno>>,
       { maxFilas: 200_000 },
     ),
+    // La última renovación de la sesión (regla 133): sin la función en la base de datos, devuelve error y se sigue con `last_sign_in_at`.
+    Promise.resolve(supabaseAdmin.rpc('ultimo_acceso_usuarios')).catch(() => ({ data: null })),
   ]);
 
   if (perfilesRes.error || resumenRes.error || confusionRes.error || semanaRes.error) {
@@ -209,10 +212,7 @@ export async function getAcademyOverview(): Promise<
   };
   const resumen = (resumenRes.data ?? {}) as Resumen;
 
-  const conexiones = new Map<string, string | null>();
-  for (const u of sesionesRes?.data?.users ?? []) {
-    conexiones.set(u.id, u.last_sign_in_at ?? null);
-  }
+  const conexiones = combinaAccesos(sesionesRes?.data?.users, accesosRes?.data as FilaAcceso[] | null);
 
   // Los admin NO son alumnos: fuera de la lista, de los cuadros y del filtro.
   // Un profesor mirando «a quién llamar» no se llama a sí mismo.

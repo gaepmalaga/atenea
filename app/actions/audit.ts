@@ -2,6 +2,7 @@
 import { supabaseAdmin } from './core';
 import { requireAdmin } from '../lib/auth';
 import { fallo } from '../lib/fallos';
+import { combinaAccesos, type FilaAcceso } from '../lib/accesos';
 
 export type AuditRow = {
   id: string;
@@ -173,22 +174,21 @@ export async function getInicioSesiones(): Promise<
     idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
   }
 
-  const [perfilesRes, sesionesRes] = await Promise.all([
+  const [perfilesRes, sesionesRes, accesosRes] = await Promise.all([
     idsAcademia
       ? supabaseAdmin.from('profiles').select('id, email, role, created_at').in('id', idsAcademia.length ? idsAcademia : ['00000000-0000-0000-0000-000000000000'])
       : supabaseAdmin.from('profiles').select('id, email, role, created_at'),
     // Si esto falla, se sigue: se pierden las fechas de conexión, no el panel.
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }).catch(() => null),
+    // La última renovación de la sesión (regla 133): sin la función en la base de datos, devuelve error y se sigue con `last_sign_in_at`.
+    Promise.resolve(supabaseAdmin.rpc('ultimo_acceso_usuarios')).catch(() => ({ data: null })),
   ]);
 
   if (perfilesRes.error) return { success: false, error: fallo('getInicioSesiones', perfilesRes.error) };
 
-  const acceso = new Map<string, string | null>();
+  const acceso = combinaAccesos(sesionesRes?.data?.users, accesosRes?.data as FilaAcceso[] | null);
   const altaAuth = new Map<string, string | null>();
-  for (const u of sesionesRes?.data?.users ?? []) {
-    acceso.set(u.id, u.last_sign_in_at ?? null);
-    altaAuth.set(u.id, u.created_at ?? null);
-  }
+  for (const u of sesionesRes?.data?.users ?? []) altaAuth.set(u.id, u.created_at ?? null);
 
   const usuarios: SesionUsuario[] = (perfilesRes.data ?? []).map((p) => ({
     id: p.id as string,
