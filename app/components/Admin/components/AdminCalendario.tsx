@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, SlidersHorizontal, Search, CalendarDays, Users, UserRound, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
-import { getCalendario } from '@/actions';
+import { Copy, ChevronLeft, ChevronRight, SlidersHorizontal, Search, CalendarDays, Users, UserRound, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { getCalendario, copiarSemanaTeoria } from '@/actions';
+import ProgramaTeoria from './ProgramaTeoria';
 import type { DatosCalendario } from '@/app/actions/calendario';
 import {
   filtraEventos, rangoDeVista, mueveVista, fechasEntre, lunesDeFecha, horaLegible, queEs,
   FILTRO_INICIAL, ETIQUETA_TIPO_EVENTO,
   type EventoCalendario, type FiltroCalendario, type VistaCalendario,
 } from '@/app/lib/calendario';
-import { ahoraEnZona, diaSemanaDe, DIAS_SEMANA } from '@/app/lib/asistencia';
+import { ahoraEnZona, diaSemanaDe, DIAS_SEMANA, sumaDias as sumaDiasF } from '@/app/lib/asistencia';
 import { etiquetaRango, nombreCorto } from '@/app/lib/cuadrante';
 import {
   PanelTitulo, Hoja, Rotulo, Aviso, Boton, Campo, Estado, EmptyState, PanelLateral, cx,
@@ -52,6 +53,10 @@ export default function AdminCalendario() {
   const [abierto, setAbierto] = useState<EventoCalendario | null>(null);
   const [verFiltros, setVerFiltros] = useState(false);
   const cache = useRef(new Map<string, DatosCalendario>());
+  // Tras programar una clase de teoría, se vuelve a pedir lo que se ve.
+  const [recarga, setRecarga] = useState(0);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [copiando, setCopiando] = useState(false);
 
   // La vista y los filtros de la última vez, en este navegador.
   useEffect(() => {
@@ -88,7 +93,17 @@ export default function AdminCalendario() {
       setCargando(false);
     })();
     return () => { vivo = false; };
-  }, [desde, hasta]);
+  }, [desde, hasta, recarga]);
+
+  const alCambiarTeoria = () => { cache.current.clear(); setRecarga((n) => n + 1); };
+  async function copiaTeoria() {
+    setCopiando(true); setError(null); setAviso(null);
+    const r = await copiarSemanaTeoria({ desde: lunesDeFecha(sumaDiasF(desde, -7)), a: lunesDeFecha(desde) });
+    setCopiando(false);
+    if (!r.success) { setError(r.error); return; }
+    setAviso(r.creadas ? `Copiadas ${r.creadas} clases de teoría de la semana anterior${r.omitidas ? ` (${r.omitidas} ya estaban)` : ''}.` : 'No había nada que copiar de la semana anterior.');
+    alCambiarTeoria();
+  }
 
   const todos = datos && datos.desde === desde && datos.hasta === hasta ? datos.eventos : [];
   const visibles = filtraEventos(todos, filtro);
@@ -129,6 +144,17 @@ export default function AdminCalendario() {
         </div>
       </div>
 
+      {vista === 'semana' && datos && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Boton size="sm" variant="secondary" disabled={copiando} icon={<Copy size={14} />} onClick={copiaTeoria}>Copiar la teoría de la semana anterior</Boton>
+          {todos.filter((e) => e.esTeoria && e.sinPlanificar).length > 0 && (
+            <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+              {todos.filter((e) => e.esTeoria && e.sinPlanificar).length} clases de teoría sin profesor ni tema
+            </span>
+          )}
+        </div>
+      )}
+      {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{aviso}</p>}
       {error && <Aviso tono="malo"><AlertTriangle size={16} className="mt-0.5 shrink-0" /> {error}</Aviso>}
 
       <div className="grid items-start gap-5 lg:grid-cols-[15.5rem_minmax(0,1fr)]">
@@ -151,7 +177,7 @@ export default function AdminCalendario() {
         </div>
       </div>
 
-      {abierto && <FichaEvento e={abierto} onCerrar={() => setAbierto(null)} />}
+      {abierto && <FichaEvento e={abierto} profesores={datos?.profesores ?? []} onCerrar={() => setAbierto(null)} onCambio={() => { alCambiarTeoria(); setAbierto(null); }} />}
     </div>
   );
 }
@@ -270,7 +296,7 @@ function Pildora({ e, onClick, conHora = true, ajustada = false, doble = false }
       .filter(Boolean).join(' · ');
     return (
       <button type="button" onClick={(ev) => { ev.stopPropagation(); onClick(); }} title={`${horaLegible(e.inicio)} · ${textoCorto(e)}`}
-        className={cx('block w-full min-w-0 overflow-hidden rounded px-1.5 py-1 text-left text-[11px] leading-tight', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300')}
+        className={cx('block w-full min-w-0 overflow-hidden rounded px-1.5 py-1 text-left text-[11px] leading-tight', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300', e.esTeoria && e.sinPlanificar && 'border border-dashed border-amber-300')}
         style={estiloDe(e)}>
         <span className={cx('block truncate', e.sinPlanificar && 'italic opacity-80', e.tipo === 'sin_clase' && 'line-through')}>
           {e.inicio && <b className="tabular-nums">{horaLegible(e.inicio)} </b>}{e.tipo === 'sin_clase' ? 'Sin clase' : e.titulo}
@@ -281,7 +307,7 @@ function Pildora({ e, onClick, conHora = true, ajustada = false, doble = false }
   }
   return (
     <button type="button" onClick={(ev) => { ev.stopPropagation(); onClick(); }}
-      className={cx('flex min-w-0 items-center gap-1 overflow-hidden rounded text-left leading-tight', ajustada ? 'min-h-[32px] max-w-full px-2 text-xs' : 'w-full px-1.5 py-0.5 text-[11px]', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300')}
+      className={cx('flex min-w-0 items-center gap-1 overflow-hidden rounded text-left leading-tight', ajustada ? 'min-h-[32px] max-w-full px-2 text-xs' : 'w-full px-1.5 py-0.5 text-[11px]', e.tipo === 'sin_clase' && 'border border-dashed border-slate-400 text-slate-600 dark:text-slate-400', e.tipo === 'entreno' && 'border border-slate-300', e.esTeoria && e.sinPlanificar && 'border border-dashed border-amber-300')}
       style={estiloDe(e)} title={`${horaLegible(e.inicio)} · ${textoCorto(e)}`}>
       {conHora && e.inicio && <b className="shrink-0 tabular-nums">{horaLegible(e.inicio)}</b>}
       <span className={cx('truncate', e.sinPlanificar && 'italic opacity-80', e.tipo === 'sin_clase' && 'line-through')}>{textoCorto(e)}</span>
@@ -489,7 +515,7 @@ function LineaEvento({ e, onClick }: { e: EventoCalendario; onClick: () => void 
 // LA FICHA DE UN EVENTO
 // ============================================================
 
-function FichaEvento({ e, onCerrar }: { e: EventoCalendario; onCerrar: () => void }) {
+function FichaEvento({ e, profesores, onCerrar, onCambio }: { e: EventoCalendario; profesores: { id: string; nombre: string }[]; onCerrar: () => void; onCambio: () => void }) {
   const ir = (id: string) => { onCerrar(); irAPestana(id); };
   const p = e.plazas;
   const titulo = e.tipo === 'sin_clase' ? 'Sin clase' : e.titulo;
@@ -520,6 +546,8 @@ function FichaEvento({ e, onCerrar }: { e: EventoCalendario; onCerrar: () => voi
           <p className="text-xs text-slate-600 dark:text-slate-400">{p.inscritos} del grupo{p.faltan ? `, ${p.faltan} han avisado de que faltan` : ''}.</p>
         </Hoja>
       )}
+
+      {e.esTeoria && <ProgramaTeoria key={e.id} e={e} profesores={profesores} onCambio={onCambio} />}
 
       <div className="flex flex-wrap gap-2">
         {(e.tipo === 'fisica' || e.tipo === 'suelta' || e.tipo === 'entreno' || (e.tipo === 'sin_clase' && e.kind === 'fisicas')) && (

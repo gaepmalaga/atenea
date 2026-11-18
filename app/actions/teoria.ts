@@ -1,17 +1,17 @@
 'use server';
 
 /**
- * EL CUADRANTE DE TEORÍA (regla 131).
+ * LA PROGRAMACIÓN DE TEORÍA (regla 131), desde el Calendario.
  *
- * Cada clase que el horario de un grupo de teoría pone en un día sale vacía;
- * quien lleva la academia apunta UN profesor y los temas de esa clase, con
- * antelación o después, y lo cambia cuando quiere. Se guarda en
+ * Cada clase que el horario de un grupo de teoría pone en un día sale en el
+ * calendario sin rellenar; quien lleva la academia abre la clase y apunta UN
+ * profesor y los temas, con antelación o después, y lo cambia cuando quiere. Se guarda en
  * `theory_sessions` (`docs/sql/teoria-cuadrante.sql`): una fila por grupo y
  * fecha, con RLS y CERO políticas, así que solo la clave de servicio — y cada
  * acción acota por academia dentro de la consulta (reglas 34 y 65).
  *
- * Los días «sin clase» son los de siempre (`class_days_off`): no salen aquí.
- * La lógica vive en `app/lib/teoria.ts` (regla 21).
+ * Los días «sin clase» son los de siempre (`class_days_off`). El calendario lee
+ * lo apuntado (`getCalendario`). La lógica vive en `app/lib/teoria.ts` (regla 21).
  */
 
 import { supabaseAdmin } from './core';
@@ -21,10 +21,7 @@ import { ahoraEnZona, esFecha, sumaDias, diaSemanaDe } from '../lib/asistencia';
 import { lunesDe } from '../lib/sesiones';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 import { fallo } from '../lib/fallos';
-import {
-  clasesDeTeoria, normalizaTemas, normalizaNotaTeoria,
-  type GrupoTeoria, type AsignacionTeoria, type ClaseTeoria,
-} from '../lib/teoria';
+import { normalizaTemas, normalizaNotaTeoria, type GrupoTeoria, type AsignacionTeoria } from '../lib/teoria';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v);
@@ -55,70 +52,41 @@ async function gruposDeTeoria(org: string): Promise<{ data: GrupoTeoria[]; error
   return { data: (data ?? []).map(aGrupo).filter((g) => g.weekdays.length > 0), error: null };
 }
 
-export type DatosTeoria = {
-  lunes: string;
+export type AvanceTeoria = {
   hoy: string;
-  grupos: GrupoTeoria[];
-  profesores: { id: string; nombre: string }[];
-  /** Las clases de la semana, con lo apuntado. */
-  clases: ClaseTeoria[];
-  /** Los días «sin clase» de la semana, por si hay que explicarlo. */
-  sinClase: { classId: string; fecha: string; motivo: string | null }[];
   /** El temario: número y título. */
   temario: { numero: number; titulo: string }[];
-  /** TODO lo apuntado en la academia con algún tema, para el avance de cada grupo. */
-  historico: AsignacionTeoria[];
+  /** Lo apuntado a ESTE grupo con algún tema, de la primera clase a la última. */
+  dados: AsignacionTeoria[];
 };
 
-/** La semana (de lunes a domingo) del cuadrante de teoría, con quién da qué y el avance de cada grupo. */
-export async function getTeoria(params: { lunes: string }): Promise<
-  { success: true; datos: DatosTeoria } | { success: false; error: string }
+/** Qué temas lleva un grupo de teoría: los dados, los programados y el temario entero. */
+export async function getAvanceTeoria(params: { classId: string }): Promise<
+  { success: true; avance: AvanceTeoria } | { success: false; error: string }
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const org = auth.user.organizationId;
-  const lunes = params?.lunes;
-  if (!org) return { success: false as const, error: 'No hay una academia seleccionada.' };
-  if (!esFecha(lunes) || lunesDe(lunes) !== lunes) return { success: false as const, error: 'Datos no válidos.' };
-  const domingo = sumaDias(lunes, 6);
+  const classId = params?.classId;
+  if (!org || !esUuid(classId)) return { success: false as const, error: 'Datos no válidos.' };
 
-  const grupos = await gruposDeTeoria(org);
-  if (grupos.error) return { success: false as const, error: grupos.error };
-  const ids = grupos.data.map((g) => g.id);
+  const { data: g } = await supabaseAdmin.from('class_groups').select('id, kind').eq('organization_id', org).eq('id', classId).maybeSingle();
+  if (!g || g.kind !== 'teoria') return { success: false as const, error: 'Ese grupo no es de teoría de tu academia.' };
 
-  const [prof, off, temas, hist] = await Promise.all([
-    supabaseAdmin.from('academy_staff').select('id, name, role').eq('organization_id', org).eq('active', true).order('name'),
-    ids.length
-      ? supabaseAdmin.from('class_days_off').select('class_id, session_date, reason')
-          .eq('organization_id', org).in('class_id', ids).gte('session_date', lunes).lte('session_date', domingo)
-      : Promise.resolve({ data: [] as Fila[], error: null }),
+  const [temas, hist] = await Promise.all([
     supabaseAdmin.from('subjects').select('topic_number, title').order('topic_number'),
     paginaCompleta<Fila>((d, h) => supabaseAdmin.from('theory_sessions')
-      .select('class_id, session_date, teacher_id, topics, note').eq('organization_id', org)
-      .order('session_date').order('class_id').range(d, h) as unknown as Promise<ResultadoPagina<Fila>>),
+      .select('class_id, session_date, teacher_id, topics, note').eq('organization_id', org).eq('class_id', classId)
+      .order('session_date').range(d, h) as unknown as Promise<ResultadoPagina<Fila>>),
   ]);
-  if (prof.error) return { success: false as const, error: fallo('getTeoria', prof.error) };
-  if (off.error) return { success: false as const, error: fallo('getTeoria', off.error) };
-  if (temas.error) return { success: false as const, error: fallo('getTeoria', temas.error) };
+  if (temas.error) return { success: false as const, error: fallo('getAvanceTeoria', temas.error) };
   if (hist.error) return { success: false as const, error: hist.error };
-
-  const historico = hist.data.map(aAsignacion);
-  const sinClase = (off.data ?? []).map((d) => ({ classId: d.class_id as string, fecha: d.session_date as string, motivo: (d.reason as string | null) ?? null }));
   return {
     success: true as const,
-    datos: {
-      lunes,
+    avance: {
       hoy: ahoraEnZona(Date.now()).fecha,
-      grupos: grupos.data,
-      profesores: (prof.data ?? []).filter((p) => daClase(p.role as string | null)).map((p) => ({ id: p.id as string, nombre: p.name as string })),
-      clases: clasesDeTeoria({
-        grupos: grupos.data,
-        asignaciones: historico.filter((a) => a.fecha >= lunes && a.fecha <= domingo),
-        sinClase, desde: lunes, hasta: domingo,
-      }),
-      sinClase,
       temario: (temas.data ?? []).map((t) => ({ numero: Number(t.topic_number), titulo: t.title as string })),
-      historico: historico.filter((a) => a.temas.length > 0),
+      dados: hist.data.map(aAsignacion).filter((a) => a.temas.length > 0),
     },
   };
 }

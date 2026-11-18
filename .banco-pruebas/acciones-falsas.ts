@@ -1277,6 +1277,11 @@ export async function getCalendario(params: { desde: string; hasta: string }) {
     cuentas: new Map([[`c-alpha|${lunes}`, { inscritos: 28, faltan: 2, multis: 3 }], [`c-teo|${sumaDiasCal(lunes, 1)}`, { inscritos: 33, faltan: 0, multis: 0 }]]),
     inscritos: new Map([['c-teo', 31], ['c-teo2', 22], ['c-ing', 9], ['c-alpha', 27], ['c-kappa', 30], ['c-omega', 18], ['c-zetta', 12]]),
     examen: sumaDiasCal(hoy, 26),
+    teoria: [
+      { classId: 'c-teo', fecha: lunes, profesorId: 'p-marta', temas: [8], nota: null },
+      { classId: 'c-teo2', fecha: lunes, profesorId: 'p-carlos', temas: [10], nota: 'Traer el temario' },
+      { classId: 'c-teo', fecha: sumaDiasCal(lunes, 1), profesorId: 'p-marta', temas: [9], nota: null },
+    ],
   });
   return ok({
     datos: {
@@ -1604,30 +1609,16 @@ export async function getRankingExamenClase() {
 export async function setMiRanking(d?: { visible?: boolean }) { _rankingOculto = d?.visible === false; return { success: true as const, visible: !_rankingOculto }; }
 export async function getAciertoHabitual() { return ok({ historia: { acertadas: 140, contestadas: 220 } }); }
 
-// ── Cuadrante de teoría (regla 131) ──
-export async function getTeoria(params?: { lunes?: string }) {
-  const lunes = params?.lunes ?? '2026-11-16';
-  const dia = (n: number) => new Date(Date.UTC(+lunes.slice(0, 4), +lunes.slice(5, 7) - 1, +lunes.slice(8, 10) + n)).toISOString().slice(0, 10);
-  const grupos = [
-    { id: 'tm', nombre: 'M-J MAÑANAS', weekdays: [2, 4], inicio: '10:00', fin: '14:00' },
-    { id: 'tt', nombre: 'M-J TARDE', weekdays: [2, 4], inicio: '16:00', fin: '20:00' },
-  ];
-  const historico = [
-    { classId: 'tm', fecha: '2026-11-10', profesorId: 's1', temas: [1, 2], nota: null },
-    { classId: 'tm', fecha: dia(1), profesorId: 's1', temas: [8], nota: null },
-    { classId: 'tt', fecha: dia(1), profesorId: 's2', temas: [10], nota: null },
-  ];
-  const temario = Array.from({ length: 45 }, (_, i) => ({ numero: i + 1, titulo: `Tema ${i + 1} del temario` }));
+// ── Programación de teoría desde el calendario (regla 131) ──
+export async function getAvanceTeoria() {
   return ok({
-    datos: {
-      lunes, hoy: '2026-11-18', grupos,
-      profesores: [{ id: 's1', nombre: 'Lucio Ortega' }, { id: 's2', nombre: 'Sofía' }],
-      clases: grupos.flatMap((g) => g.weekdays.map((w) => {
-        const fecha = dia(w - 1);
-        const a = historico.find((h) => h.classId === g.id && h.fecha === fecha);
-        return { classId: g.id, fecha, grupo: g.nombre, inicio: g.inicio, fin: g.fin, profesorId: a?.profesorId ?? null, temas: a?.temas ?? [], nota: null, vacia: !a };
-      })).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.inicio.localeCompare(b.inicio)),
-      sinClase: [], temario, historico,
+    avance: {
+      hoy: '2026-11-18',
+      temario: Array.from({ length: 45 }, (_, i) => ({ numero: i + 1, titulo: `Tema ${i + 1} del temario` })),
+      dados: [
+        { classId: 'c-teo', fecha: '2026-11-10', profesorId: 'p-marta', temas: [1, 2], nota: null },
+        { classId: 'c-teo', fecha: '2026-11-17', profesorId: 'p-marta', temas: [8], nota: null },
+      ],
     },
   });
 }

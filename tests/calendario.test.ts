@@ -39,14 +39,21 @@ const cal = armaCalendario({
   cuentas: new Map([['alpha|2026-11-09', { inscritos: 28, faltan: 2, multis: 3 }]]),
   inscritos: new Map([['alpha', 28], ['kappa', 10], ['teo', 18]]),
   examen: '2026-11-14',
+  teoria: [{ classId: 'teo', fecha: '2026-11-09', profesorId: 'jose', temas: [8, 9], nota: null }],
 });
 const de = (id: string) => cal.find((e) => e.id === id);
 
 describe('qué sale en el calendario', () => {
-  it('una clase de teoría por cada día de su horario, con sus profesores', () => {
+  it('una clase de teoría por cada día de su horario', () => {
     const teo = cal.filter((e) => e.grupoId === 'teo');
     expect(teo.map((e) => e.fecha)).toEqual(['2026-11-09', '2026-11-11']);
-    expect(teo[0]).toMatchObject({ tipo: 'clase', inicio: '09:00', fin: '11:00', titulo: 'Teoría mañana', profesores: ['Marta'] });
+    expect(teo[0]).toMatchObject({ tipo: 'clase', inicio: '09:00', fin: '11:00' });
+  });
+
+  it('teoría (regla 131): lo apuntado manda, y sin apuntar sale sin rellenar, aunque el grupo tenga profesor', () => {
+    const [hecha, vacia] = cal.filter((e) => e.grupoId === 'teo');
+    expect(hecha).toMatchObject({ esTeoria: true, profesores: ['José'], temas: [8, 9], titulo: 'Teoría mañana · Tema 8, 9', sinPlanificar: false });
+    expect(vacia).toMatchObject({ esTeoria: true, profesores: [], temas: [], titulo: 'Teoría mañana', sinPlanificar: true });
   });
 
   it('en física, la sesión del cuadrante: su título y SU profesor', () => {
@@ -119,7 +126,7 @@ describe('los filtros', () => {
   });
 
   it('buscar, sin acentos ni mayúsculas, en título, grupo, profesor o alumno', () => {
-    expect(filtraEventos(cal, { ...FILTRO_INICIAL, busca: 'jose' }).map((e) => e.id)).toEqual(['ses|s3']);
+    expect(filtraEventos(cal, { ...FILTRO_INICIAL, busca: 'jose' }).map((e) => e.id)).toEqual(['clase|teo|2026-11-09', 'ses|s3']);
     expect(filtraEventos(cal, { ...FILTRO_INICIAL, ocultosQue: [], busca: 'ANA@' }).map((e) => e.id)).toEqual(['ent|s4']);
   });
 

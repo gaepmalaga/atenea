@@ -5022,7 +5022,7 @@ el segundo necesita el proyecto real.
 - `tests/personal.test.ts` vigila `daClase` y que cada sitio que ofrece «elegir
   profesor» lo use (comprobado rompiendo cada uno a propósito).
 
-### 131 · El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable
+### 131 · La teoría se programa desde el Calendario: un profesor y los temas de cada clase, y se paga por clase dada
 - **Qué pasó (18 nov):** en teoría no hay un profesor fijo por tema: cada día va
   UNO distinto y da uno o varios temas, y los profesores rotan por los tres
   grupos (L-X mañanas, M-J mañanas, M-J tarde). La plataforma solo sabía «qué
@@ -5040,11 +5040,17 @@ el segundo necesita el proyecto real.
   servidor). Los temas son números del temario (`subjects.topic_number`), de 1
   a 8 por clase. Una clase sin profesor, sin tema y sin nota vuelve a «sin
   asignar» y se borra la fila.
-- **Se ve de dos maneras:** la semana (clases por día, las vacías en ámbar y la
-  cuenta de «sin rellenar», aviso de choque si un profesor da dos clases a la
-  vez, horas de la semana por profesor y «Copiar semana anterior», que no pisa
-  nada) y el avance de cada grupo (temas dados, programados y pendientes, con
-  fecha y profesor).
+- **Se programa desde el Calendario, no en una pantalla aparte** (decisión del
+  dueño, 18 nov: una pestaña «Cuadrante teoría» duplicaba la programación y
+  se quitó). Cada clase de teoría sale en el calendario; si no tiene profesor
+  ni tema sale «sin planificar» (cursiva, borde ámbar). Al abrirla, la ficha
+  deja elegir quién la da, los temas y una nota, y enseña cómo lleva el
+  temario ese grupo (dados, programados, pendientes, con fecha y profesor).
+  «Copiar la teoría de la semana anterior» (vista semana) no pisa nada. En
+  teoría el profesor de la clase es SOLO el apuntado: el del grupo no vale como
+  respuesta (`armaCalendario`, parámetro `teoria`). El calendario sigue sin
+  tabla propia (regla 105): lee `theory_sessions` como lee lo demás, y las
+  escrituras van por `saveClaseTeoria`.
 - **Se paga por CLASE, no por horas** (aclaración del dueño, 18 nov): un
   importe por cada clase de teoría y otro por cada clase de física, y **cada
   clase suma 1**: dos clases de teoría el mismo día (mañana y tarde) son 2.

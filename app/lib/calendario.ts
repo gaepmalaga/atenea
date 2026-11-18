@@ -56,6 +56,9 @@ export type SesionCal = {
   duracionMin: number | null;
 };
 
+/** Lo apuntado a una clase de teoría (`theory_sessions`). */
+export type TeoriaCal = { classId: string; fecha: string; profesorId: string | null; temas: number[]; nota: string | null };
+
 export type EventoCalendario = {
   id: string;
   tipo: TipoEvento;
@@ -73,8 +76,13 @@ export type EventoCalendario = {
   profesores: string[];
   alumnoId: string | null;
   alumno: string | null;
-  /** Una clase de física sin sesión puesta en el cuadrante. */
+  /** Una clase de física sin sesión puesta en el cuadrante, o de teoría sin profesor ni tema. */
   sinPlanificar: boolean;
+  /** Una clase de un grupo de teoría: se programa desde el calendario (regla 131). */
+  esTeoria: boolean;
+  /** Los temas apuntados a esa clase de teoría y su nota. */
+  temas: number[];
+  nota: string | null;
   plazas: CuentaSesion | null;
   motivo: string | null;
   color: { fondo: string; texto: string };
@@ -121,6 +129,8 @@ export function armaCalendario(p: {
   /** Inscritos de cada grupo, para una sesión sin faltas ni multis. */
   inscritos?: Map<string, number>;
   examen: string | null;
+  /** Lo apuntado a las clases de teoría (regla 131): quién la da y qué tema. */
+  teoria?: TeoriaCal[];
 }): EventoCalendario[] {
   const out: EventoCalendario[] = [];
   const grupoDe = new Map(p.grupos.map((g) => [g.id, g]));
@@ -145,8 +155,12 @@ export function armaCalendario(p: {
     alumnoId: null,
     alumno: null,
     sinPlanificar: false,
+    esTeoria: false,
+    temas: [] as number[],
+    nota: null as string | null,
     motivo: null,
   });
+  const teoriaDe = new Map((p.teoria ?? []).map((t) => [`${t.classId}|${t.fecha}`, t]));
   const usadas = new Set<string>();
 
   // 1 · Las clases del horario de cada grupo, día a día.
@@ -176,6 +190,18 @@ export function armaCalendario(p: {
             titulo: s.titulo || g.nombre, profesorIds: ids, profesores: nombres(ids), plazas: plazas(g, f), color: colorDe(g),
           });
         }
+      } else if (g.kind === 'teoria') {
+        // En teoría quien la da y el tema se apuntan clase a clase (regla 131):
+        // el profesor del grupo no vale como respuesta, solo lo apuntado.
+        const t = teoriaDe.get(`${g.id}|${f}`);
+        const ids = t?.profesorId ? [t.profesorId] : [];
+        const temas = t?.temas ?? [];
+        out.push({
+          ...base(g), id: `clase|${g.id}|${f}`, tipo: 'clase', fecha: f, inicio: ini, fin,
+          titulo: temas.length ? `${g.nombre} · Tema ${temas.join(', ')}` : g.nombre,
+          profesorIds: ids, profesores: nombres(ids), sinPlanificar: !ids.length && !temas.length,
+          esTeoria: true, temas, nota: t?.nota ?? null, plazas: plazas(g, f), color: colorDe(g),
+        });
       } else {
         out.push({
           ...base(g), id: `clase|${g.id}|${f}`, tipo: g.llevaPlan ? 'fisica' : 'clase', fecha: f, inicio: ini, fin,
