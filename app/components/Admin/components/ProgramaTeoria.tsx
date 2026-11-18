@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Check, Trash2 } from 'lucide-react';
-import { saveClaseTeoria, getAvanceTeoria } from '@/actions';
+import { saveClaseTeoria, getAvanceTeoria, setSinClase } from '@/actions';
 import type { AvanceTeoria } from '@/app/actions/teoria';
 import { leeTemas, temasDeAsignaciones, avanceDeGrupo, textoTemas } from '@/app/lib/teoria';
 import type { EventoCalendario } from '@/app/lib/calendario';
@@ -58,6 +58,15 @@ export default function ProgramaTeoria({ e, profesores, onCambio }: {
     onCambio();
   }
 
+  async function sinClase(motivo: string) {
+    if (!e.grupoId) return;
+    setOcupado(true); setError(null);
+    const r = await setSinClase({ fecha: e.fecha, classIds: [e.grupoId], sinClase: true, motivo });
+    setOcupado(false);
+    if (!r.success) { setError(r.error); return; }
+    onCambio();
+  }
+
   const dados = useMemo(() => (avance && e.grupoId ? temasDeAsignaciones(avance.dados) : []), [avance, e.grupoId]);
   const av = avance && e.grupoId ? avanceDeGrupo(dados, e.grupoId, avance.temario.map((t) => t.numero), avance.hoy) : null;
   const titulo = (n: number) => avance?.temario.find((t) => t.numero === n)?.titulo;
@@ -82,6 +91,7 @@ export default function ProgramaTeoria({ e, profesores, onCambio }: {
             <Boton variant="ghost" disabled={ocupado} icon={<Trash2 size={14} />}
               onClick={async () => { if (await confirmar('¿Dejar esta clase sin asignar?')) guarda(true); }}>Vaciar</Boton>
           )}
+          <Boton variant="ghost" disabled={ocupado} onClick={async () => { if (await confirmar('¿Marcar esta clase como «sin clase»? Desaparece de la programación y los alumnos la ven así.')) sinClase('Sin clase'); }}>No hay clase este día</Boton>
           {guardado && <span className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><Check size={14} /> Guardado</span>}
         </div>
       </Hoja>

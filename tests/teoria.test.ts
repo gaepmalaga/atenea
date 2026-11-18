@@ -141,3 +141,30 @@ describe('clases dadas (lo que se paga)', () => {
     expect(admin).not.toContain('AdminTeoria');
   });
 });
+
+describe('la física de grupo se programa desde el Calendario (regla 132)', () => {
+  const cal = lee('app/components/Admin/components/AdminCalendario.tsx');
+  const fis = lee('app/components/Admin/components/AdminPhysical.tsx');
+  it('«Prep. física» ya no tiene el cuadrante: solo Planificar y Marcas', () => {
+    expect(fis).not.toMatch(/from '\.\/fisica\/Cuadrante'/);
+    expect(fis).not.toContain("id: 'cuadrante'");
+    expect(fis).toContain("id: 'planificar'");
+    expect(fis).toContain("id: 'marcas'");
+  });
+  it('pulsar una sesión de física o de Multi en el calendario abre el editor del cuadrante', () => {
+    expect(cal).toMatch(/\(e\.tipo === 'fisica' \|\| e\.tipo === 'suelta'\) && e\.grupoId\) setPeticion\(/);
+    expect(cal).toMatch(/<ProgramacionFisica/);
+  });
+  it('la barra de la semana solo sale en la vista semana', () => {
+    expect(cal).toMatch(/barra=\{vista === 'semana'\}/);
+  });
+  it('«Copiar la semana anterior» copia física y teoría', () => {
+    const i = cal.indexOf('async function copiaSemana');
+    const cuerpo = cal.slice(i, i + 900);
+    expect(cuerpo).toContain('copiarSemanaTeoria(');
+    expect(cuerpo).toContain('copiarCuadrante(');
+  });
+  it('un día «sin clase» se devuelve desde su ficha, sea de teoría o de física', () => {
+    expect(cal).toMatch(/e\.tipo === 'sin_clase' && e\.grupoId[\s\S]{0,300}sinClase: false/);
+  });
+});

@@ -5064,3 +5064,32 @@ el segundo necesita el proyecto real.
 - `tests/teoria.test.ts` vigila la lógica pura y que cada acción exija admin,
   acote por academia y valide grupo, día y profesor (comprobado rompiendo el
   código a propósito).
+
+### 132 · Toda la programación de grupo se hace desde el Calendario; «Prep. física» se queda con Planificar y Marcas
+- **Qué pasó (18 nov):** la teoría ya se programaba en el Calendario (regla
+  131) y la física de grupo seguía en la pestaña «Cuadrante» de «Prep.
+  física»: dos sitios para mirar y cambiar lo mismo. El dueño pidió que en el
+  calendario salgan los huecos de cada grupo, de física y de teoría, y poder
+  planificarlos desde ahí (tema o entreno, profesor…).
+- **Regla:** el Calendario es el sitio de programar las clases de grupo.
+  - Pulsar una clase de teoría: su ficha (profesor, temas, nota, temas del
+    grupo, «No hay clase este día»).
+  - Pulsar una sesión de física o de Multi: el MISMO editor del cuadrante
+    (`EditorCelda`: qué toca, profesor sugerido y avisos de choque, quién va,
+    apuntar a un multi, copiar a otros días o grupos, «no tiene clase»).
+    Las piezas viven en `fisica/Cuadrante.tsx`, ahora `ProgramacionFisica`;
+    el calendario le pide una clase con `peticion`.
+  - La **barra de la semana** (solo en vista semana): publicar a los alumnos
+    (regla 98), imagen y texto para WhatsApp, añadir un día, quitar las clases
+    de un día y devolver los días «sin clase». «Copiar la semana anterior»
+    copia física y teoría de una vez.
+  - Un día «sin clase» se devuelve desde su ficha, de cualquier tipo.
+- **Multi** es el grupo comodín: sus alumnos pueden ir a cualquier grupo de
+  físicas (regla 96). Sus sesiones y sus apuntados se programan igual, desde
+  el calendario.
+- **«Prep. física»** conserva «Planificar» (el entreno de cada alumno) y
+  «Marcas», con un aviso que lleva al Calendario. El calendario sigue sin tabla
+  propia (regla 105): lee lo guardado y escribe por las mismas acciones.
+- `tests/teoria.test.ts` vigila que la pestaña ya no esté en «Prep. física»,
+  que cada clase abra su editor y que copiar la semana copie las dos cosas.
+

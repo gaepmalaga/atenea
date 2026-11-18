@@ -590,7 +590,7 @@ de `/_next/static/chunks/*.js` del HTML de producción.
 - **Gabinete y secretaría** (Mariana y Sara) pasan a contar como equipo sin salir como profesoras: ver la regla 130. Sus altas en la BD se hacen DESPUÉS de desplegar (con el código viejo saldrían como opción de profesor).
 - Los grupos de físicas de la hoja (Físicas 43 Clinic, Físicas 44 y Atletas) NO coinciden con los 8 de la plataforma (Alpha, Betta, Delta, Kappa, Omega, Sigma, Zetta y Multi): pendiente de que el dueño diga cómo encajan.
 
-## 2q · La teoría se programa desde el Calendario (18 nov, regla 131)
+## 2q · La teoría y la física de grupo se programan desde el Calendario (18 nov, reglas 131 y 132)
 
 Las clases de cada grupo de teoría salen en «Calendario»; al abrir una se
 asigna UN profesor y los temas (con antelación o después, editable) y se ve
@@ -602,6 +602,7 @@ cómo lleva el temario ese grupo. Sin pestaña aparte.
   `ProgramaTeoria.tsx` (la ficha) y `armaCalendario` (parámetro `teoria`).
 - «Profesores» cuenta CLASES dadas de teoría y de física por mes (se paga por
   clase, cada una suma 1), no horas.
-- Posible siguiente paso: programar también las físicas de grupo desde el
-  Calendario (hoy, en «Prep. física»).
+- Regla 132: la física de grupo también se programa desde el Calendario (el
+  editor del cuadrante, la barra de la semana, publicar y WhatsApp). «Prep.
+  física» se queda con Planificar y Marcas.
 - Pendiente de mejora: aviso de «clases sin rellenar» en el Inicio del admin.

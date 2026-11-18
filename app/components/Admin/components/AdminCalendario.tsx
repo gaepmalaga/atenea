@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type CSSProperties, type ReactNode } from 'react';
 import { Copy, ChevronLeft, ChevronRight, SlidersHorizontal, Search, CalendarDays, Users, UserRound, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
-import { getCalendario, copiarSemanaTeoria } from '@/actions';
+import { getCalendario, copiarSemanaTeoria, copiarCuadrante, setSinClase } from '@/actions';
 import ProgramaTeoria from './ProgramaTeoria';
+import ProgramacionFisica, { type PeticionFisica } from './fisica/Cuadrante';
 import type { DatosCalendario } from '@/app/actions/calendario';
 import {
   filtraEventos, rangoDeVista, mueveVista, fechasEntre, lunesDeFecha, horaLegible, queEs,
@@ -57,6 +58,8 @@ export default function AdminCalendario() {
   const [recarga, setRecarga] = useState(0);
   const [aviso, setAviso] = useState<string | null>(null);
   const [copiando, setCopiando] = useState(false);
+  const [peticion, setPeticion] = useState<PeticionFisica | null>(null);
+  const cierraPeticion = useCallback(() => setPeticion(null), []);
 
   // La vista y los filtros de la última vez, en este navegador.
   useEffect(() => {
@@ -96,12 +99,23 @@ export default function AdminCalendario() {
   }, [desde, hasta, recarga]);
 
   const alCambiarTeoria = () => { cache.current.clear(); setRecarga((n) => n + 1); };
-  async function copiaTeoria() {
+  const abreEvento = (e: EventoCalendario) => {
+    // La física de grupo se programa con el editor del cuadrante; lo demás, con su ficha.
+    if ((e.tipo === 'fisica' || e.tipo === 'suelta') && e.grupoId) setPeticion({ classId: e.grupoId, fecha: e.fecha, n: Date.now() });
+    else setAbierto(e);
+  };
+  /** Copia la semana anterior: la física de grupo y la teoría, de una vez. */
+  async function copiaSemana() {
+    const lunes = lunesDeFecha(desde);
     setCopiando(true); setError(null); setAviso(null);
-    const r = await copiarSemanaTeoria({ desde: lunesDeFecha(sumaDiasF(desde, -7)), a: lunesDeFecha(desde) });
+    const [t, f] = await Promise.all([
+      copiarSemanaTeoria({ desde: lunesDeFecha(sumaDiasF(lunes, -7)), a: lunes }),
+      copiarCuadrante({ desde: sumaDiasF(lunes, -7), a: lunes }),
+    ]);
     setCopiando(false);
-    if (!r.success) { setError(r.error); return; }
-    setAviso(r.creadas ? `Copiadas ${r.creadas} clases de teoría de la semana anterior${r.omitidas ? ` (${r.omitidas} ya estaban)` : ''}.` : 'No había nada que copiar de la semana anterior.');
+    if (!t.success) { setError(t.error); return; }
+    const partes = [t.creadas ? `${t.creadas} de teoría` : '', f.success && f.creadas ? `${f.creadas} de física` : ''].filter(Boolean);
+    setAviso(partes.length ? `Copiadas de la semana anterior: ${partes.join(' y ')}.` : 'No había nada que copiar de la semana anterior (o ya estaba todo).');
     alCambiarTeoria();
   }
 
@@ -146,16 +160,21 @@ export default function AdminCalendario() {
 
       {vista === 'semana' && datos && (
         <div className="flex flex-wrap items-center gap-2">
-          <Boton size="sm" variant="secondary" disabled={copiando} icon={<Copy size={14} />} onClick={copiaTeoria}>Copiar la teoría de la semana anterior</Boton>
-          {todos.filter((e) => e.esTeoria && e.sinPlanificar).length > 0 && (
+          <Boton size="sm" variant="secondary" disabled={copiando} icon={<Copy size={14} />} onClick={copiaSemana}>Copiar la semana anterior</Boton>
+          {todos.filter((e) => e.sinPlanificar).length > 0 && (
             <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-              {todos.filter((e) => e.esTeoria && e.sinPlanificar).length} clases de teoría sin profesor ni tema
+              {todos.filter((e) => e.sinPlanificar).length} clases sin planificar esta semana
             </span>
           )}
         </div>
       )}
       {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{aviso}</p>}
       {error && <Aviso tono="malo"><AlertTriangle size={16} className="mt-0.5 shrink-0" /> {error}</Aviso>}
+
+      {(vista === 'semana' || peticion) && (
+        <ProgramacionFisica lunes={vista === 'semana' ? lunesDeFecha(desde) : lunesDeFecha(peticion!.fecha)} barra={vista === 'semana'}
+          peticion={peticion} onCambio={alCambiarTeoria} onCerrarPeticion={cierraPeticion} />
+      )}
 
       <div className="grid items-start gap-5 lg:grid-cols-[15.5rem_minmax(0,1fr)]">
         <div className={cx(!verFiltros && 'max-lg:hidden')}>
@@ -169,9 +188,9 @@ export default function AdminCalendario() {
               <p className="text-xs text-slate-600 dark:text-slate-400" aria-live="polite">
                 {cargando ? 'Cargando…' : `${visibles.length} ${visibles.length === 1 ? 'evento' : 'eventos'}${nFiltros ? ` de ${todos.length}: hay filtros puestos` : ''}${sinEntrenos ? ' · sin los entrenos de cada alumno (se ven marcándolos en «Qué»)' : ''}`}
               </p>
-              {vista === 'mes' && <VistaMes fecha={fecha} desde={desde} hasta={hasta} hoy={datos.hoy} eventos={visibles} onDia={abreDia} onEvento={setAbierto} />}
-              {vista === 'semana' && <VistaSemana desde={desde} hasta={hasta} hoy={datos.hoy} eventos={visibles} onDia={abreDia} onEvento={setAbierto} />}
-              {vista === 'dia' && <ListaDia fecha={fecha} eventos={visibles} onEvento={setAbierto} />}
+              {vista === 'mes' && <VistaMes fecha={fecha} desde={desde} hasta={hasta} hoy={datos.hoy} eventos={visibles} onDia={abreDia} onEvento={abreEvento} />}
+              {vista === 'semana' && <VistaSemana desde={desde} hasta={hasta} hoy={datos.hoy} eventos={visibles} onDia={abreDia} onEvento={abreEvento} />}
+              {vista === 'dia' && <ListaDia fecha={fecha} eventos={visibles} onEvento={abreEvento} />}
             </>
           )}
         </div>
@@ -550,12 +569,13 @@ function FichaEvento({ e, profesores, onCerrar, onCambio }: { e: EventoCalendari
       {e.esTeoria && <ProgramaTeoria key={e.id} e={e} profesores={profesores} onCambio={onCambio} />}
 
       <div className="flex flex-wrap gap-2">
-        {(e.tipo === 'fisica' || e.tipo === 'suelta' || e.tipo === 'entreno' || (e.tipo === 'sin_clase' && e.kind === 'fisicas')) && (
-          <Boton onClick={() => ir('physical')}>{e.tipo === 'entreno' ? 'Abrir «Planificar»' : 'Abrir el cuadrante'}</Boton>
-        )}
+        {e.tipo === 'entreno' && <Boton onClick={() => ir('physical')}>Abrir «Planificar»</Boton>}
         {e.plazas && <Boton variant="secondary" onClick={() => ir('attendance')}>Ver en Asistencia</Boton>}
         {e.grupoId && <Boton variant="secondary" onClick={() => ir('groups')}>Horario del grupo</Boton>}
         {e.tipo === 'examen' && <Boton variant="secondary" onClick={() => ir('modules')}>Cambiar la fecha</Boton>}
+        {e.tipo === 'sin_clase' && e.grupoId && (
+          <Boton onClick={async () => { await setSinClase({ fecha: e.fecha, classIds: [e.grupoId!], sinClase: false }); onCambio(); }}>Devolver al calendario</Boton>
+        )}
       </div>
     </PanelLateral>
   );
