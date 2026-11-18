@@ -6,6 +6,8 @@ import { paginaCompleta } from '../lib/pagination';
 import { horarioDeFila, esFecha, ahoraEnZona, sumaDias } from '../lib/asistencia';
 import { armaCalendario, colorDe, type EventoCalendario, type GrupoCal, type SesionCal } from '../lib/calendario';
 import { fallo } from '../lib/fallos';
+import { daClase } from '../lib/personal';
+import { normalizaTemas } from '../lib/teoria';
 
 /**
  * EL CALENDARIO DE LA ACADEMIA (regla 105): todo lo que tiene fecha entre dos
@@ -51,7 +53,7 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
   const [gruposRes, kindsRes, staffRes, sinClaseRes, convRes] = await Promise.all([
     supabaseAdmin.from('class_groups').select('id, name, kind, weekdays, start_time, end_time, capacity, is_multi').eq('organization_id', org).order('name'),
     supabaseAdmin.from('group_kinds').select('id, label, lleva_plan, sort_order').eq('organization_id', org).order('sort_order'),
-    supabaseAdmin.from('academy_staff').select('id, name, active').eq('organization_id', org).order('name'),
+    supabaseAdmin.from('academy_staff').select('id, name, active, role').eq('organization_id', org).order('name'),
     supabaseAdmin.from('class_days_off').select('class_id, session_date, reason').eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta),
     supabaseAdmin.from('academy_convocatoria').select('fecha_examen').eq('organization_id', org).maybeSingle(),
   ]);
@@ -66,7 +68,7 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
   const kinds = (kindsRes.data ?? []) as Fila[];
   const kind = new Map(kinds.map((k) => [k.id as string, k]));
 
-  const [staffGrupo, miembros, faltas, multis, sesiones] = await Promise.all([
+  const [staffGrupo, miembros, faltas, multis, sesiones, teoria] = await Promise.all([
     ids.length ? supabaseAdmin.from('class_group_staff').select('class_id, staff_id').in('class_id', ids) : Promise.resolve({ data: [] as Fila[], error: null }),
     ids.length
       ? paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('class_members').select('class_id, user_id').in('class_id', ids).order('class_id').order('user_id').range(d, h))
@@ -82,8 +84,11 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
     paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('training_sessions')
       .select('id, class_id, user_id, session_date, start_time, title, teacher_id, duration_min')
       .eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta).order('id').range(d, h)),
+    // Quién da cada clase de teoría y qué tema (regla 131).
+    paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, topics, note')
+      .eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta).order('session_date').order('class_id').range(d, h)),
   ]);
-  const error2 = fallo('getCalendario', staffGrupo.error) ?? miembros.error ?? faltas.error ?? multis.error ?? sesiones.error;
+  const error2 = fallo('getCalendario', staffGrupo.error) ?? miembros.error ?? faltas.error ?? multis.error ?? sesiones.error ?? teoria.error;
   if (error2) {
     return { success: false as const, error: String(error2) };
   }
@@ -147,6 +152,10 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
     alumnos: new Map(perfiles.data.map((p) => [p.id as string, (p.email as string) ?? ''])),
     cuentas,
     inscritos: new Map([...inscritosDe].map(([k, v]) => [k, v.size])),
+    teoria: teoria.data.map((t) => ({
+      classId: t.class_id as string, fecha: t.session_date as string, profesorId: (t.teacher_id as string | null) ?? null,
+      temas: normalizaTemas(t.topics), nota: (t.note as string | null) ?? null,
+    })),
     examen: (convRes.data?.fecha_examen as string | null | undefined) ?? null,
   });
 
@@ -159,7 +168,7 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
       eventos,
       grupos: grupos.map((g) => ({ id: g.id, nombre: g.nombre, kind: g.kind, color: colorDe(g), esMulti: g.esMulti })),
       tipos: kinds.map((k) => ({ id: k.id as string, label: k.label as string })),
-      profesores: staff.filter((s) => s.active !== false).map((s) => ({ id: s.id as string, nombre: s.name as string })),
+      profesores: staff.filter((s) => s.active !== false && daClase(s.role as string | null)).map((s) => ({ id: s.id as string, nombre: s.name as string })),
     },
   };
 }

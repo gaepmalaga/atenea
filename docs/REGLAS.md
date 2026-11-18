@@ -5022,7 +5022,7 @@ el segundo necesita el proyecto real.
 - `tests/personal.test.ts` vigila `daClase` y que cada sitio que ofrece «elegir
   profesor» lo use (comprobado rompiendo cada uno a propósito).
 
-### 131 · El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable
+### 131 · La teoría se programa desde el Calendario: un profesor y los temas de cada clase, y se paga por clase dada
 - **Qué pasó (18 nov):** en teoría no hay un profesor fijo por tema: cada día va
   UNO distinto y da uno o varios temas, y los profesores rotan por los tres
   grupos (L-X mañanas, M-J mañanas, M-J tarde). La plataforma solo sabía «qué
@@ -5040,11 +5040,17 @@ el segundo necesita el proyecto real.
   servidor). Los temas son números del temario (`subjects.topic_number`), de 1
   a 8 por clase. Una clase sin profesor, sin tema y sin nota vuelve a «sin
   asignar» y se borra la fila.
-- **Se ve de dos maneras:** la semana (clases por día, las vacías en ámbar y la
-  cuenta de «sin rellenar», aviso de choque si un profesor da dos clases a la
-  vez, horas de la semana por profesor y «Copiar semana anterior», que no pisa
-  nada) y el avance de cada grupo (temas dados, programados y pendientes, con
-  fecha y profesor).
+- **Se programa desde el Calendario, no en una pantalla aparte** (decisión del
+  dueño, 18 nov: una pestaña «Cuadrante teoría» duplicaba la programación y
+  se quitó). Cada clase de teoría sale en el calendario; si no tiene profesor
+  ni tema sale «sin planificar» (cursiva, borde ámbar). Al abrirla, la ficha
+  deja elegir quién la da, los temas y una nota, y enseña cómo lleva el
+  temario ese grupo (dados, programados, pendientes, con fecha y profesor).
+  «Copiar la teoría de la semana anterior» (vista semana) no pisa nada. En
+  teoría el profesor de la clase es SOLO el apuntado: el del grupo no vale como
+  respuesta (`armaCalendario`, parámetro `teoria`). El calendario sigue sin
+  tabla propia (regla 105): lee `theory_sessions` como lee lo demás, y las
+  escrituras van por `saveClaseTeoria`.
 - **Se paga por CLASE, no por horas** (aclaración del dueño, 18 nov): un
   importe por cada clase de teoría y otro por cada clase de física, y **cada
   clase suma 1**: dos clases de teoría el mismo día (mañana y tarde) son 2.
@@ -5058,3 +5064,32 @@ el segundo necesita el proyecto real.
 - `tests/teoria.test.ts` vigila la lógica pura y que cada acción exija admin,
   acote por academia y valide grupo, día y profesor (comprobado rompiendo el
   código a propósito).
+
+### 132 · Toda la programación de grupo se hace desde el Calendario; «Prep. física» se queda con Planificar y Marcas
+- **Qué pasó (18 nov):** la teoría ya se programaba en el Calendario (regla
+  131) y la física de grupo seguía en la pestaña «Cuadrante» de «Prep.
+  física»: dos sitios para mirar y cambiar lo mismo. El dueño pidió que en el
+  calendario salgan los huecos de cada grupo, de física y de teoría, y poder
+  planificarlos desde ahí (tema o entreno, profesor…).
+- **Regla:** el Calendario es el sitio de programar las clases de grupo.
+  - Pulsar una clase de teoría: su ficha (profesor, temas, nota, temas del
+    grupo, «No hay clase este día»).
+  - Pulsar una sesión de física o de Multi: el MISMO editor del cuadrante
+    (`EditorCelda`: qué toca, profesor sugerido y avisos de choque, quién va,
+    apuntar a un multi, copiar a otros días o grupos, «no tiene clase»).
+    Las piezas viven en `fisica/Cuadrante.tsx`, ahora `ProgramacionFisica`;
+    el calendario le pide una clase con `peticion`.
+  - La **barra de la semana** (solo en vista semana): publicar a los alumnos
+    (regla 98), imagen y texto para WhatsApp, añadir un día, quitar las clases
+    de un día y devolver los días «sin clase». «Copiar la semana anterior»
+    copia física y teoría de una vez.
+  - Un día «sin clase» se devuelve desde su ficha, de cualquier tipo.
+- **Multi** es el grupo comodín: sus alumnos pueden ir a cualquier grupo de
+  físicas (regla 96). Sus sesiones y sus apuntados se programan igual, desde
+  el calendario.
+- **«Prep. física»** conserva «Planificar» (el entreno de cada alumno) y
+  «Marcas», con un aviso que lleva al Calendario. El calendario sigue sin tabla
+  propia (regla 105): lee lo guardado y escribe por las mismas acciones.
+- `tests/teoria.test.ts` vigila que la pestaña ya no esté en «Prep. física»,
+  que cada clase abra su editor y que copiar la semana copie las dos cosas.
+

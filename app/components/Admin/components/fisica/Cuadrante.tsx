@@ -6,7 +6,7 @@ import {
   CalendarX2, Undo2, FileText, ArrowRightLeft, UserPlus, Send, EyeOff, CalendarPlus, Settings2,
 } from 'lucide-react';
 import {
-  getCuadrante, saveCelda, copiarCuadrante, deleteSesion, copiarCelda, setSinClase, borrarSesionesDia,
+  getCuadrante, saveCelda, deleteSesion, copiarCelda, setSinClase, borrarSesionesDia,
   setMultiEnClase, moverMulti, getPlanificador, getPlantillas, publicarCuadrante,
 } from '@/actions';
 import type { DatosCuadrante, ApuntadoMulti } from '@/app/actions/cuadrante';
@@ -73,12 +73,29 @@ function plazasDe(datos: DatosCuadrante, g: GrupoCuadrante, fecha: string) {
   return datos.plazas[clave(g.id, fecha)] ?? plazasSesion(g.horario.capacity, g.inscritos, 0, 0);
 }
 
-export default function Cuadrante() {
-  const [lunes, setLunes] = useState(() => lunesDe(hoyLocal()));
+/** Qué clase se quiere programar: la pide el calendario al pulsar una sesión de física. */
+export type PeticionFisica = { classId: string; fecha: string; n: number };
+
+/**
+ * LA PROGRAMACIÓN DE LA FÍSICA DE GRUPO, DESDE EL CALENDARIO (regla 132).
+ *
+ * El cuadrante ya no es una pestaña de «Prep. física»: sus piezas viven aquí y
+ * las usa el Calendario. `lunes` es la semana con la que se trabaja; `barra`
+ * pinta las acciones de la semana entera (copiar, publicar, imagen, texto y
+ * añadir un día) y `peticion` abre el editor de la sesión que se ha pulsado.
+ * `onCambio` avisa al calendario de que algo ha cambiado, para que vuelva a
+ * pedir lo suyo.
+ */
+export default function ProgramacionFisica({ lunes, barra, peticion, onCambio, onCerrarPeticion }: {
+  lunes: string;
+  barra: boolean;
+  peticion: PeticionFisica | null;
+  onCambio: () => void;
+  onCerrarPeticion: () => void;
+}) {
   const [datos, setDatos] = useState<DatosCuadrante | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
   const [edicion, setEdicion] = useState<Edicion | null>(null);
   const [copia, setCopia] = useState<Edicion | null>(null);
   const [quitar, setQuitar] = useState<DiaCuadrante | null>(null);
@@ -87,11 +104,9 @@ export default function Cuadrante() {
   const [ocupado, setOcupado] = useState<string | null>(null);
 
   const cargar = useCallback(async (l: string) => {
-    setCargando(true);
     const res = await getCuadrante({ lunes: l });
     if (res.success) { setDatos(res.datos); setError(null); }
     else setError(res.error);
-    setCargando(false);
   }, []);
 
   useEffect(() => { cargar(lunes); }, [lunes, cargar]);
@@ -102,15 +117,23 @@ export default function Cuadrante() {
   );
   const hayGrupos = !!datos?.grupos.some((g) => !g.esMulti);
 
-  async function copiaAnterior() {
-    setOcupado('copiar'); setError(null); setAviso(null);
-    const res = await copiarCuadrante({ desde: sumaDias(lunes, -7), a: lunes });
-    if (res.success) {
-      setAviso(`Copiadas ${res.creadas} sesiones de la semana anterior${res.omitidas ? ` (${res.omitidas} ya estaban)` : ''}.`);
-      await cargar(lunes);
-    } else setError(res.error);
-    setOcupado(null);
-  }
+  // Al pulsar una sesión en el calendario se abre su editor, con los datos de SU semana.
+  useEffect(() => {
+    if (!peticion || !cuadrante || datos?.lunes !== lunesDe(peticion.fecha)) return;
+    const dia = cuadrante.dias.find((d) => d.fecha === peticion.fecha);
+    const fila = dia?.filas.find((f) => f.grupo.id === peticion.classId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (dia && fila) setEdicion({ fila, fecha: dia.fecha, titulo: dia.titulo });
+    else { setError('Esa clase no sale en el cuadrante de su semana.'); onCerrarPeticion(); }
+  }, [peticion, cuadrante, datos?.lunes, onCerrarPeticion]);
+
+  /** Tras cambiar algo: se recarga lo de aquí y el calendario vuelve a pedir lo suyo. */
+  const recargar = async (texto?: string) => {
+    if (texto) setAviso(texto);
+    await cargar(lunes);
+    onCambio();
+  };
+  const cierraEdicion = () => { setEdicion(null); onCerrarPeticion(); };
 
   async function publica(publicar: boolean): Promise<boolean> {
     setOcupado('publicar'); setError(null); setAviso(null);
@@ -155,36 +178,21 @@ export default function Cuadrante() {
   async function devolver(fecha: string, grupos: GrupoCuadrante[]) {
     setOcupado(`devolver-${fecha}`); setError(null); setAviso(null);
     const res = await setSinClase({ fecha, classIds: grupos.map((g) => g.id), sinClase: false });
-    if (res.success) { setAviso('Día devuelto al cuadrante.'); await cargar(lunes); }
+    if (res.success) { await recargar('Día devuelto al cuadrante.'); }
     else setError(res.error);
     setOcupado(null);
   }
 
   const fin = sumaDias(lunes, 6);
-  const recargar = async (texto?: string) => { if (texto) setAviso(texto); await cargar(lunes); };
 
   return (
-    <div className="space-y-4">
-      <Hoja tone="base" pad="md" className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <button onClick={() => setLunes(sumaDias(lunes, -7))} aria-label="Semana anterior"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-linea text-slate-700 hover:border-indigo-700 dark:border-noche-linea dark:text-slate-300">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="text-center min-w-0">
-            <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400')}>Semana</p>
-            <p className="font-titulo text-xl font-bold uppercase leading-tight tracking-wide text-slate-900 dark:text-white sm:text-2xl">{etiquetaRango(lunes, fin)}</p>
-            {lunes !== lunesDe(hoyLocal()) && (
-              <button onClick={() => setLunes(lunesDe(hoyLocal()))} className="min-h-[44px] px-2 text-xs font-semibold text-indigo-900 underline dark:text-indigo-200">Ir a esta semana</button>
-            )}
-          </div>
-          <button onClick={() => setLunes(sumaDias(lunes, 7))} aria-label="Semana siguiente"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-linea text-slate-700 hover:border-indigo-700 dark:border-noche-linea dark:text-slate-300">
-            <ChevronRight size={20} />
-          </button>
-        </div>
-        {datos && hayGrupos && (
-          datos.publicada ? (
+    <div className="space-y-3">
+      {barra && datos && hayGrupos && (
+        <Hoja tone="base" pad="md" className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400">
+            Física de grupo · {etiquetaRango(lunes, fin)}
+          </p>
+          {datos.publicada ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50 px-3 py-2">
               <p className="text-xs text-emerald-900 dark:text-emerald-100">
                 <b className="inline-flex items-center gap-1"><Check size={13} /> Publicada</b> el {cuando(datos.publicada)}. Lo que cambies lo ven al momento.
@@ -205,52 +213,28 @@ export default function Cuadrante() {
                 Publicar semana
               </Boton>
             </div>
-          )
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Boton size="sm" variant="secondary" icon={ocupado === 'copiar' ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
-            disabled={!hayGrupos || ocupado !== null} onClick={copiaAnterior}>Copiar semana anterior</Boton>
-          <Boton size="sm" variant="secondary" icon={ocupado === 'imagen' ? <Loader2 size={14} className="animate-spin" /> : <ImagenIcono size={14} />}
-            disabled={!cuadrante?.dias.length || ocupado !== null} onClick={bajaImagen}>Imagen para WhatsApp</Boton>
-          <Boton size="sm" variant="secondary" icon={<MessageSquare size={14} />}
-            disabled={!cuadrante?.dias.length} onClick={copiaTexto}>Copiar texto</Boton>
-          <Boton size="sm" variant="secondary" icon={<CalendarPlus size={14} />}
-            disabled={!hayGrupos || ocupado !== null} onClick={() => setAnadir(true)}>Añadir un día</Boton>
-        </div>
-        {/* Los grupos, sus días, horas y plazas se cambian en «Grupos» (regla 99). */}
-        <button type="button" onClick={() => irAPestana('groups')}
-          className="min-h-[44px] text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 hover:underline">
-          <Settings2 size={14} /> Grupos, días de clase, horas y plazas: en la pestaña «Grupos»
-        </button>
-        {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"><Check size={14} /> {aviso}</p>}
-        {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
-      </Hoja>
-
-      {cargando && !datos ? (
-        <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-slate-400" /></div>
-      ) : !hayGrupos ? (
-        <EmptyState icon={<Users size={40} />} title="No hay grupos de física con horario"
-          hint="Crea los grupos en la pestaña «Grupos» con el tipo «Físicas» y sus días de clase: aquí saldrán solos." bordered />
-      ) : (
-        <>
-          {cuadrante && cuadrante.dias.length === 0 && (
-            <p className={cx(TEXT.muted, 'text-center py-6')}>Esta semana no queda ningún día con clase.</p>
           )}
-          {/* Tantas columnas como quepan (lo pidió el dueño: «el máximo de
-              columnas posibles» en tablet y PC): cada día necesita unos 11rem.
-              En un móvil, una; en una tablet o un portátil, cuatro; en un PC
-              ancho, la semana entera con el sábado. */}
-          <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
-            {cuadrante?.dias.map((dia) => (
-              <DiaCard key={dia.fecha} dia={dia} datos={datos!} hoy={datos!.hoy}
-                onEdita={(fila) => setEdicion({ fila, fecha: dia.fecha, titulo: dia.titulo })}
-                onQuitar={() => setQuitar(dia)} />
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <Boton size="sm" variant="secondary" icon={ocupado === 'imagen' ? <Loader2 size={14} className="animate-spin" /> : <ImagenIcono size={14} />}
+              disabled={!cuadrante?.dias.length || ocupado !== null} onClick={bajaImagen}>Imagen para WhatsApp</Boton>
+            <Boton size="sm" variant="secondary" icon={<MessageSquare size={14} />}
+              disabled={!cuadrante?.dias.length} onClick={copiaTexto}>Copiar texto</Boton>
+            <Boton size="sm" variant="secondary" icon={<CalendarPlus size={14} />}
+              disabled={ocupado !== null} onClick={() => setAnadir(true)}>Añadir un día</Boton>
           </div>
-
+          {cuadrante && cuadrante.dias.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={TEXT.muted}>Quitar clases de un día:</span>
+              {cuadrante.dias.map((d) => (
+                <Boton key={d.fecha} size="sm" variant="ghost" disabled={ocupado !== null} onClick={() => setQuitar(d)} icon={<CalendarX2 size={13} />}>{d.titulo}</Boton>
+              ))}
+            </div>
+          )}
+          {aviso && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"><Check size={14} /> {aviso}</p>}
+          {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
           {cuadrante && cuadrante.quitados.length > 0 && (
-            <Hoja tone="sunken" pad="md" className="space-y-2">
-              <p className={cx('text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400 flex items-center gap-1.5')}><CalendarX2 size={14} /> Sin clase esta semana</p>
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400 flex items-center gap-1.5"><CalendarX2 size={14} /> Sin clase esta semana (física)</p>
               <ul className="divide-y divide-slate-200 dark:divide-slate-800">
                 {cuadrante.quitados.map((q) => (
                   <li key={q.fecha} className="flex items-center justify-between gap-3 py-1.5">
@@ -266,96 +250,35 @@ export default function Cuadrante() {
                   </li>
                 ))}
               </ul>
-              <p className={TEXT.muted}>No salen en la imagen ni en el texto. Los alumnos lo ven como «sin clase».</p>
-            </Hoja>
+            </div>
           )}
-        </>
+        </Hoja>
       )}
+      {peticion && !edicion && error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
 
       {edicion && datos && cuadrante && (
-        <EditorCelda edicion={edicion} datos={datos} cuadrante={cuadrante} onClose={() => setEdicion(null)}
-          onGuardado={async (texto) => { setEdicion(null); await recargar(texto); }}
+        <EditorCelda edicion={edicion} datos={datos} cuadrante={cuadrante} onClose={cierraEdicion}
+          onGuardado={async (texto) => { cierraEdicion(); await recargar(texto); }}
           onCambio={() => recargar()}
           onCopiar={() => { setCopia(edicion); setEdicion(null); }}
           onDetalles={(d) => { setDetalle(d); setEdicion(null); }} />
       )}
       {copia && datos && (
-        <CopiarCelda edicion={copia} datos={datos} onClose={() => setCopia(null)}
-          onHecho={async (n) => { setCopia(null); await recargar(`Copiada a ${n} ${n === 1 ? 'celda' : 'celdas'}.`); }} />
+        <CopiarCelda edicion={copia} datos={datos} onClose={() => { setCopia(null); onCerrarPeticion(); }}
+          onHecho={async (n) => { setCopia(null); onCerrarPeticion(); await recargar(`Copiada a ${n} ${n === 1 ? 'celda' : 'celdas'}.`); }} />
       )}
       {quitar && datos && (
         <QuitarDia dia={quitar} onClose={() => setQuitar(null)}
           onHecho={async (texto) => { setQuitar(null); await recargar(texto); }} />
       )}
       {detalle && (
-        <DetalleCelda detalle={detalle} onClose={() => setDetalle(null)} onCambio={() => recargar()} />
+        <DetalleCelda detalle={detalle} onClose={() => { setDetalle(null); onCerrarPeticion(); }} onCambio={() => recargar()} />
       )}
       {anadir && datos && cuadrante && (
         <AnadirDia datos={datos} cuadrante={cuadrante} onClose={() => setAnadir(false)}
           onElegido={(e) => { setAnadir(false); setEdicion(e); }} />
       )}
     </div>
-  );
-}
-
-function DiaCard({ dia, datos, hoy, onEdita, onQuitar }: {
-  dia: DiaCuadrante; datos: DatosCuadrante; hoy: string; onEdita: (f: FilaCuadrante) => void; onQuitar: () => void;
-}) {
-  return (
-    <Hoja tone="base" className={cx('min-w-0 space-y-1.5 p-2', dia.fecha === hoy && 'ring-2 ring-oro')}>
-      <div className="flex items-center justify-between gap-1 pl-1">
-        <h4 className="min-w-0 truncate font-titulo text-[15px] font-bold uppercase leading-none text-slate-900 dark:text-white" title={dia.titulo}>{dia.titulo}</h4>
-        <button onClick={onQuitar} aria-label={`Quitar el ${dia.titulo.toLowerCase()}`} title="Quitar clases de este día"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-red-50 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-900/20">
-          <CalendarX2 size={16} />
-        </button>
-      </div>
-      {dia.filas.map((f) => {
-        const col = colorDeGrupo(f.grupo.corto);
-        const plazas = f.grupo.esMulti ? null : plazasDe(datos, f.grupo, dia.fecha);
-        const multis = datos.multis[clave(f.grupo.id, dia.fecha)]?.length ?? 0;
-        return (
-          <div key={f.grupo.id} className="flex gap-1">
-            <div className="flex w-14 shrink-0 items-center justify-center rounded-lg px-0.5 text-center text-[11px] font-bold italic"
-              style={{ background: col.fondo, color: col.texto }}>
-              {f.grupo.corto.toUpperCase()}
-            </div>
-            <button onClick={() => onEdita(f)}
-              className={cx('flex-1 min-h-[56px] min-w-0 text-left rounded-lg border-2 px-2 py-1.5',
-                f.sesion ? 'bg-white dark:bg-slate-950 border-linea dark:border-noche-linea' : 'border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400',
-                f.avisos.length > 0 && 'border-amber-400 dark:border-amber-500')}>
-              {f.sesion ? (
-                <>
-                  <span className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-sm leading-tight min-w-0">
-                    <span className="truncate">{f.sesion.titulo}</span>
-                    {f.horaRotulada && <span className="shrink-0 text-[10px] bg-amber-300 text-slate-900 rounded px-1.5 py-0.5">{f.horaRotulada} h</span>}
-                    {f.extra && <span className="shrink-0 text-[10px] bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200 rounded px-1.5 py-0.5">extra</span>}
-                  </span>
-                  <span className="block text-xs text-slate-600 dark:text-slate-400 truncate">
-                    {f.profesor ? nombrePila(f.profesor.nombre) : 'Sin profesor'}
-                    {f.extras > 0 && ` · +${f.extras} más`}
-                    {plazas && plazas.libres !== null && ` · ${plazas.libres} libres`}
-                    {multis > 0 && ` · ${multis} multi`}
-                  </span>
-                  {f.avisos.map((a) => (
-                    <span key={a} className="flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-0.5">
-                      <AlertTriangle size={12} className="shrink-0" /> {a}
-                    </span>
-                  ))}
-                </>
-              ) : (
-                <span className="flex items-center gap-1.5 text-xs font-bold">
-                  <Plus size={14} /> Añadir
-                  {(plazas && plazas.libres !== null) || multis > 0 ? (
-                    <span className="font-medium">· {plazas?.libres != null ? `${plazas.libres} libres` : ''}{multis > 0 ? `${plazas?.libres != null ? ' · ' : ''}${multis} multi` : ''}</span>
-                  ) : null}
-                </span>
-              )}
-            </button>
-          </div>
-        );
-      })}
-    </Hoja>
   );
 }
 

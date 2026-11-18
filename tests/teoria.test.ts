@@ -2,19 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  normalizaTemas, normalizaNotaTeoria, textoTemas, leeTemas, fechasDeGrupoEntre, clasesDeTeoria, sinRellenar,
-  choquesDeTeoria, diasDados, temasDeAsignaciones, avanceDeGrupo, horasDeTeoria, type GrupoTeoria, type AsignacionTeoria,
+  normalizaTemas, normalizaNotaTeoria, textoTemas, leeTemas, diasDados, temasDeAsignaciones, avanceDeGrupo, type AsignacionTeoria,
 } from '../app/lib/teoria';
 
 /** Regla 131 · El cuadrante de teoría: un profesor y los temas de cada clase, programable y editable. */
 
 const quita = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const lee = (ruta: string) => quita(readFileSync(join(__dirname, '..', ruta), 'utf-8').replace(/\r\n/g, '\n'));
-
-// 2026-11-16 es lunes
-const LUN = '2026-11-16';
-const manana: GrupoTeoria = { id: 'a', nombre: 'M-J MAÑANAS', weekdays: [2, 4], inicio: '10:00', fin: '14:00' };
-const tarde: GrupoTeoria = { id: 'b', nombre: 'M-J TARDE', weekdays: [2, 4], inicio: '16:00', fin: '20:00' };
 
 describe('temas', () => {
   it('normaliza: enteros 1..200, sin repetir y en orden', () => {
@@ -37,39 +31,6 @@ describe('temas', () => {
   });
 });
 
-describe('las clases de la semana', () => {
-  it('salen vacías, una por grupo y día de horario, ordenadas', () => {
-    const c = clasesDeTeoria({ grupos: [tarde, manana], asignaciones: [], desde: LUN, hasta: '2026-11-22' });
-    expect(c.map((x) => `${x.fecha} ${x.grupo}`)).toEqual([
-      '2026-11-17 M-J MAÑANAS', '2026-11-17 M-J TARDE', '2026-11-19 M-J MAÑANAS', '2026-11-19 M-J TARDE',
-    ]);
-    expect(c.every((x) => x.vacia)).toBe(true);
-    expect(sinRellenar(c)).toBe(4);
-  });
-  it('lo apuntado se pone sobre su clase y no la deja vacía', () => {
-    const asig: AsignacionTeoria[] = [{ classId: 'a', fecha: '2026-11-17', profesorId: 'lucio', temas: [8], nota: null }];
-    const c = clasesDeTeoria({ grupos: [manana], asignaciones: asig, desde: LUN, hasta: '2026-11-22' });
-    expect(c[0]).toMatchObject({ profesorId: 'lucio', temas: [8], vacia: false });
-    expect(c[1].vacia).toBe(true);
-  });
-  it('un día sin clase no sale', () => {
-    const c = clasesDeTeoria({ grupos: [manana], asignaciones: [], sinClase: [{ classId: 'a', fecha: '2026-11-19' }], desde: LUN, hasta: '2026-11-22' });
-    expect(c.map((x) => x.fecha)).toEqual(['2026-11-17']);
-  });
-  it('fechas por días de la semana (lunes = 1)', () => {
-    expect(fechasDeGrupoEntre([1, 7], LUN, '2026-11-22')).toEqual([LUN, '2026-11-22']);
-  });
-  it('un profesor no puede dar dos clases a la vez, pero sí una por la mañana y otra por la tarde', () => {
-    const solapa: GrupoTeoria = { ...tarde, id: 'c', nombre: 'SOLAPE', inicio: '12:00', fin: '15:00' };
-    const asig = (id: string, f: string): AsignacionTeoria => ({ classId: id, fecha: f, profesorId: 'lucio', temas: [1], nota: null });
-    const nombres = new Map([['lucio', 'Lucio']]);
-    const ok = clasesDeTeoria({ grupos: [manana, tarde], asignaciones: [asig('a', '2026-11-17'), asig('b', '2026-11-17')], desde: LUN, hasta: '2026-11-22' });
-    expect(choquesDeTeoria(ok, nombres).size).toBe(0);
-    const mal = clasesDeTeoria({ grupos: [manana, solapa], asignaciones: [asig('a', '2026-11-17'), asig('c', '2026-11-17')], desde: LUN, hasta: '2026-11-22' });
-    expect(choquesDeTeoria(mal, nombres).size).toBe(2);
-  });
-});
-
 describe('el avance del temario', () => {
   const asig: AsignacionTeoria[] = [
     { classId: 'a', fecha: '2026-11-10', profesorId: 'x', temas: [1, 2], nota: null },
@@ -89,14 +50,6 @@ describe('el avance del temario', () => {
     ]);
     expect(t).toEqual([{ classId: 'a', tema: 1, fecha: '2026-11-10', profesorId: 'y' }]);
   });
-  it('las horas salen de lo que da de verdad', () => {
-    const c = clasesDeTeoria({
-      grupos: [manana, tarde], desde: LUN, hasta: '2026-11-22',
-      asignaciones: [{ classId: 'a', fecha: '2026-11-17', profesorId: 'lucio', temas: [8], nota: null }, { classId: 'b', fecha: '2026-11-17', profesorId: 'lucio', temas: [9], nota: null }],
-    });
-    expect(horasDeTeoria(c, 'lucio')).toBe(8);
-    expect(horasDeTeoria(c, 'otro')).toBe(0);
-  });
 });
 
 describe('seguridad de las acciones', () => {
@@ -107,7 +60,7 @@ describe('seguridad de las acciones', () => {
     return src.slice(i, j === -1 ? undefined : j);
   };
   it('cada acción exige admin y acota por academia', () => {
-    for (const f of ['getTeoria', 'saveClaseTeoria', 'copiarSemanaTeoria']) {
+    for (const f of ['getAvanceTeoria', 'saveClaseTeoria', 'copiarSemanaTeoria']) {
       expect(cuerpo(f)).toContain('requireAdmin()');
       expect(cuerpo(f)).toMatch(/organization_id/);
     }
@@ -127,7 +80,7 @@ describe('seguridad de las acciones', () => {
   });
   it('lo que va al navegador pasa por fallo() y la lista del avance se pagina', () => {
     expect(src).not.toMatch(/error: [a-z]+\.error\.message/);
-    expect(cuerpo('getTeoria')).toContain('paginaCompleta');
+    expect(cuerpo('getAvanceTeoria')).toContain('paginaCompleta');
   });
   it('el guion SQL deja la tabla con RLS y sin políticas', () => {
     const sql = readFileSync(join(__dirname, '..', 'docs/sql/teoria-cuadrante.sql'), 'utf-8');
@@ -171,5 +124,47 @@ describe('clases dadas (lo que se paga)', () => {
     expect(cuerpo.match(/\.eq\('organization_id', org\)/g)!.length).toBeGreaterThanOrEqual(3);
     expect(cuerpo).toContain('class_days_off');
     expect(cuerpo.match(/filter\(\(r\) => !quitados\.has\(/g)).toHaveLength(2);
+  });
+
+  it('el calendario lee lo apuntado de SU academia y no ofrece a gabinete ni secretaría como profesores', () => {
+    const cal = lee('app/actions/calendario.ts');
+    const i = cal.indexOf("from('theory_sessions')");
+    expect(i).toBeGreaterThan(-1);
+    expect(cal.slice(i, i + 300)).toContain(".eq('organization_id', org)");
+    expect(cal).toMatch(/filter\(\(s\) => s\.active !== false && daClase\(/);
+  });
+  it('la ficha de una clase de teoría del calendario se programa desde ahí', () => {
+    const ui = lee('app/components/Admin/components/AdminCalendario.tsx');
+    expect(ui).toMatch(/e\.esTeoria && <ProgramaTeoria/);
+    expect(ui).toContain('copiarSemanaTeoria');
+    const admin = lee('app/components/Admin/AdminView.tsx');
+    expect(admin).not.toContain('AdminTeoria');
+  });
+});
+
+describe('la física de grupo se programa desde el Calendario (regla 132)', () => {
+  const cal = lee('app/components/Admin/components/AdminCalendario.tsx');
+  const fis = lee('app/components/Admin/components/AdminPhysical.tsx');
+  it('«Prep. física» ya no tiene el cuadrante: solo Planificar y Marcas', () => {
+    expect(fis).not.toMatch(/from '\.\/fisica\/Cuadrante'/);
+    expect(fis).not.toContain("id: 'cuadrante'");
+    expect(fis).toContain("id: 'planificar'");
+    expect(fis).toContain("id: 'marcas'");
+  });
+  it('pulsar una sesión de física o de Multi en el calendario abre el editor del cuadrante', () => {
+    expect(cal).toMatch(/\(e\.tipo === 'fisica' \|\| e\.tipo === 'suelta'\) && e\.grupoId\) setPeticion\(/);
+    expect(cal).toMatch(/<ProgramacionFisica/);
+  });
+  it('la barra de la semana solo sale en la vista semana', () => {
+    expect(cal).toMatch(/barra=\{vista === 'semana'\}/);
+  });
+  it('«Copiar la semana anterior» copia física y teoría', () => {
+    const i = cal.indexOf('async function copiaSemana');
+    const cuerpo = cal.slice(i, i + 900);
+    expect(cuerpo).toContain('copiarSemanaTeoria(');
+    expect(cuerpo).toContain('copiarCuadrante(');
+  });
+  it('un día «sin clase» se devuelve desde su ficha, sea de teoría o de física', () => {
+    expect(cal).toMatch(/e\.tipo === 'sin_clase' && e\.grupoId[\s\S]{0,300}sinClase: false/);
   });
 });

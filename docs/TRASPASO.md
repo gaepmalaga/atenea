@@ -590,18 +590,19 @@ de `/_next/static/chunks/*.js` del HTML de producción.
 - **Gabinete y secretaría** (Mariana y Sara) pasan a contar como equipo sin salir como profesoras: ver la regla 130. Sus altas en la BD se hacen DESPUÉS de desplegar (con el código viejo saldrían como opción de profesor).
 - Los grupos de físicas de la hoja (Físicas 43 Clinic, Físicas 44 y Atletas) NO coinciden con los 8 de la plataforma (Alpha, Betta, Delta, Kappa, Omega, Sigma, Zetta y Multi): pendiente de que el dueño diga cómo encajan.
 
-## 2q · Cuadrante de teoría (18 nov, regla 131, en la rama, sin desplegar)
+## 2q · La teoría y la física de grupo se programan desde el Calendario (18 nov, reglas 131 y 132)
 
-Pestaña «Cuadrante teoría» (Día a día): las clases de cada grupo de teoría
-salen vacías desde su horario; se apunta UN profesor y los temas, con
-antelación o después. Segunda vista «Temas dados»: el temario de cada grupo
-(dado / programado / pendiente).
+Las clases de cada grupo de teoría salen en «Calendario»; al abrir una se
+asigna UN profesor y los temas (con antelación o después, editable) y se ve
+cómo lleva el temario ese grupo. Sin pestaña aparte.
 
-- **Ejecutado el 18 nov** `docs/sql/teoria-cuadrante.sql` en la BD real (tabla
-  `theory_sessions`, autorizado por el dueño; esquema actualizado). Antes, la
-  pantalla da error al cargar. Es un cambio de esquema: lo autoriza el dueño.
-- Código: `app/lib/teoria.ts`, `app/actions/teoria.ts`,
-  `app/components/Admin/components/AdminTeoria.tsx`, `tests/teoria.test.ts`.
+- Tabla `theory_sessions` (`docs/sql/teoria-cuadrante.sql`, ejecutada el 18
+  nov). Código: `app/lib/teoria.ts`, `app/actions/teoria.ts`
+  (`saveClaseTeoria`, `getAvanceTeoria`, `copiarSemanaTeoria`),
+  `ProgramaTeoria.tsx` (la ficha) y `armaCalendario` (parámetro `teoria`).
 - «Profesores» cuenta CLASES dadas de teoría y de física por mes (se paga por
-  clase, cada una suma 1), no horas (regla 131).
+  clase, cada una suma 1), no horas.
+- Regla 132: la física de grupo también se programa desde el Calendario (el
+  editor del cuadrante, la barra de la semana, publicar y WhatsApp). «Prep.
+  física» se queda con Planificar y Marcas.
 - Pendiente de mejora: aviso de «clases sin rellenar» en el Inicio del admin.

@@ -6,7 +6,6 @@ import { getTrainingSwitches, setTrainingSwitch } from '@/actions';
 import { TRAINING_SWITCH_LABEL, TRAINING_SWITCH_DESC, type TrainingSwitches } from '@/app/lib/training-switches';
 import Planificador from './fisica/Planificador';
 import MarcasAcademia from './fisica/MarcasAcademia';
-import Cuadrante from './fisica/Cuadrante';
 import { PanelTitulo, Pestanas, Hoja, BloqueTitulo, Aviso, Boton, Estado, EmptyState, cx } from '../../ui';
 
 /**
@@ -26,7 +25,7 @@ export default function AdminPhysical() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [vista, setVista] = useState<'cuadrante' | 'planificar' | 'marcas'>('cuadrante');
+  const [vista, setVista] = useState<'planificar' | 'marcas'>('planificar');
 
   const cargar = useCallback(async () => {
     const switchesRes = await getTrainingSwitches();
@@ -52,7 +51,7 @@ export default function AdminPhysical() {
     <div className="space-y-5 animate-in fade-in pb-24">
       <PanelTitulo
         titulo="Prep. física"
-        sub={esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'El cuadrante de cada semana, el entreno de cada alumno y las marcas de las pruebas oficiales.'}
+        sub={esCasa ? 'El alumno se genera su plan con IA, semana a semana.' : 'El entreno de cada alumno y las marcas de las pruebas oficiales. El cuadrante semanal se programa en el Calendario.'}
         acciones={<Boton variant="secondary" icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />} onClick={() => { setLoading(true); cargar(); }}>Recargar</Boton>}
       />
 
@@ -97,12 +96,17 @@ export default function AdminPhysical() {
             activa={vista}
             onCambia={setVista}
             items={[
-              { id: 'cuadrante', etiqueta: 'Cuadrante' },
               { id: 'planificar', etiqueta: 'Planificar' },
               { id: 'marcas', etiqueta: 'Marcas' },
             ]}
           />
-          {vista === 'cuadrante' ? <Cuadrante /> : vista === 'planificar' ? <Planificador /> : <MarcasAcademia />}
+          <Aviso>
+            <span>
+              Las clases de grupo (qué toca, quién las da, publicar la semana, la imagen para WhatsApp) se programan ahora en{' '}
+              <button type="button" className="font-semibold underline" onClick={() => window.dispatchEvent(new CustomEvent('admin:pestana', { detail: 'calendar' }))}>el Calendario</button>.
+            </span>
+          </Aviso>
+          {vista === 'planificar' ? <Planificador /> : <MarcasAcademia />}
         </>
       )}
     </div>

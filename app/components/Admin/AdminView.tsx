@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Users, Book, Building2, Activity, AlertTriangle, Database, Power, Coins,
-  BadgeEuro, BookOpen, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays, Printer, LineChart,
+  BadgeEuro, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays, Printer, LineChart,
 } from 'lucide-react';
 
 import AdminStudents from './components/AdminStudents';
@@ -21,7 +21,6 @@ import AdminAsistencia from './components/AdminAsistencia';
 import AdminPhysical from './components/AdminPhysical';
 import AdminAcademies from './components/AdminAcademies';
 import AdminProfesores from './components/AdminProfesores';
-import AdminTeoria from './components/AdminTeoria';
 import AdminCalendario from './components/AdminCalendario';
 import ModuleErrorBoundary from '../shared/ModuleErrorBoundary';
 import type { AuthUser } from '@/app/lib/auth';
@@ -30,7 +29,7 @@ import { PanelShell, Modal, Button, type PestanaPanel } from '../ui';
 import CambiarClave from '../student/CambiarClave';
 
 /** Las pestañas del panel. El `id` de `tabs` tiene que ser uno de estos. */
-type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'theory' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies' | 'exams' | 'report';
+type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'attendance' | 'physical' | 'payments' | 'moderation' | 'content' | 'activity' | 'bank' | 'modules' | 'cost' | 'academies' | 'exams' | 'report';
 
 /**
  * La pestaña abierta también se recuerda en ESTE navegador: el panel es una
@@ -39,7 +38,7 @@ type AdminTab = 'calendar' | 'students' | 'groups' | 'staff' | 'theory' | 'atten
  */
 const TAB_KEY = 'atenea-admin-pestana';
 const TABS_VALIDAS: AdminTab[] = [
-  'calendar', 'students', 'groups', 'staff', 'theory', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies', 'exams', 'report',
+  'calendar', 'students', 'groups', 'staff', 'attendance', 'physical', 'payments', 'moderation', 'content', 'activity', 'bank', 'modules', 'cost', 'academies', 'exams', 'report',
 ];
 
 function leeTabGuardada(): AdminTab | null {
@@ -70,7 +69,6 @@ const PESTANAS_ADMIN: (PestanaPanel & { id: AdminTab })[] = [
   { id: 'students', etiqueta: 'Alumnos', icono: Users, seccion: 'Día a día' },
   { id: 'groups', etiqueta: 'Grupos', icono: Users2, seccion: 'Día a día' },
   { id: 'staff', etiqueta: 'Profesores', icono: GraduationCap, seccion: 'Día a día' },
-  { id: 'theory', etiqueta: 'Cuadrante teoría', icono: BookOpen, seccion: 'Día a día' },
   { id: 'attendance', etiqueta: 'Asistencia', icono: CalendarCheck, seccion: 'Día a día' },
   { id: 'physical', etiqueta: 'Prep. física', icono: Dumbbell, seccion: 'Día a día' },
   { id: 'payments', etiqueta: 'Pagos', icono: BadgeEuro, seccion: 'Día a día' },
@@ -169,7 +167,6 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
           {activeTab === 'students' && <AdminStudents />}
           {activeTab === 'groups' && <AdminGroups />}
           {activeTab === 'staff' && <AdminProfesores />}
-          {activeTab === 'theory' && <AdminTeoria />}
           {activeTab === 'attendance' && <AdminAsistencia />}
           {activeTab === 'physical' && <AdminPhysical />}
           {activeTab === 'payments' && <AdminPayments />}
