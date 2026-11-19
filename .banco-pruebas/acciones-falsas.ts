@@ -1633,3 +1633,28 @@ export async function getDiasDados(params?: { mes?: string }) {
     ],
   });
 }
+
+// ── Documentos compartidos de los admin (regla 134) ──
+const LOGO_DOC = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><rect width="120" height="60" fill="#14295a"/><text x="60" y="38" font-size="20" font-weight="800" text-anchor="middle" fill="#e2c977" font-family="Arial">ALPHAPOL</text></svg>');
+export async function getDocumentos() {
+  const d = (id: string, carpetaId: string, nombre: string, ext: string, tamano: number, dias: number, miniatura: string | null = null) =>
+    ({ id, carpetaId, nombre, ext, tamano, subidoPor: 'sofia@alphapol.es', fecha: new Date(Date.now() - dias * 86400000).toISOString(), miniatura });
+  return ok({
+    carpetas: [
+      { id: 'f1', nombre: 'Marca y logos', documentos: 3 }, { id: 'f2', nombre: 'Contratos y legal', documentos: 1 },
+      { id: 'f3', nombre: 'Horarios y cuadrantes', documentos: 1 }, { id: 'f4', nombre: 'Material de clase', documentos: 0 }, { id: 'f5', nombre: 'Informes', documentos: 1 },
+    ],
+    documentos: [
+      d('d1', 'f1', 'logo-alphapol-horizontal.svg', 'svg', 18400, 1, LOGO_DOC), d('d2', 'f1', 'logo-alphapol-vertical.png', 'png', 220000, 1, LOGO_DOC),
+      d('d3', 'f1', 'Manual de marca.pdf', 'pdf', 2400000, 3), d('d4', 'f2', 'Contrato profesores 2026.docx', 'docx', 86000, 7),
+      d('d5', 'f3', 'Cuadrante noviembre.xlsx', 'xlsx', 41000, 2), d('d6', 'f5', 'Informe EE41 Alphapol.pdf', 'pdf', 1130000, 0),
+    ],
+  });
+}
+export async function crearCarpetaDocs() { return { success: true as const, id: 'f9' }; }
+export async function renombrarCarpetaDocs() { return { success: true as const }; }
+export async function borrarCarpetaDocs() { return { success: true as const }; }
+export async function subirDocumento() { return { success: true as const, id: 'd9' }; }
+export async function renombrarDocumento() { return { success: true as const }; }
+export async function borrarDocumento() { return { success: true as const }; }
+export async function urlDocumento() { return { success: true as const, url: '#' }; }

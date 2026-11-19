@@ -633,3 +633,12 @@ test de 16 preguntas con soluciones y QR al Campus). Todo sale de UNA fuente:
 `scripts/resumenes/tema_completo_docx.py`. Para otro tema se crea su
 `tema-NN.contenido.mjs`. El esquema (`temario/esquemas/tema-01.pdf`) ya tiene 2
 páginas: el esquema general y «La nacionalidad paso a paso».
+
+## 2s · Documentos compartidos de los admin (19 nov, regla 134)
+
+Pestaña «Documentos» (Sistema): carpetas y archivos privados, solo para los
+admin; cualquier admin sube y borra. Código: `app/lib/documentos.ts`,
+`app/actions/documentos.ts`, `AdminDocumentos.tsx`, `tests/documentos.test.ts`.
+**Falta ejecutar `docs/sql/documentos.sql` en la BD real** (dos tablas, el
+depósito privado `documentos` y 5 carpetas iniciales). Sin eso la pestaña da
+error al abrirla. `supabase/schema.json` ya incluye las dos tablas.

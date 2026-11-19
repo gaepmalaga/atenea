@@ -257,6 +257,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 131 | La teoría se programa desde el Calendario: un profesor y los temas de cada clase, y se paga por clase dada |
 | 132 | Toda la programación de grupo se hace desde el Calendario; «Prep. física» se queda con Planificar y Marcas |
 | 133 | El último acceso es cuándo USÓ la app, no cuándo escribió la clave |
+| 134 | Los documentos de la academia viven en una carpeta privada dentro de la plataforma, no en el repositorio ni en el correo |
 
 ## Trampas conocidas
 
