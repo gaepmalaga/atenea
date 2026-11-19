@@ -255,7 +255,9 @@ for (const { q, fecha, citas } of vigiladas) {
       const num = /\d+/.exec(c.precepto)?.[0];
       const mismoNumero = new RegExp(`(^|\\D)${num}(\\D|$)`);
       const parecidos = num ? norma.lista.filter((b) => mismoNumero.test(b.id) || mismoNumero.test(b.titulo ?? '')).slice(0, 3).map((b) => `${b.id}=${JSON.stringify(b.titulo)}`).join(', ') : '';
-      anota(`${nombre}: no tiene ${preceptoLegible(c.precepto)}${parecidos ? ` (en el BOE: ${parecidos})` : ''}`);
+      // Sin parecidos, una muestra de cómo rotula el BOE esa norma.
+      const muestra = parecidos || norma.lista.filter((b) => /^art/i.test(b.titulo ?? '')).slice(60, 63).map((b) => `${b.id}=${JSON.stringify(b.titulo)}`).join(', ');
+      anota(`${nombre}: no tiene ${preceptoLegible(c.precepto)}${muestra ? ` (en el BOE: ${muestra})` : ''}`);
       continue;
     }
     for (const v of cambiosPosteriores(bloque, fecha)) {

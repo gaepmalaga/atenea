@@ -728,6 +728,16 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   normas tienen el mismo artículo y la explicación no dice cuál).
 - **Hoy:** 5 avisos (el art. 69 del Reglamento General de Circulación, en vigor
   desde después de generar el tema 43).
+- **Barrido desde el 1-1-2026 (ensayo, NO escrito):** 136 avisos posibles, casi
+  todos de pendientes del Tomo, cuya fecha es la de subida (19 nov) y no la de
+  la edición del Tomo: RD 207/2024 arts. 1, 4 y 9 (los cambia el RD 353/2025,
+  que el Tomo ya recoge), RD 1155/2024 arts. 126, 130, 132 y 172 (arraigo,
+  circunstancias excepcionales y menores no acompañados, cambiados en 2026),
+  TREBEP art. 49 (permisos) y el Reglamento (UE) 2024/1348 (dos actos que lo
+  modifican). Si el Tomo se escribió antes de esos cambios, esas preguntas
+  pueden estar desfasadas: el tutor debe contrastarlas con el BOE al revisarlas.
+  Para meterlas en «Moderación»: `npm run normativa -- --desde=20260101 --hazlo`
+  (o pedirlo).
 - **Funcionamiento:** «Vigilancia de la normativa», lunes y jueves, escribe sola
   (tope de 400 avisos de una vez; no repite un aviso ya dado). «Operación →
   normativa-ensayo» cuenta sin escribir, y con `desde` (AAAAMMDD) barre hacia
