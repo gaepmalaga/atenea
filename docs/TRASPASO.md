@@ -724,10 +724,17 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - **Cobertura (ensayo del 19 nov):** de 6.327 preguntas, 4.721 quedan
   vigiladas; 63 normas del BOE (todas las citadas por número se encontraron) y
   12 actos de la UE. Sin vigilar: 1.195 sin referencia legal, 89 que solo citan
-  Tratados o Schengen, y unas 320 sin localizar (sobre todo el tema 8, donde dos
-  normas tienen el mismo artículo y la explicación no dice cuál).
-- **Hoy:** 5 avisos (el art. 69 del Reglamento General de Circulación, en vigor
-  desde después de generar el tema 43).
+  Tratados o Schengen, y 323 sin localizar: en 228 dos normas del mismo tema
+  tienen ese artículo y la explicación no dice cuál (temas 8, 26, 21, 23, 25 y
+  5), 69 referencias sin precepto («disposición final» a secas) y 46 en que el
+  tema no deja clara la ley. El lector entiende cómo rotula el BOE cada norma:
+  «Artículo 18.bis» (LO 4/2000) y en letra, «Artículo sesenta y cuatro bis»
+  (LOPJ).
+- **Hoy:** 5 avisos, los cinco del art. 69 del Reglamento General de
+  Circulación (vehículos prioritarios): nueva redacción en vigor desde el
+  1-10-2026 por el BOE-A-2026-13889, posterior al temario del que salieron
+  esas preguntas. No se han escrito: quedan para la primera ejecución después
+  de desplegar.
 - **Barrido desde el 1-1-2026 (ensayo, NO escrito):** 136 avisos posibles, casi
   todos de pendientes del Tomo, cuya fecha es la de subida (19 nov) y no la de
   la edición del Tomo: RD 207/2024 arts. 1, 4 y 9 (los cambia el RD 353/2025,
