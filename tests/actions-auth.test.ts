@@ -94,6 +94,12 @@ describe('superficie de las Server Actions', () => {
       'disableQuestion',
       'resolveReport',
       'updateQuestion',
+      // Regla 135: aprobar, historial y pregunta nueva del examen en papel.
+      'approveQuestion',
+      'approveQuestions',
+      'getHistorialPregunta',
+      'restauraPregunta',
+      'crearPreguntaDeExamen',
       // P2: escriben directamente en el banco de los alumnos.
       'createManualQuestion',
       'importManualQuestions',
@@ -171,11 +177,6 @@ describe('superficie de las Server Actions', () => {
       'seedQuestionBank',
       'seedFlashcardBank',
       'getFlashcardBankCounts',
-      // Aprobar solo tiene sentido sobre una candidata, y las candidatas son
-      // siempre del banco global (`getModerationQueue` las oculta a un admin
-      // normal).
-      'approveQuestion',
-      'approveQuestions',
       // El coste de mantener ese banco común (y, en la academia «casa», del
       // entrenamiento con IA) se mira desde el panel transversal.
       'getAiCostOverview',
@@ -269,7 +270,7 @@ describe('la frontera cliente-servidor esta tipada', () => {
     // mismo efecto que uno inventado por la IA: el alumno estudia un dato
     // falso. Antes `updateQuestion` recibia `any` y escribia lo que llegara.
     const moderation = files.find((f) => f.name === 'moderation.ts')!.src;
-    const fn = moderation.slice(moderation.indexOf('export async function updateQuestion'));
+    const fn = moderation.slice(moderation.indexOf('async function editaPregunta'));
     const cuerpo = fn.slice(0, fn.indexOf('\n}\n') + 3);
 
     expect(cuerpo).toContain('validateGeneratedQuestion');

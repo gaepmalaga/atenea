@@ -1224,7 +1224,7 @@ export async function getAciertoHabitual(): Promise<
 export async function getExamenImprimible(input: unknown): Promise<
   | {
       success: true;
-      preguntas: { id: string; enunciado: string; opciones: string[]; correcta: number; tema: string; dificultad: number }[];
+      preguntas: { id: string; enunciado: string; opciones: string[]; correcta: number; tema: string; dificultad: number | null; explicacion: string | null; pendiente: boolean }[];
       corto: boolean;
       /** Cuántas preguntas hay de cada nivel entre las candidatas: para saber si la dificultad se puede pedir. */
       niveles: { facil: number; media: number; dificil: number };
@@ -1290,7 +1290,11 @@ export async function getExamenImprimible(input: unknown): Promise<
       opciones: (f.options as unknown[]).map((o) => String(o ?? '')),
       correcta: f.correct_index as number,
       tema: temaDeFila(f),
-      dificultad: typeof f.difficulty_level === 'number' ? f.difficulty_level : 2,
+      dificultad: typeof f.difficulty_level === 'number' ? f.difficulty_level : null,
+      // Para poder corregirla desde el propio examen sin perderla (regla 135).
+      explicacion: typeof f.explanation === 'string' ? f.explanation : null,
+      // Lo que sale del banco para un examen es siempre lo ya publicado.
+      pendiente: false,
     }));
 
   const niveles = {

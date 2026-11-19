@@ -258,6 +258,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 132 | Toda la programación de grupo se hace desde el Calendario; «Prep. física» se queda con Planificar y Marcas |
 | 133 | El último acceso es cuándo USÓ la app, no cuándo escribió la clave |
 | 134 | Los documentos de la academia viven en una carpeta privada dentro de la plataforma, no en el repositorio ni en el correo |
+| 135 | El examen en papel se revisa antes de imprimir (editar sobrescribe el banco, con historial) y lo nuevo entra pendiente hasta tener explicación y dificultad |
 
 ## Trampas conocidas
 

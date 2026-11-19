@@ -19,6 +19,8 @@ export type AccionAuditada =
   | 'disable_family_duplicates'
   | 'discard_all_candidates'
   | 'approve_questions'
+  | 'create_exam_question'
+  | 'edit_question'
   | 'set_module_enabled'
   | 'save_manual_training_plan'
   | 'resolve_report'
@@ -72,6 +74,8 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   disable_family_duplicates: 'Se quedó con una pregunta y descartó sus repetidas',
   discard_all_candidates: 'Descartó todas las candidatas',
   approve_questions: 'Publicó preguntas al banco',
+  create_exam_question: 'Escribió una pregunta nueva desde un examen en papel',
+  edit_question: 'Editó una pregunta del banco',
   set_module_enabled: 'Cambió un módulo',
   save_manual_training_plan: 'Guardó un plan de entrenamiento',
   resolve_report: 'Resolvió un reporte',

@@ -5148,3 +5148,45 @@ los bordes de la «A» y el degradado aproximado. `MARCA.isotipo` y
 `MARCA.logotipo` apuntan a ellos; el icono de la app (`app/icon.png`) sigue
 saliendo del SVG antiguo y puede regenerarse más adelante.
 
+
+### 135 · El examen en papel se revisa antes de imprimir, y lo nuevo entra pendiente
+
+- **Qué pedía la academia (19 nov):** poder corregir las preguntas de un examen
+  en papel antes de generar el PDF, e incluso añadir preguntas nuevas. Y que las
+  generadas desde su temario pasen por «Banco oficial» como pendientes antes de
+  servirse.
+- **Revisar** (`RevisarPreguntas`, paso 2 de «Exámenes en papel»): se ve el
+  examen tal como saldrá; cada pregunta se puede editar y quitar del examen (no
+  se borra del banco). Los tres PDF salen de las preguntas ya corregidas.
+- **Editar SOBRESCRIBE la del banco** (`updateQuestion(id, datos, 'examen_papel')`):
+  la ven todos los alumnos, así que cada cambio real anota la foto de ANTES y de
+  DESPUÉS en `question_edit_history` (`docs/sql/historial-preguntas.sql`; RLS y
+  ninguna política, regla 34) y **la anotación va primero**: si no se puede
+  guardar el historial, no se edita. Sin cambios no se escribe nada. El
+  historial (`HistorialPregunta`, en la revisión y en «Banco oficial») dice
+  quién, cuándo, desde dónde y qué cambió, y «Volver a como estaba»
+  (`restauraPregunta`) es una edición más, anotada como `restaurar`. La
+  dificultad no se restaura: no se guarda de quién era (regla 121). El examen ya
+  GUARDADO conserva su copia (regla 118) y no cambia.
+- **Una pregunta nueva** (`crearPreguntaDeExamen`) entra al banco PRIVADO de la
+  academia como **pendiente** (`candidate`) y **sin explicación ni dificultad**
+  (`null`, no el 2 de la siembra, regla 16). Para el papel basta con enunciado,
+  tres opciones y la correcta; para la plataforma hace falta más. Sale en el PDF,
+  pero no se sirve a ningún alumno hasta que se complete y se apruebe. Se puede
+  imprimir porque `guardaExamen` admite las activas y las pendientes de SU
+  academia (nunca las de otra).
+- **Aprobar exige estar completa** (`etiquetasQueFaltan`, `app/lib/preguntas-edicion.ts`):
+  explicación de al menos 20 caracteres y dificultad 1, 2 o 3.
+  `approveQuestion(s)` ya no es solo del superadmin: las candidatas ya no son
+  solo globales. Lo hace el admin acotado por `filtroEscrituraBanco` (regla 123),
+  lee primero las pendientes y publica solo las completas; el resto se cuentan
+  aparte y se le dice qué falta. «Banco oficial» enseña «Faltan la explicación y
+  la dificultad» y «Publicar las N completas».
+- Una pendiente puede guardarse **sin explicación** (`editaPregunta` lo permite
+  solo si la fila es `candidate`); una activa nunca.
+- `tests/preguntas-edicion.test.ts` y `tests/moderation.test.ts` lo vigilan
+  (comprobado rompiendo el código a propósito: publicar incompletas, crear la
+  nueva como activa, no abortar si falla el historial, admitir pendientes de
+  cualquiera, publicar todo desde el panel).
+- **Antes de desplegar** hay que ejecutar `docs/sql/historial-preguntas.sql`:
+  sin la tabla, editar una pregunta falla (a propósito, ver arriba).
