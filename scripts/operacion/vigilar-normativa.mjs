@@ -12,6 +12,9 @@
  *   npm run normativa                ENSAYO: lo cuenta todo, no escribe nada
  *   npm run normativa -- --hazlo     deja los avisos nuevos y avisa por correo
  *   npm run normativa -- --hazlo --maximo=800   sube el tope de avisos de una vez
+ *   npm run normativa -- --desde=20260101       barrido hacia atrás: trata cada
+ *       pregunta como escrita ese día (o antes, si lo es), para ver qué ha
+ *       cambiado desde entonces en lo que cita el banco
  *
  * QUÉ NO HACE
  *  · No toca ninguna pregunta: decide quien sabe (sigue valiendo, se corrige,
@@ -34,7 +37,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import {
-  NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, citasDeLaPregunta, cabeceraDelTemario, busquedaBoe, celexDe,
+  NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, citasDeLaPregunta, cabeceraDelTemario, busquedaBoe, celexDe, eligePorTexto,
   bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado, fecha8, preceptoLegible,
   avisoDeBloque, avisoDeBloqueDerogado, avisoDeNormaDerogada, avisoDeActoUE, agrupaAvisos,
 } from '../../app/lib/normativa.ts';
@@ -47,6 +50,8 @@ config({ path: '.env.local' });
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HAZLO = process.argv.includes('--hazlo');
 const MAXIMO = Number(process.argv.find((a) => a.startsWith('--maximo='))?.split('=')[1] ?? 400);
+const DESDE = process.argv.find((a) => a.startsWith('--desde='))?.split('=')[1]?.replace(/-/g, '') || null;
+if (DESDE && !/^\d{8}$/.test(DESDE)) { console.error(`--desde tiene que ser una fecha AAAAMMDD; llegó «${DESDE}».`); process.exit(1); }
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL || !KEY) { console.error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.'); process.exit(1); }
@@ -90,7 +95,7 @@ async function pedir(url, accept) {
 
 const preguntas = await todas(
   (d, h) => db.from('question_bank')
-    .select('id, status, subject_id, document_id, legal_reference, created_at, organization_id')
+    .select('id, status, subject_id, document_id, legal_reference, question_text, explanation, created_at, organization_id')
     .in('status', ['active', 'candidate']).order('id').range(d, h),
   'question_bank',
 );
@@ -112,13 +117,16 @@ for (const doc of documentos) {
 const cuenta = { preguntas: preguntas.length, sinReferencia: 0, sinNorma: 0, noVigiladas: 0, normaEntera: 0, conCita: 0 };
 /** pregunta → { fecha, citas } */
 const vigiladas = [];
+const sinLocalizar = new Map(); // motivo → n
+const anotaPrevio = (motivo) => sinLocalizar.set(motivo, (sinLocalizar.get(motivo) ?? 0) + 1);
 for (const q of preguntas) {
   if (!q.legal_reference?.trim()) { cuenta.sinReferencia++; continue; }
   const cab = cabeceras.get(q.document_id);
-  const citas = citasDeLaPregunta(q.legal_reference, temaDelManifiesto.get(temaDe.get(q.subject_id)), cab?.boes)
-    .filter((c) => !c.norma || !NO_VIGILADAS.has(c.norma));
+  const todasLasCitas = citasDeLaPregunta(q.legal_reference, temaDelManifiesto.get(temaDe.get(q.subject_id)), cab?.boes);
+  if (todasLasCitas.length === 0) { cuenta.sinNorma++; anotaPrevio('la referencia no cita un precepto reconocible'); continue; }
+  const citas = todasLasCitas.filter((c) => !c.norma || !NO_VIGILADAS.has(c.norma));
   if (citas.length === 0) { cuenta.noVigiladas++; continue; }
-  const fechas = [fecha8(q.created_at), cab?.generado].filter(Boolean).sort();
+  const fechas = [fecha8(q.created_at), cab?.generado, DESDE].filter(Boolean).sort();
   vigiladas.push({ q, fecha: fechas[0], citas });
 }
 
@@ -197,20 +205,21 @@ for (const [celex, nombre] of celexNecesarios) {
 // 3. Los avisos
 // ---------------------------------------------------------------------------
 
-const avisos = []; // { question_id, organization_id, message, clave }
-const sinLocalizar = new Map(); // motivo → n
-const anota = (motivo) => sinLocalizar.set(motivo, (sinLocalizar.get(motivo) ?? 0) + 1);
+const avisos = []; // { question_id, organization_id, message, clave, enunciado }
+const anota = anotaPrevio;
 
 for (const { q, fecha, citas } of vigiladas) {
   let alguna = false;
   for (const c of citas) {
     let id = c.boe ?? (c.norma ? idPorNombre.get(c.norma) : null);
     let nombre = c.norma;
-    // Varias candidatas por el tema: vale la única que de verdad tiene ese precepto.
+    // Varias candidatas por el tema: vale la única que de verdad tiene ese
+    // precepto y, si son dos, la que nombra la propia explicación.
     if (!id && c.candidatas?.length) {
       const conPrecepto = c.candidatas.filter((cand) => normasBoe.get(cand.boe)?.indice?.has(c.precepto));
-      if (conPrecepto.length === 1) { id = conPrecepto[0].boe; nombre = conPrecepto[0].nombre; }
-      else { anota(conPrecepto.length === 0 ? 'el tema no tiene ese precepto en ninguna de sus normas' : 'dos normas del tema tienen ese precepto'); continue; }
+      const elegida = conPrecepto.length === 1 ? conPrecepto[0] : eligePorTexto(conPrecepto, `${q.explanation ?? ''} ${q.question_text ?? ''}`);
+      if (elegida) { id = elegida.boe; nombre = elegida.nombre; }
+      else { anota(conPrecepto.length === 0 ? 'el tema no tiene ese precepto en ninguna de sus normas' : 'dos normas del tema tienen ese precepto y la explicación no dice cuál'); continue; }
     }
     const celex = c.norma ? celexDe(c.norma) : null;
     if (!id && celex) {
@@ -219,7 +228,7 @@ for (const { q, fecha, citas } of vigiladas) {
       alguna = true;
       for (const m of ue.filas) {
         if (m.fecha.replace(/-/g, '') > fecha) {
-          avisos.push({ question_id: q.id, organization_id: q.organization_id, clave: c.norma, message: avisoDeActoUE({ norma: c.norma, modificador: m.celex, fecha: m.fecha }) });
+          avisos.push({ question_id: q.id, organization_id: q.organization_id, enunciado: q.question_text, clave: c.norma, message: avisoDeActoUE({ norma: c.norma, modificador: m.celex, fecha: m.fecha }) });
         }
       }
       continue;
@@ -231,7 +240,7 @@ for (const { q, fecha, citas } of vigiladas) {
     alguna = true;
 
     if (norma.metadatos?.vigencia_agotada === 'S') {
-      avisos.push({ question_id: q.id, organization_id: q.organization_id, clave: `${nombre} (derogada)`, message: avisoDeNormaDerogada({ norma: nombre, boe: id }) });
+      avisos.push({ question_id: q.id, organization_id: q.organization_id, enunciado: q.question_text, clave: `${nombre} (derogada)`, message: avisoDeNormaDerogada({ norma: nombre, boe: id }) });
       continue;
     }
     if (!c.precepto) { cuenta.normaEntera++; continue; }
@@ -242,6 +251,7 @@ for (const { q, fecha, citas } of vigiladas) {
       avisos.push({
         question_id: q.id,
         organization_id: q.organization_id,
+        enunciado: q.question_text,
         clave: `${nombre}, ${preceptoLegible(c.precepto)}`,
         message: esTextoDerogado(v.texto ?? '') ? avisoDeBloqueDerogado(datos) : avisoDeBloque(datos),
       });
@@ -270,7 +280,7 @@ const nuevos = avisos.filter((a) => {
 
 const lineas = [];
 const di = (t = '') => { console.log(t); lineas.push(t); };
-di(`## Vigilancia de la normativa · ${new Date().toISOString().slice(0, 10)}${HAZLO ? '' : ' · ENSAYO (no escribe)'}`);
+di(`## Vigilancia de la normativa · ${new Date().toISOString().slice(0, 10)}${HAZLO ? '' : ' · ENSAYO (no escribe)'}${DESDE ? ` · cambios desde el ${DESDE}` : ''}`);
 di();
 di(`- Preguntas activas y pendientes: **${cuenta.preguntas}**`);
 di(`- Con una norma vigilada localizada: **${cuenta.conCita}** · sin referencia legal: ${cuenta.sinReferencia} · solo Tratados/Schengen: ${cuenta.noVigiladas} · sin localizar: ${cuenta.sinNorma}`);
@@ -283,6 +293,14 @@ if (nuevos.length) {
   di('| Norma y precepto | Preguntas |');
   di('|---|---|');
   for (const g of agrupaAvisos(nuevos).slice(0, 60)) di(`| ${g.clave} | ${g.n} |`);
+  di();
+  di('<details><summary>Las preguntas</summary>');
+  di();
+  for (const a of [...nuevos].sort((x, y) => x.clave.localeCompare(y.clave)).slice(0, 300)) {
+    di(`- **${a.clave}** · ${(a.enunciado ?? '').replace(/\s+/g, ' ').slice(0, 110)} · \`${a.question_id.slice(0, 8)}\``);
+  }
+  di();
+  di('</details>');
   di();
 }
 const conError = [...normasBoe].filter(([, n]) => n.error);

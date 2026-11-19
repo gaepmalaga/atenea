@@ -141,8 +141,9 @@ function numeroDisposicion(texto: string): string | null {
   if (/^unic[oa]\b/.test(t)) return 'unica';
   const cifra = /^(\d{1,3})\b/.exec(t);
   if (cifra) return String(Number(cifra[1]));
-  // Hasta tres palabras: «vigesima primera», «decimo tercera».
-  const palabras = t.split(/\s+/).slice(0, 3);
+  // Hasta tres palabras: «vigesima primera», «decimo tercera». Sin la puntuación
+  // del rótulo: «Disposición adicional undécima. Conflictos…».
+  const palabras = t.split(/[\s.,;:]+/).filter(Boolean).slice(0, 3);
   for (let n = palabras.length; n >= 1; n--) {
     const v = ordinalANumero(palabras.slice(0, n).join(' '));
     if (v !== null) return String(v);
@@ -416,6 +417,18 @@ export function candidatasPorTema(tema: TemaManifiesto | undefined, precepto: st
   return [...vistas.values()];
 }
 
+/**
+ * Entre varias normas posibles, la que nombra la propia pregunta en su
+ * explicación («…según el art. 15 de la Ley Orgánica 9/2015…»). Solo si nombra
+ * UNA de las candidatas; si no nombra ninguna o nombra dos, `null`.
+ */
+export function eligePorTexto<T extends Candidata>(candidatas: T[], texto: string | null | undefined): T | null {
+  const nombradas = new Set(normasEn(texto ?? '').map((m) => m.norma));
+  const ids = new Set([...nombradas].map((n) => NORMAS_FIJAS[n]).filter(Boolean));
+  const elegidas = candidatas.filter((c) => nombradas.has(c.nombre) || ids.has(c.boe));
+  return elegidas.length === 1 ? elegidas[0] : null;
+}
+
 /** «Ley 40/2015, de Régimen Jurídico…» → «Ley 40/2015»; «Código Penal» se queda. */
 export function nombreCorto(nombre: string): string {
   const reconocida = normasEn(nombre)[0]?.norma;
@@ -496,9 +509,18 @@ export type VersionBloque = {
   /** El comienzo del texto de la versión, sin el rótulo: basta para saber si dice «(Derogado)». */
   texto?: string;
 };
-export type Bloque = { id: string; titulo: string | null; versiones: VersionBloque[] };
+export type Bloque = { id: string; tipo?: string | null; titulo: string | null; versiones: VersionBloque[] };
 
-const desescapa = (t: string) => t.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+/**
+ * Las entidades del XML, también las numéricas: el BOE escribe el espacio de
+ * «Artículo 64&#160;bis» como entidad, y sin decodificarla el 64 bis se leía
+ * como el 64 y se perdía.
+ */
+const desescapa = (t: string) => t
+  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+  .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
 /** El texto de una versión: sus párrafos sin marcado, sin el rótulo del artículo, y corto. */
 function textoDeVersion(cuerpo: string): string {
@@ -517,13 +539,14 @@ export function bloquesDelXml(xml: string): Bloque[] {
     const id = /\bid="([^"]+)"/.exec(atr)?.[1];
     if (!id) continue;
     const titulo = /\btitulo="([^"]*)"/.exec(atr)?.[1];
+    const tipo = /\btipo="([^"]*)"/.exec(atr)?.[1] ?? null;
     const versiones = [...m[2].matchAll(/<version ([^>]*)>([\s\S]*?)<\/version>/g)].map((v) => ({
       norma: /\bid_norma="([^"]+)"/.exec(v[1])?.[1] ?? null,
       publicacion: /\bfecha_publicacion="(\d{8})"/.exec(v[1])?.[1] ?? null,
       vigencia: /\bfecha_vigencia="(\d{8})"/.exec(v[1])?.[1] ?? null,
       texto: textoDeVersion(v[2]),
     }));
-    bloques.push({ id, titulo: titulo ? desescapa(titulo) : null, versiones });
+    bloques.push({ id, tipo, titulo: titulo ? desescapa(titulo) : null, versiones });
   }
   return bloques;
 }
@@ -532,7 +555,8 @@ export function bloquesDelXml(xml: string): Bloque[] {
 export function indicePorPrecepto(bloques: Bloque[]): Map<string, Bloque> {
   const indice = new Map<string, Bloque>();
   for (const b of bloques) {
-    const p = preceptoDelRotulo(b.titulo);
+    // El preámbulo no lleva rótulo: solo `tipo="preambulo"`.
+    const p = b.tipo === 'preambulo' || b.id === 'preambulo' ? 'preambulo' : preceptoDelRotulo(b.titulo);
     if (p && !indice.has(p)) indice.set(p, b);
   }
   return indice;
@@ -630,4 +654,18 @@ export function agrupaAvisos<T extends { clave: string }>(avisos: T[]): { clave:
   const cuenta = new Map<string, number>();
   for (const a of avisos) cuenta.set(a.clave, (cuenta.get(a.clave) ?? 0) + 1);
   return [...cuenta].map(([clave, n]) => ({ clave, n })).sort((a, b) => b.n - a.n || a.clave.localeCompare(b.clave));
+}
+
+/** Las fuentes oficiales cuyos enlaces se pintan como enlace en «Moderación». Nada más: el mensaje de un alumno no se enlaza nunca. */
+const ORIGENES_OFICIALES = ['https://www.boe.es/', 'https://eur-lex.europa.eu/'];
+
+/**
+ * Separa el texto del aviso y su enlace al artículo, para pintar el enlace
+ * como botón. Solo si el enlace va al BOE o a EUR-Lex y está al final.
+ */
+export function separaEnlaceOficial(mensaje: string | null | undefined): { texto: string; url: string | null; fuente: 'BOE' | 'EUR-Lex' | null } {
+  const m = /\s(https:\/\/\S+)\s*$/.exec(mensaje ?? '');
+  const url = m && ORIGENES_OFICIALES.some((o) => m[1].startsWith(o)) ? m[1] : null;
+  if (!m || !url) return { texto: (mensaje ?? '').trim(), url: null, fuente: null };
+  return { texto: (mensaje ?? '').slice(0, m.index).trim(), url, fuente: url.startsWith('https://www.boe.es/') ? 'BOE' : 'EUR-Lex' };
 }

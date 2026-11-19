@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle2, Pencil, Save, Loader2, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, Pencil, Save, Loader2, ShieldAlert, ExternalLink } from 'lucide-react';
 import { PanelTitulo, Pestanas, Hoja, Etiqueta, Boton, PanelLateral, EmptyState, cx, type Tono } from '../../ui';
 import EditorPregunta from './EditorPregunta';
 
@@ -13,6 +13,7 @@ import {
 } from '@/actions';
 import type { ModerationCandidate, ModerationQueue, ModerationReport } from '@/app/lib/questions';
 import { avisar, confirmar } from '@/app/lib/dialogos';
+import { TIPO_REPORTE_VIGENCIA, separaEnlaceOficial } from '@/app/lib/normativa';
 
 // Cómo se pinta cada tipo de queja. El color es el del estado: rojo la que
 // invalida la pregunta, ámbar la que la deja dudosa, gris lo menor.
@@ -23,6 +24,9 @@ const REPORT_BADGES: Record<string, { label: string; tono: Tono }> = {
   out_of_syllabus: { label: 'Fuera de temario', tono: 'oro' },
   typo_or_format: { label: 'Errata o formato', tono: 'apagado' },
   source_mismatch: { label: 'Fuente incorrecta', tono: 'oro' },
+  // No es de un alumno: lo deja el vigilante de la normativa (regla 137) cuando
+  // el artículo que cita la pregunta ha cambiado después de escribirla.
+  [TIPO_REPORTE_VIGENCIA]: { label: 'Cambio en la ley', tono: 'aviso' },
   other: { label: 'Otro', tono: 'apagado' },
 };
 
@@ -105,6 +109,9 @@ export default function AdminModeration() {
     const res = await updateQuestion(editingQ.id, editForm);
     
     if (res.success) {
+        // Corregir la pregunta ES la respuesta a un aviso de cambio en la ley:
+        // se archiva solo. La queja de un alumno no, que puede pedir más.
+        if (reportContext?.report_type === TIPO_REPORTE_VIGENCIA) await handleResolveReport(reportContext.id);
         // Actualizamos la UI localmente (tanto en candidatos como en preguntas reportadas)
         setQueue((prev) => ({
             candidates: prev.candidates.map((q) =>
@@ -132,7 +139,7 @@ export default function AdminModeration() {
 
   return (
     <div className="space-y-5 pb-20">
-      <PanelTitulo titulo="Moderación" sub="Quejas de los alumnos y preguntas candidatas." />
+      <PanelTitulo titulo="Moderación" sub="Quejas de los alumnos, cambios en la ley y preguntas candidatas." />
 
       <Pestanas
         etiqueta="Colas de moderación"
@@ -155,6 +162,8 @@ export default function AdminModeration() {
               // el mapa: sin el respaldo, `badge` sería undefined y la tarjeta
               // reventaría al leer `badge.label`.
               const badge = REPORT_BADGES[r.report_type ?? ''] ?? REPORT_BADGES.other;
+              const deLaLey = r.report_type === TIPO_REPORTE_VIGENCIA;
+              const aviso = deLaLey ? separaEnlaceOficial(r.message) : null;
               return (
                 <Hoja key={r.id} pad="md" className="space-y-3.5">
                   <div className="flex items-start justify-between gap-3">
@@ -164,10 +173,21 @@ export default function AdminModeration() {
 
                   <p className="line-clamp-3 text-sm font-medium leading-relaxed text-slate-900 dark:text-slate-100">“{r.question?.question_text || 'Pregunta no encontrada'}”</p>
 
-                  {/* El comentario del alumno es lo primero que hay que leer: va con la línea dorada. */}
+                  {/* El comentario del alumno —o lo que ha cambiado en la ley— es lo
+                      primero que hay que leer: va con la línea dorada. */}
                   <div className="border-l-[3px] border-oro py-1 pl-3 text-[13.5px]">
-                    <small className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">Lo que dijo el alumno</small>
-                    <p className="text-slate-900 dark:text-slate-100">{r.message}</p>
+                    <small className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">{deLaLey ? 'Lo que ha cambiado' : 'Lo que dijo el alumno'}</small>
+                    <p className="text-slate-900 dark:text-slate-100">{aviso ? aviso.texto : r.message}</p>
+                    {aviso?.url && (
+                      <a
+                        href={aviso.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-flex min-h-[44px] items-center gap-1.5 text-[13px] font-semibold text-indigo-800 underline underline-offset-2 hover:text-indigo-950 dark:text-indigo-300 dark:hover:text-indigo-200"
+                      >
+                        Ver el texto en el {aviso.fuente} <ExternalLink size={13} />
+                      </a>
+                    )}
                   </div>
 
                   {/* Las tres acciones, siempre en el mismo orden: corregir,
@@ -176,7 +196,7 @@ export default function AdminModeration() {
                       es lo único irreversible de la fila. */}
                   <div className="flex flex-wrap gap-2">
                     <Boton size="sm" icon={<Pencil size={14} />} onClick={() => openEditor(r.question, r)} title="Editar y corregir la pregunta">Editar y corregir</Boton>
-                    <Boton size="sm" variant="secondary" icon={<CheckCircle2 size={14} />} onClick={() => handleResolveReport(r.id)} title="Archivar la queja sin tocar la pregunta">Archivar la queja</Boton>
+                    <Boton size="sm" variant="secondary" icon={<CheckCircle2 size={14} />} onClick={() => handleResolveReport(r.id)} title={deLaLey ? 'La pregunta sigue valiendo: archivar el aviso' : 'Archivar la queja sin tocar la pregunta'}>{deLaLey ? 'Sigue vigente' : 'Archivar la queja'}</Boton>
                     <Boton size="sm" variant="danger" disabled={!r.question_id} onClick={() => r.question_id && handleDisable(r.question_id, true)} title="Descartar la pregunta del banco">Descartar la pregunta</Boton>
                   </div>
                 </Hoja>
@@ -238,10 +258,15 @@ export default function AdminModeration() {
       {editingQ && (
         <PanelLateral
           titulo="Editar la pregunta"
-          sub={reportContext ? 'Vienes de una queja de un alumno' : editingQ.topic ?? undefined}
+          sub={reportContext ? (reportContext.report_type === TIPO_REPORTE_VIGENCIA ? 'Vienes de un aviso de cambio en la ley' : 'Vienes de una queja de un alumno') : editingQ.topic ?? undefined}
           onCerrar={() => { setEditingQ(null); setReportContext(null); }}
         >
-          <EditorPregunta form={editForm} onChange={setEditForm} quejaDelAlumno={reportContext?.message ?? null} />
+          <EditorPregunta
+            form={editForm}
+            onChange={setEditForm}
+            quejaDelAlumno={reportContext?.message ?? null}
+            tituloQueja={reportContext?.report_type === TIPO_REPORTE_VIGENCIA ? 'Lo que ha cambiado en la ley' : undefined}
+          />
           <div className="flex flex-wrap gap-2">
             <Boton onClick={saveChanges} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
               {saving ? 'Guardando…' : 'Guardar cambios'}

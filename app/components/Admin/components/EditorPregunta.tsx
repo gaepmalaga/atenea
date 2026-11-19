@@ -17,14 +17,14 @@ export type FormPregunta = { question_text: string; options: string[]; correct_i
  * enseña arriba del todo, porque es lo que hay que leer antes de tocar nada.
  */
 export default function EditorPregunta({
-  form, onChange, quejaDelAlumno, sinExplicacion,
-}: { form: FormPregunta; onChange: (f: FormPregunta) => void; quejaDelAlumno?: string | null; sinExplicacion?: boolean }) {
+  form, onChange, quejaDelAlumno, tituloQueja = 'Lo que dijo el alumno', sinExplicacion,
+}: { form: FormPregunta; onChange: (f: FormPregunta) => void; quejaDelAlumno?: string | null; tituloQueja?: string; sinExplicacion?: boolean }) {
   return (
     <div className="space-y-5">
       {quejaDelAlumno && (
         <Aviso>
           <div className="min-w-0">
-            <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest">Lo que dijo el alumno</p>
+            <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest">{tituloQueja}</p>
             <p className="break-words text-sm">“{quejaDelAlumno}”</p>
           </div>
         </Aviso>

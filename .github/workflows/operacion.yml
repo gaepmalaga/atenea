@@ -66,6 +66,10 @@ on:
         description: 'Un tema suelto, por número. Vacío = todos.'
         required: false
         type: string
+      desde:
+        description: 'Solo «normativa-ensayo»: fecha AAAAMMDD para ver qué ha cambiado desde ese día. Vacío = desde que se escribió cada pregunta.'
+        required: false
+        type: string
 
 # Este workflow no escribe en el repositorio: solo habla con Supabase y Gemini.
 permissions: {}
@@ -128,7 +132,11 @@ jobs:
       # semana, en «Vigilancia de la normativa».
       - name: Normativa · ensayo (no escribe)
         if: inputs.accion == 'normativa-ensayo'
-        run: npm run normativa
+        # La fecha va por el entorno y no pegada en la orden: un texto libre del
+        # formulario no se ejecuta. El guion la valida (AAAAMMDD).
+        env:
+          DESDE: ${{ inputs.desde }}
+        run: npm run normativa -- ${DESDE:+--desde=$DESDE}
 
       - name: Estado actual
         if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'
