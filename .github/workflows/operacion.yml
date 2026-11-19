@@ -38,11 +38,12 @@ on:
           - dificultad-muestra  # Gemini clasifica la muestra de 150 y se compara con la hecha a mano. No escribe.
           - dificultad-ensayo   # cuenta las preguntas y estima el coste. No llama a Gemini ni escribe.
           - dificultad-todas    # clasifica TODO el banco. Pide escribir CLASIFICAR. Antes, pasa la muestra.
+          - dificultad-nuevas   # solo las que nadie ha clasificado (activas y pendientes). Pide escribir CLASIFICAR.
           - dificultad-medida-ensayo  # lee las respuestas reales y dice qué preguntas ya se pueden medir. No escribe.
           - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
       confirmacion:
-        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas") o MEDIR ("dificultad-medida")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas") o MEDIR ("dificultad-medida")'
         required: false
         type: string
       correo:
@@ -104,7 +105,7 @@ jobs:
           faltan=""
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
-          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ]; then
+          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ] || [ "${{ inputs.accion }}" = "dificultad-nuevas" ]; then
             [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
           fi
           if [ -n "$faltan" ]; then
@@ -185,6 +186,17 @@ jobs:
             exit 1
           fi
           npm run dificultad -- --todas --hazlo --muestra-ok
+
+      # Solo lo nuevo (regla 135): las que nadie ha clasificado, activas o
+      # pendientes. No vuelve a pagar las ya estimadas.
+      - name: Dificultad · clasificar solo las nuevas
+        if: inputs.accion == 'dificultad-nuevas'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "CLASIFICAR" ]; then
+            echo "Para clasificar hay que escribir CLASIFICAR en el campo de confirmación."
+            exit 1
+          fi
+          npm run dificultad -- --todas --solo-nuevas --hazlo --muestra-ok
 
       # La dificultad MEDIDA con respuestas reales: no habla con Gemini, no
       # cuesta nada. El ensayo cuenta y enseña; escribir pide escribir MEDIR.

@@ -56,7 +56,7 @@ describe('las candidatas', () => {
     expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
     expect(cuerpo).toMatch(/filter\(\(f\) => estaCompleta\(f\)\)/);
     // Lo que se actualiza es lo ya filtrado como completo, no los ids de entrada.
-    expect(cuerpo).toMatch(/\.in\('id', listas\)/);
+    expect(cuerpo).toMatch(/\.in\('id', listas\.slice\(i, i \+ 100\)\)/);
   });
 
   it('approveQuestion pasa por approveQuestions y dice qué falta', () => {

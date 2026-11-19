@@ -146,16 +146,20 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
     if (!ids.length) return { success: true, approved: 0, sinEtiquetas: 0 };
 
     const alcance = filtroEscrituraBanco(auth.user);
-    let lectura = supabaseAdmin
-        .from('question_bank')
-        .select('id, explanation, difficulty_level')
-        .in('id', ids)
-        .eq('status', QUESTION_STATUS.CANDIDATE);  // nunca resucita una descartada
-    if (alcance) lectura = lectura.or(alcance);
-    const { data: pendientes, error: errLec } = await lectura;
-    if (errLec) return { success: false, error: fallo('approveQuestions', errLec) };
+    // De 100 en 100: un `.in()` con cientos de uuid alarga la URL de más.
+    const filas: { id: string; explanation: string | null; difficulty_level: number | null }[] = [];
+    for (let i = 0; i < ids.length; i += 100) {
+        let lectura = supabaseAdmin
+            .from('question_bank')
+            .select('id, explanation, difficulty_level')
+            .in('id', ids.slice(i, i + 100))
+            .eq('status', QUESTION_STATUS.CANDIDATE);  // nunca resucita una descartada
+        if (alcance) lectura = lectura.or(alcance);
+        const { data: pendientes, error: errLec } = await lectura;
+        if (errLec) return { success: false, error: fallo('approveQuestions', errLec) };
+        filas.push(...((pendientes ?? []) as typeof filas));
+    }
 
-    const filas = pendientes ?? [];
     const listas = filas.filter((f) => estaCompleta(f)).map((f) => f.id as string);
     const incompletas = filas.filter((f) => !estaCompleta(f));
     const sinEtiquetas = incompletas.length;
@@ -165,18 +169,23 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
         : undefined;
     if (!listas.length) return { success: true, approved: 0, sinEtiquetas, motivoSinEtiquetas };
 
-    let query = supabaseAdmin
-        .from('question_bank')
-        .update({ status: QUESTION_STATUS.ACTIVE })
-        .in('id', listas)
-        .eq('status', QUESTION_STATUS.CANDIDATE);
-    if (alcance) query = query.or(alcance);
-    const { data, error } = await query.select('id');
-
-    if (!error && data?.length) {
-        registraAccion({ actorId: auth.user.id, action: 'approve_questions', detail: { cantidad: data.length } });
+    let aprobadas = 0;
+    for (let i = 0; i < listas.length; i += 100) {
+        let query = supabaseAdmin
+            .from('question_bank')
+            .update({ status: QUESTION_STATUS.ACTIVE })
+            .in('id', listas.slice(i, i + 100))
+            .eq('status', QUESTION_STATUS.CANDIDATE);
+        if (alcance) query = query.or(alcance);
+        const { data, error } = await query.select('id');
+        if (error) return { success: false, error: fallo('approveQuestions', error), approved: aprobadas, sinEtiquetas, motivoSinEtiquetas };
+        aprobadas += data?.length ?? 0;
     }
-    return { success: !error, error: fallo('approveQuestions', error), approved: data?.length ?? 0, sinEtiquetas, motivoSinEtiquetas };
+
+    if (aprobadas) {
+        registraAccion({ actorId: auth.user.id, action: 'approve_questions', detail: { cantidad: aprobadas } });
+    }
+    return { success: true, approved: aprobadas, sinEtiquetas, motivoSinEtiquetas };
 }
 
 export async function disableQuestion(questionId: string): Promise<ModerationResult> {

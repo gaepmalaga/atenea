@@ -11,6 +11,10 @@
  *               NO escribe nada en la base de datos.
  *   --todas     SIN `--hazlo`: cuenta las preguntas, estima el coste y no llama
  *               a Gemini ni escribe nada.
+ *   --todas --solo-nuevas
+ *               Solo las que NADIE ha clasificado (`difficulty_source` nulo),
+ *               activas o pendientes: las preguntas nuevas (regla 135) sin volver
+ *               a pagar las ya estimadas. Con `--hazlo`, escribe.
  *   --todas --hazlo
  *               Clasifica todas las activas y guarda `difficulty_level` y
  *               `difficulty_source = 'estimada'`. Se niega si no ha pasado la
@@ -41,6 +45,7 @@ const TODAS = tiene('--todas');
 const HAZLO = tiene('--hazlo');
 const SIN_LLAMAR = tiene('--sin-llamar');
 const MUESTRA_OK = tiene('--muestra-ok');
+const SOLO_NUEVAS = tiene('--solo-nuevas');
 const TANDA = Math.max(1, Math.min(20, parseInt(valor('tanda', '10'), 10) || 10));
 const CONCURRENCIA = Math.max(1, Math.min(5, parseInt(valor('concurrencia', '3'), 10) || 3));
 const MODELO = 'gemini-3.5-flash-lite';
@@ -96,9 +101,15 @@ async function leeBanco(ids) {
   } else {
     // PostgREST corta a 1.000 sin avisar (regla 74).
     for (let desde = 0; ; desde += 1000) {
-      const { data, error } = await db.from('question_bank')
-        .select('id, subject_id, question_text, options, correct_index, difficulty_level')
-        .eq('status', 'active').order('id').range(desde, desde + 999);
+      // Con `--solo-nuevas`, las que nadie ha clasificado (origen nulo), activas
+      // o PENDIENTES: una pendiente no se puede aprobar sin dificultad (regla
+      // 135), así que es justo la que la necesita.
+      const consulta = SOLO_NUEVAS
+        ? db.from('question_bank').select('id, subject_id, question_text, options, correct_index, difficulty_level')
+            .in('status', ['active', 'candidate']).is('difficulty_source', null)
+        : db.from('question_bank').select('id, subject_id, question_text, options, correct_index, difficulty_level')
+            .eq('status', 'active');
+      const { data, error } = await consulta.order('id').range(desde, desde + 999);
       if (error) { console.error('No se pudo leer el banco:', error.message); process.exit(1); }
       filas.push(...(data ?? []));
       if ((data ?? []).length < 1000) break;
@@ -206,7 +217,7 @@ const hayOrigen = !sonda.error;
 
 const banco = await leeBanco(null);
 const est = costeEstimado(banco.length, TANDA);
-console.log(`Preguntas activas: ${banco.length} · reparto actual: ${JSON.stringify(reparto(banco.map((b) => b.difficulty_level)))}`);
+console.log(`${SOLO_NUEVAS ? 'Preguntas sin clasificar (activas y pendientes)' : 'Preguntas activas'}: ${banco.length} · reparto actual: ${JSON.stringify(reparto(banco.map((b) => b.difficulty_level)))}`);
 console.log(`Coste estimado: ${est.llamadas} llamadas · ${dolares(est.coste)} (a propósito por arriba)`);
 console.log(`Columna difficulty_source: ${hayOrigen ? 'existe' : 'NO EXISTE (docs/sql/dificultad-origen.sql)'}`);
 
