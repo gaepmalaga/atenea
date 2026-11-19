@@ -697,8 +697,16 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   aprobarlas.
 - **Falta:** desplegar la rama, que el tutor revise y apruebe desde «Banco
   oficial», y después `npm run familias -- --hazlo`.
-- **Encontrado de paso:** una pregunta ACTIVA del tema 7 sobre el CEISE tiene
+- **Corregida (19 nov):** una pregunta ACTIVA del tema 7 sobre el CEISE tenía
   una respuesta «correcta» sin sentido (id `8bb7c761-d22f-4bbe-be9c-8163046782ce`).
-  Corregirla o desactivarla desde «Banco oficial».
+  Se reescribió con su anotación en `question_edit_history` (se puede volver
+  atrás desde «Banco oficial»).
+- **Revisión una a una:** el tutor tiene una hoja con las 985 (página del Tomo,
+  opciones, correcta, explicación, referencia, dificultad y avisos: 26 del Pacto
+  Europeo y 68 que repiten un hecho activo). La hoja NO está en el repositorio:
+  la tiene el dueño.
+- **Pendiente de decidir:** 731 preguntas ACTIVAS del banco antiguo dicen en el
+  enunciado «según el texto proporcionado» (o «adjunto», «propuesto»), que no
+  tiene sentido para un alumno; 153 lo dicen en la explicación.
 - El PDF del Tomo y los lotes **no viven en el repositorio** (es público): solo
   en la sesión y en la base de datos.
