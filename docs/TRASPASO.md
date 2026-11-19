@@ -660,3 +660,14 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   (Tomo I) entran por este mismo camino: banco privado, pendientes, y se
   aprueban desde «Banco oficial» cuando estén completas. La dificultad se pone
   con el clasificador de «Operación».
+
+## 2u · Plan del Tomo I (19 nov)
+
+Plan en `docs/PLAN-TOMO-I.md`: presupuesto de preguntas por tema según densidad,
+peso en el examen real y lo ya cubierto (≈ 1.100 en total, tope y no cifra
+fija), reparto por unidad y producción por lotes hacia «Banco oficial» como
+pendientes. Hecho: las 20 de prueba del tema 5 (pendientes, solo les falta la
+dificultad). Pendiente: que el dueño ajuste el plan; luego, por orden 8, 10, 6,
+7, 12, 4, 9, 5, 11. El PDF del Tomo no vive en el repositorio ni en la
+plataforma: se vuelve a adjuntar en cada sesión.
+
