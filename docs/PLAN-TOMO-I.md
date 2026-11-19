@@ -1,7 +1,7 @@
 # Plan: preguntas desde el Tomo I de Alphapol (temas 1-12)
 
-*(19 nov 2026. Estado: plan propuesto, pendiente de que el dueño lo ajuste. Solo
-hay hechas las 20 preguntas de prueba del tema 5.)*
+*(19 nov 2026. Estado: ejecutado. 985 preguntas pendientes en el banco privado
+de Alphapol; el resultado, al final de este documento.)*
 
 ## Qué se quiere
 
@@ -166,3 +166,27 @@ revisan: huecos concretos, no volumen.
 - No subir nada como `active` sin pasar por revisión.
 - No poner la dificultad a mano ni con un 2 por defecto.
 - No generar por encima de lo que el texto permite para «llegar» a la cifra.
+
+## Resultado (19 nov)
+
+| Tema | Presupuesto (tope) | Pendientes nuevas | Notas |
+|---|---|---|---|
+| 4 | 74 | 66 | Historia UE, derecho derivado, instituciones, CAAS/SIS y agencias, cláusulas, euroorden. El banco ya tenía 259: se evitaron las repetidas |
+| 5 | 72 | 69 | 20 de prueba + 49. Ley 40/2015 (arts. 60-78) y Ley 50/1997 del Gobierno |
+| 6 | 136 | 103 | TREBEP. El texto se agota; con las 100 previas se supera el objetivo (186) |
+| 7 | 136 | 120 | RD 207/2024 con la reforma del RD 353/2025 (Guardia Civil) |
+| 8 | 272 | 272 | Orden INT/859/2023, LO 9/2015, RD 853/2022, LO 4/2010, uniformidad, condecoraciones |
+| 9 | 54 | 52 | LO 2/1986, derechos sindicales y Consejo de Policía, Policía Judicial, policías autonómicas y locales |
+| 10 | 261 | 181 | RD 240/2007, LO 4/2000 y el nuevo Reglamento (RD 1155/2024). Texto agotado; con las 168 previas se llega al objetivo (345) |
+| 11 | 2 | 2 | Foro para la Integración y Comisión Laboral Tripartita (no había ninguna) |
+| 12 | 120 | 120 | Ley 12/2009, acogida, apatridia, protección temporal y Pacto Europeo de Migración y Asilo |
+| **Total** | **1.127** | **985** | |
+
+- Todas en el banco privado de Alphapol, `candidate`, con explicación y
+  referencia legal; la dificultad, con el clasificador (`dificultad-nuevas`).
+- 67 repiten un hecho que ya estaba activo y 29 se repiten entre sí (ensayo de
+  familias, regla 119): se agrupan al aprobarlas, no se borran.
+- Dudas para el tutor: ver `docs/TRASPASO.md` §2u. La más importante, el
+  procedimiento de asilo de la Ley 12/2009 frente al Pacto Europeo (aplicable
+  desde el 12-6-2026).
+- Cómo se comprobó cada lote: regla 136.

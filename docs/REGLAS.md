@@ -5190,3 +5190,34 @@ saliendo del SVG antiguo y puede regenerarse más adelante.
   cualquiera, publicar todo desde el panel).
 - **Antes de desplegar** hay que ejecutar `docs/sql/historial-preguntas.sql`:
   sin la tabla, editar una pregunta falla (a propósito, ver arriba).
+
+### 136 · Las preguntas del temario propio se redactan una a una, se comprueban antes de subir y entran pendientes
+
+- **Qué pedía la academia (19 nov):** que el banco saliera de SU temario (Tomo
+  I) y no solo de la ley, con explicación y dificultad, y que nada llegara a los
+  alumnos sin pasar por «Banco oficial».
+- **Cómo se hizo:** por lotes de 20-45 preguntas, leyendo el tema página a
+  página (las páginas que son imagen se convierten y se leen: casi siempre son
+  cuadros resumen). Cada pregunta: enunciado, una correcta, dos distractores
+  plausibles del mismo tipo (otro órgano, otro plazo, otra cifra de la misma
+  norma), explicación redactada y referencia a la LEY, no al Tomo.
+- **Comprobaciones antes de subir** (se para el lote si falla una):
+  - tres opciones distintas y nada de «ambas», «ninguna» o «todas las anteriores»;
+  - explicación de al menos 70 caracteres: «Lo dispone el art. X» no explica
+    nada. Las 33 primeras que solo citaban el artículo se reescribieron;
+  - la correcta no puede ser la más larga en más del 40 % del lote (con un 54 %,
+    un alumno acierta sin saber); se igualan longitudes, casi siempre acortando
+    la correcta y dejando el detalle en la explicación;
+  - posición de la correcta repartida A/B/C;
+  - parecido con el banco: igual (Jaccard ≥ 0,8) bloquea; medio (≥ 0,45) avisa
+    y se mira a mano si es el mismo hecho. Las que ya estaban en el banco se
+    quitan del lote antes de subir.
+- **Lo que tiene fecha no se pregunta:** nombres de cargos, número de países
+  («actualmente 29»), cifras que el autor anota «en la actualidad». Se apartan
+  como dudas para el tutor. Tampoco lo que una norma posterior puede haber
+  desplazado (el procedimiento de asilo tras el Pacto Europeo de 2026) sin
+  avisarlo.
+- **Entran pendientes y sin dificultad:** la dificultad la pone el clasificador
+  (regla 121), nunca un 2 por defecto; el tutor aprueba en «Banco oficial».
+- **El presupuesto por tema es un tope, no una cuota** (`docs/PLAN-TOMO-I.md`):
+  donde el texto se agota, se para.

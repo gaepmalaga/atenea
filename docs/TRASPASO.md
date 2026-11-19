@@ -661,13 +661,37 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   aprueban desde «Banco oficial» cuando estén completas. La dificultad se pone
   con el clasificador de «Operación».
 
-## 2u · Plan del Tomo I (19 nov)
+## 2u · Preguntas desde el Tomo I de Alphapol (19 nov, regla 136)
 
-Plan en `docs/PLAN-TOMO-I.md`: presupuesto de preguntas por tema según densidad,
-peso en el examen real y lo ya cubierto (≈ 1.100 en total, tope y no cifra
-fija), reparto por unidad y producción por lotes hacia «Banco oficial» como
-pendientes. Hecho: las 20 de prueba del tema 5 (pendientes, solo les falta la
-dificultad). Pendiente: que el dueño ajuste el plan; luego, por orden 8, 10, 6,
-7, 12, 4, 9, 5, 11. El PDF del Tomo no vive en el repositorio ni en la
-plataforma: se vuelve a adjuntar en cada sesión.
-
+- **Hecho:** 985 preguntas nuevas en el **banco privado de Alphapol como
+  pendientes** (`candidate`, `origin='manual'`), redactadas desde el temario de
+  la academia (Tomo I, temas 4-12) con la ley como apoyo: tema 4 · 66, tema 5 ·
+  69 (incluye las 20 de prueba), tema 6 · 103, tema 7 · 120, tema 8 · 272,
+  tema 9 · 52, tema 10 · 181, tema 11 · 2 y tema 12 · 120. Cada una lleva
+  explicación redactada (≥ 70 caracteres, no solo «lo dice el art. X»),
+  referencia legal (la ley, nunca «Tomo I») y su página del Tomo en el registro
+  de la sesión. Los temas 6, 10 y 12 quedan por debajo del tope porque el texto
+  se agota antes; con lo que ya había superan el objetivo de cobertura del plan.
+- **Dificultad:** la pone el clasificador de «Operación» (acción
+  `dificultad-nuevas`, regla 121), lanzado el 19 nov desde la rama para las 985
+  pendientes y las 725 activas de la batería que estaban sin clasificar.
+- **Repetidas:** ensayo de familias (regla 119) con activas + pendientes: 67 de
+  las 985 repiten un hecho que ya estaba activo y 29 se repiten entre sí. No se
+  borran: `npm run familias -- --hazlo` las agrupa cuando se aprueben (solo
+  mira las activas).
+- **Dudas apartadas para el tutor (no se subieron):** cifras que el autor anota
+  «en la actualidad» (UCOP, número de comisarías y puestos fronterizos, Junta de
+  Gobierno, países de Schengen), la duración de la residencia no lucrativa con
+  el RD 1155/2024 y la prórroga de Ucrania. **La importante:** el Pacto Europeo
+  de Migración y Asilo se aplica desde el 12-6-2026; las 26 preguntas de
+  procedimiento de la Ley 12/2009 (tema 12, plazos de solicitud, frontera y
+  resolución) pueden estar desplazadas por el Reglamento (UE) 2024/1348. Hay
+  que contrastarlas con la Instrucción de la Subsecretaría de 11-6-2026 antes de
+  aprobarlas.
+- **Falta:** que el tutor revise y apruebe desde «Banco oficial» (ya tienen
+  explicación; la dificultad llega con el clasificador). Después, `familias`.
+- **Encontrado de paso:** una pregunta ACTIVA del tema 7 sobre el CEISE tiene
+  una respuesta «correcta» sin sentido (id `8bb7c761-d22f-4bbe-be9c-8163046782ce`).
+  Corregirla o desactivarla desde «Banco oficial».
+- El PDF del Tomo y los lotes **no viven en el repositorio** (es público): solo
+  en la sesión y en la base de datos.
