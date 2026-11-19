@@ -69,90 +69,121 @@ body { width: 1123px; height: 793px; overflow: hidden; background: var(--crema);
 .cab .num span { font-size: 7.5px; letter-spacing: .16em; display: block; font-weight: 800; text-transform: uppercase; }
 .cab .num b { font-size: 24px; font-weight: 800; display: block; color: var(--marino-hondo); }
 
-/* Columnas */
-.cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; flex: 1 1 auto; min-height: 0; }
+/* Radar del examen */
+.radar { background: #fff; border: 1px solid var(--linea); border-radius: 9px; height: 54px; display: flex; align-items: center; gap: 14px; padding: 0 14px; flex: none; }
+.radar .gran { flex: none; text-align: center; line-height: 1; padding-right: 14px; border-right: 1.5px solid var(--linea); }
+.radar .gran b { font-family: 'Barlow Condensed', sans-serif; font-size: 36px; font-weight: 800; color: var(--marino); display: block; line-height: .85; }
+.radar .gran span { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: var(--suave); font-weight: 700; }
+.radar .gran span em { display: block; font-style: normal; color: var(--oro-oscuro); }
+.radar .barra { flex: 1; min-width: 0; }
+.radar .tit { font-size: 9px; color: var(--suave); margin-bottom: 3px; }
+.radar .tit b { color: var(--marino); }
+.radar .seg { display: flex; height: 19px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.radar .seg div { color: #fff; font-weight: 800; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; overflow: hidden; }
+.radar .seg .s1 { background: #d9531e; flex: 7; }
+.radar .seg .s2 { background: var(--azul); flex: 2; }
+.radar .seg .s3 { background: var(--verde); flex: 1; }
+.radar .seg .s4 { background: var(--marino); flex: 1; }
+.radar .frio { flex: none; width: 250px; font-size: 8.2px; line-height: 1.3; color: var(--suave); border-left: 1.5px solid var(--linea); padding-left: 14px; }
+.radar .frio b { color: var(--marino); }
+
+/* Zonas */
+.zonas { display: grid; grid-template-columns: 1.38fr 1.06fr .96fr; gap: 8px; flex: 1 1 auto; min-height: 0; }
 .col { display: flex; flex-direction: column; border-radius: 9px; overflow: hidden; background: var(--fondo); border: 1px solid var(--borde); }
 .col > header { background: var(--c); color: #fff; padding: 6px 14px 5px 12px; display: flex; align-items: center; gap: 9px;
   clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 50%, calc(100% - 13px) 100%, 0 100%); margin-right: -1px; }
 .col > header .n { font-weight: 800; font-size: 28px; line-height: .8; color: var(--oro-claro); opacity: .95; }
-.col > header h2 { font-size: 16px; font-weight: 800; line-height: 1; }
-.col > header h2 small { display: block; font-size: 9px; letter-spacing: .12em; font-weight: 600; color: #dbe4f7; margin-bottom: 2px; }
-.col.m { --c: var(--marino); --fondo: #e9eefa; --borde: #c9d4ee; }
-.col.a { --c: var(--azul); --fondo: #e8f0fb; --borde: #c7d9f1; }
-.col.v { --c: var(--verde); --fondo: #e5f3f0; --borde: #bfe0da; }
-.col.o { --c: var(--oro); --fondo: #fbf5df; --borde: #ecdfa8; }
-.col.o > header { color: var(--marino-hondo); }
-.col.o > header .n { color: var(--marino); }
-.col.o > header h2 small { color: #5c4a0d; }
+.col > header h2 { font-size: 16px; font-weight: 800; line-height: 1; flex: 1; }
+.col > header h2 small { display: block; font-size: 8.6px; letter-spacing: .12em; font-weight: 600; color: #dbe4f7; margin-bottom: 2px; }
+.col > header .calor { flex: none; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,.18); border-radius: 12px; padding: 2px 8px 2px 6px; margin-right: 8px;
+  font-family: Inter, sans-serif; font-weight: 800; font-size: 9.6px; text-transform: none; letter-spacing: 0; }
+.col > header .calor svg { display: block; }
+.col.n1 { --c: #b9430f; --fondo: #fdf0e8; --borde: #f1cdb7; }
+.col.n2 { --c: var(--azul); --fondo: #e8f0fb; --borde: #c7d9f1; }
+.col.n3 { --c: var(--marino); --fondo: #e9eefa; --borde: #c9d4ee; }
 .bloque { padding: 7px 11px 5px; border-top: 1px dashed rgba(20,41,90,.22); flex: 1 1 auto; min-height: 0; }
 .bloque:first-of-type { border-top: 0; }
 .bt { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
 .bt h3 { font-size: 13.5px; font-weight: 800; color: var(--marino); line-height: 1.02; }
 .bt h3 small { display: block; font-family: Inter, sans-serif; font-weight: 600; font-size: 8px; letter-spacing: .06em; color: var(--suave); text-transform: none; margin-top: 1px; }
-.medallon { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 0 3px rgba(255,255,255,.7); }
+.medallon { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 0 3px rgba(255,255,255,.7); }
 .medallon.marino { background: var(--marino); }
 .medallon.oro { background: var(--oro); }
 .medallon.azul { background: var(--azul); }
 .medallon.verde { background: var(--verde); }
+.medallon.fuego { background: #d9531e; }
 .medallon svg { display: block; }
 ul { list-style: none; }
-li { position: relative; padding-left: 9px; margin-bottom: 2.4px; }
+li { position: relative; padding-left: 9px; margin-bottom: 2.2px; }
 li::before { content: ''; position: absolute; left: 0; top: .5em; width: 4px; height: 4px; border-radius: 50%; background: var(--oro); }
 b, strong { font-weight: 700; color: var(--marino); }
 .art { color: var(--oro-oscuro); font-weight: 700; white-space: nowrap; }
 mark { background: #fbe58a; color: var(--marino-hondo); padding: 0 2px; border-radius: 2px; font-weight: 700; }
 
+/* «Cayó en el examen»: la pregunta real, con su año */
+.real { display: flex; gap: 6px; align-items: flex-start; background: #fff; border: 1px solid #f0c9b2; border-left: 3px solid #d9531e; border-radius: 5px; padding: 2px 6px 2px 5px; margin: 2px 0 3px; line-height: 1.24; font-size: 8.7px; color: var(--texto); }
+.real i { flex: none; font-style: normal; font-weight: 800; font-size: 8px; background: #d9531e; color: #fff; border-radius: 3px; padding: 0 4px; margin-top: 1px; letter-spacing: .04em; }
+.real.fr { border-color: #c7d9f1; border-left-color: var(--azul); }
+.real.fr i { background: var(--azul); }
+.real.mr { border-color: #c9d4ee; border-left-color: var(--marino); }
+.real.mr i { background: var(--marino); }
+.real b { color: var(--marino); }
+
 /* Piezas visuales */
 .ecu { display: flex; align-items: stretch; gap: 5px; margin: 2px 0 3px; }
-.ecu .caja { flex: 1; border-radius: 6px; padding: 3px 5px; background: #fff; border: 1.2px solid var(--marino); text-align: center; line-height: 1.25; }
+.ecu .caja { flex: 1; border-radius: 6px; padding: 3px 5px; background: #fff; border: 1.2px solid var(--marino); text-align: center; line-height: 1.22; }
 .ecu .caja.o { border-color: var(--oro); background: #fff9e0; }
 .ecu .caja small { display: block; font-size: 7.3px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--suave); }
 .ecu .flecha { align-self: center; font-weight: 800; color: var(--oro-oscuro); font-size: 15px; }
-.eje { font-size: 8.6px; background: #fff; border-radius: 5px; padding: 3px 6px; border-left: 3px solid var(--oro); color: var(--suave); margin-top: 3px; }
-.eje b { color: var(--marino); }
-
 .flujo { display: flex; gap: 3px; align-items: stretch; margin: 7px 0 3px; }
-.flujo .paso { flex: 1; background: #fff; border: 1.2px solid var(--azul); border-radius: 6px; padding: 3px 5px 4px; text-align: center; line-height: 1.22; position: relative; }
-.flujo .paso .k { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); background: var(--azul); color: #fff; border-radius: 9px; font-size: 8.5px; font-weight: 800; padding: 0 6px; }
-.flujo .paso b { display: block; font-size: 10.4px; margin-top: 3px; }
-.flujo .paso span { font-size: 8px; color: var(--suave); display: block; }
+.flujo .paso { flex: 1; background: #fff; border: 1.2px solid var(--azul); border-radius: 6px; padding: 2px 4px 3px; text-align: center; line-height: 1.2; position: relative; }
+.flujo .paso .k { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); background: var(--azul); color: #fff; border-radius: 9px; font-size: 8px; font-weight: 800; padding: 0 6px; font-style: normal; }
+.flujo .paso b { display: block; font-size: 9.6px; margin-top: 3px; }
+.flujo .paso span { font-size: 7.8px; color: var(--suave); display: block; }
 .flujo .sig { align-self: center; color: var(--azul); font-weight: 800; font-size: 13px; }
-
 .piramide { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 2px 0 3px; }
-.piramide .n { color: #fff; font-weight: 700; font-size: 9px; text-align: center; line-height: 1.1; padding: 2px 0; border-radius: 4px; }
-.piramide .n small { display: block; font-weight: 500; font-size: 7.8px; opacity: .92; }
-.pi1 { width: 36%; background: var(--marino-hondo); clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%); }
+.piramide .n { color: #fff; font-weight: 700; font-size: 8.8px; text-align: center; line-height: 1.1; padding: 1px 0; border-radius: 4px; }
+.piramide .n small { display: block; font-weight: 500; font-size: 7.4px; opacity: .92; }
+.pi1 { width: 34%; background: var(--marino-hondo); clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%); border-radius: 0 !important; }
 .pi2 { width: 54%; background: var(--marino); }
-.pi3 { width: 72%; background: var(--azul); }
-.pi4 { width: 90%; background: #5e86c8; }
-.piramide .n.pi1 { border-radius: 0; }
-
+.pi3 { width: 74%; background: var(--azul); }
+.pi4 { width: 94%; background: #5e86c8; }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 1px 0 3px; }
-.dos .c { background: #fff; border-radius: 6px; border: 1.2px solid var(--verde); padding: 3px 5px; line-height: 1.25; }
+.dos .c { background: #fff; border-radius: 6px; border: 1.2px solid var(--azul); padding: 3px 5px; line-height: 1.24; }
 .dos .c.o { border-color: var(--oro); }
-.dos .c h4 { font-size: 12.5px; font-weight: 800; color: var(--verde); line-height: 1; margin-bottom: 2px; }
+.dos .c h4 { font-size: 12px; font-weight: 800; color: var(--azul); line-height: 1; margin-bottom: 2px; }
 .dos .c.o h4 { color: var(--oro-oscuro); }
-.dos .c p { font-size: 9.2px; }
-
+.dos .c p { font-size: 8.8px; }
 .chips { display: flex; flex-wrap: wrap; gap: 3px; margin: 1px 0 3px; }
-.chip { background: #fff; border: 1.2px solid var(--oro); border-radius: 10px; padding: 0 7px; font-weight: 700; color: var(--marino); font-size: 9px; }
+.chip { background: #fff; border: 1.2px solid var(--oro); border-radius: 10px; padding: 0 7px; font-weight: 700; color: var(--marino); font-size: 8.8px; }
 .chip.g { background: var(--marino); border-color: var(--marino); color: var(--oro-claro); }
-.pasos3 { display: flex; gap: 3px; margin-top: 3px; }
-.pasos3 > div { flex: 1; background: var(--marino); color: #fff; border-radius: 5px; padding: 3px 4px; text-align: left; font-size: 8.4px; line-height: 1.18; }
+.pasos3 { display: flex; gap: 3px; margin: 3px 0; }
+.pasos3 > div { flex: 1; background: var(--marino); color: #fff; border-radius: 5px; padding: 3px 5px; font-size: 8.4px; line-height: 1.18; }
 .pasos3 > div b { display: inline; color: var(--oro-claro); font-size: 10px; font-weight: 800; margin-right: 2px; }
 
 /* Banda inferior */
-.banda { display: grid; grid-template-columns: 1fr 1.12fr 1.25fr; gap: 8px; height: 152px; flex: none; }
-.card { background: #fff; border-radius: 9px; border: 1px solid var(--linea); padding: 6px 11px 4px; overflow: hidden; }
-.card .bt { margin-bottom: 4px; }
+.banda { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; height: 108px; flex: none; }
+.card { background: #fff; border-radius: 9px; border: 1px solid var(--linea); padding: 5px 11px 3px; overflow: hidden; }
 .card.fond { background: var(--marino); border-color: var(--marino); color: #e8eefc; }
 .card.fond .bt h3 { color: #fff; }
 .card.fond .bt h3 small { color: var(--oro-claro); }
-.numeros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 8px; margin-top: 1px; }
-.numeros .nm { border-top: 2px solid var(--oro); padding-top: 3px; line-height: 1.15; }
-.numeros .nm b { display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800; color: var(--oro-claro); line-height: .95; letter-spacing: .01em; }
-.numeros .nm b i { font-style: normal; font-size: 12px; font-weight: 700; color: #fff; letter-spacing: .04em; margin-left: 2px; text-transform: uppercase; }
-.numeros .nm span { font-size: 7.8px; color: #cfd9f2; display: block; line-height: 1.12; }
+.numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px 10px; margin-top: 0; }
+.numeros .nm { border-top: 2px solid var(--oro); padding-top: 2px; line-height: 1.12; }
+.numeros .nm b { display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-weight: 800; color: var(--oro-claro); line-height: .95; letter-spacing: .01em; }
+.numeros .nm b i { font-style: normal; font-size: 11px; font-weight: 700; color: #fff; letter-spacing: .04em; margin-left: 2px; text-transform: uppercase; }
+.numeros .nm span { font-size: 7.3px; color: #cfd9f2; display: block; line-height: 1.1; }
+.card .medallon { width: 28px; height: 28px; }
+.card .medallon svg { width: 22px; height: 22px; }
+.card .bt { margin-bottom: 2px; }
+.trucos li { margin-bottom: 2px; font-size: 9.1px; }
+.trucos li b { background: var(--marino); color: var(--oro-claro); border-radius: 3px; padding: 0 4px; font-size: 9px; }
+.qr { display: flex; gap: 10px; align-items: center; background: linear-gradient(135deg, var(--marino) 0%, var(--marino-hondo) 100%); color: #fff; border: 0; border-bottom: 4px solid var(--oro); }
+.qr .cod { flex: none; width: 78px; height: 78px; background: #fff; border-radius: 7px; padding: 5px; display: grid; place-items: center; }
+.qr .cod img { width: 100%; height: 100%; display: block; }
+.qr h3 { font-size: 15px; font-weight: 800; line-height: 1.02; color: #fff; }
+.qr h3 em { color: var(--oro-claro); font-style: normal; }
+.qr p { font-size: 8.8px; color: #cfd9f2; margin-top: 3px; line-height: 1.28; }
+.qr p b { color: var(--oro-claro); }
 
 /* Pie */
 .pie { display: flex; justify-content: space-between; align-items: flex-start; border-top: 1.6px solid var(--oro); padding: 4px 2px 0; margin-top: auto; height: 30px; flex: none; }
@@ -162,9 +193,11 @@ mark { background: #fbe58a; color: var(--marino-hondo); padding: 0 2px; border-r
 .pie .r b { color: var(--oro-oscuro); }
 `;
 
+const preguntas = 167;
+
 const html = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
-<title>Alphapol · Tema 1 · El Derecho · Esquema</title>
+<title>Alphapol · Tema 1 · El Derecho · Esquema con radar de examen</title>
 <style>${css}</style></head>
 <body>
 <img class="agua" src="../../public/marca/alphapol-isotipo.svg" alt="">
@@ -173,177 +206,170 @@ const html = `<!doctype html>
   <div class="cab">
     <img src="../../public/marca/alphapol-logotipo.svg" alt="Alphapol">
     <div class="linea"></div>
-    <h1 class="t">El Derecho: <em>las normas, la persona y la nacionalidad</em><small>Código Civil · Título Preliminar y Libro I — esquema de repaso para el examen</small></h1>
+    <h1 class="t">El Derecho: <em>lo que de verdad cae</em><small>Esquema con radar de examen · Código Civil, Título Preliminar y Libro I</small></h1>
     <div class="esc"><small>Escala</small><b class="t">Básica · Ciencias Jurídicas</b></div>
     <div class="num"><div><span>Tema</span><b class="t">1</b></div></div>
   </div>
 
-  <div class="cols">
+  <div class="radar">
+    <div class="gran"><b>11</b><span>preguntas<em>2021 – 2025</em></span></div>
+    <div class="barra">
+      <div class="tit">Así se reparte el <b>Tema 1</b> en los 5 últimos exámenes oficiales de Escala Básica: <b>donde cae, estudia más</b>.</div>
+      <div class="seg">
+        <div class="s1">${icono('Flame', { size: 12, color: '#fff', grosor: 2.4 })} NACIONALIDAD · 7</div>
+        <div class="s2">VECINDAD · 2</div>
+        <div class="s3">PERSONA · 1</div>
+        <div class="s4">NORMA · 1</div>
+      </div>
+    </div>
+    <div class="frio">${icono('Snowflake', { size: 12, color: '#2a5db0', grosor: 2.2 })} <b>Aún no han caído:</b> jerarquía normativa, fuentes, domicilio, capacidad y personas jurídicas. Vale la pena saberlas, pero no son prioridad.</div>
+  </div>
 
-    <!-- 1 · EL DERECHO Y LA NORMA -->
-    <section class="col m">
-      <header><span class="n t">1</span><h2 class="t"><small>Para empezar</small>El Derecho y la norma</h2></header>
-      <div class="bloque">
-        <div class="bt">${medallon('Scale')}<h3 class="t">Concepto y acepciones<small>Qué significa «Derecho»</small></h3></div>
-        <div class="dos">
-          <div class="c"><h4 class="t">Objetivo</h4><p>El <b>conjunto de normas</b> que ordenan la convivencia.</p></div>
-          <div class="c o"><h4 class="t">Subjetivo</h4><p>La <b>facultad o poder</b> que la norma reconoce a una persona.</p></div>
-        </div>
-        <p>Además: Derecho como <b>ciencia</b> (su estudio) y como <b>justicia</b> (su ideal).</p>
-      </div>
-      <div class="bloque">
-        <div class="bt">${medallon('Layers', 'oro')}<h3 class="t">Estructura de la norma<small>Toda norma tiene dos partes</small></h3></div>
-        <div class="ecu">
-          <div class="caja"><small>Supuesto de hecho</small><b>Lo que ocurre</b></div>
-          <div class="flecha">→</div>
-          <div class="caja o"><small>Consecuencia jurídica</small><b>El efecto que produce</b></div>
-        </div>
-        <div class="eje"><b>Ejemplo:</b> nacer con vida <span class="art">(art. 30)</span> → se adquiere la personalidad.</div>
-      </div>
-      <div class="bloque">
-        <div class="bt">${medallon('Gavel')}<h3 class="t">Caracteres y clases<small>Cómo es y cómo obliga</small></h3></div>
-        <ul>
-          <li><b>Caracteres:</b> general, abstracta, obligatoria, coercible y heterónoma.</li>
-          <li><b>Imperativas</b> ordenan y <b>prohibitivas</b> prohíben: lo contrario es <mark>nulo de pleno derecho</mark> <span class="art">(6.3)</span>.</li>
-          <li><b>Dispositivas:</b> valen si las partes no pactan otra cosa.</li>
-        </ul>
-      </div>
-    </section>
+  <div class="zonas">
 
-    <!-- 2 · FUENTES, JERARQUÍA Y EFICACIA -->
-    <section class="col a">
-      <header><span class="n t">2</span><h2 class="t"><small>Art. 1 y siguientes del Código Civil</small>Fuentes y jerarquía</h2></header>
+    <!-- 1 · NACIONALIDAD (lo que más cae) -->
+    <section class="col n1">
+      <header><span class="n t">1</span><h2 class="t"><small>Arts. 17-28 del Código Civil</small>La nacionalidad española</h2><span class="calor">${icono('Flame', { size: 12, color: '#ffd9a8', grosor: 2.2 })} Cae mucho · 7 de 11</span></header>
       <div class="bloque">
-        <div class="bt">${medallon('BookOpen', 'azul')}<h3 class="t">Fuentes del ordenamiento<small>El orden importa <span class="art">(art. 1)</span></small></h3></div>
-        <div class="flujo">
-          <div class="paso"><i class="k">1.º</i><b>Ley</b><span>siempre prima</span></div><div class="sig">›</div>
-          <div class="paso"><i class="k">2.º</i><b>Costumbre</b><span>a falta de ley</span></div><div class="sig">›</div>
-          <div class="paso"><i class="k">3.º</i><b>Principios generales</b><span>a falta de ambas</span></div>
-        </div>
-        <ul>
-          <li>Costumbre: ni contraria a la <b>moral u orden público</b> ni sin <b>probar</b>.</li>
-          <li>La <b>jurisprudencia</b> del Supremo complementa <span class="art">(1.6)</span>.</li>
-        </ul>
-      </div>
-      <div class="bloque">
-        <div class="bt">${medallon('Landmark')}<h3 class="t">Jerarquía normativa<small>Manda el rango superior <span class="art">(1.2)</span></small></h3></div>
-        <div class="piramide">
-          <div class="n pi1">Constitución</div>
-          <div class="n pi2">Tratados internacionales<small>aplicables tras su publicación íntegra en el BOE (1.5)</small></div>
-          <div class="n pi3">Leyes<small>orgánicas y ordinarias · decretos-leyes y legislativos</small></div>
-          <div class="n pi4">Reglamentos<small>reales decretos, órdenes…</small></div>
-        </div>
-        <p style="font-size:8.8px">Es <mark>nula</mark> toda disposición que contradiga otra de rango superior.</p>
-      </div>
-      <div class="bloque">
-        <div class="bt">${medallon('Newspaper', 'oro')}<h3 class="t">Eficacia de las leyes<small>Arts. 2 y 6</small></h3></div>
-        <ul>
-          <li><b>Vigor a los 20 días</b> de su completa publicación en el BOE.</li>
-          <li>Se <b>derogan solo por otra posterior</b>; sin retroactividad salvo que lo digan.</li>
-          <li><mark>La ignorancia de las leyes no excusa de su cumplimiento.</mark></li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- 3 · LA PERSONA -->
-    <section class="col v">
-      <header><span class="n t">3</span><h2 class="t"><small>Libro I · Títulos II y arts. 35-39</small>La persona</h2></header>
-      <div class="bloque">
-        <div class="bt">${medallon('Baby', 'verde')}<h3 class="t">Nacimiento y extinción<small>Personas físicas <span class="art">(arts. 29-33)</span></small></h3></div>
-        <ul>
-          <li><b>Nace</b> con vida y con <b>entero desprendimiento del seno materno</b> <span class="art">(30)</span>.</li>
-          <li>El <b>concebido</b> se tiene por nacido si le <b>favorece</b> <span class="art">(29)</span>.</li>
-          <li>Se <b>extingue por la muerte</b> <span class="art">(32)</span>; en la duda de quién murió antes, <b>a la vez</b> <span class="art">(33)</span>.</li>
-        </ul>
-      </div>
-      <div class="bloque">
-        <div class="bt">${medallon('FileSignature', 'oro')}<h3 class="t">Capacidad<small>No es lo mismo tenerla que ejercerla</small></h3></div>
-        <div class="dos">
-          <div class="c"><h4 class="t">Jurídica</h4><p>Aptitud para ser <b>titular</b> de derechos y obligaciones. Se tiene <b>desde el nacimiento</b>.</p></div>
-          <div class="c o"><h4 class="t">De obrar</h4><p>Aptitud para <b>ejercerlos uno mismo</b>. Plena con la <b>mayoría de edad: 18 años</b> <span class="art">(315)</span>.</p></div>
-        </div>
-      </div>
-      <div class="bloque">
-        <div class="bt">${medallon('Building2', 'verde')}<h3 class="t">Personas jurídicas<small>Arts. 35-39</small></h3></div>
-        <ul>
-          <li><b>1.º Corporaciones, asociaciones y fundaciones de interés público</b> reconocidas por la ley (nacen al constituirse válidamente).</li>
-          <li><b>2.º Asociaciones de interés particular</b> (civiles, mercantiles, industriales) con personalidad propia.</li>
-          <li>Adquieren bienes, contraen obligaciones y ejercitan acciones <span class="art">(38)</span>.</li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- 4 · LA NACIONALIDAD -->
-    <section class="col o">
-      <header><span class="n t">4</span><h2 class="t"><small>Libro I · Título I · Arts. 17-28</small>La nacionalidad española</h2></header>
-      <div class="bloque">
-        <div class="bt">${medallon('Flag', 'marino')}<h3 class="t">Españoles de origen<small>Art. 17</small></h3></div>
+        <div class="bt">${medallon('Flag', 'fuego')}<h3 class="t">Españoles de origen<small>Art. 17</small></h3></div>
         <ul>
           <li>Hijos de <b>padre o madre españoles</b>.</li>
-          <li>Nacidos en España de extranjeros si <b>uno nació también aquí</b> (salvo hijos de diplomáticos).</li>
+          <li>Nacidos en España de extranjeros si <b>uno nació también aquí</b> (no hijos de diplomáticos).</li>
           <li>Nacidos en España de padres <b>sin nacionalidad</b> o con <b>filiación no determinada</b>.</li>
         </ul>
+        <div class="real"><i>2025</i><span>¿Españoles de origen? → <b>nacidos de padre o madre españoles</b> (17.1.a).</span></div>
       </div>
       <div class="bloque">
         <div class="bt">${medallon('Stamp', 'oro')}<h3 class="t">Cómo se adquiere<small>Opción · carta de naturaleza · residencia</small></h3></div>
         <ul>
-          <li><b>Carta de naturaleza:</b> Real Decreto, discrecional <span class="art">(21.1)</span>.</li>
-          <li><b>Residencia</b> legal, continuada e inmediata <span class="art">(22)</span>:</li>
+          <li><b>Opción</b> (20): quien esté o haya estado bajo patria potestad de un español. Adoptado mayor de 18: <b>2 años</b> (19.2).</li>
+          <li><b>Carta de naturaleza:</b> Real Decreto discrecional (21.1). <b>Residencia</b> legal (22):</li>
         </ul>
-        <div class="chips">
-          <span class="chip g">10 años</span><span class="chip">5 · refugiados</span><span class="chip">2 · iberoamericanos y otros</span><span class="chip">1 · casos del 22.2</span>
-        </div>
+        <div class="chips"><span class="chip g">10 años</span><span class="chip">5 · refugiados</span><span class="chip">2 · iberoamericanos, Andorra, Filipinas, G. Ecuatorial, Portugal, sefardíes</span><span class="chip">1 · casos del 22.2</span></div>
         <div class="pasos3">
-          <div><b>1</b>Jurar fidelidad al Rey y obediencia a la CE</div>
-          <div><b>2</b>Renunciar a la nacionalidad anterior</div>
-          <div><b>3</b>Inscribir en el Registro Civil</div>
+          <div><b>1</b>Jurar fidelidad y obediencia</div>
+          <div><b>2</b>Renunciar a la anterior</div>
+          <div><b>3</b>Inscribir en el Registro</div>
+        </div>
+        <div class="real"><i>2024</i><span>¿Para quién <b>no basta</b> 2 años? → <b>Mónaco no está</b> en la lista (22.1). ¿Y 1 año? → quien <b>no ejerció la opción</b> a tiempo (22.2).</span></div>
+        <div class="real"><i>2022</i><span>Adoptada <b>a los 19 años</b> → <b>opta en 2 años</b> (19.2). <b>2023:</b> patria potestad de español → opta (20.1.a).</span></div>
+      </div>
+      <div class="bloque">
+        <div class="bt">${medallon('Hourglass', 'marino')}<h3 class="t">Perder y recuperar<small>Arts. 24-26</small></h3></div>
+        <ul>
+          <li>Emancipados residentes fuera que <b>adquieren otra voluntariamente</b>: la pierden a los <b>3 años</b> salvo que declaren conservarla.</li>
+          <li><b>No originarios:</b> 3 años usando solo la anterior, o servir en armas extranjeras contra la prohibición del Gobierno. <mark>En guerra no se pierde.</mark></li>
+        </ul>
+        <div class="real"><i>2021</i><span><b>Recuperar</b> (26): residir legalmente, <b>declararlo ante el Registro Civil</b> e inscribirlo.</span></div>
+      </div>
+    </section>
+
+    <!-- 2 · VECINDAD, PERSONA, DOMICILIO -->
+    <section class="col n2">
+      <header><span class="n t">2</span><h2 class="t"><small>Arts. 14-15, 29-41</small>Vecindad y persona</h2><span class="calor">${icono('Flame', { size: 12, color: '#ffd9a8', grosor: 2.2 })} Cae · 3 de 11</span></header>
+      <div class="bloque">
+        <div class="bt">${medallon('Map', 'azul')}<h3 class="t">Vecindad civil<small>Arts. 14-15 · derecho civil común o foral</small></h3></div>
+        <ul>
+          <li><b>Hijos:</b> la de los padres; si difiere, la del primero con filiación determinada, luego la del lugar de nacimiento. Padres: <b>6 meses</b> para elegir; hijo: desde los <b>14 años</b>.</li>
+          <li><b>Se adquiere</b> por <b>2 años</b> de residencia (si se declara) o <b>10 años</b> (sin declaración en contra).</li>
+        </ul>
+        <div class="real fr"><i>2023</i><span><b>El matrimonio no altera</b> la vecindad civil. <b>2024:</b> se adquiere por <b>2 años</b> de residencia continuada si se manifiesta.</span></div>
+      </div>
+      <div class="bloque">
+        <div class="bt">${medallon('Baby', 'azul')}<h3 class="t">La persona física<small>Arts. 29-33</small></h3></div>
+        <ul>
+          <li><b>Nace</b> con vida y <b>entero desprendimiento del seno materno</b> (30); el <b>concebido</b> cuenta si le favorece (29). Se <b>extingue por la muerte</b> (32); en la duda, <b>a la vez</b> (33).</li>
+        </ul>
+        <div class="dos">
+          <div class="c"><h4 class="t">Capacidad jurídica</h4><p>Ser <b>titular</b> de derechos. Desde el <b>nacimiento</b>.</p></div>
+          <div class="c o"><h4 class="t">Capacidad de obrar</h4><p><b>Ejercerlos</b> uno mismo. Plena a los <b>18 años</b> (315).</p></div>
+        </div>
+        <div class="real fr"><i>2024</i><span>Art. 30: personalidad <b>al nacer con vida</b>, ya desprendido del seno materno.</span></div>
+      </div>
+      <div class="bloque">
+        <div class="bt">${medallon('House', 'azul')}<h3 class="t">Domicilio y personas jurídicas<small>Arts. 35-41 ${icono('Snowflake', { size: 10, color: '#2a5db0', grosor: 2.2 })} aún sin caer</small></h3></div>
+        <ul>
+          <li><b>Domicilio:</b> la <mark>residencia habitual</mark> (40). En personas jurídicas, el de su ley o estatutos, o donde esté su representación legal (41).</li>
+          <li><b>Personas jurídicas</b> (35): corporaciones, asociaciones y fundaciones de interés público, y asociaciones de interés particular.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 3 · LA NORMA Y SUS FUENTES -->
+    <section class="col n3">
+      <header><span class="n t">3</span><h2 class="t"><small>Título Preliminar · 1-7</small>Norma y fuentes</h2><span class="calor">${icono('Snowflake', { size: 12, color: '#bfe3ff', grosor: 2.2 })} Cae poco · 1 de 11</span></header>
+      <div class="bloque">
+        <div class="bt">${medallon('Scale')}<h3 class="t">El Derecho y la norma<small>Concepto, estructura y clases</small></h3></div>
+        <ul>
+          <li><b>Objetivo</b> (conjunto de normas) y <b>subjetivo</b> (facultad de una persona); también <b>ciencia</b> y <b>justicia</b>.</li>
+        </ul>
+        <div class="ecu">
+          <div class="caja"><small>Supuesto de hecho</small><b>Lo que ocurre</b></div>
+          <div class="flecha">→</div>
+          <div class="caja o"><small>Consecuencia jurídica</small><b>El efecto</b></div>
+        </div>
+        <ul>
+          <li><b>Imperativas</b> ordenan y <b>prohibitivas</b> prohíben (lo contrario es <mark>nulo</mark>, 6.3); <b>dispositivas</b>: valen si no se pacta otra cosa.</li>
+        </ul>
+        <div class="real mr"><i>2025</i><span>Precepto general que ordena la convivencia y se impone por la fuerza → <b>norma jurídica positiva</b>.</span></div>
+      </div>
+      <div class="bloque">
+        <div class="bt">${medallon('Landmark', 'oro')}<h3 class="t">Fuentes y jerarquía<small>Art. 1 · manda el rango superior</small></h3></div>
+        <div class="flujo">
+          <div class="paso"><i class="k">1.º</i><b>Ley</b></div><div class="sig">›</div>
+          <div class="paso"><i class="k">2.º</i><b>Costumbre</b><span>a falta de ley</span></div><div class="sig">›</div>
+          <div class="paso"><i class="k">3.º</i><b>Principios</b><span>a falta de ambas</span></div>
+        </div>
+        <div class="piramide">
+          <div class="n pi1">Constitución</div>
+          <div class="n pi2">Tratados internacionales<small>tras publicarse en el BOE (1.5)</small></div>
+          <div class="n pi3">Leyes<small>orgánicas y ordinarias · decretos-leyes</small></div>
+          <div class="n pi4">Reglamentos</div>
         </div>
       </div>
       <div class="bloque">
-        <div class="bt">${medallon('Hourglass', 'marino')}<h3 class="t">Pérdida y recuperación<small>Arts. 24-26</small></h3></div>
+        <div class="bt">${medallon('Newspaper', 'marino')}<h3 class="t">Eficacia de las leyes<small>Arts. 2 y 6</small></h3></div>
         <ul>
-          <li>Emancipados residentes fuera que <b>adquieren otra voluntariamente</b>: la pierden a los <b>3 años</b> salvo que declaren conservarla.</li>
-          <li>Los <b>no originarios</b>: si usan 3 años solo la anterior o sirven en armas extranjeras contra la prohibición del Gobierno.</li>
-          <li><b>Recuperar:</b> residir legalmente, declararlo e <b>inscribirlo</b> <span class="art">(26)</span>. <mark>En guerra no se pierde.</mark></li>
+          <li><b>Vigor a los 20 días</b> de su publicación completa en el BOE.</li>
+          <li>Las <b>deroga otra posterior</b>; no son retroactivas salvo que lo digan.</li>
+          <li><mark>La ignorancia de las leyes no excusa su cumplimiento.</mark></li>
         </ul>
       </div>
     </section>
   </div>
 
   <div class="banda">
-    <div class="card">
-      <div class="bt">${medallon('House', 'verde')}<h3 class="t">Domicilio<small>Arts. 40 y 41</small></h3></div>
-      <ul>
-        <li><b>Persona natural:</b> su <mark>residencia habitual</mark>.</li>
-        <li><b>Diplomáticos</b> extraterritoriales: el último que tuvieron en España.</li>
-        <li><b>Persona jurídica:</b> el de su ley o estatutos; si no, donde esté su <b>representación legal</b> o sus <b>principales funciones</b>.</li>
-      </ul>
-    </div>
-    <div class="card">
-      <div class="bt">${medallon('Map', 'azul')}<h3 class="t">Vecindad civil<small>Arts. 14-15 · derecho civil común o foral</small></h3></div>
-      <ul>
-        <li><b>Hijos:</b> la de los padres; si difiere, la del primero con filiación determinada, luego el lugar de nacimiento y, al final, el derecho común. Los padres eligen en <b>6 meses</b>; el hijo, desde los <b>14 años</b>.</li>
-        <li><b>Se adquiere</b> por <b>2 años</b> de residencia (si se declara) o <b>10 años</b> (sin declaración en contrario).</li>
-        <li>El <b>matrimonio no la altera</b>; en duda, el <b>lugar de nacimiento</b>.</li>
-      </ul>
-    </div>
     <div class="card fond">
-      <div class="bt">${medallon('BadgeCheck', 'oro')}<h3 class="t">Números que se preguntan<small>Apréndelos antes del examen</small></h3></div>
+      <div class="bt">${medallon('BadgeCheck', 'oro')}<h3 class="t">Números que se preguntan</h3></div>
       <div class="numeros">
-        <div class="nm"><b>20<i>días</i></b><span>entrada en vigor de una ley</span></div>
-        <div class="nm"><b>14<i>años</i></b><span>jurar y optar con asistencia</span></div>
-        <div class="nm"><b>18<i>años</i></b><span>mayoría de edad</span></div>
-        <div class="nm"><b>180<i>días</i></b><span>caduca la concesión si no comparece (21.4)</span></div>
-        <div class="nm"><b>10·5·2<i>·1</i></b><span>años de residencia para ser español</span></div>
+        <div class="nm"><b>10·5·2·1<i></i></b><span>residencia para ser español</span></div>
         <div class="nm"><b>3<i>años</i></b><span>para perder la nacionalidad</span></div>
         <div class="nm"><b>2·10<i>años</i></b><span>vecindad civil por residencia</span></div>
-        <div class="nm"><b>6<i>meses</i></b><span>padres atribuyen la vecindad</span></div>
+        <div class="nm"><b>180<i>días</i></b><span>caduca si no comparece</span></div>
+        <div class="nm"><b>14<i>años</i></b><span>jurar y optar con asistencia</span></div>
+        <div class="nm"><b>20<i>días</i></b><span>entrada en vigor de una ley</span></div>
+      </div>
+    </div>
+    <div class="card trucos">
+      <div class="bt">${medallon('Lightbulb', 'verde')}<h3 class="t">Trucos para no fallar<small>Lo que más se confunde</small></h3></div>
+      <ul>
+        <li><b>10·5·2·1</b> = escalera: cuanto más cerca, menos años.</li>
+        <li><b>L-C-P:</b> Ley, Costumbre, Principios generales.</li>
+        <li><b>Origen</b> = nace español; el resto, se adquiere.</li>
+        <li><b>1 año</b> basta: nacido en España, casado con español, viudo, nieto de español…</li>
+      </ul>
+    </div>
+    <div class="card qr">
+      <div class="cod"><img src="qr-tema-01.svg" alt="Código QR del Campus Alphapol"></div>
+      <div>
+        <h3 class="t">Practica este tema <em>en el Campus</em></h3>
+        <p>Escanea y entrena con <b>${preguntas} preguntas del Tema 1</b>, corregidas al momento y con explicación de cada respuesta.</p>
       </div>
     </div>
   </div>
 
   <div class="pie">
-    <div class="l"><b>ALPHAPOL</b> · Centro de formación · Málaga &nbsp;|&nbsp; alphapol.es<br>Fuente: Código Civil (BOE-A-1889-4763), texto consolidado. Los artículos entre paréntesis son del Código Civil.</div>
+    <div class="l"><b>ALPHAPOL</b> · Centro de formación · Málaga &nbsp;|&nbsp; campus.alphapol.es<br>Fuente: Código Civil (BOE-A-1889-4763), texto consolidado. Radar: preguntas del Tema 1 en los exámenes oficiales de Escala Básica 2021-2025, contadas por Alphapol.</div>
     <div class="r"><b>T1 |</b> EL DERECHO<br>Contenido para uso personal de estudio</div>
   </div>
 </div>
@@ -359,7 +385,7 @@ await pagina.evaluate(() => document.fonts.ready);
 // Comprobación: nada se sale de su caja.
 const desbordes = await pagina.evaluate(() => {
   const malos = [];
-  document.querySelectorAll('.bloque, .card, .col').forEach((e) => {
+  document.querySelectorAll('.bloque, .card, .col, .radar').forEach((e) => {
     if (e.scrollHeight > e.clientHeight + 1) malos.push(`${e.className} ${e.querySelector('h3,h2')?.textContent?.slice(0, 28)} (+${e.scrollHeight - e.clientHeight}px)`);
   });
   if (document.body.scrollHeight > 794) malos.push(`página +${document.body.scrollHeight - 794}px`);

@@ -611,7 +611,11 @@ cómo lleva el temario ese grupo. Sin pestaña aparte.
 ## 2r · Esquemas visuales del temario (19 nov)
 
 Una página A4 apaisada por tema, con la marca de Alphapol, para regalar a cambio
-de los datos del interesado (como hacen otras academias). El primero:
+de los datos del interesado. Lo que los distingue: un **radar del examen** (qué
+cae del tema en los 5 exámenes oficiales 2021-2025, contado a mano: de las 20
+preguntas que el documento etiqueta como Tema 1, 11 lo eran de verdad), la
+pregunta real con su año junto a cada concepto, trucos de memoria y un QR al
+Campus. El primero:
 `temario/esquemas/tema-01.{pdf,png,html}`. Se genera con
 `node scripts/resumenes/esquema-tema-01.mjs` (Chromium de Playwright; iconos de
 Lucide a dos tonos, tipografía Barlow Condensed incluida en
