@@ -627,18 +627,20 @@ se cambia el contenido.
 
 `node scripts/resumenes/tema-completo.mjs 01` genera `temario/completo/tema-01.{pdf,docx,html}`
 (portada, índice con páginas, 11 apartados, las 11 preguntas reales 2021-2025,
-test de 16 preguntas con soluciones y QR al Campus). Todo sale de UNA fuente:
+test de 16 preguntas con soluciones y QR al Campus; papel con marca de agua y logo dorado de Sofía, `public/marca/oficiales/`). Todo sale de UNA fuente:
 `temario/completo/tema-01.contenido.mjs`; el PDF, con Chromium
 (`scripts/resumenes/tema-completo.css`), y el DOCX, con
 `scripts/resumenes/tema_completo_docx.py`. Para otro tema se crea su
 `tema-NN.contenido.mjs`. El esquema (`temario/esquemas/tema-01.pdf`) ya tiene 2
-páginas: el esquema general y «La nacionalidad paso a paso».
+páginas: el esquema general y «La nacionalidad paso a paso». El DOCX
+(`temario/esquemas/tema-01.docx`) es EDITABLE (tablas y texto de Word) y lo hace
+`scripts/resumenes/esquema_docx.py`, que repite el contenido del esquema: si se
+cambia un texto en `esquema-tema-01.mjs`, hay que cambiarlo también allí.
 
 ## 2s · Documentos compartidos de los admin (19 nov, regla 134)
 
 Pestaña «Documentos» (Sistema): carpetas y archivos privados, solo para los
 admin; cualquier admin sube y borra. Código: `app/lib/documentos.ts`,
 `app/actions/documentos.ts`, `AdminDocumentos.tsx`, `tests/documentos.test.ts`.
-**Falta ejecutar `docs/sql/documentos.sql` en la BD real** (dos tablas, el
-depósito privado `documentos` y 5 carpetas iniciales). Sin eso la pestaña da
-error al abrirla. `supabase/schema.json` ya incluye las dos tablas.
+**Ejecutado el 19 nov** `docs/sql/documentos.sql` en la BD real (dos tablas, el
+depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/schema.json` ya incluye las dos tablas.

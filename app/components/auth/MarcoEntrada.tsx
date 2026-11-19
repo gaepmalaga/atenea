@@ -40,8 +40,8 @@ export default function MarcoEntrada({ children }: { children: ReactNode }) {
           src={MARCA.isotipo}
           alt=""
           aria-hidden
-          width={1065}
-          height={1106}
+          width={1500}
+          height={1560}
           fetchPriority="high"
           className="puerta-a pointer-events-none absolute left-[50%] top-[-12%] w-[72%] max-w-none drop-shadow-[0_24px_48px_rgba(4,10,28,0.45)] lg:left-[44%] lg:top-auto lg:bottom-[-12%] lg:w-[min(80%,66dvh)]"
         />
@@ -75,8 +75,8 @@ export default function MarcoEntrada({ children }: { children: ReactNode }) {
           <img
             src={MARCA.logotipo}
             alt={`${MARCA.nombre}, ${MARCA.lema.toLowerCase()}`}
-            width={1200}
-            height={254}
+            width={1800}
+            height={409}
             className="-ml-1 block h-auto w-[164px] sm:w-[190px] lg:w-[230px]"
           />
         </div>

@@ -100,3 +100,6 @@ ol.test .ops .l { flex: none; width: 5mm; height: 5mm; border: 1.3px solid var(-
 .cierre p { color: #cfd9f2; margin: 0 0 2px; }
 .cierre b { color: var(--oro-claro); }
 .cierre .peq { font-size: 9pt; color: #aab7d8; }
+
+/* Papel con marca de agua de Alphapol detrás de todas las páginas (en la portada lo tapa su fondo marino). */
+.papel { position: fixed; inset: 0; z-index: -1; background: #fff url('../../public/marca/oficiales/papel-marca-de-agua-a4.webp') center / 100% 100% no-repeat; }

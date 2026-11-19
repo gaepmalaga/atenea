@@ -30,6 +30,7 @@ FUENTE = 'Calibri'
 datos = json.load(open(sys.argv[1], encoding='utf-8'))
 salida = sys.argv[2]
 logo = sys.argv[3] if len(sys.argv) > 3 else None
+logo_dorado = sys.argv[4] if len(sys.argv) > 4 else None
 meta, secciones, reales, test = datos['meta'], datos['secciones'], datos['realesPorAnio'], datos['test']
 LETRAS = 'ABC'
 
@@ -271,6 +272,14 @@ r = fp.add_run(f"· Tema {meta['numero']} · {meta['titulo']}\t\t")
 r.font.size, r.font.color.rgb = Pt(8), SUAVE
 campo(fp, 'PAGE')
 fp.paragraph_format.tab_stops.add_tab_stop(Cm(17), alignment=2)
+
+
+# Cabecera de las páginas interiores: el logo dorado, pequeño y a la derecha
+if logo_dorado:
+    hp = sec.header.paragraphs[0]
+    hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    hp.add_run().add_picture(logo_dorado, height=Cm(1.3))
+    hp.paragraph_format.space_after = Pt(0)
 
 
 # ───────────── Piezas ─────────────

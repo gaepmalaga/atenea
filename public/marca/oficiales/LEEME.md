@@ -9,3 +9,19 @@
 | `papel-marca-de-agua-a4.webp` | Hoja A4 con el logo repetido en diagonal, muy suave (1414×2000) | Fondo de documentos y cartas |
 
 Los vectoriales (SVG) de la carpeta superior siguen siendo la mejor opción para pantalla.
+
+## Vectoriales (enviados por Sofía el 19 nov, Illustrator y CorelDRAW)
+
+En `vectoriales/` están los **PDF originales** (la fuente: `ALPHAPOL-variantes-illustrator.pdf` y
+`alphapol-dorado-fondo-claro-coreldraw.pdf`) y, sacado de ellos, cada variante recortada al
+logo, con fondo transparente, en **PNG de 3000 px de ancho** y, cuando pesa poco, en SVG:
+
+| Variante | Fondo | PNG | SVG |
+|---|---|---|---|
+| Dorado degradado | oscuro («POL» blanco) | sí | no (10 MB: usar el PDF o el PNG) |
+| Dorado plano | oscuro | sí | sí |
+| Azul / Magenta / Gris | oscuro | sí | sí |
+| Dorado degradado | **claro** (todo dorado) | sí | sí (2 MB) |
+
+La tipografía del logo está convertida a curvas en el SVG. Los SVG salen de un PDF con
+degradados, por eso pesan: para pantalla es mejor el PNG, y para imprimir, los PDF originales.
