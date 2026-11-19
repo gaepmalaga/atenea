@@ -627,7 +627,7 @@ se cambia el contenido.
 
 `node scripts/resumenes/tema-completo.mjs 01` genera `temario/completo/tema-01.{pdf,docx,html}`
 (portada, índice con páginas, 11 apartados, las 11 preguntas reales 2021-2025,
-test de 16 preguntas con soluciones y QR al Campus). Todo sale de UNA fuente:
+test de 16 preguntas con soluciones y QR al Campus; papel con marca de agua y logo dorado de Sofía, `public/marca/oficiales/`). Todo sale de UNA fuente:
 `temario/completo/tema-01.contenido.mjs`; el PDF, con Chromium
 (`scripts/resumenes/tema-completo.css`), y el DOCX, con
 `scripts/resumenes/tema_completo_docx.py`. Para otro tema se crea su
@@ -639,6 +639,5 @@ páginas: el esquema general y «La nacionalidad paso a paso».
 Pestaña «Documentos» (Sistema): carpetas y archivos privados, solo para los
 admin; cualquier admin sube y borra. Código: `app/lib/documentos.ts`,
 `app/actions/documentos.ts`, `AdminDocumentos.tsx`, `tests/documentos.test.ts`.
-**Falta ejecutar `docs/sql/documentos.sql` en la BD real** (dos tablas, el
-depósito privado `documentos` y 5 carpetas iniciales). Sin eso la pestaña da
-error al abrirla. `supabase/schema.json` ya incluye las dos tablas.
+**Ejecutado el 19 nov** `docs/sql/documentos.sql` en la BD real (dos tablas, el
+depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/schema.json` ya incluye las dos tablas.

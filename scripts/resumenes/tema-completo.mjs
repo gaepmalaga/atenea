@@ -95,6 +95,7 @@ const indice = (paginas) => {
 const css = await readFile(join(RAIZ, 'scripts', 'resumenes', 'tema-completo.css'), 'utf8');
 const construye = (paginas) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Alphapol · Tema ${meta.numero} · ${esc(meta.titulo)}</title>
 <style>${css}</style></head><body>
+<div class="papel"></div>
 <div class="portada">
   <div class="top"><img src="../../public/marca/alphapol-logotipo.svg" alt="Alphapol"><span class="esc">${esc(meta.escala)}</span></div>
   <div class="centro">
@@ -122,7 +123,12 @@ async function genera(paginas) {
   await pag.goto(pathToFileURL(fichero).href);
   await pag.evaluate(() => document.fonts.ready);
   const pdf = join(CARPETA, `tema-${NN}.pdf`);
-  await pag.pdf({ path: pdf, format: 'A4', printBackground: true, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: pieHtml, preferCSSPageSize: true });
+  // La portada sin pie y el resto con él: dos pasadas (la numeración sigue contando la portada) y se unen.
+  const portada = join(tmpdir(), `portada-${NN}.pdf`);
+  const cuerpo = join(tmpdir(), `cuerpo-${NN}.pdf`);
+  await pag.pdf({ path: portada, format: 'A4', printBackground: true, preferCSSPageSize: true, pageRanges: '1' });
+  await pag.pdf({ path: cuerpo, format: 'A4', printBackground: true, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: pieHtml, preferCSSPageSize: true, pageRanges: '2-' });
+  execFileSync('pdfunite', [portada, cuerpo, pdf]);
   await nav.close();
   return pdf;
 }
@@ -149,5 +155,5 @@ console.log('PDF', execFileSync('pdfinfo', [pdf]).toString().match(/Pages:\s+\d+
 const dir = await mkdtemp(join(tmpdir(), 'tema-'));
 const json = join(dir, 'tema.json');
 await writeFile(json, JSON.stringify({ meta, secciones, realesPorAnio, test }));
-execFileSync('python3', ['-I', join(RAIZ, 'scripts', 'resumenes', 'tema_completo_docx.py'), json, join(CARPETA, `tema-${NN}.docx`), join(RAIZ, 'public', 'marca', 'alphapol-logo.jpg')], { stdio: 'inherit' });
+execFileSync('python3', ['-I', join(RAIZ, 'scripts', 'resumenes', 'tema_completo_docx.py'), json, join(CARPETA, `tema-${NN}.docx`), join(RAIZ, 'public', 'marca', 'alphapol-logo.jpg'), join(RAIZ, 'public', 'marca', 'oficiales', 'logo-dorado-completo.png')], { stdio: 'inherit' });
 console.log('OK', CARPETA);
