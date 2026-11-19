@@ -273,6 +273,13 @@ describe('el guion y los flujos', () => {
     expect(guion).toMatch(/yaAvisado/);
   });
 
+  it('cada petición al BOE o a la UE tiene tope de tiempo', () => {
+    // Las del BOE y Cellar pasan todas por `pedir`; el correo va aparte.
+    expect(guion).toMatch(/async function pedir[\s\S]{0,400}signal: AbortSignal\.timeout\(/);
+    const fetches = [...guion.matchAll(/await fetch\((?!'https:\/\/api\.resend\.com)/g)];
+    expect(fetches).toHaveLength(1);
+  });
+
   it('solo escribe con --hazlo y con tope', () => {
     expect(guion).toMatch(/if \(!HAZLO\)[\s\S]{0,120}process\.exit\(0\)/);
     expect(guion).toMatch(/nuevos\.length > MAXIMO/);

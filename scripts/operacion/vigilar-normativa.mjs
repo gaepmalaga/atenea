@@ -74,11 +74,15 @@ async function todas(pedir, etiqueta) {
   return filas;
 }
 
-/** GET con dos reintentos: el BOE a veces corta una descarga grande. */
+/**
+ * GET con dos reintentos: el BOE a veces corta una descarga grande. Con tope de
+ * 90 s por petición: sin él, un servidor que se queda callado deja la ejecución
+ * esperando hasta que GitHub la mata.
+ */
 async function pedir(url, accept) {
   for (let intento = 1; ; intento++) {
     try {
-      const res = await fetch(url, { headers: { ...CABECERAS, Accept: accept } });
+      const res = await fetch(url, { headers: { ...CABECERAS, Accept: accept }, signal: AbortSignal.timeout(90_000) });
       if (res.status === 404) return { estado: 404, texto: '' };
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return { estado: 200, texto: await res.text() };
