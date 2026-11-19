@@ -189,13 +189,19 @@ function preceptosEn(textoOriginal: string): Hallazgo[] {
   // «Artículo único» (el de los reales decretos que aprueban un reglamento).
   for (const m of t.matchAll(/\barticulo\s+unico\b/g)) hallazgos.push({ pos: m.index ?? 0, fin: (m.index ?? 0) + m[0].length, claves: ['art:unico'] });
 
-  // Artículos en letra: «Artículo primero», «Artículo vigésimo primero», «Artículo cincuenta y uno».
-  for (const m of t.matchAll(/\barticulo\s+([a-z]+(?:\s+[a-z]+){0,3})/g)) {
+  // Artículos en letra: «Artículo primero», «Artículo vigésimo primero», y
+  // así rotula la LOPJ todos los suyos: «Artículo sesenta y cuatro bis».
+  const sufijos = new Set(SUFIJOS.split('|'));
+  for (const m of t.matchAll(/\barticulo\s+([a-z]+(?:\s+[a-z]+){0,5})/g)) {
     const palabras = m[1].split(/\s+/);
     for (let n = palabras.length; n >= 1; n--) {
       const trozo = palabras.slice(0, n).join(' ');
       const v = ordinalANumero(trozo) ?? cardinalANumero(trozo);
-      if (v !== null) { hallazgos.push({ pos: m.index ?? 0, fin: (m.index ?? 0) + m[0].length, claves: [`art:${v}`] }); break; }
+      if (v !== null) {
+        const sufijo = sufijos.has(palabras[n]) ? palabras[n] : '';
+        hallazgos.push({ pos: m.index ?? 0, fin: (m.index ?? 0) + m[0].length, claves: [`art:${v}${sufijo}`] });
+        break;
+      }
     }
   }
 
