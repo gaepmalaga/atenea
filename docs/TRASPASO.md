@@ -672,9 +672,16 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   referencia legal (la ley, nunca «Tomo I») y su página del Tomo en el registro
   de la sesión. Los temas 6, 10 y 12 quedan por debajo del tope porque el texto
   se agota antes; con lo que ya había superan el objetivo de cobertura del plan.
-- **Dificultad:** la pone el clasificador de «Operación» (acción
-  `dificultad-nuevas`, regla 121), lanzado el 19 nov desde la rama para las 985
-  pendientes y las 725 activas de la batería que estaban sin clasificar.
+- **Dificultad:** puesta el 19 nov por el clasificador de «Operación» (acción
+  `dificultad-nuevas`, regla 121, lanzada desde la rama) a las 985 pendientes y
+  a las 725 activas de la batería que estaban sin clasificar: 1.710 escritas,
+  ningún fallo, 0,15 $. Pendientes: 68 fáciles, 356 medias y 561 difíciles (el
+  modelo las ve duras porque preguntan órganos, plazos y cifras concretas; el
+  tutor puede corregirla, regla 122). Ya están **completas** para aprobarse.
+- **Antes de aprobarlas en bloque hay que desplegar la rama:** en `main`,
+  «Publicar las N completas» manda todos los id en una sola consulta y con
+  cientos de preguntas la URL se pasa de largo; el arreglo (tandas de 100,
+  commit `bae9bad`) está en la rama sin desplegar.
 - **Repetidas:** ensayo de familias (regla 119) con activas + pendientes: 67 de
   las 985 repiten un hecho que ya estaba activo y 29 se repiten entre sí. No se
   borran: `npm run familias -- --hazlo` las agrupa cuando se aprueben (solo
@@ -688,8 +695,8 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   resolución) pueden estar desplazadas por el Reglamento (UE) 2024/1348. Hay
   que contrastarlas con la Instrucción de la Subsecretaría de 11-6-2026 antes de
   aprobarlas.
-- **Falta:** que el tutor revise y apruebe desde «Banco oficial» (ya tienen
-  explicación; la dificultad llega con el clasificador). Después, `familias`.
+- **Falta:** desplegar la rama, que el tutor revise y apruebe desde «Banco
+  oficial», y después `npm run familias -- --hazlo`.
 - **Encontrado de paso:** una pregunta ACTIVA del tema 7 sobre el CEISE tiene
   una respuesta «correcta» sin sentido (id `8bb7c761-d22f-4bbe-be9c-8163046782ce`).
   Corregirla o desactivarla desde «Banco oficial».
