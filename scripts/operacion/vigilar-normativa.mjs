@@ -253,7 +253,8 @@ for (const { q, fecha, citas } of vigiladas) {
       // Con los rótulos que más se le parecen, tal cual vienen: si el lector no
       // entiende cómo rotula el BOE una norma, aquí se ve.
       const num = /\d+/.exec(c.precepto)?.[0];
-      const parecidos = num ? norma.lista.filter((b) => new RegExp(`(^|\\D)${num}(\\D|$)`).test(b.id)).slice(0, 3).map((b) => `${b.id}=${JSON.stringify(b.titulo)}`).join(', ') : '';
+      const mismoNumero = new RegExp(`(^|\\D)${num}(\\D|$)`);
+      const parecidos = num ? norma.lista.filter((b) => mismoNumero.test(b.id) || mismoNumero.test(b.titulo ?? '')).slice(0, 3).map((b) => `${b.id}=${JSON.stringify(b.titulo)}`).join(', ') : '';
       anota(`${nombre}: no tiene ${preceptoLegible(c.precepto)}${parecidos ? ` (en el BOE: ${parecidos})` : ''}`);
       continue;
     }

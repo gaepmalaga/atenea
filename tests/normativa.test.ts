@@ -78,6 +78,7 @@ describe('ordinales y rótulos del BOE', () => {
     expect(preceptoDelRotulo('Art 1')).toBe('art:1'); // así rotula el Código Civil
     expect(preceptoDelRotulo('Artículo primero')).toBe('art:1'); // y así la LOFCS
     expect(preceptoDelRotulo('Artículo 8 ter')).toBe('art:8ter');
+    expect(preceptoDelRotulo('Artículo 18.bis')).toBe('art:18bis'); // así rotula la LO 4/2000
     expect(preceptoDelRotulo('Disposición adicional undécima. Conflictos de atribuciones')).toBe('da:11');
     expect(preceptoDelRotulo('Disposición transitoria única')).toBe('dt:unica');
     expect(preceptoDelRotulo('ANEXO II')).toBe('anexo:2');

@@ -162,8 +162,9 @@ function preceptosEn(textoOriginal: string): Hallazgo[] {
   const hallazgos: Hallazgo[] = [];
 
   // Artículos en cifra. «Art. 8 ter.4» es el 8 ter; en «Art. 12.2 bis» el
-  // «bis» es del apartado, y el artículo es el 12.
-  const reArt = new RegExp(`\\b(art(?:iculo)?s?)\\b\\.?\\s*(\\d{1,4})(?:\\s*(${SUFIJOS})\\b)?`, 'g');
+  // «bis» es del apartado, y el artículo es el 12. La LO 4/2000 rotula
+  // «Artículo 18.bis», con punto: también es el 18 bis.
+  const reArt = new RegExp(`\\b(art(?:iculo)?s?)\\b\\.?\\s*(\\d{1,4})(?:[\\s.]*(${SUFIJOS})\\b)?`, 'g');
   const reLista = new RegExp(`^(?:\\.\\d+[a-z]?)*((?:\\s*(?:,|\\by\\b)\\s*\\d{1,4}(?:\\s*(?:${SUFIJOS})\\b)?(?:\\.\\d+[a-z]?)*)+)`);
   for (const m of t.matchAll(reArt)) {
     const pos = m.index ?? 0;
