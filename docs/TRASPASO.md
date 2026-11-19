@@ -607,3 +607,14 @@ cómo lleva el temario ese grupo. Sin pestaña aparte.
   física» se queda con Planificar y Marcas.
 - Regla 133: el último acceso (Logs y Alumnos) sale de la sesión renovada, no solo del último inicio de sesión. Función `ultimo_acceso_usuarios` creada en la BD real el 18 nov (`docs/sql/ultimo-acceso.sql`).
 - Pendiente de mejora: aviso de «clases sin rellenar» en el Inicio del admin.
+
+## 2r · Esquemas visuales del temario (19 nov)
+
+Una página A4 apaisada por tema, con la marca de Alphapol, para regalar a cambio
+de los datos del interesado (como hacen otras academias). El primero:
+`temario/esquemas/tema-01.{pdf,png,html}`. Se genera con
+`node scripts/resumenes/esquema-tema-01.mjs` (Chromium de Playwright; iconos de
+Lucide a dos tonos, tipografía Barlow Condensed incluida en
+`temario/esquemas/fuentes/`). Cada dato lleva su artículo, sacado del texto
+consolidado del BOE (`temario/md/tema-01.md`). Para otro tema se copia el guion y
+se cambia el contenido.
