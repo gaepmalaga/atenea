@@ -43,9 +43,10 @@ const css = `
 @page { size: 297mm 210mm; margin: 0; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-html { width: 1123px; height: 793px; overflow: hidden; }
-body { width: 1123px; height: 793px; overflow: hidden; background: var(--crema); color: var(--texto);
-  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-size: 9.5px; line-height: 1.3; position: relative; }
+body { background: var(--crema); color: var(--texto);
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-size: 9.5px; line-height: 1.3; }
+.hoja { width: 1123px; height: 793px; overflow: hidden; position: relative; break-after: page; background: var(--crema); }
+.hoja:last-child { break-after: auto; }
 .t { font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .02em; }
 
 /* Marca de agua */
@@ -185,6 +186,53 @@ mark { background: #fbe58a; color: var(--marino-hondo); padding: 0 2px; border-r
 .qr p { font-size: 8.8px; color: #cfd9f2; margin-top: 3px; line-height: 1.28; }
 .qr p b { color: var(--oro-claro); }
 
+
+/* Página 2: la nacionalidad paso a paso */
+.flujo2 { display: flex; gap: 10px; height: 196px; flex: none; }
+.flujo2 .pregunta { flex: none; width: 92px; background: var(--marino); color: #fff; border-radius: 9px; border-bottom: 4px solid var(--oro); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px; clip-path: polygon(0 0, 88% 0, 100% 50%, 88% 100%, 0 100%); padding-right: 16px; }
+.flujo2 .pregunta b { font-size: 21px; font-weight: 800; line-height: 1.02; color: var(--oro-claro); }
+.flujo2 .pregunta span { font-size: 8.5px; color: #c9d4ee; margin-top: 4px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+.flujo2 .rama { flex: 1; display: grid; grid-template-columns: 1.15fr 1.2fr .95fr; gap: 8px; }
+.nodo { border-radius: 9px; overflow: hidden; background: #fff; border: 1px solid var(--linea); padding-bottom: 5px; }
+.nodo .cab2 { display: flex; align-items: center; gap: 6px; padding: 5px 9px 4px; color: #fff; }
+.nodo .cab2 h4 { font-size: 13.5px; font-weight: 800; line-height: 1; flex: 1; }
+.nodo .cab2 em { font-style: normal; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; opacity: .9; }
+.n-o .cab2 { background: #b9430f; } .n-b .cab2 { background: var(--azul); } .n-c .cab2 { background: var(--verde); }
+.nodo ul { padding: 6px 10px 0; font-size: 10.6px; line-height: 1.34; }
+.nodo li { margin-bottom: 4px; }
+.nodo .mini { margin: 4px 10px 0; font-size: 9.4px; background: #eef3fb; border-radius: 5px; padding: 3px 6px; line-height: 1.25; }
+.doble { display: grid; grid-template-columns: 1.55fr 1fr; gap: 8px; flex: 1 1 auto; min-height: 0; }
+.esc2, .perd { background: #fff; border: 1px solid var(--linea); border-radius: 9px; padding: 7px 11px 6px; overflow: hidden; }
+.et2 { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; border-bottom: 2px solid var(--oro); padding-bottom: 2px; }
+.et2 span { font-size: 16px; font-weight: 800; color: var(--marino); }
+.et2 em { font-style: normal; font-size: 8.6px; color: var(--suave); }
+.escalera { display: grid; grid-template-columns: 1fr 1fr 1.5fr 2fr; gap: 6px; align-items: end; height: 205px; }
+.peld { border-radius: 7px 7px 0 0; color: #fff; padding: 5px 7px; display: flex; flex-direction: column; justify-content: flex-start; line-height: 1.2; }
+.peld b { font-size: 34px; font-weight: 800; line-height: .9; color: var(--oro-claro); }
+.peld span { font-size: 9px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; margin-bottom: 3px; }
+.peld p { font-size: 9.4px; margin: 0; } .peld p b { font-size: inherit; color: #fff; font-weight: 800; line-height: inherit; }
+.peld mark { background: #fbe58a; color: var(--marino-hondo); font-size: 9.4px; }
+.p10 { background: var(--marino-hondo); height: 100%; } .p5 { background: var(--marino); height: 80%; } .p2 { background: var(--azul); height: 100%; } .p1 { background: #5e86c8; height: 100%; }
+.p2 { height: 70%; } .p1 { height: 58%; }
+.req { margin-top: 12px; } .req .ti { font-size: 12px; font-weight: 800; color: var(--oro-oscuro); margin-bottom: 3px; }
+.pasos4 { display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 1fr; gap: 5px; }
+.pasos4 > div { background: var(--marino); color: #fff; border-radius: 6px; padding: 5px 7px; font-size: 9.4px; line-height: 1.24; }
+.pasos4 > div b { color: var(--oro-claro); } .pasos4 > div b:first-child { font-size: 15px; font-weight: 800; margin-right: 3px; }
+.pasos4 .rojo { background: #b9430f; } .pasos4 .rojo b { color: #fff; }
+.linea-t { position: relative; padding-left: 4px; }
+.linea-t::before { content: ''; position: absolute; left: 14px; top: 8px; bottom: 8px; width: 2px; background: var(--oro); }
+.hito { display: flex; gap: 8px; margin-bottom: 17px; position: relative; }
+.hito i { flex: none; width: 21px; height: 21px; border-radius: 50%; background: var(--marino); display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; z-index: 1; }
+.hito.ok i { background: var(--verde); }
+.hito p { font-size: 10.2px; line-height: 1.32; margin: 0; }
+.test2 { background: linear-gradient(135deg, var(--marino), var(--marino-hondo)); border-radius: 9px; border-bottom: 4px solid var(--oro); color: #fff; padding: 7px 14px; display: flex; gap: 14px; align-items: center; flex: none; height: 92px; }
+.test2 .tt { flex: none; width: 90px; line-height: 1.1; } .test2 .tt b { font-size: 20px; font-weight: 800; color: var(--oro-claro); display: block; }
+.test2 .tt span { font-size: 8.5px; color: #c9d4ee; display: block; margin-top: 3px; }
+.test2 ol { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; list-style: decimal; padding-left: 14px; font-size: 9.6px; line-height: 1.28; color: #e8eefc; }
+.test2 ol b { color: var(--oro-claro); }
+.test2 li { padding-left: 0; margin: 0; } .test2 li::before { display: none; }
+.test2 .sol { flex: none; width: 160px; font-size: 9px; color: var(--oro-claro); border-left: 1.5px solid rgba(255,255,255,.25); padding-left: 12px; font-weight: 600; line-height: 1.35; }
+
 /* Pie */
 .pie { display: flex; justify-content: space-between; align-items: flex-start; border-top: 1.6px solid var(--oro); padding: 4px 2px 0; margin-top: auto; height: 30px; flex: none; }
 .pie .l { font-size: 8px; color: var(--suave); line-height: 1.35; }
@@ -200,6 +248,7 @@ const html = `<!doctype html>
 <title>Alphapol · Tema 1 · El Derecho · Esquema con radar de examen</title>
 <style>${css}</style></head>
 <body>
+<div class="hoja" id="h1">
 <img class="agua" src="../../public/marca/alphapol-isotipo.svg" alt="">
 <div class="pagina">
 
@@ -370,8 +419,97 @@ const html = `<!doctype html>
 
   <div class="pie">
     <div class="l"><b>ALPHAPOL</b> · Centro de formación · Málaga &nbsp;|&nbsp; campus.alphapol.es<br>Fuente: Código Civil (BOE-A-1889-4763), texto consolidado. Radar: preguntas del Tema 1 en los exámenes oficiales de Escala Básica 2021-2025, contadas por Alphapol.</div>
-    <div class="r"><b>T1 |</b> EL DERECHO<br>Contenido para uso personal de estudio</div>
+    <div class="r"><b>T1 |</b> EL DERECHO · página 1 de 2<br>Contenido para uso personal de estudio</div>
   </div>
+</div>
+</div>
+
+<!-- ═════════ PÁGINA 2 · LA NACIONALIDAD PASO A PASO ═════════ -->
+<div class="hoja" id="h2">
+<img class="agua" src="../../public/marca/alphapol-isotipo.svg" alt="">
+<div class="pagina">
+  <div class="cab">
+    <img src="../../public/marca/alphapol-logotipo.svg" alt="Alphapol">
+    <div class="linea"></div>
+    <h1 class="t">La nacionalidad <em>paso a paso</em><small>Es el 64 % de lo que ha caído del Tema 1: aquí está entera, en orden y con las trampas</small></h1>
+    <div class="esc"><small>Escala</small><b class="t">Básica · Ciencias Jurídicas</b></div>
+    <div class="num"><div><span>Tema</span><b class="t">1</b></div></div>
+  </div>
+
+  <div class="flujo2">
+    <div class="pregunta"><b class="t">¿Cómo se es español?</b><span>Arts. 17 a 26</span></div>
+    <div class="rama">
+      <div class="nodo n-o"><div class="cab2">${icono('Flag', { size: 15, color: '#fff' })}<h4 class="t">A · Se nace español</h4><em>Origen · art. 17</em></div>
+        <ul>
+          <li><b>Hijos de padre o madre españoles</b> (la que cayó en 2025).</li>
+          <li><b>Nacidos en España</b> de extranjeros si <b>uno nació también aquí</b> (no hijos de diplomáticos).</li>
+          <li>Nacidos en España de padres <b>sin nacionalidad</b> atribuible o con <b>filiación no determinada</b>.</li>
+          <li>Si la filiación se determina <b>después de los 18</b>: <b>opta en 2 años</b> (17.2).</li>
+        </ul>
+      </div>
+      <div class="nodo n-b"><div class="cab2">${icono('Handshake', { size: 15, color: '#fff' })}<h4 class="t">B · Se tiene derecho a optar</h4><em>Opción · art. 20</em></div>
+        <ul>
+          <li><b>Están o han estado bajo la patria potestad</b> de un español (cayó en 2023).</li>
+          <li>Padre o madre <b>originariamente español y nacido en España</b> (<b>sin límite de edad</b>).</li>
+          <li><b>Adoptado mayor de 18</b> (19.2) → <b>2 años</b> desde la adopción (cayó en 2022).</li>
+        </ul>
+        <div class="mini"><b>Quién declara:</b> &lt;14 años, su representante · ≥14, asistido por él · emancipado o ≥18, <b>por sí solo</b>. Caduca a los <b>20 años</b>.</div>
+      </div>
+      <div class="nodo n-c"><div class="cab2">${icono('Stamp', { size: 15, color: '#fff' })}<h4 class="t">C · Carta de naturaleza</h4><em>Art. 21.1</em></div>
+        <ul>
+          <li>La da el <b>Gobierno por Real Decreto</b>, de forma <b>discrecional</b>.</li>
+          <li>Hacen falta <b>circunstancias excepcionales</b> en el interesado.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="doble">
+    <div class="esc2">
+      <div class="et2"><span class="t">D · Por residencia: la escalera</span><em>Art. 22 · legal, continuada e inmediatamente anterior a la petición</em></div>
+      <div class="escalera">
+        <div class="peld p10"><b class="t">10</b><span>años</span><p><b>Regla general</b></p></div>
+        <div class="peld p5"><b class="t">5</b><span>años</span><p><b>Refugiados</b></p></div>
+        <div class="peld p2"><b class="t">2</b><span>años</span><p><b>Iberoamérica, Andorra, Filipinas, G. Ecuatorial, Portugal</b> y <b>sefardíes</b><br><mark>Mónaco NO está</mark></p></div>
+        <div class="peld p1"><b class="t">1</b><span>año</span><p>Nacido en España · <b>no ejerció la opción</b> a tiempo · tutela o acogimiento 2 años · casado 1 año · viudo · nieto de español</p></div>
+      </div>
+      <div class="req">
+        <div class="ti t">Y luego, siempre (art. 23)</div>
+        <div class="pasos4">
+          <div><b>1</b>Jurar o prometer fidelidad al <b>Rey</b> y obediencia a la CE y a las leyes (≥14 años)</div>
+          <div><b>2</b><b>Renunciar</b> a la anterior (salvo los de la lista del 24.1 y sefardíes)</div>
+          <div><b>3</b><b>Inscribir</b> en el Registro Civil</div>
+          <div class="rojo"><b>180</b>días para comparecer, o <b>caduca</b> (21.4)</div>
+        </div>
+      </div>
+    </div>
+    <div class="perd">
+      <div class="et2"><span class="t">Perder y recuperar</span><em>Arts. 24 a 26</em></div>
+      <div class="linea-t">
+        <div class="hito"><i>${icono('Hourglass', { size: 13, color: '#fff' })}</i><p><b>3 años</b> viviendo fuera, siendo emancipado y <b>adquiriendo otra nacionalidad voluntariamente</b> (o usando solo la extranjera) → <b>se pierde</b>… salvo que se <b>declare conservarla</b> en ese plazo.</p></div>
+        <div class="hito"><i>${icono('Ban', { size: 13, color: '#fff' })}</i><p><b>No originarios:</b> 3 años usando solo la anterior, o servir en armas / cargo político extranjero <b>contra la prohibición del Gobierno</b>.</p></div>
+        <div class="hito"><i>${icono('Shield', { size: 13, color: '#fff' })}</i><p><mark>En guerra no se pierde</mark> (24.4). Ningún español <b>de origen</b> puede ser privado de ella (art. 11 CE).</p></div>
+        <div class="hito ok"><i>${icono('Undo2', { size: 13, color: '#fff' })}</i><p><b>Recuperar (26):</b> residir legalmente · <b>declararlo ante el Registro Civil</b> (cayó en 2021) · inscribirlo.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="test2">
+    <div class="tt"><b class="t">Test relámpago</b><span>Contesta sin mirar. Soluciones abajo.</span></div>
+    <ol>
+      <li>Un joven de 20 años, adoptado por españoles el año pasado, ¿cuánto tiempo tiene para optar? <b>(A)</b> 1 año <b>(B)</b> 2 años <b>(C)</b> 10 años</li>
+      <li>¿Qué país de la lista tiene derecho a los 2 años de residencia? <b>(A)</b> Mónaco <b>(B)</b> Filipinas <b>(C)</b> Italia</li>
+      <li>Concedida la residencia, ¿cuántos días hay para comparecer? <b>(A)</b> 90 <b>(B)</b> 180 <b>(C)</b> 365</li>
+      <li>¿Cuántos años fuera, con otra nacionalidad voluntaria, para perder la española (sin declarar)? <b>(A)</b> 3 <b>(B)</b> 5 <b>(C)</b> 10</li>
+    </ol>
+    <p class="sol">Soluciones:<br>1-B (art. 19.2) · 2-B (art. 22.1)<br>3-B (art. 21.4) · 4-A (art. 24.1)</p>
+  </div>
+
+  <div class="pie">
+    <div class="l"><b>ALPHAPOL</b> · Centro de formación · Málaga &nbsp;|&nbsp; campus.alphapol.es<br>Fuente: Código Civil (BOE-A-1889-4763), texto consolidado y Constitución española, art. 11.</div>
+    <div class="r"><b>T1 |</b> EL DERECHO · página 2 de 2<br>Contenido para uso personal de estudio</div>
+  </div>
+</div>
 </div>
 </body></html>`;
 
@@ -382,17 +520,18 @@ const navegador = await chromium.launch();
 const pagina = await navegador.newPage({ viewport: { width: 1123, height: 794 }, deviceScaleFactor: 2 });
 await pagina.goto(pathToFileURL(fichero).href);
 await pagina.evaluate(() => document.fonts.ready);
-// Comprobación: nada se sale de su caja.
+// Comprobación: nada se sale de su caja (en las dos hojas).
 const desbordes = await pagina.evaluate(() => {
   const malos = [];
-  document.querySelectorAll('.bloque, .card, .col, .radar').forEach((e) => {
-    if (e.scrollHeight > e.clientHeight + 1) malos.push(`${e.className} ${e.querySelector('h3,h2')?.textContent?.slice(0, 28)} (+${e.scrollHeight - e.clientHeight}px)`);
+  document.querySelectorAll('.bloque, .card, .col, .radar, .nodo, .esc2, .perd, .test2, .flujo2, .doble').forEach((e) => {
+    if (e.scrollHeight > e.clientHeight + 1) malos.push(`${e.className} ${e.querySelector('h3,h2,h4,.et2,.tt')?.textContent?.slice(0, 28)} (+${e.scrollHeight - e.clientHeight}px)`);
   });
-  if (document.body.scrollHeight > 794) malos.push(`página +${document.body.scrollHeight - 794}px`);
+  document.querySelectorAll('.hoja').forEach((h) => { if (h.scrollHeight > 794) malos.push(`${h.id} +${h.scrollHeight - 793}px`); });
   return malos;
 });
 console.log(desbordes.length ? 'DESBORDES:\n  ' + desbordes.join('\n  ') : 'Sin desbordes');
-await pagina.screenshot({ path: join(CARPETA, 'tema-01.png') });
+await pagina.locator('#h1').screenshot({ path: join(CARPETA, 'tema-01.png') });
+await pagina.locator('#h2').screenshot({ path: join(CARPETA, 'tema-01-p2.png') });
 await pagina.pdf({ path: join(CARPETA, 'tema-01.pdf'), width: '297mm', height: '210mm', printBackground: true, preferCSSPageSize: true });
 await navegador.close();
 console.log('OK', join(CARPETA, 'tema-01.pdf'));

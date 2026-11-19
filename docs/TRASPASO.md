@@ -622,3 +622,14 @@ Lucide a dos tonos, tipografía Barlow Condensed incluida en
 `temario/esquemas/fuentes/`). Cada dato lleva su artículo, sacado del texto
 consolidado del BOE (`temario/md/tema-01.md`). Para otro tema se copia el guion y
 se cambia el contenido.
+
+### Tema completo en PDF y DOCX (19 nov)
+
+`node scripts/resumenes/tema-completo.mjs 01` genera `temario/completo/tema-01.{pdf,docx,html}`
+(portada, índice con páginas, 11 apartados, las 11 preguntas reales 2021-2025,
+test de 16 preguntas con soluciones y QR al Campus). Todo sale de UNA fuente:
+`temario/completo/tema-01.contenido.mjs`; el PDF, con Chromium
+(`scripts/resumenes/tema-completo.css`), y el DOCX, con
+`scripts/resumenes/tema_completo_docx.py`. Para otro tema se crea su
+`tema-NN.contenido.mjs`. El esquema (`temario/esquemas/tema-01.pdf`) ya tiene 2
+páginas: el esquema general y «La nacionalidad paso a paso».
