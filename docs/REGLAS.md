@@ -5109,3 +5109,32 @@ el segundo necesita el proyecto real.
   renovarse la sesión.
 - `tests/accesos.test.ts` vigila la combinación y que Logs y Alumnos la usen.
 
+### 134 · Los documentos de la academia viven en una carpeta privada dentro de la plataforma, no en el repositorio ni en el correo
+- **Qué pasó (19 nov):** Sofía iba a mandar los logos por correo, y los
+  contratos, horarios, material de clase e informes ya se repartían entre
+  correo, WhatsApp y Drive. Y el repositorio de GitHub es público: ahí no puede
+  ir nada privado.
+- **Regla:** pestaña «Documentos» (Sistema), solo para los admin de la academia:
+  carpetas con nombre y archivos con quién los subió y cuándo. **Cualquier admin
+  sube, renombra y borra** (decisión del dueño). Las tablas
+  `document_folders` y `admin_documents` (`docs/sql/documentos.sql`) y el
+  depósito PRIVADO `documentos` de Storage no tienen políticas: solo la clave de
+  servicio (regla 34); cada acción exige `requireAdmin()` y acota por academia
+  dentro de la consulta (regla 65).
+- **El archivo se valida en el servidor** (`app/lib/documentos.ts`): formato de
+  una lista cerrada (PDF, Word, Excel, PowerPoint, imágenes, CSV y TXT; nada que
+  se ejecute, ni HTML ni ZIP), tope de 9 MB y que los primeros bytes sean de ese
+  formato (un `.exe` renombrado a `.pdf` no entra). El nombre del fichero en
+  Storage lo genera el servidor (`org/carpeta/uuid.ext`): el nombre que escribe
+  el usuario es solo una etiqueta (regla 71: sin NUL ni control).
+- **Descarga:** URL firmada de 2 minutos y de descarga forzada: nada se abre
+  dentro de la web (un SVG no ejecuta nada). Las imágenes se enseñan en
+  miniatura con URL firmadas de 10 minutos.
+- **Borrar:** una carpeta solo si está vacía; un documento, tras confirmar, y
+  se quita primero la fila y luego el fichero. Subir y borrar quedan en «Logs».
+- **Límites de hoy:** Supabase Free da 1 GB y no hace copias de seguridad: lo
+  importante que solo exista aquí debe estar también en otro sitio. Para
+  archivos mayores de 9 MB haría falta subir con URL firmadas directas.
+- `tests/documentos.test.ts` vigila la validación y la seguridad de cada acción
+  (comprobado rompiendo el código a propósito).
+

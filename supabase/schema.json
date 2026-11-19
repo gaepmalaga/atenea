@@ -140,6 +140,42 @@
         "target": "text"
       }
     },
+    "admin_documents": {
+      "columnas": [
+        "created_at",
+        "folder_id",
+        "id",
+        "mime_type",
+        "name",
+        "organization_id",
+        "size_bytes",
+        "storage_path",
+        "uploaded_by",
+        "uploaded_email"
+      ],
+      "obligatorias": [
+        "created_at",
+        "folder_id",
+        "id",
+        "mime_type",
+        "name",
+        "organization_id",
+        "size_bytes",
+        "storage_path"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "folder_id": "uuid",
+        "id": "uuid",
+        "mime_type": "text",
+        "name": "text",
+        "organization_id": "uuid",
+        "size_bytes": "bigint",
+        "storage_path": "text",
+        "uploaded_by": "uuid",
+        "uploaded_email": "text"
+      }
+    },
     "ai_quota": {
       "columnas": [
         "bucket",
@@ -478,6 +514,28 @@
         "embedding": "public.vector(3072)",
         "id": "bigint",
         "reference": "text"
+      }
+    },
+    "document_folders": {
+      "columnas": [
+        "created_at",
+        "created_by",
+        "id",
+        "name",
+        "organization_id"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "name",
+        "organization_id"
+      ],
+      "tipos": {
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "id": "uuid",
+        "name": "text",
+        "organization_id": "uuid"
       }
     },
     "documents": {

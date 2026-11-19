@@ -95,6 +95,9 @@ export const TABLAS_POR_ACADEMIA = [
   'receipt_counters',
   'monthly_payments',
   'membership_exemptions',
+  // Los documentos de los admin (regla 134): los archivos antes que sus carpetas.
+  'admin_documents',
+  'document_folders',
   // Apuntan a `academy_staff` (regla 100): antes que él.
   'theory_sessions',
   'staff_activities',

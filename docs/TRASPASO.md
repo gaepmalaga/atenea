@@ -607,3 +607,38 @@ cómo lleva el temario ese grupo. Sin pestaña aparte.
   física» se queda con Planificar y Marcas.
 - Regla 133: el último acceso (Logs y Alumnos) sale de la sesión renovada, no solo del último inicio de sesión. Función `ultimo_acceso_usuarios` creada en la BD real el 18 nov (`docs/sql/ultimo-acceso.sql`).
 - Pendiente de mejora: aviso de «clases sin rellenar» en el Inicio del admin.
+
+## 2r · Esquemas visuales del temario (19 nov)
+
+Una página A4 apaisada por tema, con la marca de Alphapol, para regalar a cambio
+de los datos del interesado. Lo que los distingue: un **radar del examen** (qué
+cae del tema en los 5 exámenes oficiales 2021-2025, contado a mano: de las 20
+preguntas que el documento etiqueta como Tema 1, 11 lo eran de verdad), la
+pregunta real con su año junto a cada concepto, trucos de memoria y un QR al
+Campus. El primero:
+`temario/esquemas/tema-01.{pdf,png,html}`. Se genera con
+`node scripts/resumenes/esquema-tema-01.mjs` (Chromium de Playwright; iconos de
+Lucide a dos tonos, tipografía Barlow Condensed incluida en
+`temario/esquemas/fuentes/`). Cada dato lleva su artículo, sacado del texto
+consolidado del BOE (`temario/md/tema-01.md`). Para otro tema se copia el guion y
+se cambia el contenido.
+
+### Tema completo en PDF y DOCX (19 nov)
+
+`node scripts/resumenes/tema-completo.mjs 01` genera `temario/completo/tema-01.{pdf,docx,html}`
+(portada, índice con páginas, 11 apartados, las 11 preguntas reales 2021-2025,
+test de 16 preguntas con soluciones y QR al Campus). Todo sale de UNA fuente:
+`temario/completo/tema-01.contenido.mjs`; el PDF, con Chromium
+(`scripts/resumenes/tema-completo.css`), y el DOCX, con
+`scripts/resumenes/tema_completo_docx.py`. Para otro tema se crea su
+`tema-NN.contenido.mjs`. El esquema (`temario/esquemas/tema-01.pdf`) ya tiene 2
+páginas: el esquema general y «La nacionalidad paso a paso».
+
+## 2s · Documentos compartidos de los admin (19 nov, regla 134)
+
+Pestaña «Documentos» (Sistema): carpetas y archivos privados, solo para los
+admin; cualquier admin sube y borra. Código: `app/lib/documentos.ts`,
+`app/actions/documentos.ts`, `AdminDocumentos.tsx`, `tests/documentos.test.ts`.
+**Falta ejecutar `docs/sql/documentos.sql` en la BD real** (dos tablas, el
+depósito privado `documentos` y 5 carpetas iniciales). Sin eso la pestaña da
+error al abrirla. `supabase/schema.json` ya incluye las dos tablas.

@@ -57,7 +57,11 @@ export type AccionAuditada =
   | 'apply_exam'
   | 'delete_exam'
   | 'set_exam_result'
-  | 'borrar_demo';
+  | 'borrar_demo'
+  | 'subir_documento_admin'
+  | 'borrar_documento_admin'
+  | 'crear_carpeta_docs'
+  | 'borrar_carpeta_docs';
 
 /** Cómo se lee cada acción en la pantalla, en vez del nombre en inglés-código. */
 export const ACCION_LABEL: Record<AccionAuditada, string> = {
@@ -107,4 +111,8 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   apply_exam: 'Puso un examen a un turno',
   delete_exam: 'Borró un examen o su aplicación',
   set_exam_result: 'Puso una nota o una ausencia en un examen',
+  subir_documento_admin: 'Subió un documento a la carpeta compartida',
+  borrar_documento_admin: 'Borró un documento de la carpeta compartida',
+  crear_carpeta_docs: 'Creó una carpeta de documentos',
+  borrar_carpeta_docs: 'Borró una carpeta de documentos',
 };

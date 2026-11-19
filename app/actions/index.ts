@@ -23,6 +23,7 @@ export * from './asistencia';
 export * from './fisica';
 export * from './cuadrante';
 export * from './teoria';
+export * from './documentos';
 export * from './profesores';
 export * from './payments';
 export * from './calendario';
