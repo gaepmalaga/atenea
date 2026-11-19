@@ -459,7 +459,7 @@ export async function getDocumentChunks() {
 }
 
 export async function approveQuestion() { return { success: true as const }; }
-export async function approveQuestions() { return { success: true as const, approved: 2 }; }
+export async function approveQuestions() { return { success: true as const, approved: 2, sinEtiquetas: 0 }; }
 export async function disableQuestion() { return { success: true as const }; }
 export async function reactivateQuestion() { return { success: true as const }; }
 export async function discardAllQuestions() { return { success: true as const, discarded: 6 }; }
@@ -1392,8 +1392,41 @@ export async function getExamenImprimible(d: { preguntas?: number }) {
       correcta: i % 3,
       tema: TEMAS[i % TEMAS.length],
       dificultad: 2,
+      explicacion: 'La respuesta correcta es la señalada, según el artículo citado.',
+      pendiente: false,
     })),
   });
+}
+// Revisar y corregir antes de imprimir (regla 135): una pregunta nueva sale pendiente.
+let _nuevaN = 0;
+export async function crearPreguntaDeExamen(d: { subjectId?: number; question?: string; options?: string[]; correctIndex?: number }) {
+  _nuevaN += 1;
+  return ok({
+    yaExistia: false,
+    pregunta: {
+      id: `99999999-0000-0000-0000-${String(_nuevaN).padStart(12, '0')}`,
+      enunciado: d?.question || 'Pregunta nueva',
+      opciones: d?.options || ['a', 'b', 'c'],
+      correcta: d?.correctIndex ?? 0,
+      tema: TEMAS[0],
+      dificultad: null as number | null,
+      explicacion: null as string | null,
+      pendiente: true,
+    },
+  });
+}
+export async function getHistorialPregunta() {
+  return ok({
+    cambios: [
+      { id: 'h1', fecha: '2026-11-19T10:12:00.000Z', quien: 'sofia@alphapol.es', origen: 'examen_papel' as const, cambios: ['el enunciado', 'las opciones'],
+        antes: { question_text: 'Enunciado anterior de la pregunta', options: ['x', 'y', 'z'], correct_index: 0, explanation: null, difficulty_level: 2 } },
+      { id: 'h2', fecha: '2026-11-18T17:40:00.000Z', quien: 'christian@alphapol.es', origen: 'banco' as const, cambios: ['la explicación'],
+        antes: { question_text: 'Otro enunciado', options: ['x', 'y', 'z'], correct_index: 1, explanation: null, difficulty_level: 2 } },
+    ],
+  });
+}
+export async function restauraPregunta() {
+  return ok({ campos: { question_text: 'Enunciado anterior de la pregunta', options: ['x', 'y', 'z'], correct_index: 0, explanation: null as string | null, difficulty_level: 2 } });
 }
 
 // ---------- Informe semanal (regla 116) ----------

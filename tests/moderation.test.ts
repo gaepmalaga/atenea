@@ -32,7 +32,7 @@ function cuerpoDe(nombre: string): string {
   return sinComentarios.slice(desde, siguiente === -1 ? undefined : siguiente);
 }
 
-describe('las candidatas solo las modera el superadmin', () => {
+describe('las candidatas', () => {
   it('getModerationQueue solo pide candidatas si el rol es superadmin', () => {
     const cuerpo = cuerpoDe('getModerationQueue');
     expect(cuerpo).toMatch(/auth\.user\.role === 'superadmin'/);
@@ -44,16 +44,32 @@ describe('las candidatas solo las modera el superadmin', () => {
     );
   });
 
-  it('approveQuestion y approveQuestions exigen requireSuperadmin', () => {
-    expect(cuerpoDe('approveQuestion')).toMatch(/requireSuperadmin\(\)/);
-    expect(cuerpoDe('approveQuestions')).toMatch(/requireSuperadmin\(\)/);
+  // Regla 135: las candidatas ya no son solo globales (las hay en el banco
+  // privado de la academia), así que aprobar es del admin, acotado a lo que
+  // puede tocar y solo si la pregunta está completa.
+  it('approveQuestions es del admin, acotado por filtroEscrituraBanco y solo publica las completas', () => {
+    const cuerpo = cuerpoDe('approveQuestions');
+    expect(cuerpo).toMatch(/requireAdmin\(\)/);
+    expect(cuerpo).not.toMatch(/requireSuperadmin\(\)/);
+    expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(auth\.user\)/);
+    expect(cuerpo).toMatch(/if \(alcance\) lectura = lectura\.or\(alcance\)/);
+    expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
+    expect(cuerpo).toMatch(/filter\(\(f\) => estaCompleta\(f\)\)/);
+    // Lo que se actualiza es lo ya filtrado como completo, no los ids de entrada.
+    expect(cuerpo).toMatch(/\.in\('id', listas\)/);
+  });
+
+  it('approveQuestion pasa por approveQuestions y dice qué falta', () => {
+    const cuerpo = cuerpoDe('approveQuestion');
+    expect(cuerpo).toMatch(/approveQuestions\(\[questionId\]\)/);
+    expect(cuerpo).toMatch(/motivoSinEtiquetas/);
   });
 });
 
 describe('editar o desactivar una pregunta respeta la academia', () => {
   // Regla 123: el alcance sale de `filtroEscrituraBanco` (su banco y, con
   // UNA_SOLA_ACADEMIA, el global), y va DENTRO de la consulta.
-  for (const accion of ['disableQuestion', 'updateQuestion', 'reactivateQuestion']) {
+  for (const accion of ['disableQuestion', 'reactivateQuestion']) {
     it(`${accion} acota la consulta con filtroEscrituraBanco, y el superadmin no se filtra`, () => {
       const cuerpo = cuerpoDe(accion);
       expect(cuerpo).toMatch(/requireAdmin\(\)/);
@@ -61,6 +77,22 @@ describe('editar o desactivar una pregunta respeta la academia', () => {
       expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
     });
   }
+
+  // `updateQuestion` delega en `editaPregunta` (regla 135): el alcance se
+  // aplica en la LECTURA previa y en la escritura, y el historial se anota
+  // ANTES de tocar la fila.
+  it('updateQuestion es del admin y editaPregunta acota lectura y escritura, y anota el historial antes', () => {
+    expect(cuerpoDe('updateQuestion')).toMatch(/requireAdmin\(\)/);
+    const src = sinComentarios.slice(sinComentarios.indexOf('async function editaPregunta'));
+    const cuerpo = src.slice(0, src.indexOf('\nexport type CambioDePregunta'));
+    expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(user\)/);
+    expect(cuerpo).toMatch(/if \(alcance\) lectura = lectura\.or\(alcance\)/);
+    expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
+    expect(cuerpo.indexOf("from('question_edit_history').insert")).toBeGreaterThan(-1);
+    expect(cuerpo.indexOf("from('question_edit_history').insert")).toBeLessThan(cuerpo.indexOf("from('question_bank').update"));
+    // Si no se puede anotar, no se edita.
+    expect(cuerpo).toMatch(/if \(errHist\) return \{ success: false/);
+  });
 
   it('reactivar solo devuelve al banco una pregunta DESCARTADA, no convierte en activa una candidata', () => {
     const cuerpo = cuerpoDe('reactivateQuestion');

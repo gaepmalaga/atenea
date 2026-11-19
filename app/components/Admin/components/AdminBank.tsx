@@ -9,6 +9,7 @@ import {
   reactivateQuestion,
   discardAllQuestions,
   approveQuestions,
+  approveQuestion,
   updateQuestion
 } from '@/actions';
 import {
@@ -27,6 +28,8 @@ import QuestionComposer from './QuestionComposer';
 import { UNA_SOLA_ACADEMIA, puedeEditarFilaVisible } from '@/app/lib/permisos-banco';
 import { PanelTitulo, Aviso, Boton, Campo, CampoSelect, Etiqueta, Dato, TablaDual, PanelLateral, EmptyState, TEXT, type Tono } from '../../ui';
 import EditorPregunta from './EditorPregunta';
+import HistorialPregunta from './HistorialPregunta';
+import { estaCompleta, etiquetasQueFaltan, textoFaltan } from '@/app/lib/preguntas-edicion';
 import FamiliasRepetidas from './FamiliasRepetidas';
 import { avisar, confirmar, pedirTexto } from '@/app/lib/dialogos';
 
@@ -76,7 +79,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   });
   // La dificultad se edita aparte del formulario de la pregunta: es de otra
   // naturaleza (no es contenido) y solo se manda si el preparador la cambia.
-  const [editNivel, setEditNivel] = useState<DifficultyLevel>(DIFFICULTY.medium);
+  const [editNivel, setEditNivel] = useState<DifficultyLevel | 0>(DIFFICULTY.medium);
   const [saving, setSaving] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
 
@@ -161,21 +164,34 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
 
   const visibleCandidates = questions.filter(q => q.status === QUESTION_STATUS.CANDIDATE);
 
+  const listasParaPublicar = visibleCandidates.filter((q) => estaCompleta(q));
+  const incompletas = visibleCandidates.length - listasParaPublicar.length;
+
   async function handleApproveVisible() {
-      const ids = visibleCandidates.map(q => q.id);
+      const ids = listasParaPublicar.map(q => q.id);
       if (!ids.length) return;
       if (!(await confirmar(`Se publicaran ${ids.length} preguntas en el banco de los alumnos. ¿Continuar?`))) return;
 
       setBulkRunning(true);
       const res = await approveQuestions(ids);
       if (res.success) {
-          setQuestions(prev => prev.map(q =>
-              ids.includes(q.id) ? { ...q, status: QUESTION_STATUS.ACTIVE } : q
-          ));
+          // Se recarga: el servidor es quien decide cuáles estaban completas.
+          await loadQuestions(stats.page);
+          if (res.sinEtiquetas) void avisar(res.motivoSinEtiquetas ?? 'Alguna pregunta no estaba completa y sigue pendiente.');
       } else {
           void avisar('No se pudieron aprobar: ' + res.error);
       }
       setBulkRunning(false);
+  }
+
+  async function handlePublicarUna(id: string) {
+      setIsDeleting(id);
+      setErrorGuardar(null);
+      const res = await approveQuestion(id);
+      setIsDeleting(null);
+      if (!res.success) { setErrorGuardar(res.error ?? 'No se pudo publicar.'); return; }
+      setEditingQ(null);
+      await loadQuestions(stats.page);
   }
 
   /**
@@ -218,7 +234,8 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   function openEditor(q: AdminBankRow) {
       setEditingQ(q);
       setErrorGuardar(null);
-      setEditNivel(([1, 2, 3] as number[]).includes(q.difficulty_level ?? 0) ? (q.difficulty_level as DifficultyLevel) : DIFFICULTY.medium);
+      // Sin dificultad (una pregunta nueva pendiente) el selector arranca en «Sin poner», no en «Media» (regla 16).
+      setEditNivel(([1, 2, 3] as number[]).includes(q.difficulty_level ?? 0) ? (q.difficulty_level as DifficultyLevel) : (q.difficulty_level == null ? 0 : DIFFICULTY.medium));
       setEditForm({
           // `options` es jsonb y el enunciado puede llegar nulo: el formulario
           // espera cadenas y un array de tres, siempre.
@@ -236,7 +253,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       // El nivel solo viaja si lo ha cambiado: guardar el texto de una pregunta
       // no puede convertir en «puesta por un preparador» una dificultad que
       // en realidad era la estimada.
-      const nivelCambiado = editNivel !== editingQ.difficulty_level;
+      const nivelCambiado = editNivel !== 0 && editNivel !== editingQ.difficulty_level;
       const res = await updateQuestion(editingQ.id, nivelCambiado ? { ...editForm, difficulty_level: editNivel } : editForm);
       if(res.success) {
           setQuestions(prev => prev.map(q => q.id === editingQ.id
@@ -307,9 +324,12 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       {!loading && visibleCandidates.length > 0 && (
         <Aviso>
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <p><b>{visibleCandidates.length}</b> preguntas pendientes en esta página. Los alumnos no las reciben hasta que se publiquen.</p>
-            <Boton size="sm" disabled={bulkRunning} onClick={handleApproveVisible} icon={bulkRunning ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
-              Publicar las {visibleCandidates.length}
+            <p>
+              <b>{visibleCandidates.length}</b> preguntas pendientes en esta página. Los alumnos no las reciben hasta que se publiquen.
+              {incompletas > 0 && <> <b>{incompletas}</b> {incompletas === 1 ? 'no está completa' : 'no están completas'} (les falta la explicación o la dificultad) y no se pueden publicar todavía.</>}
+            </p>
+            <Boton size="sm" disabled={bulkRunning || listasParaPublicar.length === 0} onClick={handleApproveVisible} icon={bulkRunning ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
+              {listasParaPublicar.length === 0 ? 'Ninguna está lista' : `Publicar las ${listasParaPublicar.length} completas`}
             </Boton>
           </div>
         </Aviso>
@@ -343,7 +363,12 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               return <Etiqueta tono={n === 1 ? 'ok' : n === 3 ? 'malo' : 'aviso'}>{DIFFICULTY_LABEL[n]}</Etiqueta>;
             } },
             { id: 'tema', titulo: 'Tema', celda: (q) => <Dato>Tema {q.subjects?.topic_number ?? '—'}</Dato> },
-            { id: 'estado', titulo: 'Estado', celda: (q) => <Etiqueta tono={STATUS_TONO[q.status as QuestionStatus] ?? 'apagado'}>{QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}</Etiqueta> },
+            { id: 'estado', titulo: 'Estado', celda: (q) => (
+              <span className="inline-flex flex-col items-start gap-1">
+                <Etiqueta tono={STATUS_TONO[q.status as QuestionStatus] ?? 'apagado'}>{QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}</Etiqueta>
+                {q.status === QUESTION_STATUS.CANDIDATE && !estaCompleta(q) && <span className="text-[11px] text-amber-800 dark:text-amber-300">{textoFaltan(etiquetasQueFaltan(q))}</span>}
+              </span>
+            ) },
             // Regla 78: de dónde viene la pregunta — antes no se veía, mezclada con el resto de la lista.
             { id: 'origen', titulo: 'Origen', soloAncho: true, celda: (q) => <span className="text-[13px]">{q.academyName ?? 'Banco global'}</span> },
             { id: 'acciones', titulo: '', acciones: true, derecha: true, celda: (q) => (
@@ -417,7 +442,11 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         <PanelLateral titulo="Editar pregunta" sub={`ID ${editingQ.id.substring(0, 8)}`} onCerrar={() => setEditingQ(null)}>
           <EditorPregunta form={editForm} onChange={setEditForm} />
           <div>
-            <CampoSelect label="Dificultad" value={editNivel} onChange={(e) => setEditNivel(Number(e.target.value) as DifficultyLevel)}>
+            {editingQ.status === QUESTION_STATUS.CANDIDATE && !estaCompleta({ explanation: editForm.explanation, difficulty_level: editNivel || editingQ.difficulty_level }) && (
+              <Aviso tono="info"><p>{textoFaltan(etiquetasQueFaltan({ explanation: editForm.explanation, difficulty_level: editNivel || editingQ.difficulty_level }))}. Hasta entonces no se puede publicar a los alumnos.</p></Aviso>
+            )}
+            <CampoSelect label="Dificultad" value={editNivel} onChange={(e) => setEditNivel(Number(e.target.value) as DifficultyLevel | 0)}>
+              {editingQ.difficulty_level == null && <option value={0}>Sin poner</option>}
               {([1, 2, 3] as const).map((n) => <option key={n} value={n}>{DIFFICULTY_LABEL[n]}</option>)}
             </CampoSelect>
             <p className={`${TEXT.muted} mt-1.5`}>{origenDeDificultad(editingQ.difficulty_source)}. Si la cambias, queda como puesta por ti y la IA no la vuelve a tocar.</p>
@@ -436,8 +465,25 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
                 <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
                   {saving ? 'Guardando…' : 'Guardar cambios'}
                 </Boton>
+                {editingQ.status === QUESTION_STATUS.CANDIDATE && (
+                  <Boton variant="secondary" onClick={() => handlePublicarUna(editingQ.id)} disabled={isDeleting === editingQ.id || !estaCompleta(editingQ)}
+                    icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
+                    Publicar
+                  </Boton>
+                )}
                 <Boton variant="ghost" onClick={() => setEditingQ(null)}>Cerrar</Boton>
               </div>
+              {editingQ.status === QUESTION_STATUS.CANDIDATE && !estaCompleta(editingQ) && (
+                <p className={TEXT.muted}>Para publicarla, guarda primero la explicación y la dificultad.</p>
+              )}
+              <HistorialPregunta
+                preguntaId={editingQ.id}
+                onError={setErrorGuardar}
+                onRestaurada={(c) => {
+                  setQuestions(prev => prev.map(q => q.id === editingQ.id ? { ...q, question_text: c.question_text, options: c.options, correct_index: c.correct_index, explanation: c.explanation ?? '' } : q));
+                  setEditingQ(null);
+                }}
+              />
               <div className="border-t border-linea pt-4 dark:border-noche-linea">
                 {editingQ.status === QUESTION_STATUS.DISABLED ? (
                   <>

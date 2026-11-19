@@ -137,7 +137,10 @@ export async function guardaExamen(input: unknown): Promise<{ success: true; id:
     const { data, error } = await supabaseAdmin
       .from('question_bank')
       .select('id, subject_id, question_text, options, correct_index, explanation, legal_reference, difficulty_level')
-      .eq('status', QUESTION_STATUS.ACTIVE)
+      // Activas, más las PENDIENTES de esta academia: las que se han escrito
+      // desde el propio examen (regla 135) valen para imprimir aunque aún no
+      // se sirvan a los alumnos. Dos `.or` se suman con AND.
+      .or(`status.eq.${QUESTION_STATUS.ACTIVE},and(status.eq.${QUESTION_STATUS.CANDIDATE},organization_id.eq.${org})`)
       .or(filtroBancoPorAcademia(org))
       .in('id', ids.slice(i, i + 100));
     if (error) return { success: false as const, error: fallo('guardaExamen', error) };

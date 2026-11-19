@@ -7,8 +7,10 @@ import type { SyllabusBlock } from '@/app/actions/admin';
 import type { DatosExamen } from '@/app/lib/examen-pdf';
 import { Hoja, BloqueTitulo, Aviso, Boton, Campo, CampoSelect, Pulso, Etiqueta } from '../../../ui';
 import { bajaPdf, type TipoPdf } from './descargas';
+import RevisarPreguntas, { type PreguntaExamen } from './RevisarPreguntas';
 
-type Pregunta = { id: string; enunciado: string; opciones: string[]; correcta: number; tema: string; dificultad: number };
+type Pregunta = PreguntaExamen;
+
 type Dificultad = 'easy' | 'medium' | 'hard';
 
 /**
@@ -74,7 +76,7 @@ export default function Preparar({ onGuardado }: { onGuardado: () => void }) {
   }
 
   const datos: DatosExamen | null = useMemo(() => {
-    if (!preguntas) return null;
+    if (!preguntas || preguntas.length === 0) return null;
     return {
       titulo: titulo.trim() || 'Simulacro',
       modelo: modelo.trim().slice(0, 1).toUpperCase() || 'A',
@@ -190,9 +192,15 @@ export default function Preparar({ onGuardado }: { onGuardado: () => void }) {
         </Boton>
       </Hoja>
 
+      {preguntas && aviso && (
+        <Hoja pad="lg">
+          <RevisarPreguntas preguntas={preguntas} onCambia={(p) => { setPreguntas(p); setGuardado(false); }} bloques={bloques} />
+        </Hoja>
+      )}
+
       {datos && preguntas && aviso && (
         <Hoja pad="lg" className="space-y-5">
-          <BloqueTitulo icon={<FileDown size={15} />}>2 · Guardar y descargar</BloqueTitulo>
+          <BloqueTitulo icon={<FileDown size={15} />}>3 · Guardar y descargar</BloqueTitulo>
 
           <Pulso cifras={[
             { valor: preguntas.length, etiqueta: 'preguntas' },

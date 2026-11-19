@@ -1,7 +1,7 @@
 'use server'
 
 import { supabaseAdmin } from './core';
-import { requireAdmin, requireSuperadmin, requireUser } from '../lib/auth';
+import { requireAdmin, requireUser } from '../lib/auth';
 import {
   QUESTION_STATUS,
   QUESTION_ORIGIN,
@@ -11,7 +11,8 @@ import {
   type ModerationQueue,
   type ModerationReport,
 } from '../lib/questions';
-import { validateGeneratedQuestion } from '../lib/ai-output';
+import { validateGeneratedQuestion, MIN_EXPLANATION_CHARS } from '../lib/ai-output';
+import { etiquetasQueFaltan, estaCompleta, instantanea, camposCambiados, hayCambios, leeInstantanea, textoFaltan, type CamposEditables } from '../lib/preguntas-edicion';
 import { questionHash } from '../lib/question-hash';
 import { MAX_IMPORT } from '../lib/question-import';
 import { registraAccion } from '../lib/admin-audit';
@@ -118,39 +119,64 @@ export async function getModerationQueue() {
     return { success: true as const, data };
 }
 
-// Aprobar SOLO tiene sentido sobre una candidata, y las candidatas son
-// siempre del banco GLOBAL (ver `getModerationQueue`): es acción exclusiva
-// del superadmin, igual que generarlas.
+// Aprobar SOLO tiene sentido sobre una candidata, y solo si está completa
+// (regla 135): una pregunta sin explicación o sin dificultad no se sirve a un
+// alumno. Lo hace el admin sobre lo que puede tocar (`filtroEscrituraBanco`,
+// regla 123, dentro de la consulta): su banco privado y, con una sola academia,
+// el global. Antes era solo del superadmin porque las candidatas eran siempre
+// globales; ahora también las hay en el banco privado (preguntas del examen en
+// papel, y las que se redacten desde el temario de la academia).
 export async function approveQuestion(questionId: string): Promise<ModerationResult> {
-    const auth = await requireSuperadmin();
-    if (!auth.ok) return { success: false, error: auth.error };
-
-    const { error } = await supabaseAdmin.from('question_bank').update({ status: QUESTION_STATUS.ACTIVE }).eq('id', questionId);
-    return { success: !error, error: fallo('approveQuestion', error) };
+    if (typeof questionId !== 'string' || !questionId) return { success: false, error: 'Falta el id de la pregunta.' };
+    const res = await approveQuestions([questionId]);
+    if (!res.success) return { success: false, error: res.error };
+    if (res.sinEtiquetas) return { success: false, error: res.motivoSinEtiquetas };
+    return { success: true };
 }
 
 /**
- * Aprueba varias preguntas de una vez.
- *
- * La generacion en vivo alimenta la cola de candidatas de forma continua:
- * aprobarlas de una en una no da abasto.
+ * Aprueba varias preguntas de una vez. Las que no están completas se dejan
+ * pendientes y se cuentan aparte (`sinEtiquetas`): aprobar «todas las de la
+ * página» no puede colar una sin explicación.
  */
-export async function approveQuestions(questionIds: string[]): Promise<ModerationResult & { approved?: number }> {
-    const auth = await requireSuperadmin();
+export async function approveQuestions(questionIds: string[]): Promise<ModerationResult & { approved?: number; sinEtiquetas?: number; motivoSinEtiquetas?: string }> {
+    const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
-    if (!questionIds.length) return { success: true, approved: 0 };
+    const ids = Array.isArray(questionIds) ? [...new Set(questionIds.filter((x): x is string => typeof x === 'string' && x.length > 0))].slice(0, 500) : [];
+    if (!ids.length) return { success: true, approved: 0, sinEtiquetas: 0 };
 
-    const { data, error } = await supabaseAdmin
+    const alcance = filtroEscrituraBanco(auth.user);
+    let lectura = supabaseAdmin
+        .from('question_bank')
+        .select('id, explanation, difficulty_level')
+        .in('id', ids)
+        .eq('status', QUESTION_STATUS.CANDIDATE);  // nunca resucita una descartada
+    if (alcance) lectura = lectura.or(alcance);
+    const { data: pendientes, error: errLec } = await lectura;
+    if (errLec) return { success: false, error: fallo('approveQuestions', errLec) };
+
+    const filas = pendientes ?? [];
+    const listas = filas.filter((f) => estaCompleta(f)).map((f) => f.id as string);
+    const incompletas = filas.filter((f) => !estaCompleta(f));
+    const sinEtiquetas = incompletas.length;
+    // Lo que falta, dicho una vez (la primera): «Falta la explicación».
+    const motivoSinEtiquetas = sinEtiquetas
+        ? `${textoFaltan(etiquetasQueFaltan(incompletas[0]))}${sinEtiquetas > 1 ? ` (y otras ${sinEtiquetas - 1} igual de incompletas)` : ''}: complétala antes de publicarla.`
+        : undefined;
+    if (!listas.length) return { success: true, approved: 0, sinEtiquetas, motivoSinEtiquetas };
+
+    let query = supabaseAdmin
         .from('question_bank')
         .update({ status: QUESTION_STATUS.ACTIVE })
-        .in('id', questionIds)
-        .eq('status', QUESTION_STATUS.CANDIDATE)  // nunca resucita una descartada
-        .select('id');
+        .in('id', listas)
+        .eq('status', QUESTION_STATUS.CANDIDATE);
+    if (alcance) query = query.or(alcance);
+    const { data, error } = await query.select('id');
 
     if (!error && data?.length) {
         registraAccion({ actorId: auth.user.id, action: 'approve_questions', detail: { cantidad: data.length } });
     }
-    return { success: !error, error: fallo('approveQuestions', error), approved: data?.length ?? 0 };
+    return { success: !error, error: fallo('approveQuestions', error), approved: data?.length ?? 0, sinEtiquetas, motivoSinEtiquetas };
 }
 
 export async function disableQuestion(questionId: string): Promise<ModerationResult> {
@@ -260,6 +286,11 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
     return { success: !error, error: fallo('resolveReport', error) };
 }
 
+/** Con qué se rellena la explicación para pasar la validación cuando una pendiente aún no la tiene. Nunca se guarda. */
+const RELLENO_EXPLICACION = 'x'.repeat(MIN_EXPLANATION_CHARS);
+
+type OrigenEdicion = 'banco' | 'examen_papel' | 'restaurar';
+
 /**
  * Edita una pregunta del banco desde el panel de administracion.
  *
@@ -269,13 +300,44 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
  * rango igual de bien que la IA, y el efecto es identico — el alumno estudia un
  * dato falso sin que nada avise (regla 10). Tambien cubre opciones repetidas,
  * vacias, y enunciados en blanco.
+ *
+ * Cada cambio real deja una fila en `question_edit_history` (regla 135) ANTES
+ * de escribirse: si no se puede anotar, no se edita. Editar desde «Exámenes en
+ * papel» sobrescribe la del banco —la ven todos los alumnos— y por eso se puede
+ * ver y deshacer. Una pregunta PENDIENTE puede no tener aún explicación: se
+ * guarda sin ella y sigue sin servirse hasta que la tenga.
  */
-export async function updateQuestion(questionId: string, data: unknown): Promise<ModerationResult> {
+export async function updateQuestion(questionId: string, data: unknown, origen?: unknown): Promise<ModerationResult> {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
-    if (!questionId) return { success: false, error: 'Falta el id de la pregunta.' };
+    return editaPregunta(auth.user, questionId, data, origen === 'examen_papel' ? 'examen_papel' : 'banco');
+}
 
-    const check = validateGeneratedQuestion(data);
+async function editaPregunta(
+    user: { id: string; email: string; role: string; organizationId: string | null },
+    questionId: string,
+    data: unknown,
+    origen: OrigenEdicion,
+): Promise<ModerationResult> {
+    if (typeof questionId !== 'string' || !questionId) return { success: false, error: 'Falta el id de la pregunta.' };
+
+    // Mismo alcance que `disableQuestion` (`filtroEscrituraBanco`, regla 123):
+    // la fila se lee ya acotada, así que una que no es suya no existe para él.
+    const alcance = filtroEscrituraBanco(user);
+    let lectura = supabaseAdmin
+        .from('question_bank')
+        .select('id, organization_id, status, question_text, options, correct_index, explanation, difficulty_level')
+        .eq('id', questionId);
+    if (alcance) lectura = lectura.or(alcance);
+    const { data: antes, error: errLec } = await lectura.maybeSingle();
+    if (errLec) return { success: false, error: fallo('updateQuestion', errLec) };
+    if (!antes) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+
+    // La explicación solo puede faltar en una pendiente.
+    const crudoExp = (data as { explanation?: unknown } | null)?.explanation;
+    const sinExplicacion = antes.status === QUESTION_STATUS.CANDIDATE && (typeof crudoExp !== 'string' || crudoExp.trim() === '');
+    const entrada = sinExplicacion && data && typeof data === 'object' ? { ...(data as object), explanation: RELLENO_EXPLICACION } : data;
+    const check = validateGeneratedQuestion(entrada);
     if (!check.ok) return { success: false, error: `Edición rechazada: ${check.reason}` };
 
     // La dificultad es opcional: solo viaja si el preparador la ha cambiado.
@@ -289,24 +351,120 @@ export async function updateQuestion(questionId: string, data: unknown): Promise
 
     // Se escriben los valores YA normalizados, no los de entrada: es lo que
     // recorta espacios y deja el indice como numero.
-    let query = supabaseAdmin.from('question_bank').update({
+    const antesFoto = instantanea(antes);
+    const despuesFoto: CamposEditables = {
         question_text: check.value.question,
         options: check.value.options,
         correct_index: check.value.correctIndex,
-        explanation: check.value.explanation,
+        explanation: sinExplicacion ? null : check.value.explanation,
+        difficulty_level: cambiaNivel ? Number(crudo) : antesFoto.difficulty_level,
+    };
+    // Sin cambios no se escribe nada ni se ensucia el historial.
+    if (!hayCambios(antesFoto, despuesFoto)) return { success: true };
+
+    const { error: errHist } = await supabaseAdmin.from('question_edit_history').insert({
+        question_id: questionId,
+        organization_id: antes.organization_id ?? null,
+        changed_by: user.id,
+        changed_by_email: user.email,
+        source: origen,
+        before: antesFoto,
+        after: despuesFoto,
+    });
+    if (errHist) return { success: false, error: fallo('updateQuestion.historial', errHist) };
+
+    let query = supabaseAdmin.from('question_bank').update({
+        question_text: despuesFoto.question_text,
+        options: despuesFoto.options,
+        correct_index: despuesFoto.correct_index,
+        explanation: despuesFoto.explanation,
         // Lo que pone una persona manda sobre la estimación (regla 121): por
         // eso se anota de quién es, y una reclasificación no lo pisa.
         ...(cambiaNivel ? { difficulty_level: Number(crudo), difficulty_source: DIFFICULTY_SOURCE.preparador } : {}),
     }).eq('id', questionId);
-    // Mismo alcance que `disableQuestion` (`filtroEscrituraBanco`, regla 123).
-    const alcance = filtroEscrituraBanco(auth.user);
     if (alcance) query = query.or(alcance);
     const { data: filas, error } = await query.select('id');
     if (error) return { success: false, error: fallo('updateQuestion', error) };
     if (!filas || filas.length === 0) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+    registraAccion({
+        actorId: user.id, action: 'edit_question', target: questionId,
+        detail: { origen, cambios: camposCambiados(antesFoto, despuesFoto) },
+    });
     return { success: true };
 }
 
+export type CambioDePregunta = {
+    id: string;
+    fecha: string;
+    quien: string | null;
+    origen: OrigenEdicion;
+    cambios: string[];
+    antes: CamposEditables;
+};
+
+/** Las últimas ediciones de una pregunta, de la más reciente a la más antigua. */
+export async function getHistorialPregunta(questionId: string): Promise<
+    { success: true; cambios: CambioDePregunta[] } | { success: false; error: string }
+> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    if (typeof questionId !== 'string' || !questionId) return { success: false as const, error: 'Falta el id de la pregunta.' };
+
+    const alcance = filtroEscrituraBanco(auth.user);
+    let lectura = supabaseAdmin.from('question_bank').select('id').eq('id', questionId);
+    if (alcance) lectura = lectura.or(alcance);
+    const { data: suya } = await lectura.maybeSingle();
+    if (!suya) return { success: false as const, error: 'Esa pregunta no existe o no es de tu academia.' };
+
+    const { data, error } = await supabaseAdmin
+        .from('question_edit_history')
+        .select('id, changed_at, changed_by_email, source, before, after')
+        .eq('question_id', questionId)
+        .order('changed_at', { ascending: false })
+        .limit(30);
+    if (error) return { success: false as const, error: fallo('getHistorialPregunta', error) };
+
+    const cambios: CambioDePregunta[] = [];
+    for (const f of data ?? []) {
+        const antes = leeInstantanea(f.before);
+        const despues = leeInstantanea(f.after);
+        if (!antes || !despues) continue;
+        cambios.push({
+            id: f.id as string,
+            fecha: f.changed_at as string,
+            quien: (f.changed_by_email as string | null) ?? null,
+            origen: f.source as OrigenEdicion,
+            cambios: camposCambiados(antes, despues),
+            antes,
+        });
+    }
+    return { success: true as const, cambios };
+}
+
+/**
+ * Vuelve a cómo estaba una pregunta ANTES de una edición del historial. Es una
+ * edición más (queda anotada como «restaurar»): deshacer también se puede
+ * deshacer. La dificultad no se restaura: no se guarda de quién era.
+ */
+export async function restauraPregunta(historialId: string): Promise<{ success: true; campos: CamposEditables } | { success: false; error: string }> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    if (typeof historialId !== 'string' || !historialId) return { success: false as const, error: 'Falta la edición que se quiere deshacer.' };
+
+    const { data: fila, error } = await supabaseAdmin
+        .from('question_edit_history').select('question_id, before').eq('id', historialId).maybeSingle();
+    if (error) return { success: false as const, error: fallo('restauraPregunta', error) };
+    const antes = fila ? leeInstantanea(fila.before) : null;
+    if (!fila || !antes) return { success: false as const, error: 'Esa edición no existe o no se puede deshacer.' };
+
+    const res = await editaPregunta(auth.user, fila.question_id as string, {
+        question_text: antes.question_text,
+        options: antes.options,
+        correct_index: antes.correct_index,
+        explanation: antes.explanation ?? '',
+    }, 'restaurar');
+    return res.success ? { success: true as const, campos: antes } : { success: false as const, error: res.error ?? 'No se ha podido deshacer.' };
+}
 
 // ==========================================
 // ALTA MANUAL DE PREGUNTAS  (P2)
@@ -577,4 +735,94 @@ export async function importManualQuestions(
     duplicadas: filas.length - nInsertadas + repetidasEnElFichero,
     rechazadas,
   };
+}
+
+
+/**
+ * UNA PREGUNTA NUEVA ESCRITA DESDE «EXÁMENES EN PAPEL» (regla 135).
+ *
+ * Para el examen en papel basta el enunciado, las tres opciones y la correcta.
+ * Para la plataforma hace falta más (explicación y dificultad), así que entra
+ * al banco PRIVADO de la academia como PENDIENTE y SIN esas etiquetas: no se
+ * sirve a ningún alumno hasta que alguien las ponga y la apruebe en «Banco
+ * oficial» (`approveQuestions` no deja pasar una incompleta). La dificultad
+ * entra `null`, no con el 2 de la siembra (regla 16).
+ *
+ * `ignoreDuplicates` como los otros caminos de escritura (regla 3): si ya
+ * estaba en el banco no se reescribe, y se devuelve la que había para que el
+ * examen la use en vez de fallar.
+ */
+export async function crearPreguntaDeExamen(input: unknown): Promise<
+    | { success: true; pregunta: { id: string; enunciado: string; opciones: string[]; correcta: number; tema: string; dificultad: number | null; explicacion: string | null; pendiente: boolean }; yaExistia: boolean }
+    | { success: false; error: string }
+> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    const org = auth.user.organizationId;
+    if (!org) return { success: false as const, error: 'No hay una academia seleccionada.' };
+
+    const d = (input ?? {}) as { subjectId?: unknown; question?: unknown; options?: unknown; correctIndex?: unknown };
+    const subjectId = Number(d.subjectId);
+    if (!Number.isInteger(subjectId) || subjectId <= 0) return { success: false as const, error: 'Elige el tema de la pregunta.' };
+    const { data: tema } = await supabaseAdmin.from('subjects').select('id, title').eq('id', subjectId).maybeSingle();
+    if (!tema) return { success: false as const, error: 'Ese tema no existe.' };
+
+    // La misma validación que la salida del modelo (regla 10). La explicación
+    // se rellena solo para pasarla: no se guarda.
+    const check = validateGeneratedQuestion({ question: d.question, options: d.options, correctIndex: d.correctIndex, explanation: RELLENO_EXPLICACION });
+    if (!check.ok) return { success: false as const, error: check.reason };
+
+    const hash = questionHash(subjectId, check.value.question, check.value.correctIndex, org);
+    const { data: nueva, error } = await supabaseAdmin
+        .from('question_bank')
+        .upsert({
+            subject_id: subjectId,
+            question_text: check.value.question,
+            options: check.value.options,
+            correct_index: check.value.correctIndex,
+            explanation: null,
+            question_hash: hash,
+            difficulty_level: null,
+            difficulty_source: null,
+            status: QUESTION_STATUS.CANDIDATE,
+            origin: QUESTION_ORIGIN.MANUAL,
+            created_at: new Date().toISOString(),
+            organization_id: org,
+        }, { onConflict: 'question_hash', ignoreDuplicates: true })
+        .select('id')
+        .maybeSingle();
+    if (error) return { success: false as const, error: fallo('crearPreguntaDeExamen', error) };
+
+    let id = nueva?.id as string | undefined;
+    let yaExistia = false;
+    type FilaPrevia = { id: string; status: string; explanation: string | null; difficulty_level: number | null };
+    let fila = null as FilaPrevia | null;
+    if (!id) {
+        const { data: previa, error: errPrevia } = await supabaseAdmin
+            .from('question_bank').select('id, status, explanation, difficulty_level')
+            .eq('question_hash', hash).maybeSingle();
+        if (errPrevia) return { success: false as const, error: fallo('crearPreguntaDeExamen', errPrevia) };
+        if (!previa) return { success: false as const, error: 'No se ha podido guardar la pregunta.' };
+        if (previa.status === QUESTION_STATUS.DISABLED) {
+            return { success: false as const, error: 'Esa pregunta ya existe pero está descartada: recupérala desde «Banco oficial».' };
+        }
+        id = previa.id as string;
+        yaExistia = true;
+        fila = previa as FilaPrevia;
+    }
+    registraAccion({ actorId: auth.user.id, action: 'create_exam_question', target: id, organizationId: org });
+    return {
+        success: true as const,
+        yaExistia,
+        pregunta: {
+            id: id as string,
+            enunciado: check.value.question,
+            opciones: check.value.options,
+            correcta: check.value.correctIndex,
+            tema: tema.title as string,
+            dificultad: fila?.difficulty_level ?? null,
+            explicacion: fila?.explanation ?? null,
+            pendiente: fila ? fila.status === QUESTION_STATUS.CANDIDATE : true,
+        },
+    };
 }

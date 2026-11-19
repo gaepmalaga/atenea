@@ -1428,6 +1428,38 @@
         "subject_id": "integer"
       }
     },
+    "question_edit_history": {
+      "columnas": [
+        "after",
+        "before",
+        "changed_at",
+        "changed_by",
+        "changed_by_email",
+        "id",
+        "organization_id",
+        "question_id",
+        "source"
+      ],
+      "obligatorias": [
+        "after",
+        "before",
+        "changed_at",
+        "id",
+        "question_id",
+        "source"
+      ],
+      "tipos": {
+        "after": "jsonb",
+        "before": "jsonb",
+        "changed_at": "timestamp with time zone",
+        "changed_by": "uuid",
+        "changed_by_email": "text",
+        "id": "uuid",
+        "organization_id": "uuid",
+        "question_id": "uuid",
+        "source": "text"
+      }
+    },
     "question_notes": {
       "columnas": [
         "created_at",

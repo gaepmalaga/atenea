@@ -124,7 +124,7 @@ const MIN_OPTION_CHARS = 1;
  * tres validaciones distintas — sube el listón también a lo que escribe una
  * academia a mano, sin pedirle ningún campo nuevo.
  */
-const MIN_EXPLANATION_CHARS = 20;
+export const MIN_EXPLANATION_CHARS = 20;
 
 /**
  * Quita las marcas de Markdown que el modelo cuela en el texto.

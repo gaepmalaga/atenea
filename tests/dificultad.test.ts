@@ -170,7 +170,7 @@ describe('de quién es la dificultad', () => {
 
 describe('editar la dificultad: lo que pone una persona manda y se anota', () => {
   const accion = codigo('app/actions/moderation.ts');
-  const cuerpo = accion.slice(accion.indexOf('export async function updateQuestion'), accion.indexOf('ALTA MANUAL'));
+  const cuerpo = accion.slice(accion.indexOf('async function editaPregunta'), accion.indexOf('ALTA MANUAL'));
   const panel = codigo('app/components/Admin/components/AdminBank.tsx');
 
   it('un nivel que no es 1, 2 o 3 rechaza la edición entera', () => {
@@ -183,11 +183,13 @@ describe('editar la dificultad: lo que pone una persona manda y se anota', () =>
   });
 
   it('sigue acotada por `filtroEscrituraBanco` (reglas 75 y 123)', () => {
-    expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(auth\.user\);\s*if \(alcance\) query = query\.or\(alcance\)/);
+    expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(user\);/);
+    expect(cuerpo).toMatch(/if \(alcance\) lectura = lectura\.or\(alcance\)/);
+    expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
   });
 
   it('el panel solo manda el nivel si el preparador lo ha cambiado', () => {
-    expect(panel).toMatch(/const nivelCambiado = editNivel !== editingQ\.difficulty_level/);
+    expect(panel).toMatch(/const nivelCambiado = editNivel !== 0 && editNivel !== editingQ\.difficulty_level/);
     expect(panel).toMatch(/nivelCambiado \? \{ \.\.\.editForm, difficulty_level: editNivel \} : editForm/);
   });
 

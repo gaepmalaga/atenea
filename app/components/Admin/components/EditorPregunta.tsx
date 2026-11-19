@@ -10,12 +10,15 @@ export type FormPregunta = { question_text: string; options: string[]; correct_i
  * correcta marcada, y la explicación. Lo usan «Moderación» y «Banco oficial»,
  * dentro del panel lateral.
  *
+ * `sinExplicacion` esconde ese campo: una pregunta nueva del examen en papel
+ * (regla 135) no la lleva todavía.
+ *
  * `quejaDelAlumno` es el comentario de un reporte, si se llega desde uno: se
  * enseña arriba del todo, porque es lo que hay que leer antes de tocar nada.
  */
 export default function EditorPregunta({
-  form, onChange, quejaDelAlumno,
-}: { form: FormPregunta; onChange: (f: FormPregunta) => void; quejaDelAlumno?: string | null }) {
+  form, onChange, quejaDelAlumno, sinExplicacion,
+}: { form: FormPregunta; onChange: (f: FormPregunta) => void; quejaDelAlumno?: string | null; sinExplicacion?: boolean }) {
   return (
     <div className="space-y-5">
       {quejaDelAlumno && (
@@ -78,12 +81,14 @@ export default function EditorPregunta({
         </div>
       </div>
 
-      <CampoArea
-        label="Explicación"
-        rows={4}
-        value={form.explanation}
-        onChange={(e) => onChange({ ...form, explanation: e.target.value })}
-      />
+      {!sinExplicacion && (
+        <CampoArea
+          label="Explicación"
+          rows={4}
+          value={form.explanation}
+          onChange={(e) => onChange({ ...form, explanation: e.target.value })}
+        />
+      )}
     </div>
   );
 }

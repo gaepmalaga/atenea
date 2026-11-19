@@ -644,3 +644,19 @@ admin; cualquier admin sube y borra. Código: `app/lib/documentos.ts`,
 `app/actions/documentos.ts`, `AdminDocumentos.tsx`, `tests/documentos.test.ts`.
 **Ejecutado el 19 nov** `docs/sql/documentos.sql` en la BD real (dos tablas, el
 depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/schema.json` ya incluye las dos tablas.
+
+## 2t · Revisar el examen en papel antes de imprimir (19 nov, regla 135)
+
+- **Hecho:** «Exámenes en papel» tiene un paso nuevo, «Revisar las preguntas»,
+  entre preparar y descargar: editar (sobrescribe el banco, con historial y
+  «Volver a como estaba»), quitar del examen y añadir preguntas nuevas, que
+  entran al banco privado como **pendientes**. «Banco oficial» no publica una
+  pregunta sin explicación o sin dificultad, y la aprueba el admin (ya no solo
+  el superadmin).
+- **Falta, antes de desplegar:** ejecutar `docs/sql/historial-preguntas.sql`
+  (la tabla `question_edit_history`). Hay que autorizarlo; sin ella no se puede
+  editar ninguna pregunta.
+- **Después:** las preguntas que se redacten desde el temario de Alphapol
+  (Tomo I) entran por este mismo camino: banco privado, pendientes, y se
+  aprueban desde «Banco oficial» cuando estén completas. La dificultad se pone
+  con el clasificador de «Operación».

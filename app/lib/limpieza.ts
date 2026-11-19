@@ -81,7 +81,7 @@ export const TABLAS_CON_USUARIO_QUE_SE_CONSERVAN = ['academy_staff'] as const;
 export const TABLAS_POR_GRUPO = ['class_absences', 'class_session_joins', 'class_days_off', 'theory_sessions', 'training_sessions', 'training_week_notes', 'class_members', 'class_group_staff'] as const;
 
 /** Tablas que cuelgan de una pregunta (`question_id`): antes que la pregunta. */
-export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'question_votes', 'question_reports'] as const;
+export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'question_votes', 'question_reports', 'question_edit_history'] as const;
 
 /**
  * Tablas con filas de una academia, por `organization_id`. `class_groups` y
@@ -90,6 +90,8 @@ export const TABLAS_POR_PREGUNTA = ['question_attempts', 'question_notes', 'ques
 export const TABLAS_POR_ACADEMIA = [
   // El registro de los datos de demostración (regla 106): no depende de nada.
   'demo_registro',
+  // El historial de ediciones de las preguntas (regla 135): antes que `question_bank`.
+  'question_edit_history',
   'memberships',
   'payment_entries',
   'receipt_counters',
