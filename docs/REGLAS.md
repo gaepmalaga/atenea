@@ -5138,3 +5138,13 @@ el segundo necesita el proyecto real.
 - `tests/documentos.test.ts` vigila la validación y la seguridad de cada acción
   (comprobado rompiendo el código a propósito).
 
+**Logo oficial en la entrada (19 nov, reglas 87-88).** Sofía envió el logo en
+vector (Illustrator y CorelDRAW). La «A» y el logotipo de la pantalla de carga
+y de la entrada salen ahora de ese logo, no del redibujo sobre el JPG de la
+web: `public/marca/alphapol-isotipo-oficial.webp` (1500 px) y
+`alphapol-logotipo-oficial.webp` (1800 px), recortados del PNG de 3000 px que
+sale de `public/marca/oficiales/vectoriales/`. Se acabaron el halo claro en
+los bordes de la «A» y el degradado aproximado. `MARCA.isotipo` y
+`MARCA.logotipo` apuntan a ellos; el icono de la app (`app/icon.png`) sigue
+saliendo del SVG antiguo y puede regenerarse más adelante.
+

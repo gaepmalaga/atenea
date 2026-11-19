@@ -43,13 +43,13 @@ export default function PantallaCarga() {
       {/* El escenario mide lo que un móvil grande. En un ordenador la
           composición se queda en el centro en vez de estirarse. */}
       <div className="relative mx-auto min-h-dvh w-full max-w-[480px]">
-        <div aria-hidden className="carga-a absolute left-[12%] top-[6%] w-[min(124%,58dvh)] aspect-[1065/1106]">
+        <div aria-hidden className="carga-a absolute left-[12%] top-[6%] w-[min(124%,58dvh)] aspect-[1500/1560]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={MARCA.isotipo}
             alt=""
-            width={1065}
-            height={1106}
+            width={1500}
+            height={1560}
             fetchPriority="high"
             className="block h-full w-full drop-shadow-[0_24px_48px_rgba(4,10,28,0.45)]"
           />
@@ -63,8 +63,8 @@ export default function PantallaCarga() {
           <img
             src={MARCA.logotipo}
             alt={`${MARCA.nombre}, ${MARCA.lema.toLowerCase()}`}
-            width={1200}
-            height={254}
+            width={1800}
+            height={409}
             fetchPriority="high"
             className="carga-sube -ml-1 block h-auto w-[248px] max-w-full"
           />

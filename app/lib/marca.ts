@@ -53,14 +53,14 @@ export const MARCA = {
    */
   logo: '/marca/icono-192.png',
   /**
-   * La «A» del logo, el logotipo («ALPHAPOL · CENTRO DE FORMACIÓN») y el
-   * nombre solo, con el fondo transparente (regla 88). Son SVG: el CONTORNO es
-   * vectorial —redibujado sobre la silueta del logo de su web— y el color de
-   * dentro es el del original, suavizado. Se ven nítidos a cualquier tamaño;
-   * un logo en vector de verdad de Alphapol seguiría siendo mejor.
+   * La «A» del logo y el logotipo («ALPHAPOL · CENTRO DE FORMACIÓN») con el
+   * fondo transparente (regla 88). Desde el 19 nov salen del logo OFICIAL en
+   * vector que envió Sofía (`public/marca/oficiales/vectoriales/`), a 1500 y
+   * 1800 px de ancho en WebP: ya no son el redibujo sobre el JPG de la web. El
+   * nombre solo (`nombreLogo`) sigue siendo el SVG antiguo.
    */
-  isotipo: '/marca/alphapol-isotipo.svg',
-  logotipo: '/marca/alphapol-logotipo.svg',
+  isotipo: '/marca/alphapol-isotipo-oficial.webp',
+  logotipo: '/marca/alphapol-logotipo-oficial.webp',
   nombreLogo: '/marca/alphapol-nombre.svg',
   colores: {
     /** El azul marino del fondo del logo. */
