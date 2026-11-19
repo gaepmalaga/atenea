@@ -710,3 +710,41 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   tiene sentido para un alumno; 153 lo dicen en la explicación.
 - El PDF del Tomo y los lotes **no viven en el repositorio** (es público): solo
   en la sesión y en la base de datos.
+
+## 2v · Vigilancia de la normativa (19 nov, regla 137, en la rama, sin desplegar)
+
+- **Hecho:** `npm run normativa` (`scripts/operacion/vigilar-normativa.mjs`,
+  lógica en `app/lib/normativa.ts`). Para cada pregunta activa o pendiente lee
+  la norma y el artículo que cita, baja del BOE el texto consolidado con todas
+  sus versiones (API de datos abiertos, sin clave) y pregunta a Cellar (UE) qué
+  actos modifican los reglamentos y directivas citados. Si el artículo cambia
+  DESPUÉS de la fecha de la pregunta —o va a cambiar: la reforma ya publicada
+  también cuenta—, deja un aviso «Cambio en la ley» en «Moderación → Requieren
+  atención» con el enlace al artículo. No toca ninguna pregunta.
+- **Cobertura (ensayo del 19 nov):** de 6.327 preguntas, 4.721 quedan
+  vigiladas; 63 normas del BOE (todas las citadas por número se encontraron) y
+  12 actos de la UE. Sin vigilar: 1.195 sin referencia legal, 89 que solo citan
+  Tratados o Schengen, y unas 320 sin localizar (sobre todo el tema 8, donde dos
+  normas tienen el mismo artículo y la explicación no dice cuál).
+- **Hoy:** 5 avisos (el art. 69 del Reglamento General de Circulación, en vigor
+  desde después de generar el tema 43).
+- **Funcionamiento:** «Vigilancia de la normativa», lunes y jueves, escribe sola
+  (tope de 400 avisos de una vez; no repite un aviso ya dado). «Operación →
+  normativa-ensayo» cuenta sin escribir, y con `desde` (AAAAMMDD) barre hacia
+  atrás. El informe queda en el resumen de cada ejecución en Actions.
+- **Para que funcione hace falta desplegar:** GitHub solo programa los flujos de
+  la rama principal. Hasta entonces se puede lanzar el ensayo desde la rama.
+- **Para el correo a los admin:** añadir el secret `RESEND_API_KEY` en GitHub
+  (Settings → Secrets and variables → Actions), el mismo valor que en Vercel.
+  Sin él, los avisos llegan igual a «Moderación», sin correo.
+- **Visto:** la tarjeta y el editor de «Moderación» en el banco de pruebas, a
+  tamaño de móvil. El ensayo, contra la base de datos y el BOE reales. **Sin
+  probar:** una ejecución que escriba (`--hazlo`) y el correo.
+- **Corregida de paso:** la pendiente del Tomo sobre la adscripción de las
+  Delegaciones del Gobierno (id `63fb4ad4-…`) daba por buena «Política
+  Territorial» y ponía «Hacienda» como falsa; el art. 69.3 de la Ley 40/2015
+  dice literalmente «Ministerio de Hacienda y Administraciones Públicas». Se
+  reescribió con su anotación en el historial. **Por revisar:** la pendiente del
+  informe anual del Delegado (art. 73.1, «a través del Ministro de Política
+  Territorial», id `d0aa3fbc-…`) tiene casi seguro el mismo problema; no se tocó
+  porque no se pudo leer el art. 73 desde aquí.

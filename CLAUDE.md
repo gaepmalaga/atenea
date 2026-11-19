@@ -57,6 +57,7 @@ npm run familias                           # agrupa las preguntas repetidas (reg
 npm run dificultad -- --muestra            # Gemini clasifica la muestra de 150 y se compara (regla 121; solo en producción, vía «Operación»)
 npm run dificultad:medida                  # dificultad MEDIDA con respuestas reales, ensayo (regla 122; `-- --hazlo` escribe; vía «Operación»)
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
+npm run normativa                          # qué preguntas citan artículos cambiados en el BOE o la UE (regla 137; `-- --hazlo` deja los avisos; vía «Operación»)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
 scripts/nube/sql.sh "select …"             # SQL contra la BD real desde la nube
@@ -261,6 +262,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 134 | Los documentos de la academia viven en una carpeta privada dentro de la plataforma, no en el repositorio ni en el correo |
 | 135 | El examen en papel se revisa antes de imprimir (editar sobrescribe el banco, con historial) y lo nuevo entra pendiente hasta tener explicación y dificultad |
 | 136 | Las preguntas del temario propio se redactan una a una, se comprueban antes de subir (explicación de verdad, sin sesgo de longitud, sin repetir el banco, sin datos con fecha) y entran pendientes |
+| 137 | La ley cambia sola: un vigilante compara cada pregunta con el BOE y la UE (lunes y jueves) y deja el aviso en «Moderación»; no toca la pregunta |
 
 ## Trampas conocidas
 
