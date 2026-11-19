@@ -632,7 +632,10 @@ test de 16 preguntas con soluciones y QR al Campus; papel con marca de agua y lo
 (`scripts/resumenes/tema-completo.css`), y el DOCX, con
 `scripts/resumenes/tema_completo_docx.py`. Para otro tema se crea su
 `tema-NN.contenido.mjs`. El esquema (`temario/esquemas/tema-01.pdf`) ya tiene 2
-páginas: el esquema general y «La nacionalidad paso a paso».
+páginas: el esquema general y «La nacionalidad paso a paso». El DOCX
+(`temario/esquemas/tema-01.docx`) es EDITABLE (tablas y texto de Word) y lo hace
+`scripts/resumenes/esquema_docx.py`, que repite el contenido del esquema: si se
+cambia un texto en `esquema-tema-01.mjs`, hay que cambiarlo también allí.
 
 ## 2s · Documentos compartidos de los admin (19 nov, regla 134)
 

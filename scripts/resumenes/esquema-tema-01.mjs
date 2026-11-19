@@ -534,4 +534,8 @@ await pagina.locator('#h1').screenshot({ path: join(CARPETA, 'tema-01.png') });
 await pagina.locator('#h2').screenshot({ path: join(CARPETA, 'tema-01-p2.png') });
 await pagina.pdf({ path: join(CARPETA, 'tema-01.pdf'), width: '297mm', height: '210mm', printBackground: true, preferCSSPageSize: true });
 await navegador.close();
+// El mismo esquema en DOCX EDITABLE (tablas y texto de Word): se mantiene a mano junto a este guion.
+const { execFileSync } = require('node:child_process');
+execFileSync('python3', ['-I', join(RAIZ, 'scripts', 'resumenes', 'esquema_docx.py'), join(CARPETA, 'tema-01.docx'),
+  join(RAIZ, 'public', 'marca', 'oficiales', 'logo-dorado-completo.png'), join(CARPETA, 'qr-tema-01.png')], { stdio: 'inherit' });
 console.log('OK', join(CARPETA, 'tema-01.pdf'));
