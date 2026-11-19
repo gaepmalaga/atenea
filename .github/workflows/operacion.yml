@@ -42,7 +42,7 @@ on:
           - dificultad-medida-ensayo  # lee las respuestas reales y dice qué preguntas ya se pueden medir. No escribe.
           - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
-          - normativa-sondeo    # enseña la forma de las respuestas del BOE y de la UE. No toca la base de datos.
+          - normativa-ensayo    # qué preguntas citan artículos que han cambiado en el BOE o la UE. No escribe.
       confirmacion:
         description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas") o MEDIR ("dificultad-medida")'
         required: false
@@ -123,9 +123,12 @@ jobs:
         if: inputs.accion == 'comprobar-pdfs'
         run: npm run sembrar -- --comprobar-pdfs ${{ inputs.tema && format('--tema={0}', inputs.tema) || '' }}
 
-      - name: Sondear las fuentes de normativa (solo lectura)
-        if: inputs.accion == 'normativa-sondeo'
-        run: node scripts/operacion/sondear-fuentes.mjs
+      # La vigilancia de la normativa (regla 137) sin escribir: el informe sale
+      # en el resumen de la ejecución. La que escribe va sola, dos veces por
+      # semana, en «Vigilancia de la normativa».
+      - name: Normativa · ensayo (no escribe)
+        if: inputs.accion == 'normativa-ensayo'
+        run: npm run normativa
 
       - name: Estado actual
         if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'

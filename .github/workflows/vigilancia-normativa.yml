@@ -1,0 +1,54 @@
+# LA VIGILANCIA DE LA NORMATIVA, DOS VECES POR SEMANA, SOLA (regla 137).
+#
+# Baja del BOE el texto consolidado de cada norma que cita el banco (con todas
+# las versiones de cada artículo) y pregunta a la Oficina de Publicaciones de
+# la UE qué actos modifican los reglamentos y directivas citados. Si un
+# artículo ha cambiado DESPUÉS de escribir la pregunta —o va a cambiar, porque
+# la reforma ya está publicada—, deja un aviso en «Moderación → Requieren
+# atención» con el enlace al artículo, y manda el resumen por correo a los
+# admin (si está el secret RESEND_API_KEY).
+#
+# POR QUÉ ES SEGURO QUE ESCRIBA SOLO
+#  · No toca ninguna pregunta: solo deja avisos, y decide una persona.
+#  · No repite un aviso que ya se dio, aunque se archivara.
+#  · Si de una vez saldrían más de 400 avisos, no escribe ninguno y falla:
+#    eso huele a un fallo del lector, no a una reforma. Se mira el informe.
+#  · No cuesta nada: el BOE y la UE son datos abiertos, sin clave.
+#
+# El informe de cada ejecución queda en el resumen de la ejecución (Actions →
+# Vigilancia de la normativa). Para lanzarlo a mano: Run workflow. Para un
+# ensayo que no escribe: Operación → normativa-ensayo.
+name: Vigilancia de la normativa
+
+on:
+  schedule:
+    # Lunes y jueves, 05:41 UTC (06:41 o 07:41 en Málaga). El BOE consolida a diario.
+    - cron: '41 5 * * 1,4'
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://ecupmlqimmpybbrlrmpx.supabase.co' }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      MAIL_FROM: ${{ vars.MAIL_FROM }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Comprobar que está la clave
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Falta SUPABASE_SERVICE_ROLE_KEY en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+      - run: npm ci
+      - name: Vigilar la normativa y dejar los avisos
+        run: npm run normativa -- --hazlo
