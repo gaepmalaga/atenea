@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import {
   NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, citasDeLaPregunta, cabeceraDelTemario, busquedaBoe, celexDe, eligePorTexto,
-  bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado, fecha8, preceptoLegible,
+  bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado, fecha8, fechaLegible, preceptoLegible,
   avisoDeBloque, avisoDeBloqueDerogado, avisoDeNormaDerogada, avisoDeActoUE, agrupaAvisos,
 } from '../../app/lib/normativa.ts';
 import { plantillaCambiosNormativa } from '../../app/lib/app-email-templates.ts';
@@ -182,7 +182,7 @@ for (const id of idsNecesarios) {
   await espera(400);
   if (!t.texto) { normasBoe.set(id, { ...previa, metadatos, error: `no se pudo bajar el texto${t.error ? ` (${t.error})` : ''}` }); continue; }
   const bloques = bloquesDelXml(t.texto);
-  normasBoe.set(id, { ...previa, metadatos, indice: indicePorPrecepto(bloques), bloques: bloques.length });
+  normasBoe.set(id, { ...previa, metadatos, indice: indicePorPrecepto(bloques), bloques: bloques.length, lista: bloques });
 }
 
 /** Cellar: los actos que modifican cada acto de la UE, con su fecha. */
@@ -219,7 +219,7 @@ for (const { q, fecha, citas } of vigiladas) {
       const conPrecepto = c.candidatas.filter((cand) => normasBoe.get(cand.boe)?.indice?.has(c.precepto));
       const elegida = conPrecepto.length === 1 ? conPrecepto[0] : eligePorTexto(conPrecepto, `${q.explanation ?? ''} ${q.question_text ?? ''}`);
       if (elegida) { id = elegida.boe; nombre = elegida.nombre; }
-      else { anota(conPrecepto.length === 0 ? 'el tema no tiene ese precepto en ninguna de sus normas' : 'dos normas del tema tienen ese precepto y la explicación no dice cuál'); continue; }
+      else { anota(`${conPrecepto.length === 0 ? 'el tema no tiene ese precepto en ninguna de sus normas' : 'dos normas del tema tienen ese precepto y la explicación no dice cuál'} (tema ${temaDe.get(q.subject_id) ?? '¿?'})`); continue; }
     }
     const celex = c.norma ? celexDe(c.norma) : null;
     if (!id && celex) {
@@ -228,7 +228,7 @@ for (const { q, fecha, citas } of vigiladas) {
       alguna = true;
       for (const m of ue.filas) {
         if (m.fecha.replace(/-/g, '') > fecha) {
-          avisos.push({ question_id: q.id, organization_id: q.organization_id, enunciado: q.question_text, clave: c.norma, message: avisoDeActoUE({ norma: c.norma, modificador: m.celex, fecha: m.fecha }) });
+          avisos.push({ question_id: q.id, organization_id: q.organization_id, enunciado: q.question_text, clave: c.norma, cambio: `${m.celex} (${fechaLegible(m.fecha.replace(/-/g, ''))})`, message: avisoDeActoUE({ norma: c.norma, modificador: m.celex, fecha: m.fecha }) });
         }
       }
       continue;
@@ -240,12 +240,19 @@ for (const { q, fecha, citas } of vigiladas) {
     alguna = true;
 
     if (norma.metadatos?.vigencia_agotada === 'S') {
-      avisos.push({ question_id: q.id, organization_id: q.organization_id, enunciado: q.question_text, clave: `${nombre} (derogada)`, message: avisoDeNormaDerogada({ norma: nombre, boe: id }) });
+      avisos.push({ question_id: q.id, organization_id: q.organization_id, enunciado: q.question_text, clave: `${nombre} (derogada)`, cambio: 'derogada', message: avisoDeNormaDerogada({ norma: nombre, boe: id }) });
       continue;
     }
     if (!c.precepto) { cuenta.normaEntera++; continue; }
     const bloque = norma.indice.get(c.precepto);
-    if (!bloque) { anota(`${nombre}: no tiene ${preceptoLegible(c.precepto)} (¿referencia mal puesta?)`); continue; }
+    if (!bloque) {
+      // Con los rótulos que más se le parecen, tal cual vienen: si el lector no
+      // entiende cómo rotula el BOE una norma, aquí se ve.
+      const num = /\d+/.exec(c.precepto)?.[0];
+      const parecidos = num ? norma.lista.filter((b) => new RegExp(`(^|\\D)${num}(\\D|$)`).test(b.id)).slice(0, 3).map((b) => `${b.id}=${JSON.stringify(b.titulo)}`).join(', ') : '';
+      anota(`${nombre}: no tiene ${preceptoLegible(c.precepto)}${parecidos ? ` (en el BOE: ${parecidos})` : ''}`);
+      continue;
+    }
     for (const v of cambiosPosteriores(bloque, fecha)) {
       const datos = { norma: nombre, precepto: c.precepto, boe: id, bloque: bloque.id, version: v };
       avisos.push({
@@ -253,6 +260,7 @@ for (const { q, fecha, citas } of vigiladas) {
         organization_id: q.organization_id,
         enunciado: q.question_text,
         clave: `${nombre}, ${preceptoLegible(c.precepto)}`,
+        cambio: `${fechaLegible(v.vigencia ?? v.publicacion)}${v.norma && v.norma !== id ? ` · ${v.norma}` : ''}`,
         message: esTextoDerogado(v.texto ?? '') ? avisoDeBloqueDerogado(datos) : avisoDeBloque(datos),
       });
     }
@@ -290,9 +298,10 @@ di();
 if (nuevos.length) {
   di('### Lo que ha cambiado después de escribir la pregunta');
   di();
-  di('| Norma y precepto | Preguntas |');
-  di('|---|---|');
-  for (const g of agrupaAvisos(nuevos).slice(0, 60)) di(`| ${g.clave} | ${g.n} |`);
+  di('| Norma y precepto | En vigor desde · lo cambia | Preguntas |');
+  di('|---|---|---|');
+  const porCambio = agrupaAvisos(nuevos.map((a) => ({ clave: `${a.clave} | ${a.cambio}` })));
+  for (const g of porCambio.slice(0, 80)) di(`| ${g.clave} | ${g.n} |`);
   di();
   di('<details><summary>Las preguntas</summary>');
   di();

@@ -362,7 +362,11 @@ export async function getModerationQueue() {
       // pruebas — y de paso destapo que la pantalla pintaba una pastilla azul
       // en blanco en vez de decir "sin tema".
       candidates: Array.from({ length: 2 }, (_, i) => ({ ...pregunta(i), topic: TEMAS[0] })),
-      reports: [{ id: 'r1', question_id: 'q-1', report_type: 'wrong_correct_answer', message: 'La respuesta buena es la C, no la B. Lo dice el artículo 14.', status: 'pending', question: pregunta(1) }],
+      reports: [
+        { id: 'r1', question_id: 'q-1', report_type: 'wrong_correct_answer', message: 'La respuesta buena es la C, no la B. Lo dice el artículo 14.', status: 'pending', question: pregunta(1) },
+        // Un aviso del vigilante de la normativa (regla 137): sin alumno, con el enlace al artículo.
+        { id: 'r2', question_id: 'q-2', report_type: 'vigencia', message: 'Ley 40/2015, art. 69: nueva redacción que entra en vigor el 1/12/2026 (lo cambia BOE-A-2026-111), posterior a la pregunta. Comprueba que la pregunta y su explicación siguen valiendo. https://www.boe.es/buscar/act.php?id=BOE-A-2015-10566#a69', status: 'open', user_id: null, question: pregunta(2) },
+      ],
     },
   });
 }
