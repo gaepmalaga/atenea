@@ -822,6 +822,23 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   28 correctas, 1 mal (de verdad: el enunciado contradice el art. 65.2 de la
   LO 9/2015) y 1 dudosa (la cita no era la buena); 0,012 $. El repaso entero
   cuesta ≈ 1,7 $ (4 $ por arriba).
+- **Hecho en producción (20 nov):** 3.796 propuestas de Claude escritas
+  (comprobadas contra la base: todas bien formadas, vigentes y válidas) y el
+  repaso entero: 4.043 preguntas repasadas por 1,71 $; 3.824 cuadran con la
+  ley, 114 parecen mal y 105 dudosas → **219 avisos «La IA duda»**. Lo que
+  encuentra es real: preguntas desfasadas (art. 30 del Convenio Europeo tras
+  el Protocolo 15; art. 108 del Reglamento de Armas tras el RD 726/2020),
+  la ley equivocada en el enunciado («520 bis del Código Penal»), opciones
+  que contradicen el artículo (art. 57 CE, art. 173.3 CP) y referencias
+  equivocadas (habeas corpus citado como art. 527 LECrim).
+- **Dos defectos de la herramienta, arreglados:** los artículos largos
+  llegaban cortados a 7.000 caracteres (ahora 24.000) y el lector confundía
+  «588 ter d» con «588 ter a» (la letra ya cuenta; quien cita «588 ter» sin
+  letra vigila todos). La segunda vuelta (`npm run verificar -- --repetir`)
+  repasa solo esas 36 y cambia o retira su aviso abierto.
+- **Vigilancia:** un aviso ya dado se reconoce por su huella (enlace, fechas y
+  normas), no por el texto: al pasar «Reglamento General de Circulación» a
+  «RD 1428/2003», el vigilante del lunes habría duplicado 5 avisos.
 - **«Revisar»:** el cambio propuesto sale dentro de la pregunta con aceptar /
   rechazar; aceptarlo no la da por revisada.
 - **Hallazgo:** hay preguntas que no son del temario (una sobre el Modelo 347

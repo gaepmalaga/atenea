@@ -5339,6 +5339,11 @@ saliendo del SVG antiguo y puede regenerarse más adelante.
     (`report_type='revision_ia'`) solo en las que no cuadran. El tutor las ve
     primero («Revisar» → «las que la IA duda, primero») y decide: corregir o
     «La IA se equivoca». Una pregunta ya avisada no se repasa otra vez.
+  - **Los artículos con letra son artículos** («588 ter a» a «588 ter m» de
+    la LECrim): el lector los leía todos como «588 ter» y el vigilante solo
+    miraba el primero. Quien cita «588 ter» sin letra vigila todos.
+  - **Un aviso de la ley se reconoce por su huella** (enlace oficial, fechas
+    y normas), no por su texto: el nombre de la norma puede cambiar.
   - **El cambio propuesto se decide dentro de la pregunta** en «Revisar»
     (aceptar / rechazar) y bloquea «Está bien» hasta decidirlo. **Aprobar un
     cambio no da la pregunta por revisada**: el cambio puede ser solo la

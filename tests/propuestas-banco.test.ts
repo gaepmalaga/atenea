@@ -81,11 +81,13 @@ describe('completar la referencia legal', () => {
     expect(referenciaCorta('Código Penal', 'art:264bis')).toBe('Art. 264 bis Código Penal');
     expect(referenciaCorta('Ley 40/2015', 'da:11')).toBe('DA 11.ª Ley 40/2015');
     expect(referenciaCorta('LO 4/2010', 'dd:unica')).toBe('DD única LO 4/2010');
+    expect(referenciaCorta('LECrim', 'art:588terd')).toBe('Art. 588 ter d LECrim');
   });
 
   it('lee los artículos que nombra una explicación', () => {
     expect(articulosNombrados('El Artículo 64 bis.2 establece… y el art. 12 también')).toEqual(['art:64bis', 'art:12']);
     expect(articulosNombrados(null)).toEqual([]);
+    expect(articulosNombrados('El artículo 588 ter d de la LECrim regula la urgencia')).toEqual(['art:588terd']);
     // El que el texto atribuye a otra ley no se reutiliza (una pregunta de Hacienda colada en el tema de violencia de género).
     expect(articulosNombrados('que modifica el artículo 31.1 del Real Decreto 1065/2007')).toEqual([]);
     expect(articulosNombrados('el art. 12 de la Ley 39/2015 y el artículo 5')).toEqual(['art:5']);
@@ -188,6 +190,12 @@ describe('nada de esto toca una pregunta (regla 138)', () => {
     expect(verificar).toMatch(/leeVeredicto\(/);
     expect(verificar).toMatch(/if \(!HAZLO\)[^\n]*process\.exit\(0\)/);
     expect(TIPO_REPORTE_REVISION_IA).toBe('revision_ia');
+  });
+
+  it('la segunda vuelta solo toca avisos ABIERTOS (lo que ya decidió un tutor no se toca)', () => {
+    expect(verificar).toMatch(/delete\(\)\.eq\('id', previo\.id\)\.eq\('status', 'open'\)/);
+    expect(verificar).toMatch(/update\(\{ message: aviso\(r\)\.message \}\)\.eq\('id', previo\.id\)\.eq\('status', 'open'\)/);
+    expect(verificar).toMatch(/!decididas\.has\(q\.id\)/);
   });
 
   it('aprobar un cambio no da la pregunta por revisada: eso es verla entera', () => {

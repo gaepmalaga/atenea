@@ -40,7 +40,7 @@ import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import {
   NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, citasDeLaPregunta, cabeceraDelTemario, busquedaBoe, celexDe, eligePorTexto,
   bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado, fecha8, fechaLegible, preceptoLegible,
-  avisoDeBloque, avisoDeBloqueDerogado, avisoDeNormaDerogada, avisoDeActoUE, agrupaAvisos,
+  avisoDeBloque, avisoDeBloqueDerogado, avisoDeNormaDerogada, avisoDeActoUE, agrupaAvisos, familiaDeArticulo, preceptoDelRotulo, huellaDeAviso,
 } from '../../app/lib/normativa.ts';
 import { plantillaCambiosNormativa } from '../../app/lib/app-email-templates.ts';
 import { remitenteCorreo } from '../../app/lib/marca.ts';
@@ -252,8 +252,10 @@ for (const { q, fecha, citas } of vigiladas) {
       continue;
     }
     if (!c.precepto) { cuenta.normaEntera++; continue; }
-    const bloque = norma.indice.get(c.precepto);
-    if (!bloque) {
+    // «588 ter» sin letra: se vigilan todos sus artículos con letra (588 ter a … m).
+    const familia = norma.indice.has(c.precepto) ? [] : familiaDeArticulo(norma.indice, c.precepto);
+    const bloques = norma.indice.has(c.precepto) ? [norma.indice.get(c.precepto)] : familia;
+    if (bloques.length === 0) {
       // Con los rótulos que más se le parecen, tal cual vienen: si el lector no
       // entiende cómo rotula el BOE una norma, aquí se ve.
       const num = /\d+/.exec(c.precepto)?.[0];
@@ -264,13 +266,14 @@ for (const { q, fecha, citas } of vigiladas) {
       anota(`${nombre}: no tiene ${preceptoLegible(c.precepto)}${muestra ? ` (en el BOE: ${muestra})` : ''}`);
       continue;
     }
-    for (const v of cambiosPosteriores(bloque, fecha)) {
-      const datos = { norma: nombre, precepto: c.precepto, boe: id, bloque: bloque.id, version: v };
+    for (const bloque of bloques) for (const v of cambiosPosteriores(bloque, fecha)) {
+      const precepto = familia.length ? (preceptoDelRotulo(bloque.titulo) ?? c.precepto) : c.precepto;
+      const datos = { norma: nombre, precepto, boe: id, bloque: bloque.id, version: v };
       avisos.push({
         question_id: q.id,
         organization_id: q.organization_id,
         enunciado: q.question_text,
-        clave: `${nombre}, ${preceptoLegible(c.precepto)}`,
+        clave: `${nombre}, ${preceptoLegible(precepto)}`,
         cambio: `${fechaLegible(v.vigencia ?? v.publicacion)}${v.norma && v.norma !== id ? ` · ${v.norma}` : ''}`,
         message: esTextoDerogado(v.texto ?? '') ? avisoDeBloqueDerogado(datos) : avisoDeBloque(datos),
       });
@@ -284,10 +287,11 @@ const previos = await todas(
   (d, h) => db.from('question_reports').select('id, question_id, message').eq('report_type', TIPO_REPORTE_VIGENCIA).order('id').range(d, h),
   'question_reports',
 );
-const yaAvisado = new Set(previos.map((r) => `${r.question_id}|${r.message}`));
+// Por la huella (enlace, fechas y normas), no por el texto: el nombre de la norma puede cambiar.
+const yaAvisado = new Set(previos.map((r) => `${r.question_id}|${huellaDeAviso(r.message)}`));
 const vistos = new Set();
 const nuevos = avisos.filter((a) => {
-  const k = `${a.question_id}|${a.message}`;
+  const k = `${a.question_id}|${huellaDeAviso(a.message)}`;
   if (yaAvisado.has(k) || vistos.has(k)) return false;
   vistos.add(k);
   return true;
