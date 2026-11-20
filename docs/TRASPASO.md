@@ -53,12 +53,18 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    Hasta que un tema esté revisado, sus preguntas no llegan a los alumnos.
 
 **De la próxima sesión de código:**
-2. **Probar «Revisión» en producción con una cuenta admin real.** No se ha
-   podido: las contraseñas las tiene el dueño (nunca se cambian ni se
-   escriben). Pedirle que entre con `prueba.admin@alphapol.es` o con la suya y
-   pruebe: aceptar y rechazar un cambio propuesto, «La IA se equivoca», «Sigue
-   vigente», «Está bien: revisada». O que dé la contraseña de prueba en el
-   chat para hacerlo con Playwright contra `scripts/nube/arrancar-local.sh`.
+2. ~~Probar «Revisión» con una cuenta admin real~~ **Hecho el 20 nov** con
+   `prueba.admin@alphapol.es` (Playwright contra `arrancar-local.sh`; el
+   navegador necesita `proxy: HTTPS_PROXY` y el host
+   `ecupmlqimmpybbrlrmpx.supabase.co` permitido en el entorno). Funcionan:
+   aceptar un cambio, «La IA se equivoca», «Está bien: revisada» y rechazar
+   (esta abre una ventana «¿Por qué no?» propia, no `role=dialog` sino
+   `alertdialog`). Lo que quedó escrito en la BD real: la pregunta
+   `0108dca2` (art. 730 LECrim) con la referencia «DF 1.ª Ley 4/2015»
+   aceptada, su duda de la IA cerrada y **revisada por prueba.admin**; y el
+   cambio propuesto de `000c13dd` (art. 34 CP) **rechazado** (era correcto:
+   un tutor puede volver a proponerlo). Un tutor real debería volver a mirar
+   la `0108dca2`.
 3. **Preguntas que no son del temario.** Hay al menos una (Modelo 347 de
    Hacienda, `d882a4e5`, en el tema de violencia de género). Las ~1.140 sin
    artículo seguro no las ha mirado la IA. Idea: un repaso «¿esto es del
