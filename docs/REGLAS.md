@@ -5459,3 +5459,43 @@ la forma del sumario ha cambiado y el flujo falla a propósito.
 Guardia Civil y los destinos sueltos no valen), el no repetir, y las guardas
 estáticas del guion (solo escribe en `novedades`, falla sin BOE) y de los
 flujos. Se comprobó rompiendo el código a propósito.
+
+### 142 · Una pregunta revisada que cambia de texto deja de estar revisada: lo hace la base de datos, no una norma
+
+**Qué pasó (20 nov).** `question_bank.reviewed_at` dice «un tutor revisó esta
+pregunta», pero no qué texto vio. Cambiar el enunciado, las opciones, la
+correcta, la explicación o la referencia por SQL o con un script dejaba la marca
+puesta, y con «Los alumnos solo reciben preguntas revisadas» (regla 138) el
+alumno recibía como revisada una pregunta que nadie había leído. La regla 138
+lo prohibía; nada lo impedía.
+
+**La regla.** Un disparador (`question_bank_revision_no_sobrevive`, BEFORE
+UPDATE, `docs/sql/revision-no-sobrevive-al-cambio.sql`, ejecutado el 20 nov)
+quita `reviewed_at`, `reviewed_by` y `reviewed_by_email` cuando una escritura
+cambia `question_text`, `options`, `correct_index`, `explanation` o
+`legal_reference` de una fila revisada **sin cambiar a la vez `reviewed_at`**.
+
+1. **Lo que sella en la misma escritura no se nota:** editar, publicar, el alta
+   de un admin y «Está bien» cambian `reviewed_at`.
+2. **Aprobar un cambio propuesto sí la deja sin revisar** (escribe el texto sin
+   sellar, regla 138: dar por buena es ver la pregunta entera). El tutor la da
+   por buena otra vez en «Revisar». Es el único efecto visible en la aplicación.
+3. **Dificultad, estado, familia y tema NO la afectan:** no son contenido que el
+   tutor lee. Un INSERT no se toca.
+4. **No hay huella ni comprobación periódica:** se descartó guardar un
+   `reviewed_hash` y vigilarlo después, porque solo detectaba el problema cuando
+   el alumno ya había recibido la pregunta. El disparador lo previene.
+5. **Un script que edite texto de una pregunta revisada la deja sin revisar.**
+   Es lo que pide la 138, pero hay que saberlo (`limpiar-markdown.mjs`, por
+   ejemplo).
+
+**Límite.** Quien tiene la clave de servicio puede desactivar el disparador:
+protege contra descuidos, no contra mala fe. Se deshace con
+`drop trigger question_bank_revision_no_sobrevive on public.question_bank;`.
+
+**Cómo se vigila.** `tests/revision-no-sobrevive.test.ts`: el guion cubre las
+cinco columnas y solo esas; editar sella en la misma escritura; aprobar un cambio
+no sella; y no hay ninguna otra escritura de contenido. Se comprobó rompiendo el
+guion y la aplicación a propósito. El disparador se probó en producción dentro
+de una transacción que se deshizo (cinco casos: dificultad, mismo texto, cambio
+de explicación, cambio más sello y cambio de opciones).

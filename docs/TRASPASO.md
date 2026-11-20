@@ -59,8 +59,14 @@ Policía Nacional y la oferta de empleo público. **Probado con el BOE real** (�
 sumario bien (2.287 disposiciones en 9 días) y no hay nada nuevo de la Escala
 Básica. Se corrigió un falso positivo (la oferta del Tribunal de Cuentas). Ya hay una novedad escrita a
 mano con el estado de hoy (convocatoria del 10 jul 2026, plazo cerrado, la de
-2027 sin publicar). **Lo siguiente acordado:** la huella de revisión
-(`reviewed_hash`, guion en `docs/sql/` primero, regla 4).
+2027 sin publicar). 
+
+**Hecho el 20 nov (regla 142): una pregunta revisada que cambia de texto deja de
+estarlo.** Disparador `question_bank_revision_no_sobrevive`
+(`docs/sql/revision-no-sobrevive-al-cambio.sql`, YA EJECUTADO en producción;
+sustituye a la «huella de revisión» que se había hablado). Efecto visible:
+aprobar un cambio propuesto sobre una pregunta ya revisada la deja sin revisar y
+el tutor la da por buena otra vez.
 
 **De la próxima sesión de código:**
 2. ~~Probar «Revisión» con una cuenta admin real~~ **Hecho el 20 nov** con

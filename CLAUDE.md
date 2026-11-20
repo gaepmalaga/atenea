@@ -129,7 +129,8 @@ scripts/          operación (siembra, limpieza, cuentas), esquema, marca, nube
   (enunciado y respuesta son de la academia: se revisa la explicación) o `ia`
   (se revisa entera). Lo que un tutor escribe a mano entra como `academia`.
 - **Los tutores tienen la última palabra (138).** Nunca se edita una pregunta
-  directamente, ni con SQL: se PROPONE (`question_proposals`, con `source` y
+  directamente, ni con SQL (y si se hace, un disparador le quita la marca de
+  «revisada», regla 142): se PROPONE (`question_proposals`, con `source` y
   `reason`) y la aprueba un tutor en «Revisión». Lo que genera la IA entra
   pendiente. Lo que pasa se anota en `novedades`.
 
@@ -280,6 +281,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 139 | El tutor revisa lo que le toca: de la academia, la explicación; de la IA, todo. Ve cuántas ven ya los alumnos y cuántas le faltan (por bloque y por tema), con pocas opciones |
 | 140 | Si una sugerencia choca con una regla, se pregunta al dueño: ni se hace sin preguntar ni se descarta en silencio |
 | 141 | Una convocatoria nueva no se espera: el vigilante lee el sumario del BOE cada día y avisa (solo escribe en `novedades`) |
+| 142 | Una pregunta revisada que cambia de texto deja de estar revisada: lo hace un disparador de la base de datos (no una norma) |
 
 ## Trampas conocidas
 
