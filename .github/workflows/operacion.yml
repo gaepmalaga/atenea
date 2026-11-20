@@ -52,6 +52,7 @@ on:
           - verificar-repetir   # las repasa otra vez y cambia o retira su aviso. Pide escribir VERIFICAR. Céntimos.
           - ambito-ensayo       # cuántas se repasarían para ver si son de su tema y cuánto costaría. Gratis.
           - ambito-muestra      # la IA repasa 60 (repartidas por temas) y enseña lo que dice. No escribe. Céntimos.
+          - ambito-conocidas    # la IA repasa dos casos conocidos (uno fuera de temario, otro dudoso) para ver si los caza. No escribe.
           - ambito              # la IA repasa todas y deja «La IA duda» en Revisión. Pide escribir AMBITO. Unos euros.
       confirmacion:
         description: 'Escribe RESET (acción "reset"), AMBITO ("ambito"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas"), MEDIR ("dificultad-medida"), PROPONER ("mejoras") o VERIFICAR ("verificar" y "verificar-repetir")'
@@ -120,7 +121,7 @@ jobs:
           faltan=""
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
-          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ] || [ "${{ inputs.accion }}" = "dificultad-nuevas" ] || [ "${{ inputs.accion }}" = "verificar-muestra" ] || [ "${{ inputs.accion }}" = "verificar" ] || [ "${{ inputs.accion }}" = "ambito-muestra" ] || [ "${{ inputs.accion }}" = "ambito" ]; then
+          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ] || [ "${{ inputs.accion }}" = "dificultad-nuevas" ] || [ "${{ inputs.accion }}" = "verificar-muestra" ] || [ "${{ inputs.accion }}" = "verificar" ] || [ "${{ inputs.accion }}" = "ambito-muestra" ] || [ "${{ inputs.accion }}" = "ambito-conocidas" ] || [ "${{ inputs.accion }}" = "ambito" ]; then
             [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
           fi
           if [ -n "$faltan" ]; then
@@ -202,6 +203,10 @@ jobs:
       - name: Ámbito · muestra de 60 (no escribe)
         if: inputs.accion == 'ambito-muestra'
         run: npm run ambito -- --muestra=60
+
+      - name: Ámbito · casos conocidos (no escribe)
+        if: inputs.accion == 'ambito-conocidas'
+        run: npm run ambito -- --solo=d882a4e5,40593d9a
 
       - name: Ámbito · todas
         if: inputs.accion == 'ambito'

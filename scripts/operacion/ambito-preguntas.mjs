@@ -11,6 +11,7 @@
  *   npm run ambito -- --muestra=60        repasa 60 repartidas por temas y enseña lo que dice, sin escribir. Céntimos.
  *   npm run ambito -- --hazlo             repasa todas y deja los avisos. Un euro o dos.
  *   npm run ambito -- --hazlo --limite=500
+ *   npm run ambito -- --solo=d882a4e5     solo esas preguntas (por el principio de su id), sin escribir
  *
  * Una pregunta que ya tuvo un aviso de ESTE repaso (abierto o archivado) no se
  * vuelve a repasar. Los exámenes oficiales (temas 46-50) no tienen programa y
@@ -33,11 +34,13 @@ const valor = (f) => args.find((x) => x.startsWith(`--${f}=`))?.split('=')[1];
 const HAZLO = args.includes('--hazlo');
 const MUESTRA = Number(valor('muestra') ?? 0);
 const LIMITE = Number(valor('limite') ?? 0);
+// --solo=d882a4e5,40593d9a: solo esas (por el principio de su id). Para probar casos conocidos.
+const SOLO = (valor('solo') ?? '').split(',').filter(Boolean);
 const CONCURRENCIA = 4;
 const MODELO = 'gemini-3.5-flash-lite';
 /** Marca del aviso de ESTE repaso, para no repetirlo (el tipo de reporte es el mismo que el del repaso contra la ley). */
 const FIRMA = 'no es de este tema';
-const llama = HAZLO || MUESTRA > 0;
+const llama = HAZLO || MUESTRA > 0 || SOLO.length > 0;
 
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -114,6 +117,7 @@ if (MUESTRA > 0) {
   const paso = Math.max(1, Math.floor(ordenadas.length / MUESTRA));
   lote = ordenadas.filter((_, i) => i % paso === 0).slice(0, MUESTRA);
 }
+if (SOLO.length) lote = repasables.filter((r) => SOLO.some((x) => r.q.id.startsWith(x)));
 if (LIMITE > 0) lote = lote.slice(0, LIMITE);
 
 const aviso = (r) => ({
