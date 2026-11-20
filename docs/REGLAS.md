@@ -5272,3 +5272,47 @@ saliendo del SVG antiguo y puede regenerarse más adelante.
   Administraciones Públicas»), las preguntas sin referencia legal (1.195), y la
   fecha real de un temario propio: una pregunta del Tomo es del día en que se
   subió, aunque el Tomo se escribiera antes.
+
+### 138 · La última palabra es de los tutores: nada cambia una pregunta sin ellos, y se enteran de todo
+
+- **Qué pidió el dueño (20 nov):** que siempre haya una última revisión manual
+  de cada pregunta, que los tutores (por ahora, todas las cuentas admin)
+  aprueben cada cambio que se haga, y que estén informados de todo. «No se nos
+  puede quedar nada atrás.»
+- **Lo que había:** 4.617 preguntas activas las escribió la IA y se activaron en
+  bloque (el generador tenía «Directas al banco» encendido por defecto); nadie
+  sabía cuáles había leído una persona. El clasificador y la medición de
+  dificultad cambiaban preguntas solos, y Claude corregía con SQL.
+- **Revisada (`question_bank.reviewed_*`):** quién y cuándo. La pone publicar
+  una pendiente, editarla, aprobar un cambio propuesto, el alta manual de un
+  admin y «Está bien: revisada». No se puede dar por buena con un aviso de la
+  ley abierto ni con un cambio propuesto sin decidir.
+- **Cambios propuestos (`question_proposals`):** lo que propone Claude, la IA o
+  un proceso, con su foto de antes y de después y el porqué. Una sola pendiente
+  por pregunta. Al aprobar se comprueba que la pregunta sigue como cuando se
+  propuso (si no, se descarta en vez de pisar lo que nadie ha visto), se valida
+  como una edición a mano (regla 10) y se anota en el historial antes de
+  escribir (regla 135). Rechazar deja quién y por qué.
+  - La medición de dificultad escribe el acierto observado (un dato) y
+    **propone** el nivel, también donde un preparador puso otro.
+  - El clasificador de la IA escribe en las pendientes (el tutor la ve entera
+    antes de publicarla) y **propone** en las del banco.
+  - **Claude no edita preguntas:** propone (fila en `question_proposals` con
+    `source='claude'` y su motivo). Las dos correcciones directas del 19 nov
+    (CEISE y Delegaciones) quedaron con aviso o en pendientes para que las vea
+    un tutor.
+  - La IA ya no publica: generar preguntas (panel y guiones) entra siempre
+    pendiente.
+- **«Revisión» (antes «Moderación»):** todo lo que espera a un tutor, con su
+  número en el menú: pendientes, del banco sin revisar, cambios propuestos,
+  cambios en la ley y quejas. «Revisar una a una» enseña la pregunta entera
+  (opciones, correcta, explicación, referencia, dificultad y avisos) con
+  publicar o revisada, corregir, sigue vigente, saltar y descartar.
+- **Novedades (`novedades` + `admin_audit_log`):** lo que ha pasado (el
+  vigilante de la ley, las propuestas, los lotes) y lo que ha decidido cada
+  tutor, con quién y cuándo, de los últimos 45 días.
+- **«Los alumnos solo reciben preguntas revisadas»**
+  (`academy_settings.solo_preguntas_revisadas`): con el interruptor activo, el
+  test, el entrenamiento, el simulacro y los recuentos del alumno solo cuentan
+  lo revisado. Si no se puede leer el ajuste, se cierra (se sirve solo lo
+  revisado). Se activa antes de que entren los alumnos de verdad.

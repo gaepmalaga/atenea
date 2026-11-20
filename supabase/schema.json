@@ -66,10 +66,12 @@
         "name",
         "organization_id",
         "schedule",
+        "solo_preguntas_revisadas",
         "updated_at"
       ],
       "obligatorias": [
         "organization_id",
+        "solo_preguntas_revisadas",
         "updated_at"
       ],
       "tipos": {
@@ -79,6 +81,7 @@
         "name": "text",
         "organization_id": "uuid",
         "schedule": "text",
+        "solo_preguntas_revisadas": "boolean",
         "updated_at": "timestamp with time zone"
       }
     },
@@ -981,6 +984,32 @@
         "user_id": "uuid"
       }
     },
+    "novedades": {
+      "columnas": [
+        "autor",
+        "created_at",
+        "detalle",
+        "id",
+        "organization_id",
+        "tipo",
+        "titulo"
+      ],
+      "obligatorias": [
+        "created_at",
+        "id",
+        "tipo",
+        "titulo"
+      ],
+      "tipos": {
+        "autor": "text",
+        "created_at": "timestamp with time zone",
+        "detalle": "text",
+        "id": "uuid",
+        "organization_id": "uuid",
+        "tipo": "text",
+        "titulo": "text"
+      }
+    },
     "payment_entries": {
       "columnas": [
         "alumno",
@@ -1399,6 +1428,9 @@
         "origin",
         "question_hash",
         "question_text",
+        "reviewed_at",
+        "reviewed_by",
+        "reviewed_by_email",
         "status",
         "subject_id"
       ],
@@ -1424,6 +1456,9 @@
         "origin": "text",
         "question_hash": "text",
         "question_text": "text",
+        "reviewed_at": "timestamp with time zone",
+        "reviewed_by": "uuid",
+        "reviewed_by_email": "text",
         "status": "text",
         "subject_id": "integer"
       }
@@ -1482,6 +1517,48 @@
         "question_id": "uuid",
         "updated_at": "timestamp with time zone",
         "user_id": "uuid"
+      }
+    },
+    "question_proposals": {
+      "columnas": [
+        "after",
+        "before",
+        "created_at",
+        "decided_at",
+        "decided_by",
+        "decided_by_email",
+        "decision_note",
+        "id",
+        "organization_id",
+        "question_id",
+        "reason",
+        "source",
+        "status"
+      ],
+      "obligatorias": [
+        "after",
+        "before",
+        "created_at",
+        "id",
+        "question_id",
+        "reason",
+        "source",
+        "status"
+      ],
+      "tipos": {
+        "after": "jsonb",
+        "before": "jsonb",
+        "created_at": "timestamp with time zone",
+        "decided_at": "timestamp with time zone",
+        "decided_by": "uuid",
+        "decided_by_email": "text",
+        "decision_note": "text",
+        "id": "uuid",
+        "organization_id": "uuid",
+        "question_id": "uuid",
+        "reason": "text",
+        "source": "text",
+        "status": "text"
       }
     },
     "question_reports": {

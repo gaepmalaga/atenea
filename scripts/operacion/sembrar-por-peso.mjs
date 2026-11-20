@@ -146,7 +146,9 @@ async function coberturaActual(subjectId) {
     .from('question_bank')
     .select('legal_reference')
     .eq('subject_id', subjectId)
-    .eq('status', QUESTION_STATUS.ACTIVE)
+    // Las pendientes cuentan: lo generado espera a un tutor (regla 138), y
+    // sin contarlas cada pasada volvería a pedir lo mismo.
+    .in('status', [QUESTION_STATUS.ACTIVE, QUESTION_STATUS.CANDIDATE])
     .is('organization_id', null)
     .not('legal_reference', 'is', null);
   const mapa = new Map();
@@ -259,7 +261,7 @@ async function sembrarTema(tema, peso) {
     .from('question_bank')
     .select('id', { count: 'exact', head: true })
     .eq('subject_id', tema.id)
-    .eq('status', QUESTION_STATUS.ACTIVE)
+    .in('status', [QUESTION_STATUS.ACTIVE, QUESTION_STATUS.CANDIDATE])
     .is('organization_id', null);
 
   const faltan = Math.max(0, objetivo - (yaHay ?? 0));
@@ -313,7 +315,8 @@ async function sembrarTema(tema, peso) {
           question_hash: hash,
           difficulty_level: DIFFICULTY_DEFAULT,
           legal_reference: d.legal_reference,
-          status: QUESTION_STATUS.ACTIVE,
+          // Regla 138: lo que escribe la IA entra pendiente; lo publica un tutor.
+          status: QUESTION_STATUS.CANDIDATE,
           origin: QUESTION_ORIGIN.BANK_SEED,
           created_at: new Date().toISOString(),
         },

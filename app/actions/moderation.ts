@@ -20,6 +20,19 @@ import { createSupabaseServerClient } from '../lib/supabase/server';
 import { fallo } from '../lib/fallos';
 import { filtroEscrituraBanco, puedeEditarBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
+import { leeValores, propuestaVigente, cambiaAlgo, cambiosLegibles, type ValoresPregunta, type CambioLegible } from '../lib/revision';
+
+/**
+ * La marca de «revisada por un tutor» (regla 138): quién y cuándo. Se pone al
+ * publicar, al editar, al aprobar un cambio propuesto y al dar una por buena
+ * desde el revisor: todas son decisiones de una persona que ha leído la
+ * pregunta.
+ */
+const revisadaPor = (user: { id: string; email: string }) => ({
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: user.id,
+    reviewed_by_email: user.email,
+});
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -192,7 +205,7 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
     for (let i = 0; i < listas.length; i += 100) {
         let query = supabaseAdmin
             .from('question_bank')
-            .update({ status: QUESTION_STATUS.ACTIVE })
+            .update({ status: QUESTION_STATUS.ACTIVE, ...revisadaPor(auth.user) })
             .in('id', listas.slice(i, i + 100))
             .eq('status', QUESTION_STATUS.CANDIDATE);
         if (alcance) query = query.or(alcance);
@@ -441,6 +454,8 @@ async function editaPregunta(
         options: despuesFoto.options,
         correct_index: despuesFoto.correct_index,
         explanation: despuesFoto.explanation,
+        // Quien la corrige la ha leído: queda revisada por esa persona (regla 138).
+        ...revisadaPor(user),
         // Lo que pone una persona manda sobre la estimación (regla 121): por
         // eso se anota de quién es, y una reclasificación no lo pisa.
         ...(cambiaNivel ? { difficulty_level: Number(crudo), difficulty_source: DIFFICULTY_SOURCE.preparador } : {}),
@@ -671,7 +686,8 @@ export async function createManualQuestion(
   // a una aprobada (regla 3).
   const { data, error } = await supabaseAdmin
     .from('question_bank')
-    .upsert(preparada.fila, { onConflict: 'question_hash', ignoreDuplicates: true })
+    // La escribe un admin: entra revisada por esa persona (regla 138).
+    .upsert({ ...preparada.fila, ...revisadaPor(auth.user) }, { onConflict: 'question_hash', ignoreDuplicates: true })
     .select('id')
     .maybeSingle();
 
@@ -775,7 +791,8 @@ export async function importManualQuestions(
       return;
     }
     huellas.add(preparada.fila.question_hash);
-    filas.push(preparada.fila);
+    // Las importa un admin: entran revisadas por esa persona (regla 138).
+    filas.push({ ...preparada.fila, ...revisadaPor(auth.user) });
   });
 
   if (filas.length === 0) {
@@ -888,4 +905,266 @@ export async function crearPreguntaDeExamen(input: unknown): Promise<
             pendiente: fila ? fila.status === QUESTION_STATUS.CANDIDATE : true,
         },
     };
+}
+
+// ---------------------------------------------------------------------------
+// LA ÚLTIMA PALABRA ES DE LOS TUTORES (regla 138)
+// ---------------------------------------------------------------------------
+
+/**
+ * «Revisada»: un tutor ha leído una pregunta del banco y la da por buena tal
+ * cual. Solo las que están en el banco (una pendiente se PUBLICA, que también
+ * la deja revisada), y no con un aviso de la ley abierto ni con un cambio
+ * propuesto sin decidir: eso se resuelve antes.
+ */
+export async function marcarRevisada(questionId: string): Promise<ModerationResult> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (typeof questionId !== 'string' || !questionId) return { success: false, error: 'Falta el id de la pregunta.' };
+
+    const alcance = filtroEscrituraBanco(auth.user);
+    let lectura = supabaseAdmin.from('question_bank').select('id, status').eq('id', questionId);
+    if (alcance) lectura = lectura.or(alcance);
+    const { data: fila, error: errLec } = await lectura.maybeSingle();
+    if (errLec) return { success: false, error: fallo('marcarRevisada', errLec) };
+    if (!fila) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+    if (fila.status !== QUESTION_STATUS.ACTIVE) return { success: false, error: 'Solo se marcan las que están en el banco. Una pendiente se publica.' };
+
+    const [{ data: avisos, error: errAv }, { data: propuestas, error: errPr }] = await Promise.all([
+        supabaseAdmin.from('question_reports').select('id').eq('question_id', questionId).eq('report_type', TIPO_REPORTE_VIGENCIA).eq('status', 'open').limit(1),
+        supabaseAdmin.from('question_proposals').select('id').eq('question_id', questionId).eq('status', 'pending').limit(1),
+    ]);
+    if (errAv || errPr) return { success: false, error: fallo('marcarRevisada', errAv ?? errPr) };
+    if (avisos?.length) return { success: false, error: 'Tiene un aviso de cambio en la ley sin resolver: corrígela o marca «Sigue vigente» antes.' };
+    if (propuestas?.length) return { success: false, error: 'Tiene un cambio propuesto sin decidir: apruébalo o recházalo antes.' };
+
+    let query = supabaseAdmin.from('question_bank').update(revisadaPor(auth.user)).eq('id', questionId);
+    if (alcance) query = query.or(alcance);
+    const { data, error } = await query.select('id');
+    if (error) return { success: false, error: fallo('marcarRevisada', error) };
+    if (!data?.length) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+    registraAccion({ actorId: auth.user.id, action: 'review_question', target: questionId, organizationId: auth.user.organizationId });
+    return { success: true };
+}
+
+/** Un cambio propuesto, con la pregunta tal como está HOY y su «antes / después» legible. */
+export type PropuestaParaRevisar = {
+    id: string;
+    questionId: string;
+    origen: string;
+    motivo: string;
+    creada: string;
+    /** Sigue valiendo: la pregunta está como cuando se propuso. */
+    vigente: boolean;
+    cambios: CambioLegible[];
+    pregunta: {
+        question_text: string;
+        options: string[];
+        correct_index: number;
+        explanation: string | null;
+        legal_reference: string | null;
+        difficulty_level: number | null;
+        status: string;
+        tema: number | null;
+    };
+};
+
+const COLUMNAS_PROPONIBLES = 'id, organization_id, status, subject_id, question_text, options, correct_index, explanation, difficulty_level, legal_reference';
+
+type FilaProponible = {
+    id: string; organization_id: string | null; status: string; subject_id: number | null;
+    question_text: string; options: string[]; correct_index: number; explanation: string | null;
+    difficulty_level: number | null; legal_reference: string | null;
+};
+
+const valoresDe = (f: FilaProponible): ValoresPregunta => ({
+    question_text: f.question_text,
+    options: Array.isArray(f.options) ? f.options : [],
+    correct_index: f.correct_index,
+    explanation: f.explanation ?? null,
+    difficulty_level: f.difficulty_level ?? null,
+    legal_reference: f.legal_reference ?? null,
+});
+
+/** El alcance de lectura por academia de una tabla con `organization_id` propio (reglas 75 y 123). */
+function alcanceLecturaOrg(user: { role: string; organizationId: string | null }): string | null {
+    if (user.role === 'superadmin') return null;
+    return UNA_SOLA_ACADEMIA
+        ? `organization_id.is.null,organization_id.eq.${user.organizationId}`
+        : `organization_id.eq.${user.organizationId}`;
+}
+
+/** Los cambios propuestos que esperan a un tutor (regla 138), de los más antiguos a los más nuevos. */
+export async function getPropuestas(): Promise<{ success: true; propuestas: PropuestaParaRevisar[] } | { success: false; error: string }> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+
+    let consulta = supabaseAdmin
+        .from('question_proposals')
+        .select('id, question_id, source, reason, before, after, created_at, organization_id')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(200);
+    const alcance = alcanceLecturaOrg(auth.user);
+    if (alcance) consulta = consulta.or(alcance);
+    const { data: filas, error } = await consulta;
+    if (error) return { success: false as const, error: fallo('getPropuestas', error) };
+    if (!filas?.length) return { success: true as const, propuestas: [] };
+
+    const ids = [...new Set(filas.map((f) => f.question_id as string))];
+    const { data: preguntas, error: errQ } = await supabaseAdmin.from('question_bank').select(COLUMNAS_PROPONIBLES + ', subjects(topic_number)').in('id', ids);
+    if (errQ) return { success: false as const, error: fallo('getPropuestas', errQ) };
+    const porId = new Map(((preguntas ?? []) as unknown as (FilaProponible & { subjects?: { topic_number: number } | null })[]).map((p) => [p.id, p]));
+
+    const propuestas: PropuestaParaRevisar[] = [];
+    for (const f of filas) {
+        const q = porId.get(f.question_id as string);
+        const antes = leeValores(f.before);
+        const despues = leeValores(f.after);
+        if (!q || !antes || !despues) continue;
+        const actual = valoresDe(q);
+        propuestas.push({
+            id: f.id as string,
+            questionId: q.id,
+            origen: f.source as string,
+            motivo: f.reason as string,
+            creada: f.created_at as string,
+            vigente: propuestaVigente(actual, antes, despues),
+            cambios: cambiosLegibles(actual, despues),
+            pregunta: {
+                question_text: q.question_text, options: actual.options ?? [], correct_index: q.correct_index,
+                explanation: q.explanation ?? null, legal_reference: q.legal_reference ?? null,
+                difficulty_level: q.difficulty_level ?? null, status: q.status, tema: q.subjects?.topic_number ?? null,
+            },
+        });
+    }
+    return { success: true as const, propuestas };
+}
+
+/** Lee una propuesta pendiente y su pregunta, ya acotadas a lo que este tutor puede tocar. */
+async function propuestaYPregunta(user: { role: string; organizationId: string | null }, proposalId: string) {
+    const { data: prop, error } = await supabaseAdmin
+        .from('question_proposals')
+        .select('id, question_id, source, before, after, status')
+        .eq('id', proposalId)
+        .maybeSingle();
+    if (error) return { error: fallo('propuesta', error) };
+    if (!prop) return { error: 'Ese cambio propuesto no existe.' };
+    if (prop.status !== 'pending') return { error: 'Ese cambio ya se decidió.' };
+
+    const alcance = filtroEscrituraBanco(user as Parameters<typeof filtroEscrituraBanco>[0]);
+    let lectura = supabaseAdmin.from('question_bank').select(COLUMNAS_PROPONIBLES).eq('id', prop.question_id as string);
+    if (alcance) lectura = lectura.or(alcance);
+    const { data: q, error: errQ } = await lectura.maybeSingle();
+    if (errQ) return { error: fallo('propuesta', errQ) };
+    if (!q) return { error: 'Esa pregunta no existe o no es de tu academia.' };
+    return { prop, q: q as unknown as FilaProponible, alcance };
+}
+
+const decididaPor = (user: { id: string; email: string }, estado: 'approved' | 'rejected' | 'superseded', nota?: string | null) => ({
+    status: estado,
+    decided_at: new Date().toISOString(),
+    decided_by: user.id,
+    decided_by_email: user.email,
+    decision_note: nota ?? null,
+});
+
+/**
+ * Aprueba un cambio propuesto y lo aplica (regla 138). Antes comprueba que la
+ * pregunta sigue como cuando se propuso: si alguien la ha tocado, la
+ * propuesta se descarta en vez de pisar lo que no se ha visto. Se valida con
+ * la misma regla que una edición a mano (regla 10) y deja su fila en el
+ * historial ANTES de escribir (regla 135).
+ */
+export async function aprobarPropuesta(proposalId: string): Promise<ModerationResult> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (typeof proposalId !== 'string' || !proposalId) return { success: false, error: 'Falta el cambio propuesto.' };
+
+    const leido = await propuestaYPregunta(auth.user, proposalId);
+    if ('error' in leido) return { success: false, error: leido.error };
+    const { prop, q, alcance } = leido;
+
+    const antes = leeValores(prop.before);
+    const despues = leeValores(prop.after);
+    if (!antes || !despues) return { success: false, error: 'Ese cambio propuesto está mal formado.' };
+    const actual = valoresDe(q);
+    if (!propuestaVigente(actual, antes, despues)) {
+        await supabaseAdmin.from('question_proposals').update(decididaPor(auth.user, 'superseded', 'La pregunta cambió desde que se propuso.')).eq('id', proposalId);
+        return { success: false, error: 'La pregunta ha cambiado desde que se propuso este cambio: ya no vale y se ha descartado.' };
+    }
+    const nueva = { ...actual, ...despues };
+    if (!cambiaAlgo(actual, despues)) {
+        await supabaseAdmin.from('question_proposals').update(decididaPor(auth.user, 'superseded', 'No cambiaba nada.')).eq('id', proposalId);
+        return { success: true };
+    }
+
+    // La misma comprobación que una edición a mano: tres opciones distintas,
+    // índice en rango, enunciado y explicación (regla 10). Una pendiente puede
+    // seguir sin explicación.
+    const sinExplicacion = q.status === QUESTION_STATUS.CANDIDATE && !(nueva.explanation ?? '').trim();
+    const check = validateGeneratedQuestion({
+        question_text: nueva.question_text, options: nueva.options, correct_index: nueva.correct_index,
+        explanation: sinExplicacion ? RELLENO_EXPLICACION : nueva.explanation,
+    });
+    if (!check.ok) return { success: false, error: `El cambio no se puede aplicar: ${check.reason}` };
+
+    const despuesFoto = {
+        question_text: check.value.question,
+        options: check.value.options,
+        correct_index: check.value.correctIndex,
+        explanation: sinExplicacion ? null : check.value.explanation,
+        difficulty_level: nueva.difficulty_level ?? null,
+        legal_reference: nueva.legal_reference ?? null,
+    };
+    const { error: errHist } = await supabaseAdmin.from('question_edit_history').insert({
+        question_id: q.id,
+        organization_id: q.organization_id ?? null,
+        changed_by: auth.user.id,
+        changed_by_email: auth.user.email,
+        source: 'banco',
+        before: { ...instantanea(q), legal_reference: q.legal_reference ?? null },
+        after: despuesFoto,
+    });
+    if (errHist) return { success: false, error: fallo('aprobarPropuesta.historial', errHist) };
+
+    const cambiaNivel = 'difficulty_level' in despues && despues.difficulty_level !== actual.difficulty_level;
+    let query = supabaseAdmin.from('question_bank').update({
+        question_text: despuesFoto.question_text,
+        options: despuesFoto.options,
+        correct_index: despuesFoto.correct_index,
+        explanation: despuesFoto.explanation,
+        legal_reference: despuesFoto.legal_reference,
+        // La medida es la medida; lo demás lo ha dado por bueno un tutor (regla 122).
+        ...(cambiaNivel ? {
+            difficulty_level: despuesFoto.difficulty_level,
+            difficulty_source: prop.source === 'dificultad' ? DIFFICULTY_SOURCE.medida : DIFFICULTY_SOURCE.preparador,
+        } : {}),
+        ...revisadaPor(auth.user),
+    }).eq('id', q.id);
+    if (alcance) query = query.or(alcance);
+    const { data: escritas, error } = await query.select('id');
+    if (error) return { success: false, error: fallo('aprobarPropuesta', error) };
+    if (!escritas?.length) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+
+    const { error: errProp } = await supabaseAdmin.from('question_proposals').update(decididaPor(auth.user, 'approved')).eq('id', proposalId);
+    if (errProp) return { success: false, error: fallo('aprobarPropuesta.estado', errProp) };
+    registraAccion({ actorId: auth.user.id, action: 'approve_proposal', target: q.id, organizationId: auth.user.organizationId, detail: { propuesta: proposalId } });
+    return { success: true };
+}
+
+/** Rechaza un cambio propuesto (regla 138): la pregunta no se toca y queda anotado quién y por qué. */
+export async function rechazarPropuesta(proposalId: string, nota?: unknown): Promise<ModerationResult> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (typeof proposalId !== 'string' || !proposalId) return { success: false, error: 'Falta el cambio propuesto.' };
+    const motivo = typeof nota === 'string' ? nota.trim().slice(0, 500) || null : null;
+
+    const leido = await propuestaYPregunta(auth.user, proposalId);
+    if ('error' in leido) return { success: false, error: leido.error };
+
+    const { error } = await supabaseAdmin.from('question_proposals').update(decididaPor(auth.user, 'rejected', motivo)).eq('id', proposalId).eq('status', 'pending');
+    if (error) return { success: false, error: fallo('rechazarPropuesta', error) };
+    registraAccion({ actorId: auth.user.id, action: 'reject_proposal', target: leido.q.id, organizationId: auth.user.organizationId, detail: { propuesta: proposalId, motivo } });
+    return { success: true };
 }

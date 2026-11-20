@@ -102,12 +102,14 @@ describe('visibilidad para el administrador', () => {
 });
 
 describe('destino del seed', () => {
-  it('publicar directamente es la opcion por defecto, pero es una opcion', () => {
-    // Antes era una constante oculta en el servidor, puesta al reves de lo que
-    // decia su propio comentario ("asumimos activas" sobre status:'candidate').
-    const fn = exams.slice(exams.indexOf('export async function seedQuestionBank'));
-    expect(fn).toContain('autoApprove = true');
-    expect(fn).toMatch(/autoApprove\s*\?\s*QUESTION_STATUS\.ACTIVE\s*:\s*QUESTION_STATUS\.CANDIDATE/);
+  it('lo que genera la IA entra SIEMPRE pendiente: lo publica un tutor (regla 138)', () => {
+    // Antes «Directas al banco» era la opción por defecto: así se activaron
+    // 4.617 preguntas que ningún tutor había leído.
+    const inicio = exams.indexOf('export async function seedQuestionBank');
+    const fn = exams.slice(inicio, exams.indexOf('\n}\n', inicio));
+    expect(fn).not.toMatch(/autoApprove/);
+    expect(fn).toMatch(/const status: QuestionStatus = QUESTION_STATUS\.CANDIDATE;/);
+    expect(fn).not.toMatch(/QUESTION_STATUS\.ACTIVE/);
   });
 
   it('el resultado distingue insertadas, duplicadas y fallidas', () => {

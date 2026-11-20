@@ -6,7 +6,21 @@ import { KeyRound, LogOut, Menu, RefreshCw, X } from 'lucide-react';
 import { cx } from '../tokens';
 import TemaPanel from './TemaPanel';
 
-export type PestanaPanel = { id: string; etiqueta: string; icono: LucideIcon; seccion: string };
+export type PestanaPanel = {
+  id: string; etiqueta: string; icono: LucideIcon; seccion: string;
+  /** Lo que espera ahí a alguien (regla 138: lo que espera a un tutor). Sin él, o en 0, no se pinta nada. */
+  cuenta?: number;
+};
+
+/** El número de lo que espera, en una pastilla dorada. `99+` a partir de cien: el número exacto está dentro. */
+function Cuenta({ n }: { n?: number }) {
+  if (!n || n <= 0) return null;
+  return (
+    <span className="ml-auto inline-flex min-w-[22px] shrink-0 items-center justify-center rounded-full bg-oro px-1.5 text-[11px] font-bold leading-[20px] text-marino-hondo" aria-label={`${n} por revisar`}>
+      {n > 99 ? '99+' : n}
+    </span>
+  );
+}
 
 /**
  * La cáscara del panel de administración.
@@ -102,8 +116,9 @@ export default function PanelShell({
           <nav aria-label="Todas las pantallas" className="bg-marino px-2 pb-3 text-indigo-100 lg:hidden">
             <div className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))]">
               {pestanas.map((p) => (
-                <button key={p.id} type="button" onClick={() => elige(p.id)} className={cx('flex min-h-[44px] items-center px-2.5 text-left text-sm', p.id === activa ? 'font-semibold text-white' : 'text-indigo-200')}>
+                <button key={p.id} type="button" onClick={() => elige(p.id)} className={cx('flex min-h-[44px] items-center gap-2 px-2.5 text-left text-sm', p.id === activa ? 'font-semibold text-white' : 'text-indigo-200')}>
                   {p.etiqueta}
+                  <Cuenta n={p.cuenta} />
                 </button>
               ))}
             </div>
@@ -137,9 +152,13 @@ export default function PanelShell({
               dónde estás: si no, ninguna salía marcada. */}
           {(() => {
             const fuera = abajo.some((p) => p.id === activa) ? null : pestanas.find((p) => p.id === activa) ?? null;
+            // Si algo de lo que hay en «Más» espera a alguien, se marca: si no, no se ve.
+            const esperando = pestanas.some((p) => !abajo.includes(p) && (p.cuenta ?? 0) > 0);
             return (
               <button type="button" onClick={() => { window.scrollTo({ top: 0 }); setMenuAbierto(true); }} aria-current={fuera ? 'page' : undefined}
-                className={cx('grid min-h-[52px] min-w-0 justify-items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px]', fuera ? 'font-semibold text-indigo-900 dark:text-indigo-200' : 'font-medium text-slate-600 dark:text-slate-400')}>
+                aria-label={esperando ? `${fuera ? fuera.etiqueta : 'Más'}: hay cosas por revisar` : undefined}
+                className={cx('relative grid min-h-[52px] min-w-0 justify-items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px]', fuera ? 'font-semibold text-indigo-900 dark:text-indigo-200' : 'font-medium text-slate-600 dark:text-slate-400')}>
+                {esperando && <span aria-hidden className="absolute right-[calc(50%-18px)] top-1.5 h-2.5 w-2.5 rounded-full bg-oro ring-2 ring-white dark:ring-noche-2" />}
                 <Menu size={22} strokeWidth={fuera ? 2.4 : 1.8} />
                 <span className="max-w-full truncate">{fuera ? fuera.etiqueta : 'Más'}</span>
               </button>
@@ -158,11 +177,12 @@ function ItemLateral({ p, on, onClick }: { p: PestanaPanel; on: boolean; onClick
       onClick={onClick}
       aria-current={on ? 'page' : undefined}
       className={cx(
-        'flex min-h-[44px] w-full items-center px-4.5 text-left text-[13.5px] transition-colors',
+        'flex min-h-[44px] w-full items-center gap-2 px-4.5 text-left text-[13.5px] transition-colors',
         on ? 'bg-white/10 font-semibold text-white shadow-[inset_3px_0_0_var(--color-oro)]' : 'text-indigo-100 hover:bg-white/5',
       )}
     >
       {p.etiqueta}
+      <Cuenta n={p.cuenta} />
     </button>
   );
 }

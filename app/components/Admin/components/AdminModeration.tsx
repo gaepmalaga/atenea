@@ -30,7 +30,13 @@ const REPORT_BADGES: Record<string, { label: string; tono: Tono }> = {
   other: { label: 'Otro', tono: 'apagado' },
 };
 
-export default function AdminModeration() {
+/**
+ * La cola de reportes. Desde la regla 138 vive DENTRO de «Revisión», partida
+ * en dos: `soloTipo="ley"` (los avisos del vigilante) y `soloTipo="quejas"`
+ * (lo que reportan los alumnos). Las pendientes ya no se aprueban aquí: se
+ * revisan una a una en «Revisión → Revisar».
+ */
+export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'ley' | 'quejas'; onCambio?: () => void } = {}) {
   const [queue, setQueue] = useState<ModerationQueue>({ candidates: [], reports: [] });
   const [loading, setLoading] = useState(true);
 
@@ -53,9 +59,14 @@ export default function AdminModeration() {
   // despues del await.
   const load = useCallback(async () => {
     const res = await getModerationQueue();
-    if (res.success) setQueue(res.data);
+    if (res.success) {
+      const deLaLey = (r: ModerationReport) => r.report_type === TIPO_REPORTE_VIGENCIA;
+      setQueue(soloTipo
+        ? { candidates: [], reports: res.data.reports.filter((r) => (soloTipo === 'ley' ? deLaLey(r) : !deLaLey(r))) }
+        : res.data);
+    }
     setLoading(false);
-  }, []);
+  }, [soloTipo]);
 
   useEffect(() => {
     load();
@@ -85,6 +96,7 @@ export default function AdminModeration() {
   async function handleResolveReport(reportId: string) {
       setQueue((prev) => ({ ...prev, reports: prev.reports.filter((r) => r.id !== reportId) }));
       await resolveReport(reportId);
+      onCambio?.();
   }
 
   // --- LÓGICA DE EDICIÓN ---
@@ -139,22 +151,25 @@ export default function AdminModeration() {
 
   return (
     <div className="space-y-5 pb-20">
-      <PanelTitulo titulo="Moderación" sub="Quejas de los alumnos, cambios en la ley y preguntas candidatas." />
-
-      <Pestanas
-        etiqueta="Colas de moderación"
-        activa={activa}
-        onCambia={setPestana}
-        items={[
-          { id: 'quejas', etiqueta: 'Requieren atención', cuenta: queue.reports.length },
-          { id: 'aprobar', etiqueta: 'Pendientes de aprobación', cuenta: queue.candidates.length },
-        ]}
-      />
+      {!soloTipo && (
+        <>
+          <PanelTitulo titulo="Moderación" sub="Quejas de los alumnos, cambios en la ley y preguntas candidatas." />
+          <Pestanas
+            etiqueta="Colas de moderación"
+            activa={activa}
+            onCambia={setPestana}
+            items={[
+              { id: 'quejas', etiqueta: 'Requieren atención', cuenta: queue.reports.length },
+              { id: 'aprobar', etiqueta: 'Pendientes de aprobación', cuenta: queue.candidates.length },
+            ]}
+          />
+        </>
+      )}
 
       {/* === QUEJAS DE LOS ALUMNOS === */}
       {activa === 'quejas' && (
         queue.reports.length === 0 ? (
-          <EmptyState icon={<ShieldAlert size={36} />} title="Todo tranquilo. Sin quejas." bordered />
+          <EmptyState icon={<ShieldAlert size={36} />} title={soloTipo === 'ley' ? 'Ningún cambio en la ley por revisar.' : 'Todo tranquilo. Sin quejas.'} bordered />
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {queue.reports.map((r) => {

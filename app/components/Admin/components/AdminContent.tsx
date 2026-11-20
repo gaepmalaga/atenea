@@ -104,7 +104,6 @@ export default function AdminContent() {
   const [genCount, setGenCount] = useState(20);
   // Publicar directo en el banco o mandar a moderacion. Antes era una constante
   // oculta en el servidor, y estaba puesta al reves de lo que decia su comentario.
-  const [genAutoApprove, setGenAutoApprove] = useState(true);
 
   // Control de acordeón (Bloques abiertos)
   const [openBlocks, setOpenBlocks] = useState<Record<number, boolean>>({ 1: true });
@@ -284,8 +283,6 @@ export default function AdminContent() {
             syllabus={syllabus}
             subject={genSubject}
             setSubject={setGenSubject}
-            autoApprove={genAutoApprove}
-            setAutoApprove={setGenAutoApprove}
         />
 
         {/* --- 4. VISOR DE TEMARIO (ACORDEÓN PREMIUM) --- */}
@@ -584,12 +581,10 @@ export default function AdminContent() {
  * quieres generar de ése, lo preselecciona. Lo que ya no es, es la única
  * puerta.
  */
-function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApprove }: {
+function GeneradorPanel({ syllabus, subject, setSubject }: {
   syllabus: Block[];
   subject: Subject | null;
   setSubject: (s: Subject | null) => void;
-  autoApprove: boolean;
-  setAutoApprove: (v: boolean) => void;
 }) {
   const [que, setQue] = useState<'preguntas' | 'fichas'>('preguntas');
   const [cuantas, setCuantas] = useState(20);
@@ -625,7 +620,7 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
     setResultado(null);
     const res = que === 'fichas'
       ? await seedFlashcardBank({ subjectId: subject.id, topic: subject.title, count: cuantas })
-      : await seedQuestionBank({ subjectId: subject.id, topic: subject.title, count: cuantas, autoApprove });
+      : await seedQuestionBank({ subjectId: subject.id, topic: subject.title, count: cuantas });
     setResultado(res);
     setCorriendo(false);
     if (que === 'fichas') recargarFichas();
@@ -722,21 +717,10 @@ function GeneradorPanel({ syllabus, subject, setSubject, autoApprove, setAutoApp
         </button>
       </div>
 
-      {/* Sólo para preguntas: al banco o a revisar. Las fichas no pasan por
-          moderación, así que enseñar aquí el interruptor sería mentir. */}
+      {/* Regla 138: las preguntas de la IA entran siempre pendientes; ya no
+          hay interruptor «Directas al banco». Las publica un tutor. */}
       {que === 'preguntas' && (
-        <button
-          type="button"
-          onClick={() => setAutoApprove(!autoApprove)}
-          className="flex items-center gap-2 min-h-[44px] text-xs font-bold"
-        >
-          <span className={cx('w-10 h-6 rounded-full transition-colors relative shrink-0', autoApprove ? 'bg-emerald-600' : 'bg-amber-600')}>
-            <span className={cx('absolute top-1 w-4 h-4 bg-white rounded-full transition-all', autoApprove ? 'left-5' : 'left-1')} />
-          </span>
-          <span className={autoApprove ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>
-            {autoApprove ? 'Directas al banco' : 'A moderación primero'}
-          </span>
-        </button>
+        <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Entran pendientes: las publica un tutor desde «Banco oficial».</p>
       )}
 
       {resultado && (

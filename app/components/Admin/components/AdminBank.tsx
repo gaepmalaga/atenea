@@ -11,6 +11,7 @@ import {
   approveQuestions,
   approveQuestion,
   resolverAvisosLey,
+  marcarRevisada,
   updateQuestion
 } from '@/actions';
 import {
@@ -66,6 +67,8 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   const [dificultadFilter, setDificultadFilter] = useState<DifficultyLevel | 'all'>('all');
   // Regla 137: las que tienen un aviso de cambio en la ley sin resolver.
   const [soloAvisos, setSoloAvisos] = useState(false);
+  // Regla 138: las que ha revisado un tutor, o las que no.
+  const [revisionFilter, setRevisionFilter] = useState<'all' | 'sin_revisar' | 'revisadas'>('all');
   const [bulkRunning, setBulkRunning] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
@@ -102,7 +105,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
     const timer = setTimeout(() => { loadQuestions(1); }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSubject, searchTerm, statusFilter, origenFilter, dificultadFilter, soloAvisos]);
+  }, [selectedSubject, searchTerm, statusFilter, origenFilter, dificultadFilter, soloAvisos, revisionFilter]);
 
   // --- CARGA DE DATOS ---
   async function loadSyllabus() {
@@ -122,6 +125,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         origen: origenFilter,
         dificultad: dificultadFilter,
         conAvisoLey: soloAvisos,
+        revision: revisionFilter,
         page,
         limit: 15 // Menos preguntas por página para diseño más aireado
     });
@@ -192,6 +196,18 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
           void avisar('No se pudieron aprobar: ' + res.error);
       }
       setBulkRunning(false);
+  }
+
+  /** «Revisada» (regla 138): un tutor la da por buena tal cual. */
+  async function handleRevisada(q: AdminBankRow) {
+      setIsDeleting(q.id);
+      setErrorGuardar(null);
+      const res = await marcarRevisada(q.id);
+      setIsDeleting(null);
+      if (!res.success) { setErrorGuardar(res.error ?? 'No se pudo marcar.'); return; }
+      const ahora = new Date().toISOString();
+      setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, reviewed_at: ahora, reviewed_by_email: 'ti' } : x));
+      setEditingQ(null);
   }
 
   /** «Sigue vigente»: cierra los avisos de la ley de la pregunta abierta sin tocarla. */
@@ -284,7 +300,8 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               if (!r.success) setErrorGuardar(r.error ?? 'Se guardó, pero el aviso de la ley sigue abierto.');
           }
           setQuestions(prev => prev.map(q => q.id === editingQ.id
-              ? { ...q, ...editForm, ...(nivelCambiado ? { difficulty_level: editNivel, difficulty_source: 'preparador' } : {}), ...(cerrarAvisos ? { avisosLey: [] } : {}) }
+              // Quien la corrige la ha revisado (regla 138): el servidor ya lo ha anotado.
+              ? { ...q, ...editForm, ...(nivelCambiado ? { difficulty_level: editNivel, difficulty_source: 'preparador' } : {}), ...(cerrarAvisos ? { avisosLey: [] } : {}), reviewed_at: new Date().toISOString(), reviewed_by_email: 'ti' }
               : q));
           setEditingQ(null);
       } else {
@@ -313,7 +330,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       />
 
       {/* --- FILTROS --- */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Campo
           type="search"
           aria-label="Buscar por contenido"
@@ -338,6 +355,11 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         <CampoSelect aria-label="Dificultad" value={dificultadFilter} onChange={(e) => setDificultadFilter(e.target.value === 'all' ? 'all' : (Number(e.target.value) as DifficultyLevel))}>
           <option value="all">Toda dificultad</option>
           {([1, 2, 3] as const).map((n) => <option key={n} value={n}>{DIFFICULTY_LABEL[n]}</option>)}
+        </CampoSelect>
+        <CampoSelect aria-label="Revisión" value={revisionFilter} onChange={(e) => setRevisionFilter(e.target.value as 'all' | 'sin_revisar' | 'revisadas')}>
+          <option value="all">Revisadas o no</option>
+          <option value="sin_revisar">Sin revisar por un tutor</option>
+          <option value="revisadas">Revisadas por un tutor</option>
         </CampoSelect>
         <CampoSelect aria-label="Avisos de la ley" value={soloAvisos ? 'si' : 'todas'} onChange={(e) => setSoloAvisos(e.target.value === 'si')}>
           <option value="todas">Con o sin aviso de la ley</option>
@@ -399,6 +421,9 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               <span className="inline-flex flex-col items-start gap-1">
                 <Etiqueta tono={STATUS_TONO[q.status as QuestionStatus] ?? 'apagado'}>{QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}</Etiqueta>
                 {conAvisoLey(q) && <Etiqueta tono="aviso">Cambio en la ley</Etiqueta>}
+                {q.status === QUESTION_STATUS.ACTIVE && (q.reviewed_at
+                  ? <span className="text-[11px] text-emerald-800 dark:text-emerald-300">Revisada</span>
+                  : <span className="text-[11px] text-amber-800 dark:text-amber-300">Sin revisar</span>)}
                 {q.status === QUESTION_STATUS.CANDIDATE && !estaCompleta(q) && <span className="text-[11px] text-amber-800 dark:text-amber-300">{textoFaltan(etiquetasQueFaltan(q))}</span>}
               </span>
             ) },
@@ -502,6 +527,13 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
                 <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
                   {saving ? 'Guardando…' : 'Guardar cambios'}
                 </Boton>
+                {editingQ.status === QUESTION_STATUS.ACTIVE && !editingQ.reviewed_at && !conAvisoLey(editingQ) && (
+                  <Boton variant="secondary" onClick={() => handleRevisada(editingQ)} disabled={isDeleting === editingQ.id}
+                    title="La has leído y está bien tal cual"
+                    icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
+                    Está bien: revisada
+                  </Boton>
+                )}
                 {conAvisoLey(editingQ) && (
                   <Boton variant="secondary" onClick={() => handleSigueVigente(editingQ)} disabled={isDeleting === editingQ.id}
                     title="La pregunta sigue valiendo con la ley nueva: cerrar el aviso sin tocarla"
@@ -519,6 +551,11 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               </div>
               {editingQ.status === QUESTION_STATUS.CANDIDATE && !estaCompleta(editingQ) && (
                 <p className={TEXT.muted}>Para publicarla, guarda primero la explicación y la dificultad.</p>
+              )}
+              {editingQ.status === QUESTION_STATUS.ACTIVE && (
+                <p className={TEXT.muted}>{editingQ.reviewed_at
+                  ? `Revisada por ${editingQ.reviewed_by_email ?? 'un tutor'} el ${new Date(editingQ.reviewed_at).toLocaleDateString('es-ES')}.`
+                  : 'Ningún tutor la ha revisado todavía. Al guardar una corrección o pulsar «Está bien: revisada», queda revisada por ti.'}</p>
               )}
               {conAvisoLey(editingQ) && (
                 <p className={TEXT.muted}>La ley que cita ha cambiado después de escribirla. Si la corriges y guardas, el aviso se cierra; si sigue valiendo tal cual, pulsa «Sigue vigente».{editingQ.status === QUESTION_STATUS.CANDIDATE ? ' Hasta entonces no se puede publicar.' : ''}</p>

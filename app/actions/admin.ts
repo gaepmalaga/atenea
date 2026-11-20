@@ -567,12 +567,14 @@ export async function getAdminQuestionBank(params: {
   dificultad?: 1 | 2 | 3 | 'all';
   /** Solo las que tienen un aviso de cambio en la ley abierto (regla 137). */
   conAvisoLey?: boolean;
+  /** Las que ha revisado un tutor, o las que no (regla 138). */
+  revision?: 'all' | 'sin_revisar' | 'revisadas';
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   try {
-    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all', dificultad = 'all', conAvisoLey = false } = params;
+    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all', dificultad = 'all', conAvisoLey = false, revision = 'all' } = params;
     const offset = (page - 1) * limit;
 
     // Con el filtro de avisos, el join con los reportes es INNER: solo salen
@@ -599,6 +601,9 @@ export async function getAdminQuestionBank(params: {
     if (isQuestionStatus(status)) {
       query = query.eq('status', status);
     }
+
+    if (revision === 'sin_revisar') query = query.is('reviewed_at', null);
+    else if (revision === 'revisadas') query = query.not('reviewed_at', 'is', null);
 
     if (origen === 'global') query = query.is('organization_id', null);
     else if (origen === 'propia') query = query.not('organization_id', 'is', null);

@@ -1,5 +1,6 @@
 'use server'
 import { supabaseAdmin as supabase, questionModel, getSubjectIdByName, getSubjectNameById } from './core';
+import { exigeRevision } from '../lib/servir';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { questionHash } from '../lib/question-hash';
 import { parseAIJson, validateGeneratedQuestion, randomContextWindow } from '../lib/ai-output';
@@ -384,13 +385,6 @@ export async function seedQuestionBank(params: {
   concurrency?: number;
   /** 1 facil, 2 media, 3 alta. Por defecto media, que es el valor de la columna. */
   difficulty?: number;
-  /**
-   * Publicar directamente en el banco (estado 'active') en vez de mandarlo a
-   * moderacion. Por defecto si: sembrar es un acto deliberado del admin sobre
-   * su propio temario. La UI lo expone como interruptor para que quien quiera
-   * revisar antes pueda hacerlo.
-   */
-  autoApprove?: boolean;
 }) {
   // Sembrar escribe SIEMPRE en el banco GLOBAL (no lleva organization_id):
   // sin esto, cualquier admin de una academia podía publicar preguntas
@@ -403,8 +397,11 @@ export async function seedQuestionBank(params: {
   const seedQuota = await checkQuota(auth.user.id, 'seed');
   if (!seedQuota.ok) return { success: false as const, error: seedQuota.error };
 
-  const { subjectId, concurrency = 2, autoApprove = true } = params;
-  const status: QuestionStatus = autoApprove ? QUESTION_STATUS.ACTIVE : QUESTION_STATUS.CANDIDATE;
+  const { subjectId, concurrency = 2 } = params;
+  // Regla 138: lo que escribe la IA entra SIEMPRE pendiente. Antes había un
+  // interruptor «Directas al banco», encendido por defecto: así se activaron
+  // las 4.617 que ningún tutor había leído. La última palabra es de un tutor.
+  const status: QuestionStatus = QUESTION_STATUS.CANDIDATE;
   if (!subjectId) return { success: false as const, error: "Falta ID de tema" };
   if (!(await esFuenteDeGeneracionValida(subjectId))) {
     return { success: false as const, error: 'Los exámenes oficiales no se usan como fuente de preguntas nuevas.' };
@@ -556,12 +553,15 @@ type FilaLigera = {
 };
 
 async function bancoLigero(subjectIds: number[] | null, organizationId: string | null): Promise<{ data: FilaLigera[]; error: string | null }> {
+  // Regla 138: si la academia lo pide, solo lo que ha revisado un tutor.
+  const soloRevisadas = await exigeRevision(organizationId);
   return paginaCompleta<FilaLigera>((desde, hasta) => {
     let consulta = supabase
       .from('question_bank')
       .select('id, subject_id, global_success_rate, difficulty_level, legal_reference, family_id')
       .eq('status', QUESTION_STATUS.ACTIVE)
       .or(filtroBancoPorAcademia(organizationId));
+    if (soloRevisadas) consulta = consulta.not('reviewed_at', 'is', null);
     if (subjectIds) consulta = consulta.in('subject_id', subjectIds);
     // Sin un orden fijo, dos páginas podrían repetir o saltarse filas.
     return consulta.order('id', { ascending: true }).range(desde, hasta) as unknown as Promise<ResultadoPagina<FilaLigera>>;
@@ -985,13 +985,17 @@ export async function getQuestionsFromBank(params: {
   // caeria en generar el examen entero con IA — lento y de pago, justo lo que
   // la fase 2.1 arreglo. Se sirven primero las del nivel pedido y se completa
   // con el resto solo si no llegan.
-  const consulta = () =>
-    supabase
+  // Regla 138: si la academia lo pide, solo lo que ha revisado un tutor.
+  const soloRevisadas = await exigeRevision(auth.user.organizationId);
+  const consulta = () => {
+    const base = supabase
       .from('question_bank')
       .select('*')
       .in('subject_id', ids)
       .eq('status', QUESTION_STATUS.ACTIVE)
       .or(filtroBancoPorAcademia(auth.user.organizationId));
+    return soloRevisadas ? base.not('reviewed_at', 'is', null) : base;
+  };
 
   const nivel = params.difficulty ? toDifficultyLevel(params.difficulty) : null;
 

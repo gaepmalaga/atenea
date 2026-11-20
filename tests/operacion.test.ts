@@ -228,8 +228,11 @@ describe('el guion de dificultad medida no escribe sin pedirlo ni pisa al prepar
     expect(guion.indexOf('if (!HAZLO)')).toBeLessThan(guion.indexOf('.update('));
   });
 
-  it('solo toca el nivel donde manda la medida: `escribeNivel`', () => {
-    expect(guion).toMatch(/if \(p\.escribeNivel\) Object\.assign\(cambios, \{ difficulty_level: p\.nivel, difficulty_source: 'medida' \}\)/);
+  it('el NIVEL no lo escribe: lo propone a un tutor (regla 138); solo escribe el acierto observado', () => {
+    expect(guion).not.toMatch(/difficulty_level:\s*p\.nivel,\s*difficulty_source/);
+    expect(guion).toMatch(/\.update\(\{ global_success_rate: [^}]*\}\)/);
+    expect(guion).toMatch(/await proponer\(db, \[\.\.\.cambian, \.\.\.conflictos\]/);
+    expect(guion).toMatch(/fuente: 'dificultad'/);
   });
 
   it('pagina lo que lee (regla 74)', () => {

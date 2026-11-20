@@ -6,7 +6,7 @@
  * artículo que cita, baja del BOE el texto consolidado de esa norma con TODAS
  * las versiones de cada artículo, y si alguna versión entra en vigor después
  * de la fecha de la pregunta —o la norma está derogada— deja un aviso en la
- * cola de «Moderación» (`question_reports`, tipo `vigencia`). Los actos de la
+ * bandeja «Revisión» (`question_reports`, tipo `vigencia`). Los actos de la
  * UE se miran en Cellar (SPARQL): qué actos los modifican y cuándo.
  *
  *   npm run normativa                ENSAYO: lo cuenta todo, no escribe nada
@@ -372,13 +372,26 @@ for (let i = 0; i < nuevos.length; i += 100) {
   if (error) { console.error('No se pudieron guardar los avisos:', error.message); process.exit(1); }
   escritos += tanda.length;
 }
-console.log(`\nEscritos ${escritos} avisos en «Moderación».`);
+console.log(`\nEscritos ${escritos} avisos en «Revisión».`);
+
+// La línea de «Novedades» (regla 138): los tutores se enteran aunque no llegue el correo.
+{
+  const grupos = agrupaAvisos(nuevos);
+  const preguntasAfectadas = new Set(nuevos.map((a) => a.question_id)).size;
+  const { error } = await db.from('novedades').insert({
+    tipo: 'vigilancia',
+    titulo: `Cambios en la ley: ${grupos.length} ${grupos.length === 1 ? 'precepto' : 'preceptos'} que citan ${preguntasAfectadas} ${preguntasAfectadas === 1 ? 'pregunta' : 'preguntas'}`,
+    detalle: grupos.slice(0, 4).map((g) => `${g.clave} (${g.n})`).join(' · ') + (grupos.length > 4 ? ` y ${grupos.length - 4} más` : ''),
+    organization_id: null,
+  });
+  if (error) console.error('No se pudo anotar la novedad:', error.message);
+}
 
 // El correo: a los admin de la academia de cada pregunta; las del banco global,
 // al superadmin y —con una sola academia (regla 123)— también a sus admin.
 const apiKey = process.env.RESEND_API_KEY;
 if (!apiKey) {
-  console.log('Sin RESEND_API_KEY: no se manda correo (los avisos ya están en «Moderación»).');
+  console.log('Sin RESEND_API_KEY: no se manda correo (los avisos ya están en «Revisión»).');
   process.exit(0);
 }
 const [{ data: academias }, { data: miembros }, { data: perfiles }] = await Promise.all([
