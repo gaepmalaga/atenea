@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   itemsDelSumario, esDeEscalaBasicaPolicia, esOfertaDeEmpleoPublico, claseDelTitulo, halladosEnElDia,
-  existeAviso, marcaDeAviso, novedadDeHallazgo, ultimosDias, TIPO_NOVEDAD_CONVOCATORIA,
+  existeAviso, marcaDeAviso, MAXIMO_DIAS, novedadDeHallazgo, ultimosDias, TIPO_NOVEDAD_CONVOCATORIA,
 } from '../app/lib/convocatoria-boe';
 
 const raiz = join(__dirname, '..');
@@ -106,7 +106,7 @@ describe('los días a mirar', () => {
   it('cuenta hacia atrás hasta hoy, con el más viejo primero y con tope', () => {
     expect(ultimosDias(3, new Date(Date.UTC(2026, 10, 20)))).toEqual(['20261118', '20261119', '20261120']);
     expect(ultimosDias(2, new Date(Date.UTC(2027, 0, 1)))).toEqual(['20261231', '20270101']);
-    expect(ultimosDias(500, new Date(Date.UTC(2026, 10, 20)))).toHaveLength(60);
+    expect(ultimosDias(500, new Date(Date.UTC(2026, 10, 20)))).toHaveLength(MAXIMO_DIAS);
     expect(ultimosDias(0, new Date(Date.UTC(2026, 10, 20)))).toHaveLength(1);
   });
 });

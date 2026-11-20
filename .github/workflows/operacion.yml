@@ -43,7 +43,7 @@ on:
           - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
           - normativa-ensayo    # qué preguntas citan artículos que han cambiado en el BOE o la UE. No escribe.
-          - convocatoria-ensayo # qué ha salido en el sumario del BOE de la oposición de Escala Básica (últimos 10 días). No escribe.
+          - convocatoria-ensayo # qué ha salido en el sumario del BOE de la oposición de Escala Básica (últimos 10 días, o desde «desde»). No escribe.
           - mejoras-ensayo      # qué mejoras del banco propondría Claude (texto proporcionado, referencias). No escribe.
           - mejoras             # deja esas mejoras como PROPUESTAS para los tutores. Pide escribir PROPONER.
           - verificar-ensayo    # cuántas preguntas se pueden repasar contra el BOE y cuánto costaría. Gratis.
@@ -79,7 +79,7 @@ on:
         required: false
         type: string
       desde:
-        description: 'Solo «normativa-ensayo»: fecha AAAAMMDD para ver qué ha cambiado desde ese día. Vacío = desde que se escribió cada pregunta.'
+        description: '«normativa-ensayo»: fecha AAAAMMDD para ver qué ha cambiado desde ese día (vacío = desde que se escribió cada pregunta). «convocatoria-ensayo»: mira el BOE desde ese día (vacío = últimos 10 días).'
         required: false
         type: string
 
@@ -154,7 +154,10 @@ jobs:
       # escribe va sola, cada día, en «Vigilancia de la convocatoria».
       - name: Convocatoria · ensayo (no escribe)
         if: inputs.accion == 'convocatoria-ensayo'
-        run: npm run convocatoria
+        # Con «desde» (AAAAMMDD) mira desde ese día hasta hoy; el guion la valida.
+        env:
+          DESDE: ${{ inputs.desde }}
+        run: npm run convocatoria -- ${DESDE:+--desde=$DESDE}
 
       # Mejoras del banco (regla 138): nunca tocan una pregunta, dejan
       # propuestas que aprueba o rechaza un tutor en «Revisión».

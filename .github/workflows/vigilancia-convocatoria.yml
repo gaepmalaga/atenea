@@ -1,6 +1,6 @@
 # LA VIGILANCIA DE LA CONVOCATORIA, CADA DÍA, SOLA (regla 141).
 #
-# Lee el sumario del BOE de los últimos diez días y, si sale algo de la
+# Lee el sumario del BOE de los últimos diez días (o desde la fecha que se pida) y, si sale algo de la
 # oposición de Escala Básica de la Policía Nacional (convocatoria, admitidos,
 # tribunal, fecha del ejercicio, resultados) o la oferta de empleo público del
 # Estado, deja una línea en «Revisión → Novedades» con el enlace al texto.
@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       dias:
-        description: 'Cuántos días mirar hacia atrás (1 a 60). Vacío = 10.'
+        description: 'Cuántos días mirar hacia atrás (1 a 180). Vacío = 10.'
         required: false
         type: string
 

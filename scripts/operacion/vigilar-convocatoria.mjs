@@ -10,7 +10,8 @@
  *
  *   npm run convocatoria                 ENSAYO: cuenta y enseña, no escribe
  *   npm run convocatoria -- --hazlo      deja las novedades nuevas
- *   npm run convocatoria -- --dias=30    mira los últimos 30 días (por defecto 10, máximo 60)
+ *   npm run convocatoria -- --dias=30    mira los últimos 30 días (por defecto 10, máximo 180)
+ *   npm run convocatoria -- --desde=20260701   mira desde esa fecha AAAAMMDD hasta hoy
  *
  * QUÉ NO HACE
  *  · No toca la fecha de examen de «Convocatoria» (la fija el admin, regla 64):
@@ -29,14 +30,20 @@ import { config } from 'dotenv';
 import { appendFile } from 'node:fs/promises';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import {
-  TIPO_NOVEDAD_CONVOCATORIA, itemsDelSumario, halladosEnElDia, existeAviso, novedadDeHallazgo, ultimosDias, diaLegible,
+  TIPO_NOVEDAD_CONVOCATORIA, MAXIMO_DIAS, itemsDelSumario, halladosEnElDia, existeAviso, novedadDeHallazgo, ultimosDias, diaLegible,
 } from '../../app/lib/convocatoria-boe.ts';
 
 config({ path: '.env.local' });
 
 const HAZLO = process.argv.includes('--hazlo');
-const DIAS = Number(process.argv.find((a) => a.startsWith('--dias='))?.split('=')[1] ?? 10);
-if (!Number.isInteger(DIAS) || DIAS < 1 || DIAS > 60) { console.error(`--dias tiene que ser un entero entre 1 y 60; llegó «${DIAS}».`); process.exit(1); }
+const DESDE = process.argv.find((a) => a.startsWith('--desde='))?.split('=')[1]?.replace(/-/g, '') || null;
+if (DESDE && !/^\d{8}$/.test(DESDE)) { console.error(`--desde tiene que ser una fecha AAAAMMDD; llegó «${DESDE}».`); process.exit(1); }
+// `--desde` pasa a días contando hasta hoy (para ver, por ejemplo, que reconoce la convocatoria de julio).
+const hoyUTC = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
+const DIAS = DESDE
+  ? Math.round((hoyUTC - Date.UTC(+DESDE.slice(0, 4), +DESDE.slice(4, 6) - 1, +DESDE.slice(6))) / 86_400_000) + 1
+  : Number(process.argv.find((a) => a.startsWith('--dias='))?.split('=')[1] ?? 10);
+if (!Number.isInteger(DIAS) || DIAS < 1 || DIAS > MAXIMO_DIAS) { console.error(`Hay que mirar entre 1 y ${MAXIMO_DIAS} días; salen ${DIAS}.`); process.exit(1); }
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL || !KEY) { console.error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.'); process.exit(1); }

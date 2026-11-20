@@ -195,9 +195,12 @@ export function novedadDeHallazgo(h: HalladoDeConvocatoria): { tipo: string; tit
   return { tipo: TIPO_NOVEDAD_CONVOCATORIA, titulo, detalle, autor: 'Vigilante de la convocatoria' };
 }
 
+/** Tope de días hacia atrás: seis meses cubren de sobra una convocatoria entera. */
+export const MAXIMO_DIAS = 180;
+
 /** Los días AAAAMMDD de los últimos `dias` días hasta `hoy` (incluido), el más viejo primero. */
 export function ultimosDias(dias: number, hoy: Date): string[] {
-  const n = Math.min(Math.max(Math.trunc(dias) || 1, 1), 60);
+  const n = Math.min(Math.max(Math.trunc(dias) || 1, 1), MAXIMO_DIAS);
   const base = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
   const salida: string[] = [];
   for (let i = n - 1; i >= 0; i--) {
