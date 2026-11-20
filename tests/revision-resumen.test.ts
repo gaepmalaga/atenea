@@ -90,3 +90,17 @@ describe('lo que se sirve a los alumnos es lo que el tutor ve como publicado', (
     for (const fich of ['app/actions/exams.ts', 'app/actions/evolucion.ts']) expect(codigo(fich)).not.toMatch(/\.not\('reviewed_at', 'is', null\)/);
   });
 });
+
+describe('el panel dice lo mismo a un admin y al superadmin', () => {
+  const codigo = readFileSync(join(raiz, 'app/actions/revision.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|(^|[^:])\/\/.*$/gm, '$1');
+
+  it('el superadmin (sin academia) lee el ajuste de las academias en vez de suponer «desactivado»', () => {
+    // Sin esto, el superadmin veía 5.342 «publicadas» y 985 «sin publicar»: contaba todo lo activo como publicado.
+    expect(codigo).toMatch(/async function ajusteSoloRevisadas/);
+    expect(codigo).toMatch(/from\('academy_settings'\)\.select\('solo_preguntas_revisadas'\);[\s\S]{0,200}\.some\(/);
+    // Y la bandeja y el revisor usan ese mismo ajuste, no el de `exigeRevision` (que sin academia dice «no»).
+    expect(codigo).not.toMatch(/exigeRevision\(/);
+    expect((codigo.match(/ajusteSoloRevisadas\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  });
+});
+

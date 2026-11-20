@@ -22,7 +22,6 @@ import { filtroEscrituraBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
 import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, resumenDeRevision, esFuente, estadoDePregunta, type Novedad, type CambioLegible, type ValoresPregunta, type FuentePregunta, type ResumenDeRevision, type FilaParaResumen } from '../lib/revision';
-import { exigeRevision } from '../lib/servir';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 export type BandejaRevision = {
@@ -80,6 +79,22 @@ async function reportesAbiertos(user: Usuario, tipo: 'ley' | 'ia' | 'quejas') {
   return { n: res.reduce((s, r) => s + (r.data?.length ?? 0), 0), error };
 }
 
+/**
+ * ¿Los alumnos solo reciben preguntas revisadas? Para el PANEL del tutor.
+ * Un admin lee el de su academia. El superadmin no pertenece a ninguna (regla
+ * 65): lee el de las academias, y basta que una lo exija para contarlo así
+ * (esta instalación es de una sola, regla 123). Si no se puede leer, se cierra
+ * (se supone que sí), como en `exigeRevision`.
+ */
+async function ajusteSoloRevisadas(user: Usuario): Promise<{ valor: boolean; error: unknown }> {
+  if (user.organizationId) {
+    const { data, error } = await supabaseAdmin.from('academy_settings').select('solo_preguntas_revisadas').eq('organization_id', user.organizationId).maybeSingle();
+    return { valor: error ? true : (data as { solo_preguntas_revisadas?: boolean } | null)?.solo_preguntas_revisadas === true, error };
+  }
+  const { data, error } = await supabaseAdmin.from('academy_settings').select('solo_preguntas_revisadas');
+  return { valor: error ? true : (data ?? []).some((r) => (r as { solo_preguntas_revisadas?: boolean }).solo_preguntas_revisadas === true), error };
+}
+
 export async function getBandejaRevision(): Promise<{ success: true; data: BandejaRevision } | { success: false; error: string }> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
@@ -105,9 +120,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
     reportesAbiertos(user, 'ley'),
     reportesAbiertos(user, 'ia'),
     reportesAbiertos(user, 'quejas'),
-    user.organizationId
-      ? supabaseAdmin.from('academy_settings').select('solo_preguntas_revisadas').eq('organization_id', user.organizationId).maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    ajusteSoloRevisadas(user),
     novedadesSistema,
     supabaseAdmin
       .from('admin_audit_log')
@@ -148,7 +161,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
     })),
   );
 
-  const soloRevisadas = (ajuste.data as { solo_preguntas_revisadas?: boolean } | null)?.solo_preguntas_revisadas === true;
+  const soloRevisadas = ajuste.valor;
   return {
     success: true as const,
     data: {
@@ -242,7 +255,7 @@ export async function getParaRevisar(input: unknown): Promise<
 
   const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta' | 'fuente' | 'publicada'> & { fuente: string | null; subjects?: { topic_number: number; title: string } | null }) | undefined;
   if (!f) return { success: true as const, pregunta: null, quedan: count ?? 0 };
-  const soloRevisadas = await exigeRevision(auth.user.organizationId);
+  const soloRevisadas = (await ajusteSoloRevisadas(auth.user as Usuario)).valor;
 
   const [{ data: avisos, error: errAv }, { data: props, error: errPr }] = await Promise.all([
     supabaseAdmin.from('question_reports').select('id, message, report_type').eq('question_id', f.id).in('report_type', [TIPO_REPORTE_VIGENCIA, TIPO_REPORTE_REVISION_IA]).eq('status', 'open'),
