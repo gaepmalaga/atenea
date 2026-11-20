@@ -138,6 +138,11 @@ async function guarda(todo = false) {
 const gastado = { entrada: 0, salida: 0 };
 const resultados = [];
 let fallos = 0;
+// Si Gemini deja de responder (límite de uso, saldo), se para pronto y se dice por qué:
+// seguir esperando entre reintentos gasta horas sin evaluar nada.
+let seguidos = 0;
+let ultimoError = '';
+const MAX_SEGUIDOS = 12;
 for (let i = 0; i < lote.length; i += CONCURRENCIA) {
   await Promise.all(lote.slice(i, i + CONCURRENCIA).map(async ({ q, t }) => {
     const prompt = promptDeAmbito({ tema: t, todos: temas, pregunta: q.question_text, opciones: q.options, correcta: q.correct_index, explicacion: q.explanation });
@@ -146,14 +151,19 @@ for (let i = 0; i < lote.length; i += CONCURRENCIA) {
       gastado.entrada += r.response.usageMetadata?.promptTokenCount ?? 0;
       gastado.salida += r.response.usageMetadata?.candidatesTokenCount ?? 0;
       const v = leeVeredictoAmbito(r.response.text(), validos);
+      seguidos = 0;
       if (!v) { fallos++; return; }
       const r2 = { q, t, v };
       resultados.push(r2);
       if (v.veredicto !== 'del_tema') porEscribir.push(aviso(r2));
-    } catch { fallos++; }
+    } catch (e) { fallos++; seguidos++; ultimoError = String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 300); }
   }));
   await guarda();
-  if ((i / CONCURRENCIA) % 100 === 0) console.log(`  … ${Math.min(i + CONCURRENCIA, lote.length)} de ${lote.length}`);
+  if (seguidos >= MAX_SEGUIDOS) {
+    console.error(`\nGemini no responde (${seguidos} fallos seguidos): ${ultimoError}\nSe para aquí: ${resultados.length} repasadas de ${lote.length}. Lo hecho queda guardado; al relanzar no se repiten las que ya tienen aviso.`);
+    break;
+  }
+  if ((i / CONCURRENCIA) % 100 === 0) console.log(`  … ${Math.min(i + CONCURRENCIA, lote.length)} de ${lote.length} (evaluadas ${resultados.length}, sin respuesta ${fallos})`);
 }
 await guarda(true);
 const real = calculaGasto({ promptTokenCount: gastado.entrada, candidatesTokenCount: gastado.salida });
@@ -165,6 +175,7 @@ const di = (t = '') => { console.log(t); lineas.push(t); };
 di(`## ¿Es de su tema? · ${new Date().toISOString().slice(0, 10)}${HAZLO ? '' : ' · MUESTRA (no escribe)'}`);
 di();
 di(`- Repasadas: ${resultados.length} de ${lote.length} (sin respuesta válida de la IA: ${fallos}) · gasto real ${real.coste.toFixed(3)} $`);
+if (ultimoError) di(`- Último error de Gemini: ${ultimoError}`);
 di(`- Del tema: **${cuenta.del_tema}** · de otro tema: **${cuenta.otro_tema}** · fuera del temario: **${cuenta.fuera_del_temario}**`);
 di();
 di('<details open><summary>Las que no encajan</summary>');
