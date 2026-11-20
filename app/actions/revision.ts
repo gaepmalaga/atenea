@@ -21,7 +21,9 @@ import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import { filtroEscrituraBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
-import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, type Novedad, type CambioLegible, type ValoresPregunta } from '../lib/revision';
+import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, resumenDeRevision, esFuente, estadoDePregunta, type Novedad, type CambioLegible, type ValoresPregunta, type FuentePregunta, type ResumenDeRevision, type FilaParaResumen } from '../lib/revision';
+import { exigeRevision } from '../lib/servir';
+import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 export type BandejaRevision = {
   pendientes: number;
@@ -34,6 +36,8 @@ export type BandejaRevision = {
   quejas: number;
   soloRevisadas: boolean;
   novedades: Novedad[];
+  /** Lo primero que ve un tutor al entrar (regla 139): lo que ya reciben los alumnos, lo que falta por bloque y por tema. */
+  resumen: ResumenDeRevision;
 };
 
 type Usuario = { id: string; email: string; role: string; organizationId: string | null };
@@ -93,7 +97,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
   let propuestas = supabaseAdmin.from('question_proposals').select('id', { count: 'exact', head: true }).eq('status', 'pending');
   if (alcance) propuestas = propuestas.or(alcance);
 
-  const [pend, sinRev, rev, prop, ley, ia, quejas, ajuste, nov, decisiones] = await Promise.all([
+  const [pend, sinRev, rev, prop, ley, ia, quejas, ajuste, nov, decisiones, filas, temasBd] = await Promise.all([
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.CANDIDATE)),
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.ACTIVE).is('reviewed_at', null)),
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.ACTIVE).not('reviewed_at', 'is', null)),
@@ -112,8 +116,18 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
       .gte('created_at', hace45)
       .order('created_at', { ascending: false })
       .limit(400),
+    // Una fila corta por pregunta: de ahí salen las cuentas por tema y por bloque.
+    // Se pagina (regla 74): son más de 6.000 y PostgREST corta a 1.000 sin avisar.
+    paginaCompleta<FilaParaResumen>((desde, hasta) => {
+      let q = supabaseAdmin.from('question_bank').select('subject_id, fuente, status, reviewed_at')
+        .in('status', [QUESTION_STATUS.ACTIVE, QUESTION_STATUS.CANDIDATE]).order('id').range(desde, hasta);
+      if (user.role !== 'superadmin') q = q.or(filtroBancoPorAcademia(user.organizationId));
+      return Promise.resolve(q) as unknown as Promise<ResultadoPagina<FilaParaResumen>>;
+    }),
+    supabaseAdmin.from('subjects').select('id, topic_number, title').order('topic_number'),
   ]);
-  const error = pend.error ?? sinRev.error ?? rev.error ?? prop.error ?? ley.error ?? ia.error ?? quejas.error ?? ajuste.error ?? nov.error ?? decisiones.error;
+  const error = pend.error ?? sinRev.error ?? rev.error ?? prop.error ?? ley.error ?? ia.error ?? quejas.error ?? ajuste.error ?? nov.error ?? decisiones.error ?? temasBd.error;
+  if (filas.error) return { success: false as const, error: filas.error };
   if (error) return { success: false as const, error: fallo('getBandejaRevision', error) ?? 'No se pudo leer la bandeja.' };
 
   // Quién decidió: el correo del perfil, no un uuid (regla 49).
@@ -134,6 +148,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
     })),
   );
 
+  const soloRevisadas = (ajuste.data as { solo_preguntas_revisadas?: boolean } | null)?.solo_preguntas_revisadas === true;
   return {
     success: true as const,
     data: {
@@ -144,8 +159,13 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
       avisosLey: ley.n,
       dudasIA: ia.n,
       quejas: quejas.n,
-      soloRevisadas: (ajuste.data as { solo_preguntas_revisadas?: boolean } | null)?.solo_preguntas_revisadas === true,
+      soloRevisadas,
       novedades,
+      resumen: resumenDeRevision(
+        filas.data,
+        (temasBd.data ?? []).map((t) => ({ subjectId: t.id as number, numero: t.topic_number as number, titulo: t.title as string })),
+        soloRevisadas,
+      ),
     },
   };
 }
@@ -154,6 +174,10 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
 export type PreguntaParaRevisar = {
   id: string;
   status: string;
+  /** De dónde viene, que decide qué se revisa de ella (regla 139). */
+  fuente: FuentePregunta;
+  /** ¿Los alumnos ya la ven? Las de la academia sí, aunque falte revisar su explicación. */
+  publicada: boolean;
   question_text: string;
   options: string[];
   correct_index: number;
@@ -193,7 +217,8 @@ export async function getParaRevisar(input: unknown): Promise<
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const d = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
-  const modo = d.modo === 'pendientes' ? 'pendientes' : d.modo === 'dudas_ia' ? 'dudas_ia' : 'sin_revisar';
+  // Una sola cola (regla 139): las pendientes y las del banco que nadie ha leído. Se acota por tema y por bloque.
+  const fuente = esFuente(d.fuente) ? d.fuente : null;
   const subjectId = Number.isInteger(d.subjectId) ? (d.subjectId as number) : null;
   const despuesDe = typeof d.despuesDe === 'string' && /^[0-9a-f-]{36}$/i.test(d.despuesDe) ? d.despuesDe : null;
   // «Otra vez la misma»: tras decidir algo sobre ella, se vuelve a leer tal como ha quedado.
@@ -201,21 +226,11 @@ export async function getParaRevisar(input: unknown): Promise<
 
   // Lo que este tutor puede tocar (regla 123): va a decidir sobre ella.
   const alcance = filtroEscrituraBanco(auth.user);
-  const estado = modo === 'pendientes' ? QUESTION_STATUS.CANDIDATE : QUESTION_STATUS.ACTIVE;
-
-  // «Las que la IA duda primero»: solo las que tienen un aviso del repaso abierto (join INNER).
-  const columnas = 'id, status, question_text, options, correct_index, explanation, legal_reference, difficulty_level, difficulty_source, subjects(topic_number, title)';
-  let siguiente = (modo === 'dudas_ia'
-    ? supabaseAdmin.from('question_bank').select(`${columnas}, question_reports!inner(id)`).eq('question_reports.report_type', TIPO_REPORTE_REVISION_IA).eq('question_reports.status', 'open')
-    : supabaseAdmin.from('question_bank').select(columnas))
-    .eq('status', estado)
-    .order('id', { ascending: true })
-    .limit(1);
-  let total = (modo === 'dudas_ia'
-    ? supabaseAdmin.from('question_bank').select('id, question_reports!inner(id)', { count: 'exact', head: true }).eq('question_reports.report_type', TIPO_REPORTE_REVISION_IA).eq('question_reports.status', 'open')
-    : supabaseAdmin.from('question_bank').select('id', { count: 'exact', head: true }))
-    .eq('status', estado);
-  if (modo !== 'pendientes') { siguiente = siguiente.is('reviewed_at', null); total = total.is('reviewed_at', null); }
+  const columnas = 'id, status, fuente, question_text, options, correct_index, explanation, legal_reference, difficulty_level, difficulty_source, subjects(topic_number, title)';
+  const sinRevisar = [QUESTION_STATUS.ACTIVE, QUESTION_STATUS.CANDIDATE];
+  let siguiente = supabaseAdmin.from('question_bank').select(columnas).in('status', sinRevisar).is('reviewed_at', null).order('id', { ascending: true }).limit(1);
+  let total = supabaseAdmin.from('question_bank').select('id', { count: 'exact', head: true }).in('status', sinRevisar).is('reviewed_at', null);
+  if (fuente) { siguiente = siguiente.eq('fuente', fuente); total = total.eq('fuente', fuente); }
   if (subjectId) { siguiente = siguiente.eq('subject_id', subjectId); total = total.eq('subject_id', subjectId); }
   if (alcance) { siguiente = siguiente.or(alcance); total = total.or(alcance); }
   if (despuesDe) siguiente = incluida ? siguiente.gte('id', despuesDe) : siguiente.gt('id', despuesDe);
@@ -225,8 +240,9 @@ export async function getParaRevisar(input: unknown): Promise<
   ]);
   if (error || errCount) return { success: false as const, error: fallo('getParaRevisar', (error ?? errCount)!) };
 
-  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta'> & { subjects?: { topic_number: number; title: string } | null }) | undefined;
+  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta' | 'fuente' | 'publicada'> & { fuente: string | null; subjects?: { topic_number: number; title: string } | null }) | undefined;
   if (!f) return { success: true as const, pregunta: null, quedan: count ?? 0 };
+  const soloRevisadas = await exigeRevision(auth.user.organizationId);
 
   const [{ data: avisos, error: errAv }, { data: props, error: errPr }] = await Promise.all([
     supabaseAdmin.from('question_reports').select('id, message, report_type').eq('question_id', f.id).in('report_type', [TIPO_REPORTE_VIGENCIA, TIPO_REPORTE_REVISION_IA]).eq('status', 'open'),
@@ -250,7 +266,9 @@ export async function getParaRevisar(input: unknown): Promise<
     success: true as const,
     quedan: count ?? 0,
     pregunta: {
-      id: f.id, status: f.status, question_text: f.question_text,
+      id: f.id, status: f.status, fuente: f.fuente === 'academia' ? 'academia' : 'ia',
+      publicada: estadoDePregunta({ fuente: f.fuente, status: f.status, reviewed_at: null }, soloRevisadas).startsWith('publicada'),
+      question_text: f.question_text,
       options: Array.isArray(f.options) ? f.options : [], correct_index: f.correct_index,
       explanation: f.explanation ?? null, legal_reference: f.legal_reference ?? null,
       difficulty_level: f.difficulty_level ?? null, difficulty_source: f.difficulty_source ?? null,

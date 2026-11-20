@@ -27,9 +27,11 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    o se AVISA (`question_reports`), y se anota en `novedades`. «Revisión» se lo
    cuenta todo.
 3. **«Los alumnos solo reciben preguntas revisadas» está ACTIVADO** para
-   Alphapol (`academy_settings.solo_preguntas_revisadas`). Como aún no hay
-   ninguna revisada, **hoy los alumnos no reciben preguntas**: el test lo dice
-   en vez de fallar. Es lo que pidió el dueño.
+   Alphapol (`academy_settings.solo_preguntas_revisadas`), y desde el 20 nov
+   **las 725 de la academia están PUBLICADAS** (decisión del dueño: su
+   enunciado y respuesta son suyos; solo falta revisar la explicación). Los
+   alumnos ven esas 725 + las revisadas; las escritas por la IA (4.617 + 985
+   pendientes) no, hasta que un tutor las revise enteras (regla 139).
 
 ### La base de datos a 20 nov
 
@@ -38,9 +40,9 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
 | Preguntas activas del banco global, sin revisar | 4.617 | «Revisión → Revisar una a una» (del banco) |
 | Preguntas activas de Alphapol, sin revisar | 725 | ídem |
 | Pendientes de Alphapol (Tomo I, regla 136) | 985 | «Revisar una a una» (pendientes de publicar) |
-| Revisadas por un tutor | **0** | |
+| Revisadas por un tutor | **1** (la de la prueba de la pantalla, 20 nov) | |
 | Cambios propuestos por Claude (texto proporcionado y referencias) | 3.796 | dentro de cada pregunta, y en «Cambios propuestos» |
-| Avisos «La IA duda» (repaso contra el BOE) | 199 | «La IA duda» y el modo «las que la IA duda, primero» |
+| Avisos «La IA duda» (repaso contra el BOE) | 199 | dentro de cada pregunta, y en «Otras listas» del resumen |
 | Avisos «Cambio en la ley» (vigilante) | 118 | «Cambios en la ley» |
 | Quejas de alumnos | 2 | «Quejas de alumnos» |
 
@@ -53,21 +55,36 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    Hasta que un tema esté revisado, sus preguntas no llegan a los alumnos.
 
 **De la próxima sesión de código:**
-2. **Probar «Revisión» en producción con una cuenta admin real.** No se ha
-   podido: las contraseñas las tiene el dueño (nunca se cambian ni se
-   escriben). Pedirle que entre con `prueba.admin@alphapol.es` o con la suya y
-   pruebe: aceptar y rechazar un cambio propuesto, «La IA se equivoca», «Sigue
-   vigente», «Está bien: revisada». O que dé la contraseña de prueba en el
-   chat para hacerlo con Playwright contra `scripts/nube/arrancar-local.sh`.
-3. **Preguntas que no son del temario.** Hay al menos una (Modelo 347 de
-   Hacienda, `d882a4e5`, en el tema de violencia de género). Las ~1.140 sin
-   artículo seguro no las ha mirado la IA. Idea: un repaso «¿esto es del
-   temario de este tema?» contra el índice del tema, que deje «La IA duda».
-   Antes, enseñárselo al dueño con una muestra (céntimos).
-4. **Ayudar al ritmo de revisión.** Con 6.327 preguntas y 0 revisadas, quizá
-   haga falta priorizar por el calendario de clases, o marcar en el revisor
-   las que no tienen ningún aviso ni propuesta (las «limpias») para ir rápido.
-   Preguntar al dueño cómo lo quieren organizar los tutores.
+2. ~~Probar «Revisión» con una cuenta admin real~~ **Hecho el 20 nov** con
+   `prueba.admin@alphapol.es` (Playwright contra `arrancar-local.sh`; el
+   navegador necesita `proxy: HTTPS_PROXY` y el host
+   `ecupmlqimmpybbrlrmpx.supabase.co` permitido en el entorno). Funcionan:
+   aceptar un cambio, «La IA se equivoca», «Está bien: revisada» y rechazar
+   (esta abre una ventana «¿Por qué no?» propia, no `role=dialog` sino
+   `alertdialog`). Lo que quedó escrito en la BD real: la pregunta
+   `0108dca2` (art. 730 LECrim) con la referencia «DF 1.ª Ley 4/2015»
+   aceptada, su duda de la IA cerrada y **revisada por prueba.admin**; y el
+   cambio propuesto de `000c13dd` (art. 34 CP) **rechazado** (era correcto:
+   un tutor puede volver a proponerlo). Un tutor real debería volver a mirar
+   la `0108dca2`.
+3. **Preguntas que no son del temario — HECHO el repaso, falta lanzarlo
+   entero.** `npm run ambito` (`app/lib/ambito-tema.ts`,
+   `scripts/operacion/ambito-preguntas.mjs`; acciones de «Operación»
+   `ambito-ensayo`, `ambito-muestra`, `ambito-conocidas` y `ambito`, esta
+   última pide escribir `AMBITO`): una IA compara cada pregunta con el
+   programa oficial de su tema (`temario/temario.json`) y deja «La IA duda».
+   Muestra de 60 (0,03 $): 59 del tema, 1 de otro tema (dudosa de verdad).
+   Caso conocido: caza el Modelo 347 de Hacienda. **Falta que el dueño autorice
+   el gasto** (~3 $ por las 6.326) y lanzar `ambito`. Se espera un centenar de
+   avisos, con algún falso positivo: el tutor decide.
+4. **Ritmo de revisión — HECHO (regla 139).** «Revisión» enseña al entrar
+   cuántas ven ya los alumnos y cuántas faltan, por bloque (academia / IA) y por
+   tema; cada número abre «Revisar» en ese tema y bloque. `question_bank.fuente`
+   (`docs/sql/fuente-de-la-pregunta.sql`, ejecutado): 725 `academia` (se revisa
+   la explicación), 4.617 + 985 `ia` (se revisan enteras). Falta ver cómo lo
+   usan los tutores de verdad y ajustar. Ideas pendientes (preguntar al dueño
+   antes, regla 140): marcar las «limpias» (sin aviso ni propuesta) para ir
+   rápido. (Las 725 de la academia ya están publicadas: decidido el 20 nov.)
 5. **Las pendientes del Tomo que repiten un hecho ya en el banco** (la hoja
    del dueño marca 68, §2u) y las 26 del Pacto Europeo (ya llevan aviso de la
    ley): se podrían señalar en el revisor con las familias de la regla 119,
@@ -957,7 +974,7 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   así que ni Claude ni la IA las tocan: las encuentra el tutor al revisar, y
   las descarta.
 
-## 2y · Academias: gestionar admins y ver sus logs (20 nov, regla 139, en la rama `claude/nifty-brown-hqpr2s`, sin desplegar)
+## 2y · Academias: gestionar admins y ver sus logs (20 nov, regla 141, DESPLEGADO el 20 nov)
 
 - **Pedido:** en «Academias» (superadmin) se podía invitar a un admin, pero no
   reenviarle la invitación ni quitarlo, y no había forma de ver «Logs» de UNA

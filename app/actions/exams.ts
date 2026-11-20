@@ -17,6 +17,7 @@ import {
   DIFFICULTY_DEFAULT,
   mapBankRowToQuestion,
   filtroBancoPorAcademia,
+  FILTRO_SERVIBLE_REVISADO,
   type QuestionStatus,
   type DifficultyLevel,
   type BankRow,
@@ -561,7 +562,7 @@ async function bancoLigero(subjectIds: number[] | null, organizationId: string |
       .select('id, subject_id, global_success_rate, difficulty_level, legal_reference, family_id')
       .eq('status', QUESTION_STATUS.ACTIVE)
       .or(filtroBancoPorAcademia(organizationId));
-    if (soloRevisadas) consulta = consulta.not('reviewed_at', 'is', null);
+    if (soloRevisadas) consulta = consulta.or(FILTRO_SERVIBLE_REVISADO);
     if (subjectIds) consulta = consulta.in('subject_id', subjectIds);
     // Sin un orden fijo, dos páginas podrían repetir o saltarse filas.
     return consulta.order('id', { ascending: true }).range(desde, hasta) as unknown as Promise<ResultadoPagina<FilaLigera>>;
@@ -994,7 +995,7 @@ export async function getQuestionsFromBank(params: {
       .in('subject_id', ids)
       .eq('status', QUESTION_STATUS.ACTIVE)
       .or(filtroBancoPorAcademia(auth.user.organizationId));
-    return soloRevisadas ? base.not('reviewed_at', 'is', null) : base;
+    return soloRevisadas ? base.or(FILTRO_SERVIBLE_REVISADO) : base;
   };
 
   const nivel = params.difficulty ? toDifficultyLevel(params.difficulty) : null;
