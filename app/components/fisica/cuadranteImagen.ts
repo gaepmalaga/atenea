@@ -23,7 +23,7 @@ const ALTO_TITULO_DIA = 64;
 const ALTO_FILA = 112;
 const HUECO_FILA = 12;
 const ALTO_PIE = 150;
-const FUENTE = '"Arial Narrow", "Helvetica Neue", Arial, sans-serif';
+export const FUENTE = '"Arial Narrow", "Helvetica Neue", Arial, sans-serif';
 
 /** El color de la cabecera de cada día de la semana (1 = lunes), como en la imagen de Alphapol. */
 const COLOR_DIA: Record<number, { fondo: string; texto: string }> = {
@@ -36,9 +36,9 @@ const COLOR_DIA: Record<number, { fondo: string; texto: string }> = {
   7: { fondo: '#0d9488', texto: '#ffffff' },
 };
 
-type Ctx = CanvasRenderingContext2D;
+export type Ctx = CanvasRenderingContext2D;
 
-function caja(ctx: Ctx, x: number, y: number, w: number, h: number, r: number, relleno: string, borde?: string) {
+export function caja(ctx: Ctx, x: number, y: number, w: number, h: number, r: number, relleno: string, borde?: string) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.fillStyle = relleno;
@@ -51,7 +51,7 @@ function caja(ctx: Ctx, x: number, y: number, w: number, h: number, r: number, r
 }
 
 /** Escribe un texto reduciendo la letra hasta que quepa; si aun así no cabe, lo corta con «…». */
-function textoAjustado(ctx: Ctx, texto: string, x: number, y: number, ancho: number, tam: number, peso: string, color: string, alinea: CanvasTextAlign = 'center') {
+export function textoAjustado(ctx: Ctx, texto: string, x: number, y: number, ancho: number, tam: number, peso: string, color: string, alinea: CanvasTextAlign = 'center') {
   let t = tam;
   ctx.font = `${peso} ${t}px ${FUENTE}`;
   while (ctx.measureText(texto).width > ancho && t > 16) {

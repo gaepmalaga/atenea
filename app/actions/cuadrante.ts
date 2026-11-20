@@ -554,8 +554,8 @@ export async function getAgendaProfesores(params: { lunes: string }): Promise<
     supabaseAdmin.from('training_sessions').select('class_id, session_date, title, teacher_id, start_time')
       .eq('organization_id', org).not('teacher_id', 'is', null).not('class_id', 'is', null)
       .gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
-    supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, topics')
-      .eq('organization_id', org).not('teacher_id', 'is', null).gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
+    supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, teacher2_id, topics')
+      .eq('organization_id', org).or('teacher_id.not.is.null,teacher2_id.not.is.null').gte('session_date', lunes).lte('session_date', domingo).order('session_date'),
   ]);
   if (teoRes.error) return { success: false as const, error: fallo('getAgendaProfesores', teoRes.error) };
   if (staffRes.error) return { success: false as const, error: fallo('getAgendaProfesores', staffRes.error) };
@@ -577,7 +577,7 @@ export async function getAgendaProfesores(params: { lunes: string }): Promise<
     return {
       profesorId: id,
       teoria: (teoRes.data ?? [])
-        .filter((x) => x.teacher_id === id && porId.has(x.class_id as string) && !off.has(`${x.class_id}|${x.session_date}`))
+        .filter((x) => (x.teacher_id === id || x.teacher2_id === id) && porId.has(x.class_id as string) && !off.has(`${x.class_id}|${x.session_date}`))
         .map((x) => {
           const g = porId.get(x.class_id as string)!;
           const h = horarioDeFila(g);

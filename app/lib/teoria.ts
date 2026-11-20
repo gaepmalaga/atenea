@@ -23,6 +23,8 @@ export type AsignacionTeoria = {
   classId: string;
   fecha: string;
   profesorId: string | null;
+  /** Un segundo profesor (regla 142): lo normal es uno, pero hay clases con dos. */
+  profesor2Id?: string | null;
   temas: number[];
   nota: string | null;
 };
@@ -91,6 +93,43 @@ export function leeTemas(texto: string): number[] {
     } else if (/^\d{1,3}$/.test(parte)) out.push(Number(parte));
   }
   return normalizaTemas(out);
+}
+
+/** Los profesores de una clase, sin vacíos ni repetidos (el segundo no puede ser el primero). */
+export function profesoresDeClase(a: { profesorId: string | null; profesor2Id?: string | null }): string[] {
+  return [...new Set([a.profesorId, a.profesor2Id ?? null].filter((x): x is string => !!x))];
+}
+
+/** 1 → I, 2 → II, 3 → III… (hasta 39; más allá, el número). */
+export function romano(n: number): string {
+  if (!Number.isInteger(n) || n < 1 || n > 39) return String(n);
+  const tabla: [number, string][] = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let resto = n;
+  let out = '';
+  for (const [v, r] of tabla) while (resto >= v) { out += r; resto -= v; }
+  return out;
+}
+
+/**
+ * Las partes de un tema: si un grupo da el mismo tema en dos o más clases, la
+ * primera es (I), la segunda (II)… Un tema que se da en una sola clase no lleva
+ * número. Clave: `grupo|fecha|tema`.
+ */
+export function partesDeTema(asignaciones: AsignacionTeoria[]): Map<string, string> {
+  const porTema = new Map<string, string[]>();
+  for (const a of [...asignaciones].sort((x, y) => x.fecha.localeCompare(y.fecha))) {
+    for (const t of a.temas) {
+      const k = `${a.classId}|${t}`;
+      porTema.set(k, [...(porTema.get(k) ?? []), a.fecha]);
+    }
+  }
+  const out = new Map<string, string>();
+  for (const [k, fechas] of porTema) {
+    if (fechas.length < 2) continue;
+    const [classId, tema] = k.split('|');
+    [...new Set(fechas)].forEach((f, i) => out.set(`${classId}|${f}|${tema}`, romano(i + 1)));
+  }
+  return out;
 }
 
 /** Una clase dada (o programada) por un profesor, de teoría o de física. */

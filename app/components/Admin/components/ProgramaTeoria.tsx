@@ -20,6 +20,9 @@ export default function ProgramaTeoria({ e, profesores, onCambio }: {
   onCambio: () => void;
 }) {
   const [profesorId, setProfesorId] = useState(e.profesorIds[0] ?? '');
+  // Lo normal es un profesor; hay clases con dos (regla 142). El segundo solo sale si se pide o ya lo hay.
+  const [profesor2Id, setProfesor2Id] = useState(e.profesorIds[1] ?? '');
+  const [conSegundo, setConSegundo] = useState(!!e.profesorIds[1]);
   const [temas, setTemas] = useState<number[]>(e.temas);
   const [busca, setBusca] = useState('');
   const [nota, setNota] = useState(e.nota ?? '');
@@ -48,12 +51,13 @@ export default function ProgramaTeoria({ e, profesores, onCambio }: {
     const r = await saveClaseTeoria({
       classId: e.grupoId, fecha: e.fecha,
       profesorId: vaciar ? null : profesorId || null,
+      profesor2Id: vaciar || !conSegundo ? null : profesor2Id || null,
       temas: vaciar ? [] : leidos,
       nota: vaciar ? null : nota,
     });
     setOcupado(false);
     if (!r.success) { setError(r.error); return; }
-    if (vaciar) { setProfesorId(''); setTemas([]); setNota(''); }
+    if (vaciar) { setProfesorId(''); setProfesor2Id(''); setConSegundo(false); setTemas([]); setNota(''); }
     setGuardado(true);
     setVuelta((n) => n + 1);
     onCambio();
@@ -97,6 +101,19 @@ export default function ProgramaTeoria({ e, profesores, onCambio }: {
           <option value="">— Sin asignar —</option>
           {profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </CampoSelect>
+        {conSegundo ? (
+          <div className="space-y-1">
+            <CampoSelect label="Segundo profesor (cuenta también como clase dada)" value={profesor2Id} onChange={(ev) => { setProfesor2Id(ev.target.value); setGuardado(false); }}>
+              <option value="">— Ninguno —</option>
+              {profesores.filter((p) => p.id !== profesorId).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </CampoSelect>
+            <button type="button" className="min-h-[36px] text-xs font-semibold text-indigo-900 underline dark:text-indigo-200"
+              onClick={() => { setConSegundo(false); setProfesor2Id(''); setGuardado(false); }}>Quitar el segundo profesor</button>
+          </div>
+        ) : profesorId ? (
+          <button type="button" className="min-h-[36px] text-left text-xs font-semibold text-indigo-900 underline dark:text-indigo-200"
+            onClick={() => setConSegundo(true)}>+ Añadir un segundo profesor</button>
+        ) : null}
         <div className="space-y-2">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tema (o temas)</p>
           {temas.length > 0 ? (
@@ -140,7 +157,7 @@ export default function ProgramaTeoria({ e, profesores, onCambio }: {
             </ul>
           )}
         </div>
-        <Campo label="Nota (opcional)" value={nota} maxLength={200} onChange={(ev) => { setNota(ev.target.value); setGuardado(false); }} />
+        <Campo label="Nota (opcional)" hint="Sale delante del tema en el cuadrante de la semana. Por ejemplo: «Simulacro +» u «Organigrama»." value={nota} maxLength={200} onChange={(ev) => { setNota(ev.target.value); setGuardado(false); }} />
         {error && <p className="text-xs font-medium text-red-700 dark:text-red-300">{error}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <Boton disabled={ocupado} icon={ocupado ? <Loader2 size={14} className="animate-spin" /> : undefined} onClick={() => guarda()}>Guardar</Boton>

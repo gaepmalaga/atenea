@@ -67,6 +67,12 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    cambio propuesto de `000c13dd` (art. 34 CP) **rechazado** (era correcto:
    un tutor puede volver a proponerlo). Un tutor real debería volver a mirar
    la `0108dca2`.
+2b. **Cuadrante semanal de teoría — fase A hecha (20 nov, regla 142).** Desde el
+   Calendario: «Cuadrante de teoría» (semana) genera la imagen del cuadrante y el
+   texto para WhatsApp; «Formación extra» crea cursos extras (OSINT…); una clase
+   admite un segundo profesor. **Fase B pendiente:** cuentas del equipo (rol
+   propio; faltan los correos de los 12) y petición de disponibilidad. Preguntar
+   al dueño: si las formaciones extras se pagan por clase como las demás.
 3. **Preguntas que no son del temario — HECHO el repaso, falta lanzarlo
    entero.** `npm run ambito` (`app/lib/ambito-tema.ts`,
    `scripts/operacion/ambito-preguntas.mjs`; acciones de «Operación»
@@ -95,6 +101,18 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    «Cambios propuestos»; (2) volver a lanzar `publicar-limpias --hazlo`;
    (3) las 176 que numeran las opciones y no se arreglan solas, y las ~170 sin
    referencia en temas jurídicos, para un tutor o para buscarles referencia.
+   **Hecho el 20 nov:** (1) aceptados los 3.948 cambios mecánicos (con
+   `prueba.admin`, desde la app local); (2) el repaso «¿es de su tema?» terminó
+   (se cortó una vez porque a Gemini se le acabó el saldo de prepago y se
+   reanudó con `ambito-resto`; 334 avisos: 17 «fuera del temario» y 317 «otro
+   tema», casi todos de temas vecinos, 2/3, 7/8, 8/9, 20/21: muchos falsos
+   positivos); (3) **publicadas 4.065 sin leer** (3.237 del banco + 828 del
+   Tomo). Los alumnos ven **4.791**: 725 de la academia + 1 revisada + 4.065.
+   **Siguen sin publicar 1.536:** 876 sin referencia (850 de temas sin
+   legislación + ~170 jurídicas), 522 con aviso abierto, 137 con la numeración
+   que no se arregla sola y 157 pendientes del Tomo con aviso. Decisión por
+   tomar (regla 140): ¿publicar las que solo tienen aviso de «otro tema»
+   (siguen siendo del temario, solo cambia el tema)?
 5. **Las pendientes del Tomo que repiten un hecho ya en el banco** (la hoja
    del dueño marca 68, §2u) y las 26 del Pacto Europeo (ya llevan aviso de la
    ley): se podrían señalar en el revisor con las familias de la regla 119,

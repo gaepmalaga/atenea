@@ -105,6 +105,8 @@ export const TABLAS_POR_ACADEMIA = [
   'document_folders',
   // Apuntan a `academy_staff` (regla 100): antes que él.
   'theory_sessions',
+  // Las formaciones extras (regla 142): también nombran a un profesor.
+  'extra_events',
   'staff_activities',
   'staff_subjects',
   'academy_staff',

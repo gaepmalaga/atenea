@@ -28,6 +28,7 @@ export * from './documentos';
 export * from './profesores';
 export * from './payments';
 export * from './calendario';
+export * from './extras';
 export * from './superadmin';
 export * from './demo';
 export * from './datos';
