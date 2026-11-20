@@ -31,6 +31,7 @@
     "mejoras": "node --experimental-strip-types scripts/operacion/proponer-mejoras.mjs",
     "verificar": "node --experimental-strip-types scripts/operacion/verificar-preguntas.mjs",
     "ambito": "node --experimental-strip-types scripts/operacion/ambito-preguntas.mjs",
+    "apuntes": "node --experimental-strip-types scripts/operacion/verificar-apuntes.mjs",
     "limpiar": "node --experimental-strip-types scripts/operacion/limpiar-para-alphapol.mjs",
     "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",
     "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs",

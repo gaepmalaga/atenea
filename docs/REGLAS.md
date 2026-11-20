@@ -5595,3 +5595,31 @@ documento (o con una decisión anterior del dueño):
   que un tutor les cambie el tema o pulse «La IA se equivoca». Cualquier otro
   aviso, y el de «fuera del temario», las sigue dejando fuera.
 - `tests/cambiar-tema.test.ts` (comprobado rompiéndolo a propósito).
+
+### 145 · Los temas sin ley se comprueban contra sus apuntes, y se publican si no hay señal de error
+
+- **Qué pasó (20 nov):** 852 preguntas de la IA no llevaban referencia legal
+  porque son de temas SIN legislación: ciencias sociales y técnico-científicas
+  (27 a 45, menos el 42 y el 43, que llevan norma) y los apuntes propios de los
+  temas 4 y 24 (`temaSinLegislacion`, `app/lib/temas-sin-ley.ts`). Estaban
+  completas (tema, respuesta, explicación, dificultad) pero retenidas solo
+  porque el repaso contra el BOE no tenía artículo con el que compararlas.
+- **Decisión del dueño (20 nov):** publicarlas (sin lectura individual, regla 139,
+  `publicar-limpias --sin-ley`) y comprobarlas DESPUÉS contra los apuntes,
+  reteniendo solo las que salgan marcadas.
+- **La comprobación** (`npm run apuntes`, `app/lib/verificacion-apuntes.ts`,
+  `scripts/operacion/verificar-apuntes.mjs`; acciones de «Operación»
+  `apuntes-ensayo`, `apuntes-muestra` y `apuntes`, esta última pide escribir
+  `APUNTES`): una IA compara cada pregunta con el APUNTE ENTERO del tema
+  (`documents.full_text`, de 5.000 a 11.000 caracteres: cabe de sobra) de diez en
+  diez. Solo AVISA: deja un «La IA duda» en las que CONTRADICEN los apuntes; las
+  que los apuntes «no cubren» se cuentan pero no se avisan (`--con-dudosas` las
+  avisa). No repite las ya repasadas.
+- **Resultado:** 852 repasadas por 0,27 $: 849 respaldadas por los apuntes, 1 que
+  los contradice (aviso en «Revisión») y 2 no cubiertas (tema 27, los protocolos).
+  Una muestra previa de 60 había señalado otra distinta: la IA no da el mismo
+  veredicto en dos pasadas, y por eso solo avisa.
+- **Lo que NO prueba:** los apuntes de esos temas se redactaron desde fuentes
+  citadas y los hizo también una IA (`docs/TEMARIO.md`, «Bloques II y III»). Esto
+  detecta preguntas que contradicen o se salen de los apuntes, no que los apuntes
+  sean verdad. Que los tutores revisen los apuntes sigue pendiente.

@@ -62,6 +62,7 @@ npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montarí
 npm run normativa                          # qué preguntas citan artículos cambiados en el BOE o la UE (regla 137; `-- --hazlo` deja los avisos; vía «Operación»)
 npm run mejoras                            # qué mejoras del banco propondría Claude: «texto proporcionado» y referencias (regla 138; `-- --hazlo` deja PROPUESTAS; vía «Operación»)
 npm run ambito                             # la IA compara cada pregunta con el programa oficial de su tema y avisa de las que no encajan (regla 139; `-- --muestra=60`, `-- --solo=idcorto`, `-- --hazlo`; de pago, vía «Operación»)
+npm run apuntes                            # la IA comprueba las preguntas de temas SIN ley contra el apunte del tema y avisa de las que lo contradicen (regla 145; `-- --muestra=60`, `-- --hazlo`; de pago, vía «Operación»)
 npm run verificar                          # la IA repasa cada pregunta contra el texto vigente del BOE (regla 138; `-- --muestra=30`, `-- --hazlo` deja «La IA duda»; de pago, vía «Operación»)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
@@ -286,6 +287,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 142 | El cuadrante de teoría sale solo de lo programado: segundo profesor (cada uno suma 1), formaciones extras y la imagen para WhatsApp |
 | 143 | Un panel que se abre encima mide el ancho de la pantalla: su columna es `minmax(0,1fr)`, nunca `auto` |
 | 144 | Cambiar una pregunta de tema lo decide un tutor (botón «Cambiar de tema»), no la da por revisada y cierra el aviso de «otro tema» |
+| 145 | Los temas sin ley se comprueban contra sus apuntes (IA, solo avisa) y se publican si no hay señal de error |
 
 ## Trampas conocidas
 
