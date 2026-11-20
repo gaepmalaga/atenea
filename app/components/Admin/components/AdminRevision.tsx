@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle2, Loader2, Pencil, Save, Scale, SkipForward, Trash2, ExternalLink, ClipboardCheck, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Pencil, Save, Scale, SkipForward, Trash2, ExternalLink, ClipboardCheck, XCircle, ArrowRightLeft } from 'lucide-react';
 import {
   getBandejaRevision, getParaRevisar, setSoloRevisadas, getPropuestas, aprobarPropuesta, aprobarCambiosMecanicos, rechazarPropuesta,
-  marcarRevisada, approveQuestion, disableQuestion, updateQuestion, resolverAvisosLey, getOfficialSyllabus, resolveReport,
+  marcarRevisada, approveQuestion, disableQuestion, updateQuestion, resolverAvisosLey, getOfficialSyllabus, resolveReport, cambiarTemaPregunta,
 } from '@/actions';
 import type { BandejaRevision, PreguntaParaRevisar } from '@/app/actions/revision';
 import type { PropuestaParaRevisar } from '@/app/actions/moderation';
@@ -16,6 +16,7 @@ import { NOMBRE_ORIGEN, QUE_SE_REVISA, type OrigenPropuesta, type FuentePregunta
 /** Los bloques que se pueden elegir al revisar: las dos fuentes y lo publicado sin lectura individual. */
 type Bloque = FuentePregunta | 'sin_leer';
 import { separaEnlaceOficial } from '@/app/lib/normativa';
+import { temaSugerido } from '@/app/lib/ambito-tema';
 import { DIFFICULTY_LABEL, origenDeDificultad, type DifficultyLevel } from '@/app/lib/questions';
 import { estaCompleta, textoFaltan, etiquetasQueFaltan } from '@/app/lib/preguntas-edicion';
 import { avisar, confirmar, pedirTexto } from '@/app/lib/dialogos';
@@ -221,6 +222,9 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
+  // «Cambiar de tema» (regla 144): el tema que se ha elegido en el panel.
+  const [cambiandoTema, setCambiandoTema] = useState(false);
+  const [temaElegido, setTemaElegido] = useState<number | ''>('');
   const [form, setForm] = useState<FormPregunta>({ question_text: '', options: ['', '', ''], correct_index: 0, explanation: '' });
   const [nivel, setNivel] = useState<DifficultyLevel | 0>(0);
 
@@ -308,6 +312,27 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
     if (!p || !(await confirmar('¿Descartar esta pregunta? Deja de servirse a los alumnos. No se borra: se puede reactivar desde «Banco oficial».'))) return;
     setTrabajando(true);
     await hecho(await disableQuestion(p.id));
+  }
+  /** Lo que sugiere el repaso «¿es de su tema?»: el tema (su `id`) al que dice que pertenece, si lo dijo. */
+  const sugerido = (() => {
+    const n = p?.dudasIA.map((d) => temaSugerido(d.message)).find((x) => x !== null) ?? null;
+    return n === null ? null : temas.find((t) => t.number === n) ?? null;
+  })();
+  function abreCambioTema() {
+    if (!p) return;
+    setTemaElegido(sugerido?.id ?? '');
+    setCambiandoTema(true);
+  }
+  async function guardaCambioTema() {
+    if (!p || temaElegido === '') return;
+    setTrabajando(true); setError(null);
+    const r = await cambiarTemaPregunta(p.id, temaElegido);
+    setTrabajando(false);
+    if (!r.success) { setError(r.error ?? 'No se pudo cambiar el tema.'); return; }
+    setCambiandoTema(false);
+    onCambio();
+    // Se vuelve a leer tal como ha quedado (con su nuevo tema y sus avisos).
+    await siguiente(p.id, true);
   }
   function abreEditor() {
     if (!p) return;
@@ -448,12 +473,29 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
               {p.status === 'candidate' ? 'Está bien: publicar' : p.sinLeer ? 'Está bien: revisada' : QUE_SE_REVISA[p.fuente].boton}
             </Boton>
             <Boton variant="secondary" icon={<Pencil size={15} />} onClick={abreEditor} disabled={trabajando}>Corregir</Boton>
+            <Boton variant="secondary" icon={<ArrowRightLeft size={15} />} onClick={abreCambioTema} disabled={trabajando}>Cambiar de tema</Boton>
             {p.avisosLey.length > 0 && <Boton variant="secondary" icon={<Scale size={15} />} onClick={sigueVigente} disabled={trabajando}>Sigue vigente</Boton>}
             {p.dudasIA.length > 0 && <Boton variant="secondary" icon={<XCircle size={15} />} onClick={iaSeEquivoca} disabled={trabajando} title="La has mirado y la pregunta está bien">La IA se equivoca</Boton>}
             <Boton variant="ghost" icon={<SkipForward size={15} />} onClick={() => siguiente(p.id)} disabled={trabajando}>Saltar</Boton>
             <Boton variant="danger" icon={<Trash2 size={15} />} onClick={descartar} disabled={trabajando}>Descartar</Boton>
           </div>
         </Hoja>
+      )}
+
+      {cambiandoTema && p && (
+        <PanelLateral titulo="Cambiar de tema" sub={p.tema !== null ? `Ahora está en el tema ${p.tema}` : undefined} onCerrar={() => setCambiandoTema(false)}>
+          <p className="text-[14px] leading-relaxed text-slate-800 dark:text-slate-200">{p.question_text}</p>
+          {sugerido && <Aviso tono="info"><p>La IA cree que es del <b>tema {sugerido.number}: {(sugerido.title ?? '').replace(/\.$/, '')}</b>. La IA también se equivoca: decide tú.</p></Aviso>}
+          <CampoSelect label="Pasarla al tema" value={temaElegido} onChange={(e) => setTemaElegido(e.target.value ? Number(e.target.value) : '')}>
+            <option value="">— Elige un tema —</option>
+            {temas.map((t) => <option key={t.id} value={t.id}>Tema {t.number}: {t.title}</option>)}
+          </CampoSelect>
+          <p className={TEXT.muted}>Cambiarle el tema no la da por revisada. Si había un aviso de «otro tema», queda cerrado. Quedará anotado en «Logs».</p>
+          <div className="flex flex-wrap gap-2">
+            <Boton onClick={guardaCambioTema} disabled={trabajando || temaElegido === ''} icon={trabajando ? <Loader2 className="animate-spin" size={16} /> : <ArrowRightLeft size={16} />}>Cambiar de tema</Boton>
+            <Boton variant="ghost" onClick={() => setCambiandoTema(false)}>Cancelar</Boton>
+          </div>
+        </PanelLateral>
       )}
 
       {editando && p && (

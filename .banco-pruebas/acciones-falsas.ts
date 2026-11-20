@@ -1769,6 +1769,7 @@ export async function getParaRevisar(input: { fuente?: string; despuesDe?: strin
 }
 export async function setSoloRevisadas() { return ok({}); }
 export async function marcarRevisada() { _revisadas++; return ok({}); }
+export async function cambiarTemaPregunta() { return ok({}); }
 export async function getPropuestas() {
   const q = pregunta(3);
   return ok({

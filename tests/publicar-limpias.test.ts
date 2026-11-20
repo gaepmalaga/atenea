@@ -31,4 +31,11 @@ describe('publicar las limpias', () => {
   it('su idea de «completa» es la de la aplicación', () => {
     expect(script).toContain(`const MIN_EXPLICACION = ${MIN_EXPLANATION_CHARS};`);
   });
+
+  it('--con-otro-tema solo perdona el aviso de «otro tema»: cualquier otro aviso sigue dejándola fuera', () => {
+    expect(script).toMatch(/CON_OTRO_TEMA = process\.argv\.includes\('--con-otro-tema'\)/);
+    expect(script).toMatch(/filter\(\(r\) => !\(CON_OTRO_TEMA && esAvisoOtroTema\(r\.message\)\)\)/);
+    // Sin la opción, el comportamiento de siempre: cualquier aviso abierto la deja fuera.
+    expect(script).toMatch(/conAviso\.has\(q\.id\)/);
+  });
 });

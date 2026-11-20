@@ -5568,3 +5568,30 @@ documento (o con una decisión anterior del dueño):
 - **Cómo se mide:** con un navegador a 360, 390 y 412 px, que `scrollWidth` del
   panel no pase de su ancho (`tests/revision-resumen.test.ts` vigila el
   contenedor; comprobado rompiéndolo a propósito).
+
+### 144 · Cambiar una pregunta de tema lo decide un tutor, y no la da por revisada
+
+- **Qué pasó (20 nov):** el repaso «¿es de su tema?» dejó 334 avisos; 317 decían
+  «no es del tema X sino del tema Y». El repaso solo AVISA (regla 138), y no había
+  forma de mover una pregunta de tema desde «Revisión»: las propuestas solo
+  cambian enunciado, opciones, explicación, referencia y dificultad.
+- **Regla:** en cada pregunta de «Revisar» hay un botón **«Cambiar de tema»**
+  (`cambiarTemaPregunta`). Abre un panel con el tema actual, el que sugiere la IA
+  (leído del aviso, `temaSugerido`) ya elegido, y un selector con todos los temas.
+  La IA también se equivoca (entre temas vecinos, como los dos de Constitución):
+  decide el tutor.
+  - **No da la pregunta por revisada**: cambiarle la etiqueta no es leerla entera.
+  - **No toca `question_hash`**: así, volver a sembrar la misma pregunta en su
+    tema de antes no la duplica.
+  - **Cierra los avisos de «otro tema»** de esa pregunta (`esAvisoOtroTema`), no
+    los de «fuera del temario»: moverla no resuelve que no sea del programa.
+  - Acotado a la academia (`filtroEscrituraBanco`, regla 123), y queda en «Logs»
+    y en «Novedades» con de qué tema a cuál (`change_question_topic`). No escribe
+    en `question_edit_history`: ese historial restaura campos de la pregunta y el
+    tema no es uno de ellos; para deshacerlo, se vuelve a cambiar.
+- **Publicar con solo el aviso de «otro tema»** (decisión del dueño, 20 nov): la
+  pregunta sigue siendo del temario, así que no se retiene. `publicar-limpias
+  --con-otro-tema` las publica sin leer (regla 139) con el aviso aún abierto, para
+  que un tutor les cambie el tema o pulse «La IA se equivoca». Cualquier otro
+  aviso, y el de «fuera del temario», las sigue dejando fuera.
+- `tests/cambiar-tema.test.ts` (comprobado rompiéndolo a propósito).
