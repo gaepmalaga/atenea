@@ -33,7 +33,8 @@ export default function PanelLateral({
           <X size={20} />
         </button>
       </div>
-      <div className="grid gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 lg:px-6">{children}</div>
+      {/* Una sola columna que MIDE el ancho del panel (`minmax(0,1fr)`): con `auto` crecía hasta lo que pidiera su hijo más ancho y la ficha se salía de la pantalla del móvil (regla 143). */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 lg:px-6">{children}</div>
     </aside>
   );
 }

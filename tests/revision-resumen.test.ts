@@ -125,3 +125,12 @@ describe('el panel dice lo mismo a un admin y al superadmin', () => {
   });
 });
 
+
+describe('los paneles laterales caben en la pantalla del móvil (regla 143)', () => {
+  const panel = readFileSync(join(raiz, 'app/components/ui/panel/PanelLateral.tsx'), 'utf8');
+
+  it('su contenido va en UNA columna que mide el ancho del panel, no en una columna «auto»', () => {
+    // Con `grid` a secas, la columna crecía hasta lo que pidiera su hijo más ancho y la ficha se salía de la pantalla.
+    expect(panel).toMatch(/className="grid grid-cols-\[minmax\(0,1fr\)\] gap-5/);
+  });
+});
