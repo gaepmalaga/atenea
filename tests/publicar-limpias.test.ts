@@ -39,3 +39,22 @@ describe('publicar las limpias', () => {
     expect(script).toMatch(/conAviso\.has\(q\.id\)/);
   });
 });
+
+import { temaSinLegislacion } from '../app/lib/temas-sin-ley';
+
+describe('los temas sin legislación', () => {
+  it('ciencias sociales, técnico-científicas y los apuntes de los temas 4 y 24; no los que llevan norma', () => {
+    for (const t of [4, 24, 27, 29, 35, 36, 41, 44, 45]) expect(temaSinLegislacion(t), `tema ${t}`).toBe(true);
+    for (const t of [1, 3, 5, 20, 23, 26, 42, 43, 46, 50]) expect(temaSinLegislacion(t), `tema ${t}`).toBe(false);
+    expect(temaSinLegislacion(null)).toBe(false);
+    expect(temaSinLegislacion(undefined)).toBe(false);
+  });
+
+  it('--sin-ley solo perdona la falta de referencia en esos temas; lo demás sigue excluyendo', () => {
+    const codigo = readFileSync(join(raiz, 'scripts/operacion/publicar-limpias.mjs'), 'utf8').replace(/\/\*[\s\S]*?\*\/|(^|[^:])\/\/.*$/gm, '$1');
+    expect(codigo).toMatch(/SIN_LEY = process\.argv\.includes\('--sin-ley'\)/);
+    expect(codigo).toMatch(/!\(SIN_LEY && temaSinLegislacion\(q\.subjects\?\.topic_number\)\)/);
+    expect(codigo).toMatch(/conAviso\.has\(q\.id\)/);
+    expect(codigo).toMatch(/NUMERA_OPCIONES\.test/);
+  });
+});

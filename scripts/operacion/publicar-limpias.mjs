@@ -29,12 +29,17 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import { esAvisoOtroTema } from '../../app/lib/ambito-tema.ts';
+import { temaSinLegislacion } from '../../app/lib/temas-sin-ley.ts';
 
 config({ path: '.env.local' });
 const HAZLO = process.argv.includes('--hazlo');
 // --con-otro-tema: también las que SOLO tienen el aviso «no es de este tema, sino de otro» (siguen siendo del temario;
 // decisión del dueño, 20 nov). Cualquier otro aviso, y el de «fuera del temario», las sigue dejando fuera.
 const CON_OTRO_TEMA = process.argv.includes('--con-otro-tema');
+// --sin-ley: también las que NO llevan referencia legal por ser de un tema sin legislación (ciencias sociales, técnico-científicas y
+// los apuntes de los temas 4 y 24): no hay ley con la que compararlas. Se publican y después se comprueban contra los apuntes
+// (decisión del dueño, 20 nov).
+const SIN_LEY = process.argv.includes('--sin-ley');
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL || !KEY) { console.error('Faltan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.'); process.exit(1); }
@@ -64,7 +69,7 @@ async function todas(pedir, etiqueta) {
 }
 
 const preguntas = await todas((d, h) => db.from('question_bank')
-  .select('id, status, question_text, explanation, legal_reference, difficulty_level')
+  .select('id, status, question_text, explanation, legal_reference, difficulty_level, subjects(topic_number)')
   .eq('fuente', 'ia').is('reviewed_at', null).is('publicada_sin_leer_el', null).in('status', ['active', 'candidate']).order('id').range(d, h), 'question_bank');
 const abiertos = await todas((d, h) => db.from('question_reports').select('id, question_id, message').eq('status', 'open').order('id').range(d, h), 'question_reports');
 const conAviso = new Set(abiertos.filter((r) => !(CON_OTRO_TEMA && esAvisoOtroTema(r.message))).map((r) => r.question_id));
@@ -72,7 +77,7 @@ const conAviso = new Set(abiertos.filter((r) => !(CON_OTRO_TEMA && esAvisoOtroTe
 const fuera = { sinReferencia: 0, conAviso: 0, numeraOpciones: 0, textoProporcionado: 0, incompleta: 0 };
 const publicables = [];
 for (const q of preguntas) {
-  if (!(q.legal_reference ?? '').trim()) { fuera.sinReferencia++; continue; }
+  if (!(q.legal_reference ?? '').trim() && !(SIN_LEY && temaSinLegislacion(q.subjects?.topic_number))) { fuera.sinReferencia++; continue; }
   if (conAviso.has(q.id)) { fuera.conAviso++; continue; }
   if (NUMERA_OPCIONES.test(q.explanation ?? '')) { fuera.numeraOpciones++; continue; }
   if (TEXTO_PROPORCIONADO.test(q.question_text ?? '')) { fuera.textoProporcionado++; continue; }
@@ -103,7 +108,7 @@ for (let i = 0; i < publicables.length; i += 100) {
 const { error: errNov } = await db.from('novedades').insert({
   tipo: 'lote', organization_id: null,
   titulo: `Publicadas ${hechas} preguntas sin leerlas una a una (decisión del dueño)`,
-  detalle: `Son de la IA, sin ningún aviso${CON_OTRO_TEMA ? ' (salvo el de «otro tema», que sigue abierto para que un tutor les cambie el tema)' : ''} y con referencia legal (${activas.length} del banco y ${pendientes.length} pendientes del Tomo I). Ningún tutor las ha leído: siguen en «Revisión» como «publicadas sin leer» y se miran si llega una queja de un alumno o cuando haya tiempo. Quedan sin publicar las que tienen aviso, no tienen referencia o llevan un defecto conocido (numeran las opciones o dicen «texto proporcionado»).`,
+  detalle: `Son de la IA, sin ningún aviso${CON_OTRO_TEMA ? ' (salvo el de «otro tema», que sigue abierto para que un tutor les cambie el tema)' : ''} y con referencia legal${SIN_LEY ? ' (o de un tema sin legislación: ciencias sociales, técnico-científicas y apuntes)' : ''} (${activas.length} del banco y ${pendientes.length} pendientes del Tomo I). Ningún tutor las ha leído: siguen en «Revisión» como «publicadas sin leer» y se miran si llega una queja de un alumno o cuando haya tiempo. Quedan sin publicar las que tienen aviso, no tienen referencia o llevan un defecto conocido (numeran las opciones o dicen «texto proporcionado»).`,
 });
 if (errNov) console.error('No se pudo anotar la novedad:', errNov.message);
 console.log(`\nPublicadas: ${hechas}`);
