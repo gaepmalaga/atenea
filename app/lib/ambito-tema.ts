@@ -89,3 +89,17 @@ export function avisoDeAmbito(p: { tema: TemaOficial; veredicto: VeredictoAmbito
 export function costeAmbito(n: number, precio = { entradaPorMillon: 0.30, salidaPorMillon: 2.50 }): number {
   return (n * 1500 / 1e6) * precio.entradaPorMillon + (n * 80 / 1e6) * precio.salidaPorMillon;
 }
+
+/** El aviso «no es del tema X sino del tema Y» (`avisoDeAmbito`): lo que dice la IA que mover resolvería. */
+export const PATRON_OTRO_TEMA = /sino del tema (\d+)/;
+/** El aviso «no es de ningún tema del programa»: moverla de tema no lo resuelve. */
+export const PATRON_FUERA_DEL_TEMARIO = /de ningún tema del programa/;
+
+/** El número de tema que sugiere la IA en un aviso de «otro tema», o `null`. */
+export function temaSugerido(mensaje: string | null | undefined): number | null {
+  const m = PATRON_OTRO_TEMA.exec(mensaje ?? '');
+  return m ? Number(m[1]) : null;
+}
+
+/** ¿Es un aviso de «otro tema»? (Moviendo la pregunta de tema, queda resuelto.) */
+export const esAvisoOtroTema = (mensaje: string | null | undefined): boolean => PATRON_OTRO_TEMA.test(mensaje ?? '');

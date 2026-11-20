@@ -147,6 +147,7 @@ export const ACCIONES_DE_REVISION: Record<string, (d: Record<string, unknown> | 
   resolve_report: () => 'Archivó una queja o un aviso',
   resolve_vigencia: () => 'Cerró un aviso de cambio en la ley',
   review_question: () => 'Revisó una pregunta y la dio por buena',
+  change_question_topic: () => 'Cambió una pregunta de tema',
   approve_proposal: () => 'Aprobó un cambio propuesto',
   reject_proposal: () => 'Rechazó un cambio propuesto',
   set_solo_revisadas: (d) => (d?.activo ? 'Activó «solo preguntas revisadas»' : 'Desactivó «solo preguntas revisadas»'),

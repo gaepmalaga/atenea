@@ -20,6 +20,7 @@ import { createSupabaseServerClient } from '../lib/supabase/server';
 import { fallo } from '../lib/fallos';
 import { filtroEscrituraBanco, puedeEditarBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
+import { esAvisoOtroTema } from '../lib/ambito-tema';
 import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
 import { FUENTE_PREGUNTA, leeValores, propuestaVigente, cambiaAlgo, cambiosLegibles, type ValoresPregunta, type CambioLegible } from '../lib/revision';
 
@@ -361,6 +362,58 @@ export async function resolveReport(reportId: string): Promise<ModerationResult>
     const { error } = await supabaseAdmin.from('question_reports').update({ status: 'dismissed' }).eq('id', reportId);
     if (!error) registraAccion({ actorId: auth.user.id, action: 'resolve_report', target: reportId });
     return { success: !error, error: fallo('resolveReport', error) };
+}
+
+/**
+ * Cambia una pregunta de tema (regla 144). Lo decide un tutor, normalmente a la
+ * vista de lo que sugiere el repaso «¿es de su tema?» (el aviso «no es del tema X
+ * sino del tema Y»), que solo AVISA.
+ *
+ * - NO da la pregunta por revisada: cambiarle la etiqueta no es leerla entera.
+ * - El `question_hash` no se toca: así, volver a sembrar la misma pregunta en el
+ *   tema de antes no la duplica.
+ * - Cierra los avisos de «otro tema» de esa pregunta (ya están atendidos); no los
+ *   de «fuera del temario», que mover no resuelve.
+ * - Queda en «Logs» y en «Novedades» (quién, de qué tema a cuál).
+ */
+export async function cambiarTemaPregunta(questionId: string, subjectId: number): Promise<ModerationResult> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (typeof questionId !== 'string' || !questionId || !Number.isInteger(subjectId)) return { success: false, error: 'Datos no válidos.' };
+
+    const alcance = filtroEscrituraBanco(auth.user);
+    let lectura = supabaseAdmin.from('question_bank').select('id, subject_id').eq('id', questionId);
+    if (alcance) lectura = lectura.or(alcance);
+    const { data: q, error: errLec } = await lectura.maybeSingle();
+    if (errLec) return { success: false, error: fallo('cambiarTemaPregunta', errLec) };
+    if (!q) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+    if (q.subject_id === subjectId) return { success: true };
+
+    const { data: tema, error: errTema } = await supabaseAdmin.from('subjects').select('id, topic_number').eq('id', subjectId).maybeSingle();
+    if (errTema) return { success: false, error: fallo('cambiarTemaPregunta', errTema) };
+    if (!tema) return { success: false, error: 'Ese tema no existe.' };
+
+    let query = supabaseAdmin.from('question_bank').update({ subject_id: subjectId }).eq('id', questionId);
+    if (alcance) query = query.or(alcance);
+    const { data: escritas, error } = await query.select('id');
+    if (error) return { success: false, error: fallo('cambiarTemaPregunta', error) };
+    if (!escritas?.length) return { success: false, error: 'Esa pregunta no existe o no es de tu academia.' };
+
+    // Los avisos de «otro tema» de esta pregunta quedan atendidos.
+    const { data: avisos, error: errAv } = await supabaseAdmin.from('question_reports').select('id, message')
+        .eq('question_id', questionId).eq('report_type', TIPO_REPORTE_REVISION_IA).eq('status', 'open');
+    if (errAv) return { success: false, error: fallo('cambiarTemaPregunta.avisos', errAv) };
+    const ids = (avisos ?? []).filter((a) => esAvisoOtroTema(a.message as string | null)).map((a) => a.id as string);
+    if (ids.length) {
+        const { error: errCierre } = await supabaseAdmin.from('question_reports').update({ status: 'dismissed' }).in('id', ids);
+        if (errCierre) return { success: false, error: fallo('cambiarTemaPregunta.cierre', errCierre) };
+    }
+
+    registraAccion({
+        actorId: auth.user.id, action: 'change_question_topic', target: questionId, organizationId: auth.user.organizationId,
+        detail: { de: q.subject_id, a: subjectId, tema: tema.topic_number, avisosCerrados: ids.length },
+    });
+    return { success: true };
 }
 
 /** Con qué se rellena la explicación para pasar la validación cuando una pendiente aún no la tiene. Nunca se guarda. */
