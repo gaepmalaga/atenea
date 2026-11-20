@@ -1257,7 +1257,13 @@ export async function getExamenImprimible(input: unknown): Promise<
 
   const { data: filas, error: bancoError } = await bancoLigero(ids.length ? ids : null, auth.user.organizationId);
   if (bancoError) return { success: false as const, error: bancoError };
-  if (!filas.length) return { success: false as const, error: 'No hay preguntas en el banco para esos temas.' };
+  if (!filas.length) {
+    // Con «solo preguntas revisadas» (regla 138), lo que falta es revisarlas: que lo diga.
+    const porRevision = await exigeRevision(auth.user.organizationId);
+    return { success: false as const, error: porRevision
+      ? 'No hay preguntas revisadas por un tutor en esos temas. Revísalas primero en «Revisión».'
+      : 'No hay preguntas en el banco para esos temas.' };
+  }
 
   // Las que ya salieron en un examen guardado de ESTA academia. Si la tabla aún
   // no existe, no se evita nada: el examen sale igual.

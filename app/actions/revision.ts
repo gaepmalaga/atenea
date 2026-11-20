@@ -20,7 +20,8 @@ import { registraAccion } from '../lib/admin-audit';
 import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import { filtroEscrituraBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
-import { juntaNovedades, ACCIONES_DE_REVISION, type Novedad } from '../lib/revision';
+import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
+import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, type Novedad, type CambioLegible, type ValoresPregunta } from '../lib/revision';
 
 export type BandejaRevision = {
   pendientes: number;
@@ -28,6 +29,8 @@ export type BandejaRevision = {
   revisadas: number;
   propuestas: number;
   avisosLey: number;
+  /** Avisos del repaso contra la ley: la IA duda de la pregunta. */
+  dudasIA: number;
   quejas: number;
   soloRevisadas: boolean;
   novedades: Novedad[];
@@ -57,11 +60,13 @@ const baseBanco = () => supabaseAdmin.from('question_bank').select('id', { count
  * reportes no llevan academia propia, P11e). Dos consultas y no un `.or`
  * sobre la tabla embebida: es la forma que ya funciona en `getModerationQueue`.
  */
-async function reportesAbiertos(user: Usuario, deLaLey: boolean) {
+async function reportesAbiertos(user: Usuario, tipo: 'ley' | 'ia' | 'quejas') {
   const base = () => {
     const q = supabaseAdmin.from('question_reports').select('id, question:question_bank!inner(organization_id)').eq('status', 'open');
+    if (tipo === 'ley') return q.eq('report_type', TIPO_REPORTE_VIGENCIA);
+    if (tipo === 'ia') return q.eq('report_type', TIPO_REPORTE_REVISION_IA);
     // `neq` deja fuera las filas con el tipo vacío: una queja sin tipo también es una queja.
-    return deLaLey ? q.eq('report_type', TIPO_REPORTE_VIGENCIA) : q.or(`report_type.is.null,report_type.neq.${TIPO_REPORTE_VIGENCIA}`);
+    return q.or(`report_type.is.null,and(report_type.neq.${TIPO_REPORTE_VIGENCIA},report_type.neq.${TIPO_REPORTE_REVISION_IA})`);
   };
   const consultas = [];
   if (user.role === 'superadmin' || UNA_SOLA_ACADEMIA) consultas.push(base().is('question.organization_id', null));
@@ -88,13 +93,14 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
   let propuestas = supabaseAdmin.from('question_proposals').select('id', { count: 'exact', head: true }).eq('status', 'pending');
   if (alcance) propuestas = propuestas.or(alcance);
 
-  const [pend, sinRev, rev, prop, ley, quejas, ajuste, nov, decisiones] = await Promise.all([
+  const [pend, sinRev, rev, prop, ley, ia, quejas, ajuste, nov, decisiones] = await Promise.all([
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.CANDIDATE)),
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.ACTIVE).is('reviewed_at', null)),
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.ACTIVE).not('reviewed_at', 'is', null)),
     propuestas,
-    reportesAbiertos(user, true),
-    reportesAbiertos(user, false),
+    reportesAbiertos(user, 'ley'),
+    reportesAbiertos(user, 'ia'),
+    reportesAbiertos(user, 'quejas'),
     user.organizationId
       ? supabaseAdmin.from('academy_settings').select('solo_preguntas_revisadas').eq('organization_id', user.organizationId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -107,7 +113,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
       .order('created_at', { ascending: false })
       .limit(400),
   ]);
-  const error = pend.error ?? sinRev.error ?? rev.error ?? prop.error ?? ley.error ?? quejas.error ?? ajuste.error ?? nov.error ?? decisiones.error;
+  const error = pend.error ?? sinRev.error ?? rev.error ?? prop.error ?? ley.error ?? ia.error ?? quejas.error ?? ajuste.error ?? nov.error ?? decisiones.error;
   if (error) return { success: false as const, error: fallo('getBandejaRevision', error) ?? 'No se pudo leer la bandeja.' };
 
   // Quién decidió: el correo del perfil, no un uuid (regla 49).
@@ -136,6 +142,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
       revisadas: rev.n,
       propuestas: prop.count ?? 0,
       avisosLey: ley.n,
+      dudasIA: ia.n,
       quejas: quejas.n,
       soloRevisadas: (ajuste.data as { solo_preguntas_revisadas?: boolean } | null)?.solo_preguntas_revisadas === true,
       novedades,
@@ -157,7 +164,21 @@ export type PreguntaParaRevisar = {
   tema: number | null;
   temaTitulo: string | null;
   avisosLey: { id: string; message: string | null }[];
-  tienePropuesta: boolean;
+  /** Avisos del repaso contra la ley: la IA duda. */
+  dudasIA: { id: string; message: string | null }[];
+  /** El cambio propuesto que espera a un tutor (solo hay uno por pregunta), para decidirlo aquí mismo. */
+  propuesta: PropuestaEnLinea | null;
+};
+
+export type PropuestaEnLinea = {
+  id: string;
+  origen: string;
+  motivo: string;
+  /** La pregunta sigue como cuando se propuso: si no, ya no vale. */
+  vigente: boolean;
+  cambios: CambioLegible[];
+  /** Los valores nuevos, para enseñar la pregunta ya cambiada al aceptarlo. */
+  despues: ValoresPregunta;
 };
 
 /**
@@ -172,39 +193,58 @@ export async function getParaRevisar(input: unknown): Promise<
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
   const d = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
-  const modo = d.modo === 'pendientes' ? 'pendientes' : 'sin_revisar';
+  const modo = d.modo === 'pendientes' ? 'pendientes' : d.modo === 'dudas_ia' ? 'dudas_ia' : 'sin_revisar';
   const subjectId = Number.isInteger(d.subjectId) ? (d.subjectId as number) : null;
   const despuesDe = typeof d.despuesDe === 'string' && /^[0-9a-f-]{36}$/i.test(d.despuesDe) ? d.despuesDe : null;
+  // «Otra vez la misma»: tras decidir algo sobre ella, se vuelve a leer tal como ha quedado.
+  const incluida = d.incluida === true;
 
   // Lo que este tutor puede tocar (regla 123): va a decidir sobre ella.
   const alcance = filtroEscrituraBanco(auth.user);
   const estado = modo === 'pendientes' ? QUESTION_STATUS.CANDIDATE : QUESTION_STATUS.ACTIVE;
 
-  let siguiente = supabaseAdmin
-    .from('question_bank')
-    .select('id, status, question_text, options, correct_index, explanation, legal_reference, difficulty_level, difficulty_source, subjects(topic_number, title)')
+  // «Las que la IA duda primero»: solo las que tienen un aviso del repaso abierto (join INNER).
+  const columnas = 'id, status, question_text, options, correct_index, explanation, legal_reference, difficulty_level, difficulty_source, subjects(topic_number, title)';
+  let siguiente = (modo === 'dudas_ia'
+    ? supabaseAdmin.from('question_bank').select(`${columnas}, question_reports!inner(id)`).eq('question_reports.report_type', TIPO_REPORTE_REVISION_IA).eq('question_reports.status', 'open')
+    : supabaseAdmin.from('question_bank').select(columnas))
     .eq('status', estado)
     .order('id', { ascending: true })
     .limit(1);
-  let total = supabaseAdmin.from('question_bank').select('id', { count: 'exact', head: true }).eq('status', estado);
-  if (modo === 'sin_revisar') { siguiente = siguiente.is('reviewed_at', null); total = total.is('reviewed_at', null); }
+  let total = (modo === 'dudas_ia'
+    ? supabaseAdmin.from('question_bank').select('id, question_reports!inner(id)', { count: 'exact', head: true }).eq('question_reports.report_type', TIPO_REPORTE_REVISION_IA).eq('question_reports.status', 'open')
+    : supabaseAdmin.from('question_bank').select('id', { count: 'exact', head: true }))
+    .eq('status', estado);
+  if (modo !== 'pendientes') { siguiente = siguiente.is('reviewed_at', null); total = total.is('reviewed_at', null); }
   if (subjectId) { siguiente = siguiente.eq('subject_id', subjectId); total = total.eq('subject_id', subjectId); }
   if (alcance) { siguiente = siguiente.or(alcance); total = total.or(alcance); }
-  if (despuesDe) siguiente = siguiente.gt('id', despuesDe);
+  if (despuesDe) siguiente = incluida ? siguiente.gte('id', despuesDe) : siguiente.gt('id', despuesDe);
   const [{ data: filas, error }, { count, error: errCount }] = await Promise.all([
     siguiente,
     total,
   ]);
   if (error || errCount) return { success: false as const, error: fallo('getParaRevisar', (error ?? errCount)!) };
 
-  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'tienePropuesta'> & { subjects?: { topic_number: number; title: string } | null }) | undefined;
+  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta'> & { subjects?: { topic_number: number; title: string } | null }) | undefined;
   if (!f) return { success: true as const, pregunta: null, quedan: count ?? 0 };
 
   const [{ data: avisos, error: errAv }, { data: props, error: errPr }] = await Promise.all([
-    supabaseAdmin.from('question_reports').select('id, message').eq('question_id', f.id).eq('report_type', TIPO_REPORTE_VIGENCIA).eq('status', 'open'),
-    supabaseAdmin.from('question_proposals').select('id').eq('question_id', f.id).eq('status', 'pending').limit(1),
+    supabaseAdmin.from('question_reports').select('id, message, report_type').eq('question_id', f.id).in('report_type', [TIPO_REPORTE_VIGENCIA, TIPO_REPORTE_REVISION_IA]).eq('status', 'open'),
+    supabaseAdmin.from('question_proposals').select('id, source, reason, before, after').eq('question_id', f.id).eq('status', 'pending').limit(1),
   ]);
   if (errAv || errPr) return { success: false as const, error: fallo('getParaRevisar', (errAv ?? errPr)!) };
+
+  const actual: ValoresPregunta = {
+    question_text: f.question_text, options: Array.isArray(f.options) ? f.options : [], correct_index: f.correct_index,
+    explanation: f.explanation ?? null, difficulty_level: f.difficulty_level ?? null, legal_reference: f.legal_reference ?? null,
+  };
+  const pr = (props ?? [])[0];
+  const antes = pr ? leeValores(pr.before) : null;
+  const despues = pr ? leeValores(pr.after) : null;
+  const propuesta: PropuestaEnLinea | null = pr && antes && despues ? {
+    id: pr.id as string, origen: pr.source as string, motivo: (pr.reason as string | null) ?? '',
+    vigente: propuestaVigente(actual, antes, despues), cambios: cambiosLegibles(actual, despues), despues,
+  } : null;
 
   return {
     success: true as const,
@@ -215,8 +255,9 @@ export async function getParaRevisar(input: unknown): Promise<
       explanation: f.explanation ?? null, legal_reference: f.legal_reference ?? null,
       difficulty_level: f.difficulty_level ?? null, difficulty_source: f.difficulty_source ?? null,
       tema: f.subjects?.topic_number ?? null, temaTitulo: f.subjects?.title ?? null,
-      avisosLey: (avisos ?? []).map((a) => ({ id: a.id as string, message: (a.message as string | null) ?? null })),
-      tienePropuesta: (props ?? []).length > 0,
+      avisosLey: (avisos ?? []).filter((a) => a.report_type === TIPO_REPORTE_VIGENCIA).map((a) => ({ id: a.id as string, message: (a.message as string | null) ?? null })),
+      dudasIA: (avisos ?? []).filter((a) => a.report_type === TIPO_REPORTE_REVISION_IA).map((a) => ({ id: a.id as string, message: (a.message as string | null) ?? null })),
+      propuesta,
     },
   };
 }
@@ -254,13 +295,14 @@ export async function getPorRevisar(): Promise<{ success: true; n: number } | { 
   let propuestas = supabaseAdmin.from('question_proposals').select('id', { count: 'exact', head: true }).eq('status', 'pending');
   const alcance = alcanceOrg(user);
   if (alcance) propuestas = propuestas.or(alcance);
-  const [pend, prop, ley, quejas] = await Promise.all([
+  const [pend, prop, ley, ia, quejas] = await Promise.all([
     cuenta(user, (q) => q.eq('status', QUESTION_STATUS.CANDIDATE)),
     propuestas,
-    reportesAbiertos(user, true),
-    reportesAbiertos(user, false),
+    reportesAbiertos(user, 'ley'),
+    reportesAbiertos(user, 'ia'),
+    reportesAbiertos(user, 'quejas'),
   ]);
-  const error = pend.error ?? prop.error ?? ley.error ?? quejas.error;
+  const error = pend.error ?? prop.error ?? ley.error ?? ia.error ?? quejas.error;
   if (error) return { success: false as const, error: fallo('getPorRevisar', error) ?? 'No se pudo contar.' };
-  return { success: true as const, n: pend.n + (prop.count ?? 0) + ley.n + quejas.n };
+  return { success: true as const, n: pend.n + (prop.count ?? 0) + ley.n + ia.n + quejas.n };
 }

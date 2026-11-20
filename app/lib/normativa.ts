@@ -273,6 +273,11 @@ const SIGLAS: [RegExp, string][] = [
   [/\bLOEX\b/, 'LO 4/2000'],
   [/\bLOPDGDD\b/, 'LO 3/2018'],
   [/\bRGPD\b/, 'Reglamento (UE) 2016/679'],
+  // Las del temario sin número en su nombre: así las referencias que se escriben
+  // con el nombre («Art. 69 Reglamento General de Circulación») se siguen vigilando.
+  [/\bReglamento General de Circulaci[oó]n\b/, 'RD 1428/2003'],
+  [/\bReglamento de Armas\b/, 'RD 137/1993'],
+  [/\bEstatuto Org[aá]nico del Ministerio Fiscal\b/, 'Ley 50/1981'],
   // Los Tratados y el Convenio de Schengen no tienen versión consolidada que
   // vigilar: un cambio en ellos exige ratificación de todos los Estados. Se
   // reconocen para no contarlos como «sin norma», y se dejan fuera a propósito.

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, Loader2, Pencil, Save, Scale, SkipForward, Trash2, ExternalLink, ClipboardCheck, XCircle } from 'lucide-react';
 import {
   getBandejaRevision, getParaRevisar, setSoloRevisadas, getPropuestas, aprobarPropuesta, rechazarPropuesta,
-  marcarRevisada, approveQuestion, disableQuestion, updateQuestion, resolverAvisosLey, getOfficialSyllabus,
+  marcarRevisada, approveQuestion, disableQuestion, updateQuestion, resolverAvisosLey, getOfficialSyllabus, resolveReport,
 } from '@/actions';
 import type { BandejaRevision, PreguntaParaRevisar } from '@/app/actions/revision';
 import type { PropuestaParaRevisar } from '@/app/actions/moderation';
@@ -26,7 +26,7 @@ import { avisar, confirmar, pedirTexto } from '@/app/lib/dialogos';
  * nadie ha revisado, cambios propuestos, cambios en la ley, quejas— y lo que
  * ha pasado («Novedades»), para que nadie se entere tarde de nada.
  */
-type Seccion = 'resumen' | 'revisar' | 'propuestas' | 'ley' | 'quejas';
+type Seccion = 'resumen' | 'revisar' | 'propuestas' | 'ley' | 'ia' | 'quejas';
 
 const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 const horaCorta = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -55,14 +55,16 @@ export default function AdminRevision() {
           { id: 'revisar', etiqueta: 'Revisar una a una', cuenta: b ? b.pendientes + b.sinRevisar : undefined },
           { id: 'propuestas', etiqueta: 'Cambios propuestos', cuenta: b?.propuestas },
           { id: 'ley', etiqueta: 'Cambios en la ley', cuenta: b?.avisosLey },
+          { id: 'ia', etiqueta: 'La IA duda', cuenta: b?.dudasIA },
           { id: 'quejas', etiqueta: 'Quejas de alumnos', cuenta: b?.quejas },
         ]}
       />
       {error && <Aviso tono="malo"><p>{error}</p></Aviso>}
       {seccion === 'resumen' && <Resumen bandeja={b} onIr={setSeccion} onCambio={carga} />}
       {seccion === 'revisar' && <Revisor onCambio={carga} />}
-      {seccion === 'propuestas' && <Propuestas onCambio={carga} />}
+      {seccion === 'propuestas' && <Propuestas onCambio={carga} total={b?.propuestas ?? 0} />}
       {seccion === 'ley' && <AdminModeration soloTipo="ley" onCambio={carga} />}
+      {seccion === 'ia' && <AdminModeration soloTipo="ia" onCambio={carga} />}
       {seccion === 'quejas' && <AdminModeration soloTipo="quejas" onCambio={carga} />}
     </div>
   );
@@ -101,6 +103,7 @@ function Resumen({ bandeja, onIr, onCambio }: { bandeja: BandejaRevision | null;
         { valor: b.sinRevisar, etiqueta: 'En el banco sin revisar', tono: b.sinRevisar ? 'aviso' : 'ok' },
         { valor: b.propuestas, etiqueta: 'Cambios propuestos', tono: b.propuestas ? 'aviso' : 'neutro' },
         { valor: b.avisosLey, etiqueta: 'Cambios en la ley', tono: b.avisosLey ? 'malo' : 'neutro' },
+        { valor: b.dudasIA, etiqueta: 'La IA duda', tono: b.dudasIA ? 'malo' : 'neutro' },
         { valor: b.quejas, etiqueta: 'Quejas de alumnos', tono: b.quejas ? 'aviso' : 'neutro' },
       ]} />
 
@@ -108,6 +111,7 @@ function Resumen({ bandeja, onIr, onCambio }: { bandeja: BandejaRevision | null;
         {(b.pendientes > 0 || b.sinRevisar > 0) && <Boton icon={<ClipboardCheck size={15} />} onClick={() => onIr('revisar')}>Empezar a revisar</Boton>}
         {b.propuestas > 0 && <Boton variant="secondary" onClick={() => onIr('propuestas')}>Ver los cambios propuestos</Boton>}
         {b.avisosLey > 0 && <Boton variant="secondary" onClick={() => onIr('ley')}>Ver los cambios en la ley</Boton>}
+        {b.dudasIA > 0 && <Boton variant="secondary" onClick={() => onIr('ia')}>Ver de qué duda la IA</Boton>}
       </div>
 
       <Hoja pad="md" className="space-y-3">
@@ -159,7 +163,7 @@ function Resumen({ bandeja, onIr, onCambio }: { bandeja: BandejaRevision | null;
 // ---------------------------------------------------------------------------
 
 function Revisor({ onCambio }: { onCambio: () => void }) {
-  const [modo, setModo] = useState<'pendientes' | 'sin_revisar'>('pendientes');
+  const [modo, setModo] = useState<'pendientes' | 'sin_revisar' | 'dudas_ia'>('pendientes');
   const [tema, setTema] = useState<number | null>(null);
   const [temas, setTemas] = useState<SyllabusSubject[]>([]);
   const [p, setP] = useState<PreguntaParaRevisar | null>(null);
@@ -175,10 +179,10 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
     getOfficialSyllabus().then((r) => { if (r.success && r.syllabus) setTemas(r.syllabus.flatMap((bl) => bl.subjects)); });
   }, []);
 
-  const siguiente = useCallback(async (despuesDe?: string) => {
+  const siguiente = useCallback(async (despuesDe?: string, incluida = false) => {
     setCargando(true);
     setError(null);
-    const r = await getParaRevisar({ modo, subjectId: tema ?? undefined, despuesDe });
+    const r = await getParaRevisar({ modo, subjectId: tema ?? undefined, despuesDe, incluida });
     setCargando(false);
     if (!r.success) { setError(r.error); return; }
     setP(r.pregunta);
@@ -197,6 +201,50 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
     if (!p) return;
     setTrabajando(true);
     await hecho(p.status === 'candidate' ? await approveQuestion(p.id) : await marcarRevisada(p.id));
+  }
+  /** «La IA se equivoca»: el tutor ha mirado la duda y la pregunta está bien. */
+  async function iaSeEquivoca() {
+    if (!p) return;
+    setTrabajando(true);
+    for (const d of p.dudasIA) {
+      const r = await resolveReport(d.id);
+      if (!r.success) { setTrabajando(false); setError(r.error ?? 'No se pudo archivar la duda.'); return; }
+    }
+    setTrabajando(false);
+    setP({ ...p, dudasIA: [] });
+    onCambio();
+  }
+  /** El cambio propuesto, decidido aquí mismo: aceptado, la pregunta se queda ya cambiada para darla por buena. */
+  async function aceptaPropuesta() {
+    if (!p?.propuesta) return;
+    setTrabajando(true);
+    const r = await aprobarPropuesta(p.propuesta.id);
+    setTrabajando(false);
+    onCambio();
+    if (!r.success) {
+      // Se vuelve a leer tal como está (si la propuesta ya no valía, se ha descartado sola) y se enseña por qué.
+      await siguiente(p.id, true);
+      setError(r.error ?? 'No se pudo aplicar el cambio.');
+      return;
+    }
+    const d = p.propuesta.despues;
+    const cambiaNivel = d.difficulty_level !== undefined && d.difficulty_level !== p.difficulty_level;
+    setP({
+      ...p, ...d, options: d.options ?? p.options,
+      difficulty_source: cambiaNivel ? (p.propuesta.origen === 'dificultad' ? 'medida' : 'preparador') : p.difficulty_source,
+      propuesta: null,
+    });
+  }
+  async function rechazaPropuesta() {
+    if (!p?.propuesta) return;
+    const nota = await pedirTexto('¿Por qué no? (opcional: queda anotado)');
+    if (nota === null) return;
+    setTrabajando(true);
+    const r = await rechazarPropuesta(p.propuesta.id, nota);
+    setTrabajando(false);
+    if (!r.success) { setError(r.error ?? 'No se pudo rechazar.'); return; }
+    setP({ ...p, propuesta: null });
+    onCambio();
   }
   async function sigueVigente() {
     if (!p) return;
@@ -224,24 +272,26 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
     const cambiaNivel = nivel !== 0 && nivel !== p.difficulty_level;
     const r = await updateQuestion(p.id, cambiaNivel ? { ...form, difficulty_level: nivel } : form);
     if (!r.success) { setTrabajando(false); setError(r.error ?? 'No se pudo guardar.'); return; }
-    // Corregirla con un aviso de la ley abierto ES la respuesta al aviso.
+    // Corregirla con un aviso de la ley o una duda de la IA abiertos ES la respuesta al aviso.
     if (p.avisosLey.length) await resolverAvisosLey(p.id);
+    for (const d of p.dudasIA) await resolveReport(d.id);
     setTrabajando(false);
     setEditando(false);
     onCambio();
     // Una pendiente corregida sigue pendiente: se vuelve a enseñar ya corregida, para publicarla.
-    if (p.status === 'candidate') { setP({ ...p, ...form, difficulty_level: cambiaNivel ? nivel : p.difficulty_level, avisosLey: [] }); return; }
+    if (p.status === 'candidate') { setP({ ...p, ...form, difficulty_level: cambiaNivel ? nivel : p.difficulty_level, avisosLey: [], dudasIA: [] }); return; }
     await siguiente(p.id);
   }
 
   const completa = p ? estaCompleta(p) : false;
-  const bloqueada = !!p && (p.avisosLey.length > 0 || p.tienePropuesta);
+  const bloqueada = !!p && (p.avisosLey.length > 0 || p.dudasIA.length > 0 || !!p.propuesta);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <CampoSelect aria-label="Qué revisar" value={modo} onChange={(e) => setModo(e.target.value as 'pendientes' | 'sin_revisar')}>
+        <CampoSelect aria-label="Qué revisar" value={modo} onChange={(e) => setModo(e.target.value as 'pendientes' | 'sin_revisar' | 'dudas_ia')}>
           <option value="pendientes">Pendientes de publicar</option>
+          <option value="dudas_ia">Del banco: las que la IA duda, primero</option>
           <option value="sin_revisar">Del banco, sin revisar</option>
         </CampoSelect>
         <CampoSelect aria-label="Tema" value={tema ?? ''} onChange={(e) => setTema(e.target.value ? Number(e.target.value) : null)}>
@@ -255,7 +305,7 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
       {cargando ? (
         <div className="flex items-center gap-2 py-16 text-slate-600 dark:text-slate-400"><Loader2 className="animate-spin" size={18} /> Buscando la siguiente…</div>
       ) : !p ? (
-        <EmptyState icon={<CheckCircle2 size={36} />} title={modo === 'pendientes' ? 'No queda ninguna pendiente.' : 'Todo el banco está revisado.'} hint={tema ? 'En este tema. Prueba con «Todos los temas».' : undefined} bordered />
+        <EmptyState icon={<CheckCircle2 size={36} />} title={modo === 'pendientes' ? 'No queda ninguna pendiente.' : modo === 'dudas_ia' ? 'La IA no duda de ninguna sin revisar.' : 'Todo el banco está revisado.'} hint={tema ? 'En este tema. Prueba con «Todos los temas».' : undefined} bordered />
       ) : (
         <Hoja pad="md" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -300,7 +350,40 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
               </Aviso>
             );
           })}
-          {p.tienePropuesta && <Aviso tono="info"><p>Tiene un cambio propuesto sin decidir: decídelo en «Cambios propuestos» antes de darla por buena.</p></Aviso>}
+          {p.dudasIA.map((a) => {
+            const av = separaEnlaceOficial(a.message);
+            return (
+              <Aviso key={a.id} tono="malo">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest">La IA duda</p>
+                  <p className="break-words">{av.texto}</p>
+                  {av.url && <a href={av.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-1.5 font-semibold underline underline-offset-2">Ver el texto en el {av.fuente} <ExternalLink size={13} /></a>}
+                </div>
+              </Aviso>
+            );
+          })}
+          {p.propuesta && (
+            <div className="space-y-3 rounded-xl border border-oro/60 bg-oro/5 p-3 dark:bg-oro/10">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Cambio propuesto</p>
+                <Etiqueta tono="oro">{NOMBRE_ORIGEN[p.propuesta.origen as OrigenPropuesta] ?? p.propuesta.origen}</Etiqueta>
+              </div>
+              {p.propuesta.motivo && <p className="text-[13.5px] text-slate-900 dark:text-slate-100">{p.propuesta.motivo}</p>}
+              {!p.propuesta.vigente && <Aviso tono="malo"><p>La pregunta ha cambiado desde que se propuso: este cambio ya no vale. Recházalo.</p></Aviso>}
+              {p.propuesta.cambios.map((c) => (
+                <div key={c.campo} className="space-y-1">
+                  <Rotulo>{c.nombre}</Rotulo>
+                  <p className="whitespace-pre-line rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-900 line-through decoration-red-400/70 dark:bg-red-500/10 dark:text-red-200">{c.antes}</p>
+                  <p className="whitespace-pre-line rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">{c.despues}</p>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                {p.propuesta.vigente && <Boton size="sm" icon={<CheckCircle2 size={14} />} onClick={aceptaPropuesta} disabled={trabajando}>Aceptar el cambio</Boton>}
+                <Boton size="sm" variant="secondary" icon={<XCircle size={14} />} onClick={rechazaPropuesta} disabled={trabajando}>Rechazar el cambio</Boton>
+              </div>
+              <p className={TEXT.muted}>Decídelo antes de darla por buena. Aceptarlo cambia la pregunta, pero no la da por revisada: eso lo haces tú al verla entera.</p>
+            </div>
+          )}
           {p.status === 'candidate' && !completa && <Aviso tono="info"><p>{textoFaltan(etiquetasQueFaltan(p))}: complétala con «Corregir» antes de publicarla.</p></Aviso>}
 
           <div className="flex flex-wrap gap-2 border-t border-linea pt-4 dark:border-noche-linea">
@@ -310,6 +393,7 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
             </Boton>
             <Boton variant="secondary" icon={<Pencil size={15} />} onClick={abreEditor} disabled={trabajando}>Corregir</Boton>
             {p.avisosLey.length > 0 && <Boton variant="secondary" icon={<Scale size={15} />} onClick={sigueVigente} disabled={trabajando}>Sigue vigente</Boton>}
+            {p.dudasIA.length > 0 && <Boton variant="secondary" icon={<XCircle size={15} />} onClick={iaSeEquivoca} disabled={trabajando} title="La has mirado y la pregunta está bien">La IA se equivoca</Boton>}
             <Boton variant="ghost" icon={<SkipForward size={15} />} onClick={() => siguiente(p.id)} disabled={trabajando}>Saltar</Boton>
             <Boton variant="danger" icon={<Trash2 size={15} />} onClick={descartar} disabled={trabajando}>Descartar</Boton>
           </div>
@@ -339,7 +423,7 @@ function Revisor({ onCambio }: { onCambio: () => void }) {
 // Cambios propuestos
 // ---------------------------------------------------------------------------
 
-function Propuestas({ onCambio }: { onCambio: () => void }) {
+function Propuestas({ onCambio, total }: { onCambio: () => void; total: number }) {
   const [lista, setLista] = useState<PropuestaParaRevisar[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
@@ -374,6 +458,10 @@ function Propuestas({ onCambio }: { onCambio: () => void }) {
   if (lista.length === 0) return <EmptyState icon={<CheckCircle2 size={36} />} title="No hay cambios propuestos." hint="Cuando Claude, la IA o la medición de dificultad propongan algo, aparece aquí para que decidáis." bordered />;
 
   return (
+    <div className="space-y-4">
+    <Aviso tono="info">
+      <p>Aprobar aplica el cambio, pero no da la pregunta por revisada: eso se hace en «Revisar», viéndola entera (allí también aparece su cambio, para decidirlo junto).{total > lista.length ? ` Aquí salen los ${lista.length} más antiguos de ${total.toLocaleString('es-ES')}.` : ''}</p>
+    </Aviso>
     <div className="grid gap-4 xl:grid-cols-2">
       {lista.map((x) => (
         <Hoja key={x.id} pad="md" className="space-y-3">
@@ -410,6 +498,7 @@ function Propuestas({ onCambio }: { onCambio: () => void }) {
           </div>
         </Hoja>
       ))}
+    </div>
     </div>
   );
 }

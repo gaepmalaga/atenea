@@ -1709,7 +1709,7 @@ export async function getBandejaRevision() {
   const hace = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
   return ok({
     data: {
-      pendientes: 985, sinRevisar: 5342, revisadas: 0, propuestas: 1, avisosLey: 32, quejas: 2, soloRevisadas: false,
+      pendientes: 985, sinRevisar: 5342, revisadas: 0, propuestas: 3921, avisosLey: 32, dudasIA: 214, quejas: 2, soloRevisadas: true,
       novedades: [
         { fecha: hace(2), titulo: 'El BOE ha cambiado 1 artículo que citan 5 preguntas', detalle: 'Reglamento General de Circulación, art. 69 (en vigor desde el 1/10/2026)', autor: null, tipo: 'vigilancia' },
         { fecha: hace(5), titulo: 'Claude propone 1 cambio', detalle: 'Quitar «según el texto proporcionado» del enunciado', autor: null, tipo: 'propuestas' },
@@ -1721,9 +1721,10 @@ export async function getBandejaRevision() {
   });
 }
 let _revisadas = 0;
-export async function getParaRevisar(input: { modo?: string; despuesDe?: string } = {}) {
+export async function getParaRevisar(input: { modo?: string; despuesDe?: string; incluida?: boolean } = {}) {
   const lista = [0, 4, 8].map((i) => ({ ...pregunta(i), status: input.modo === 'pendientes' || !input.modo ? 'candidate' : 'active' }));
-  const idx = input.despuesDe ? lista.findIndex((q) => q.id === input.despuesDe) + 1 : 0;
+  const idx = input.despuesDe ? lista.findIndex((q) => q.id === input.despuesDe) + (input.incluida ? 0 : 1) : 0;
+  const delBanco = input.modo === 'sin_revisar' || input.modo === 'dudas_ia';
   const q = lista[idx];
   if (!q) return ok({ pregunta: null, quedan: 0 });
   return ok({
@@ -1733,7 +1734,13 @@ export async function getParaRevisar(input: { modo?: string; despuesDe?: string 
       explanation: q.explanation, legal_reference: idx === 0 ? 'Art. 126 RD 1155/2024' : q.legal_reference, difficulty_level: q.difficulty_level,
       difficulty_source: q.difficulty_source, tema: 10, temaTitulo: 'Extranjería',
       avisosLey: idx === 0 ? [{ id: 'av1', message: 'RD 1155/2024, art. 126: nueva redacción que entra en vigor el 22/9/2026 (lo cambia BOE-A-2026-15111), posterior a la pregunta. Comprueba que la pregunta y su explicación siguen valiendo. https://www.boe.es/buscar/act.php?id=BOE-A-2024-24099#a126' }] : [],
-      tienePropuesta: false,
+      dudasIA: delBanco && idx === 0 ? [{ id: 'ia1', message: 'La IA cree que la pregunta está MAL según el texto vigente (RD 1155/2024, art. 126): la correcta sería la B, no la A. El apartado 2 da tres meses, no uno. Compruébalo: la IA también se equivoca. https://www.boe.es/buscar/act.php?id=BOE-A-2024-24099#a126' }] : [],
+      propuesta: idx === 1 ? {
+        id: 'pr2', origen: 'claude', vigente: true,
+        motivo: 'La referencia («Artículo 13») no dice de qué ley es: es Art. 13 LO 4/2015, sacado del tema. Con la ley puesta, el vigilante de la normativa la cubre.',
+        cambios: [{ campo: 'legal_reference', nombre: 'Referencia legal', antes: q.legal_reference ?? '(vacía)', despues: 'Art. 13 LO 4/2015' }],
+        despues: { legal_reference: 'Art. 13 LO 4/2015' },
+      } : null,
     },
   });
 }

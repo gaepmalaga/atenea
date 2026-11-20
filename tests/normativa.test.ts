@@ -316,13 +316,13 @@ describe('el aviso en «Moderación»', () => {
 
   it('tiene su etiqueta, y el enlace solo se pinta en los avisos de la ley, no en las quejas de alumnos', () => {
     expect(moderacion).toMatch(/\[TIPO_REPORTE_VIGENCIA\]:\s*\{\s*label: 'Cambio en la ley'/);
-    expect(moderacion).toMatch(/const aviso = deLaLey \? separaEnlaceOficial\(r\.message\) : null/);
+    expect(moderacion).toMatch(/const aviso = deLaLey \|\| deLaIA \? separaEnlaceOficial\(r\.message\) : null/);
     expect(moderacion).toMatch(/href=\{aviso\.url\}/);
     expect(moderacion).not.toMatch(/href=\{r\.message/);
   });
 
   it('corregir la pregunta desde el aviso lo archiva', () => {
-    expect(moderacion).toMatch(/reportContext\?\.report_type === TIPO_REPORTE_VIGENCIA\) await handleResolveReport\(reportContext\.id\)/);
+    expect(moderacion).toMatch(/reportContext\?\.report_type === TIPO_REPORTE_VIGENCIA \|\| reportContext\?\.report_type === TIPO_REPORTE_REVISION_IA\) await handleResolveReport\(reportContext\.id\)/);
   });
 });
 

@@ -20,6 +20,7 @@ import { createSupabaseServerClient } from '../lib/supabase/server';
 import { fallo } from '../lib/fallos';
 import { filtroEscrituraBanco, puedeEditarBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
+import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
 import { leeValores, propuestaVigente, cambiaAlgo, cambiosLegibles, type ValoresPregunta, type CambioLegible } from '../lib/revision';
 
 /**
@@ -931,11 +932,11 @@ export async function marcarRevisada(questionId: string): Promise<ModerationResu
     if (fila.status !== QUESTION_STATUS.ACTIVE) return { success: false, error: 'Solo se marcan las que están en el banco. Una pendiente se publica.' };
 
     const [{ data: avisos, error: errAv }, { data: propuestas, error: errPr }] = await Promise.all([
-        supabaseAdmin.from('question_reports').select('id').eq('question_id', questionId).eq('report_type', TIPO_REPORTE_VIGENCIA).eq('status', 'open').limit(1),
+        supabaseAdmin.from('question_reports').select('id').eq('question_id', questionId).in('report_type', [TIPO_REPORTE_VIGENCIA, TIPO_REPORTE_REVISION_IA]).eq('status', 'open').limit(1),
         supabaseAdmin.from('question_proposals').select('id').eq('question_id', questionId).eq('status', 'pending').limit(1),
     ]);
     if (errAv || errPr) return { success: false, error: fallo('marcarRevisada', errAv ?? errPr) };
-    if (avisos?.length) return { success: false, error: 'Tiene un aviso de cambio en la ley sin resolver: corrígela o marca «Sigue vigente» antes.' };
+    if (avisos?.length) return { success: false, error: 'Tiene un aviso sin resolver (un cambio en la ley o una duda de la IA): míralo y resuélvelo antes.' };
     if (propuestas?.length) return { success: false, error: 'Tiene un cambio propuesto sin decidir: apruébalo o recházalo antes.' };
 
     let query = supabaseAdmin.from('question_bank').update(revisadaPor(auth.user)).eq('id', questionId);
@@ -1140,7 +1141,9 @@ export async function aprobarPropuesta(proposalId: string): Promise<ModerationRe
             difficulty_level: despuesFoto.difficulty_level,
             difficulty_source: prop.source === 'dificultad' ? DIFFICULTY_SOURCE.medida : DIFFICULTY_SOURCE.preparador,
         } : {}),
-        ...revisadaPor(auth.user),
+        // Aprobar UN cambio no es dar por buena la pregunta entera: eso se hace
+        // en «Revisar», viéndola completa. Quién aprobó el cambio queda en la
+        // propuesta y en el historial.
     }).eq('id', q.id);
     if (alcance) query = query.or(alcance);
     const { data: escritas, error } = await query.select('id');

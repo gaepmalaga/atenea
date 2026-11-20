@@ -87,7 +87,7 @@ describe('nada cambia una pregunta sin un tutor', () => {
     const c = cuerpoDe(moderacion, 'marcarRevisada');
     expect(c).toMatch(/requireAdmin\(\)/);
     expect(c).toMatch(/filtroEscrituraBanco\(auth\.user\)/);
-    expect(c).toMatch(/report_type', TIPO_REPORTE_VIGENCIA\)/);
+    expect(c).toMatch(/in\('report_type', \[TIPO_REPORTE_VIGENCIA, TIPO_REPORTE_REVISION_IA\]\)/);
     expect(c).toMatch(/from\('question_proposals'\)/);
   });
 
