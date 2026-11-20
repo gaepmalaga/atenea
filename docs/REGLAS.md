@@ -5623,3 +5623,23 @@ documento (o con una decisión anterior del dueño):
   citadas y los hizo también una IA (`docs/TEMARIO.md`, «Bloques II y III»). Esto
   detecta preguntas que contradicen o se salen de los apuntes, no que los apuntes
   sean verdad. Que los tutores revisen los apuntes sigue pendiente.
+
+### 146 · La pregunta escrita a mano lleva su referencia legal, y su explicación nombra las opciones por letra
+
+- **Fallo:** el formulario «Nueva pregunta» y el CSV no tenían campo para la
+  referencia legal, así que toda pregunta manual nacía sin ella (`legal_reference`
+  vacía). El vigilante de la ley (regla 137) y el repaso contra el BOE comparan
+  «cada pregunta con su referencia»: sin ella, una pregunta de la academia no
+  tenía a qué compararse y, si la ley cambiaba, nadie avisaba. «Revisión» la
+  contaba además como «sin referencia».
+- **Regla:** el formulario tiene un campo opcional «Referencia legal» y el CSV una
+  columna `referencia` (también `referencia legal`, `ley`…). Opcional porque hay
+  temas sin legislación (regla 145). `aFilaNueva` la guarda limpia (espacios
+  colapsados) en `question_bank.legal_reference`; una de más de 200 caracteres
+  (`MAX_REFERENCIA`) se RECHAZA, no se recorta: un artículo cortado miente.
+- **Numeración:** la explicación que dice «la opción 2» se lee como la B
+  (regla 139). El formulario avisa en ámbar mientras se escribe, y la vista
+  previa del CSV cuenta cuántas filas lo hacen. Avisa y no bloquea: un tutor puede
+  querer decirlo así, pero no por descuido.
+- **Vigilancia:** `tests/referencia-manual.test.ts` (rompiendo el guardado o la
+  lectura de la columna, falla).

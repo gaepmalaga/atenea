@@ -5,7 +5,7 @@ import {
   Save, Loader2, PenLine, Upload, FileSpreadsheet, Download,
   CheckCircle2, AlertTriangle, Trash2,
 } from 'lucide-react';
-import { Modal, Button, TextAreaField, SelectField } from '../../ui';
+import { Modal, Button, TextField, TextAreaField, SelectField } from '../../ui';
 import { createManualQuestion, importManualQuestions } from '@/actions';
 import { OPTION_IDS, DIFFICULTY, DIFFICULTY_DEFAULT, type DifficultyLevel } from '@/app/lib/questions';
 import {
@@ -13,9 +13,11 @@ import {
   quitaRepetidas,
   CSV_PLANTILLA,
   MAX_IMPORT,
+  MAX_REFERENCIA,
   type ManualQuestion,
   type ImportIssue,
 } from '@/app/lib/question-import';
+import { numeraOpciones } from '@/app/lib/numeracion-opciones';
 import type { SyllabusSubject } from '@/app/actions/admin';
 
 /**
@@ -69,6 +71,7 @@ export default function QuestionComposer({
   const [options, setOptions] = useState<string[]>(() => OPTION_IDS.map(() => ''));
   const [correctIndex, setCorrectIndex] = useState(0);
   const [explanation, setExplanation] = useState('');
+  const [legalReference, setLegalReference] = useState('');
   const [difficulty, setDifficulty] = useState<DifficultyLevel>(DIFFICULTY_DEFAULT);
   const [guardando, setGuardando] = useState(false);
   const [guardadas, setGuardadas] = useState(0);
@@ -106,6 +109,7 @@ export default function QuestionComposer({
     setOptions(OPTION_IDS.map(() => ''));
     setCorrectIndex(0);
     setExplanation('');
+    setLegalReference('');
   }
 
   async function handleGuardar() {
@@ -123,6 +127,7 @@ export default function QuestionComposer({
       correctIndex,
       explanation,
       difficulty,
+      legalReference,
     });
 
     if (res.success) {
@@ -320,6 +325,21 @@ export default function QuestionComposer({
                 onChange={(e) => setExplanation(e.target.value)}
                 placeholder="Artículo 68.1 CE…"
               />
+              {numeraOpciones(explanation) && (
+                <div role="alert" className="rounded-lg px-4 py-3 text-xs font-medium border bg-amber-500/5 border-amber-500/30 text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>Nombra las opciones por su letra (A, B o C), no por su número: el alumno leería «la opción 2» como la B.</span>
+                </div>
+              )}
+
+              <TextField
+                label="Referencia legal (opcional)"
+                hint="La ley y el artículo en que se apoya. Con ella, la plataforma avisa si la ley cambia y la comprueba contra el BOE. Déjala vacía si el tema no tiene legislación."
+                value={legalReference}
+                maxLength={MAX_REFERENCIA}
+                onChange={(e) => setLegalReference(e.target.value)}
+                placeholder="Art. 68.1 CE"
+              />
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Dificultad</label>
@@ -370,7 +390,7 @@ export default function QuestionComposer({
               <div className="text-xs text-slate-500 leading-relaxed bg-hundido dark:bg-slate-900/40 border border-linea dark:border-noche-linea rounded-lg p-4 space-y-1">
                 <p>
                   Columnas: <span className="font-mono text-slate-500 dark:text-slate-300">enunciado · A · B · C · correcta</span>
-                  {' '}(obligatorias) y <span className="font-mono text-slate-500 dark:text-slate-300">explicacion · dificultad</span> (opcionales).
+                  {' '}(obligatorias) y <span className="font-mono text-slate-500 dark:text-slate-300">explicacion · dificultad · referencia</span> (opcionales; en «referencia» va la ley y el artículo, p. ej. «Art. 68.1 CE»).
                 </p>
                 <p>La columna <span className="font-mono text-slate-500 dark:text-slate-300">correcta</span> admite A, B, C o 1, 2, 3. Hasta {MAX_IMPORT} preguntas por fichero.</p>
                 <p>Columna opcional <span className="font-mono text-slate-500 dark:text-slate-300">tema</span> (número o título): las filas que la traigan van a ESE tema; las demás, al elegido arriba.</p>
@@ -411,6 +431,13 @@ export default function QuestionComposer({
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {leidas.some((p) => numeraOpciones(p.explanation)) && (
+                    <div role="alert" className="rounded-lg px-4 py-3 text-xs font-medium border bg-amber-500/5 border-amber-500/30 text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                      <span>{leidas.filter((p) => numeraOpciones(p.explanation)).length} explicaciones nombran las opciones por su número («la opción 2»). Cámbialas por la letra (A, B o C) antes de importar: el alumno las leería mal.</span>
                     </div>
                   )}
 
