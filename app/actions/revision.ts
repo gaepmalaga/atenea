@@ -21,7 +21,8 @@ import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import { filtroEscrituraBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
-import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, resumenDeRevision, esFuente, type Novedad, type CambioLegible, type ValoresPregunta, type FuentePregunta, type ResumenDeRevision, type FilaParaResumen } from '../lib/revision';
+import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, resumenDeRevision, esFuente, estadoDePregunta, type Novedad, type CambioLegible, type ValoresPregunta, type FuentePregunta, type ResumenDeRevision, type FilaParaResumen } from '../lib/revision';
+import { exigeRevision } from '../lib/servir';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 export type BandejaRevision = {
@@ -175,6 +176,8 @@ export type PreguntaParaRevisar = {
   status: string;
   /** De dónde viene, que decide qué se revisa de ella (regla 139). */
   fuente: FuentePregunta;
+  /** ¿Los alumnos ya la ven? Las de la academia sí, aunque falte revisar su explicación. */
+  publicada: boolean;
   question_text: string;
   options: string[];
   correct_index: number;
@@ -237,8 +240,9 @@ export async function getParaRevisar(input: unknown): Promise<
   ]);
   if (error || errCount) return { success: false as const, error: fallo('getParaRevisar', (error ?? errCount)!) };
 
-  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta' | 'fuente'> & { fuente: string | null; subjects?: { topic_number: number; title: string } | null }) | undefined;
+  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta' | 'fuente' | 'publicada'> & { fuente: string | null; subjects?: { topic_number: number; title: string } | null }) | undefined;
   if (!f) return { success: true as const, pregunta: null, quedan: count ?? 0 };
+  const soloRevisadas = await exigeRevision(auth.user.organizationId);
 
   const [{ data: avisos, error: errAv }, { data: props, error: errPr }] = await Promise.all([
     supabaseAdmin.from('question_reports').select('id, message, report_type').eq('question_id', f.id).in('report_type', [TIPO_REPORTE_VIGENCIA, TIPO_REPORTE_REVISION_IA]).eq('status', 'open'),
@@ -262,7 +266,9 @@ export async function getParaRevisar(input: unknown): Promise<
     success: true as const,
     quedan: count ?? 0,
     pregunta: {
-      id: f.id, status: f.status, fuente: f.fuente === 'academia' ? 'academia' : 'ia', question_text: f.question_text,
+      id: f.id, status: f.status, fuente: f.fuente === 'academia' ? 'academia' : 'ia',
+      publicada: estadoDePregunta({ fuente: f.fuente, status: f.status, reviewed_at: null }, soloRevisadas).startsWith('publicada'),
+      question_text: f.question_text,
       options: Array.isArray(f.options) ? f.options : [], correct_index: f.correct_index,
       explanation: f.explanation ?? null, legal_reference: f.legal_reference ?? null,
       difficulty_level: f.difficulty_level ?? null, difficulty_source: f.difficulty_source ?? null,

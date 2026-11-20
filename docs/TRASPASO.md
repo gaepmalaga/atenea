@@ -27,9 +27,11 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    o se AVISA (`question_reports`), y se anota en `novedades`. «Revisión» se lo
    cuenta todo.
 3. **«Los alumnos solo reciben preguntas revisadas» está ACTIVADO** para
-   Alphapol (`academy_settings.solo_preguntas_revisadas`). Como aún no hay
-   ninguna revisada, **hoy los alumnos no reciben preguntas**: el test lo dice
-   en vez de fallar. Es lo que pidió el dueño.
+   Alphapol (`academy_settings.solo_preguntas_revisadas`), y desde el 20 nov
+   **las 725 de la academia están PUBLICADAS** (decisión del dueño: su
+   enunciado y respuesta son suyos; solo falta revisar la explicación). Los
+   alumnos ven esas 725 + las revisadas; las escritas por la IA (4.617 + 985
+   pendientes) no, hasta que un tutor las revise enteras (regla 139).
 
 ### La base de datos a 20 nov
 
@@ -82,8 +84,7 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    la explicación), 4.617 + 985 `ia` (se revisan enteras). Falta ver cómo lo
    usan los tutores de verdad y ajustar. Ideas pendientes (preguntar al dueño
    antes, regla 140): marcar las «limpias» (sin aviso ni propuesta) para ir
-   rápido, y valorar si las 725 de la academia ya pueden servirse sin que un
-   tutor lea su explicación (hoy no: «solo revisadas» las deja fuera).
+   rápido. (Las 725 de la academia ya están publicadas: decidido el 20 nov.)
 5. **Las pendientes del Tomo que repiten un hecho ya en el banco** (la hoja
    del dueño marca 68, §2u) y las 26 del Pacto Europeo (ya llevan aviso de la
    ley): se podrían señalar en el revisor con las familias de la regla 119,

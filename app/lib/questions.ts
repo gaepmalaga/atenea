@@ -419,6 +419,15 @@ export const SERVABLE_STATUSES: QuestionStatus[] = [QUESTION_STATUS.ACTIVE];
  * —no debería pasar, filtran por `status = active` antes— ni un admin normal
  * debería verlas en «Banco Oficial» sin poder aprobarlas ni descartarlas.
  */
+/**
+ * Lo que se SIRVE a los alumnos cuando la academia exige revisión (regla 138),
+ * como filtro PostgREST (`.or(...)`; dos `or` seguidos se combinan con AND,
+ * comprobado contra la BD real): lo que ha revisado un tutor, y lo que envió la
+ * propia academia, que está publicado aunque su explicación aún espere revisión
+ * (regla 139). Lo escrito por una IA solo se sirve cuando un tutor lo revisa.
+ */
+export const FILTRO_SERVIBLE_REVISADO = 'reviewed_at.not.is.null,fuente.eq.academia';
+
 export function filtroBancoPorAcademia(organizationId: string | null): string {
   const globalNoCandidata = `and(organization_id.is.null,status.neq.${QUESTION_STATUS.CANDIDATE})`;
   return organizationId

@@ -7,7 +7,7 @@ import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
-import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
+import { QUESTION_STATUS, filtroBancoPorAcademia, FILTRO_SERVIBLE_REVISADO } from '../lib/questions';
 import {
   computeQuestionStates,
   dominadasHasta,
@@ -154,7 +154,7 @@ export async function getMiEvolucion(): Promise<
           .or(filtroBancoPorAcademia(organizationId))
           .order('id', { ascending: true })
           .range(desde, hasta);
-        if (soloRevisadas) consulta = consulta.not('reviewed_at', 'is', null);
+        if (soloRevisadas) consulta = consulta.or(FILTRO_SERVIBLE_REVISADO);
         return consulta as unknown as Promise<ResultadoPagina<{ id: string; subject_id: number | null }>>;
       },
       { maxFilas: 100_000 },
