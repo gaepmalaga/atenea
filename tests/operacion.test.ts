@@ -197,6 +197,12 @@ describe('el guion de dificultad no pisa lo que no es suyo', () => {
     expect(muestra).not.toMatch(/\.update\(|\.insert\(|\.upsert\(|\.delete\(/);
   });
 
+  it('`--solo-nuevas` lee solo las que nadie ha clasificado, activas o pendientes (regla 135)', () => {
+    expect(guion).toMatch(/\.in\('status', \['active', 'candidate'\]\)\.is\('difficulty_source', null\)/);
+    expect(flujo).toMatch(/dificultad-nuevas/);
+    expect(flujo).toContain('npm run dificultad -- --todas --solo-nuevas --hazlo --muestra-ok');
+  });
+
   it('el flujo de Actions pide escribir CLASIFICAR para clasificar todo', () => {
     expect(flujo).toContain('"CLASIFICAR"');
     expect(flujo).toMatch(/dificultad-todas/);

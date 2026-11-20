@@ -16,6 +16,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 | `supabase/schema.json` | El esquema REAL. Míralo antes de tocar cualquier tabla |
 | [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) | El plan de producto (P1-P15). Casi todo hecho; consultar antes de abrir una fase |
 | [`docs/HISTORIAL.md`](docs/HISTORIAL.md) | La tabla de estado de fase en fase (ago-nov 2026). Solo si hace falta saber cuándo se hizo algo |
+| [`docs/PLAN-TOMO-I.md`](docs/PLAN-TOMO-I.md) | El plan para generar preguntas desde el Tomo I de Alphapol y su resultado (985 pendientes, 19 nov) |
 | [`docs/BANCO-DE-PRUEBAS.md`](docs/BANCO-DE-PRUEBAS.md) | Las pantallas en un navegador de verdad, sin BD |
 
 ## Cómo se trabaja
@@ -56,6 +57,7 @@ npm run familias                           # agrupa las preguntas repetidas (reg
 npm run dificultad -- --muestra            # Gemini clasifica la muestra de 150 y se compara (regla 121; solo en producción, vía «Operación»)
 npm run dificultad:medida                  # dificultad MEDIDA con respuestas reales, ensayo (regla 122; `-- --hazlo` escribe; vía «Operación»)
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
+npm run normativa                          # qué preguntas citan artículos cambiados en el BOE o la UE (regla 137; `-- --hazlo` deja los avisos; vía «Operación»)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
 scripts/nube/sql.sh "select …"             # SQL contra la BD real desde la nube
@@ -259,6 +261,8 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 133 | El último acceso es cuándo USÓ la app, no cuándo escribió la clave |
 | 134 | Los documentos de la academia viven en una carpeta privada dentro de la plataforma, no en el repositorio ni en el correo |
 | 135 | El examen en papel se revisa antes de imprimir (editar sobrescribe el banco, con historial) y lo nuevo entra pendiente hasta tener explicación y dificultad |
+| 136 | Las preguntas del temario propio se redactan una a una, se comprueban antes de subir (explicación de verdad, sin sesgo de longitud, sin repetir el banco, sin datos con fecha) y entran pendientes |
+| 137 | La ley cambia sola: un vigilante compara cada pregunta con el BOE y la UE (lunes y jueves) y deja el aviso en «Moderación»; no toca la pregunta |
 
 ## Trampas conocidas
 

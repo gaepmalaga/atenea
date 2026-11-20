@@ -660,3 +660,108 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   (Tomo I) entran por este mismo camino: banco privado, pendientes, y se
   aprueban desde «Banco oficial» cuando estén completas. La dificultad se pone
   con el clasificador de «Operación».
+
+## 2u · Preguntas desde el Tomo I de Alphapol (19 nov, regla 136)
+
+- **Hecho:** 985 preguntas nuevas en el **banco privado de Alphapol como
+  pendientes** (`candidate`, `origin='manual'`), redactadas desde el temario de
+  la academia (Tomo I, temas 4-12) con la ley como apoyo: tema 4 · 66, tema 5 ·
+  69 (incluye las 20 de prueba), tema 6 · 103, tema 7 · 120, tema 8 · 272,
+  tema 9 · 52, tema 10 · 181, tema 11 · 2 y tema 12 · 120. Cada una lleva
+  explicación redactada (≥ 70 caracteres, no solo «lo dice el art. X»),
+  referencia legal (la ley, nunca «Tomo I») y su página del Tomo en el registro
+  de la sesión. Los temas 6, 10 y 12 quedan por debajo del tope porque el texto
+  se agota antes; con lo que ya había superan el objetivo de cobertura del plan.
+- **Dificultad:** puesta el 19 nov por el clasificador de «Operación» (acción
+  `dificultad-nuevas`, regla 121, lanzada desde la rama) a las 985 pendientes y
+  a las 725 activas de la batería que estaban sin clasificar: 1.710 escritas,
+  ningún fallo, 0,15 $. Pendientes: 68 fáciles, 356 medias y 561 difíciles (el
+  modelo las ve duras porque preguntan órganos, plazos y cifras concretas; el
+  tutor puede corregirla, regla 122). Ya están **completas** para aprobarse.
+- **Antes de aprobarlas en bloque hay que desplegar la rama:** en `main`,
+  «Publicar las N completas» manda todos los id en una sola consulta y con
+  cientos de preguntas la URL se pasa de largo; el arreglo (tandas de 100,
+  commit `bae9bad`) está en la rama sin desplegar.
+- **Repetidas:** ensayo de familias (regla 119) con activas + pendientes: 67 de
+  las 985 repiten un hecho que ya estaba activo y 29 se repiten entre sí. No se
+  borran: `npm run familias -- --hazlo` las agrupa cuando se aprueben (solo
+  mira las activas).
+- **Dudas apartadas para el tutor (no se subieron):** cifras que el autor anota
+  «en la actualidad» (UCOP, número de comisarías y puestos fronterizos, Junta de
+  Gobierno, países de Schengen), la duración de la residencia no lucrativa con
+  el RD 1155/2024 y la prórroga de Ucrania. **La importante:** el Pacto Europeo
+  de Migración y Asilo se aplica desde el 12-6-2026; las 26 preguntas de
+  procedimiento de la Ley 12/2009 (tema 12, plazos de solicitud, frontera y
+  resolución) pueden estar desplazadas por el Reglamento (UE) 2024/1348. Hay
+  que contrastarlas con la Instrucción de la Subsecretaría de 11-6-2026 antes de
+  aprobarlas.
+- **Falta:** desplegar la rama, que el tutor revise y apruebe desde «Banco
+  oficial», y después `npm run familias -- --hazlo`.
+- **Corregida (19 nov):** una pregunta ACTIVA del tema 7 sobre el CEISE tenía
+  una respuesta «correcta» sin sentido (id `8bb7c761-d22f-4bbe-be9c-8163046782ce`).
+  Se reescribió con su anotación en `question_edit_history` (se puede volver
+  atrás desde «Banco oficial»).
+- **Revisión una a una:** el tutor tiene una hoja con las 985 (página del Tomo,
+  opciones, correcta, explicación, referencia, dificultad y avisos: 26 del Pacto
+  Europeo y 68 que repiten un hecho activo). La hoja NO está en el repositorio:
+  la tiene el dueño.
+- **Pendiente de decidir:** 731 preguntas ACTIVAS del banco antiguo dicen en el
+  enunciado «según el texto proporcionado» (o «adjunto», «propuesto»), que no
+  tiene sentido para un alumno; 153 lo dicen en la explicación.
+- El PDF del Tomo y los lotes **no viven en el repositorio** (es público): solo
+  en la sesión y en la base de datos.
+
+## 2v · Vigilancia de la normativa (19 nov, regla 137, en la rama, sin desplegar)
+
+- **Hecho:** `npm run normativa` (`scripts/operacion/vigilar-normativa.mjs`,
+  lógica en `app/lib/normativa.ts`). Para cada pregunta activa o pendiente lee
+  la norma y el artículo que cita, baja del BOE el texto consolidado con todas
+  sus versiones (API de datos abiertos, sin clave) y pregunta a Cellar (UE) qué
+  actos modifican los reglamentos y directivas citados. Si el artículo cambia
+  DESPUÉS de la fecha de la pregunta —o va a cambiar: la reforma ya publicada
+  también cuenta—, deja un aviso «Cambio en la ley» en «Moderación → Requieren
+  atención» con el enlace al artículo. No toca ninguna pregunta.
+- **Cobertura (ensayo del 19 nov):** de 6.327 preguntas, 4.721 quedan
+  vigiladas; 63 normas del BOE (todas las citadas por número se encontraron) y
+  12 actos de la UE. Sin vigilar: 1.195 sin referencia legal, 89 que solo citan
+  Tratados o Schengen, y 323 sin localizar: en 228 dos normas del mismo tema
+  tienen ese artículo y la explicación no dice cuál (temas 8, 26, 21, 23, 25 y
+  5), 69 referencias sin precepto («disposición final» a secas) y 46 en que el
+  tema no deja clara la ley. El lector entiende cómo rotula el BOE cada norma:
+  «Artículo 18.bis» (LO 4/2000) y en letra, «Artículo sesenta y cuatro bis»
+  (LOPJ).
+- **Hoy:** 5 avisos, los cinco del art. 69 del Reglamento General de
+  Circulación (vehículos prioritarios): nueva redacción en vigor desde el
+  1-10-2026 por el BOE-A-2026-13889, posterior al temario del que salieron
+  esas preguntas. No se han escrito: quedan para la primera ejecución después
+  de desplegar.
+- **Barrido desde el 1-1-2026 (ensayo, NO escrito):** 136 avisos posibles, casi
+  todos de pendientes del Tomo, cuya fecha es la de subida (19 nov) y no la de
+  la edición del Tomo: RD 207/2024 arts. 1, 4 y 9 (los cambia el RD 353/2025,
+  que el Tomo ya recoge), RD 1155/2024 arts. 126, 130, 132 y 172 (arraigo,
+  circunstancias excepcionales y menores no acompañados, cambiados en 2026),
+  TREBEP art. 49 (permisos) y el Reglamento (UE) 2024/1348 (dos actos que lo
+  modifican). Si el Tomo se escribió antes de esos cambios, esas preguntas
+  pueden estar desfasadas: el tutor debe contrastarlas con el BOE al revisarlas.
+  Para meterlas en «Moderación»: `npm run normativa -- --desde=20260101 --hazlo`
+  (o pedirlo).
+- **Funcionamiento:** «Vigilancia de la normativa», lunes y jueves, escribe sola
+  (tope de 400 avisos de una vez; no repite un aviso ya dado). «Operación →
+  normativa-ensayo» cuenta sin escribir, y con `desde` (AAAAMMDD) barre hacia
+  atrás. El informe queda en el resumen de cada ejecución en Actions.
+- **Para que funcione hace falta desplegar:** GitHub solo programa los flujos de
+  la rama principal. Hasta entonces se puede lanzar el ensayo desde la rama.
+- **Para el correo a los admin:** añadir el secret `RESEND_API_KEY` en GitHub
+  (Settings → Secrets and variables → Actions), el mismo valor que en Vercel.
+  Sin él, los avisos llegan igual a «Moderación», sin correo.
+- **Visto:** la tarjeta y el editor de «Moderación» en el banco de pruebas, a
+  tamaño de móvil. El ensayo, contra la base de datos y el BOE reales. **Sin
+  probar:** una ejecución que escriba (`--hazlo`) y el correo.
+- **Corregida de paso:** la pendiente del Tomo sobre la adscripción de las
+  Delegaciones del Gobierno (id `63fb4ad4-…`) daba por buena «Política
+  Territorial» y ponía «Hacienda» como falsa; el art. 69.3 de la Ley 40/2015
+  dice literalmente «Ministerio de Hacienda y Administraciones Públicas». Se
+  reescribió con su anotación en el historial. **Por revisar:** la pendiente del
+  informe anual del Delegado (art. 73.1, «a través del Ministro de Política
+  Territorial», id `d0aa3fbc-…`) tiene casi seguro el mismo problema; no se tocó
+  porque no se pudo leer el art. 73 desde aquí.

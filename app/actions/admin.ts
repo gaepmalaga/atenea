@@ -9,6 +9,7 @@ import { registraAccion } from '../lib/admin-audit';
 import { isQuestionStatus, QUESTION_STATUS, filtroBancoPorAcademia, type QuestionStatus, type AdminBankRow } from '../lib/questions';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 import { fallo } from '../lib/fallos';
+import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 
 // --- TIPOS DEL TEMARIO ---
 // Reflejan la forma que devuelve el `select` anidado de Supabase.
@@ -564,17 +565,28 @@ export async function getAdminQuestionBank(params: {
   origen?: 'all' | 'global' | 'propia';
   /** 1 fácil · 2 media · 3 difícil, o 'all'. Para que el preparador revise por niveles. */
   dificultad?: 1 | 2 | 3 | 'all';
+  /** Solo las que tienen un aviso de cambio en la ley abierto (regla 137). */
+  conAvisoLey?: boolean;
 }) {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false as const, error: auth.error };
 
   try {
-    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all', dificultad = 'all' } = params;
+    const { subjectId, search, page = 1, limit = 20, status = 'all', origen = 'all', dificultad = 'all', conAvisoLey = false } = params;
     const offset = (page - 1) * limit;
 
-    let query = supabase
-      .from('question_bank')
-      .select('*, subjects(id, title, topic_number)', { count: 'exact' })
+    // Con el filtro de avisos, el join con los reportes es INNER: solo salen
+    // las preguntas con un aviso de la ley abierto. Por join y no con un
+    // `.in()` de ids: con cientos, la URL se pasa de largo.
+    let query = (conAvisoLey === true
+      ? supabase
+          .from('question_bank')
+          .select('*, subjects(id, title, topic_number), question_reports!inner(id)', { count: 'exact' })
+          .eq('question_reports.report_type', TIPO_REPORTE_VIGENCIA)
+          .eq('question_reports.status', 'open')
+      : supabase
+          .from('question_bank')
+          .select('*, subjects(id, title, topic_number)', { count: 'exact' }))
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -624,14 +636,40 @@ export async function getAdminQuestionBank(params: {
     // Un admin normal no necesita consulta: filtroBancoPorAcademia ya
     // garantiza que si `organization_id` no es null, solo puede ser la suya.
 
-    const conAcademia = filas.map((f) => ({
-      ...f,
-      academyName: !f.organization_id
-        ? null
-        : auth.user.role === 'superadmin'
-          ? (nombrePorAcademia.get(f.organization_id) ?? 'Otra academia')
-          : 'Tu academia',
-    }));
+    // Los avisos de la ley abiertos de las preguntas de ESTA página (regla
+    // 137): son pocas, así que un `.in()` corto basta.
+    const avisosPorPregunta = new Map<string, { id: string; message: string | null }[]>();
+    const idsPagina = filas.map((f) => f.id).filter(Boolean);
+    if (idsPagina.length) {
+      const { data: avisos, error: errAvisos } = await supabase
+        .from('question_reports')
+        .select('id, question_id, message')
+        .in('question_id', idsPagina)
+        .eq('report_type', TIPO_REPORTE_VIGENCIA)
+        .eq('status', 'open')
+        .order('created_at', { ascending: true });
+      if (errAvisos) throw errAvisos;
+      for (const a of avisos ?? []) {
+        const lista = avisosPorPregunta.get(a.question_id as string) ?? [];
+        lista.push({ id: a.id as string, message: (a.message as string | null) ?? null });
+        avisosPorPregunta.set(a.question_id as string, lista);
+      }
+    }
+
+    const conAcademia = filas.map((f) => {
+      // El join del filtro no se le pasa al cliente: los avisos van aparte, con su texto.
+      const { question_reports: _join, ...fila } = f as AdminBankRow & { question_reports?: unknown };
+      void _join;
+      return {
+        ...fila,
+        avisosLey: avisosPorPregunta.get(f.id) ?? [],
+        academyName: !f.organization_id
+          ? null
+          : auth.user.role === 'superadmin'
+            ? (nombrePorAcademia.get(f.organization_id) ?? 'Otra academia')
+            : 'Tu academia',
+      };
+    });
 
     return {
       success: true as const,

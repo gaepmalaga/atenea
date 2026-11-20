@@ -75,3 +75,36 @@ export function plantillaAccesoRechazado(params: { academiaName: string }): { su
     ),
   };
 }
+
+const escapa = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * El resumen del vigilante de la normativa (regla 137): qué artículos han
+ * cambiado después de escribir las preguntas que los citan, y cuántas hay que
+ * revisar de cada uno. El detalle —con el enlace al artículo en el BOE— está
+ * en «Moderación»; el correo solo dice que hay trabajo y dónde.
+ */
+export function plantillaCambiosNormativa(params: {
+  academiaName: string;
+  total: number;
+  grupos: { clave: string; n: number }[];
+  panelUrl: string;
+}): { subject: string; html: string } {
+  const { academiaName, total, grupos, panelUrl } = params;
+  const visibles = grupos.slice(0, 15);
+  const resto = grupos.length - visibles.length;
+  const lista = visibles
+    .map((g) => `<li><strong>${escapa(g.clave)}</strong> · ${g.n} ${g.n === 1 ? 'pregunta' : 'preguntas'}</li>`)
+    .join('');
+  return {
+    subject: `Cambios en la ley: ${total} ${total === 1 ? 'pregunta que revisar' : 'preguntas que revisar'}`,
+    html: envoltorio(
+      'Ha cambiado la ley',
+      `<p>El BOE o el Diario Oficial de la UE recogen cambios posteriores a ${total === 1 ? 'una pregunta' : `${total} preguntas`} del banco de <strong>${escapa(academiaName)}</strong>. Puede que sigan valiendo, pero hay que mirarlas.</p>
+       <ul style="padding-left:18px;margin:12px 0;">${lista}</ul>
+       ${resto > 0 ? `<p>Y ${resto} ${resto === 1 ? 'precepto más' : 'preceptos más'}.</p>` : ''}
+       <p>Están en <strong>Moderación → Requieren atención</strong>, cada una con el enlace al artículo en el BOE. Corrígela, archívala si sigue valiendo o retírala.</p>`,
+      { texto: 'Revisar las preguntas', url: panelUrl },
+    ),
+  };
+}

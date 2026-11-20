@@ -94,7 +94,8 @@ describe('el examen en papel se revisa antes de descargar', () => {
   });
   it('el panel de Banco oficial no publica una incompleta', () => {
     const banco = lee('app/components/Admin/components/AdminBank.tsx');
-    expect(banco).toMatch(/const listasParaPublicar = visibleCandidates\.filter\(\(q\) => estaCompleta\(q\)\)/);
+    // Completas y sin aviso de la ley abierto (regla 137).
+    expect(banco).toMatch(/const listasParaPublicar = visibleCandidates\.filter\(\(q\) => estaCompleta\(q\) && !conAvisoLey\(q\)\)/);
     expect(banco).toMatch(/approveQuestions\(ids\)/);
   });
 });

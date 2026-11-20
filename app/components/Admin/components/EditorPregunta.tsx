@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { CampoArea, Aviso, Rotulo, cx } from '../../ui';
 
 export type FormPregunta = { question_text: string; options: string[]; correct_index: number; explanation: string };
@@ -15,13 +15,38 @@ export type FormPregunta = { question_text: string; options: string[]; correct_i
  *
  * `quejaDelAlumno` es el comentario de un reporte, si se llega desde uno: se
  * enseña arriba del todo, porque es lo que hay que leer antes de tocar nada.
+ * Si el reporte es un aviso de cambio en la ley (regla 137), no es una cita de
+ * nadie: va sin comillas, con su título y con el enlace al artículo aparte.
  */
 export default function EditorPregunta({
-  form, onChange, quejaDelAlumno, sinExplicacion,
-}: { form: FormPregunta; onChange: (f: FormPregunta) => void; quejaDelAlumno?: string | null; sinExplicacion?: boolean }) {
+  form, onChange, quejaDelAlumno, avisosDeLaLey, sinExplicacion,
+}: {
+  form: FormPregunta;
+  onChange: (f: FormPregunta) => void;
+  quejaDelAlumno?: string | null;
+  /** Los avisos de cambio en la ley abiertos (regla 137), ya separados de su enlace. */
+  avisosDeLaLey?: { texto: string; url: string | null; fuente: string | null }[] | null;
+  sinExplicacion?: boolean;
+}) {
   return (
     <div className="space-y-5">
-      {quejaDelAlumno && (
+      {avisosDeLaLey?.length ? (
+        <Aviso>
+          <div className="min-w-0 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest">Lo que ha cambiado en la ley</p>
+            {avisosDeLaLey.map((a, i) => (
+              <div key={i}>
+                <p className="break-words text-sm">{a.texto}</p>
+                {a.url && (
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold underline underline-offset-2">
+                    Ver el texto en el {a.fuente} <ExternalLink size={13} />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </Aviso>
+      ) : quejaDelAlumno && (
         <Aviso>
           <div className="min-w-0">
             <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest">Lo que dijo el alumno</p>

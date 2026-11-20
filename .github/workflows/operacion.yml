@@ -38,11 +38,13 @@ on:
           - dificultad-muestra  # Gemini clasifica la muestra de 150 y se compara con la hecha a mano. No escribe.
           - dificultad-ensayo   # cuenta las preguntas y estima el coste. No llama a Gemini ni escribe.
           - dificultad-todas    # clasifica TODO el banco. Pide escribir CLASIFICAR. Antes, pasa la muestra.
+          - dificultad-nuevas   # solo las que nadie ha clasificado (activas y pendientes). Pide escribir CLASIFICAR.
           - dificultad-medida-ensayo  # lee las respuestas reales y dice qué preguntas ya se pueden medir. No escribe.
           - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
+          - normativa-ensayo    # qué preguntas citan artículos que han cambiado en el BOE o la UE. No escribe.
       confirmacion:
-        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas") o MEDIR ("dificultad-medida")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas") o MEDIR ("dificultad-medida")'
         required: false
         type: string
       correo:
@@ -62,6 +64,10 @@ on:
         default: '20'
       tema:
         description: 'Un tema suelto, por número. Vacío = todos.'
+        required: false
+        type: string
+      desde:
+        description: 'Solo «normativa-ensayo»: fecha AAAAMMDD para ver qué ha cambiado desde ese día. Vacío = desde que se escribió cada pregunta.'
         required: false
         type: string
 
@@ -104,7 +110,7 @@ jobs:
           faltan=""
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
-          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ]; then
+          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ] || [ "${{ inputs.accion }}" = "dificultad-nuevas" ]; then
             [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
           fi
           if [ -n "$faltan" ]; then
@@ -120,6 +126,17 @@ jobs:
       - name: Comprobar los PDF (sin red, sin gasto)
         if: inputs.accion == 'comprobar-pdfs'
         run: npm run sembrar -- --comprobar-pdfs ${{ inputs.tema && format('--tema={0}', inputs.tema) || '' }}
+
+      # La vigilancia de la normativa (regla 137) sin escribir: el informe sale
+      # en el resumen de la ejecución. La que escribe va sola, dos veces por
+      # semana, en «Vigilancia de la normativa».
+      - name: Normativa · ensayo (no escribe)
+        if: inputs.accion == 'normativa-ensayo'
+        # La fecha va por el entorno y no pegada en la orden: un texto libre del
+        # formulario no se ejecuta. El guion la valida (AAAAMMDD).
+        env:
+          DESDE: ${{ inputs.desde }}
+        run: npm run normativa -- ${DESDE:+--desde=$DESDE}
 
       - name: Estado actual
         if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'
@@ -185,6 +202,17 @@ jobs:
             exit 1
           fi
           npm run dificultad -- --todas --hazlo --muestra-ok
+
+      # Solo lo nuevo (regla 135): las que nadie ha clasificado, activas o
+      # pendientes. No vuelve a pagar las ya estimadas.
+      - name: Dificultad · clasificar solo las nuevas
+        if: inputs.accion == 'dificultad-nuevas'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "CLASIFICAR" ]; then
+            echo "Para clasificar hay que escribir CLASIFICAR en el campo de confirmación."
+            exit 1
+          fi
+          npm run dificultad -- --todas --solo-nuevas --hazlo --muestra-ok
 
       # La dificultad MEDIDA con respuestas reales: no habla con Gemini, no
       # cuesta nada. El ensayo cuenta y enseña; escribir pide escribir MEDIR.
