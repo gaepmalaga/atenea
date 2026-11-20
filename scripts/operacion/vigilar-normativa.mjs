@@ -15,6 +15,7 @@
  *   npm run normativa -- --desde=20260101       barrido hacia atrás: trata cada
  *       pregunta como escrita ese día (o antes, si lo es), para ver qué ha
  *       cambiado desde entonces en lo que cita el banco
+ *   npm run normativa -- --pendientes           solo las pendientes (un lote nuevo)
  *
  * QUÉ NO HACE
  *  · No toca ninguna pregunta: decide quien sabe (sigue valiendo, se corrige,
@@ -51,6 +52,9 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HAZLO = process.argv.includes('--hazlo');
 const MAXIMO = Number(process.argv.find((a) => a.startsWith('--maximo='))?.split('=')[1] ?? 400);
 const DESDE = process.argv.find((a) => a.startsWith('--desde='))?.split('=')[1]?.replace(/-/g, '') || null;
+// Solo las pendientes: para el barrido de un lote nuevo (el Tomo), cuya fecha
+// real es la de su edición y no la de subida, sin tocar las activas.
+const SOLO_PENDIENTES = process.argv.includes('--pendientes');
 if (DESDE && !/^\d{8}$/.test(DESDE)) { console.error(`--desde tiene que ser una fecha AAAAMMDD; llegó «${DESDE}».`); process.exit(1); }
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -100,7 +104,7 @@ async function pedir(url, accept) {
 const preguntas = await todas(
   (d, h) => db.from('question_bank')
     .select('id, status, subject_id, document_id, legal_reference, question_text, explanation, created_at, organization_id')
-    .in('status', ['active', 'candidate']).order('id').range(d, h),
+    .in('status', SOLO_PENDIENTES ? ['candidate'] : ['active', 'candidate']).order('id').range(d, h),
   'question_bank',
 );
 const temas = await todas((d, h) => db.from('subjects').select('id, topic_number').order('id').range(d, h), 'subjects');
@@ -295,7 +299,7 @@ const nuevos = avisos.filter((a) => {
 
 const lineas = [];
 const di = (t = '') => { console.log(t); lineas.push(t); };
-di(`## Vigilancia de la normativa · ${new Date().toISOString().slice(0, 10)}${HAZLO ? '' : ' · ENSAYO (no escribe)'}${DESDE ? ` · cambios desde el ${DESDE}` : ''}`);
+di(`## Vigilancia de la normativa · ${new Date().toISOString().slice(0, 10)}${HAZLO ? '' : ' · ENSAYO (no escribe)'}${DESDE ? ` · cambios desde el ${DESDE}` : ''}${SOLO_PENDIENTES ? ' · solo pendientes' : ''}`);
 di();
 di(`- Preguntas activas y pendientes: **${cuenta.preguntas}**`);
 di(`- Con una norma vigilada localizada: **${cuenta.conCita}** · sin referencia legal: ${cuenta.sinReferencia} · solo Tratados/Schengen: ${cuenta.noVigiladas} · sin localizar: ${cuenta.sinNorma}`);

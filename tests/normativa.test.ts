@@ -292,6 +292,8 @@ describe('el guion y los flujos', () => {
   it('el flujo programado escribe; el ensayo de Operación no', () => {
     expect(flujo).toMatch(/cron:/);
     expect(flujo).toContain('npm run normativa -- --hazlo');
+    // Las entradas del formulario no se pegan en la orden de shell.
+    expect(flujo).not.toMatch(/run:[^\n]*inputs\./);
     const ensayo = /inputs\.accion == 'normativa-ensayo'[\s\S]*?\n\s*run: (.+)/.exec(operacion);
     expect(ensayo?.[1].trim()).toBe('npm run normativa -- ${DESDE:+--desde=$DESDE}');
     expect(ensayo?.[1]).not.toContain('--hazlo');

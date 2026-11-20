@@ -24,7 +24,21 @@ on:
   schedule:
     # Lunes y jueves, 05:41 UTC (06:41 o 07:41 en Málaga). El BOE consolida a diario.
     - cron: '41 5 * * 1,4'
-  workflow_dispatch: {}
+  # A mano se puede hacer un barrido hacia atrás («qué ha cambiado desde tal
+  # día»), y solo de las pendientes: es como se revisa un lote nuevo, cuya
+  # fecha real es la de su fuente y no la de subida. En la ejecución
+  # programada las dos entradas llegan vacías.
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: 'Fecha AAAAMMDD: trata cada pregunta como escrita ese día. Vacío = la de cada pregunta.'
+        required: false
+        type: string
+      solo_pendientes:
+        description: 'Solo las preguntas pendientes'
+        required: false
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -51,4 +65,9 @@ jobs:
           fi
       - run: npm ci
       - name: Vigilar la normativa y dejar los avisos
-        run: npm run normativa -- --hazlo
+        # Las entradas van por el entorno, no pegadas en la orden: un texto
+        # libre del formulario no se ejecuta. El guion valida la fecha.
+        env:
+          DESDE: ${{ inputs.desde }}
+          SOLO_PENDIENTES: ${{ inputs.solo_pendientes }}
+        run: npm run normativa -- --hazlo ${DESDE:+--desde=$DESDE} $([ "$SOLO_PENDIENTES" = "true" ] && echo --pendientes)
