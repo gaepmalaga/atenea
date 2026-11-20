@@ -5444,12 +5444,12 @@ la de 2027 no estaba publicada.
 5. **Desde la nube de Claude no se alcanza el BOE:** el ensayo va por
    «Operación» → `convocatoria-ensayo` (no escribe).
 
-**Qué NO está verificado.** La forma del JSON del sumario se escribió de
-memoria y con un recorrido tolerante (un objeto o una lista en cada nivel); el
-BOE no se pudo alcanzar al escribirlo. **La primera ejecución real de
-«Operación» → `convocatoria-ensayo` es la prueba:** si el informe dice
-«disposiciones leídas: 0», la forma ha cambiado y hay que ajustar
-`itemsDelSumario`.
+**Verificado el 20 nov** con «Operación» → `convocatoria-ensayo` contra el BOE
+real: la forma del JSON del sumario es la supuesta (9 días con BOE, 2.287
+disposiciones leídas). Cazó un falso positivo, la oferta de empleo público del
+Tribunal de Cuentas (una Resolución de un organismo): por eso «oferta» exige
+ahora un **Real Decreto**. Si algún día el informe dice «disposiciones leídas: 0»,
+la forma del sumario ha cambiado y el flujo falla a propósito.
 
 **Cómo se vigila.** `tests/convocatoria-boe.test.ts`: el reconocimiento (la
 Guardia Civil y los destinos sueltos no valen), el no repetir, y las guardas

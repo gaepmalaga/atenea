@@ -111,10 +111,16 @@ export function esDeEscalaBasicaPolicia(titulo: string): boolean {
   return t.includes('cuerpo nacional de policia') || t.includes('policia nacional');
 }
 
-/** La oferta de empleo público del Estado: general, no solo de la Policía. */
+/**
+ * La oferta de empleo público DEL ESTADO: un Real Decreto («Real Decreto
+ * 651/2025, … por el que se aprueba la oferta de empleo público para el año
+ * 2025»). Las de un organismo concreto (Tribunal de Cuentas, Cortes, una
+ * universidad, una comunidad) son Resoluciones u otras normas y no traen las
+ * plazas de Policía: la primera ejecución real cazó la del Tribunal de Cuentas.
+ */
 export function esOfertaDeEmpleoPublico(titulo: string): boolean {
   const t = normalizaTitulo(titulo);
-  return /oferta de empleo publico/.test(t) && /\b20\d{2}\b/.test(t) && !/(universidad|comunidad|sanitari|entidades locales)/.test(t);
+  return t.startsWith('real decreto') && /oferta de empleo publico/.test(t) && /\b20\d{2}\b/.test(t);
 }
 
 /** Qué paso del proceso es, por el título. `otra` si no encaja en ninguno. */

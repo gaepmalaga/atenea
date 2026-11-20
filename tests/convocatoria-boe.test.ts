@@ -64,6 +64,8 @@ describe('reconocer la oposición', () => {
   it('distingue las dos ofertas: la del Estado sí, la de una universidad no', () => {
     expect(esOfertaDeEmpleoPublico('Real Decreto 1/2027, por el que se aprueba la oferta de empleo público para el año 2027.')).toBe(true);
     expect(esOfertaDeEmpleoPublico('Resolución de la Universidad de X, oferta de empleo público 2027.')).toBe(false);
+    // El falso positivo real de la primera ejecución (16 nov 2026): la oferta de un organismo, no la del Estado.
+    expect(esOfertaDeEmpleoPublico('Resolución de 6 de noviembre de 2026, de la Presidencia del Tribunal de Cuentas, por la que se anuncia la celebración del sorteo para determinar el orden de actuación de las personas aspirantes en los procesos selectivos correspondientes a la Oferta de Empleo Público del Tribunal de Cuentas para el año 2026.')).toBe(false);
     expect(esOfertaDeEmpleoPublico('Oferta de empleo público sin año')).toBe(false);
   });
 

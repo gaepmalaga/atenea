@@ -52,13 +52,12 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    cambio propuesto (aceptar / rechazar), resolver sus avisos y «Está bien».
    Hasta que un tema esté revisado, sus preguntas no llegan a los alumnos.
 
-**Hecho el 20 nov, sin estrenar (regla 141): el vigilante de la convocatoria.**
+**Hecho el 20 nov (regla 141): el vigilante de la convocatoria.**
 `.github/workflows/vigilancia-convocatoria.yml` (cada día) y `npm run convocatoria`
 leen el sumario del BOE y dejan en «Novedades» lo de la Escala Básica de la
-Policía Nacional y la oferta de empleo público. **Pendiente de probar con el BOE
-de verdad:** al estar en la rama, lanzar «Operación» → `convocatoria-ensayo` sobre
-ella; si dice «disposiciones leídas: 0», la forma del JSON del sumario difiere
-de lo supuesto y hay que ajustar `itemsDelSumario`. Ya hay una novedad escrita a
+Policía Nacional y la oferta de empleo público. **Probado con el BOE real** («Operación» → `convocatoria-ensayo`, 20 nov): lee el
+sumario bien (2.287 disposiciones en 9 días) y no hay nada nuevo de la Escala
+Básica. Se corrigió un falso positivo (la oferta del Tribunal de Cuentas). Ya hay una novedad escrita a
 mano con el estado de hoy (convocatoria del 10 jul 2026, plazo cerrado, la de
 2027 sin publicar). **Lo siguiente acordado:** la huella de revisión
 (`reviewed_hash`, guion en `docs/sql/` primero, regla 4).
