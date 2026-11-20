@@ -348,7 +348,13 @@ export async function getAdminQuestionBank() {
   // global — así se ve la insignia y el filtro de origen sin tener que subir
   // nada a mano.
   return ok({
-    data: Array.from({ length: 6 }, (_, i) => ({ ...pregunta(i), academyName: i < 2 ? 'Tu academia' : null })),
+    // Regla 137: la segunda, pendiente y con un aviso de cambio en la ley abierto.
+    data: Array.from({ length: 6 }, (_, i) => ({
+      ...pregunta(i),
+      ...(i === 1 ? { status: 'candidate', difficulty_level: 3, difficulty_source: 'estimada' } : {}),
+      academyName: i < 2 ? 'Tu academia' : null,
+      avisosLey: i === 1 ? [{ id: 'av1', message: 'RD 1155/2024, art. 126: nueva redacción que entra en vigor el 22/9/2026 (lo cambia BOE-A-2026-15111), posterior a la pregunta. Comprueba que la pregunta y su explicación siguen valiendo. https://www.boe.es/buscar/act.php?id=BOE-A-2024-24099#a126' }] : [],
+    })),
     total: 6, page: 1, totalPages: 1, status: 'active',
   });
 }
@@ -463,7 +469,8 @@ export async function getDocumentChunks() {
 }
 
 export async function approveQuestion() { return { success: true as const }; }
-export async function approveQuestions() { return { success: true as const, approved: 2, sinEtiquetas: 0 }; }
+export async function approveQuestions() { return { success: true as const, approved: 2, sinEtiquetas: 0, conAvisoLey: 0 }; }
+export async function resolverAvisosLey() { return { success: true as const, resueltos: 1 }; }
 export async function disableQuestion() { return { success: true as const }; }
 export async function reactivateQuestion() { return { success: true as const }; }
 export async function discardAllQuestions() { return { success: true as const, discarded: 6 }; }

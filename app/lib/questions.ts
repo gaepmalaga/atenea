@@ -260,6 +260,12 @@ export type AdminBankRow = ModerationCandidate & {
    * global.
    */
   academyName?: string | null;
+  /**
+   * Los avisos de cambio en la ley que siguen abiertos (regla 137). Mientras
+   * haya alguno, la pregunta no se publica: se corrige o se marca «Sigue
+   * vigente».
+   */
+  avisosLey?: { id: string; message: string | null }[];
 };
 
 /** Lo que devuelve `getModerationQueue`. */

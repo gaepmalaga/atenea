@@ -322,3 +322,31 @@ describe('el aviso en «Moderación»', () => {
     expect(moderacion).toMatch(/reportContext\?\.report_type === TIPO_REPORTE_VIGENCIA\) await handleResolveReport\(reportContext\.id\)/);
   });
 });
+
+describe('el aviso en «Banco oficial»: el tutor decide antes de publicar', () => {
+  const moderacion = sinComentarios(leer('app/actions/moderation.ts'));
+  const admin = sinComentarios(leer('app/actions/admin.ts'));
+  const banco = sinComentarios(leer('app/components/Admin/components/AdminBank.tsx'));
+
+  it('aprobar se salta, EN EL SERVIDOR, las que tienen un aviso de la ley abierto', () => {
+    const cuerpo = moderacion.slice(moderacion.indexOf('export async function approveQuestions'), moderacion.indexOf('export async function resolverAvisosLey'));
+    expect(cuerpo).toMatch(/from\('question_reports'\)[\s\S]{0,200}eq\('report_type', TIPO_REPORTE_VIGENCIA\)[\s\S]{0,80}eq\('status', 'open'\)/);
+    expect(cuerpo).toMatch(/estaCompleta\(f\) && !conAviso\.has\(f\.id\)/);
+  });
+
+  it('«Sigue vigente» comprueba que la pregunta es suya y solo cierra avisos de la ley', () => {
+    const cuerpo = moderacion.slice(moderacion.indexOf('export async function resolverAvisosLey'));
+    expect(cuerpo).toMatch(/requireAdmin\(\)/);
+    expect(cuerpo).toMatch(/puedeEditarBanco\(auth\.user/);
+    expect(cuerpo).toMatch(/\.eq\('report_type', TIPO_REPORTE_VIGENCIA\)/);
+  });
+
+  it('el banco trae los avisos abiertos de cada pregunta y se puede filtrar por ellos', () => {
+    expect(admin).toMatch(/question_reports!inner\(id\)/);
+    expect(admin).toMatch(/avisosLey: avisosPorPregunta\.get\(f\.id\)/);
+    expect(banco).toMatch(/conAvisoLey: soloAvisos/);
+    // Publicar está bloqueado con un aviso abierto, y el lote no las cuenta.
+    expect(banco).toMatch(/estaCompleta\(q\) && !conAvisoLey\(q\)/);
+    expect(banco).toMatch(/disabled=\{[^}]*conAvisoLey\(editingQ\)\}/);
+  });
+});

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Plus, Copy, Trash2, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Loader2, Save, Plus, Copy, Trash2, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw, Scale } from 'lucide-react';
 import {
   getAdminQuestionBank,
   getOfficialSyllabus,
@@ -10,6 +10,7 @@ import {
   discardAllQuestions,
   approveQuestions,
   approveQuestion,
+  resolverAvisosLey,
   updateQuestion
 } from '@/actions';
 import {
@@ -32,6 +33,10 @@ import HistorialPregunta from './HistorialPregunta';
 import { estaCompleta, etiquetasQueFaltan, textoFaltan } from '@/app/lib/preguntas-edicion';
 import FamiliasRepetidas from './FamiliasRepetidas';
 import { avisar, confirmar, pedirTexto } from '@/app/lib/dialogos';
+import { separaEnlaceOficial } from '@/app/lib/normativa';
+
+/** Si una pregunta tiene un aviso de cambio en la ley abierto (regla 137): no se publica hasta resolverlo. */
+const conAvisoLey = (q: AdminBankRow) => (q.avisosLey?.length ?? 0) > 0;
 
 // El estado de una pregunta, con el color de su significado: activa verde,
 // candidata ámbar (los alumnos aún no la reciben), descartada gris.
@@ -59,6 +64,8 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
   // Para revisar por niveles: sobre todo las «difíciles», que son las que más
   // se discuten y las que más pesan al filtrar un examen.
   const [dificultadFilter, setDificultadFilter] = useState<DifficultyLevel | 'all'>('all');
+  // Regla 137: las que tienen un aviso de cambio en la ley sin resolver.
+  const [soloAvisos, setSoloAvisos] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
   // Alta manual (P2): hasta ahora solo se podian EDITAR las que ya existian.
@@ -95,7 +102,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
     const timer = setTimeout(() => { loadQuestions(1); }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSubject, searchTerm, statusFilter, origenFilter, dificultadFilter]);
+  }, [selectedSubject, searchTerm, statusFilter, origenFilter, dificultadFilter, soloAvisos]);
 
   // --- CARGA DE DATOS ---
   async function loadSyllabus() {
@@ -114,6 +121,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
         status: statusFilter,
         origen: origenFilter,
         dificultad: dificultadFilter,
+        conAvisoLey: soloAvisos,
         page,
         limit: 15 // Menos preguntas por página para diseño más aireado
     });
@@ -164,8 +172,9 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
 
   const visibleCandidates = questions.filter(q => q.status === QUESTION_STATUS.CANDIDATE);
 
-  const listasParaPublicar = visibleCandidates.filter((q) => estaCompleta(q));
-  const incompletas = visibleCandidates.length - listasParaPublicar.length;
+  const listasParaPublicar = visibleCandidates.filter((q) => estaCompleta(q) && !conAvisoLey(q));
+  const incompletas = visibleCandidates.filter((q) => !estaCompleta(q)).length;
+  const avisadas = visibleCandidates.filter((q) => estaCompleta(q) && conAvisoLey(q)).length;
 
   async function handleApproveVisible() {
       const ids = listasParaPublicar.map(q => q.id);
@@ -178,10 +187,22 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
           // Se recarga: el servidor es quien decide cuáles estaban completas.
           await loadQuestions(stats.page);
           if (res.sinEtiquetas) void avisar(res.motivoSinEtiquetas ?? 'Alguna pregunta no estaba completa y sigue pendiente.');
+          else if (res.conAvisoLey) void avisar(`${res.conAvisoLey} ${res.conAvisoLey === 1 ? 'sigue pendiente porque tiene' : 'siguen pendientes porque tienen'} un aviso de cambio en la ley sin resolver.`);
       } else {
           void avisar('No se pudieron aprobar: ' + res.error);
       }
       setBulkRunning(false);
+  }
+
+  /** «Sigue vigente»: cierra los avisos de la ley de la pregunta abierta sin tocarla. */
+  async function handleSigueVigente(q: AdminBankRow) {
+      setIsDeleting(q.id);
+      setErrorGuardar(null);
+      const res = await resolverAvisosLey(q.id);
+      setIsDeleting(null);
+      if (!res.success) { setErrorGuardar(res.error ?? 'No se pudo cerrar el aviso.'); return; }
+      setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, avisosLey: [] } : x));
+      setEditingQ({ ...q, avisosLey: [] });
   }
 
   async function handlePublicarUna(id: string) {
@@ -256,8 +277,14 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       const nivelCambiado = editNivel !== 0 && editNivel !== editingQ.difficulty_level;
       const res = await updateQuestion(editingQ.id, nivelCambiado ? { ...editForm, difficulty_level: editNivel } : editForm);
       if(res.success) {
+          // Corregirla con un aviso de la ley abierto ES la respuesta al aviso: se cierra.
+          const cerrarAvisos = conAvisoLey(editingQ);
+          if (cerrarAvisos) {
+              const r = await resolverAvisosLey(editingQ.id);
+              if (!r.success) setErrorGuardar(r.error ?? 'Se guardó, pero el aviso de la ley sigue abierto.');
+          }
           setQuestions(prev => prev.map(q => q.id === editingQ.id
-              ? { ...q, ...editForm, ...(nivelCambiado ? { difficulty_level: editNivel, difficulty_source: 'preparador' } : {}) }
+              ? { ...q, ...editForm, ...(nivelCambiado ? { difficulty_level: editNivel, difficulty_source: 'preparador' } : {}), ...(cerrarAvisos ? { avisosLey: [] } : {}) }
               : q));
           setEditingQ(null);
       } else {
@@ -286,7 +313,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
       />
 
       {/* --- FILTROS --- */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Campo
           type="search"
           aria-label="Buscar por contenido"
@@ -312,6 +339,10 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
           <option value="all">Toda dificultad</option>
           {([1, 2, 3] as const).map((n) => <option key={n} value={n}>{DIFFICULTY_LABEL[n]}</option>)}
         </CampoSelect>
+        <CampoSelect aria-label="Avisos de la ley" value={soloAvisos ? 'si' : 'todas'} onChange={(e) => setSoloAvisos(e.target.value === 'si')}>
+          <option value="todas">Con o sin aviso de la ley</option>
+          <option value="si">Solo con cambio en la ley</option>
+        </CampoSelect>
         <CampoSelect aria-label="Tema" value={selectedSubject || ''} onChange={(e) => setSelectedSubject(e.target.value ? Number(e.target.value) : undefined)}>
           <option value="">Todos los temas</option>
           {subjects.map((s) => (
@@ -327,6 +358,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
             <p>
               <b>{visibleCandidates.length}</b> preguntas pendientes en esta página. Los alumnos no las reciben hasta que se publiquen.
               {incompletas > 0 && <> <b>{incompletas}</b> {incompletas === 1 ? 'no está completa' : 'no están completas'} (les falta la explicación o la dificultad) y no se pueden publicar todavía.</>}
+              {avisadas > 0 && <> <b>{avisadas}</b> {avisadas === 1 ? 'tiene' : 'tienen'} un aviso de cambio en la ley: se publican cuando se resuelva.</>}
             </p>
             <Boton size="sm" disabled={bulkRunning || listasParaPublicar.length === 0} onClick={handleApproveVisible} icon={bulkRunning ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
               {listasParaPublicar.length === 0 ? 'Ninguna está lista' : `Publicar las ${listasParaPublicar.length} completas`}
@@ -366,6 +398,7 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
             { id: 'estado', titulo: 'Estado', celda: (q) => (
               <span className="inline-flex flex-col items-start gap-1">
                 <Etiqueta tono={STATUS_TONO[q.status as QuestionStatus] ?? 'apagado'}>{QUESTION_STATUS_LABEL[q.status as QuestionStatus] ?? q.status}</Etiqueta>
+                {conAvisoLey(q) && <Etiqueta tono="aviso">Cambio en la ley</Etiqueta>}
                 {q.status === QUESTION_STATUS.CANDIDATE && !estaCompleta(q) && <span className="text-[11px] text-amber-800 dark:text-amber-300">{textoFaltan(etiquetasQueFaltan(q))}</span>}
               </span>
             ) },
@@ -440,7 +473,11 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
           de «Editar». Desde la regla 123 también se puede deshacer («Reactivar»). */}
       {editingQ && (
         <PanelLateral titulo="Editar pregunta" sub={`ID ${editingQ.id.substring(0, 8)}`} onCerrar={() => setEditingQ(null)}>
-          <EditorPregunta form={editForm} onChange={setEditForm} />
+          <EditorPregunta
+            form={editForm}
+            onChange={setEditForm}
+            avisosDeLaLey={conAvisoLey(editingQ) ? editingQ.avisosLey!.map((a) => separaEnlaceOficial(a.message)) : null}
+          />
           <div>
             {editingQ.status === QUESTION_STATUS.CANDIDATE && !estaCompleta({ explanation: editForm.explanation, difficulty_level: editNivel || editingQ.difficulty_level }) && (
               <Aviso tono="info"><p>{textoFaltan(etiquetasQueFaltan({ explanation: editForm.explanation, difficulty_level: editNivel || editingQ.difficulty_level }))}. Hasta entonces no se puede publicar a los alumnos.</p></Aviso>
@@ -465,8 +502,15 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
                 <Boton onClick={handleSaveEdit} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
                   {saving ? 'Guardando…' : 'Guardar cambios'}
                 </Boton>
+                {conAvisoLey(editingQ) && (
+                  <Boton variant="secondary" onClick={() => handleSigueVigente(editingQ)} disabled={isDeleting === editingQ.id}
+                    title="La pregunta sigue valiendo con la ley nueva: cerrar el aviso sin tocarla"
+                    icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <Scale size={14} />}>
+                    Sigue vigente
+                  </Boton>
+                )}
                 {editingQ.status === QUESTION_STATUS.CANDIDATE && (
-                  <Boton variant="secondary" onClick={() => handlePublicarUna(editingQ.id)} disabled={isDeleting === editingQ.id || !estaCompleta(editingQ)}
+                  <Boton variant="secondary" onClick={() => handlePublicarUna(editingQ.id)} disabled={isDeleting === editingQ.id || !estaCompleta(editingQ) || conAvisoLey(editingQ)}
                     icon={isDeleting === editingQ.id ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}>
                     Publicar
                   </Boton>
@@ -475,6 +519,9 @@ export default function AdminBank({ esSuperadmin }: { esSuperadmin: boolean }) {
               </div>
               {editingQ.status === QUESTION_STATUS.CANDIDATE && !estaCompleta(editingQ) && (
                 <p className={TEXT.muted}>Para publicarla, guarda primero la explicación y la dificultad.</p>
+              )}
+              {conAvisoLey(editingQ) && (
+                <p className={TEXT.muted}>La ley que cita ha cambiado después de escribirla. Si la corriges y guardas, el aviso se cierra; si sigue valiendo tal cual, pulsa «Sigue vigente».{editingQ.status === QUESTION_STATUS.CANDIDATE ? ' Hasta entonces no se puede publicar.' : ''}</p>
               )}
               <HistorialPregunta
                 preguntaId={editingQ.id}

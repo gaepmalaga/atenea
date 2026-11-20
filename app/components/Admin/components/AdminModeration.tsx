@@ -265,7 +265,7 @@ export default function AdminModeration() {
             form={editForm}
             onChange={setEditForm}
             quejaDelAlumno={reportContext?.message ?? null}
-            avisoDeLaLey={reportContext?.report_type === TIPO_REPORTE_VIGENCIA ? separaEnlaceOficial(reportContext.message) : null}
+            avisosDeLaLey={reportContext?.report_type === TIPO_REPORTE_VIGENCIA ? [separaEnlaceOficial(reportContext.message)] : null}
           />
           <div className="flex flex-wrap gap-2">
             <Boton onClick={saveChanges} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>

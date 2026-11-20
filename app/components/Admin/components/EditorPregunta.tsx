@@ -19,26 +19,31 @@ export type FormPregunta = { question_text: string; options: string[]; correct_i
  * nadie: va sin comillas, con su título y con el enlace al artículo aparte.
  */
 export default function EditorPregunta({
-  form, onChange, quejaDelAlumno, avisoDeLaLey, sinExplicacion,
+  form, onChange, quejaDelAlumno, avisosDeLaLey, sinExplicacion,
 }: {
   form: FormPregunta;
   onChange: (f: FormPregunta) => void;
   quejaDelAlumno?: string | null;
-  avisoDeLaLey?: { texto: string; url: string | null; fuente: string | null } | null;
+  /** Los avisos de cambio en la ley abiertos (regla 137), ya separados de su enlace. */
+  avisosDeLaLey?: { texto: string; url: string | null; fuente: string | null }[] | null;
   sinExplicacion?: boolean;
 }) {
   return (
     <div className="space-y-5">
-      {avisoDeLaLey ? (
+      {avisosDeLaLey?.length ? (
         <Aviso>
-          <div className="min-w-0">
-            <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest">Lo que ha cambiado en la ley</p>
-            <p className="break-words text-sm">{avisoDeLaLey.texto}</p>
-            {avisoDeLaLey.url && (
-              <a href={avisoDeLaLey.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold underline underline-offset-2">
-                Ver el texto en el {avisoDeLaLey.fuente} <ExternalLink size={13} />
-              </a>
-            )}
+          <div className="min-w-0 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest">Lo que ha cambiado en la ley</p>
+            {avisosDeLaLey.map((a, i) => (
+              <div key={i}>
+                <p className="break-words text-sm">{a.texto}</p>
+                {a.url && (
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold underline underline-offset-2">
+                    Ver el texto en el {a.fuente} <ExternalLink size={13} />
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
         </Aviso>
       ) : quejaDelAlumno && (

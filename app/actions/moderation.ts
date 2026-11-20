@@ -19,6 +19,7 @@ import { registraAccion } from '../lib/admin-audit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { fallo } from '../lib/fallos';
 import { filtroEscrituraBanco, puedeEditarBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
+import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 
 /**
  * Resultado uniforme de las acciones de moderación.
@@ -131,15 +132,18 @@ export async function approveQuestion(questionId: string): Promise<ModerationRes
     const res = await approveQuestions([questionId]);
     if (!res.success) return { success: false, error: res.error };
     if (res.sinEtiquetas) return { success: false, error: res.motivoSinEtiquetas };
+    if (res.conAvisoLey) return { success: false, error: 'Tiene un aviso de cambio en la ley sin resolver: corrígela o marca «Sigue vigente» antes de publicarla.' };
     return { success: true };
 }
 
 /**
  * Aprueba varias preguntas de una vez. Las que no están completas se dejan
  * pendientes y se cuentan aparte (`sinEtiquetas`): aprobar «todas las de la
- * página» no puede colar una sin explicación.
+ * página» no puede colar una sin explicación. Tampoco una con un aviso de
+ * cambio en la ley abierto (`conAvisoLey`, regla 137): la ley que cita ha
+ * cambiado después de escribirla y nadie ha mirado si sigue valiendo.
  */
-export async function approveQuestions(questionIds: string[]): Promise<ModerationResult & { approved?: number; sinEtiquetas?: number; motivoSinEtiquetas?: string }> {
+export async function approveQuestions(questionIds: string[]): Promise<ModerationResult & { approved?: number; sinEtiquetas?: number; motivoSinEtiquetas?: string; conAvisoLey?: number }> {
     const auth = await requireAdmin();
     if (!auth.ok) return { success: false, error: auth.error };
     const ids = Array.isArray(questionIds) ? [...new Set(questionIds.filter((x): x is string => typeof x === 'string' && x.length > 0))].slice(0, 500) : [];
@@ -160,14 +164,29 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
         filas.push(...((pendientes ?? []) as typeof filas));
     }
 
-    const listas = filas.filter((f) => estaCompleta(f)).map((f) => f.id as string);
+    // Las que tienen un aviso de la ley abierto se quedan pendientes.
+    const conAviso = new Set<string>();
+    const idsLeidos = filas.map((f) => f.id);
+    for (let i = 0; i < idsLeidos.length; i += 100) {
+        const { data: avisos, error: errAv } = await supabaseAdmin
+            .from('question_reports')
+            .select('question_id')
+            .in('question_id', idsLeidos.slice(i, i + 100))
+            .eq('report_type', TIPO_REPORTE_VIGENCIA)
+            .eq('status', 'open');
+        if (errAv) return { success: false, error: fallo('approveQuestions', errAv) };
+        for (const a of avisos ?? []) conAviso.add(a.question_id as string);
+    }
+    const conAvisoLey = filas.filter((f) => conAviso.has(f.id)).length;
+
+    const listas = filas.filter((f) => estaCompleta(f) && !conAviso.has(f.id)).map((f) => f.id as string);
     const incompletas = filas.filter((f) => !estaCompleta(f));
     const sinEtiquetas = incompletas.length;
     // Lo que falta, dicho una vez (la primera): «Falta la explicación».
     const motivoSinEtiquetas = sinEtiquetas
         ? `${textoFaltan(etiquetasQueFaltan(incompletas[0]))}${sinEtiquetas > 1 ? ` (y otras ${sinEtiquetas - 1} igual de incompletas)` : ''}: complétala antes de publicarla.`
         : undefined;
-    if (!listas.length) return { success: true, approved: 0, sinEtiquetas, motivoSinEtiquetas };
+    if (!listas.length) return { success: true, approved: 0, sinEtiquetas, motivoSinEtiquetas, conAvisoLey };
 
     let aprobadas = 0;
     for (let i = 0; i < listas.length; i += 100) {
@@ -178,14 +197,49 @@ export async function approveQuestions(questionIds: string[]): Promise<Moderatio
             .eq('status', QUESTION_STATUS.CANDIDATE);
         if (alcance) query = query.or(alcance);
         const { data, error } = await query.select('id');
-        if (error) return { success: false, error: fallo('approveQuestions', error), approved: aprobadas, sinEtiquetas, motivoSinEtiquetas };
+        if (error) return { success: false, error: fallo('approveQuestions', error), approved: aprobadas, sinEtiquetas, motivoSinEtiquetas, conAvisoLey };
         aprobadas += data?.length ?? 0;
     }
 
     if (aprobadas) {
         registraAccion({ actorId: auth.user.id, action: 'approve_questions', detail: { cantidad: aprobadas } });
     }
-    return { success: true, approved: aprobadas, sinEtiquetas, motivoSinEtiquetas };
+    return { success: true, approved: aprobadas, sinEtiquetas, motivoSinEtiquetas, conAvisoLey };
+}
+
+/**
+ * «Sigue vigente» (regla 137): archiva los avisos de cambio en la ley abiertos
+ * de una pregunta. También se llama al guardar una corrección hecha desde el
+ * aviso: corregirla es la respuesta. Solo sobre preguntas que esta persona
+ * puede editar (regla 123), comprobado aquí y no en el navegador.
+ */
+export async function resolverAvisosLey(questionId: string): Promise<ModerationResult & { resueltos?: number }> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false, error: auth.error };
+    if (typeof questionId !== 'string' || !questionId) return { success: false, error: 'Falta el id de la pregunta.' };
+
+    const { data: pregunta, error: errLec } = await supabaseAdmin
+        .from('question_bank')
+        .select('id, organization_id')
+        .eq('id', questionId)
+        .maybeSingle();
+    if (errLec) return { success: false, error: fallo('resolverAvisosLey', errLec) };
+    if (!pregunta) return { success: false, error: 'Esa pregunta no existe.' };
+    if (!puedeEditarBanco(auth.user, { organization_id: (pregunta.organization_id as string | null) ?? null })) {
+        return { success: false, error: 'Esa pregunta no es de tu academia.' };
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from('question_reports')
+        .update({ status: 'dismissed' })
+        .eq('question_id', questionId)
+        .eq('report_type', TIPO_REPORTE_VIGENCIA)
+        .eq('status', 'open')
+        .select('id');
+    if (error) return { success: false, error: fallo('resolverAvisosLey', error) };
+    const resueltos = data?.length ?? 0;
+    if (resueltos) registraAccion({ actorId: auth.user.id, action: 'resolve_vigencia', target: questionId, detail: { avisos: resueltos } });
+    return { success: true, resueltos };
 }
 
 export async function disableQuestion(questionId: string): Promise<ModerationResult> {

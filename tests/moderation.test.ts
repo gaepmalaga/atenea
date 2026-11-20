@@ -54,7 +54,8 @@ describe('las candidatas', () => {
     expect(cuerpo).toMatch(/const alcance = filtroEscrituraBanco\(auth\.user\)/);
     expect(cuerpo).toMatch(/if \(alcance\) lectura = lectura\.or\(alcance\)/);
     expect(cuerpo).toMatch(/if \(alcance\) query = query\.or\(alcance\)/);
-    expect(cuerpo).toMatch(/filter\(\(f\) => estaCompleta\(f\)\)/);
+    // Completas y sin aviso de la ley abierto (regla 137).
+    expect(cuerpo).toMatch(/filter\(\(f\) => estaCompleta\(f\) && !conAviso\.has\(f\.id\)\)/);
     // Lo que se actualiza es lo ya filtrado como completo, no los ids de entrada.
     expect(cuerpo).toMatch(/\.in\('id', listas\.slice\(i, i \+ 100\)\)/);
   });
