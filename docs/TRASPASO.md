@@ -711,7 +711,7 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - El PDF del Tomo y los lotes **no viven en el repositorio** (es público): solo
   en la sesión y en la base de datos.
 
-## 2v · Vigilancia de la normativa (19 nov, regla 137, en la rama, sin desplegar)
+## 2v · Vigilancia de la normativa (19-20 nov, regla 137, DESPLEGADO el 20 nov)
 
 - **Hecho:** `npm run normativa` (`scripts/operacion/vigilar-normativa.mjs`,
   lógica en `app/lib/normativa.ts`). Para cada pregunta activa o pendiente lee
@@ -733,8 +733,7 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - **Hoy:** 5 avisos, los cinco del art. 69 del Reglamento General de
   Circulación (vehículos prioritarios): nueva redacción en vigor desde el
   1-10-2026 por el BOE-A-2026-13889, posterior al temario del que salieron
-  esas preguntas. No se han escrito: quedan para la primera ejecución después
-  de desplegar.
+  esas preguntas. Escritos el 20 nov en la primera ejecución real.
 - **Barrido desde el 1-1-2026 (ensayo, NO escrito):** 136 avisos posibles, casi
   todos de pendientes del Tomo, cuya fecha es la de subida (19 nov) y no la de
   la edición del Tomo: RD 207/2024 arts. 1, 4 y 9 (los cambia el RD 353/2025,
@@ -742,21 +741,27 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   circunstancias excepcionales y menores no acompañados, cambiados en 2026),
   TREBEP art. 49 (permisos) y el Reglamento (UE) 2024/1348 (dos actos que lo
   modifican). Si el Tomo se escribió antes de esos cambios, esas preguntas
-  pueden estar desfasadas: el tutor debe contrastarlas con el BOE al revisarlas.
-  Para meterlas en «Moderación»: `npm run normativa -- --desde=20260101 --hazlo`
-  (o pedirlo).
+  pueden estar desfasadas. **Cargado el 20 nov solo sobre las pendientes**
+  (flujo a mano con `desde=20260101` y `solo_pendientes`), más 26 avisos a mano
+  del Pacto Europeo (procedimiento de la Ley 12/2009) y el del art. 73.1 de la
+  Ley 40/2015: **103 pendientes con aviso**, que no se pueden publicar hasta que
+  un tutor lo resuelva («Sigue vigente» o corregirla).
+- **Dónde lo ve el tutor:** en «Banco oficial» (etiqueta «Cambio en la ley»,
+  filtro «Solo con cambio en la ley», el aviso con el enlace al BOE dentro del
+  editor, botón «Sigue vigente») y en «Moderación → Requieren atención». Con
+  un aviso abierto, «Publicar» está bloqueado, también en lote y en el servidor.
+- **La pregunta del CEISE** (activa, corregida directamente el 19 nov) tiene un
+  aviso en «Moderación» para que un tutor revise la corrección.
 - **Funcionamiento:** «Vigilancia de la normativa», lunes y jueves, escribe sola
   (tope de 400 avisos de una vez; no repite un aviso ya dado). «Operación →
   normativa-ensayo» cuenta sin escribir, y con `desde` (AAAAMMDD) barre hacia
   atrás. El informe queda en el resumen de cada ejecución en Actions.
-- **Para que funcione hace falta desplegar:** GitHub solo programa los flujos de
-  la rama principal. Hasta entonces se puede lanzar el ensayo desde la rama.
 - **Para el correo a los admin:** añadir el secret `RESEND_API_KEY` en GitHub
   (Settings → Secrets and variables → Actions), el mismo valor que en Vercel.
   Sin él, los avisos llegan igual a «Moderación», sin correo.
 - **Visto:** la tarjeta y el editor de «Moderación» en el banco de pruebas, a
-  tamaño de móvil. El ensayo, contra la base de datos y el BOE reales. **Sin
-  probar:** una ejecución que escriba (`--hazlo`) y el correo.
+  tamaño de móvil. El ensayo y dos ejecuciones que escriben, contra la base de
+  datos y el BOE reales. **Sin probar:** el correo (falta el secret).
 - **Corregida de paso:** la pendiente del Tomo sobre la adscripción de las
   Delegaciones del Gobierno (id `63fb4ad4-…`) daba por buena «Política
   Territorial» y ponía «Hacienda» como falsa; el art. 69.3 de la Ley 40/2015
