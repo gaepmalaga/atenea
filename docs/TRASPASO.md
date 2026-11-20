@@ -834,8 +834,10 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - **Dos defectos de la herramienta, arreglados:** los artículos largos
   llegaban cortados a 7.000 caracteres (ahora 24.000) y el lector confundía
   «588 ter d» con «588 ter a» (la letra ya cuenta; quien cita «588 ter» sin
-  letra vigila todos). La segunda vuelta (`npm run verificar -- --repetir`)
-  repasa solo esas 36 y cambia o retira su aviso abierto.
+  letra vigila todos). La segunda vuelta (`npm run verificar -- --repetir`,
+  20 nov, 0,03 $) repasó esas 36: 22 avisos retirados (con el artículo
+  entero cuadran), 5 cambiados y 2 nuevos. **Quedan 199 avisos «La IA duda»
+  abiertos** y 3.796 cambios propuestos para los tutores.
 - **Vigilancia:** un aviso ya dado se reconoce por su huella (enlace, fechas y
   normas), no por el texto: al pasar «Reglamento General de Circulación» a
   «RD 1428/2003», el vigilante del lunes habría duplicado 5 avisos.
