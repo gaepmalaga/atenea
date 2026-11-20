@@ -76,6 +76,10 @@ cuándo y por qué se hizo algo. **El estado de hoy está en
 | — | **1RM y cargas en % en las sesiones** | ✅ **en producción** (6 nov). El preparador escribe «4 × 6 al 75 %» y cada alumno lo ve en kilos con su 1RM. Verificado de punta a punta contra la BD real. Ver **regla 89** |
 | — | **El panel «Alumnos» hace las cuentas en la base de datos** | ✅ **en producción** (7 nov). Antes traía a memoria TODAS las respuestas de la academia con un tope de 20.000 (con 100 alumnos se pasa en semanas y contaba en silencio sobre una parte). Ahora tres funciones SQL devuelven los totales. Comparadas contra la lógica de antes en un Postgres de verdad con 1.680 respuestas inventadas: iguales. Ver **regla 91** |
 | — | **Gemini: de `gemini-2.5-flash` a `gemini-3.5-flash-lite`** | ✅ **en producción** (7 nov). Google apaga el modelo viejo el 1 dic; el nuevo cuesta lo mismo. Ver **regla 92** |
+| — | **Del 8 al 18 nov** | Reglas 93 a 135: ver `docs/TRASPASO.md` §2 a §2t, una sección por fase |
+| — | **Preguntas desde el Tomo I de Alphapol** | ✅ 985 **pendientes** (19 nov), para que las revisen los tutores. Ver **regla 136** y `docs/PLAN-TOMO-I.md` |
+| — | **Vigilancia de la normativa (BOE y UE)** | ✅ **en producción** (20 nov). Lunes y jueves compara cada pregunta con el texto consolidado y deja «Cambio en la ley». Ver **regla 137** |
+| — | **La última palabra es de los tutores** | ✅ **en producción** (20 nov). «Revisión», revisada por, cambios propuestos, «solo revisadas» activado; 3.796 propuestas de Claude y el repaso de la IA contra el BOE (199 avisos). Ver **regla 138** y `docs/TRASPASO.md` §0 |
 
 ## Producción
 
