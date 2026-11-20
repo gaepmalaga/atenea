@@ -424,9 +424,12 @@ export const SERVABLE_STATUSES: QuestionStatus[] = [QUESTION_STATUS.ACTIVE];
  * como filtro PostgREST (`.or(...)`; dos `or` seguidos se combinan con AND,
  * comprobado contra la BD real): lo que ha revisado un tutor, y lo que envió la
  * propia academia, que está publicado aunque su explicación aún espere revisión
- * (regla 139). Lo escrito por una IA solo se sirve cuando un tutor lo revisa.
+ * (regla 139), y lo que el dueño publicó SIN lectura individual (las de la IA sin
+ * avisos y con referencia legal, a la espera de quejas de alumnos; marca
+ * `publicada_sin_leer_el`, que NO es «revisada por un tutor»). Lo demás escrito
+ * por una IA solo se sirve cuando un tutor lo revisa.
  */
-export const FILTRO_SERVIBLE_REVISADO = 'reviewed_at.not.is.null,fuente.eq.academia';
+export const FILTRO_SERVIBLE_REVISADO = 'reviewed_at.not.is.null,fuente.eq.academia,publicada_sin_leer_el.not.is.null';
 
 export function filtroBancoPorAcademia(organizationId: string | null): string {
   const globalNoCandidata = `and(organization_id.is.null,status.neq.${QUESTION_STATUS.CANDIDATE})`;

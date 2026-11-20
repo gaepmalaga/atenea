@@ -35,6 +35,27 @@ describe('los tres puntos en los que está una pregunta', () => {
   });
 });
 
+describe('lo publicado sin leer una a una (decisión del dueño, 20 nov)', () => {
+  const sinLeer = { subject_id: 10, fuente: 'ia', status: 'active', reviewed_at: null, publicada_sin_leer_el: '2026-11-20' };
+
+  it('la ven los alumnos, pero NO cuenta como revisada por un tutor', () => {
+    expect(laVenLosAlumnos(sinLeer, true)).toBe(true);
+    expect(estadoDePregunta(sinLeer, true)).toBe('publicada_sin_leer');
+    expect(estadoDePregunta({ ...sinLeer, reviewed_at: '2026-11-21' }, true)).toBe('publicada_revisada');
+  });
+
+  it('el resumen la cuenta aparte: publicada, pero ni «revisada» ni «urgente»', () => {
+    const r = resumenDeRevision([sinLeer, { ...sinLeer, publicada_sin_leer_el: null }], temas, true);
+    expect(r.publicadas).toBe(1);
+    expect(r.revisadas).toBe(0);
+    expect(r.publicadasSinLeer).toBe(1);
+    expect(r.publicadasPendientes).toBe(0);
+    expect(r.sinPublicar).toBe(1);
+    expect(r.porRevisar).toEqual({ academia: 0, ia: 1, sinLeer: 1 });
+    expect(r.porTema[0]).toMatchObject({ publicadas: 1, sinLeer: 1, sinPublicar: 1, ia: 1 });
+  });
+});
+
 describe('el resumen del tutor', () => {
   const filas = [
     f(10, 'academia', 'active'), f(10, 'academia', 'active', '2026-11-20'), f(10, 'ia', 'active'),
@@ -48,14 +69,14 @@ describe('el resumen del tutor', () => {
     expect(r.publicadasPendientes).toBe(1);
     expect(r.sinPublicar).toBe(2);
     // Lo que le falta al tutor, por bloque.
-    expect(r.porRevisar).toEqual({ academia: 1, ia: 2 });
+    expect(r.porRevisar).toEqual({ academia: 1, ia: 2, sinLeer: 0 });
   });
 
   it('sin «solo revisadas», lo de la IA sin revisar también está publicado (y sigue por revisar)', () => {
     const r = resumenDeRevision(filas, temas, false);
     expect(r.publicadas).toBe(4);
     expect(r.sinPublicar).toBe(1);
-    expect(r.porRevisar).toEqual({ academia: 1, ia: 2 });
+    expect(r.porRevisar).toEqual({ academia: 1, ia: 2, sinLeer: 0 });
   });
 
   it('por tema, ordenado, sin los temas vacíos', () => {
@@ -64,7 +85,7 @@ describe('el resumen del tutor', () => {
   });
 
   it('lo que no es de la academia es de la IA, también lo que no dice nada', () => {
-    expect(resumenDeRevision([f(10, '', 'active')], temas, true).porRevisar).toEqual({ academia: 0, ia: 1 });
+    expect(resumenDeRevision([f(10, '', 'active')], temas, true).porRevisar).toEqual({ academia: 0, ia: 1, sinLeer: 0 });
   });
 
   it('una pregunta sin tema (o de un tema que no se enseña) cuenta en el total pero en ninguna fila', () => {
@@ -82,7 +103,7 @@ describe('el resumen del tutor', () => {
 
 describe('lo que se sirve a los alumnos es lo que el tutor ve como publicado', () => {
   it('los tres sitios que sirven preguntas usan el mismo filtro, que deja pasar revisadas y de la academia', () => {
-    expect(FILTRO_SERVIBLE_REVISADO).toBe('reviewed_at.not.is.null,fuente.eq.academia');
+    expect(FILTRO_SERVIBLE_REVISADO).toBe('reviewed_at.not.is.null,fuente.eq.academia,publicada_sin_leer_el.not.is.null');
     const codigo = (f: string) => readFileSync(join(raiz, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|(^|[^:])\/\/.*$/gm, '$1');
     expect(codigo('app/actions/exams.ts').match(/\.or\(FILTRO_SERVIBLE_REVISADO\)/g)?.length).toBe(2);
     expect(codigo('app/actions/evolucion.ts')).toMatch(/\.or\(FILTRO_SERVIBLE_REVISADO\)/);

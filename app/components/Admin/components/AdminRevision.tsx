@@ -13,6 +13,8 @@ import { PanelTitulo, Pestanas, Hoja, BloqueTitulo, Rotulo, Aviso, Boton, Etique
 import EditorPregunta, { type FormPregunta } from './EditorPregunta';
 import AdminModeration from './AdminModeration';
 import { NOMBRE_ORIGEN, QUE_SE_REVISA, type OrigenPropuesta, type FuentePregunta } from '@/app/lib/revision';
+/** Los bloques que se pueden elegir al revisar: las dos fuentes y lo publicado sin lectura individual. */
+type Bloque = FuentePregunta | 'sin_leer';
 import { separaEnlaceOficial } from '@/app/lib/normativa';
 import { DIFFICULTY_LABEL, origenDeDificultad, type DifficultyLevel } from '@/app/lib/questions';
 import { estaCompleta, textoFaltan, etiquetasQueFaltan } from '@/app/lib/preguntas-edicion';
@@ -30,7 +32,7 @@ type Seccion = 'resumen' | 'revisar' | 'propuestas' | 'ley' | 'ia' | 'quejas';
 /** Las listas por tipo de aviso salen del resumen: el tutor trabaja desde «Revisar», que ya enseña cada aviso en su pregunta. */
 const LISTAS_APARTE: Seccion[] = ['propuestas', 'ley', 'ia'];
 /** Por dónde empieza «Revisar»: un tema y/o un bloque (los pone el resumen al pulsar un número). */
-type Foco = { subjectId: number | null; fuente: FuentePregunta | null };
+type Foco = { subjectId: number | null; fuente: Bloque | null };
 
 const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 const horaCorta = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -85,13 +87,13 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
   const b = bandeja;
   const r = b.resumen;
   const faltan = r.publicadasPendientes + r.sinPublicar;
-  const totalBanco = r.revisadas + faltan;
+  const totalBanco = r.revisadas + faltan + r.publicadasSinLeer;
   const porcentaje = totalBanco ? Math.round((r.revisadas / totalBanco) * 100) : null;
 
   async function alternaSoloRevisadas() {
     const activar = !b.soloRevisadas;
     const aviso = activar
-      ? 'Los alumnos solo recibirán las preguntas revisadas por un tutor y las de la academia. Las escritas por la IA dejan de servirse hasta que un tutor las revise. ¿Activar?'
+      ? 'Los alumnos solo recibirán las preguntas revisadas, las de la academia y las publicadas sin leer. El resto de las escritas por la IA deja de servirse hasta que un tutor las revise. ¿Activar?'
       : `Los alumnos volverán a recibir también las ${b.resumen.porRevisar.ia} escritas por la IA que ningún tutor ha revisado. ¿Desactivar?`;
     if (!(await confirmar(aviso))) return;
     setGuardando(true);
@@ -110,7 +112,8 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
             <p className="font-semibold text-slate-900 dark:text-white">Publicadas · los alumnos ya las ven</p>
             <p className={TEXT.muted}>
               <b>{r.revisadas.toLocaleString('es-ES')}</b> revisadas del todo
-              {r.publicadasPendientes > 0 && <> · <b>{r.publicadasPendientes.toLocaleString('es-ES')}</b> con la explicación pendiente de revisar (son de la academia: el tutor solo revisa su explicación)</>}.
+              {r.publicadasPendientes > 0 && <> · <b>{r.publicadasPendientes.toLocaleString('es-ES')}</b> de la academia con la explicación pendiente de revisar</>}
+              {r.publicadasSinLeer > 0 && <> · <b>{r.publicadasSinLeer.toLocaleString('es-ES')}</b> escritas por la IA, publicadas sin leer una a una (no tienen avisos y llevan referencia legal)</>}.
             </p>
           </div>
           <div className="space-y-1.5 rounded-xl border border-amber-600/30 bg-amber-50 p-4 dark:bg-amber-500/10">
@@ -120,7 +123,8 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
           </div>
         </div>
         <p className="text-sm text-slate-900 dark:text-slate-100">
-          <b>Te falta revisar {faltan.toLocaleString('es-ES')}:</b> {r.publicadasPendientes.toLocaleString('es-ES')} explicaciones de preguntas ya publicadas y {r.sinPublicar.toLocaleString('es-ES')} preguntas sin publicar.
+          <b>Lo que más urge ({faltan.toLocaleString('es-ES')}):</b> {r.publicadasPendientes.toLocaleString('es-ES')} explicaciones de preguntas ya publicadas y {r.sinPublicar.toLocaleString('es-ES')} preguntas sin publicar.
+          {r.publicadasSinLeer > 0 && <> Además, <b>{r.publicadasSinLeer.toLocaleString('es-ES')}</b> publicadas sin leer: se miran si llega una queja de un alumno o cuando haya tiempo.</>}
         </p>
         {porcentaje !== null && (
           <div>
@@ -144,13 +148,14 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
               <div className="min-w-0 flex-1 basis-56">
                 <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">Tema {t.numero}: {t.titulo}</p>
                 <p className="text-[12.5px] text-slate-600 dark:text-slate-400">
-                  Publicadas {t.publicadas.toLocaleString('es-ES')} ({t.revisadas.toLocaleString('es-ES')} revisadas del todo) · Sin publicar {t.sinPublicar.toLocaleString('es-ES')}
+                  Publicadas {t.publicadas.toLocaleString('es-ES')} ({t.revisadas.toLocaleString('es-ES')} revisadas del todo{t.sinLeer > 0 ? `, ${t.sinLeer.toLocaleString('es-ES')} sin leer` : ''}) · Sin publicar {t.sinPublicar.toLocaleString('es-ES')}
                 </p>
               </div>
               <div className="flex gap-2">
                 {t.academia > 0 && <Boton size="sm" variant="secondary" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'academia' })} title="Ya publicadas: solo falta revisar su explicación">Explicaciones · {t.academia}</Boton>}
                 {t.ia > 0 && <Boton size="sm" variant="secondary" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'ia' })} title="Escritas por la IA: se publican al revisarlas enteras">{b.soloRevisadas ? 'Sin publicar' : 'Escritas por la IA'} · {t.ia}</Boton>}
-                {t.academia + t.ia === 0 && <Etiqueta tono="ok">Revisado</Etiqueta>}
+                {t.sinLeer > 0 && <Boton size="sm" variant="ghost" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'sin_leer' })} title="Publicadas sin leer una a una">Sin leer · {t.sinLeer}</Boton>}
+                {t.academia + t.ia + t.sinLeer === 0 && <Etiqueta tono="ok">Revisado</Etiqueta>}
               </div>
             </li>
           ))}
@@ -172,7 +177,7 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
             <p className="font-semibold text-slate-900 dark:text-white">Los alumnos solo reciben preguntas revisadas</p>
             <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
               {b.soloRevisadas
-                ? 'Activado: los alumnos ven las que ha revisado un tutor y las de la academia (aunque su explicación esté por revisar). Las escritas por la IA no se ven hasta revisarlas.'
+                ? 'Activado: los alumnos ven las revisadas por un tutor, las de la academia (aunque su explicación esté por revisar) y las que se publicaron sin leer una a una. El resto de las escritas por la IA no se ve hasta revisarlas.'
                 : `Desactivado: los alumnos ven también las ${r.porRevisar.ia} escritas por la IA que nadie ha revisado. Actívalo antes de que entren los alumnos.`}
             </p>
           </div>
@@ -207,7 +212,7 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
 // ---------------------------------------------------------------------------
 
 function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void }) {
-  const [fuente, setFuente] = useState<FuentePregunta | null>(inicial.fuente);
+  const [fuente, setFuente] = useState<Bloque | null>(inicial.fuente);
   const [tema, setTema] = useState<number | null>(inicial.subjectId);
   const [temas, setTemas] = useState<SyllabusSubject[]>([]);
   const [p, setP] = useState<PreguntaParaRevisar | null>(null);
@@ -333,10 +338,11 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <CampoSelect aria-label="De quién son" value={fuente ?? ''} onChange={(e) => setFuente(e.target.value === 'academia' || e.target.value === 'ia' ? e.target.value : null)}>
-          <option value="">Todas las que faltan por revisar</option>
+        <CampoSelect aria-label="De quién son" value={fuente ?? ''} onChange={(e) => setFuente(e.target.value === 'academia' || e.target.value === 'ia' || e.target.value === 'sin_leer' ? e.target.value : null)}>
+          <option value="">Lo que más urge (explicaciones y sin publicar)</option>
           <option value="academia">Ya publicadas: falta su explicación (academia)</option>
           <option value="ia">Sin publicar: falta revisarlas enteras (IA)</option>
+          <option value="sin_leer">Publicadas sin leer una a una (IA)</option>
         </CampoSelect>
         <CampoSelect aria-label="Tema" value={tema ?? ''} onChange={(e) => setTema(e.target.value ? Number(e.target.value) : null)}>
           <option value="">Todos los temas</option>
@@ -355,7 +361,7 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex flex-wrap items-center gap-2">
               <Etiqueta tono={p.fuente === 'academia' ? 'oro' : 'neutro'}>{QUE_SE_REVISA[p.fuente].etiqueta}</Etiqueta>
-              <Etiqueta tono={p.publicada ? 'ok' : 'aviso'}>{p.publicada ? 'Publicada: los alumnos ya la ven' : 'Sin publicar: los alumnos aún no la ven'}</Etiqueta>
+              <Etiqueta tono={p.publicada ? 'ok' : 'aviso'}>{p.sinLeer ? 'Publicada sin leer: los alumnos la ven' : p.publicada ? 'Publicada: los alumnos ya la ven' : 'Sin publicar: los alumnos aún no la ven'}</Etiqueta>
               {p.tema !== null && <Etiqueta tono="apagado">Tema {p.tema}</Etiqueta>}
             </span>
             {quedan !== null && <span className="text-[13px] text-slate-600 dark:text-slate-400">Quedan {quedan}</span>}
@@ -363,7 +369,9 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
 
           {p.fuente === 'academia'
             ? <Aviso tono="info"><p>Esta pregunta <b>ya está publicada</b>: los alumnos la ven. La pregunta y su respuesta son de la academia; solo falta que revises su <b>explicación</b> y la referencia.</p></Aviso>
-            : <Aviso tono="info"><p>{p.publicada ? 'Los alumnos ya la ven; falta que un tutor la revise entera.' : 'Los alumnos aún no la ven. Al darla por buena, se publica.'}</p></Aviso>}
+            : p.sinLeer
+              ? <Aviso tono="info"><p>Los alumnos <b>ya la ven</b>. Se publicó sin leerla una a una porque no tenía ningún aviso y lleva referencia legal. Ningún tutor la ha leído: revísala entera si quieres confirmarla, o si un alumno la reporta.</p></Aviso>
+              : <Aviso tono="info"><p>{p.publicada ? 'Los alumnos ya la ven; falta que un tutor la revise entera.' : 'Los alumnos aún no la ven. Al darla por buena, se publica.'}</p></Aviso>}
           <p className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100">{p.question_text}</p>
 
           <ol className="space-y-1.5">
@@ -437,7 +445,7 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
           <div className="flex flex-wrap gap-2 border-t border-linea pt-4 dark:border-noche-linea">
             <Boton onClick={darPorBuena} disabled={trabajando || bloqueada || (p.status === 'candidate' && !completa)}
               icon={trabajando ? <Loader2 className="animate-spin" size={15} /> : <CheckCircle2 size={15} />}>
-              {p.status === 'candidate' ? 'Está bien: publicar' : QUE_SE_REVISA[p.fuente].boton}
+              {p.status === 'candidate' ? 'Está bien: publicar' : p.sinLeer ? 'Está bien: revisada' : QUE_SE_REVISA[p.fuente].boton}
             </Boton>
             <Boton variant="secondary" icon={<Pencil size={15} />} onClick={abreEditor} disabled={trabajando}>Corregir</Boton>
             {p.avisosLey.length > 0 && <Boton variant="secondary" icon={<Scale size={15} />} onClick={sigueVigente} disabled={trabajando}>Sigue vigente</Boton>}
