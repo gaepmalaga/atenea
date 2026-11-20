@@ -284,6 +284,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 140 | Si una sugerencia choca con una regla, se pregunta al dueño: ni se hace sin preguntar ni se descarta en silencio |
 | 141 | Los admins de una academia se gestionan, no solo se invitan: reenviar, quitar y ver sus logs |
 | 142 | El cuadrante de teoría sale solo de lo programado: segundo profesor (cada uno suma 1), formaciones extras y la imagen para WhatsApp |
+| 143 | Un panel que se abre encima mide el ancho de la pantalla: su columna es `minmax(0,1fr)`, nunca `auto` |
 
 ## Trampas conocidas
 

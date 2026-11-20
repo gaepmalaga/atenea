@@ -60,7 +60,7 @@ export default function AdminRevision() {
         items={[
           { id: 'resumen', etiqueta: 'Resumen' },
           { id: 'revisar', etiqueta: 'Revisar', cuenta: b ? b.resumen.publicadasPendientes + b.resumen.sinPublicar : undefined },
-          { id: 'quejas', etiqueta: 'Quejas de alumnos', cuenta: b?.quejas },
+          { id: 'quejas', etiqueta: 'Quejas', cuenta: b?.quejas },
         ]}
       />
       {LISTAS_APARTE.includes(seccion) && <Boton variant="ghost" size="sm" onClick={() => setSeccion('resumen')}>← Volver al resumen</Boton>}
@@ -339,10 +339,10 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <CampoSelect aria-label="De quién son" value={fuente ?? ''} onChange={(e) => setFuente(e.target.value === 'academia' || e.target.value === 'ia' || e.target.value === 'sin_leer' ? e.target.value : null)}>
-          <option value="">Lo que más urge (explicaciones y sin publicar)</option>
-          <option value="academia">Ya publicadas: falta su explicación (academia)</option>
-          <option value="ia">Sin publicar: falta revisarlas enteras (IA)</option>
-          <option value="sin_leer">Publicadas sin leer una a una (IA)</option>
+          <option value="">Lo que más urge</option>
+          <option value="academia">Explicaciones (academia)</option>
+          <option value="ia">Sin publicar (IA)</option>
+          <option value="sin_leer">Publicadas sin leer (IA)</option>
         </CampoSelect>
         <CampoSelect aria-label="Tema" value={tema ?? ''} onChange={(e) => setTema(e.target.value ? Number(e.target.value) : null)}>
           <option value="">Todos los temas</option>

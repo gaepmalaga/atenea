@@ -5549,3 +5549,22 @@ documento (o con una decisión anterior del dueño):
   disponibilidad (los huecos salen del horario de los grupos; cada profesor marca
   los suyos desde el móvil). La planificación asistida se dejó para más adelante
   (decisión del dueño).
+
+### 143 · Un panel que se abre encima mide el ancho de la pantalla: la columna es `minmax(0,1fr)`, nunca `auto`
+
+- **Qué pasó (20 nov):** en el móvil, la ficha de una clase del Calendario se
+  salía por la derecha y obligaba a deslizar de lado. Las 14 secciones del panel
+  de administración, medidas a 390 px, no desbordaban; el fallo estaba en los
+  paneles que se abren ENCIMA (`PanelLateral`).
+- **Causa:** el contenedor del panel era `grid` a secas, es decir, una columna
+  implícita de tamaño `auto`, que crece hasta el contenido mínimo de su hijo más
+  ancho (587 px en un panel de 390). Cada panel nuevo lo heredaba.
+- **Regla:** el contenido de un panel va en `grid grid-cols-[minmax(0,1fr)]`
+  (una columna que MIDE lo que mide el panel). Es un cambio en el componente
+  común, así que corrige todos los paneles (Calendario, formación extra,
+  cuadrante, Revisión, Banco oficial, exámenes en clase). Lo que se desliza de
+  lado a propósito (las pestañas y la fila de carpetas de «Documentos») va en su
+  propio contenedor con `overflow-x-auto`: no desborda la página.
+- **Cómo se mide:** con un navegador a 360, 390 y 412 px, que `scrollWidth` del
+  panel no pase de su ancho (`tests/revision-resumen.test.ts` vigila el
+  contenedor; comprobado rompiéndolo a propósito).
