@@ -128,7 +128,9 @@ scripts/          operación (siembra, limpieza, cuentas), esquema, marca, nube
   (enunciado y respuesta son de la academia: YA PUBLICADA, se revisa la
   explicación) o `ia` (sin publicar hasta que un tutor la revise entera). Lo que
   un tutor escribe a mano entra como `academia`. Lo que se sirve al alumno con
-  «solo revisadas» es `FILTRO_SERVIBLE_REVISADO` (`app/lib/questions.ts`).
+  «solo revisadas» es `FILTRO_SERVIBLE_REVISADO` (`app/lib/questions.ts`):
+  revisadas, de la academia o `publicada_sin_leer_el` (publicadas por decisión
+  del dueño sin lectura individual: NO son «revisadas por un tutor»).
 - **Los tutores tienen la última palabra (138).** Nunca se edita una pregunta
   directamente, ni con SQL: se PROPONE (`question_proposals`, con `source` y
   `reason`) y la aprueba un tutor en «Revisión». Lo que genera la IA entra

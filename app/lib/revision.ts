@@ -212,27 +212,32 @@ export const QUE_SE_REVISA: Record<FuentePregunta, { etiqueta: string; corta: st
  * En qué punto está una pregunta, con palabras que un tutor entienda:
  * - `publicada_revisada`: los alumnos la ven y un tutor ya la revisó.
  * - `publicada_pendiente`: los alumnos la ven y falta revisar algo (en las de la academia, la explicación).
+ * - `publicada_sin_leer`: los alumnos la ven; el dueño la publicó sin lectura individual
+ *   (sin avisos y con referencia legal) y ningún tutor la ha leído.
  * - `sin_publicar`: los alumnos NO la ven; hay que revisarla entera.
  * - `fuera`: ni publicada ni pendiente (archivada).
  */
-export type EstadoDePregunta = 'publicada_revisada' | 'publicada_pendiente' | 'sin_publicar' | 'fuera';
+export type EstadoDePregunta = 'publicada_revisada' | 'publicada_pendiente' | 'publicada_sin_leer' | 'sin_publicar' | 'fuera';
+
+export type FilaParaResumen = { subject_id: number | null; fuente: string | null; status: string; reviewed_at: string | null; publicada_sin_leer_el?: string | null };
+type Punto = Pick<FilaParaResumen, 'fuente' | 'status' | 'reviewed_at' | 'publicada_sin_leer_el'>;
 
 /**
- * ¿La ven los alumnos? Con «solo revisadas» activado, las revisadas y las de la
- * academia (regla 139); sin él, todas las activas. Es lo mismo que
- * `FILTRO_SERVIBLE_REVISADO` (`questions.ts`) dice a la base de datos.
+ * ¿La ven los alumnos? Con «solo revisadas» activado, las revisadas, las de la
+ * academia y las publicadas sin leer (regla 139); sin él, todas las activas. Es
+ * lo mismo que `FILTRO_SERVIBLE_REVISADO` (`questions.ts`) dice a la base de datos.
  */
-export function laVenLosAlumnos(f: Pick<FilaParaResumen, 'fuente' | 'status' | 'reviewed_at'>, soloRevisadas: boolean): boolean {
-  return f.status === 'active' && (!soloRevisadas || f.reviewed_at !== null || f.fuente === FUENTE_PREGUNTA.ACADEMIA);
+export function laVenLosAlumnos(f: Punto, soloRevisadas: boolean): boolean {
+  return f.status === 'active' && (!soloRevisadas || f.reviewed_at !== null || f.fuente === FUENTE_PREGUNTA.ACADEMIA || (f.publicada_sin_leer_el ?? null) !== null);
 }
 
-export function estadoDePregunta(f: Pick<FilaParaResumen, 'fuente' | 'status' | 'reviewed_at'>, soloRevisadas: boolean): EstadoDePregunta {
+export function estadoDePregunta(f: Punto, soloRevisadas: boolean): EstadoDePregunta {
   if (f.status !== 'active' && f.status !== 'candidate') return 'fuera';
-  if (laVenLosAlumnos(f, soloRevisadas)) return f.reviewed_at !== null ? 'publicada_revisada' : 'publicada_pendiente';
-  return 'sin_publicar';
+  if (!laVenLosAlumnos(f, soloRevisadas)) return 'sin_publicar';
+  if (f.reviewed_at !== null) return 'publicada_revisada';
+  return (f.publicada_sin_leer_el ?? null) !== null ? 'publicada_sin_leer' : 'publicada_pendiente';
 }
 
-export type FilaParaResumen = { subject_id: number | null; fuente: string | null; status: string; reviewed_at: string | null };
 export type TemaDelResumen = { subjectId: number; numero: number; titulo: string };
 export type FilaDeTema = TemaDelResumen & {
   /** Publicadas: las que ya ven los alumnos. */
@@ -241,9 +246,11 @@ export type FilaDeTema = TemaDelResumen & {
   revisadas: number;
   /** Sin publicar: los alumnos no las ven hasta que un tutor las revise. */
   sinPublicar: number;
+  /** Publicadas sin lectura individual (IA, sin avisos): ningún tutor las ha leído. */
+  sinLeer: number;
   /** Por revisar, de la academia (solo su explicación). Es lo que abre el botón «Explicaciones». */
   academia: number;
-  /** Por revisar, escritas por la IA (enteras). Es lo que abre el botón «Sin publicar». */
+  /** Por revisar, escritas por la IA y sin publicar (enteras). Es lo que abre el botón «Sin publicar». */
   ia: number;
 };
 export type ResumenDeRevision = {
@@ -252,21 +259,23 @@ export type ResumenDeRevision = {
   revisadas: number;
   /** Publicadas que aún esperan algo del tutor (la explicación, en las de la academia). */
   publicadasPendientes: number;
+  /** Publicadas sin leer una a una (IA, sin avisos): se revisan si llega una queja o cuando haya tiempo. */
+  publicadasSinLeer: number;
   sinPublicar: number;
   /** Por revisar por bloque (lo que el tutor ve en los botones). */
-  porRevisar: { academia: number; ia: number };
+  porRevisar: { academia: number; ia: number; sinLeer: number };
   porTema: FilaDeTema[];
 };
 
 /**
  * Cuántas preguntas hay en cada punto, en total y por tema (regla 139). Lo que
- * le falta al tutor es `publicadasPendientes + sinPublicar`; por bloque,
- * `porRevisar`.
+ * le urge al tutor es `publicadasPendientes + sinPublicar`; las publicadas sin
+ * leer van aparte (ya las ven los alumnos y no tienen avisos).
  */
 export function resumenDeRevision(filas: readonly FilaParaResumen[], temas: readonly TemaDelResumen[], soloRevisadas: boolean): ResumenDeRevision {
-  const porSubject = new Map<number, FilaDeTema>(temas.map((t) => [t.subjectId, { ...t, publicadas: 0, revisadas: 0, sinPublicar: 0, academia: 0, ia: 0 }]));
-  const total = { publicadas: 0, revisadas: 0, publicadasPendientes: 0, sinPublicar: 0 };
-  const porRevisar = { academia: 0, ia: 0 };
+  const porSubject = new Map<number, FilaDeTema>(temas.map((t) => [t.subjectId, { ...t, publicadas: 0, revisadas: 0, sinPublicar: 0, sinLeer: 0, academia: 0, ia: 0 }]));
+  const total = { publicadas: 0, revisadas: 0, publicadasPendientes: 0, publicadasSinLeer: 0, sinPublicar: 0 };
+  const porRevisar = { academia: 0, ia: 0, sinLeer: 0 };
   for (const f of filas) {
     const estado = estadoDePregunta(f, soloRevisadas);
     if (estado === 'fuera') continue;
@@ -275,10 +284,12 @@ export function resumenDeRevision(filas: readonly FilaParaResumen[], temas: read
     else {
       total.publicadas++; if (fila) fila.publicadas++;
       if (estado === 'publicada_revisada') { total.revisadas++; if (fila) fila.revisadas++; }
+      else if (estado === 'publicada_sin_leer') total.publicadasSinLeer++;
       else total.publicadasPendientes++;
     }
     if (f.reviewed_at === null) {
-      const bloque: FuentePregunta = f.fuente === FUENTE_PREGUNTA.ACADEMIA ? 'academia' : 'ia';
+      // Un bloque por pregunta: lo publicado sin leer va aparte de lo escrito por la IA sin publicar.
+      const bloque: 'academia' | 'ia' | 'sinLeer' = estado === 'publicada_sin_leer' ? 'sinLeer' : f.fuente === FUENTE_PREGUNTA.ACADEMIA ? 'academia' : 'ia';
       porRevisar[bloque]++; if (fila) fila[bloque]++;
     }
   }

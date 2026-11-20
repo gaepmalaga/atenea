@@ -21,7 +21,7 @@ import { QUESTION_STATUS, filtroBancoPorAcademia } from '../lib/questions';
 import { filtroEscrituraBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
-import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, resumenDeRevision, esFuente, estadoDePregunta, type Novedad, type CambioLegible, type ValoresPregunta, type FuentePregunta, type ResumenDeRevision, type FilaParaResumen } from '../lib/revision';
+import { juntaNovedades, ACCIONES_DE_REVISION, leeValores, propuestaVigente, cambiosLegibles, resumenDeRevision, estadoDePregunta, type Novedad, type CambioLegible, type ValoresPregunta, type FuentePregunta, type ResumenDeRevision, type FilaParaResumen } from '../lib/revision';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 export type BandejaRevision = {
@@ -132,7 +132,7 @@ export async function getBandejaRevision(): Promise<{ success: true; data: Bande
     // Una fila corta por pregunta: de ahí salen las cuentas por tema y por bloque.
     // Se pagina (regla 74): son más de 6.000 y PostgREST corta a 1.000 sin avisar.
     paginaCompleta<FilaParaResumen>((desde, hasta) => {
-      let q = supabaseAdmin.from('question_bank').select('subject_id, fuente, status, reviewed_at')
+      let q = supabaseAdmin.from('question_bank').select('subject_id, fuente, status, reviewed_at, publicada_sin_leer_el')
         .in('status', [QUESTION_STATUS.ACTIVE, QUESTION_STATUS.CANDIDATE]).order('id').range(desde, hasta);
       if (user.role !== 'superadmin') q = q.or(filtroBancoPorAcademia(user.organizationId));
       return Promise.resolve(q) as unknown as Promise<ResultadoPagina<FilaParaResumen>>;
@@ -191,6 +191,8 @@ export type PreguntaParaRevisar = {
   fuente: FuentePregunta;
   /** ¿Los alumnos ya la ven? Las de la academia sí, aunque falte revisar su explicación. */
   publicada: boolean;
+  /** Publicada sin lectura individual (por decisión del dueño): ningún tutor la ha leído. */
+  sinLeer: boolean;
   question_text: string;
   options: string[];
   correct_index: number;
@@ -231,7 +233,8 @@ export async function getParaRevisar(input: unknown): Promise<
   if (!auth.ok) return { success: false as const, error: auth.error };
   const d = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   // Una sola cola (regla 139): las pendientes y las del banco que nadie ha leído. Se acota por tema y por bloque.
-  const fuente = esFuente(d.fuente) ? d.fuente : null;
+  // Bloque: 'academia' (su explicación), 'ia' (escritas por la IA, sin publicar) o 'sin_leer' (publicadas sin lectura individual). Sin elegir: lo urgente, que es lo primero.
+  const bloque = d.fuente === 'academia' || d.fuente === 'ia' || d.fuente === 'sin_leer' ? d.fuente : null;
   const subjectId = Number.isInteger(d.subjectId) ? (d.subjectId as number) : null;
   const despuesDe = typeof d.despuesDe === 'string' && /^[0-9a-f-]{36}$/i.test(d.despuesDe) ? d.despuesDe : null;
   // «Otra vez la misma»: tras decidir algo sobre ella, se vuelve a leer tal como ha quedado.
@@ -239,11 +242,16 @@ export async function getParaRevisar(input: unknown): Promise<
 
   // Lo que este tutor puede tocar (regla 123): va a decidir sobre ella.
   const alcance = filtroEscrituraBanco(auth.user);
-  const columnas = 'id, status, fuente, question_text, options, correct_index, explanation, legal_reference, difficulty_level, difficulty_source, subjects(topic_number, title)';
+  const columnas = 'id, status, fuente, publicada_sin_leer_el, question_text, options, correct_index, explanation, legal_reference, difficulty_level, difficulty_source, subjects(topic_number, title)';
   const sinRevisar = [QUESTION_STATUS.ACTIVE, QUESTION_STATUS.CANDIDATE];
   let siguiente = supabaseAdmin.from('question_bank').select(columnas).in('status', sinRevisar).is('reviewed_at', null).order('id', { ascending: true }).limit(1);
   let total = supabaseAdmin.from('question_bank').select('id', { count: 'exact', head: true }).in('status', sinRevisar).is('reviewed_at', null);
-  if (fuente) { siguiente = siguiente.eq('fuente', fuente); total = total.eq('fuente', fuente); }
+  // Lo publicado sin leer queda fuera de la cola general: ya lo ven los alumnos y no tiene avisos.
+  if (bloque === 'sin_leer') { siguiente = siguiente.not('publicada_sin_leer_el', 'is', null); total = total.not('publicada_sin_leer_el', 'is', null); }
+  else {
+    siguiente = siguiente.is('publicada_sin_leer_el', null); total = total.is('publicada_sin_leer_el', null);
+    if (bloque) { siguiente = siguiente.eq('fuente', bloque); total = total.eq('fuente', bloque); }
+  }
   if (subjectId) { siguiente = siguiente.eq('subject_id', subjectId); total = total.eq('subject_id', subjectId); }
   if (alcance) { siguiente = siguiente.or(alcance); total = total.or(alcance); }
   if (despuesDe) siguiente = incluida ? siguiente.gte('id', despuesDe) : siguiente.gt('id', despuesDe);
@@ -253,7 +261,7 @@ export async function getParaRevisar(input: unknown): Promise<
   ]);
   if (error || errCount) return { success: false as const, error: fallo('getParaRevisar', (error ?? errCount)!) };
 
-  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta' | 'fuente' | 'publicada'> & { fuente: string | null; subjects?: { topic_number: number; title: string } | null }) | undefined;
+  const f = (filas ?? [])[0] as unknown as (Omit<PreguntaParaRevisar, 'tema' | 'temaTitulo' | 'avisosLey' | 'dudasIA' | 'propuesta' | 'fuente' | 'publicada' | 'sinLeer'> & { fuente: string | null; publicada_sin_leer_el: string | null; subjects?: { topic_number: number; title: string } | null }) | undefined;
   if (!f) return { success: true as const, pregunta: null, quedan: count ?? 0 };
   const soloRevisadas = (await ajusteSoloRevisadas(auth.user as Usuario)).valor;
 
@@ -280,7 +288,8 @@ export async function getParaRevisar(input: unknown): Promise<
     quedan: count ?? 0,
     pregunta: {
       id: f.id, status: f.status, fuente: f.fuente === 'academia' ? 'academia' : 'ia',
-      publicada: estadoDePregunta({ fuente: f.fuente, status: f.status, reviewed_at: null }, soloRevisadas).startsWith('publicada'),
+      publicada: estadoDePregunta({ fuente: f.fuente, status: f.status, reviewed_at: null, publicada_sin_leer_el: f.publicada_sin_leer_el }, soloRevisadas).startsWith('publicada'),
+      sinLeer: f.publicada_sin_leer_el !== null,
       question_text: f.question_text,
       options: Array.isArray(f.options) ? f.options : [], correct_index: f.correct_index,
       explanation: f.explanation ?? null, legal_reference: f.legal_reference ?? null,

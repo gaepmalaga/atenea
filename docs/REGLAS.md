@@ -5378,6 +5378,22 @@ una IA** (4.617 de Gemini desde el temario y 985 de Claude desde el Tomo I).
   «Mi evolución»). Dos `.or` seguidos se combinan con AND (comprobado contra la
   BD real). Una pregunta de la academia pendiente (`candidate`, p. ej. de un
   examen en papel) sigue sin publicarse.
+- **Publicadas sin leer una a una (decisión del dueño, 20 nov).** Revisar
+  5.601 preguntas de IA una a una no es viable antes de que entren los
+  alumnos. Las que no tienen **ningún aviso** y llevan **referencia legal** (el
+  repaso contra el BOE ya las comparó y cuadran) se publican a la espera de las
+  quejas de los alumnos. **No se marcan como revisadas por un tutor**: nadie las
+  leyó. Llevan su marca (`question_bank.publicada_sin_leer_el`, guion
+  `docs/sql/publicada-sin-leer.sql`), siguen pendientes de revisión y el tutor
+  las ve como «publicada sin leer». Lo hace `scripts/operacion/publicar-limpias.mjs`
+  (ensayo por defecto, `--hazlo` publica; reversible poniendo la marca a null).
+  Se quedan fuera: las que tienen un aviso abierto (siguen pendientes de revisar), las
+  que no tienen referencia (1.055: 850 son de temas sin legislación —sociales,
+  técnico-científicos y los apuntes de los temas 4 y 24—, y ~170 de temas
+  jurídicos sin referencia puesta) y las que llevan un **defecto conocido que
+  dañaría al alumno**: una explicación que numera las opciones («la opción 2»
+  se lee como la B, y la IA numeraba desde 0) o un enunciado «según el texto
+  proporcionado». Esas esperan su arreglo mecánico.
 - **El tutor tiene total claridad del punto en que está cada pregunta:**
   **publicada y revisada** (los alumnos la ven y un tutor la revisó),
   **publicada con algo pendiente** (los alumnos la ven; en las de la academia,
