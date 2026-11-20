@@ -85,6 +85,16 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    usan los tutores de verdad y ajustar. Ideas pendientes (preguntar al dueño
    antes, regla 140): marcar las «limpias» (sin aviso ni propuesta) para ir
    rápido. (Las 725 de la academia ya están publicadas: decidido el 20 nov.)
+   **Publicar las «limpias» (20 nov, decisión del dueño):** las de IA sin aviso
+   y con referencia se publican sin leerlas una a una, con marca propia
+   (`publicada_sin_leer_el`; NO son «revisadas»), a la espera de las quejas.
+   `scripts/operacion/publicar-limpias.mjs` (ensayo / `--hazlo`). Quedan fuera:
+   las con aviso, las sin referencia (850 de temas sin legislación + ~170
+   jurídicas) y las que numeran las opciones o dicen «texto proporcionado».
+   Los pasos que quedan: (1) un tutor pulsa «Aceptar todos los mecánicos» en
+   «Cambios propuestos»; (2) volver a lanzar `publicar-limpias --hazlo`;
+   (3) las 176 que numeran las opciones y no se arreglan solas, y las ~170 sin
+   referencia en temas jurídicos, para un tutor o para buscarles referencia.
 5. **Las pendientes del Tomo que repiten un hecho ya en el banco** (la hoja
    del dueño marca 68, §2u) y las 26 del Pacto Europeo (ya llevan aviso de la
    ley): se podrían señalar en el revisor con las familias de la regla 119,
