@@ -5368,13 +5368,28 @@ una IA** (4.617 de Gemini desde el temario y 985 de Claude desde el Tomo I).
   `academia`. No se reutiliza `origin`: lo lee el test del alumno (regla 39).
 - **Cada bloque tiene su revisión.** De la academia: «Solo la explicación» y
   la referencia (botón «La explicación está bien»). De la IA: la pregunta
-  entera («Está bien: revisada»). Está en `QUE_SE_REVISA` (`app/lib/revision.ts`).
-- **Lo primero que ve el tutor** son dos números: **cuántas ven ya los
-  alumnos** y **cuántas le faltan** (dividido por bloque), con una barra y,
-  debajo, el reparto **por tema**, donde cada número es un botón que abre
-  «Revisar» ya puesto en ese tema y bloque. La aritmética es
-  `resumenDeRevision` (pura, con test): «ven» sigue el interruptor «solo
-  revisadas».
+  entera («Está bien: revisada y publicada»). Está en `QUE_SE_REVISA` (`app/lib/revision.ts`).
+- **Las de la academia están PUBLICADAS (decisión del dueño, 20 nov).** Los
+  alumnos las ven aunque su explicación espere revisión: el enunciado y la
+  respuesta son de la academia. Las escritas por la IA NO se publican hasta que
+  un tutor las revisa enteras. Con «solo revisadas» activado, lo que se sirve
+  es `FILTRO_SERVIBLE_REVISADO` (`app/lib/questions.ts`: revisadas o de la
+  academia), el mismo en los tres sitios que sirven preguntas (test, examen y
+  «Mi evolución»). Dos `.or` seguidos se combinan con AND (comprobado contra la
+  BD real). Una pregunta de la academia pendiente (`candidate`, p. ej. de un
+  examen en papel) sigue sin publicarse.
+- **El tutor tiene total claridad del punto en que está cada pregunta:**
+  **publicada y revisada** (los alumnos la ven y un tutor la revisó),
+  **publicada con algo pendiente** (los alumnos la ven; en las de la academia,
+  falta revisar su explicación) y **sin publicar** (los alumnos no la ven; hay
+  que revisarla entera). `estadoDePregunta` / `resumenDeRevision` (puros, con
+  test). El resumen lo dice con dos cuadros («Publicadas» y «Sin publicar»), la
+  frase «te falta revisar N: X explicaciones de preguntas ya publicadas e Y
+  preguntas sin publicar», y por tema; dentro de cada pregunta, su etiqueta y su
+  aviso.
+- **Lo primero que ve el tutor** es qué está publicado y qué no, con una barra y,
+  debajo, el reparto **por tema**, donde cada botón («Explicaciones», «Sin
+  publicar») abre «Revisar» ya puesto en ese tema y bloque.
 - **«Revisar» tiene dos opciones, no tres modos:** el bloque y el tema. Una sola
   cola (pendientes + banco sin revisar) por id. Los avisos de la ley, las dudas
   de la IA y los cambios propuestos salen dentro de la pregunta, que bloquea

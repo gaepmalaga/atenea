@@ -125,8 +125,10 @@ scripts/          operación (siembra, limpieza, cuentas), esquema, marca, nube
   73). El test tiene dos modos: entrenamiento sin nota, simulacro sin adaptar
   (59).
 - **El tutor revisa por bloque (139):** `question_bank.fuente` = `academia`
-  (enunciado y respuesta son de la academia: se revisa la explicación) o `ia`
-  (se revisa entera). Lo que un tutor escribe a mano entra como `academia`.
+  (enunciado y respuesta son de la academia: YA PUBLICADA, se revisa la
+  explicación) o `ia` (sin publicar hasta que un tutor la revise entera). Lo que
+  un tutor escribe a mano entra como `academia`. Lo que se sirve al alumno con
+  «solo revisadas» es `FILTRO_SERVIBLE_REVISADO` (`app/lib/questions.ts`).
 - **Los tutores tienen la última palabra (138).** Nunca se edita una pregunta
   directamente, ni con SQL: se PROPONE (`question_proposals`, con `source` y
   `reason`) y la aprueba un tutor en «Revisión». Lo que genera la IA entra
@@ -276,7 +278,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 136 | Las preguntas del temario propio se redactan una a una, se comprueban antes de subir (explicación de verdad, sin sesgo de longitud, sin repetir el banco, sin datos con fecha) y entran pendientes |
 | 137 | La ley cambia sola: un vigilante compara cada pregunta con el BOE y la UE (lunes y jueves) y deja el aviso en «Revisión»; no toca la pregunta |
 | 138 | La última palabra es de los tutores: nada cambia una pregunta sin ellos (Claude, la IA y los procesos PROPONEN), cada pregunta lleva «revisada por», y «Revisión» les cuenta todo |
-| 139 | El tutor revisa lo que le toca: de la academia, la explicación; de la IA, todo. Ve cuántas ven ya los alumnos y cuántas le faltan (por bloque y por tema), con pocas opciones |
+| 139 | El tutor revisa lo que le toca: de la academia (publicadas), la explicación; de la IA (sin publicar hasta revisarlas), todo. Ve qué está publicado, con qué pendiente y qué sin publicar, por tema |
 | 140 | Si una sugerencia choca con una regla, se pregunta al dueño: ni se hace sin preguntar ni se descarta en silencio |
 
 ## Trampas conocidas

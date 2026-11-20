@@ -118,11 +118,13 @@ describe('lo que se sirve al alumno', () => {
   const evolucion = sinComentarios(leer('app/actions/evolucion.ts'));
   const servir = sinComentarios(leer('app/lib/servir.ts'));
 
-  it('si la academia lo pide, solo preguntas revisadas: en el test, el entrenamiento, el simulacro y el recuento', () => {
+  it('si la academia lo pide, solo preguntas revisadas o de la academia (regla 139): en el test, el entrenamiento, el simulacro y el recuento', () => {
     for (const [src, fn] of [[exams, 'bancoLigero'], [exams, 'getQuestionsFromBank'], [evolucion, 'getMiEvolucion']] as const) {
       const c = cuerpoDe(src, fn) || src;
       expect(c, fn).toMatch(/exigeRevision\(/);
-      expect(c, fn).toMatch(/\.not\('reviewed_at', 'is', null\)/);
+      // Revisadas O de la academia: filtrar solo por «revisada» dejaría fuera las 725 publicadas.
+      expect(c, fn).toMatch(/\.or\(FILTRO_SERVIBLE_REVISADO\)/);
+      expect(c, fn).not.toMatch(/\.not\('reviewed_at', 'is', null\)/);
     }
   });
 

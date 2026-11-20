@@ -50,14 +50,14 @@ export default function AdminRevision() {
   const b = bandeja;
   return (
     <div className="space-y-5 pb-24">
-      <PanelTitulo titulo="Revisión" sub="Todo lo que espera a un tutor. Nada llega a los alumnos sin vuestro visto bueno." />
+      <PanelTitulo titulo="Revisión" sub="Lo que ya ven los alumnos y lo que falta por revisar." />
       <Pestanas
         etiqueta="Qué revisar"
         activa={LISTAS_APARTE.includes(seccion) ? 'resumen' : seccion}
         onCambia={(s) => { if (s === 'revisar') setFoco({ subjectId: null, fuente: null }); setSeccion(s); }}
         items={[
           { id: 'resumen', etiqueta: 'Resumen' },
-          { id: 'revisar', etiqueta: 'Revisar', cuenta: b ? b.resumen.porRevisar.academia + b.resumen.porRevisar.ia : undefined },
+          { id: 'revisar', etiqueta: 'Revisar', cuenta: b ? b.resumen.publicadasPendientes + b.resumen.sinPublicar : undefined },
           { id: 'quejas', etiqueta: 'Quejas de alumnos', cuenta: b?.quejas },
         ]}
       />
@@ -84,15 +84,15 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
   }
   const b = bandeja;
   const r = b.resumen;
-  const faltan = r.porRevisar.academia + r.porRevisar.ia;
-  const totalBanco = b.revisadas + b.sinRevisar;
-  const porcentaje = totalBanco ? Math.round((b.revisadas / totalBanco) * 100) : null;
+  const faltan = r.publicadasPendientes + r.sinPublicar;
+  const totalBanco = r.revisadas + faltan;
+  const porcentaje = totalBanco ? Math.round((r.revisadas / totalBanco) * 100) : null;
 
   async function alternaSoloRevisadas() {
     const activar = !b.soloRevisadas;
     const aviso = activar
-      ? `Los alumnos solo recibirán las ${b.revisadas} preguntas que ha revisado un tutor. Las ${b.sinRevisar} sin revisar dejan de servirse hasta que alguien las revise. ¿Activar?`
-      : `Los alumnos volverán a recibir también las ${b.sinRevisar} preguntas que ningún tutor ha revisado. ¿Desactivar?`;
+      ? 'Los alumnos solo recibirán las preguntas revisadas por un tutor y las de la academia. Las escritas por la IA dejan de servirse hasta que un tutor las revise. ¿Activar?'
+      : `Los alumnos volverán a recibir también las ${b.resumen.porRevisar.ia} escritas por la IA que ningún tutor ha revisado. ¿Desactivar?`;
     if (!(await confirmar(aviso))) return;
     setGuardando(true);
     const r = await setSoloRevisadas(activar);
@@ -105,25 +105,29 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
     <div className="space-y-5">
       <Hoja pad="md" className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className="font-titulo text-4xl font-black leading-none text-slate-900 dark:text-white">{r.alumnosVen.toLocaleString('es-ES')}</p>
-            <p className="mt-1.5 font-semibold text-slate-900 dark:text-white">Ya las ven los alumnos</p>
-            <p className={TEXT.muted}>{b.soloRevisadas ? 'Las que ha revisado un tutor.' : 'Todas las del banco: nadie las ha revisado aún.'}</p>
-          </div>
-          <div>
-            <p className="font-titulo text-4xl font-black leading-none text-slate-900 dark:text-white">{faltan.toLocaleString('es-ES')}</p>
-            <p className="mt-1.5 font-semibold text-slate-900 dark:text-white">Te faltan por revisar</p>
+          <div className="space-y-1.5 rounded-xl border border-emerald-600/30 bg-emerald-50 p-4 dark:bg-emerald-500/10">
+            <p className="font-titulo text-4xl font-black leading-none text-slate-900 dark:text-white">{r.publicadas.toLocaleString('es-ES')}</p>
+            <p className="font-semibold text-slate-900 dark:text-white">Publicadas · los alumnos ya las ven</p>
             <p className={TEXT.muted}>
-              <b>{r.porRevisar.academia.toLocaleString('es-ES')}</b> de la academia ({QUE_SE_REVISA.academia.que.toLowerCase()}) · <b>{r.porRevisar.ia.toLocaleString('es-ES')}</b> escritas por la IA ({QUE_SE_REVISA.ia.que.toLowerCase()}).
+              <b>{r.revisadas.toLocaleString('es-ES')}</b> revisadas del todo
+              {r.publicadasPendientes > 0 && <> · <b>{r.publicadasPendientes.toLocaleString('es-ES')}</b> con la explicación pendiente de revisar (son de la academia: el tutor solo revisa su explicación)</>}.
             </p>
           </div>
+          <div className="space-y-1.5 rounded-xl border border-amber-600/30 bg-amber-50 p-4 dark:bg-amber-500/10">
+            <p className="font-titulo text-4xl font-black leading-none text-slate-900 dark:text-white">{r.sinPublicar.toLocaleString('es-ES')}</p>
+            <p className="font-semibold text-slate-900 dark:text-white">Sin publicar · los alumnos aún no las ven</p>
+            <p className={TEXT.muted}>Las escribió la IA. Se publican cuando un tutor las revisa enteras.</p>
+          </div>
         </div>
+        <p className="text-sm text-slate-900 dark:text-slate-100">
+          <b>Te falta revisar {faltan.toLocaleString('es-ES')}:</b> {r.publicadasPendientes.toLocaleString('es-ES')} explicaciones de preguntas ya publicadas y {r.sinPublicar.toLocaleString('es-ES')} preguntas sin publicar.
+        </p>
         {porcentaje !== null && (
           <div>
             <div className="h-2 overflow-hidden rounded-full bg-hundido dark:bg-noche-hondo" role="progressbar" aria-valuenow={porcentaje} aria-valuemin={0} aria-valuemax={100} aria-label="Preguntas revisadas">
               <div className="h-full bg-emerald-600" style={{ width: `${porcentaje}%` }} />
             </div>
-            <p className={`${TEXT.muted} mt-1.5`}>{b.revisadas.toLocaleString('es-ES')} de {totalBanco.toLocaleString('es-ES')} preguntas del banco revisadas ({porcentaje} %).</p>
+            <p className={`${TEXT.muted} mt-1.5`}>{r.revisadas.toLocaleString('es-ES')} de {totalBanco.toLocaleString('es-ES')} revisadas del todo ({porcentaje} %).</p>
           </div>
         )}
         {faltan > 0 && <Boton icon={<ClipboardCheck size={15} />} onClick={() => onRevisar({ subjectId: null, fuente: null })}>Seguir revisando</Boton>}
@@ -131,17 +135,21 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
 
       <Hoja pad="md" className="space-y-3">
         <BloqueTitulo>Por tema</BloqueTitulo>
-        <p className={TEXT.muted}>Pulsa un número para revisar esas preguntas. <b>Academia</b>: las que envió la academia, solo se revisa su explicación. <b>IA</b>: las que escribió la IA, se revisan enteras.</p>
+        <p className={TEXT.muted}>
+          Pulsa un botón para revisar esas preguntas. <b>Explicaciones</b>: ya publicadas (de la academia), solo falta su explicación. <b>Sin publicar</b>: escritas por la IA; se publican al revisarlas enteras.
+        </p>
         <ol className="divide-y divide-linea dark:divide-noche-linea">
           {r.porTema.map((t) => (
             <li key={t.subjectId} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2.5">
               <div className="min-w-0 flex-1 basis-56">
                 <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">Tema {t.numero}: {t.titulo}</p>
-                <p className="text-[12.5px] text-slate-600 dark:text-slate-400">{t.ven.toLocaleString('es-ES')} las ven los alumnos</p>
+                <p className="text-[12.5px] text-slate-600 dark:text-slate-400">
+                  Publicadas {t.publicadas.toLocaleString('es-ES')} ({t.revisadas.toLocaleString('es-ES')} revisadas del todo) · Sin publicar {t.sinPublicar.toLocaleString('es-ES')}
+                </p>
               </div>
               <div className="flex gap-2">
-                {t.academia > 0 && <Boton size="sm" variant="secondary" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'academia' })} title={QUE_SE_REVISA.academia.que}>Academia · {t.academia}</Boton>}
-                {t.ia > 0 && <Boton size="sm" variant="secondary" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'ia' })} title={QUE_SE_REVISA.ia.que}>IA · {t.ia}</Boton>}
+                {t.academia > 0 && <Boton size="sm" variant="secondary" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'academia' })} title="Ya publicadas: solo falta revisar su explicación">Explicaciones · {t.academia}</Boton>}
+                {t.ia > 0 && <Boton size="sm" variant="secondary" onClick={() => onRevisar({ subjectId: t.subjectId, fuente: 'ia' })} title="Escritas por la IA: se publican al revisarlas enteras">{b.soloRevisadas ? 'Sin publicar' : 'Escritas por la IA'} · {t.ia}</Boton>}
                 {t.academia + t.ia === 0 && <Etiqueta tono="ok">Revisado</Etiqueta>}
               </div>
             </li>
@@ -164,8 +172,8 @@ function Resumen({ bandeja, onIr, onRevisar, onCambio }: { bandeja: BandejaRevis
             <p className="font-semibold text-slate-900 dark:text-white">Los alumnos solo reciben preguntas revisadas</p>
             <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">
               {b.soloRevisadas
-                ? `Activado: se sirven solo las ${b.revisadas} que ha revisado un tutor.`
-                : `Desactivado: se sirven también las ${b.sinRevisar} que nadie ha revisado. Actívalo antes de que entren los alumnos.`}
+                ? 'Activado: los alumnos ven las que ha revisado un tutor y las de la academia (aunque su explicación esté por revisar). Las escritas por la IA no se ven hasta revisarlas.'
+                : `Desactivado: los alumnos ven también las ${r.porRevisar.ia} escritas por la IA que nadie ha revisado. Actívalo antes de que entren los alumnos.`}
             </p>
           </div>
           <Conmutador activo={b.soloRevisadas} etiqueta="Los alumnos solo reciben preguntas revisadas" disabled={guardando} onChange={alternaSoloRevisadas} />
@@ -326,9 +334,9 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <CampoSelect aria-label="De quién son" value={fuente ?? ''} onChange={(e) => setFuente(e.target.value === 'academia' || e.target.value === 'ia' ? e.target.value : null)}>
-          <option value="">Las de la academia y las de la IA</option>
-          <option value="academia">Solo las de la academia (su explicación)</option>
-          <option value="ia">Solo las escritas por la IA (enteras)</option>
+          <option value="">Todas las que faltan por revisar</option>
+          <option value="academia">Ya publicadas: falta su explicación (academia)</option>
+          <option value="ia">Sin publicar: falta revisarlas enteras (IA)</option>
         </CampoSelect>
         <CampoSelect aria-label="Tema" value={tema ?? ''} onChange={(e) => setTema(e.target.value ? Number(e.target.value) : null)}>
           <option value="">Todos los temas</option>
@@ -347,13 +355,15 @@ function Revisor({ inicial, onCambio }: { inicial: Foco; onCambio: () => void })
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex flex-wrap items-center gap-2">
               <Etiqueta tono={p.fuente === 'academia' ? 'oro' : 'neutro'}>{QUE_SE_REVISA[p.fuente].etiqueta}</Etiqueta>
-              <Etiqueta tono={p.status === 'candidate' ? 'aviso' : 'apagado'}>{p.status === 'candidate' ? 'Pendiente de publicar' : 'Ya en el banco'}</Etiqueta>
+              <Etiqueta tono={p.publicada ? 'ok' : 'aviso'}>{p.publicada ? 'Publicada: los alumnos ya la ven' : 'Sin publicar: los alumnos aún no la ven'}</Etiqueta>
               {p.tema !== null && <Etiqueta tono="apagado">Tema {p.tema}</Etiqueta>}
             </span>
             {quedan !== null && <span className="text-[13px] text-slate-600 dark:text-slate-400">Quedan {quedan}</span>}
           </div>
 
-          {p.fuente === 'academia' && <Aviso tono="info"><p>La pregunta y su respuesta son de la academia. Tú solo revisas la <b>explicación</b> y la referencia.</p></Aviso>}
+          {p.fuente === 'academia'
+            ? <Aviso tono="info"><p>Esta pregunta <b>ya está publicada</b>: los alumnos la ven. La pregunta y su respuesta son de la academia; solo falta que revises su <b>explicación</b> y la referencia.</p></Aviso>
+            : <Aviso tono="info"><p>{p.publicada ? 'Los alumnos ya la ven; falta que un tutor la revise entera.' : 'Los alumnos aún no la ven. Al darla por buena, se publica.'}</p></Aviso>}
           <p className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100">{p.question_text}</p>
 
           <ol className="space-y-1.5">
