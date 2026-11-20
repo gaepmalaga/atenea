@@ -4,8 +4,8 @@
 # las versiones de cada artículo) y pregunta a la Oficina de Publicaciones de
 # la UE qué actos modifican los reglamentos y directivas citados. Si un
 # artículo ha cambiado DESPUÉS de escribir la pregunta —o va a cambiar, porque
-# la reforma ya está publicada—, deja un aviso en «Moderación → Requieren
-# atención» con el enlace al artículo, y manda el resumen por correo a los
+# la reforma ya está publicada—, deja un aviso en «Revisión → Cambios en la
+# ley» con el enlace al artículo, y manda el resumen por correo a los
 # admin (si está el secret RESEND_API_KEY).
 #
 # POR QUÉ ES SEGURO QUE ESCRIBA SOLO
