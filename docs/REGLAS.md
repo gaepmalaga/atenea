@@ -5318,3 +5318,28 @@ saliendo del SVG antiguo y puede regenerarse más adelante.
   test, el entrenamiento, el simulacro y los recuentos del alumno solo cuentan
   lo revisado. Si no se puede leer el ajuste, se cierra (se sirve solo lo
   revisado). Se activa antes de que entren los alumnos de verdad.
+- **Fase 2 (20 nov): lo que Claude y la IA proponen sobre el banco.** Todo
+  como propuesta o aviso; ninguna pregunta cambia sola.
+  - **Mejoras de Claude** (`npm run mejoras`, una propuesta por pregunta):
+    quitar «según el texto proporcionado» (el alumno no tiene ningún texto
+    delante) y completar la referencia que no dice la ley («Artículo 34» →
+    «Art. 34 Código Penal»). La ley sale, por este orden, de la referencia,
+    del tema (si solo una de sus normas tiene ese artículo), de la explicación
+    o del texto del BOE (si la pregunta coincide claramente con un artículo).
+    Tres frenos que salieron de mirar el ensayo: una ley DEDUCIDA solo vale si
+    la pregunta se parece al artículo (≥ 30 % de su vocabulario: «Artículo 59»
+    en el tema del Defensor del Pueblo acababa en el Convenio Europeo); un
+    artículo que el texto atribuye a otra ley («el artículo 31.1 del Real
+    Decreto 1065/2007») no se reutiliza; y una referencia que dice
+    «disposición adicional» no acaba en un artículo. Lo que no se sabe con
+    seguridad no se propone: queda para el tutor.
+  - **Repaso contra la ley** (`npm run verificar`): otra IA compara cada
+    pregunta activa sin revisar con el texto VIGENTE del artículo del que sale
+    (el mismo freno de citas) y deja un aviso **«La IA duda»**
+    (`report_type='revision_ia'`) solo en las que no cuadran. El tutor las ve
+    primero («Revisar» → «las que la IA duda, primero») y decide: corregir o
+    «La IA se equivoca». Una pregunta ya avisada no se repasa otra vez.
+  - **El cambio propuesto se decide dentro de la pregunta** en «Revisar»
+    (aceptar / rechazar) y bloquea «Está bien» hasta decidirlo. **Aprobar un
+    cambio no da la pregunta por revisada**: el cambio puede ser solo la
+    referencia, y dar por buena una pregunta es verla entera.

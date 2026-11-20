@@ -783,9 +783,9 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   `supabase/schema.json` se actualizó a mano con lo que devuelve
   `information_schema` (el volcado necesita la clave de servicio).
 - **Estado del banco al empezar:** 0 revisadas de 5.342 activas; 985 pendientes
-  (Tomo I). El interruptor está **desactivado**: activarlo hoy dejaría a los
-  alumnos sin preguntas. Hay que activarlo antes de que entren alumnos reales,
-  y ir revisando tema a tema.
+  (Tomo I). El interruptor se **activó** el 20 nov a petición del dueño: hasta
+  que los tutores revisen, los alumnos no reciben preguntas (el test lo dice
+  en vez de fallar). Se va revisando tema a tema.
 - **La IA ya no publica:** generar desde «Temario & IA» y los guiones de
   siembra dejan las preguntas pendientes.
 - **Visto:** «Revisión» (resumen, revisor, propuestas, ley y quejas) y «Banco
@@ -795,8 +795,37 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - **Novedades cargadas a mano** (20 nov) con lo que pasó antes de existir: el
   lote del Tomo, la dificultad que la IA puso a 725 del banco, las dos
   correcciones directas de Claude y los primeros avisos de la ley.
-- **Lo que queda (fase 2, siempre como propuestas):** 562 enunciados y 146
+- **Lo que quedaba (fase 2, hecha en §2x salvo lo último):** 562 enunciados y 146
   explicaciones con «texto proporcionado»; 1.195 sin referencia legal y 323
   ambiguas; un repaso automático de las 4.617 de la IA contra el texto del BOE
   para que los tutores empiecen por las sospechosas; marcar las 97 del Tomo que
   repiten un hecho.
+
+## 2x · Fase 2: lo que proponen Claude y la IA (20 nov, regla 138)
+
+- **El dueño preguntó** si las 5.342 activas debían pasar a «pendiente». No
+  hace falta cambiarles el estado: el interruptor «Los alumnos solo reciben
+  preguntas revisadas» está **activado** para Alphapol (20 nov), así que
+  ningún alumno ve una pregunta que no haya revisado un tutor, sea del banco
+  global o de Alphapol. Todas están sin revisar: 4.617 globales + 725 de
+  Alphapol activas, y 985 de Alphapol pendientes (Tomo I).
+- **Mejoras de Claude** (`npm run mejoras`, en «Operación»: `mejoras-ensayo`
+  y `mejoras` con PROPONER). Ensayo del 20 nov: 732 preguntas con «texto
+  proporcionado» (722 se arreglan, 10 quedan para el tutor); 4.792 con una
+  referencia que no dice la ley (3.565 se completan, 1.227 no se deducen con
+  seguridad, 158 de ellas descartadas por no parecerse al artículo). Total:
+  **3.796 propuestas**, una por pregunta.
+- **Repaso contra la ley** (`npm run verificar`, en «Operación»:
+  `verificar-ensayo`, `verificar-muestra` y `verificar` con VERIFICAR). 4.202
+  de las 5.342 se pueden repasar contra un artículo seguro del BOE; el resto
+  no tiene un artículo seguro y lo revisa el tutor sin ayuda. Muestra de 30:
+  28 correctas, 1 mal (de verdad: el enunciado contradice el art. 65.2 de la
+  LO 9/2015) y 1 dudosa (la cita no era la buena); 0,012 $. El repaso entero
+  cuesta ≈ 1,7 $ (4 $ por arriba).
+- **«Revisar»:** el cambio propuesto sale dentro de la pregunta con aceptar /
+  rechazar; aceptarlo no la da por revisada.
+- **Hallazgo:** hay preguntas que no son del temario (una sobre el Modelo 347
+  de Hacienda en el tema de violencia de género). No tienen un artículo seguro,
+  así que ni Claude ni la IA las tocan: las encuentra el tutor al revisar, y
+  las descarta.
+
