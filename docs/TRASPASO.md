@@ -618,7 +618,20 @@ pueden entregar nada.
   - **Ranking.** Por turno o por grupo, nunca nacional, y quizá solo con el
     puesto de cada uno y no la lista completa, para no dejar en evidencia a quien
     tiene nota baja. Saldría de los exámenes en clase (regla 118).
-  - **Duelos 1 contra 1** de unas 10 preguntas.
+  - **Duelos 1 contra 1** de unas 10 preguntas. **20 nov: el dueño quiere
+    reconsiderarlos**, esta vez como duelo entre alumnos de la MISMA academia y
+    opcional (como el ranking de la regla 126). Choca con la regla 85 (tono de
+    academia) y la comparativa los daba por «no copiar»: decidir con él antes de
+    construir (regla 140).
+  - **Muerte súbita** (20 nov, idea vista en `sfedev/academia-abierta-cnp`):
+    preguntas de dificultad creciente hasta el primer fallo, con unos pocos
+    blancos permitidos. Habría que encajarla con la regla 59 (el test tiene dos
+    modos y solo dos).
+  - **FSRS en vez de las cajas de Leitner** (20 nov, `open-spaced-repetition/ts-fsrs`,
+    MIT): hoy el intervalo depende solo de la caja (`app/lib/srs.ts`, regla 12).
+    Antes de tocar nada, simular los dos sobre el histórico real de
+    `question_attempts` y ver cuál predice mejor qué se olvida. Cambiaría la
+    regla 12.
   - **Esquemas visuales** por subtema (trabajo de diseño; empezar por un piloto
     de 5-10 de los temas con más peso).
   - **Inglés (B1):** solo si la convocatoria lo exige.
