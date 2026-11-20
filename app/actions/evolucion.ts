@@ -2,6 +2,7 @@
 
 import { resumeDudosas, type ResumenDudosas as ResumenDudosasT } from '../lib/dudosas';
 import { supabaseAdmin } from './core';
+import { exigeRevision } from '../lib/servir';
 import { requireUser } from '../lib/auth';
 import { requireModule } from '../lib/module-guard';
 import { createSupabaseServerClient } from '../lib/supabase/server';
@@ -141,16 +142,21 @@ export async function getMiEvolucion(): Promise<
   // pertenece cada pregunta — mismo patrón que `getMisCajones`.
   // Paginado: PostgREST corta en 1.000 filas y el banco tiene 4.617 (regla 74).
   // Sin esto «Mi evolución» decía «1000 preguntas a tu disposición».
+  // Regla 138: el alumno cuenta las preguntas que de verdad se le pueden servir.
+  const soloRevisadas = await exigeRevision(organizationId);
   const [bancoRes, temasRes] = await Promise.all([
     paginaCompleta<{ id: string; subject_id: number | null }>(
-      (desde, hasta) =>
-        supabaseAdmin
+      (desde, hasta) => {
+        let consulta = supabaseAdmin
           .from('question_bank')
           .select('id, subject_id')
           .eq('status', QUESTION_STATUS.ACTIVE)
           .or(filtroBancoPorAcademia(organizationId))
           .order('id', { ascending: true })
-          .range(desde, hasta) as unknown as Promise<ResultadoPagina<{ id: string; subject_id: number | null }>>,
+          .range(desde, hasta);
+        if (soloRevisadas) consulta = consulta.not('reviewed_at', 'is', null);
+        return consulta as unknown as Promise<ResultadoPagina<{ id: string; subject_id: number | null }>>;
+      },
       { maxFilas: 100_000 },
     ),
     supabaseAdmin.from('subjects').select('id, title'),

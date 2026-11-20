@@ -425,7 +425,8 @@ async function faseGenerar(temas) {
             question_hash: hash,
             difficulty_level: DIFFICULTY_DEFAULT,
             legal_reference: d.legal_reference,
-            status: QUESTION_STATUS.ACTIVE,
+            // Regla 138: lo que escribe la IA entra pendiente; lo publica un tutor.
+            status: QUESTION_STATUS.CANDIDATE,
             origin: QUESTION_ORIGIN.BANK_SEED,
             created_at: new Date().toISOString(),
           },

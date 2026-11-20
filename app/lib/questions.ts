@@ -266,6 +266,9 @@ export type AdminBankRow = ModerationCandidate & {
    * vigente».
    */
   avisosLey?: { id: string; message: string | null }[];
+  /** Quién la revisó y cuándo (regla 138). `null`: ningún tutor la ha dado por buena todavía. */
+  reviewed_at?: string | null;
+  reviewed_by_email?: string | null;
 };
 
 /** Lo que devuelve `getModerationQueue`. */

@@ -25,6 +25,10 @@ export type AccionAuditada =
   | 'save_manual_training_plan'
   | 'resolve_report'
   | 'resolve_vigencia'
+  | 'review_question'
+  | 'approve_proposal'
+  | 'reject_proposal'
+  | 'set_solo_revisadas'
   | 'save_convocatoria'
   | 'save_academy_settings'
   | 'save_staff'
@@ -81,6 +85,10 @@ export const ACCION_LABEL: Record<AccionAuditada, string> = {
   save_manual_training_plan: 'Guardó un plan de entrenamiento',
   resolve_report: 'Resolvió un reporte',
   resolve_vigencia: 'Cerró los avisos de cambio en la ley de una pregunta',
+  review_question: 'Revisó una pregunta y la dio por buena',
+  approve_proposal: 'Aprobó un cambio propuesto a una pregunta',
+  reject_proposal: 'Rechazó un cambio propuesto a una pregunta',
+  set_solo_revisadas: 'Cambió «los alumnos solo reciben preguntas revisadas»',
   save_convocatoria: 'Fijó la fecha de la convocatoria',
   save_academy_settings: 'Editó los datos de la academia',
   save_staff: 'Guardó un profesor',
