@@ -36,7 +36,9 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
    datos reales, y si subes de rol una cuenta de prueba, devuélvela.
 6. **Ramas:** se trabaja en la rama de la sesión; a `main` solo cuando el dueño
    pida desplegar. Nada de identificadores de modelo en commits.
-7. **Al terminar algo:** su regla nueva va al final de `docs/REGLAS.md` (con
+7. **Si algo mejor choca con una regla, pregunta** (regla 140): el dueño decide
+   si la regla se cambia; mientras tanto no se hace ni se descarta en silencio.
+8. **Al terminar algo:** su regla nueva va al final de `docs/REGLAS.md` (con
    número), su línea en la tabla de abajo, y el estado en `docs/TRASPASO.md`.
 
 ## Comandos
@@ -59,6 +61,7 @@ npm run dificultad:medida                  # dificultad MEDIDA con respuestas re
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
 npm run normativa                          # qué preguntas citan artículos cambiados en el BOE o la UE (regla 137; `-- --hazlo` deja los avisos; vía «Operación»)
 npm run mejoras                            # qué mejoras del banco propondría Claude: «texto proporcionado» y referencias (regla 138; `-- --hazlo` deja PROPUESTAS; vía «Operación»)
+npm run ambito                             # la IA compara cada pregunta con el programa oficial de su tema y avisa de las que no encajan (regla 139; `-- --muestra=60`, `-- --solo=idcorto`, `-- --hazlo`; de pago, vía «Operación»)
 npm run verificar                          # la IA repasa cada pregunta contra el texto vigente del BOE (regla 138; `-- --muestra=30`, `-- --hazlo` deja «La IA duda»; de pago, vía «Operación»)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
@@ -121,6 +124,9 @@ scripts/          operación (siembra, limpieza, cuentas), esquema, marca, nube
 - **El motor adaptativo** deduce del comportamiento y no pregunta (55, 56, 60,
   73). El test tiene dos modos: entrenamiento sin nota, simulacro sin adaptar
   (59).
+- **El tutor revisa por bloque (139):** `question_bank.fuente` = `academia`
+  (enunciado y respuesta son de la academia: se revisa la explicación) o `ia`
+  (se revisa entera). Lo que un tutor escribe a mano entra como `academia`.
 - **Los tutores tienen la última palabra (138).** Nunca se edita una pregunta
   directamente, ni con SQL: se PROPONE (`question_proposals`, con `source` y
   `reason`) y la aprueba un tutor en «Revisión». Lo que genera la IA entra
@@ -270,6 +276,8 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 136 | Las preguntas del temario propio se redactan una a una, se comprueban antes de subir (explicación de verdad, sin sesgo de longitud, sin repetir el banco, sin datos con fecha) y entran pendientes |
 | 137 | La ley cambia sola: un vigilante compara cada pregunta con el BOE y la UE (lunes y jueves) y deja el aviso en «Revisión»; no toca la pregunta |
 | 138 | La última palabra es de los tutores: nada cambia una pregunta sin ellos (Claude, la IA y los procesos PROPONEN), cada pregunta lleva «revisada por», y «Revisión» les cuenta todo |
+| 139 | El tutor revisa lo que le toca: de la academia, la explicación; de la IA, todo. Ve cuántas ven ya los alumnos y cuántas le faltan (por bloque y por tema), con pocas opciones |
+| 140 | Si una sugerencia choca con una regla, se pregunta al dueño: ni se hace sin preguntar ni se descarta en silencio |
 
 ## Trampas conocidas
 

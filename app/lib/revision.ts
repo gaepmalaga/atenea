@@ -179,3 +179,67 @@ export function juntaNovedades(
   }
   return [...deSistema, ...deTutores].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, max);
 }
+
+// ---------------------------------------------------------------------------
+// El resumen del tutor: qué ven ya los alumnos y qué falta por revisar (regla 139)
+// ---------------------------------------------------------------------------
+
+/**
+ * De dónde viene una pregunta, que decide QUÉ se revisa de ella:
+ * - `academia`: la envió la propia academia (enunciado y respuesta son suyos);
+ *   nosotros añadimos la retroalimentación. El tutor revisa la explicación.
+ * - `ia`: la escribió una IA (Gemini el banco global, Claude las del Tomo I).
+ *   El tutor la revisa entera.
+ */
+export const FUENTE_PREGUNTA = { ACADEMIA: 'academia', IA: 'ia' } as const;
+export type FuentePregunta = (typeof FUENTE_PREGUNTA)[keyof typeof FUENTE_PREGUNTA];
+
+export function esFuente(v: unknown): v is FuentePregunta {
+  return v === FUENTE_PREGUNTA.ACADEMIA || v === FUENTE_PREGUNTA.IA;
+}
+
+/** Qué mira el tutor en cada bloque: lo que dice la pantalla bajo el número. */
+export const QUE_SE_REVISA: Record<FuentePregunta, { etiqueta: string; corta: string; que: string; boton: string }> = {
+  academia: { etiqueta: 'De la academia', corta: 'Academia', que: 'Solo la explicación', boton: 'La explicación está bien' },
+  ia: { etiqueta: 'Escrita por la IA', corta: 'IA', que: 'La pregunta entera', boton: 'Está bien: revisada' },
+};
+
+export type FilaParaResumen = { subject_id: number | null; fuente: string | null; status: string; reviewed_at: string | null };
+export type TemaDelResumen = { subjectId: number; numero: number; titulo: string };
+export type FilaDeTema = TemaDelResumen & {
+  /** Las que ya reciben los alumnos. */
+  ven: number;
+  /** Por revisar, de la academia (solo su explicación). */
+  academia: number;
+  /** Por revisar, escritas por la IA (enteras). */
+  ia: number;
+};
+export type ResumenDeRevision = {
+  alumnosVen: number;
+  porRevisar: { academia: number; ia: number };
+  porTema: FilaDeTema[];
+};
+
+/**
+ * Cuántas preguntas ven ya los alumnos y cuántas faltan por revisar, en total y
+ * por tema. «Ven» es lo que sirve el test: con «solo revisadas» activado, las
+ * activas revisadas; si no, todas las activas. «Por revisar» es todo lo que
+ * está en el banco o pendiente y ningún tutor ha leído.
+ */
+export function resumenDeRevision(filas: readonly FilaParaResumen[], temas: readonly TemaDelResumen[], soloRevisadas: boolean): ResumenDeRevision {
+  const porSubject = new Map<number, FilaDeTema>(temas.map((t) => [t.subjectId, { ...t, ven: 0, academia: 0, ia: 0 }]));
+  const total = { academia: 0, ia: 0 };
+  let alumnosVen = 0;
+  for (const f of filas) {
+    const fila = f.subject_id !== null ? porSubject.get(f.subject_id) : undefined;
+    const sinRevisar = f.reviewed_at === null && (f.status === 'active' || f.status === 'candidate');
+    if (f.status === 'active' && (!soloRevisadas || f.reviewed_at !== null)) { alumnosVen++; if (fila) fila.ven++; }
+    if (sinRevisar) {
+      const bloque: FuentePregunta = f.fuente === FUENTE_PREGUNTA.ACADEMIA ? 'academia' : 'ia';
+      total[bloque]++;
+      if (fila) fila[bloque]++;
+    }
+  }
+  const porTema = [...porSubject.values()].filter((t) => t.ven + t.academia + t.ia > 0).sort((a, b) => a.numero - b.numero);
+  return { alumnosVen, porRevisar: total, porTema };
+}
