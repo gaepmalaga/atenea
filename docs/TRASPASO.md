@@ -87,6 +87,10 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    las 725 de la academia: su explicación), las 118 «Cambios en la ley», las 228
    citas ambiguas, señalar las repetidas con las familias y la dificultad medida
    cuando los alumnos contesten.
+2d. **Alta manual con referencia legal (20 nov, regla 146).** El formulario «Nueva
+   pregunta» tiene el campo opcional «Referencia legal» y avisa si la explicación
+   numera las opciones; el CSV admite la columna `referencia` (la plantilla la trae).
+   Antes toda pregunta manual nacía sin referencia y el vigilante de la ley no la veía.
 3. **Preguntas que no son del temario — HECHO el repaso, falta lanzarlo
    entero.** `npm run ambito` (`app/lib/ambito-tema.ts`,
    `scripts/operacion/ambito-preguntas.mjs`; acciones de «Operación»

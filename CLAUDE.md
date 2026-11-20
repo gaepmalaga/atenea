@@ -288,6 +288,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 143 | Un panel que se abre encima mide el ancho de la pantalla: su columna es `minmax(0,1fr)`, nunca `auto` |
 | 144 | Cambiar una pregunta de tema lo decide un tutor (botón «Cambiar de tema»), no la da por revisada y cierra el aviso de «otro tema» |
 | 145 | Los temas sin ley se comprueban contra sus apuntes (IA, solo avisa) y se publican si no hay señal de error |
+| 146 | La pregunta escrita a mano lleva su referencia legal (formulario y columna del CSV) y su explicación nombra las opciones por letra |
 
 ## Trampas conocidas
 

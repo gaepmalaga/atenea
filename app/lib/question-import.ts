@@ -40,7 +40,25 @@ export type ManualQuestion = {
   subjectId?: number;
   /** El texto de la celda `tema` tal cual, para pintarlo en la vista previa. */
   temaRaw?: string;
+  /**
+   * La ley y el artículo en que se apoya («Art. 68.1 CE»). OPCIONAL: hay temas
+   * sin legislación. Sin ella, el vigilante de la ley y el repaso contra el BOE
+   * no tienen a qué comparar la pregunta (regla 146).
+   */
+  legalReference?: string;
 };
+
+/** Longitud máxima de una referencia legal. Una más larga no es una referencia: se rechaza, no se recorta. */
+export const MAX_REFERENCIA = 200;
+
+/** La referencia limpia (espacios colapsados), `null` si está vacía y `undefined` si no cabe. */
+export function limpiaReferencia(valor: unknown): string | null | undefined {
+  if (valor == null) return null;
+  if (typeof valor !== 'string') return undefined;
+  const v = valor.replace(/\s+/g, ' ').trim();
+  if (!v) return null;
+  return v.length > MAX_REFERENCIA ? undefined : v;
+}
 
 /** Tema del temario, lo mínimo para resolver la columna `tema` de un CSV. */
 export type TemaResoluble = { id: number; number: number; title: string };
@@ -160,6 +178,8 @@ const ALIAS = {
   // OPCIONAL. Si la trae, cada fila puede ir a un tema distinto; si no, todas
   // van al tema elegido en el desplegable.
   tema: ['tema', 'topic', 'asignatura', 'materia', 'numero de tema', 'n tema'],
+  // OPCIONAL. La ley y el artículo en que se apoya la pregunta.
+  referencia: ['referencia', 'referencia legal', 'ley', 'fuente legal', 'legal reference', 'reference'],
 };
 
 /** Nombres admitidos para la opcion numero `i`: A, B, C… */
@@ -247,13 +267,13 @@ export function resuelveTema(valor: string, temas: TemaResoluble[]): number | nu
 /**
  * La plantilla que descarga la interfaz. Cabecera y una fila de ejemplo.
  *
- * La columna `tema` es OPCIONAL y va la última: si se rellena, esa fila entra en
+ * Las columnas `tema` y `referencia` son OPCIONALES y van al final. `tema`: si se rellena, esa fila entra en
  * ese tema en vez de en el del desplegable. Admite el número ("5", "Tema 5") o
  * el título. Se deja vacía en el ejemplo — sin ella, todas van al tema elegido.
  */
 export const CSV_PLANTILLA = [
-  'enunciado;A;B;C;correcta;explicacion;dificultad;tema',
-  '"¿Cuantos Diputados tiene el Congreso como minimo?";300;350;400;A;"Articulo 68.1 CE: entre 300 y 400.";2;',
+  'enunciado;A;B;C;correcta;explicacion;dificultad;tema;referencia',
+  '"¿Cuantos Diputados tiene el Congreso como minimo?";300;350;400;A;"Articulo 68.1 CE: entre 300 y 400.";2;;"Art. 68.1 CE"',
 ].join('\n');
 
 /**
@@ -289,6 +309,7 @@ export function parseQuestionsCsv(texto: string, temas?: TemaResoluble[]): Impor
   const iExplicacion = buscaColumna(cabecera, ALIAS.explanation);
   const iDificultad = buscaColumna(cabecera, ALIAS.difficulty);
   const iTema = buscaColumna(cabecera, ALIAS.tema);
+  const iReferencia = buscaColumna(cabecera, ALIAS.referencia);
 
   const faltan: string[] = [];
   if (iEnunciado < 0) faltan.push('enunciado');
@@ -368,8 +389,17 @@ export function parseQuestionsCsv(texto: string, temas?: TemaResoluble[]): Impor
       subjectId = sid;
     }
 
+    // Columna `referencia` (opcional). Una demasiado larga no es una referencia
+    // y se rechaza la fila en vez de recortarla (un artículo cortado miente).
+    const referencia = iReferencia >= 0 ? limpiaReferencia(fila[iReferencia]) : null;
+    if (referencia === undefined) {
+      rechazadas.push({ fila: numero, motivo: `La referencia legal pasa de ${MAX_REFERENCIA} caracteres: pon solo la ley y el artículo.` });
+      continue;
+    }
+
     preguntas.push({
       ...check.value,
+      ...(referencia ? { legalReference: referencia } : {}),
       difficulty: parseDificultad(iDificultad >= 0 ? fila[iDificultad] : undefined),
       ...(temaRaw ? { temaRaw } : {}),
       ...(subjectId !== undefined ? { subjectId } : {}),

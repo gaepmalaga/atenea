@@ -14,7 +14,7 @@ import {
 import { validateGeneratedQuestion, MIN_EXPLANATION_CHARS } from '../lib/ai-output';
 import { etiquetasQueFaltan, estaCompleta, instantanea, camposCambiados, hayCambios, leeInstantanea, textoFaltan, type CamposEditables } from '../lib/preguntas-edicion';
 import { questionHash } from '../lib/question-hash';
-import { MAX_IMPORT } from '../lib/question-import';
+import { MAX_IMPORT, MAX_REFERENCIA, limpiaReferencia } from '../lib/question-import';
 import { registraAccion } from '../lib/admin-audit';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 import { fallo } from '../lib/fallos';
@@ -621,6 +621,7 @@ type AltaManual = {
   correctIndex: number;
   explanation: string;
   difficulty: number;
+  legalReference?: string | null;
 };
 
 /** Fila lista para `question_bank`, ya validada y con su huella. */
@@ -630,6 +631,7 @@ type FilaNueva = {
   options: string[];
   correct_index: number;
   explanation: string;
+  legal_reference: string | null;
   question_hash: string;
   difficulty_level: number;
   status: string;
@@ -669,6 +671,9 @@ function aFilaNueva(
 
   const d = (entrada ?? {}) as Record<string, unknown>;
   const nivel = toDifficultyLevel(d.difficulty ?? d.difficulty_level);
+  // La referencia legal es opcional, pero si llega tiene que caber: no se recorta (regla 146).
+  const referencia = limpiaReferencia(d.legalReference);
+  if (referencia === undefined) return { ok: false, motivo: `La referencia legal pasa de ${MAX_REFERENCIA} caracteres: pon solo la ley y el artículo.` };
 
   return {
     ok: true,
@@ -680,6 +685,7 @@ function aFilaNueva(
       options: check.value.options,
       correct_index: check.value.correctIndex,
       explanation: check.value.explanation,
+      legal_reference: referencia,
       question_hash: questionHash(subjectId, check.value.question, check.value.correctIndex, organizationId),
       difficulty_level: nivel,
       status: QUESTION_STATUS.ACTIVE,
