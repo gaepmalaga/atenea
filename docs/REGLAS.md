@@ -5448,7 +5448,11 @@ la de 2027 no estaba publicada.
 real: la forma del JSON del sumario es la supuesta (9 días con BOE, 2.287
 disposiciones leídas). Cazó un falso positivo, la oferta de empleo público del
 Tribunal de Cuentas (una Resolución de un organismo): por eso «oferta» exige
-ahora un **Real Decreto**. Si algún día el informe dice «disposiciones leídas: 0»,
+ahora un **Real Decreto**. Con `--desde=20260701` reconoció la convocatoria
+del 10 jul (BOE-A-2026-15055) y las listas de admitidos (13 ago y 16 sep). Esa
+misma pasada enseñó que la clase «otra» se comía las listas («relación de
+personas admitidas») y que los nombramientos de policías alumnos de convocatorias
+anteriores eran ruido: ahora son su propia clase y no avisan. Si algún día el informe dice «disposiciones leídas: 0»,
 la forma del sumario ha cambiado y el flujo falla a propósito.
 
 **Cómo se vigila.** `tests/convocatoria-boe.test.ts`: el reconocimiento (la

@@ -84,6 +84,33 @@ describe('reconocer la oposición', () => {
   });
 });
 
+describe('con los títulos reales del BOE (jul-nov 2026)', () => {
+  const REAL = {
+    convoca: 'Resolución de 7 de julio de 2026, de la Dirección General de la Policía, por la que se convoca oposición libre para cubrir plazas de alumnos/as de la Escuela Nacional de Policía, de la División de Formación y Perfeccionamiento, aspirantes a ingreso en la Escala Básica, categoría de Policía, del Cuerpo Nacional de Policía.',
+    provisional: 'Resolución de 6 de agosto de 2026, de la Dirección General de la Policía, por la que se publica la relación de personas admitidas y excluidas a la oposición libre para cubrir plazas de alumnos/as de la Escuela Nacional de Policía, de la División de Formación y Perfeccionamiento, aspirantes a ingreso en la Escala Básica, categoría de Policía, del Cuerpo Nacional de Policía, convocada por Resolución de 7 de julio de 2026.',
+    definitiva: 'Resolución de 11 de septiembre de 2026, de la Dirección General de la Policía, por la que se publica la relación definitiva de personas admitidas y excluidas a la oposición libre para cubrir plazas de alumnos/as de la Escuela Nacional de Policía, de la División de Formación y Perfeccionamiento, aspirantes a ingreso en la Escala Básica, categoría de Policía, del Cuerpo Nacional de Policía, convocada por Resolución de 7 de julio de 2026.',
+    alumnos: 'Resolución de 7 de julio de 2026, de la Dirección General de la Policía, por la que se nombran policías alumnos y alumnas y se emplaza para realizar la fase de formación, a las personas aprobadas en la fase de oposición para ingreso en la Escala Básica, categoría de Policía, de la Policía Nacional, convocada por Resolución de 31 de julio de 2025.',
+    funcionario: 'Resolución de 22 de julio de 2026, de la Secretaría de Estado de Seguridad, por la que se nombra personal funcionario de carrera de la Policía Nacional, Escala Básica, categoría de Policía, a los Policías Alumnos, que han superado el proceso selectivo establecido reglamentariamente.',
+  };
+
+  it('reconoce la convocatoria y las dos listas de admitidos', () => {
+    expect(claseDelTitulo(REAL.convoca)).toBe('convocatoria');
+    expect(claseDelTitulo(REAL.provisional)).toBe('admitidos');
+    expect(claseDelTitulo(REAL.definitiva)).toBe('admitidos');
+  });
+
+  it('los nombramientos de otras convocatorias no son un hallazgo, aunque digan «proceso selectivo»', () => {
+    expect(claseDelTitulo(REAL.alumnos)).toBe('nombramiento');
+    expect(claseDelTitulo(REAL.funcionario)).toBe('nombramiento');
+    const items = Object.entries(REAL).map(([k, titulo], i) => ({ id: `BOE-A-2026-${100 + i}`, titulo, departamento: null, urlPdf: null, urlHtml: null, k }));
+    expect(halladosEnElDia(items, '20260810').map((h) => h.clase)).toEqual(['convocatoria', 'admitidos', 'admitidos']);
+  });
+
+  it('el tribunal sigue siendo tribunal aunque «se nombre»', () => {
+    expect(claseDelTitulo('por la que se nombra el tribunal calificador de la oposición a la Escala Básica')).toBe('tribunal');
+  });
+});
+
 describe('no repetir el aviso', () => {
   it('la marca del identificador en el detalle basta, y no confunde números parecidos', () => {
     const [h] = halladosEnElDia(itemsDelSumario(SUMARIO), '20260710');

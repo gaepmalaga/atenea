@@ -25,6 +25,7 @@ export type ClaseDeConvocatoria =
   | 'tribunal'
   | 'fecha'
   | 'resultados'
+  | 'nombramiento'
   | 'otra';
 
 export type ItemDelBoe = {
@@ -123,11 +124,19 @@ export function esOfertaDeEmpleoPublico(titulo: string): boolean {
   return t.startsWith('real decreto') && /oferta de empleo publico/.test(t) && /\b20\d{2}\b/.test(t);
 }
 
-/** Qué paso del proceso es, por el título. `otra` si no encaja en ninguno. */
+/**
+ * Qué paso del proceso es, por el título. `otra` si no encaja en ninguno.
+ *
+ * El orden importa y salió de títulos reales del BOE (jul-nov 2026): «relación
+ * de personas admitidas y excluidos» es la lista, «se nombra el tribunal» es el
+ * tribunal, y «se nombra funcionario de carrera / policías alumnos» es un
+ * NOMBRAMIENTO de quien ya terminó otra convocatoria (no es un paso de esta).
+ */
 export function claseDelTitulo(titulo: string): ClaseDeConvocatoria {
   const t = normalizaTitulo(titulo);
-  if (/lista (provisional|definitiva)?\s*de? ?(aspirantes )?admitidos|admitidos y excluidos|relacion (provisional|definitiva) de aspirantes/.test(t)) return 'admitidos';
+  if (/(admitid[oa]s|excluid[oa]s)/.test(t) && /(lista|relacion)/.test(t)) return 'admitidos';
   if (/tribunal/.test(t)) return 'tribunal';
+  if (/\bse nombra(n)?\b/.test(t)) return 'nombramiento';
   if (/(fecha|lugar|hora)[^.]{0,60}(ejercicio|prueba|examen)|comienzo de (los )?ejercicios|calendario de (las )?pruebas/.test(t)) return 'fecha';
   if (/(aprobados|calificaciones|resultado|relacion de aspirantes que (han )?(superado|aprobado))/.test(t)) return 'resultados';
   if (/(se convoca|convocatoria|proceso selectivo|bases)/.test(t)) return 'convocatoria';
@@ -142,7 +151,9 @@ export function halladosEnElDia(items: ItemDelBoe[], dia: string): HalladoDeConv
   const hallados: HalladoDeConvocatoria[] = [];
   for (const item of items) {
     if (esDeEscalaBasicaPolicia(item.titulo)) {
-      hallados.push({ ...item, clase: claseDelTitulo(item.titulo), dia });
+      const clase = claseDelTitulo(item.titulo);
+      // Un nombramiento individual cierra OTRA convocatoria: ruido para quien vigila esta.
+      if (clase !== 'nombramiento') hallados.push({ ...item, clase, dia });
     } else if (esOfertaDeEmpleoPublico(item.titulo)) {
       hallados.push({ ...item, clase: 'oferta', dia });
     }
@@ -157,6 +168,7 @@ const ROTULO: Record<ClaseDeConvocatoria, string> = {
   tribunal: 'Tribunal de la oposición',
   fecha: 'Fecha del ejercicio',
   resultados: 'Resultados de la oposición',
+  nombramiento: 'Nombramiento',
   otra: 'Disposición de la oposición',
 };
 
