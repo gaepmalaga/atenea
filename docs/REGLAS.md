@@ -5348,3 +5348,69 @@ saliendo del SVG antiguo y puede regenerarse más adelante.
     (aceptar / rechazar) y bloquea «Está bien» hasta decidirlo. **Aprobar un
     cambio no da la pregunta por revisada**: el cambio puede ser solo la
     referencia, y dar por buena una pregunta es verla entera.
+
+### 139 · El tutor revisa lo que le toca, y nada más: de la academia, la explicación; de la IA, todo
+
+**Qué pasó (20 nov).** Con 6.326 preguntas por revisar y 0 revisadas, «Revisión»
+tenía seis números, cinco pestañas y tres modos en «Revisar una a una»
+(«Pendientes», «las que la IA duda, primero» y «sin revisar»). Un tutor no sabía
+cuántas ven ya los alumnos, cuántas le faltan ni qué mirar de cada una. Y el
+dueño distinguió dos bloques con trabajo distinto: las preguntas que **envió la
+propia academia** (la batería de los temas 1-4, 725; enunciado y respuesta son
+suyos, y lo que añadimos nosotros es la retroalimentación) y las que **escribió
+una IA** (4.617 de Gemini desde el temario y 985 de Claude desde el Tomo I).
+
+**La regla.**
+
+- **De dónde viene una pregunta se guarda** (`question_bank.fuente`:
+  `academia` | `ia`, por defecto `ia`; guion `docs/sql/fuente-de-la-pregunta.sql`).
+  Lo que un tutor escribe a mano o sube de un examen en papel entra como
+  `academia`. No se reutiliza `origin`: lo lee el test del alumno (regla 39).
+- **Cada bloque tiene su revisión.** De la academia: «Solo la explicación» y
+  la referencia (botón «La explicación está bien»). De la IA: la pregunta
+  entera («Está bien: revisada»). Está en `QUE_SE_REVISA` (`app/lib/revision.ts`).
+- **Lo primero que ve el tutor** son dos números: **cuántas ven ya los
+  alumnos** y **cuántas le faltan** (dividido por bloque), con una barra y,
+  debajo, el reparto **por tema**, donde cada número es un botón que abre
+  «Revisar» ya puesto en ese tema y bloque. La aritmética es
+  `resumenDeRevision` (pura, con test): «ven» sigue el interruptor «solo
+  revisadas».
+- **«Revisar» tiene dos opciones, no tres modos:** el bloque y el tema. Una sola
+  cola (pendientes + banco sin revisar) por id. Los avisos de la ley, las dudas
+  de la IA y los cambios propuestos salen dentro de la pregunta, que bloquea
+  «Está bien» hasta decidirlos. Las listas por tipo de aviso quedan en el
+  resumen («Otras listas»), no como pestañas.
+- **Lo que se puede adelantar, se adelanta.** Antes de que un tutor vea una
+  pregunta, otros procesos ya han puesto lo que han podido: la dificultad, el
+  repaso contra la ley, el repaso «¿es de su tema?» (`npm run ambito`, regla
+  138) y las mejoras propuestas. Siempre como propuesta o aviso, nunca cambiando
+  la pregunta.
+
+**Cómo se vigila.** `tests/revision-resumen.test.ts` (las cuentas) y
+`tests/ambito-tema.test.ts` (el repaso solo avisa). Se vio en pantalla contra la
+BD real el 20 nov.
+
+**Repaso «¿es de su tema?» (`npm run ambito`).** Compara cada pregunta con el
+programa oficial de su tema (`temario/temario.json`, el enunciado de la
+convocatoria) y deja «La IA duda» en las que no encajan («otro tema» o «fuera
+del temario»). Muestra de 60: 59 del tema, 1 de otro (dudosa de verdad: ni el 20
+ni el 21 nombran las medidas de investigación tecnológica); 0,03 $. Casos
+conocidos: caza el Modelo 347 de Hacienda en el tema 23. Todas: ~3 $.
+
+### 140 · Si una sugerencia choca con una regla, se pregunta al dueño; no se hace ni se descarta sin preguntar
+
+**Qué pasó (20 nov).** El dueño pidió: «si tienes alguna sugerencia, aunque
+alguna regla diga lo contrario, pregúntame». Las reglas salieron de fallos
+reales y no se tocan por comodidad, pero tampoco son dogma: a veces la mejor
+solución las contradice, y el dueño es quien decide si una regla se cambia.
+
+**La regla.** Cuando la mejor solución que se ve choca con una regla de este
+documento (o con una decisión anterior del dueño):
+
+1. **No se hace** por su cuenta, ni «solo esta vez».
+2. **Tampoco se descarta en silencio.** Se le pregunta: qué regla, por qué
+   chocaría, qué se ganaría y qué se arriesga, con una recomendación.
+3. Si el dueño dice que sí, **se cambia la regla** (con su número y su porqué)
+   en el mismo cambio; no se queda una excepción sin documentar.
+4. Lo que no choca con ninguna regla se decide sin preguntar (el principio
+   general: solo se pregunta lo que es decisión del dueño).

@@ -1710,6 +1710,16 @@ export async function getBandejaRevision() {
   return ok({
     data: {
       pendientes: 985, sinRevisar: 5342, revisadas: 0, propuestas: 3921, avisosLey: 32, dudasIA: 214, quejas: 2, soloRevisadas: true,
+      resumen: {
+        alumnosVen: 0,
+        porRevisar: { academia: 725, ia: 5602 },
+        porTema: [
+          { subjectId: 1, numero: 1, titulo: 'El Derecho: concepto y acepciones. Norma', ven: 0, academia: 210, ia: 340 },
+          { subjectId: 2, numero: 2, titulo: 'La Constitución Española (I): estructura', ven: 0, academia: 180, ia: 410 },
+          { subjectId: 3, numero: 3, titulo: 'La Constitución Española (II): Corona, Cortes', ven: 12, academia: 95, ia: 380 },
+          { subjectId: 4, numero: 4, titulo: 'La Unión Europea: Instituciones y Derecho', ven: 30, academia: 0, ia: 0 },
+        ],
+      },
       novedades: [
         { fecha: hace(2), titulo: 'El BOE ha cambiado 1 artículo que citan 5 preguntas', detalle: 'Reglamento General de Circulación, art. 69 (en vigor desde el 1/10/2026)', autor: null, tipo: 'vigilancia' },
         { fecha: hace(5), titulo: 'Claude propone 1 cambio', detalle: 'Quitar «según el texto proporcionado» del enunciado', autor: null, tipo: 'propuestas' },
@@ -1721,16 +1731,16 @@ export async function getBandejaRevision() {
   });
 }
 let _revisadas = 0;
-export async function getParaRevisar(input: { modo?: string; despuesDe?: string; incluida?: boolean } = {}) {
-  const lista = [0, 4, 8].map((i) => ({ ...pregunta(i), status: input.modo === 'pendientes' || !input.modo ? 'candidate' : 'active' }));
+export async function getParaRevisar(input: { fuente?: string; despuesDe?: string; incluida?: boolean } = {}) {
+  const lista = [0, 4, 8].map((i) => ({ ...pregunta(i), status: i === 0 ? 'candidate' : 'active' }));
   const idx = input.despuesDe ? lista.findIndex((q) => q.id === input.despuesDe) + (input.incluida ? 0 : 1) : 0;
-  const delBanco = input.modo === 'sin_revisar' || input.modo === 'dudas_ia';
+  const delBanco = true;
   const q = lista[idx];
   if (!q) return ok({ pregunta: null, quedan: 0 });
   return ok({
     quedan: lista.length - idx - _revisadas,
     pregunta: {
-      id: q.id, status: q.status, question_text: q.question_text, options: q.options, correct_index: q.correct_index,
+      id: q.id, status: q.status, fuente: input.fuente === 'ia' ? 'ia' : idx === 1 ? 'academia' : 'ia', question_text: q.question_text, options: q.options, correct_index: q.correct_index,
       explanation: q.explanation, legal_reference: idx === 0 ? 'Art. 126 RD 1155/2024' : q.legal_reference, difficulty_level: q.difficulty_level,
       difficulty_source: q.difficulty_source, tema: 10, temaTitulo: 'Extranjería',
       avisosLey: idx === 0 ? [{ id: 'av1', message: 'RD 1155/2024, art. 126: nueva redacción que entra en vigor el 22/9/2026 (lo cambia BOE-A-2026-15111), posterior a la pregunta. Comprueba que la pregunta y su explicación siguen valiendo. https://www.boe.es/buscar/act.php?id=BOE-A-2024-24099#a126' }] : [],

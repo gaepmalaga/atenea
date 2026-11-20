@@ -21,7 +21,7 @@ import { fallo } from '../lib/fallos';
 import { filtroEscrituraBanco, puedeEditarBanco, UNA_SOLA_ACADEMIA } from '../lib/permisos-banco';
 import { TIPO_REPORTE_VIGENCIA } from '../lib/normativa';
 import { TIPO_REPORTE_REVISION_IA } from '../lib/verificacion';
-import { leeValores, propuestaVigente, cambiaAlgo, cambiosLegibles, type ValoresPregunta, type CambioLegible } from '../lib/revision';
+import { FUENTE_PREGUNTA, leeValores, propuestaVigente, cambiaAlgo, cambiosLegibles, type ValoresPregunta, type CambioLegible } from '../lib/revision';
 
 /**
  * La marca de «revisada por un tutor» (regla 138): quién y cuándo. Se pone al
@@ -581,6 +581,7 @@ type FilaNueva = {
   difficulty_level: number;
   status: string;
   origin: string;
+  fuente: string;
   created_at: string;
   organization_id: string | null;
 };
@@ -630,6 +631,8 @@ function aFilaNueva(
       difficulty_level: nivel,
       status: QUESTION_STATUS.ACTIVE,
       origin: QUESTION_ORIGIN.MANUAL,
+      // La escribe un tutor a mano: es de la academia (regla 139).
+      fuente: FUENTE_PREGUNTA.ACADEMIA,
       created_at: new Date().toISOString(),
       organization_id: organizationId,
     },
@@ -867,6 +870,8 @@ export async function crearPreguntaDeExamen(input: unknown): Promise<
             difficulty_source: null,
             status: QUESTION_STATUS.CANDIDATE,
             origin: QUESTION_ORIGIN.MANUAL,
+            // Viene de un examen en papel de la academia (regla 139).
+            fuente: FUENTE_PREGUNTA.ACADEMIA,
             created_at: new Date().toISOString(),
             organization_id: org,
         }, { onConflict: 'question_hash', ignoreDuplicates: true })
