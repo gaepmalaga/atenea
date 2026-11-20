@@ -1781,4 +1781,5 @@ export async function getPropuestas() {
   });
 }
 export async function aprobarPropuesta() { return ok({}); }
+export async function aprobarCambiosMecanicos() { return ok({ aprobadas: 3, saltadas: 0, ultimo: null, fin: true }); }
 export async function rechazarPropuesta() { return ok({}); }

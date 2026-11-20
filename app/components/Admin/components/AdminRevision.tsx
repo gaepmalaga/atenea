@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, Loader2, Pencil, Save, Scale, SkipForward, Trash2, ExternalLink, ClipboardCheck, XCircle } from 'lucide-react';
 import {
-  getBandejaRevision, getParaRevisar, setSoloRevisadas, getPropuestas, aprobarPropuesta, rechazarPropuesta,
+  getBandejaRevision, getParaRevisar, setSoloRevisadas, getPropuestas, aprobarPropuesta, aprobarCambiosMecanicos, rechazarPropuesta,
   marcarRevisada, approveQuestion, disableQuestion, updateQuestion, resolverAvisosLey, getOfficialSyllabus, resolveReport,
 } from '@/actions';
 import type { BandejaRevision, PreguntaParaRevisar } from '@/app/actions/revision';
@@ -483,6 +483,7 @@ function Propuestas({ onCambio, total }: { onCambio: () => void; total: number }
   const [lista, setLista] = useState<PropuestaParaRevisar[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
+  const [enBloque, setEnBloque] = useState<{ aprobadas: number; saltadas: number } | null>(null);
 
   const carga = useCallback(async () => {
     const r = await getPropuestas();
@@ -495,6 +496,25 @@ function Propuestas({ onCambio, total }: { onCambio: () => void; total: number }
     const r = await aprobarPropuesta(id);
     setTrabajando(null);
     if (!r.success) void avisar(r.error ?? 'No se pudo aplicar.');
+    await carga();
+    onCambio();
+  }
+  /** Acepta en bloque los cambios mecánicos de Claude, de 50 en 50, hasta que no queden. Lo decide el tutor (regla 138). */
+  async function aceptaMecanicos() {
+    if (!(await confirmar(`Vas a aceptar en bloque los cambios mecánicos de Claude (hasta ${total.toLocaleString('es-ES')}): quitar «según el texto proporcionado», completar la referencia legal y cambiar «la opción 1» por «la B» en las explicaciones. Cada uno se comprueba antes de aplicarlo y queda en el historial. No da ninguna pregunta por revisada. ¿Seguir?`))) return;
+    let acum = { aprobadas: 0, saltadas: 0 };
+    let despuesDe: string | undefined;
+    setEnBloque(acum);
+    for (;;) {
+      const r = await aprobarCambiosMecanicos({ despuesDe });
+      if (!r.success) { void avisar(r.error); break; }
+      acum = { aprobadas: acum.aprobadas + r.aprobadas, saltadas: acum.saltadas + r.saltadas };
+      setEnBloque(acum);
+      if (r.fin || !r.ultimo) break;
+      despuesDe = r.ultimo;
+    }
+    setEnBloque(null);
+    void avisar(`Aceptados ${acum.aprobadas.toLocaleString('es-ES')} cambios.${acum.saltadas ? ` ${acum.saltadas.toLocaleString('es-ES')} se dejaron para decidir a mano (ya no valían o no eran mecánicos).` : ''}`);
     await carga();
     onCambio();
   }
@@ -515,6 +535,15 @@ function Propuestas({ onCambio, total }: { onCambio: () => void; total: number }
 
   return (
     <div className="space-y-4">
+    <Hoja pad="md" className="flex flex-wrap items-center justify-between gap-3">
+      <p className="min-w-0 flex-1 basis-72 text-sm text-slate-900 dark:text-slate-100">
+        <b>Cambios mecánicos de Claude:</b> quitar «según el texto proporcionado», completar la referencia legal y cambiar «la opción 1» por «la B». Puedes aceptarlos todos de una vez.
+        {enBloque && <span className="block text-[13px] text-slate-600 dark:text-slate-400">Aceptando… {enBloque.aprobadas.toLocaleString('es-ES')} hechos{enBloque.saltadas ? `, ${enBloque.saltadas.toLocaleString('es-ES')} saltados` : ''}.</span>}
+      </p>
+      <Boton variant="secondary" disabled={!!enBloque || !!trabajando} onClick={aceptaMecanicos} icon={enBloque ? <Loader2 className="animate-spin" size={15} /> : <CheckCircle2 size={15} />}>
+        {enBloque ? 'Aceptando…' : 'Aceptar todos los mecánicos'}
+      </Boton>
+    </Hoja>
     <Aviso tono="info">
       <p>Aprobar aplica el cambio, pero no da la pregunta por revisada: eso se hace en «Revisar», viéndola entera (allí también aparece su cambio, para decidirlo junto).{total > lista.length ? ` Aquí salen los ${lista.length} más antiguos de ${total.toLocaleString('es-ES')}.` : ''}</p>
     </Aviso>

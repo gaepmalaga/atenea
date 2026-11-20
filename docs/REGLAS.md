@@ -5393,7 +5393,21 @@ una IA** (4.617 de Gemini desde el temario y 985 de Claude desde el Tomo I).
   jurídicos sin referencia puesta) y las que llevan un **defecto conocido que
   dañaría al alumno**: una explicación que numera las opciones («la opción 2»
   se lee como la B, y la IA numeraba desde 0) o un enunciado «según el texto
-  proporcionado». Esas esperan su arreglo mecánico.
+  proporcionado». Esas esperan su arreglo mecánico:
+  - **Numeración de las opciones** (`app/lib/numeracion-opciones.ts`,
+    `scripts/operacion/proponer-numeracion.mjs`): la IA escribía «la opción
+    correcta es la 1» contando desde 0, y el alumno lo lee como la A. Se propone
+    cambiar el número por su letra, solo cuando se puede DEMOSTRAR desde dónde
+    cuenta (una «opción 0», o que la «correcta» coincida con la marcada) y el
+    resultado cuadra; las listas («las opciones 0 y 2») y lo dudoso (176) las mira
+    un tutor. Como solo hay una propuesta pendiente por pregunta, el arreglo se
+    AÑADE a la que ya tenía (referencia o «texto proporcionado»).
+  - **Aceptar en bloque** (`aprobarCambiosMecanicos`, botón «Aceptar todos los
+    mecánicos» en «Cambios propuestos»): lo decide un tutor, con confirmación.
+    De 50 en 50, solo origen Claude y solo enunciado, referencia o explicación;
+    cada uno pasa por `aprobarPropuesta` (historial incluido) y NINGUNO da la
+    pregunta por revisada. Después se vuelve a lanzar `publicar-limpias` y las
+    que quedaron arregladas entran.
 - **El tutor tiene total claridad del punto en que está cada pregunta:**
   **publicada y revisada** (los alumnos la ven y un tutor la revisó),
   **publicada con algo pendiente** (los alumnos la ven; en las de la academia,

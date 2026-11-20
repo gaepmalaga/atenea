@@ -1161,6 +1161,54 @@ export async function aprobarPropuesta(proposalId: string): Promise<ModerationRe
     return { success: true };
 }
 
+/** Los campos que un cambio «mecánico» de Claude puede tocar: el enunciado (quitar «texto proporcionado»), la referencia legal y la explicación (numeración de las opciones). */
+const CAMPOS_MECANICOS = ['question_text', 'legal_reference', 'explanation'] as const;
+
+/**
+ * Acepta EN BLOQUE los cambios mecánicos de Claude (regla 138: lo decide un
+ * tutor, que pulsa el botón y confirma). De 50 en 50, por id, para que el
+ * navegador pueda ir llamando hasta que se acabe sin repetir ninguno.
+ *
+ * Solo entran los de origen `claude` que tocan únicamente el enunciado, la
+ * referencia o la explicación. Cada uno pasa por `aprobarPropuesta`: la misma
+ * comprobación que a mano (que la pregunta siga como cuando se propuso, que
+ * valga como pregunta) y deja su historial y su registro. NO da ninguna
+ * pregunta por revisada.
+ */
+export async function aprobarCambiosMecanicos(input: unknown): Promise<
+    { success: true; aprobadas: number; saltadas: number; ultimo: string | null; fin: boolean } | { success: false; error: string }
+> {
+    const auth = await requireAdmin();
+    if (!auth.ok) return { success: false as const, error: auth.error };
+    const d = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    const despuesDe = typeof d.despuesDe === 'string' && /^[0-9a-f-]{36}$/i.test(d.despuesDe) ? d.despuesDe : null;
+    const TANDA = 50;
+
+    let consulta = supabaseAdmin
+        .from('question_proposals')
+        .select('id, after')
+        .eq('status', 'pending')
+        .eq('source', 'claude')
+        .order('id', { ascending: true })
+        .limit(TANDA);
+    const alcance = alcanceLecturaOrg(auth.user);
+    if (alcance) consulta = consulta.or(alcance);
+    if (despuesDe) consulta = consulta.gt('id', despuesDe);
+    const { data: filas, error } = await consulta;
+    if (error) return { success: false as const, error: fallo('aprobarCambiosMecanicos', error) };
+
+    let aprobadas = 0;
+    let saltadas = 0;
+    for (const f of filas ?? []) {
+        const despues = leeValores(f.after);
+        if (!despues || !Object.keys(despues).every((k) => (CAMPOS_MECANICOS as readonly string[]).includes(k))) { saltadas++; continue; }
+        const r = await aprobarPropuesta(f.id as string);
+        if (r.success) aprobadas++; else saltadas++;
+    }
+    const ultimo = (filas ?? []).length ? ((filas ?? [])[(filas ?? []).length - 1].id as string) : despuesDe;
+    return { success: true as const, aprobadas, saltadas, ultimo, fin: (filas ?? []).length < TANDA };
+}
+
 /** Rechaza un cambio propuesto (regla 138): la pregunta no se toca y queda anotado quién y por qué. */
 export async function rechazarPropuesta(proposalId: string, nota?: unknown): Promise<ModerationResult> {
     const auth = await requireAdmin();
