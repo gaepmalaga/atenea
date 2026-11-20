@@ -1,10 +1,118 @@
-# Traspaso — estado a 11 de noviembre de 2026
+# Traspaso — estado a 20 de noviembre de 2026
 
 Qué hay hecho, qué falta y cómo seguir. Las normas de trabajo están en
 [`CLAUDE.md`](../CLAUDE.md), y el porqué de cada regla en
 [`REGLAS.md`](REGLAS.md). El traspaso anterior (septiembre) está en
 [`TRASPASO-SEPTIEMBRE.md`](TRASPASO-SEPTIEMBRE.md), y la tabla de estado de
 fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
+
+**Una sesión nueva empieza por la §0.** Las secciones 2 a 2x son la historia
+de cada fase, por fecha: se consultan cuando se toca esa parte.
+
+---
+
+## 0 · Empieza aquí (20 nov)
+
+### Dónde estamos, en tres líneas
+
+1. **La plataforma funciona en producción** y Alphapol la va a usar con
+   alumnos de verdad. Lo último (19-20 nov) es la **calidad del banco de
+   preguntas**: vigilancia de la ley (regla 137) y revisión de los tutores
+   (regla 138). Todo desplegado en `main` ([gaepmalaga/atenea#51](https://github.com/gaepmalaga/atenea/pull/51),
+   [#52](https://github.com/gaepmalaga/atenea/pull/52) y [#53](https://github.com/gaepmalaga/atenea/pull/53)).
+2. **La regla de oro del dueño (20 nov):** los tutores (hoy, todas las cuentas
+   admin) tienen la última palabra. **Nada cambia una pregunta sin ellos**, ni
+   Claude, ni la IA, ni un proceso, ni con SQL: se PROPONE
+   (`question_proposals`, con `scripts/operacion/propuestas.mjs → proponer()`)
+   o se AVISA (`question_reports`), y se anota en `novedades`. «Revisión» se lo
+   cuenta todo.
+3. **«Los alumnos solo reciben preguntas revisadas» está ACTIVADO** para
+   Alphapol (`academy_settings.solo_preguntas_revisadas`). Como aún no hay
+   ninguna revisada, **hoy los alumnos no reciben preguntas**: el test lo dice
+   en vez de fallar. Es lo que pidió el dueño.
+
+### La base de datos a 20 nov
+
+| Qué | Cuántas | Dónde lo ve el tutor |
+|---|---|---|
+| Preguntas activas del banco global, sin revisar | 4.617 | «Revisión → Revisar una a una» (del banco) |
+| Preguntas activas de Alphapol, sin revisar | 725 | ídem |
+| Pendientes de Alphapol (Tomo I, regla 136) | 985 | «Revisar una a una» (pendientes de publicar) |
+| Revisadas por un tutor | **0** | |
+| Cambios propuestos por Claude (texto proporcionado y referencias) | 3.796 | dentro de cada pregunta, y en «Cambios propuestos» |
+| Avisos «La IA duda» (repaso contra el BOE) | 199 | «La IA duda» y el modo «las que la IA duda, primero» |
+| Avisos «Cambio en la ley» (vigilante) | 118 | «Cambios en la ley» |
+| Quejas de alumnos | 2 | «Quejas de alumnos» |
+
+### Lo que falta, por orden
+
+**De los tutores (no es código):**
+1. **Revisar.** Por orden: las 199 «La IA duda» (son las que más fallos
+   tienen), luego los temas que vayan antes en clase. Cada pregunta: decidir su
+   cambio propuesto (aceptar / rechazar), resolver sus avisos y «Está bien».
+   Hasta que un tema esté revisado, sus preguntas no llegan a los alumnos.
+
+**De la próxima sesión de código:**
+2. **Probar «Revisión» en producción con una cuenta admin real.** No se ha
+   podido: las contraseñas las tiene el dueño (nunca se cambian ni se
+   escriben). Pedirle que entre con `prueba.admin@alphapol.es` o con la suya y
+   pruebe: aceptar y rechazar un cambio propuesto, «La IA se equivoca», «Sigue
+   vigente», «Está bien: revisada». O que dé la contraseña de prueba en el
+   chat para hacerlo con Playwright contra `scripts/nube/arrancar-local.sh`.
+3. **Preguntas que no son del temario.** Hay al menos una (Modelo 347 de
+   Hacienda, `d882a4e5`, en el tema de violencia de género). Las ~1.140 sin
+   artículo seguro no las ha mirado la IA. Idea: un repaso «¿esto es del
+   temario de este tema?» contra el índice del tema, que deje «La IA duda».
+   Antes, enseñárselo al dueño con una muestra (céntimos).
+4. **Ayudar al ritmo de revisión.** Con 6.327 preguntas y 0 revisadas, quizá
+   haga falta priorizar por el calendario de clases, o marcar en el revisor
+   las que no tienen ningún aviso ni propuesta (las «limpias») para ir rápido.
+   Preguntar al dueño cómo lo quieren organizar los tutores.
+5. **Las pendientes del Tomo que repiten un hecho ya en el banco** (la hoja
+   del dueño marca 68, §2u) y las 26 del Pacto Europeo (ya llevan aviso de la
+   ley): se podrían señalar en el revisor con las familias de la regla 119,
+   para que el tutor descarte la repetida en vez de publicarla.
+6. **228 citas ambiguas** (dos normas del mismo tema tienen ese artículo y la
+   explicación no dice cuál, temas 8, 26, 21, 23, 25 y 5): el vigilante no
+   las cubre. Se podrían proponer con el parecido de texto de
+   `app/lib/propuestas-banco.ts` (`mejorArticulo`), como las referencias.
+
+**Del dueño (§3a):**
+7. Añadir el secret **`RESEND_API_KEY`** en GitHub (Settings → Secrets and
+   variables → Actions, el mismo valor que en Vercel) para que el vigilante
+   mande correo a los admin. Sin él, los avisos llegan igual a «Revisión».
+8. El repositorio es **público**: valorar hacerlo privado (el Tomo y sus
+   lotes nunca se han subido, a propósito).
+9. Planes de pago (Vercel Pro, Supabase Pro con copias), RGPD y piloto (§3a).
+
+### Cómo se trabaja desde la nube (lo que no está en ningún otro sitio)
+
+- **El BOE y EUR-Lex NO se alcanzan desde la sesión** (el dueño no quiso
+  abrir esos hosts; no volver a pedirlo). Todo lo que lee la ley va por
+  GitHub Actions: flujo **«Operación»** (`.github/workflows/operacion.yml`),
+  lanzado con la herramienta de GitHub (`actions_run_trigger`,
+  `workflow_id: operacion.yml`) sobre la **rama de la sesión** (`ref`), con
+  `inputs.accion` y, si escribe, `inputs.confirmacion`. Acciones útiles:
+  `normativa-ensayo`, `mejoras-ensayo`/`mejoras` (PROPONER),
+  `verificar-ensayo`/`verificar-muestra`/`verificar` (VERIFICAR),
+  `verificar-repetir-ensayo`/`verificar-repetir` (VERIFICAR). El informe sale
+  en el log del trabajo (`get_job_logs` con `return_content`).
+- **Gemini** tampoco funciona desde la sesión (su clave solo está en Vercel y
+  en Actions): lo que llama a la IA va por «Operación».
+- **Esperar a una ejecución:** el repositorio es público, así que
+  `curl -s https://api.github.com/repos/gaepmalaga/atenea/actions/runs/ID`
+  dice su `status`; un bucle `until … completed` en segundo plano.
+- **SQL contra la base real:** `scripts/nube/sql.sh "select …"`. Para un
+  guion de Node con la clave de servicio: se pide con
+  `curl -H "Authorization: Bearer proxy-injected" https://api.supabase.com/v1/projects/ecupmlqimmpybbrlrmpx/api-keys`
+  y se ejecuta con `NODE_USE_ENV_PROXY=1`.
+- **Desplegar:** pull request de la rama a `main` con las herramientas de
+  GitHub y fusionarlo cuando la CI pase; Vercel publica solo (su estado sale en
+  `…/commits/SHA/status`). El 20 nov el dueño autorizó desplegar lo necesario
+  para la revisión; en otra tarea, que lo diga.
+- **La vigilancia programada** («Vigilancia de la normativa») corre lunes y
+  jueves a las 05:41 UTC sobre `main` y escribe sola. Un cambio en
+  `app/lib/normativa.ts` llega al vigilante solo cuando está en `main`.
 
 ---
 
@@ -25,7 +133,8 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
     noviembre, regla 98) son de prueba; sus contraseñas las tiene el dueño y
     **no se escriben en el repo**.
   - **1 academia**, `alphapol`.
-  - **El banco:** 4.617 preguntas activas sobre 45 temas y 56 documentos.
+  - **El banco:** 5.342 preguntas activas (4.617 globales + 725 de Alphapol)
+    y 985 pendientes del Tomo I; ninguna revisada aún (§0).
   - **Datos de ejemplo de física:** las 31 sesiones de noviembre son el
     entreno individual de `prueba.entreno` (regla 98). El grupo de ejemplo
     «Promo 43 · Físicas» se retiró.
@@ -53,8 +162,8 @@ fase en fase, en [`HISTORIAL.md`](HISTORIAL.md).
 | Quién | Pestañas / módulos |
 |---|---|
 | **Alumno** | Inicio · Test (entrenamiento adaptativo / simulacro con nota del BOE) · Repasar fallos · Fichas · Preparación física (un calendario con sus clases de grupo —hora, profesor, «sin clase», «no voy»— y sus entrenos; apuntar lo hecho, marcas con baremo, 1RM; los multis eligen con qué grupo van) · Mi evolución · Mi perfil (convocatoria, clases que no son de física y avisos de falta, acceso y pago, cambiar contraseña) |
-| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (crear, cambiar y borrar; días, horas, plazas, profesores, Multi) · Profesores (el equipo, sus grupos, sus clases de física de la semana, el profesor habitual de cada clase y los temas de cada uno con cómo van sus alumnos) · Asistencia · Prep. física (cuadrante semanal con días sin clase y multis; Planificar el entreno de cada alumno, con copiar a varios; plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Moderación · Ajustes · Logs & Auditoría |
-| **Superadmin** | Temario & IA (generar preguntas) · Banco Oficial · Moderación · Consumo IA · Academias |
+| **Admin de la academia** | Alumnos (lista por urgencia, ficha, alta en bloque, solicitudes) · Grupos (crear, cambiar y borrar; días, horas, plazas, profesores, Multi) · Profesores (el equipo, sus grupos, sus clases de física de la semana, el profesor habitual de cada clase y los temas de cada uno con cómo van sus alumnos) · Asistencia · Prep. física (cuadrante semanal con días sin clase y multis; Planificar el entreno de cada alumno, con copiar a varios; plantillas, feedback, marcas) · Pagos (rejilla mensual) · Banco Oficial · Revisión (antes «Moderación», regla 138) · Ajustes · Logs & Auditoría |
+| **Superadmin** | Temario & IA (generar preguntas, entran pendientes) · Banco Oficial · Revisión · Consumo IA · Academias |
 
 El chat («Pregunta al temario») y la entrevista están **fuera del MVP** (regla
 58): el código existe entero y no se ofrecen.
@@ -834,8 +943,10 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - **Dos defectos de la herramienta, arreglados:** los artículos largos
   llegaban cortados a 7.000 caracteres (ahora 24.000) y el lector confundía
   «588 ter d» con «588 ter a» (la letra ya cuenta; quien cita «588 ter» sin
-  letra vigila todos). La segunda vuelta (`npm run verificar -- --repetir`)
-  repasa solo esas 36 y cambia o retira su aviso abierto.
+  letra vigila todos). La segunda vuelta (`npm run verificar -- --repetir`,
+  20 nov, 0,03 $) repasó esas 36: 22 avisos retirados (con el artículo
+  entero cuadran), 5 cambiados y 2 nuevos. **Quedan 199 avisos «La IA duda»
+  abiertos** y 3.796 cambios propuestos para los tutores.
 - **Vigilancia:** un aviso ya dado se reconoce por su huella (enlace, fechas y
   normas), no por el texto: al pasar «Reglamento General de Circulación» a
   «RD 1428/2003», el vigilante del lunes habría duplicado 5 avisos.

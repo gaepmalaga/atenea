@@ -11,7 +11,7 @@ Supabase · Gemini · Tailwind 4 · Vercel · Resend.
 
 | Fichero | Para qué |
 |---|---|
-| [`docs/TRASPASO.md`](docs/TRASPASO.md) | **Empieza aquí.** Qué está hecho, qué falta y cómo probar (BD real, IA, despliegue) |
+| [`docs/TRASPASO.md`](docs/TRASPASO.md) | **Empieza aquí, por su §0:** el estado de hoy, lo que falta por orden y cómo se trabaja desde la nube |
 | [`docs/REGLAS.md`](docs/REGLAS.md) | El porqué de cada regla de la tabla de abajo. **No lo leas entero:** busca `### N ·` de la zona que toques |
 | `supabase/schema.json` | El esquema REAL. Míralo antes de tocar cualquier tabla |
 | [`docs/PLAN-PRODUCTO.md`](docs/PLAN-PRODUCTO.md) | El plan de producto (P1-P15). Casi todo hecho; consultar antes de abrir una fase |
@@ -282,6 +282,10 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 - Los guiones de `docs/sql/` antiguos se escribieron deduciendo el esquema:
   contrasta uno nuevo con `supabase/schema.json`.
 - En una sesión en la nube, Node no pasa por el proxy sin `NODE_USE_ENV_PROXY=1`.
+- Desde la nube no se alcanzan el BOE, EUR-Lex ni Gemini: lo que los necesita
+  va por el flujo «Operación» de GitHub Actions, lanzado sobre la rama de la
+  sesión (`docs/TRASPASO.md` §0). No pedir abrir esos hosts: el dueño dijo
+  que no.
 - Un recurso de fuera (vídeo, fuente, analítica) no carga si su origen no está
   en la política de contenido de `next.config.ts` (112).
 - Un módulo se comprueba con la academia: `requireModule('test',
