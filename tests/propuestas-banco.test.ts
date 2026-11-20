@@ -86,6 +86,9 @@ describe('completar la referencia legal', () => {
   it('lee los artículos que nombra una explicación', () => {
     expect(articulosNombrados('El Artículo 64 bis.2 establece… y el art. 12 también')).toEqual(['art:64bis', 'art:12']);
     expect(articulosNombrados(null)).toEqual([]);
+    // El que el texto atribuye a otra ley no se reutiliza (una pregunta de Hacienda colada en el tema de violencia de género).
+    expect(articulosNombrados('que modifica el artículo 31.1 del Real Decreto 1065/2007')).toEqual([]);
+    expect(articulosNombrados('el art. 12 de la Ley 39/2015 y el artículo 5')).toEqual(['art:5']);
   });
 
   it('una referencia que dice «disposición adicional» no puede acabar en un artículo', () => {
@@ -171,7 +174,9 @@ describe('nada de esto toca una pregunta (regla 138)', () => {
   it('el repaso de la IA solo deja avisos «La IA duda», y solo de las que no cuadran', () => {
     expect(verificar).not.toMatch(/from\('question_bank'\)\s*\.(update|upsert|insert|delete)/);
     expect(verificar).toMatch(/report_type: TIPO_REPORTE_REVISION_IA/);
-    expect(verificar).toMatch(/filter\(\(r\) => r\.v\.veredicto !== 'correcta'\)/);
+    expect(verificar).toMatch(/if \(v\.veredicto !== 'correcta'\) porEscribir\.push\(aviso\(/);
+    // Con --hazlo se guarda según avanza; sin él, nada.
+    expect(verificar).toMatch(/if \(!HAZLO \|\|/);
     expect(verificar).toMatch(/leeVeredicto\(/);
     expect(verificar).toMatch(/if \(!HAZLO\)[^\n]*process\.exit\(0\)/);
     expect(TIPO_REPORTE_REVISION_IA).toBe('revision_ia');

@@ -106,6 +106,23 @@ let lote = repasables;
 if (MUESTRA > 0) { const paso = Math.max(1, Math.floor(repasables.length / MUESTRA)); lote = repasables.filter((_, i) => i % paso === 0).slice(0, MUESTRA); }
 if (LIMITE > 0) lote = lote.slice(0, LIMITE);
 
+// Con --hazlo, los avisos se guardan según se van teniendo: si el repaso se
+// corta a mitad, lo hecho queda (y al relanzarlo no se repasan otra vez).
+const aviso = (r) => ({
+  question_id: r.q.id, report_type: TIPO_REPORTE_REVISION_IA, status: 'open', user_id: null,
+  message: avisoDeVerificacion({ norma: r.cita.norma, precepto: preceptoLegible(r.cita.precepto), veredicto: r.v, marcada: r.q.correct_index, url: urlBoe(r.cita.boe, r.art.id) }),
+});
+let porEscribir = [];
+let escritos = 0;
+async function guarda(todo = false) {
+  if (!HAZLO || (!todo && porEscribir.length < 50) || porEscribir.length === 0) return;
+  const tanda = porEscribir;
+  porEscribir = [];
+  const { error } = await db.from('question_reports').insert(tanda);
+  if (error) { console.error('No se pudieron guardar los avisos:', error.message); process.exit(1); }
+  escritos += tanda.length;
+}
+
 const gastado = { entrada: 0, salida: 0 };
 const resultados = [];
 let fallos = 0;
@@ -121,11 +138,15 @@ for (let i = 0; i < lote.length; i += CONCURRENCIA) {
       gastado.salida += r.response.usageMetadata?.candidatesTokenCount ?? 0;
       const v = leeVeredicto(r.response.text());
       if (!v) { fallos++; return; }
-      resultados.push({ q, cita, art, v });
+      const r2 = { q, cita, art, v };
+      resultados.push(r2);
+      if (v.veredicto !== 'correcta') porEscribir.push(aviso(r2));
     } catch { fallos++; }
   }));
+  await guarda();
   if ((i / CONCURRENCIA) % 50 === 0) console.log(`  … ${Math.min(i + CONCURRENCIA, lote.length)} de ${lote.length}`);
 }
+await guarda(true);
 const real = calculaGasto({ promptTokenCount: gastado.entrada, candidatesTokenCount: gastado.salida });
 
 const cuenta = { correcta: 0, incorrecta: 0, dudosa: 0 };
@@ -148,21 +169,11 @@ if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SU
 
 if (!HAZLO) { console.log('\nMUESTRA: no se ha escrito nada.'); process.exit(0); }
 
-// 4. Los avisos, solo de las que no cuadran.
-const avisos = resultados.filter((r) => r.v.veredicto !== 'correcta').map((r) => ({
-  question_id: r.q.id, report_type: TIPO_REPORTE_REVISION_IA, status: 'open', user_id: null,
-  message: avisoDeVerificacion({ norma: r.cita.norma, precepto: preceptoLegible(r.cita.precepto), veredicto: r.v, marcada: r.q.correct_index, url: urlBoe(r.cita.boe, r.art.id) }),
-}));
-let escritos = 0;
-for (let i = 0; i < avisos.length; i += 100) {
-  const { error } = await db.from('question_reports').insert(avisos.slice(i, i + 100));
-  if (error) { console.error('No se pudieron guardar los avisos:', error.message); process.exit(1); }
-  escritos += Math.min(100, avisos.length - i);
-}
+// 4. Los avisos (solo de las que no cuadran) ya están guardados; queda la novedad.
 const { error: errNov } = await db.from('novedades').insert({
   tipo: 'ia', organization_id: null,
   titulo: `Repaso contra la ley: la IA duda de ${escritos} de ${resultados.length} preguntas`,
-  detalle: `${cuenta.incorrecta} que cree mal y ${cuenta.dudosa} que no puede confirmar con el texto vigente del BOE. Están en «Revisión → La IA duda». La IA también se equivoca: decide el tutor.`,
+  detalle: `${cuenta.incorrecta} que cree mal y ${cuenta.dudosa} que no puede confirmar con el texto vigente del BOE. Están en «Revisión → La IA duda» (y en «Revisar», modo «las que la IA duda, primero»). La IA también se equivoca: decide el tutor. Gasto: ${real.coste.toFixed(2)} $.`,
 });
 if (errNov) console.error('No se pudo anotar la novedad:', errNov.message);
 console.log(`\nAvisos escritos: ${escritos} · gasto ${real.coste.toFixed(3)} $`);

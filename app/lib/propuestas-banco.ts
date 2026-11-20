@@ -176,14 +176,23 @@ export function claseDePrecepto(referencia: string | null | undefined): ((clave:
 /** «sacado de el tema» → «sacado del tema». */
 export const deCon = (como: string): string => (como.startsWith('el ') ? `del ${como.slice(3)}` : `de ${como}`);
 
-/** Los artículos que una explicación o un enunciado nombran («El Artículo 64 bis.2 establece…»). */
+/**
+ * Los artículos que una explicación o un enunciado nombran («El Artículo 64
+ * bis.2 establece…»). Los que el texto atribuye a una ley con nombre («el
+ * artículo 31.1 del Real Decreto 1065/2007») NO: serían de esa ley, y
+ * deducir otra por el tema sería inventarse la cita.
+ */
 export function articulosNombrados(texto: string | null | undefined): string[] {
   const out = new Set<string>();
-  for (const m of (texto ?? '').matchAll(/\b[Aa]rt(?:[íi]culo|\.)\s+(\d{1,4})(?:[\s.]*(bis|ter|quater|quinquies|sexies)\b)?/g)) {
+  const re = /\b[Aa]rt(?:[íi]culo|\.)\s+(\d{1,4})(?:[\s.]*(bis|ter|quater|quinquies|sexies)\b)?/g;
+  for (const m of (texto ?? '').matchAll(re)) {
+    const detras = (texto ?? '').slice(m.index + m[0].length, m.index + m[0].length + 40);
+    if (DE_UNA_LEY.test(detras)) continue;
     out.add(`art:${Number(m[1])}${m[2] ?? ''}`);
   }
   return [...out];
 }
+const DE_UNA_LEY = /^[\d.º°ª,\s]*(?:[a-z]\)\s*)?(?:del?|de\s+la)\s+(?:Real\s+Decreto|Decreto|Ley|LO\b|RD\b|C[óo]digo|Reglamento|Orden|Constituci[óo]n|Directiva|Estatuto|Texto|Convenio|Tratado)/;
 
 // ---------------------------------------------------------------------------
 // Parecido de texto (para saber de qué artículo sale una pregunta)

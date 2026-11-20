@@ -58,6 +58,8 @@ npm run dificultad -- --muestra            # Gemini clasifica la muestra de 150 
 npm run dificultad:medida                  # dificultad MEDIDA con respuestas reales, ensayo (regla 122; `-- --hazlo` escribe; vía «Operación»)
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
 npm run normativa                          # qué preguntas citan artículos cambiados en el BOE o la UE (regla 137; `-- --hazlo` deja los avisos; vía «Operación»)
+npm run mejoras                            # qué mejoras del banco propondría Claude: «texto proporcionado» y referencias (regla 138; `-- --hazlo` deja PROPUESTAS; vía «Operación»)
+npm run verificar                          # la IA repasa cada pregunta contra el texto vigente del BOE (regla 138; `-- --muestra=30`, `-- --hazlo` deja «La IA duda»; de pago, vía «Operación»)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
 scripts/nube/sql.sh "select …"             # SQL contra la BD real desde la nube

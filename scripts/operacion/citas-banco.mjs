@@ -95,7 +95,10 @@ export async function preparaCitas(db, preguntas) {
       // La norma la dice la referencia, o la deduce el tema (es la única de sus normas con ese precepto).
       if (c.norma && c.precepto && id && textos.get(id)?.has(c.precepto)) return { boe: id, norma: c.norma, precepto: c.precepto, como: c.origen === 'tema' ? 'el tema' : 'la referencia' };
     }
-    const preceptos = [...new Set([...citas.filter((c) => c.precepto).map((c) => c.precepto), ...articulosNombrados(comoTexto)])];
+    // «disposición adicional» sin número no puede acabar en un artículo.
+    const clase = claseDePrecepto(q.legal_reference);
+    const preceptos = [...new Set([...citas.filter((c) => c.precepto).map((c) => c.precepto), ...articulosNombrados(comoTexto)])]
+      .filter((p) => !clase || clase(p));
     for (const p of preceptos) {
       const conNombre = citas.find((c) => c.norma && !c.precepto);
       if (conNombre) {
@@ -112,8 +115,6 @@ export async function preparaCitas(db, preguntas) {
       }
     }
     if (preceptos.length === 0) {
-      // «disposición adicional» sin número no puede acabar en un artículo.
-      const clase = claseDePrecepto(q.legal_reference);
       const fuentes = (tema?.fuentes ?? []).filter((f) => f.boe_id && textos.has(f.boe_id) && (!cab?.boes?.length || cab.boes.includes(f.boe_id)));
       const todos = [];
       const vistos = new Set();

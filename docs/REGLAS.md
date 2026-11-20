@@ -5284,9 +5284,11 @@ saliendo del SVG antiguo y puede regenerarse más adelante.
   sabía cuáles había leído una persona. El clasificador y la medición de
   dificultad cambiaban preguntas solos, y Claude corregía con SQL.
 - **Revisada (`question_bank.reviewed_*`):** quién y cuándo. La pone publicar
-  una pendiente, editarla, aprobar un cambio propuesto, el alta manual de un
-  admin y «Está bien: revisada». No se puede dar por buena con un aviso de la
-  ley abierto ni con un cambio propuesto sin decidir.
+  una pendiente, editarla, el alta manual de un admin y «Está bien: revisada».
+  Aprobar un cambio propuesto NO la pone (fase 2): el cambio puede ser solo la
+  referencia, y dar por buena la pregunta es verla entera. No se puede dar por
+  buena con un aviso de la ley o una duda de la IA abiertos, ni con un cambio
+  propuesto sin decidir.
 - **Cambios propuestos (`question_proposals`):** lo que propone Claude, la IA o
   un proceso, con su foto de antes y de después y el porqué. Una sola pendiente
   por pregunta. Al aprobar se comprueba que la pregunta sigue como cuando se
