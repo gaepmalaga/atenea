@@ -97,14 +97,29 @@ describe('resumeAcademias (P11f: la comparativa del panel de superadmin)', () =>
     const roles = new Map([['u1', 'student'], ['u2', 'admin']]);
     const correos = new Map([['u2', 'morato@atenea.com']]);
     const [alphapol] = resumeAcademias(academias, miembros, roles, new Map(), [], correos);
-    expect(alphapol.admins).toEqual([{ id: 'u2', email: 'morato@atenea.com' }]);
+    expect(alphapol.admins).toEqual([{ id: 'u2', email: 'morato@atenea.com', pendiente: false, ultimoAcceso: null }]);
   });
 
   it('un admin sin correo conocido no revienta la lista: sale con email null', () => {
     const miembros = [{ academy_id: 'a1', user_id: 'u1' }];
     const roles = new Map([['u1', 'admin']]);
     const [alphapol] = resumeAcademias(academias, miembros, roles, new Map(), []);
-    expect(alphapol.admins).toEqual([{ id: 'u1', email: null }]);
+    expect(alphapol.admins).toEqual([{ id: 'u1', email: null, pendiente: false, ultimoAcceso: null }]);
+  });
+
+  it('trae pendiente/activo y la última conexión de cada admin, no solo su correo', () => {
+    const miembros = [
+      { academy_id: 'a1', user_id: 'u1' },
+      { academy_id: 'a1', user_id: 'u2' },
+    ];
+    const roles = new Map([['u1', 'admin'], ['u2', 'admin']]);
+    const pendientes = new Map([['u1', true], ['u2', false]]);
+    const ultimosAccesos = new Map([['u2', '2026-11-10T00:00:00.000Z']]);
+    const [alphapol] = resumeAcademias(academias, miembros, roles, new Map(), [], new Map(), pendientes, ultimosAccesos);
+    expect(alphapol.admins).toEqual([
+      { id: 'u1', email: null, pendiente: true, ultimoAcceso: null },
+      { id: 'u2', email: null, pendiente: false, ultimoAcceso: '2026-11-10T00:00:00.000Z' },
+    ]);
   });
 
   it('sin rol conocido, cuenta como alumno (el valor por defecto de profiles.role)', () => {

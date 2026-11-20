@@ -957,3 +957,29 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   así que ni Claude ni la IA las tocan: las encuentra el tutor al revisar, y
   las descarta.
 
+## 2y · Academias: gestionar admins y ver sus logs (20 nov, regla 139, en la rama `claude/nifty-brown-hqpr2s`, sin desplegar)
+
+- **Pedido:** en «Academias» (superadmin) se podía invitar a un admin, pero no
+  reenviarle la invitación ni quitarlo, y no había forma de ver «Logs» de UNA
+  academia en concreto.
+- **Hecho:** cada admin de la tarjeta pasa de `<span>` inerte a una fila con su
+  estado (pendiente/activo, de `auth.users.email_confirmed_at`, y la última
+  conexión) y dos acciones: **Reenviar** (solo si pendiente;
+  `generateLink({type:'recovery'})` + `sendMail` con plantilla propia,
+  `resendAcademyAdminInvite`) y **Quitar** (`removeAcademyAdmin`, borra la fila
+  de `academy_members` de esa academia, nunca la cuenta ni el rol si administra
+  otra, con `confirmar()` antes). Cada tarjeta lleva también «Ver logs», que
+  lleva a «Logs» ya filtrado por esa academia (`getAdminAuditLog`,
+  `getInicioSesiones` y `getFallosRecientes` aceptan un `organizationId`
+  opcional, solo para el superadmin). «Logs» no estaba en las pestañas del
+  superadmin: se añadió.
+- **Código:** `app/actions/superadmin.ts` (las dos acciones nuevas),
+  `app/actions/audit.ts` (el filtro opcional), `app/lib/academies.ts`
+  (`AdminDeAcademia` con `pendiente`/`ultimoAcceso`), `app/lib/app-email-templates.ts`
+  (`plantillaInvitacionAdmin`), `AdminAcademies.tsx`, `AdminActivity.tsx` y
+  `AdminView.tsx` (el filtro viaja por el mismo evento `admin:pestana` de la
+  regla 99, con un objeto en vez de un string). `npm run check` en verde
+  (2.113 tests) y comprobado en el banco de pruebas, escritorio y móvil.
+- **Falta:** verlo en producción con una cuenta admin real (mismo punto
+  pendiente que el resto de «Revisión», §0).
+

@@ -28,14 +28,18 @@ export type AuditRow = {
  * concreto para decir la verdad en vez de un "error desconocido": no se ha
  * roto nada, falta ejecutar el guion.
  */
-export async function getAdminAuditLog(limit = 50): Promise<
+export async function getAdminAuditLog(limit = 50, organizationId?: string): Promise<
   { success: true; rows: AuditRow[] } | { success: false; error: string; tablaFalta?: boolean }
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
 
   // Acotado a LA academia del admin (P11). Un `superadmin` sin academia
-  // resuelta ve el registro entero — es quien vigila la plataforma completa.
+  // resuelta ve el registro entero — es quien vigila la plataforma completa —
+  // salvo que venga a propósito desde «Academias» a mirar UNA en concreto
+  // (`organizationId`, solo lo puede pedir un `superadmin`: un admin normal
+  // ya está acotado a la suya y no puede pedir la de otra, regla 75).
+  const academiaFiltro = auth.user.role === 'superadmin' ? (organizationId ?? null) : auth.user.organizationId;
   let q = supabaseAdmin
     .from('admin_audit_log')
     .select('id, actor_id, action, target, detail, created_at')
@@ -44,7 +48,7 @@ export async function getAdminAuditLog(limit = 50): Promise<
     .neq('action', 'error')
     .order('created_at', { ascending: false })
     .limit(Math.max(1, Math.min(200, limit)));
-  if (auth.user.organizationId) q = q.eq('organization_id', auth.user.organizationId);
+  if (academiaFiltro) q = q.eq('organization_id', academiaFiltro);
   const { data, error } = await q;
 
   if (error) {
@@ -93,19 +97,22 @@ export type FalloRow = {
  * base de datos, a quién y en qué acción. Acotado a la academia del admin; el
  * superadmin los ve todos, también los que no tienen academia.
  */
-export async function getFallosRecientes(limit = 50): Promise<
+export async function getFallosRecientes(limit = 50, organizationId?: string): Promise<
   { success: true; rows: FalloRow[] } | { success: false; error: string }
 > {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
 
+  // Mismo filtro opcional que `getAdminAuditLog`: solo un `superadmin` puede
+  // pedir la de UNA academia en concreto (regla 75).
+  const academiaFiltro = auth.user.role === 'superadmin' ? (organizationId ?? null) : auth.user.organizationId;
   let q = supabaseAdmin
     .from('admin_audit_log')
     .select('id, actor_id, target, detail, created_at')
     .eq('action', 'error')
     .order('created_at', { ascending: false })
     .limit(Math.max(1, Math.min(200, limit)));
-  if (auth.user.organizationId) q = q.eq('organization_id', auth.user.organizationId);
+  if (academiaFiltro) q = q.eq('organization_id', academiaFiltro);
   const { data, error } = await q;
   if (error) return { success: false, error: fallo('getFallosRecientes', error) };
 
@@ -155,7 +162,7 @@ export type SesionUsuario = {
  * pasa por PostgREST. Con `last_sign_in_at` basta para saber quién ha entrado
  * y cuándo fue la última vez.
  */
-export async function getInicioSesiones(): Promise<
+export async function getInicioSesiones(organizationId?: string): Promise<
   { success: true; usuarios: SesionUsuario[]; sinFechas: boolean } | { success: false; error: string }
 > {
   const auth = await requireAdmin();
@@ -163,13 +170,16 @@ export async function getInicioSesiones(): Promise<
 
   // Acotado a LA academia del admin (P11): `profiles` no lleva
   // `organization_id`, así que la pertenencia sale de `academy_members`. Un
-  // `superadmin` sin academia resuelta ve a todo el mundo.
+  // `superadmin` sin academia resuelta ve a todo el mundo, salvo que venga a
+  // propósito a mirar UNA academia en concreto desde «Academias» (regla 75:
+  // solo él puede pedirla; un admin normal ya está acotado a la suya).
+  const academiaFiltro = auth.user.role === 'superadmin' ? (organizationId ?? null) : auth.user.organizationId;
   let idsAcademia: string[] | null = null;
-  if (auth.user.organizationId) {
+  if (academiaFiltro) {
     const { data: miembros, error: miembrosErr } = await supabaseAdmin
       .from('academy_members')
       .select('user_id')
-      .eq('academy_id', auth.user.organizationId);
+      .eq('academy_id', academiaFiltro);
     if (miembrosErr) return { success: false, error: fallo('getInicioSesiones', miembrosErr) };
     idsAcademia = (miembros ?? []).map((m) => m.user_id as string);
   }

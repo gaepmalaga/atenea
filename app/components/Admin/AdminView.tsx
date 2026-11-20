@@ -92,6 +92,12 @@ const PESTANAS_SUPERADMIN: (PestanaPanel & { id: AdminTab })[] = [
   { id: 'moderation', etiqueta: 'Revisión', icono: ClipboardCheck, seccion: 'Contenido' },
   { id: 'cost', etiqueta: 'Consumo IA', icono: Coins, seccion: 'Sistema' },
   { id: 'academies', etiqueta: 'Academias', icono: Building2, seccion: 'Sistema' },
+  // Hace falta como pestaña para que «Ver logs» de una tarjeta de «Academias»
+  // tenga dónde aterrizar (ya filtrado por esa academia); de paso, el
+  // superadmin también puede entrar aquí sin filtro y ver el registro
+  // completo de la plataforma. No va en `PRINCIPALES_SUPERADMIN`: no es una
+  // pantalla de cada día.
+  { id: 'activity', etiqueta: 'Logs', icono: Activity, seccion: 'Sistema' },
 ];
 /**
  * Las cuatro de la barra inferior del móvil: las que se tocan CADA DÍA (regla
@@ -109,6 +115,9 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
   // una sola academia, «Academias» ya no es lo que se mira cada día —sigue ahí,
   // porque «Añadir admin» es como se crean las cuentas de quien la dirige.
   const [activeTab, setActiveTab] = useState<AdminTab>(esSuperadmin ? 'bank' : 'students');
+  // El filtro de «Logs» cuando se llega desde una tarjeta de «Academias»
+  // (regla 65/75): qué academia, para acotar las tres listas de esa pantalla.
+  const [filtroLogs, setFiltroLogs] = useState<{ organizationId: string; academyName: string } | null>(null);
 
   // La pestaña guardada se aplica en un efecto, no en el estado inicial: leerla
   // en `useState` provocaría un desajuste de hidratación (el servidor no ve
@@ -124,6 +133,10 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
   const cambiaTab = (id: AdminTab) => {
     setActiveTab(id);
+    // Cambiar de pestaña a mano (menú, barra inferior) olvida el filtro de
+    // «Academias» que pudiera quedar puesto en «Logs»; el evento de abajo lo
+    // vuelve a poner justo después si venía con uno nuevo.
+    setFiltroLogs(null);
     try { localStorage.setItem(TAB_KEY, id); } catch { /* modo privado */ }
   };
 
@@ -150,11 +163,18 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
   // Una pantalla puede pedir otra pestaña («los horarios, en Grupos»): un
   // evento del navegador, para no pasar funciones por todo el árbol (regla 99).
+  // El detalle es normalmente solo el id, pero «Academias» lo manda como
+  // objeto para llegar a «Logs» ya filtrado por una academia.
   const idsVisibles = tabs.map((t) => t.id).join(',');
   useEffect(() => {
     const alPedir = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
-      if (idsVisibles.split(',').includes(id)) cambiaTab(id as AdminTab);
+      const detalle = (e as CustomEvent<string | { tab: string; organizationId?: string; academyName?: string }>).detail;
+      const id = typeof detalle === 'string' ? detalle : detalle.tab;
+      if (!idsVisibles.split(',').includes(id)) return;
+      cambiaTab(id as AdminTab);
+      if (typeof detalle !== 'string' && detalle.organizationId) {
+        setFiltroLogs({ organizationId: detalle.organizationId, academyName: detalle.academyName ?? '' });
+      }
     };
     window.addEventListener('admin:pestana', alPedir);
     return () => window.removeEventListener('admin:pestana', alPedir);
@@ -193,7 +213,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
           {activeTab === 'documents' && <AdminDocumentos />}
           {activeTab === 'modules' && <AdminModules />}
           {activeTab === 'cost' && <AdminCost />}
-          {activeTab === 'activity' && <AdminActivity />}
+          {activeTab === 'activity' && <AdminActivity filtro={filtroLogs} onQuitarFiltro={() => setFiltroLogs(null)} />}
           {activeTab === 'academies' && esSuperadmin && <AdminAcademies />}
         </ModuleErrorBoundary>
       </div>

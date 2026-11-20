@@ -102,7 +102,14 @@ export type AcademyRow = { id: string; slug: string; name: string };
 export type MiembroRow = { academy_id: string; user_id: string };
 
 /** Un admin (o superadmin) de una academia, para la lista de «quién la lleva». */
-export type AdminDeAcademia = { id: string; email: string | null };
+export type AdminDeAcademia = {
+  id: string;
+  email: string | null;
+  /** `true` si la cuenta todavía no confirmó su correo (invitación sin canjear). */
+  pendiente: boolean;
+  /** ISO del último inicio de sesión, o `null` si no ha entrado nunca. */
+  ultimoAcceso: string | null;
+};
 
 /** El resumen de UNA academia para el panel transversal del superadmin (P11f). */
 export type AcademyStats = {
@@ -140,6 +147,8 @@ export function resumeAcademias(
   costePorUsuario: Map<string, number>,
   pagosDelMes: { organization_id: string | null; amount_eur: number | null; paid: boolean }[],
   correos: Map<string, string | null> = new Map(),
+  pendientes: Map<string, boolean> = new Map(),
+  ultimosAccesos: Map<string, string | null> = new Map(),
 ): AcademyStats[] {
   const ingresosPorAcademia = new Map<string, number>();
   for (const p of pagosDelMes) {
@@ -163,7 +172,12 @@ export function resumeAcademias(
     for (const userId of suyos) {
       const rol = roles.get(userId);
       if (rol === 'student' || !rol) alumnos++;
-      else admins.push({ id: userId, email: correos.get(userId) ?? null });
+      else admins.push({
+        id: userId,
+        email: correos.get(userId) ?? null,
+        pendiente: pendientes.get(userId) ?? false,
+        ultimoAcceso: ultimosAccesos.get(userId) ?? null,
+      });
       costeIA += costePorUsuario.get(userId) ?? 0;
     }
     return {

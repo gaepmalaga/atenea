@@ -270,6 +270,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 136 | Las preguntas del temario propio se redactan una a una, se comprueban antes de subir (explicación de verdad, sin sesgo de longitud, sin repetir el banco, sin datos con fecha) y entran pendientes |
 | 137 | La ley cambia sola: un vigilante compara cada pregunta con el BOE y la UE (lunes y jueves) y deja el aviso en «Revisión»; no toca la pregunta |
 | 138 | La última palabra es de los tutores: nada cambia una pregunta sin ellos (Claude, la IA y los procesos PROPONEN), cada pregunta lleva «revisada por», y «Revisión» les cuenta todo |
+| 139 | Los admins de una academia se gestionan, no solo se invitan: reenviar, quitar y ver sus logs |
 
 ## Trampas conocidas
 
