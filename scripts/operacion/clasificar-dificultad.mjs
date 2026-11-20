@@ -29,6 +29,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from 'dotenv';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
+import { proponer } from './propuestas.mjs';
 import { calculaGasto } from '../../app/lib/ai-usage.ts';
 import {
   RUBRICA, DIFICULTAD_SCHEMA, promptDeTanda, leeNiveles, acuerdo, reparto, sirveParaClasificar, costeEstimado, CRITERIO_ACUERDO,
@@ -94,7 +95,7 @@ async function leeBanco(ids) {
   if (ids) {
     for (let i = 0; i < ids.length; i += 100) {
       const { data, error } = await db.from('question_bank')
-        .select('id, subject_id, question_text, options, correct_index, difficulty_level').in('id', ids.slice(i, i + 100));
+        .select('id, subject_id, question_text, options, correct_index, difficulty_level, status, organization_id').in('id', ids.slice(i, i + 100));
       if (error) { console.error('No se pudo leer el banco:', error.message); process.exit(1); }
       filas.push(...(data ?? []));
     }
@@ -105,9 +106,9 @@ async function leeBanco(ids) {
       // o PENDIENTES: una pendiente no se puede aprobar sin dificultad (regla
       // 135), así que es justo la que la necesita.
       const consulta = SOLO_NUEVAS
-        ? db.from('question_bank').select('id, subject_id, question_text, options, correct_index, difficulty_level')
+        ? db.from('question_bank').select('id, subject_id, question_text, options, correct_index, difficulty_level, status, organization_id')
             .in('status', ['active', 'candidate']).is('difficulty_source', null)
-        : db.from('question_bank').select('id, subject_id, question_text, options, correct_index, difficulty_level')
+        : db.from('question_bank').select('id, subject_id, question_text, options, correct_index, difficulty_level, status, organization_id')
             .eq('status', 'active');
       const { data, error } = await consulta.order('id').range(desde, desde + 999);
       if (error) { console.error('No se pudo leer el banco:', error.message); process.exit(1); }
@@ -233,12 +234,28 @@ const aClasificar = banco.filter((b) => !protegidas.has(b.id));
 console.log(`Protegidas (puestas por el preparador o medidas): ${protegidas.size} · a clasificar: ${aClasificar.length}`);
 
 const niveles = await clasifica(aClasificar);
+// En una PENDIENTE se escribe: el tutor la ve entera, dificultad incluida,
+// antes de publicarla. En una del BANCO se propone (regla 138): cambia lo que
+// ve el alumno y lo decide un tutor.
+const filaDe = new Map(aClasificar.map((b) => [b.id, b]));
 let escritas = 0, fallidas = 0;
+const paraProponer = [];
 for (const [id, nivel] of niveles) {
   if (nivel === null) continue;
-  const { error } = await db.from('question_bank').update({ difficulty_level: nivel, difficulty_source: 'estimada' }).eq('id', id);
+  const fila = filaDe.get(id);
+  if (fila?.status === 'active') {
+    paraProponer.push({
+      question_id: id, organization_id: fila.organization_id ?? null,
+      before: { difficulty_level: fila.difficulty_level ?? null }, after: { difficulty_level: nivel },
+      reason: 'La IA, con la vara de dificultad fijada (regla 121), la clasifica así. Compruébalo antes de aprobarlo.',
+    });
+    continue;
+  }
+  const { error } = await db.from('question_bank').update({ difficulty_level: nivel, difficulty_source: 'estimada' }).eq('id', id).eq('status', 'candidate');
   if (error) fallidas++; else escritas++;
 }
+const propuestasIA = await proponer(db, paraProponer, { fuente: 'ia', titulo: 'La IA propone {n} cambios de dificultad', detalle: 'Clasificador de dificultad (regla 121).' });
+console.log(`Propuestas a los tutores (preguntas del banco): ${propuestasIA.escritas} · ya había una pendiente: ${propuestasIA.yaHabia}`);
 const sin = [...niveles.values()].filter((n) => n === null).length;
 const real = calculaGasto({ promptTokenCount: gastado.entrada, candidatesTokenCount: gastado.salida });
 console.log(`\nEscritas: ${escritas} · sin nivel del modelo (se dejan como estaban): ${sin} · fallos al escribir: ${fallidas}`);

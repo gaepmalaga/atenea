@@ -57,7 +57,7 @@ function leeTabGuardada(): AdminTab | null {
  *
  * Regla 75: «Temario & IA» (genera contra el banco COMÚN) y «Consumo IA» (mide
  * ESE gasto) son del `superadmin`, no de quien administra una academia.
- * «Banco oficial» y «Moderación» se quedan para los dos: un admin normal ve y
+ * «Banco oficial» y «Revisión» (antes «Moderación») se quedan para los dos: un admin normal ve y
  * modera lo suyo (su banco privado, sus reportes); el superadmin, lo global.
  *
  * El `superadmin` NO administra ninguna academia (`organizationId` es siempre

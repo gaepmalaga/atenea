@@ -770,3 +770,24 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   informe anual del Delegado (art. 73.1, «a través del Ministro de Política
   Territorial», id `d0aa3fbc-…`) tiene casi seguro el mismo problema; no se tocó
   porque no se pudo leer el art. 73 desde aquí.
+
+## 2w · La última palabra es de los tutores (20 nov, regla 138)
+
+- **Hecho:** cada pregunta lleva «revisada por (quién, cuándo)»; los cambios
+  de Claude, de la IA y de la medición de dificultad son **propuestas** que un
+  tutor aprueba o rechaza; la bandeja «Revisión» (antes «Moderación») junta
+  todo lo que espera, con su número en el menú y «Novedades»; y el interruptor
+  «Los alumnos solo reciben preguntas revisadas» (en «Revisión → Resumen»).
+  Tutores = todas las cuentas admin (decisión del dueño, 20 nov).
+- **Esquema:** `docs/sql/revision-tutores.sql`, ejecutado el 20 nov.
+  `supabase/schema.json` se actualizó a mano con lo que devuelve
+  `information_schema` (el volcado necesita la clave de servicio).
+- **Estado del banco al empezar:** 0 revisadas de 5.342 activas; 985 pendientes
+  (Tomo I). El interruptor está **desactivado**: activarlo hoy dejaría a los
+  alumnos sin preguntas. Hay que activarlo antes de que entren alumnos reales,
+  y ir revisando tema a tema.
+- **La IA ya no publica:** generar desde «Temario & IA» y los guiones de
+  siembra dejan las preguntas pendientes.
+- **Visto:** «Revisión» (resumen, revisor, propuestas, ley y quejas) y «Banco
+  oficial» en el banco de pruebas, a tamaño de móvil. **Sin probar contra la base
+  de datos real:** aprobar y rechazar una propuesta, y el interruptor.

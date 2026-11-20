@@ -60,7 +60,8 @@ const baseBanco = () => supabaseAdmin.from('question_bank').select('id', { count
 async function reportesAbiertos(user: Usuario, deLaLey: boolean) {
   const base = () => {
     const q = supabaseAdmin.from('question_reports').select('id, question:question_bank!inner(organization_id)').eq('status', 'open');
-    return deLaLey ? q.eq('report_type', TIPO_REPORTE_VIGENCIA) : q.neq('report_type', TIPO_REPORTE_VIGENCIA);
+    // `neq` deja fuera las filas con el tipo vacío: una queja sin tipo también es una queja.
+    return deLaLey ? q.eq('report_type', TIPO_REPORTE_VIGENCIA) : q.or(`report_type.is.null,report_type.neq.${TIPO_REPORTE_VIGENCIA}`);
   };
   const consultas = [];
   if (user.role === 'superadmin' || UNA_SOLA_ACADEMIA) consultas.push(base().is('question.organization_id', null));

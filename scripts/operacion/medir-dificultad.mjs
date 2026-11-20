@@ -21,6 +21,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
+import { proponer } from './propuestas.mjs';
 import {
   MIN_RESPUESTAS, UMBRAL_FACIL, UMBRAL_DIFICIL, observaciones, respuestasDeIntentos, respuestasDeExamenClase, decideCambios,
 } from '../../app/lib/dificultad-medida.ts';
@@ -76,7 +77,7 @@ const obs = observaciones(todasLasRespuestas, excluidos);
 
 // 3. Las preguntas del banco y lo que habría que hacer.
 const banco = await todas(
-  (d, h) => db.from('question_bank').select('id, difficulty_level, difficulty_source').eq('status', 'active').order('id').range(d, h),
+  (d, h) => db.from('question_bank').select('id, difficulty_level, difficulty_source, organization_id').eq('status', 'active').order('id').range(d, h),
   'question_bank',
 );
 const propuestas = decideCambios(banco, obs);
@@ -104,11 +105,25 @@ for (const c of conflictos.slice(0, 20)) console.log(`   conflicto ${c.id}: la m
 
 if (!HAZLO) { console.log('\nEnsayo: no se ha escrito nada. Añade --hazlo para escribir.'); process.exit(0); }
 
+// El acierto observado es un dato, no un cambio de la pregunta: se escribe.
+// El NIVEL sí cambia lo que ve el alumno: se PROPONE y lo decide un tutor
+// (regla 138). Antes se escribía solo.
 let escritas = 0, fallidas = 0;
 for (const p of propuestas) {
-  const cambios = { global_success_rate: Math.round(p.tasa * 1000) / 1000 };
-  if (p.escribeNivel) Object.assign(cambios, { difficulty_level: p.nivel, difficulty_source: 'medida' });
-  const { error } = await db.from('question_bank').update(cambios).eq('id', p.id);
+  const { error } = await db.from('question_bank').update({ global_success_rate: Math.round(p.tasa * 1000) / 1000 }).eq('id', p.id);
   if (error) fallidas++; else escritas++;
 }
-console.log(`\nEscritas: ${escritas} · fallos al escribir: ${fallidas}`);
+console.log(`\nAcierto observado escrito: ${escritas} · fallos al escribir: ${fallidas}`);
+
+const filaDe = new Map(banco.map((b) => [b.id, b]));
+const NOMBRE = { 1: 'fácil', 2: 'media', 3: 'difícil' };
+// También donde un preparador puso otro nivel: antes se callaba (la medida
+// no pisaba al preparador); ahora se le propone y decide él.
+const res = await proponer(db, [...cambian, ...conflictos].map((p) => ({
+  question_id: p.id,
+  organization_id: filaDe.get(p.id)?.organization_id ?? null,
+  before: { difficulty_level: filaDe.get(p.id)?.difficulty_level ?? null },
+  after: { difficulty_level: p.nivel },
+  reason: `Con ${p.contestadas} respuestas reales, el acierto es del ${Math.round(p.tasa * 100)} %: por cómo la contestan, es ${NOMBRE[p.nivel]}.`,
+})), { fuente: 'dificultad', titulo: 'La medición de dificultad propone {n} cambios de nivel', detalle: 'Salen de las respuestas reales de los alumnos.' });
+console.log(`Cambios de nivel propuestos a los tutores: ${res.escritas} · ya había una propuesta pendiente: ${res.yaHabia}`);

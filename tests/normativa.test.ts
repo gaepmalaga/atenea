@@ -261,7 +261,8 @@ describe('el guion y los flujos', () => {
   it('no toca ninguna pregunta: solo lee el banco y escribe avisos', () => {
     expect(guion).not.toMatch(/from\('question_bank'\)[\s\S]{0,200}?\.(update|delete|upsert|insert)\(/);
     const escrituras = [...guion.matchAll(/from\('([a-z_]+)'\)\s*\.(insert|update|delete|upsert)\(/g)].map((m) => m[1]);
-    expect(escrituras).toEqual(['question_reports']);
+    // Los avisos y su línea de «Novedades» (regla 138). Nada más.
+    expect(escrituras.sort()).toEqual(['novedades', 'question_reports']);
     expect(guion).toContain('TIPO_REPORTE_VIGENCIA');
     expect(TIPO_REPORTE_VIGENCIA).toBe('vigencia');
   });

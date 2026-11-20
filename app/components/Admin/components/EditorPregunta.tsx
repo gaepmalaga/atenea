@@ -7,7 +7,7 @@ export type FormPregunta = { question_text: string; options: string[]; correct_i
 
 /**
  * El formulario de una pregunta del banco: enunciado, tres opciones con la
- * correcta marcada, y la explicación. Lo usan «Moderación» y «Banco oficial»,
+ * correcta marcada, y la explicación. Lo usan «Revisión» y «Banco oficial»,
  * dentro del panel lateral.
  *
  * `sinExplicacion` esconde ese campo: una pregunta nueva del examen en papel
