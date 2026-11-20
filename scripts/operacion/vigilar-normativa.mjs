@@ -40,7 +40,7 @@ import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import {
   NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, citasDeLaPregunta, cabeceraDelTemario, busquedaBoe, celexDe, eligePorTexto,
   bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado, fecha8, fechaLegible, preceptoLegible,
-  avisoDeBloque, avisoDeBloqueDerogado, avisoDeNormaDerogada, avisoDeActoUE, agrupaAvisos, familiaDeArticulo, preceptoDelRotulo,
+  avisoDeBloque, avisoDeBloqueDerogado, avisoDeNormaDerogada, avisoDeActoUE, agrupaAvisos, familiaDeArticulo, preceptoDelRotulo, huellaDeAviso,
 } from '../../app/lib/normativa.ts';
 import { plantillaCambiosNormativa } from '../../app/lib/app-email-templates.ts';
 import { remitenteCorreo } from '../../app/lib/marca.ts';
@@ -287,10 +287,11 @@ const previos = await todas(
   (d, h) => db.from('question_reports').select('id, question_id, message').eq('report_type', TIPO_REPORTE_VIGENCIA).order('id').range(d, h),
   'question_reports',
 );
-const yaAvisado = new Set(previos.map((r) => `${r.question_id}|${r.message}`));
+// Por la huella (enlace, fechas y normas), no por el texto: el nombre de la norma puede cambiar.
+const yaAvisado = new Set(previos.map((r) => `${r.question_id}|${huellaDeAviso(r.message)}`));
 const vistos = new Set();
 const nuevos = avisos.filter((a) => {
-  const k = `${a.question_id}|${a.message}`;
+  const k = `${a.question_id}|${huellaDeAviso(a.message)}`;
   if (yaAvisado.has(k) || vistos.has(k)) return false;
   vistos.add(k);
   return true;

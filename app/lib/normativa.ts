@@ -670,6 +670,21 @@ export function avisoDeActoUE(p: { norma: string; modificador: string; fecha: st
 }
 
 /**
+ * Lo que identifica un aviso de la ley, sin depender de cómo se nombra la
+ * norma: el enlace oficial (norma y bloque, o acto de la UE) y las fechas y
+ * normas que cita. Así, si «Reglamento General de Circulación» pasa a
+ * llamarse «RD 1428/2003», el mismo cambio no se avisa dos veces.
+ */
+export function huellaDeAviso(mensaje: string | null | undefined): string {
+  const m = mensaje ?? '';
+  const enlace = /https:\/\/\S+/.exec(m)?.[0] ?? '';
+  const fechas = [...m.matchAll(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g)].map((x) => x[0]);
+  const normas = [...m.matchAll(/\bBOE-[AB]-\d{4}-\d+\b|\b3\d{4}[A-Z]\d{4}\b/g)].map((x) => x[0]);
+  const derogada = /derogad|sin contenido/i.test(m) ? 'derogada' : '';
+  return enlace ? [enlace, ...fechas, ...new Set(normas), derogada].join('|') : m;
+}
+
+/**
  * Si la última versión de un bloque lo deja vacío: el BOE conserva el
  * artículo derogado con un texto del tipo «(Derogado)» o «(Sin contenido)».
  * Se mira el texto de la versión, que esta función recibe ya extraído.

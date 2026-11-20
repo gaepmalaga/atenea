@@ -5,7 +5,7 @@ import {
   citasDeLaReferencia, citasDeLaPregunta, candidatasPorTema, cabeceraDelTemario, preceptoDelRotulo, preceptoLegible,
   ordinalANumero, cardinalANumero, bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado,
   avisoDeBloque, avisoDeActoUE, celexDe, eligePorTexto, busquedaBoe, fecha8, agrupaAvisos, NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, separaEnlaceOficial,
-  familiaDeArticulo, type TemaManifiesto,
+  familiaDeArticulo, huellaDeAviso, type TemaManifiesto,
 } from '../app/lib/normativa';
 
 /**
@@ -100,6 +100,18 @@ describe('ordinales y rótulos del BOE', () => {
     expect(citasDeLaReferencia('Art. 520 bis a) LECrim')[0].precepto).toBe('art:520bis');
     expect(preceptoLegible('art:588terd')).toBe('art. 588 ter d');
     expect(preceptoLegible('art:588octies')).toBe('art. 588 octies');
+  });
+
+  it('el mismo cambio no se avisa dos veces aunque la norma cambie de nombre', () => {
+    const antes = 'Reglamento General de Circulación, art. 69: nueva redacción que entra en vigor el 1/10/2026 (lo cambia BOE-A-2026-13889), posterior a la pregunta. Comprueba que la pregunta y su explicación siguen valiendo. https://www.boe.es/buscar/act.php?id=BOE-A-2003-23514#a69';
+    const ahora = antes.replace('Reglamento General de Circulación', 'RD 1428/2003');
+    expect(huellaDeAviso(ahora)).toBe(huellaDeAviso(antes));
+    // Otro cambio del mismo artículo (otra fecha u otra norma) sí es otro aviso.
+    expect(huellaDeAviso(antes.replace('1/10/2026', '1/3/2027'))).not.toBe(huellaDeAviso(antes));
+    expect(huellaDeAviso(antes.replace('#a69', '#a70'))).not.toBe(huellaDeAviso(antes));
+    const vigilante = readFileSync(join(__dirname, '..', 'scripts/operacion/vigilar-normativa.mjs'), 'utf-8');
+    expect(vigilante).toMatch(/new Set\(previos\.map\(\(r\) => `\$\{r\.question_id\}\|\$\{huellaDeAviso\(r\.message\)\}`\)\)/);
+    expect(vigilante).toMatch(/const k = `\$\{a\.question_id\}\|\$\{huellaDeAviso\(a\.message\)\}`/);
   });
 
   it('quien cita «el 588 ter» sin letra vigila todos sus artículos con letra', () => {
