@@ -208,6 +208,13 @@ export function palabras(texto: string): Set<string> {
   );
 }
 
+/**
+ * Lo mínimo que la pregunta (enunciado + correcta) tiene que parecerse al
+ * artículo para dar por buena una ley DEDUCIDA (del tema o de la
+ * explicación). Por debajo, la deducción puede ser una casualidad de números.
+ */
+export const PARECIDO_MINIMO = 0.3;
+
 /** Cuánto del texto de la pregunta (enunciado + correcta) aparece en el del artículo: 0 a 1. */
 export function cobertura(pregunta: Set<string>, articulo: Set<string>): number {
   if (pregunta.size === 0) return 0;

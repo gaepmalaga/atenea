@@ -171,6 +171,14 @@ describe('nada de esto toca una pregunta (regla 138)', () => {
     expect(mejoras).toMatch(/if \(!HAZLO\)[^\n]*process\.exit\(0\)/);
   });
 
+  it('una ley DEDUCIDA (del tema o de la explicación) solo vale si la pregunta se parece al artículo', () => {
+    const citas = leer('scripts/operacion/citas-banco.mjs');
+    expect(citas).toMatch(/if \(c\.como !== 'la referencia' && parecido < PARECIDO_MINIMO\)[^\n]*return null;/);
+    // Las dos herramientas usan la cita comprobada, no la deducción a secas.
+    expect(mejoras).toMatch(/ctx\.citaDe\(q\)/);
+    expect(verificar).toMatch(/ctx\.citaDe\(q\)/);
+  });
+
   it('el repaso de la IA solo deja avisos «La IA duda», y solo de las que no cuadran', () => {
     expect(verificar).not.toMatch(/from\('question_bank'\)\s*\.(update|upsert|insert|delete)/);
     expect(verificar).toMatch(/report_type: TIPO_REPORTE_REVISION_IA/);

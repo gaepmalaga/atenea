@@ -20,7 +20,7 @@ Decide SOLO con ese texto, no con lo que recuerdes de otras versiones de la ley:
 - "incorrecta": la marcada no es correcta según el texto, u otra opción también lo es, o la explicación afirma algo que el texto contradice.
 - "dudosa": el texto no basta para decidir (la pregunta trata de otra cosa, le falta contexto o es ambigua).
 Si es "incorrecta", indica qué opción es la correcta según el texto (0, 1 o 2), o -1 si ninguna.
-El motivo, en castellano, en una o dos frases cortas y concretas, citando el apartado si lo hay. No repitas la pregunta.`;
+El motivo, en castellano, en una o dos frases cortas y concretas, citando el apartado si lo hay. No repitas la pregunta. Lo leerá un tutor que no ve lo que te he dado: llama al texto «el artículo», nunca «el texto proporcionado».`;
 
 export const VERIFICACION_SCHEMA: Schema = {
   type: SchemaType.OBJECT,

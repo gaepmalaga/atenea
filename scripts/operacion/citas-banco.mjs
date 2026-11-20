@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { citasDeLaPregunta, cabeceraDelTemario, candidatasPorTema, eligePorTexto, NO_VIGILADAS, nombreCorto } from '../../app/lib/normativa.ts';
-import { articulosNombrados, palabras, mejorArticulo, claseDePrecepto } from '../../app/lib/propuestas-banco.ts';
+import { articulosNombrados, palabras, mejorArticulo, claseDePrecepto, cobertura, PARECIDO_MINIMO } from '../../app/lib/propuestas-banco.ts';
 import { idDeNorma, textoPorPrecepto } from './fuentes-boe.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -82,8 +82,25 @@ export async function preparaCitas(db, preguntas) {
 
   const candidatas = (tema, cab, precepto) => candidatasPorTema(tema, precepto, cab?.boes).filter((c) => textos.get(c.boe)?.has(precepto));
 
-  /** La cita segura de una pregunta: `{ boe, norma, precepto, como }` o `null`. */
+  /**
+   * La cita segura de una pregunta: `{ boe, norma, precepto, como, parecido }`
+   * o `null`. Si la ley NO la dice la referencia (se deduce del tema o de la
+   * explicación), la pregunta tiene que parecerse al artículo: si no, la
+   * deducción es una casualidad («Artículo 59» en un tema donde solo el
+   * Convenio Europeo tiene artículo 59) y no se da.
+   */
   function citaDe(q) {
+    const c = citaSinComprobar(q);
+    if (!c) return null;
+    const art = textos.get(c.boe)?.get(c.precepto);
+    const textoQ = palabras(`${q.question_text} ${Array.isArray(q.options) ? q.options[q.correct_index] ?? '' : ''}`);
+    const parecido = art ? cobertura(textoQ, art.palabras) : 0;
+    if (c.como !== 'la referencia' && parecido < PARECIDO_MINIMO) { descartadas.push({ q, cita: c, parecido }); return null; }
+    return { ...c, parecido };
+  }
+  const descartadas = [];
+
+  function citaSinComprobar(q) {
     const ctx = contexto.get(q.id);
     if (!ctx) return null;
     const { tema, cab, citas } = ctx;
@@ -140,5 +157,8 @@ export async function preparaCitas(db, preguntas) {
   /** El texto vigente de un precepto: `{ id, titulo, texto }` o `null`. */
   const textoDe = (boe, precepto) => textos.get(boe)?.get(precepto) ?? null;
 
-  return { citaDe, textoDe, citasDe: (q) => contexto.get(q.id)?.citas ?? [], normasLeidas: textos.size, normasPedidas: necesarios.size };
+  /** Las deducciones que no se dieron por no parecerse la pregunta al artículo (para el informe). */
+  const sinParecido = () => descartadas;
+
+  return { citaDe, textoDe, sinParecido, citasDe: (q) => contexto.get(q.id)?.citas ?? [], normasLeidas: textos.size, normasPedidas: necesarios.size };
 }

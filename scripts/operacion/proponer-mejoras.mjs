@@ -22,7 +22,7 @@ import { config } from 'dotenv';
 import { appendFile } from 'node:fs/promises';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
 import { citasDeLaPregunta } from '../../app/lib/normativa.ts';
-import { quitaTextoProporcionado, hablaDeUnTexto, referenciaCorta, deCon } from '../../app/lib/propuestas-banco.ts';
+import { quitaTextoProporcionado, hablaDeUnTexto, referenciaCorta, deCon, PARECIDO_MINIMO } from '../../app/lib/propuestas-banco.ts';
 import { preparaCitas } from './citas-banco.mjs';
 import { proponer } from './propuestas.mjs';
 
@@ -120,7 +120,19 @@ di(`- Preguntas activas: ${preguntas.length} · con algo que mejorar: ${trabajo.
 di(`- «Texto proporcionado»: ${cuenta.conTexto} · se arreglan: ${cuenta.textoArreglado} · quedan para el tutor: ${cuenta.textoDudoso}`);
 di(`- Sin ley en la referencia: ${cuenta.sinLey} · se completan: ${cuenta.leyPuesta} · sin poder deducirla con seguridad: ${cuenta.sinResolver}`);
 di(`- De dónde sale la ley: ${[...como].map(([k, n]) => `${k} ${n}`).join(' · ')}`);
+const dudosas = ctx.sinParecido();
+di(`- Leyes deducidas que NO se proponen porque la pregunta no se parece al artículo (menos del ${Math.round(PARECIDO_MINIMO * 100)} %): ${dudosas.length}`);
 di(`- **Propuestas: ${propuestas.length}** (una por pregunta)`);
+di();
+di('<details><summary>Deducciones descartadas (muestra)</summary>');
+di();
+const pasoD = Math.max(1, Math.floor(dudosas.length / 15));
+for (let i = 0; i < dudosas.length; i += pasoD) {
+  const d = dudosas[i];
+  di(`- \`${d.q.id.slice(0, 8)}\` ${Math.round(d.parecido * 100)} % con ${referenciaCorta(d.cita.norma, d.cita.precepto)} (${d.cita.como}): ${d.q.question_text.replace(/\s+/g, ' ').slice(0, 130)}`);
+}
+di();
+di('</details>');
 di();
 di('<details><summary>Ejemplos</summary>');
 di();
