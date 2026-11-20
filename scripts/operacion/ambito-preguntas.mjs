@@ -12,6 +12,7 @@
  *   npm run ambito -- --hazlo             repasa todas y deja los avisos. Un euro o dos.
  *   npm run ambito -- --hazlo --limite=500
  *   npm run ambito -- --solo=d882a4e5     solo esas preguntas (por el principio de su id), sin escribir
+ *   npm run ambito -- --hazlo --despues-de=<id>   reanuda tras un corte: solo las que van después de ese id
  *
  * Una pregunta que ya tuvo un aviso de ESTE repaso (abierto o archivado) no se
  * vuelve a repasar. Los exámenes oficiales (temas 46-50) no tienen programa y
@@ -36,10 +37,10 @@ const MUESTRA = Number(valor('muestra') ?? 0);
 const LIMITE = Number(valor('limite') ?? 0);
 // --solo=d882a4e5,40593d9a: solo esas (por el principio de su id). Para probar casos conocidos.
 const SOLO = (valor('solo') ?? '').split(',').filter(Boolean);
+// --despues-de=<id completo>: reanuda; solo las que van DESPUÉS de ese id (el orden es por id). Para no repetir lo ya evaluado si se cortó (p. ej. Gemini sin saldo).
+const DESPUES_DE = valor('despues-de') ?? '';
 const CONCURRENCIA = 4;
 const MODELO = 'gemini-3.5-flash-lite';
-/** Marca del aviso de ESTE repaso, para no repetirlo (el tipo de reporte es el mismo que el del repaso contra la ley). */
-const FIRMA = 'no es de este tema';
 const llama = HAZLO || MUESTRA > 0 || SOLO.length > 0;
 
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -80,7 +81,8 @@ const avisos = await todas(
   (d, h) => db.from('question_reports').select('id, question_id, message').eq('report_type', TIPO_REPORTE_AMBITO).order('id').range(d, h),
   'question_reports',
 );
-const yaAvisadas = new Set(avisos.filter((r) => (r.message ?? '').includes(FIRMA) || /de ningún tema del programa/.test(r.message ?? '')).map((r) => r.question_id));
+// Los avisos de este repaso: «no es del tema X sino del tema Y» o «no es de ningún tema del programa» (`avisoDeAmbito`).
+const yaAvisadas = new Set(avisos.filter((r) => /sino del tema \d+|de ningún tema del programa/.test(r.message ?? '')).map((r) => r.question_id));
 
 const repasables = [];
 let sinPrograma = 0;
@@ -88,6 +90,7 @@ for (const q of preguntas) {
   const t = porNumero.get(q.subjects?.topic_number);
   if (!t) { sinPrograma++; continue; }
   if (yaAvisadas.has(q.id)) continue;
+  if (DESPUES_DE && !(q.id > DESPUES_DE)) continue;
   repasables.push({ q, t });
 }
 console.log(`Sin revisar: ${preguntas.length} · sin programa oficial (exámenes): ${sinPrograma} · ya avisadas por este repaso: ${yaAvisadas.size} · se pueden repasar: ${repasables.length}`);
