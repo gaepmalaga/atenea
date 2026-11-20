@@ -771,7 +771,7 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
   Territorial», id `d0aa3fbc-…`) tiene casi seguro el mismo problema; no se tocó
   porque no se pudo leer el art. 73 desde aquí.
 
-## 2w · La última palabra es de los tutores (20 nov, regla 138)
+## 2w · La última palabra es de los tutores (20 nov, regla 138, DESPLEGADO el 20 nov)
 
 - **Hecho:** cada pregunta lleva «revisada por (quién, cuándo)»; los cambios
   de Claude, de la IA y de la medición de dificultad son **propuestas** que un
@@ -789,5 +789,14 @@ depósito privado `documentos` y 5 carpetas iniciales), y desplegado. `supabase/
 - **La IA ya no publica:** generar desde «Temario & IA» y los guiones de
   siembra dejan las preguntas pendientes.
 - **Visto:** «Revisión» (resumen, revisor, propuestas, ley y quejas) y «Banco
-  oficial» en el banco de pruebas, a tamaño de móvil. **Sin probar contra la base
-  de datos real:** aprobar y rechazar una propuesta, y el interruptor.
+  oficial» en el banco de pruebas, a tamaño de móvil. Las consultas nuevas,
+  contra la base real. **Sin probar con una sesión de admin real:** aprobar y
+  rechazar una propuesta, y el interruptor.
+- **Novedades cargadas a mano** (20 nov) con lo que pasó antes de existir: el
+  lote del Tomo, la dificultad que la IA puso a 725 del banco, las dos
+  correcciones directas de Claude y los primeros avisos de la ley.
+- **Lo que queda (fase 2, siempre como propuestas):** 562 enunciados y 146
+  explicaciones con «texto proporcionado»; 1.195 sin referencia legal y 323
+  ambiguas; un repaso automático de las 4.617 de la IA contra el texto del BOE
+  para que los tutores empiecen por las sospechosas; marcar las 97 del Tomo que
+  repiten un hecho.
