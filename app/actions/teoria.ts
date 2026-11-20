@@ -39,6 +39,7 @@ const aAsignacion = (r: Fila): AsignacionTeoria => ({
   classId: r.class_id as string,
   fecha: r.session_date as string,
   profesorId: (r.teacher_id as string | null) ?? null,
+  profesor2Id: (r.teacher2_id as string | null) ?? null,
   temas: normalizaTemas(r.topics),
   nota: (r.note as string | null) ?? null,
 });
@@ -76,7 +77,7 @@ export async function getAvanceTeoria(params: { classId: string }): Promise<
   const [temas, hist] = await Promise.all([
     supabaseAdmin.from('subjects').select('topic_number, title').order('topic_number'),
     paginaCompleta<Fila>((d, h) => supabaseAdmin.from('theory_sessions')
-      .select('class_id, session_date, teacher_id, topics, note').eq('organization_id', org).eq('class_id', classId)
+      .select('class_id, session_date, teacher_id, teacher2_id, topics, note').eq('organization_id', org).eq('class_id', classId)
       .order('session_date').range(d, h) as unknown as Promise<ResultadoPagina<Fila>>),
   ]);
   if (temas.error) return { success: false as const, error: fallo('getAvanceTeoria', temas.error) };
@@ -99,6 +100,8 @@ export async function saveClaseTeoria(params: {
   classId: string;
   fecha: string;
   profesorId: string | null;
+  /** Un segundo profesor (regla 142): lo normal es uno. */
+  profesor2Id?: string | null;
   temas: number[];
   nota?: string | null;
 }): Promise<{ success: true; borrada: boolean } | { success: false; error: string }> {
@@ -109,6 +112,10 @@ export async function saveClaseTeoria(params: {
   if (!org || !esUuid(classId) || !esFecha(fecha)) return { success: false as const, error: 'Datos no válidos.' };
   const profesorId = params.profesorId ?? null;
   if (profesorId !== null && !esUuid(profesorId)) return { success: false as const, error: 'Datos no válidos.' };
+  const profesor2Id = params.profesor2Id ?? null;
+  if (profesor2Id !== null && !esUuid(profesor2Id)) return { success: false as const, error: 'Datos no válidos.' };
+  if (profesor2Id && !profesorId) return { success: false as const, error: 'Pon primero quién la da; el segundo profesor es el que le acompaña.' };
+  if (profesor2Id && profesor2Id === profesorId) return { success: false as const, error: 'El segundo profesor tiene que ser otra persona.' };
   const temas = normalizaTemas(params.temas);
   const nota = normalizaNotaTeoria(params.nota);
 
@@ -119,9 +126,10 @@ export async function saveClaseTeoria(params: {
     return { success: false as const, error: 'Ese grupo no tiene clase ese día.' };
   }
 
-  if (profesorId) {
+  for (const quien of [profesorId, profesor2Id]) {
+    if (!quien) continue;
     const { data: p } = await supabaseAdmin.from('academy_staff').select('id, role, active')
-      .eq('organization_id', org).eq('id', profesorId).maybeSingle();
+      .eq('organization_id', org).eq('id', quien).maybeSingle();
     if (!p) return { success: false as const, error: 'Ese profesor no es de tu academia.' };
     if (!daClase(p.role as string | null)) return { success: false as const, error: 'Esa persona es del equipo, pero no da clase.' };
   }
@@ -134,7 +142,7 @@ export async function saveClaseTeoria(params: {
 
   const { error } = await supabaseAdmin.from('theory_sessions').upsert({
     organization_id: org, class_id: classId, session_date: fecha,
-    teacher_id: profesorId, topics: temas, note: nota,
+    teacher_id: profesorId, teacher2_id: profesor2Id, topics: temas, note: nota,
     created_by: auth.user.id, updated_at: new Date().toISOString(),
   }, { onConflict: 'class_id,session_date' });
   return error ? { success: false as const, error: fallo('saveClaseTeoria', error) } : { success: true as const, borrada: false };
@@ -160,7 +168,7 @@ export async function copiarSemanaTeoria(params: { desde: string; a: string }): 
   const dias = new Map(grupos.data.map((g) => [g.id, g.weekdays]));
 
   const [origen, destino] = await Promise.all([
-    supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, topics')
+    supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, teacher2_id, topics')
       .eq('organization_id', org).gte('session_date', desde).lte('session_date', sumaDias(desde, 6)),
     supabaseAdmin.from('theory_sessions').select('class_id, session_date')
       .eq('organization_id', org).gte('session_date', a).lte('session_date', sumaDias(a, 6)),
@@ -176,7 +184,7 @@ export async function copiarSemanaTeoria(params: { desde: string; a: string }): 
     if (hay.has(`${o.class_id}|${fecha}`) || !dias.get(o.class_id as string)?.includes(diaSemanaDe(fecha))) { omitidas += 1; continue; }
     filas.push({
       organization_id: org, class_id: o.class_id, session_date: fecha,
-      teacher_id: o.teacher_id, topics: o.topics, created_by: auth.user.id,
+      teacher_id: o.teacher_id, teacher2_id: o.teacher2_id, topics: o.topics, created_by: auth.user.id,
     });
   }
   if (filas.length) {

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Copy, ChevronLeft, ChevronRight, SlidersHorizontal, Search, CalendarDays, Users, UserRound, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Copy, Plus, LayoutGrid, ChevronLeft, ChevronRight, SlidersHorizontal, Search, CalendarDays, Users, UserRound, Clock, AlertTriangle, RotateCcw } from 'lucide-react';
 import { getCalendario, copiarSemanaTeoria, copiarCuadrante, setSinClase } from '@/actions';
 import ProgramaTeoria from './ProgramaTeoria';
+import FormacionExtra from './FormacionExtra';
+import CuadranteTeoriaPanel from './CuadranteTeoriaPanel';
 import ProgramacionFisica, { type PeticionFisica } from './fisica/Cuadrante';
 import type { DatosCalendario } from '@/app/actions/calendario';
 import {
@@ -59,6 +61,9 @@ export default function AdminCalendario() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [copiando, setCopiando] = useState(false);
   const [peticion, setPeticion] = useState<PeticionFisica | null>(null);
+  // Una formación extra abierta (o nueva: `extra` nulo) y el cuadrante de teoría de la semana (regla 142).
+  const [extraAbierta, setExtraAbierta] = useState<{ extra: EventoCalendario | null } | null>(null);
+  const [verCuadrante, setVerCuadrante] = useState(false);
   const cierraPeticion = useCallback(() => setPeticion(null), []);
 
   // La vista y los filtros de la última vez, en este navegador.
@@ -102,6 +107,7 @@ export default function AdminCalendario() {
   const abreEvento = (e: EventoCalendario) => {
     // La física de grupo se programa con el editor del cuadrante; lo demás, con su ficha.
     if ((e.tipo === 'fisica' || e.tipo === 'suelta') && e.grupoId) setPeticion({ classId: e.grupoId, fecha: e.fecha, n: Date.now() });
+    else if (e.tipo === 'extra') setExtraAbierta({ extra: e });
     else setAbierto(e);
   };
   /** Copia la semana anterior: la física de grupo y la teoría, de una vez. */
@@ -133,7 +139,7 @@ export default function AdminCalendario() {
     <div className="space-y-5 animate-in fade-in pb-24">
       <PanelTitulo
         titulo="Calendario"
-        sub={<span className="max-sm:hidden">Toda la programación: clases, física, sesiones sueltas, entrenos, días sin clase y el examen.</span>}
+        sub={<span className="max-sm:hidden">Toda la programación: clases, física, sesiones sueltas, formaciones extras, entrenos, días sin clase y el examen.</span>}
         acciones={
           <Boton variant="secondary" className="lg:hidden" icon={<SlidersHorizontal size={15} />} onClick={() => setVerFiltros((x) => !x)} aria-expanded={verFiltros}>
             Filtros{nFiltros ? ` (${nFiltros})` : ''}
@@ -156,6 +162,11 @@ export default function AdminCalendario() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {vista === 'semana' && datos && <Boton size="sm" variant="secondary" icon={<LayoutGrid size={14} />} onClick={() => setVerCuadrante(true)}>Cuadrante de teoría</Boton>}
+        <Boton size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => setExtraAbierta({ extra: null })}>Formación extra</Boton>
       </div>
 
       {vista === 'semana' && datos && (
@@ -196,6 +207,11 @@ export default function AdminCalendario() {
         </div>
       </div>
 
+      {extraAbierta && (
+        <FormacionExtra key={extraAbierta.extra?.id ?? 'nueva'} extra={extraAbierta.extra} fechaInicial={vista === 'dia' ? fecha : vista === 'semana' ? (fecha >= desde && fecha <= hasta ? fecha : desde) : hoy}
+          profesores={datos?.profesores ?? []} onCerrar={() => setExtraAbierta(null)} onCambio={() => { alCambiarTeoria(); setExtraAbierta(null); }} />
+      )}
+      {verCuadrante && <CuadranteTeoriaPanel lunes={lunesDeFecha(desde)} onCerrar={() => setVerCuadrante(false)} />}
       {abierto && <FichaEvento e={abierto} profesores={datos?.profesores ?? []} onCerrar={() => setAbierto(null)} onCambio={() => { alCambiarTeoria(); setAbierto(null); }} />}
     </div>
   );
@@ -215,6 +231,7 @@ function PanelFiltros({ datos, eventos, filtro, setFiltro }: {
     { id: 'entreno', label: 'Entrenos de alumnos' },
     { id: 'sin_clase', label: 'Días sin clase' },
     { id: 'examen', label: 'Examen' },
+    { id: 'extra', label: 'Formaciones extras' },
   ];
   const grupos = datos.grupos.filter((g) => !g.esMulti || eventos.some((e) => e.grupoId === g.id));
   const hayFiltros = filtro.ocultosQue.join() !== FILTRO_INICIAL.ocultosQue.join() || filtro.ocultosGrupos.length || filtro.ocultosProfesores.length || filtro.busca;

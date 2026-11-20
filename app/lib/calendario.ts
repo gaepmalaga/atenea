@@ -22,8 +22,9 @@
 
 import { sumaDias, diaSemanaDe, horaCorta, cuentaSesion, type HorarioGrupo, type CuentaSesion } from './asistencia.ts';
 import { colorDeGrupo, nombreCorto } from './cuadrante.ts';
+import type { ExtraEvento } from './extras.ts';
 
-export type TipoEvento = 'clase' | 'fisica' | 'suelta' | 'entreno' | 'sin_clase' | 'examen';
+export type TipoEvento = 'clase' | 'fisica' | 'suelta' | 'entreno' | 'sin_clase' | 'examen' | 'extra';
 
 export const ETIQUETA_TIPO_EVENTO: Record<TipoEvento, string> = {
   clase: 'Clase',
@@ -32,6 +33,7 @@ export const ETIQUETA_TIPO_EVENTO: Record<TipoEvento, string> = {
   entreno: 'Entreno de un alumno',
   sin_clase: 'Sin clase',
   examen: 'Examen oficial',
+  extra: 'Formación extra',
 };
 
 export type GrupoCal = {
@@ -57,7 +59,7 @@ export type SesionCal = {
 };
 
 /** Lo apuntado a una clase de teoría (`theory_sessions`). */
-export type TeoriaCal = { classId: string; fecha: string; profesorId: string | null; temas: number[]; nota: string | null };
+export type TeoriaCal = { classId: string; fecha: string; profesorId: string | null; profesor2Id?: string | null; temas: number[]; nota: string | null };
 
 export type EventoCalendario = {
   id: string;
@@ -85,6 +87,9 @@ export type EventoCalendario = {
   nota: string | null;
   plazas: CuentaSesion | null;
   motivo: string | null;
+  /** Una formación extra (regla 142): su id, para abrirla y editarla; y para quién es. */
+  extraId: string | null;
+  audiencia: string | null;
   color: { fondo: string; texto: string };
 };
 
@@ -97,6 +102,7 @@ const COLOR_OTRO = { fondo: '#475569', texto: '#ffffff' };
 const COLOR_ENTRENO = { fondo: '#e2e8f0', texto: '#0f172a' };
 const COLOR_SIN_CLASE = { fondo: '#f1f5f9', texto: '#64748b' };
 const COLOR_EXAMEN = { fondo: '#c8a24a', texto: '#0b1530' };
+const COLOR_EXTRA = { fondo: '#fcd34d', texto: '#451a03' };
 
 export function colorDe(g: Pick<GrupoCal, 'nombre' | 'kind' | 'llevaPlan'>): { fondo: string; texto: string } {
   if (g.llevaPlan) return colorDeGrupo(nombreCorto(g.nombre));
@@ -131,6 +137,8 @@ export function armaCalendario(p: {
   examen: string | null;
   /** Lo apuntado a las clases de teoría (regla 131): quién la da y qué tema. */
   teoria?: TeoriaCal[];
+  /** Las formaciones extras (regla 142). */
+  extras?: ExtraEvento[];
 }): EventoCalendario[] {
   const out: EventoCalendario[] = [];
   const grupoDe = new Map(p.grupos.map((g) => [g.id, g]));
@@ -159,6 +167,8 @@ export function armaCalendario(p: {
     temas: [] as number[],
     nota: null as string | null,
     motivo: null,
+    extraId: null as string | null,
+    audiencia: null as string | null,
   });
   const teoriaDe = new Map((p.teoria ?? []).map((t) => [`${t.classId}|${t.fecha}`, t]));
   const usadas = new Set<string>();
@@ -194,7 +204,7 @@ export function armaCalendario(p: {
         // En teoría quien la da y el tema se apuntan clase a clase (regla 131):
         // el profesor del grupo no vale como respuesta, solo lo apuntado.
         const t = teoriaDe.get(`${g.id}|${f}`);
-        const ids = t?.profesorId ? [t.profesorId] : [];
+        const ids = t ? [...new Set([t.profesorId, t.profesor2Id ?? null].filter((x): x is string => !!x))] : [];
         const temas = t?.temas ?? [];
         out.push({
           ...base(g), id: `clase|${g.id}|${f}`, tipo: 'clase', fecha: f, inicio: ini, fin,
@@ -240,7 +250,17 @@ export function armaCalendario(p: {
     });
   }
 
-  // 4 · El examen.
+  // 4 · Las formaciones extras (regla 142): fecha propia, sin grupo.
+  for (const x of p.extras ?? []) {
+    if (x.fecha < p.desde || x.fecha > p.hasta) continue;
+    out.push({
+      ...base(null), id: `extra|${x.id}`, tipo: 'extra', fecha: x.fecha, inicio: x.inicio, fin: x.fin,
+      titulo: x.titulo, profesorIds: x.profesorIds, profesores: nombres(x.profesorIds), plazas: null,
+      nota: x.nota, extraId: x.id, audiencia: x.audiencia, kind: 'extra', kindLabel: 'Formación extra', color: COLOR_EXTRA,
+    });
+  }
+
+  // 5 · El examen.
   if (p.examen && p.examen >= p.desde && p.examen <= p.hasta) {
     out.push({
       ...base(null), id: `examen|${p.examen}`, tipo: 'examen', fecha: p.examen, inicio: null, fin: null,
@@ -281,7 +301,7 @@ export const FILTRO_INICIAL: FiltroCalendario = {
 
 /** La categoría «qué» de un evento: el tipo de su grupo, o la suya si no tiene grupo. */
 export const queEs = (e: Pick<EventoCalendario, 'tipo' | 'kind'>): string =>
-  e.tipo === 'entreno' || e.tipo === 'examen' || e.tipo === 'sin_clase' ? e.tipo : e.kind ?? 'otro';
+  e.tipo === 'entreno' || e.tipo === 'examen' || e.tipo === 'sin_clase' || e.tipo === 'extra' ? e.tipo : e.kind ?? 'otro';
 
 const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 

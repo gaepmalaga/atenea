@@ -5502,3 +5502,50 @@ documento (o con una decisión anterior del dueño):
   «Logs» no estaba en las pestañas del superadmin (solo veía la comparativa
   entre academias, nunca el registro de una), tuvo que añadirse ahí también —
   de paso, sirve para ver el registro de la plataforma entera sin filtrar.
+
+### 142 · El cuadrante de teoría sale solo de lo programado: segundo profesor, formaciones extras y la imagen para WhatsApp
+
+- **Qué pasó (20 nov):** cada semana Sofía lanza en WhatsApp una encuesta de
+  disponibilidad, con los votos monta el cuadrante a mano y sube una imagen
+  («Cuadrante semanal de clases»: una columna por día, las clases con el color
+  de su grupo, el tema, quién la da y, arriba, el Curso OSINT). Cada cambio era
+  rehacer la imagen. La programación ya estaba en el Calendario (regla 131);
+  faltaba que la imagen saliera de ahí, y tres cosas que la imagen tiene y la
+  plataforma no.
+- **Decisiones del dueño (20 nov):**
+  - Los colores de la imagen son los TRES GRUPOS de teoría (azul L-X mañanas,
+    verde M-J mañanas, rojo M-J tarde), siempre el mismo (`PALETA_GRUPOS`, por
+    orden de primer día y hora).
+  - **El horario real** es 10:00-13:00 y 16:30-19:30 (la BD decía «provisional»,
+    10-14 y 16-20): corregido en los tres grupos.
+  - **Una clase puede tener DOS profesores** (`theory_sessions.teacher2_id`):
+    lo normal es uno, pero hay «Morato y Enrique». **Cada uno suma 1 clase dada**
+    (`getDiasDados` y la agenda de cada profesor ya los cuentan).
+  - **Formaciones extras** (el Curso OSINT y otras, para los mismos alumnos o
+    para gente externa): tabla `extra_events` (fecha, hora opcional, título,
+    hasta dos profesores, para quién, nota). Sin lista de asistentes por ahora y
+    sin pago asociado (pendiente de preguntar).
+  - **«Simulacro +», «Organigrama»**: se escriben en la NOTA de la clase y la
+    imagen los pone delante del tema.
+  - Cada miembro del equipo tendrá su cuenta (fase B, más adelante, cuando se
+    tengan sus correos); la disponibilidad se pedirá desde la plataforma.
+- **Regla:** el cuadrante NO guarda nada (como el calendario, regla 105): se
+  deriva de los eventos de la semana (`armaCuadranteTeoria`,
+  `app/lib/cuadrante-teoria.ts`, pura y con test que reproduce la semana de la
+  imagen). Tres salidas de una rejilla: el panel, la imagen (canvas en el
+  navegador, `cuadranteTeoriaImagen.ts`; en el móvil abre la hoja de compartir,
+  WhatsApp incluido) y el texto para pegar.
+  - **(I) y (II)** se calculan: si un grupo da el mismo tema en dos o más clases,
+    la primera es (I), la segunda (II)… (`partesDeTema`). Un tema que se da una
+    sola vez no lleva número.
+  - Las clases sin programar salen como «Por programar»; los días «sin clase» no
+    salen; sábado y domingo solo si tienen algo.
+  - Las formaciones extras son un tipo de evento del Calendario (`extra`, con su
+    filtro) y salen como franja amarilla de su día. `extra_events` está en la
+    lista de la limpieza (regla 81) y, como el resto, con RLS y CERO políticas.
+  - Se abre desde el Calendario (vista de semana: «Cuadrante de teoría»;
+    cualquier vista: «Formación extra»).
+- **Pendiente (fase B):** cuentas del equipo con un rol propio y la petición de
+  disponibilidad (los huecos salen del horario de los grupos; cada profesor marca
+  los suyos desde el móvil). La planificación asistida se dejó para más adelante
+  (decisión del dueño).

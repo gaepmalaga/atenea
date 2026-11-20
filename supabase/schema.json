@@ -682,6 +682,47 @@
         "sat_on": "date"
       }
     },
+    "extra_events": {
+      "columnas": [
+        "audience",
+        "created_at",
+        "created_by",
+        "end_time",
+        "event_date",
+        "id",
+        "note",
+        "organization_id",
+        "start_time",
+        "teacher2_id",
+        "teacher_id",
+        "title",
+        "updated_at"
+      ],
+      "obligatorias": [
+        "audience",
+        "created_at",
+        "event_date",
+        "id",
+        "organization_id",
+        "title",
+        "updated_at"
+      ],
+      "tipos": {
+        "audience": "text",
+        "created_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "end_time": "time without time zone",
+        "event_date": "date",
+        "id": "uuid",
+        "note": "text",
+        "organization_id": "uuid",
+        "start_time": "time without time zone",
+        "teacher2_id": "uuid",
+        "teacher_id": "uuid",
+        "title": "text",
+        "updated_at": "timestamp with time zone"
+      }
+    },
     "fee_packs": {
       "columnas": [
         "created_at",
@@ -1766,6 +1807,7 @@
         "note",
         "organization_id",
         "session_date",
+        "teacher2_id",
         "teacher_id",
         "topics",
         "updated_at"
@@ -1785,6 +1827,7 @@
         "note": "text",
         "organization_id": "uuid",
         "session_date": "date",
+        "teacher2_id": "uuid",
         "teacher_id": "uuid",
         "topics": "integer[]",
         "updated_at": "timestamp with time zone"

@@ -23,7 +23,7 @@ import {
 import { fallo } from '../lib/fallos';
 import { daClase } from '../lib/personal';
 import { ahoraEnZona, esFecha, sumaDias } from '../lib/asistencia';
-import { diasDados, type DiasDeProfesor, type ClaseDeProfesor } from '../lib/teoria';
+import { diasDados, profesoresDeClase, type DiasDeProfesor, type ClaseDeProfesor } from '../lib/teoria';
 import { paginaCompleta, type ResultadoPagina } from '../lib/pagination';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -223,8 +223,8 @@ export async function getDiasDados(params: { mes: string }): Promise<
 
   type F = Record<string, unknown>;
   const [teo, fis, off] = await Promise.all([
-    paginaCompleta<F>((d, h) => supabaseAdmin.from('theory_sessions').select('teacher_id, session_date, class_id')
-      .eq('organization_id', org).not('teacher_id', 'is', null).gte('session_date', desde).lte('session_date', hasta)
+    paginaCompleta<F>((d, h) => supabaseAdmin.from('theory_sessions').select('teacher_id, teacher2_id, session_date, class_id')
+      .eq('organization_id', org).or('teacher_id.not.is.null,teacher2_id.not.is.null').gte('session_date', desde).lte('session_date', hasta)
       .order('session_date').order('class_id').range(d, h) as unknown as Promise<ResultadoPagina<F>>),
     paginaCompleta<F>((d, h) => supabaseAdmin.from('training_sessions').select('id, teacher_id, session_date, class_id')
       .eq('organization_id', org).not('teacher_id', 'is', null).not('class_id', 'is', null)
@@ -238,8 +238,10 @@ export async function getDiasDados(params: { mes: string }): Promise<
 
   const quitados = new Set((off.data ?? []).map((d) => `${d.class_id}|${d.session_date}`));
   const clases: ClaseDeProfesor[] = [
+    // Una clase con dos profesores (regla 142) suma 1 a cada uno.
     ...teo.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
-      .map((r) => ({ profesorId: r.teacher_id as string, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'teoria' as const })),
+      .flatMap((r) => profesoresDeClase({ profesorId: (r.teacher_id as string | null) ?? null, profesor2Id: (r.teacher2_id as string | null) ?? null })
+        .map((profesorId) => ({ profesorId, classId: r.class_id as string, fecha: r.session_date as string, tipo: 'teoria' as const }))),
     ...fis.data.filter((r) => !quitados.has(`${r.class_id}|${r.session_date}`))
       // Cada sesión de física suma 1: su id es la «clase» (no el grupo y día).
       .map((r) => ({ profesorId: r.teacher_id as string, classId: r.id as string, fecha: r.session_date as string, tipo: 'fisica' as const })),

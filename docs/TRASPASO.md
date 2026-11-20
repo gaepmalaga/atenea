@@ -67,6 +67,12 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    cambio propuesto de `000c13dd` (art. 34 CP) **rechazado** (era correcto:
    un tutor puede volver a proponerlo). Un tutor real debería volver a mirar
    la `0108dca2`.
+2b. **Cuadrante semanal de teoría — fase A hecha (20 nov, regla 142).** Desde el
+   Calendario: «Cuadrante de teoría» (semana) genera la imagen del cuadrante y el
+   texto para WhatsApp; «Formación extra» crea cursos extras (OSINT…); una clase
+   admite un segundo profesor. **Fase B pendiente:** cuentas del equipo (rol
+   propio; faltan los correos de los 12) y petición de disponibilidad. Preguntar
+   al dueño: si las formaciones extras se pagan por clase como las demás.
 3. **Preguntas que no son del temario — HECHO el repaso, falta lanzarlo
    entero.** `npm run ambito` (`app/lib/ambito-tema.ts`,
    `scripts/operacion/ambito-preguntas.mjs`; acciones de «Operación»

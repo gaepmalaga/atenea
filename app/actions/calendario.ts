@@ -8,6 +8,7 @@ import { armaCalendario, colorDe, type EventoCalendario, type GrupoCal, type Ses
 import { fallo } from '../lib/fallos';
 import { daClase } from '../lib/personal';
 import { normalizaTemas } from '../lib/teoria';
+import { aExtraEvento } from '../lib/extras';
 
 /**
  * EL CALENDARIO DE LA ACADEMIA (regla 105): todo lo que tiene fecha entre dos
@@ -68,7 +69,7 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
   const kinds = (kindsRes.data ?? []) as Fila[];
   const kind = new Map(kinds.map((k) => [k.id as string, k]));
 
-  const [staffGrupo, miembros, faltas, multis, sesiones, teoria] = await Promise.all([
+  const [staffGrupo, miembros, faltas, multis, sesiones, teoria, extras] = await Promise.all([
     ids.length ? supabaseAdmin.from('class_group_staff').select('class_id, staff_id').in('class_id', ids) : Promise.resolve({ data: [] as Fila[], error: null }),
     ids.length
       ? paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('class_members').select('class_id, user_id').in('class_id', ids).order('class_id').order('user_id').range(d, h))
@@ -85,10 +86,14 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
       .select('id, class_id, user_id, session_date, start_time, title, teacher_id, duration_min')
       .eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta).order('id').range(d, h)),
     // Quién da cada clase de teoría y qué tema (regla 131).
-    paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, topics, note')
+    paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('theory_sessions').select('class_id, session_date, teacher_id, teacher2_id, topics, note')
       .eq('organization_id', org).gte('session_date', desde).lte('session_date', hasta).order('session_date').order('class_id').range(d, h)),
+    // Las formaciones extras (regla 142): el Curso OSINT y otras.
+    paginaCompleta<Fila>(async (d, h) => await supabaseAdmin.from('extra_events')
+      .select('id, event_date, start_time, end_time, title, teacher_id, teacher2_id, audience, note')
+      .eq('organization_id', org).gte('event_date', desde).lte('event_date', hasta).order('event_date').order('id').range(d, h)),
   ]);
-  const error2 = fallo('getCalendario', staffGrupo.error) ?? miembros.error ?? faltas.error ?? multis.error ?? sesiones.error ?? teoria.error;
+  const error2 = fallo('getCalendario', staffGrupo.error) ?? miembros.error ?? faltas.error ?? multis.error ?? sesiones.error ?? teoria.error ?? extras.error;
   if (error2) {
     return { success: false as const, error: String(error2) };
   }
@@ -154,8 +159,10 @@ export async function getCalendario(params: { desde: string; hasta: string }): P
     inscritos: new Map([...inscritosDe].map(([k, v]) => [k, v.size])),
     teoria: teoria.data.map((t) => ({
       classId: t.class_id as string, fecha: t.session_date as string, profesorId: (t.teacher_id as string | null) ?? null,
+      profesor2Id: (t.teacher2_id as string | null) ?? null,
       temas: normalizaTemas(t.topics), nota: (t.note as string | null) ?? null,
     })),
+    extras: extras.data.map(aExtraEvento),
     examen: (convRes.data?.fecha_examen as string | null | undefined) ?? null,
   });
 
