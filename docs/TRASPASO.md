@@ -73,16 +73,20 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    admite un segundo profesor. **Fase B pendiente:** cuentas del equipo (rol
    propio; faltan los correos de los 12) y petición de disponibilidad. Preguntar
    al dueño: si las formaciones extras se pagan por clase como las demás.
-2c. **Estado del banco al terminar el 20 nov.** Los alumnos ven **5.826**: 725 de la
-   academia + 1 revisada + 5.100 publicadas sin leer (regla 139). Sin publicar
-   ~460: 254 con aviso de la ley o «La IA duda», ~200 con la numeración de las
-   opciones sin arreglar, 17 fuera del temario, 24 sin referencia en temas con
-   ley, y unas pocas con queja u otro defecto. Las 852 de temas sin ley se
-   publicaron y se comprobaron contra los apuntes (regla 145: 1 contradice, 2 sin
-   cubrir). **Pendiente:** revisión de los tutores (aviso por aviso; las 725 de la
-   academia: su explicación), las 118 «Cambios en la ley», las 228 citas ambiguas,
-   señalar las repetidas con las familias y la dificultad medida cuando los
-   alumnos contesten.
+2c. **Estado del banco al terminar el 20 nov (tarde).** Los alumnos ven **5.921**: 725 de la
+   academia + 1 revisada + 5.195 publicadas sin leer (regla 139). Sin publicar
+   **406**: unas 270 con aviso de la ley o «La IA duda» (o «fuera del temario»),
+   ~122 con la numeración de las opciones sin poder arreglarse solo (no hay base
+   demostrable: las ve un tutor), 12 sin referencia legal que ningún texto nombra
+   con claridad, y unas pocas con queja. Hoy se aceptaron 100 conversiones de
+   numeración y 16 correcciones puntuales (12 referencias que la propia pregunta
+   cita y 4 «texto proporcionado»), todas como propuestas de Claude
+   (`scripts/operacion/proponer-correcciones-puntuales.mjs`), y se publicaron 95
+   más. Las 852 de temas sin ley se publicaron y se comprobaron contra los
+   apuntes (regla 145). **Pendiente:** revisión de los tutores (aviso por aviso;
+   las 725 de la academia: su explicación), las 118 «Cambios en la ley», las 228
+   citas ambiguas, señalar las repetidas con las familias y la dificultad medida
+   cuando los alumnos contesten.
 3. **Preguntas que no son del temario — HECHO el repaso, falta lanzarlo
    entero.** `npm run ambito` (`app/lib/ambito-tema.ts`,
    `scripts/operacion/ambito-preguntas.mjs`; acciones de «Operación»
