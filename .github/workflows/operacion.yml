@@ -43,8 +43,10 @@ on:
           - dificultad-medida   # escribe la dificultad medida (30+ respuestas reales). Pide escribir MEDIR.
           - estado              # solo dice qué hay ahora mismo
           - normativa-ensayo    # qué preguntas citan artículos que han cambiado en el BOE o la UE. No escribe.
+          - mejoras-ensayo      # qué mejoras del banco propondría Claude (texto proporcionado, referencias). No escribe.
+          - mejoras             # deja esas mejoras como PROPUESTAS para los tutores. Pide escribir PROPONER.
       confirmacion:
-        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas") o MEDIR ("dificultad-medida")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas"), MEDIR ("dificultad-medida") o PROPONER ("mejoras")'
         required: false
         type: string
       correo:
@@ -137,6 +139,21 @@ jobs:
         env:
           DESDE: ${{ inputs.desde }}
         run: npm run normativa -- ${DESDE:+--desde=$DESDE}
+
+      # Mejoras del banco (regla 138): nunca tocan una pregunta, dejan
+      # propuestas que aprueba o rechaza un tutor en «Revisión».
+      - name: Mejoras · ensayo (no escribe)
+        if: inputs.accion == 'mejoras-ensayo'
+        run: npm run mejoras
+
+      - name: Mejoras · dejar las propuestas
+        if: inputs.accion == 'mejoras'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "PROPONER" ]; then
+            echo "Para dejar las propuestas hay que escribir PROPONER en el campo de confirmación."
+            exit 1
+          fi
+          npm run mejoras -- --hazlo
 
       - name: Estado actual
         if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'

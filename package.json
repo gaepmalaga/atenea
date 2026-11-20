@@ -28,6 +28,7 @@
     "dificultad:medida": "node --experimental-strip-types scripts/operacion/medir-dificultad.mjs",
     "familias": "node --experimental-strip-types scripts/operacion/agrupar-familias.mjs",
     "normativa": "node --experimental-strip-types scripts/operacion/vigilar-normativa.mjs",
+    "mejoras": "node --experimental-strip-types scripts/operacion/proponer-mejoras.mjs",
     "limpiar": "node --experimental-strip-types scripts/operacion/limpiar-para-alphapol.mjs",
     "cuenta": "node --experimental-strip-types scripts/operacion/crear-cuenta.mjs",
     "sembrar": "node --experimental-strip-types scripts/operacion/sembrar.mjs",
