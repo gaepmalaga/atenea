@@ -30,9 +30,35 @@ describe('las explicaciones que numeran las opciones', () => {
     expect(corrigeNumeracion('La opción 1 es incorrecta porque no.', 2)).toBeNull();
   });
 
-  it('las listas («las opciones 0 y 2») no se convierten solas', () => {
-    expect(corrigeNumeracion('La opción correcta es la 1. Las opciones 0 y 2 son incorrectas.', 1)).toBeNull();
-    expect(corrigeNumeracion('La opción correcta es la 1. La opción 0 y 2 no valen.', 1)).toBeNull();
+  it('las listas («las opciones 0 y 1») se convierten cuando la base está demostrada', () => {
+    expect(corrigeNumeracion('La opción correcta es la 2. Las opciones 0 y 1 son incorrectas.', 2)?.texto)
+      .toBe('La opción correcta es la C. Las opciones A y B son incorrectas.');
+    expect(corrigeNumeracion('El artículo lo dice, por tanto la opción 2 es correcta. Las opciones 0 y 1 son incorrectas porque no.', 2)?.texto)
+      .toBe('El artículo lo dice, por tanto la opción C es correcta. Las opciones A y B son incorrectas porque no.');
+  });
+
+  it('una lista sin forma de demostrar la base no se toca', () => {
+    expect(corrigeNumeracion('Las opciones 1 y 2 son incorrectas porque no.', 0)).toBeNull();
+    expect(corrigeNumeracion('La opción 1 y 2 no valen.', 0)).toBeNull();
+  });
+
+  it('reconoce «la respuesta correcta es la opción 1» y «la opción 2 es correcta» como declaraciones', () => {
+    expect(corrigeNumeracion('La respuesta correcta es la opción 1 (segunda opción), ya que el artículo lo dice.', 1)?.texto)
+      .toBe('La respuesta correcta es la opción B (segunda opción), ya que el artículo lo dice.');
+    // «la opción 2 es correcta» con la marcada en el índice 1: cuenta desde 1.
+    const r = corrigeNumeracion('La opción 2 es correcta porque lo dice el artículo 8. La opción 1 es incorrecta. La opción 3 es incorrecta.', 1);
+    expect(r?.texto).toBe('La opción B es correcta porque lo dice el artículo 8. La opción A es incorrecta. La opción C es incorrecta.');
+    expect(r?.desde).toBe(1);
+  });
+
+  it('si lo que declara correcta no es la marcada, no se toca: puede ser un error de verdad', () => {
+    expect(corrigeNumeracion('La respuesta correcta es la opción 0 porque sí. La opción 1 es incorrecta.', 2)).toBeNull();
+  });
+
+  it('un número que no es de opción («la 3.ª categoría», «el 2º párrafo») no cuenta', () => {
+    expect(numeraOpciones('La opción correcta es la 3.ª categoría, tal como dice el Reglamento.')).toBe(false);
+    expect(corrigeNumeracion('La opción correcta es la 3.ª categoría.', 1)).toBeNull();
+    expect(numeraOpciones('La opción 2º del artículo.')).toBe(false);
   });
 
   it('una cifra fuera de rango no se convierte', () => {
