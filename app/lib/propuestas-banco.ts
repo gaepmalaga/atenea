@@ -145,7 +145,7 @@ export function quitaTextoProporcionado(texto: string, cita: Cita): string | nul
 export function referenciaCorta(norma: string, precepto: string): string {
   const [tipo, num = ''] = precepto.split(':');
   const corta = nombreCorto(norma);
-  if (tipo === 'art') return `Art. ${num.replace(/(\d+)(bis|ter|quater|quinquies|sexies)$/, '$1 $2')} ${corta}`;
+  if (tipo === 'art') return `Art. ${preceptoLegible(precepto).replace(/^art\. /, '')} ${corta}`;
   if (tipo === 'anexo') return `Anexo ${num} ${corta}`;
   if (tipo === 'preambulo') return `Preámbulo ${corta}`;
   const abrev = { da: 'DA', dt: 'DT', df: 'DF', dd: 'DD' }[tipo] ?? tipo.toUpperCase();
@@ -184,11 +184,11 @@ export const deCon = (como: string): string => (como.startsWith('el ') ? `del ${
  */
 export function articulosNombrados(texto: string | null | undefined): string[] {
   const out = new Set<string>();
-  const re = /\b[Aa]rt(?:[íi]culo|\.)\s+(\d{1,4})(?:[\s.]*(bis|ter|quater|quinquies|sexies)\b)?/g;
+  const re = /\b[Aa]rt(?:[íi]culo|\.)\s+(\d{1,4})(?:[\s.]*(bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies)\b(?:\s+([a-n])(?=\s*$|[.,;:]|\s+(?:de|del|y|o|LECrim)\b))?)?/g;
   for (const m of (texto ?? '').matchAll(re)) {
     const detras = (texto ?? '').slice(m.index + m[0].length, m.index + m[0].length + 40);
     if (DE_UNA_LEY.test(detras)) continue;
-    out.add(`art:${Number(m[1])}${m[2] ?? ''}`);
+    out.add(`art:${Number(m[1])}${m[2] ?? ''}${m[3] ?? ''}`);
   }
   return [...out];
 }

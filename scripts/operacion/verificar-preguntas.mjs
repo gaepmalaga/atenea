@@ -12,6 +12,10 @@
  *   npm run verificar -- --muestra=30       repasa 30 y enseña lo que dice, sin escribir. Unos céntimos.
  *   npm run verificar -- --hazlo            repasa todas y deja los avisos. Unos euros.
  *   npm run verificar -- --hazlo --limite=500
+ *   npm run verificar -- --repetir [--hazlo]  vuelve a repasar las que la IA no pudo
+ *       confirmar por ver el artículo cortado, y las que citan un artículo con
+ *       letra («588 ter d»), que antes se confundía con el «588 ter a». Su aviso
+ *       abierto se cambia por el nuevo, o se retira si ahora cuadra.
  *
  * Una pregunta que ya tuvo un aviso de la IA (abierto o archivado) no se
  * vuelve a repasar. Necesita la clave de servicio, la de Gemini y el BOE: va
@@ -36,6 +40,10 @@ const valor = (f) => args.find((x) => x.startsWith(`--${f}=`))?.split('=')[1];
 const HAZLO = args.includes('--hazlo');
 const MUESTRA = Number(valor('muestra') ?? 0);
 const LIMITE = Number(valor('limite') ?? 0);
+const REPETIR = args.includes('--repetir');
+// Lo que delata un aviso hecho con el artículo cortado (MAX_TEXTO_ARTICULO era 7.000).
+const RECORTADO = /recortad|incomplet/i;
+const CON_LETRA = /(art[ií]culo|art\.)\s*\d+\s+(bis|ter|quater|quinquies|sexies|septies|octies)\s+[a-n](?=\s*$|[.,;:]|\s+(de|del|y|o|LECrim)\b)/i;
 const CONCURRENCIA = 3;
 const MODELO = 'gemini-3.5-flash-lite';
 const llama = HAZLO || MUESTRA > 0;
@@ -64,23 +72,33 @@ const preguntas = await todas(
     .eq('status', 'active').is('reviewed_at', null).order('id').range(d, h),
   'question_bank',
 );
-const yaAvisadas = new Set((await todas(
-  (d, h) => db.from('question_reports').select('id, question_id').eq('report_type', TIPO_REPORTE_REVISION_IA).order('id').range(d, h),
+const avisosIA = await todas(
+  (d, h) => db.from('question_reports').select('id, question_id, status, message').eq('report_type', TIPO_REPORTE_REVISION_IA).order('id').range(d, h),
   'question_reports',
-)).map((r) => r.question_id));
+);
+const yaAvisadas = new Set(avisosIA.map((r) => r.question_id));
+// --repetir: el aviso ABIERTO de cada pregunta (los que ya decidió un tutor no se tocan).
+const avisoAbierto = new Map(avisosIA.filter((r) => r.status === 'open').map((r) => [r.question_id, r]));
+const decididas = new Set(avisosIA.filter((r) => r.status !== 'open').map((r) => r.question_id));
+const aRepetir = (q) => !decididas.has(q.id) && (
+  RECORTADO.test(avisoAbierto.get(q.id)?.message ?? '')
+  || CON_LETRA.test(`${q.legal_reference ?? ''} ${q.question_text} ${q.explanation ?? ''}`)
+);
 
 // 2. De qué artículo sale cada una, con su texto vigente.
 const ctx = await preparaCitas(db, preguntas);
 const repasables = [];
 let sinCita = 0;
 for (const q of preguntas) {
-  if (yaAvisadas.has(q.id)) continue;
+  if (REPETIR ? !aRepetir(q) : yaAvisadas.has(q.id)) continue;
   const cita = ctx.citaDe(q);
   const art = cita ? ctx.textoDe(cita.boe, cita.precepto) : null;
   if (!cita || !art || art.texto.length < 40) { sinCita++; continue; }
   repasables.push({ q, cita, art });
 }
-console.log(`Activas sin revisar: ${preguntas.length} · ya con aviso de la IA: ${yaAvisadas.size} · se pueden repasar contra el BOE: ${repasables.length} · sin artículo seguro: ${sinCita}`);
+console.log(REPETIR
+  ? `Para repetir (aviso con el artículo cortado o artículo con letra): ${repasables.length} · sin artículo seguro: ${sinCita}`
+  : `Activas sin revisar: ${preguntas.length} · ya con aviso de la IA: ${yaAvisadas.size} · se pueden repasar contra el BOE: ${repasables.length} · sin artículo seguro: ${sinCita}`);
 console.log(`Coste estimado de repasarlas todas: ${costeVerificacion(repasables.length).toFixed(2)} $ (por arriba)`);
 
 if (!llama) { console.log('\nENSAYO: no se ha llamado a la IA ni se ha escrito nada. --muestra=30 para probar, --hazlo para todas.'); process.exit(0); }
@@ -114,6 +132,7 @@ const aviso = (r) => ({
 });
 let porEscribir = [];
 let escritos = 0;
+const repaso = { cambiados: 0, retirados: 0 };
 async function guarda(todo = false) {
   if (!HAZLO || (!todo && porEscribir.length < 50) || porEscribir.length === 0) return;
   const tanda = porEscribir;
@@ -121,6 +140,22 @@ async function guarda(todo = false) {
   const { error } = await db.from('question_reports').insert(tanda);
   if (error) { console.error('No se pudieron guardar los avisos:', error.message); process.exit(1); }
   escritos += tanda.length;
+}
+/**
+ * --repetir: si la pregunta tenía un aviso abierto (hecho con el artículo
+ * cortado o con otro artículo), se cambia por el nuevo; si ahora cuadra, se
+ * retira: lo puso el repaso, nadie lo ha decidido, y era un error de la
+ * herramienta, no una duda sobre la pregunta.
+ */
+async function rehaz(r) {
+  const previo = avisoAbierto.get(r.q.id);
+  if (!previo) { if (r.v.veredicto !== 'correcta') porEscribir.push(aviso(r)); return; }
+  if (!HAZLO) return;
+  const { error } = r.v.veredicto === 'correcta'
+    ? await db.from('question_reports').delete().eq('id', previo.id).eq('status', 'open')
+    : await db.from('question_reports').update({ message: aviso(r).message }).eq('id', previo.id).eq('status', 'open');
+  if (error) { console.error('No se pudo cambiar el aviso:', error.message); process.exit(1); }
+  if (r.v.veredicto === 'correcta') repaso.retirados++; else repaso.cambiados++;
 }
 
 const gastado = { entrada: 0, salida: 0 };
@@ -140,7 +175,8 @@ for (let i = 0; i < lote.length; i += CONCURRENCIA) {
       if (!v) { fallos++; return; }
       const r2 = { q, cita, art, v };
       resultados.push(r2);
-      if (v.veredicto !== 'correcta') porEscribir.push(aviso(r2));
+      if (REPETIR) await rehaz(r2);
+      else if (v.veredicto !== 'correcta') porEscribir.push(aviso(r2));
     } catch { fallos++; }
   }));
   await guarda();
@@ -170,10 +206,14 @@ if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SU
 if (!HAZLO) { console.log('\nMUESTRA: no se ha escrito nada.'); process.exit(0); }
 
 // 4. Los avisos (solo de las que no cuadran) ya están guardados; queda la novedad.
-const { error: errNov } = await db.from('novedades').insert({
+const { error: errNov } = await db.from('novedades').insert(REPETIR ? {
+  tipo: 'ia', organization_id: null,
+  titulo: `Repaso contra la ley, segunda vuelta: ${resultados.length} preguntas con el artículo completo`,
+  detalle: `${repaso.retirados} avisos «La IA duda» retirados (con el artículo entero, la pregunta cuadra), ${repaso.cambiados} cambiados por el nuevo motivo y ${escritos} nuevos. La primera vuelta veía cortados los artículos largos y confundía el «588 ter d» con el «588 ter a». Gasto: ${real.coste.toFixed(2)} $.`,
+} : {
   tipo: 'ia', organization_id: null,
   titulo: `Repaso contra la ley: la IA duda de ${escritos} de ${resultados.length} preguntas`,
   detalle: `${cuenta.incorrecta} que cree mal y ${cuenta.dudosa} que no puede confirmar con el texto vigente del BOE. Están en «Revisión → La IA duda» (y en «Revisar», modo «las que la IA duda, primero»). La IA también se equivoca: decide el tutor. Gasto: ${real.coste.toFixed(2)} $.`,
 });
 if (errNov) console.error('No se pudo anotar la novedad:', errNov.message);
-console.log(`\nAvisos escritos: ${escritos} · gasto ${real.coste.toFixed(3)} $`);
+console.log(`\nAvisos escritos: ${escritos}${REPETIR ? ` · cambiados: ${repaso.cambiados} · retirados: ${repaso.retirados}` : ''} · gasto ${real.coste.toFixed(3)} $`);

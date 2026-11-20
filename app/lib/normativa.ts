@@ -131,6 +131,13 @@ function romanoANumero(r: string): number | null {
 // ---------------------------------------------------------------------------
 
 const SUFIJOS = 'bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies';
+/**
+ * La letra de los artículos de la LECrim «588 ter a» a «588 ter m»: cada uno
+ * es un artículo distinto. Solo detrás de un sufijo latino, y solo si después
+ * viene un punto, el final, «de», «del», «y», «o» o «LECrim»: en «el art. 520
+ * bis a los detenidos» la «a» es una preposición, y en «588 ter a)» un apartado.
+ */
+const LETRA = String.raw`(?:\s+([a-n])(?=\s*$|[.,;:]|\s+(?:de|del|y|o|lecrim)\b))?`;
 const TIPO_DISP: Record<string, string> = { adicional: 'da', transitoria: 'dt', final: 'df', derogatoria: 'dd' };
 
 type Hallazgo = { pos: number; fin: number; claves: string[] };
@@ -164,11 +171,11 @@ function preceptosEn(textoOriginal: string): Hallazgo[] {
   // Artículos en cifra. «Art. 8 ter.4» es el 8 ter; en «Art. 12.2 bis» el
   // «bis» es del apartado, y el artículo es el 12. La LO 4/2000 rotula
   // «Artículo 18.bis», con punto: también es el 18 bis.
-  const reArt = new RegExp(`\\b(art(?:iculo)?s?)\\b\\.?\\s*(\\d{1,4})(?:[\\s.]*(${SUFIJOS})\\b)?`, 'g');
+  const reArt = new RegExp(`\\b(art(?:iculo)?s?)\\b\\.?\\s*(\\d{1,4})(?:[\\s.]*(${SUFIJOS})\\b${LETRA})?`, 'g');
   const reLista = new RegExp(`^(?:\\.\\d+[a-z]?)*((?:\\s*(?:,|\\by\\b)\\s*\\d{1,4}(?:\\s*(?:${SUFIJOS})\\b)?(?:\\.\\d+[a-z]?)*)+)`);
   for (const m of t.matchAll(reArt)) {
     const pos = m.index ?? 0;
-    const claves = [`art:${Number(m[2])}${m[3] ?? ''}`];
+    const claves = [`art:${Number(m[2])}${m[3] ?? ''}${m[4] ?? ''}`];
     // Listas y rangos solo con «arts.»: en «art. 5.1 y 2» el «2» es un apartado, no otro artículo.
     if (m[1].endsWith('s')) {
       const cola = t.slice(pos + m[0].length, pos + m[0].length + 60);
@@ -242,7 +249,7 @@ export function preceptoDelRotulo(rotulo: string | null | undefined): string | n
 /** Cómo se le enseña un precepto a una persona: «art. 69», «art. 8 ter», «disposición adicional 11.ª». */
 export function preceptoLegible(clave: string): string {
   const [tipo, num = ''] = clave.split(':');
-  if (tipo === 'art') return `art. ${num.replace(new RegExp(`(\\d+)(${SUFIJOS})$`), '$1 $2')}`;
+  if (tipo === 'art') return `art. ${num.replace(new RegExp(`(\\d+)(${SUFIJOS})([a-n])?$`), (_, n: string, suf: string, letra?: string) => `${n} ${suf}${letra ? ` ${letra}` : ''}`)}`;
   if (tipo === 'anexo') return `anexo ${num}`;
   if (tipo === 'preambulo') return 'preámbulo';
   const nombre = { da: 'disposición adicional', dt: 'disposición transitoria', df: 'disposición final', dd: 'disposición derogatoria' }[tipo] ?? tipo;
@@ -561,6 +568,17 @@ export function bloquesDelXml(xml: string): Bloque[] {
     bloques.push({ id, tipo, titulo: titulo ? desescapa(titulo) : null, versiones });
   }
   return bloques;
+}
+
+/**
+ * Los artículos con letra de un artículo citado sin ella: «588 ter» en la
+ * LECrim son el 588 ter a, b, c… hasta el m. Quien cita «el 588 ter» puede
+ * hablar de cualquiera, así que se vigilan todos.
+ */
+export function familiaDeArticulo<T>(indice: Map<string, T>, precepto: string): T[] {
+  if (!new RegExp(`^art:\\d+(${SUFIJOS})$`).test(precepto)) return [];
+  const re = new RegExp(`^${precepto}[a-n]$`);
+  return [...indice].filter(([k]) => re.test(k)).map(([, v]) => v);
 }
 
 /** Los bloques indexados por precepto. Si dos bloques dan el mismo (pasa con anexos repetidos), se queda el primero. */

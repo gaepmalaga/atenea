@@ -50,8 +50,13 @@ export function leeVeredicto(crudo: unknown): Veredicto | null {
   return { veredicto: d.veredicto as Veredicto['veredicto'], correcta, motivo };
 }
 
-/** Hasta dónde se le enseña el artículo: los muy largos se recortan (el Código Penal tiene artículos de varias páginas). */
-export const MAX_TEXTO_ARTICULO = 7000;
+/**
+ * Hasta dónde se le enseña el artículo. Con 7.000 caracteres, los artículos
+ * largos (la estructura del Ministerio en el RD 207/2024) llegaban cortados y
+ * la IA decía «no puedo confirmarlo» por no ver el apartado. 24.000 caben
+ * casi todos, y cuestan céntimos más.
+ */
+export const MAX_TEXTO_ARTICULO = 24000;
 
 export function promptDeVerificacion(p: {
   norma: string; precepto: string; texto: string;
@@ -78,7 +83,7 @@ export function avisoDeVerificacion(p: { norma: string; precepto: string; veredi
   return `${que} ${p.veredicto.motivo} Compruébalo: la IA también se equivoca.${p.url ? ` ${p.url}` : ''}`;
 }
 
-/** Lo que costaría repasar `n` preguntas, por arriba: ~2.200 fichas de entrada y ~120 de salida cada una. */
+/** Lo que costaría repasar `n` preguntas, por arriba: ~2.200 fichas de entrada y ~120 de salida cada una (las de artículos muy largos, más). */
 export function costeVerificacion(n: number, precio = { entradaPorMillon: 0.30, salidaPorMillon: 2.50 }): number {
   return (n * 2200 / 1e6) * precio.entradaPorMillon + (n * 120 / 1e6) * precio.salidaPorMillon;
 }

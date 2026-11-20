@@ -5,7 +5,7 @@ import {
   citasDeLaReferencia, citasDeLaPregunta, candidatasPorTema, cabeceraDelTemario, preceptoDelRotulo, preceptoLegible,
   ordinalANumero, cardinalANumero, bloquesDelXml, indicePorPrecepto, cambiosPosteriores, esTextoDerogado,
   avisoDeBloque, avisoDeActoUE, celexDe, eligePorTexto, busquedaBoe, fecha8, agrupaAvisos, NO_VIGILADAS, TIPO_REPORTE_VIGENCIA, separaEnlaceOficial,
-  type TemaManifiesto,
+  familiaDeArticulo, type TemaManifiesto,
 } from '../app/lib/normativa';
 
 /**
@@ -87,6 +87,25 @@ describe('ordinales y rótulos del BOE', () => {
     expect(preceptoDelRotulo('ANEXO II')).toBe('anexo:2');
     expect(preceptoDelRotulo('TÍTULO PRELIMINAR')).toBeNull();
     expect(preceptoDelRotulo(null)).toBeNull();
+  });
+
+  it('el 588 ter a y el 588 ter d de la LECrim son artículos distintos (antes se leían los dos como «588 ter»)', () => {
+    expect(preceptoDelRotulo('Artículo 588 ter a. Presupuestos.')).toBe('art:588tera');
+    expect(preceptoDelRotulo('Artículo 588 ter d. Solicitud de autorización judicial.')).toBe('art:588terd');
+    expect(preceptoDelRotulo('Artículo 588 octies. Orden de conservación de datos.')).toBe('art:588octies');
+    expect(citasDeLaReferencia('Art. 588 ter d LECrim')[0]).toMatchObject({ norma: 'LECrim', precepto: 'art:588terd' });
+    expect(citasDeLaReferencia('Artículo 588 bis a de la Ley de Enjuiciamiento Criminal')[0].precepto).toBe('art:588bisa');
+    // La «a» de «a los detenidos» es una preposición, y «a)» es un apartado.
+    expect(citasDeLaReferencia('Art. 520 bis a los detenidos, LECrim')[0].precepto).toBe('art:520bis');
+    expect(citasDeLaReferencia('Art. 520 bis a) LECrim')[0].precepto).toBe('art:520bis');
+    expect(preceptoLegible('art:588terd')).toBe('art. 588 ter d');
+    expect(preceptoLegible('art:588octies')).toBe('art. 588 octies');
+  });
+
+  it('quien cita «el 588 ter» sin letra vigila todos sus artículos con letra', () => {
+    const indice = new Map([['art:588tera', 'a'], ['art:588terd', 'd'], ['art:588bisa', 'x'], ['art:588ter1', 'no']]);
+    expect(familiaDeArticulo(indice, 'art:588ter')).toEqual(['a', 'd']);
+    expect(familiaDeArticulo(indice, 'art:588')).toEqual([]); // sin sufijo latino no hay familia
   });
 
   it('enseña el precepto como lo lee una persona', () => {

@@ -48,8 +48,10 @@ on:
           - verificar-ensayo    # cuántas preguntas se pueden repasar contra el BOE y cuánto costaría. Gratis.
           - verificar-muestra   # la IA repasa 30 contra el BOE y lo enseña. No escribe. Céntimos.
           - verificar           # la IA repasa todas y deja «La IA duda» en Revisión. Pide escribir VERIFICAR. Unos euros.
+          - verificar-repetir-ensayo  # cuántas se repetirían (artículo cortado o con letra). Gratis.
+          - verificar-repetir   # las repasa otra vez y cambia o retira su aviso. Pide escribir VERIFICAR. Céntimos.
       confirmacion:
-        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas"), MEDIR ("dificultad-medida"), PROPONER ("mejoras") o VERIFICAR ("verificar")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas"), MEDIR ("dificultad-medida"), PROPONER ("mejoras") o VERIFICAR ("verificar" y "verificar-repetir")'
         required: false
         type: string
       correo:
@@ -175,6 +177,19 @@ jobs:
             exit 1
           fi
           npm run verificar -- --hazlo
+
+      - name: Verificar · segunda vuelta, ensayo (gratis)
+        if: inputs.accion == 'verificar-repetir-ensayo'
+        run: npm run verificar -- --repetir
+
+      - name: Verificar · segunda vuelta
+        if: inputs.accion == 'verificar-repetir'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "VERIFICAR" ]; then
+            echo "Para la segunda vuelta hay que escribir VERIFICAR en el campo de confirmación."
+            exit 1
+          fi
+          npm run verificar -- --repetir --hazlo
 
       - name: Estado actual
         if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'
