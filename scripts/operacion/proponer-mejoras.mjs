@@ -19,19 +19,15 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
-import { readFile, appendFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { appendFile } from 'node:fs/promises';
 import { normalizeSupabaseUrl } from '../../app/lib/supabase-url.ts';
-import { citasDeLaPregunta, cabeceraDelTemario, candidatasPorTema, eligePorTexto, NO_VIGILADAS, nombreCorto } from '../../app/lib/normativa.ts';
-import { quitaTextoProporcionado, hablaDeUnTexto, referenciaCorta, articulosNombrados, palabras, mejorArticulo } from '../../app/lib/propuestas-banco.ts';
-import { idDeNorma, textoPorPrecepto } from './fuentes-boe.mjs';
+import { citasDeLaPregunta } from '../../app/lib/normativa.ts';
+import { quitaTextoProporcionado, hablaDeUnTexto, referenciaCorta, deCon } from '../../app/lib/propuestas-banco.ts';
+import { preparaCitas } from './citas-banco.mjs';
 import { proponer } from './propuestas.mjs';
 
 config({ path: '.env.local' });
 
-const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HAZLO = process.argv.includes('--hazlo');
 const URL = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -59,112 +55,15 @@ const preguntas = await todas(
     .eq('status', 'active').order('id').range(d, h),
   'question_bank',
 );
-const temas = await todas((d, h) => db.from('subjects').select('id, topic_number').order('id').range(d, h), 'subjects');
-const temaDe = new Map(temas.map((s) => [s.id, s.topic_number]));
-const documentos = await todas((d, h) => db.from('documents').select('id, filename').order('id').range(d, h), 'documents');
-const manifiesto = JSON.parse(await readFile(join(RAIZ, 'temario', 'temario.json'), 'utf8'));
-const temaDelManifiesto = new Map(manifiesto.temas.map((t) => [t.numero, t]));
-const cabeceras = new Map();
-for (const doc of documentos) {
-  const ruta = join(RAIZ, 'temario', 'md', `${doc.filename}.md`);
-  if (doc.filename && existsSync(ruta)) cabeceras.set(doc.id, cabeceraDelTemario(await readFile(ruta, 'utf8')));
-}
+const ctx = await preparaCitas(db, preguntas);
+console.log(`Normas del BOE leídas: ${ctx.normasLeidas} de ${ctx.normasPedidas}`);
 
 const trabajo = [];
 for (const q of preguntas) {
-  const tema = temaDelManifiesto.get(temaDe.get(q.subject_id));
-  const cab = cabeceras.get(q.document_id);
-  const citas = citasDeLaPregunta(q.legal_reference, tema, cab?.boes).filter((c) => !c.norma || !NO_VIGILADAS.has(c.norma));
   const sinLey = !q.legal_reference?.trim() || citasDeLaPregunta(q.legal_reference, undefined).every((c) => !c.norma);
   const conTexto = hablaDeUnTexto(q.question_text) || hablaDeUnTexto(q.explanation);
   if (!sinLey && !conTexto) continue;
-  trabajo.push({ q, tema, cab, citas, sinLey, conTexto });
-}
-
-// ---------------------------------------------------------------------------
-// 2. Los textos del BOE que hacen falta
-// ---------------------------------------------------------------------------
-
-const idPorNombre = new Map();
-const nombrePorId = new Map(); // id → nombre corto, para la frase y la referencia
-const necesarios = new Set();
-for (const { citas, tema, cab } of trabajo) {
-  for (const c of citas) {
-    if (c.boe) { necesarios.add(c.boe); if (c.norma) nombrePorId.set(c.boe, c.norma); }
-    for (const cand of c.candidatas ?? []) { necesarios.add(cand.boe); nombrePorId.set(cand.boe, cand.nombre); }
-    if (c.norma && !c.boe && !idPorNombre.has(c.norma)) idPorNombre.set(c.norma, null);
-  }
-  for (const f of tema?.fuentes ?? []) {
-    if (f.boe_id && (!cab?.boes?.length || cab.boes.includes(f.boe_id))) { necesarios.add(f.boe_id); if (!nombrePorId.has(f.boe_id)) nombrePorId.set(f.boe_id, nombreCorto(f.nombre ?? f.boe_id)); }
-  }
-}
-for (const nombre of idPorNombre.keys()) {
-  const id = await idDeNorma(nombre);
-  idPorNombre.set(nombre, id);
-  if (id) { necesarios.add(id); nombrePorId.set(id, nombre); }
-}
-const textos = new Map(); // id → Map(precepto → { texto, palabras })
-for (const id of necesarios) {
-  const mapa = await textoPorPrecepto(id);
-  if (!mapa) continue;
-  for (const v of mapa.values()) v.palabras = palabras(v.texto);
-  textos.set(id, mapa);
-}
-console.log(`Normas del BOE leídas: ${textos.size} de ${necesarios.size}`);
-
-// ---------------------------------------------------------------------------
-// 3. La ley y el artículo de cada pregunta, solo si es seguro
-// ---------------------------------------------------------------------------
-
-/** Las normas del tema (o de su parte del temario) que tienen texto y cubren ese precepto. */
-function candidatas(tema, cab, precepto) {
-  return candidatasPorTema(tema, precepto, cab?.boes).filter((c) => textos.get(c.boe)?.has(precepto));
-}
-
-function resuelve({ q, tema, cab, citas }) {
-  const textoQ = palabras(`${q.question_text} ${Array.isArray(q.options) ? q.options[q.correct_index] ?? '' : ''}`);
-  const comoTexto = `${q.explanation ?? ''} ${q.question_text}`;
-
-  // a) La referencia ya dice la ley y el artículo.
-  for (const c of citas) {
-    const id = c.boe ?? (c.norma ? idPorNombre.get(c.norma) : null);
-    if (c.norma && c.precepto && id) return { boe: id, norma: c.norma, precepto: c.precepto, como: 'la referencia' };
-  }
-  // b) El artículo está (en la referencia o en la explicación) y hay que saber de qué ley.
-  const preceptos = [...new Set([...citas.filter((c) => c.precepto).map((c) => c.precepto), ...articulosNombrados(comoTexto)])];
-  for (const p of preceptos) {
-    const conNombre = citas.find((c) => c.norma && !c.precepto);
-    if (conNombre) {
-      const id = conNombre.boe ?? idPorNombre.get(conNombre.norma);
-      if (id && textos.get(id)?.has(p)) return { boe: id, norma: conNombre.norma, precepto: p, como: 'la referencia y la explicación' };
-    }
-    const cands = candidatas(tema, cab, p);
-    if (cands.length === 1) return { boe: cands[0].boe, norma: cands[0].nombre, precepto: p, como: 'el tema' };
-    if (cands.length > 1) {
-      const e = eligePorTexto(cands, comoTexto);
-      if (e) return { boe: e.boe, norma: e.nombre, precepto: p, como: 'la explicación' };
-      const m = mejorArticulo(textoQ, cands.map((c) => ({ clave: c.boe, palabras: textos.get(c.boe).get(p).palabras })));
-      if (m) { const c = cands.find((x) => x.boe === m.clave); return { boe: c.boe, norma: c.nombre, precepto: p, como: `el texto del BOE (coincide el ${Math.round(m.cobertura * 100)} %)` }; }
-    }
-  }
-  // c) Ni la referencia ni la explicación dicen el artículo: el que coincide claramente con la pregunta.
-  if (preceptos.length === 0) {
-    const fuentes = (tema?.fuentes ?? []).filter((f) => f.boe_id && textos.has(f.boe_id) && (!cab?.boes?.length || cab.boes.includes(f.boe_id)));
-    const todos = [];
-    for (const f of fuentes) {
-      for (const [p, v] of textos.get(f.boe_id)) {
-        if (!candidatasPorTema(tema, p, cab?.boes).some((c) => c.boe === f.boe_id)) continue; // dentro del alcance del tema
-        if (v.palabras.size < 8) continue; // «(Derogado)», rótulos vacíos
-        todos.push({ clave: `${f.boe_id}|${p}`, palabras: v.palabras });
-      }
-    }
-    const m = mejorArticulo(textoQ, todos, 0.6, 0.15);
-    if (m) {
-      const [boe, p] = m.clave.split('|');
-      return { boe, norma: nombrePorId.get(boe) ?? boe, precepto: p, como: `el texto del BOE (coincide el ${Math.round(m.cobertura * 100)} %)` };
-    }
-  }
-  return null;
+  trabajo.push({ q, sinLey, conTexto });
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +75,7 @@ const cuenta = { conTexto: 0, textoArreglado: 0, textoDudoso: 0, sinLey: 0, leyP
 const como = new Map();
 for (const t of trabajo) {
   const { q } = t;
-  const cita = resuelve(t);
+  const cita = ctx.citaDe(q);
   const antes = {};
   const despues = {};
   const motivos = [];
@@ -193,7 +92,7 @@ for (const t of trabajo) {
     if (arreglado) {
       cuenta.textoArreglado++;
       motivos.push(cita
-        ? `Quita «según el texto proporcionado» (el alumno no tiene ningún texto delante) y pone de qué ley es: ${cita.norma}, sacado de ${cita.como}.`
+        ? `Quita «según el texto proporcionado» (el alumno no tiene ningún texto delante) y pone de qué ley es: ${cita.norma}, sacado ${deCon(cita.como)}.`
         : 'Quita «según el texto proporcionado»: el alumno no tiene ningún texto delante. No cambia lo que pregunta.');
     } else cuenta.textoDudoso++;
   }
@@ -206,7 +105,7 @@ for (const t of trabajo) {
         despues.legal_reference = ref;
         cuenta.leyPuesta++;
         como.set(cita.como.replace(/ \(coincide.*/, ''), (como.get(cita.como.replace(/ \(coincide.*/, '')) ?? 0) + 1);
-        motivos.push(`${q.legal_reference ? `La referencia («${q.legal_reference}») no dice de qué ley es` : 'No tenía referencia legal'}: es ${ref}, sacado de ${cita.como}. Con la ley puesta, el vigilante de la normativa la cubre.`);
+        motivos.push(`${q.legal_reference ? `La referencia («${q.legal_reference}») no dice de qué ley es` : 'No tenía referencia legal'}: es ${ref}, sacado ${deCon(cita.como)}. Con la ley puesta, el vigilante de la normativa la cubre.`);
       }
     } else cuenta.sinResolver++;
   }

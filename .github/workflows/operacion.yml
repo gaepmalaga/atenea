@@ -45,8 +45,11 @@ on:
           - normativa-ensayo    # qué preguntas citan artículos que han cambiado en el BOE o la UE. No escribe.
           - mejoras-ensayo      # qué mejoras del banco propondría Claude (texto proporcionado, referencias). No escribe.
           - mejoras             # deja esas mejoras como PROPUESTAS para los tutores. Pide escribir PROPONER.
+          - verificar-ensayo    # cuántas preguntas se pueden repasar contra el BOE y cuánto costaría. Gratis.
+          - verificar-muestra   # la IA repasa 30 contra el BOE y lo enseña. No escribe. Céntimos.
+          - verificar           # la IA repasa todas y deja «La IA duda» en Revisión. Pide escribir VERIFICAR. Unos euros.
       confirmacion:
-        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas"), MEDIR ("dificultad-medida") o PROPONER ("mejoras")'
+        description: 'Escribe RESET (acción "reset"), CLASIFICAR ("dificultad-todas" o "dificultad-nuevas"), MEDIR ("dificultad-medida"), PROPONER ("mejoras") o VERIFICAR ("verificar")'
         required: false
         type: string
       correo:
@@ -112,7 +115,7 @@ jobs:
           faltan=""
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && faltan="$faltan SUPABASE_SERVICE_ROLE_KEY(Secrets)"
-          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ] || [ "${{ inputs.accion }}" = "dificultad-nuevas" ]; then
+          if [ "${{ inputs.accion }}" = "sembrar-indexar" ] || [ "${{ inputs.accion }}" = "sembrar-preguntas" ] || [ "${{ inputs.accion }}" = "dificultad-muestra" ] || [ "${{ inputs.accion }}" = "dificultad-todas" ] || [ "${{ inputs.accion }}" = "dificultad-nuevas" ] || [ "${{ inputs.accion }}" = "verificar-muestra" ] || [ "${{ inputs.accion }}" = "verificar" ]; then
             [ -z "$GEMINI_API_KEY" ] && faltan="$faltan GEMINI_API_KEY(Secrets)"
           fi
           if [ -n "$faltan" ]; then
@@ -154,6 +157,24 @@ jobs:
             exit 1
           fi
           npm run mejoras -- --hazlo
+
+      # El repaso contra la ley (regla 138): no cambia preguntas, deja avisos.
+      - name: Verificar · ensayo (gratis)
+        if: inputs.accion == 'verificar-ensayo'
+        run: npm run verificar
+
+      - name: Verificar · muestra de 30 (no escribe)
+        if: inputs.accion == 'verificar-muestra'
+        run: npm run verificar -- --muestra=30
+
+      - name: Verificar · todas
+        if: inputs.accion == 'verificar'
+        run: |
+          if [ "${{ inputs.confirmacion }}" != "VERIFICAR" ]; then
+            echo "Para repasar todas hay que escribir VERIFICAR en el campo de confirmación."
+            exit 1
+          fi
+          npm run verificar -- --hazlo
 
       - name: Estado actual
         if: inputs.accion == 'estado' || inputs.accion == 'reset-ensayo'

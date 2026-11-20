@@ -19,13 +19,15 @@ export type FormPregunta = { question_text: string; options: string[]; correct_i
  * nadie: va sin comillas, con su título y con el enlace al artículo aparte.
  */
 export default function EditorPregunta({
-  form, onChange, quejaDelAlumno, avisosDeLaLey, sinExplicacion,
+  form, onChange, quejaDelAlumno, avisosDeLaLey, tituloAviso = 'Lo que ha cambiado en la ley', sinExplicacion,
 }: {
   form: FormPregunta;
   onChange: (f: FormPregunta) => void;
   quejaDelAlumno?: string | null;
   /** Los avisos de cambio en la ley abiertos (regla 137), ya separados de su enlace. */
   avisosDeLaLey?: { texto: string; url: string | null; fuente: string | null }[] | null;
+  /** El título del aviso: «Lo que ha cambiado en la ley» o «Lo que duda la IA». */
+  tituloAviso?: string;
   sinExplicacion?: boolean;
 }) {
   return (
@@ -33,7 +35,7 @@ export default function EditorPregunta({
       {avisosDeLaLey?.length ? (
         <Aviso>
           <div className="min-w-0 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-widest">Lo que ha cambiado en la ley</p>
+            <p className="text-[10px] font-black uppercase tracking-widest">{tituloAviso}</p>
             {avisosDeLaLey.map((a, i) => (
               <div key={i}>
                 <p className="break-words text-sm">{a.texto}</p>

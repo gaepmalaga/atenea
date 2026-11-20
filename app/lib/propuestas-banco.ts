@@ -102,6 +102,8 @@ export function quitaTextoProporcionado(texto: string, cita: Cita): string | nul
   t = t.replace(new RegExp(String.raw`(${ARTICULO})\s+del?\s+(?:${FR})`, 'g'), (_, art: string) => articulo(art));
   // «el texto proporcionado del Artículo 83» y «el texto proporcionado (Artículo 47)» → «el artículo 83 del Código Penal».
   t = t.replace(new RegExp(String.raw`\b(el|al)\s+(?:${FR})\s+(?:del?\s+|\()(${ARTICULO})\)?`, 'g'), (_, el: string, art: string) => `${el} ${articulo(art)}`);
+  // «el texto proporcionado, que forma parte del Artículo 108,» → «el artículo 108 del Real Decreto 137/1993,».
+  t = t.replace(new RegExp(String.raw`\b(el|al)\s+(?:${FR})\s*,?\s*que\s+(?:forma\s+parte\s+del|corresponde\s+al|pertenece\s+al|reproduce\s+el|recoge\s+el)\s+(${ARTICULO})`, 'g'), (_, el: string, art: string) => `${el} ${articulo(art)}`);
 
   // Al principio: «¿Según el texto proporcionado sobre X, …» → «¿Sobre X, …»; «Según el texto proporcionado, …» → «Según el artículo 69 del…, …» o nada.
   t = t.replace(
@@ -149,6 +151,30 @@ export function referenciaCorta(norma: string, precepto: string): string {
   const abrev = { da: 'DA', dt: 'DT', df: 'DF', dd: 'DD' }[tipo] ?? tipo.toUpperCase();
   return `${abrev} ${num === 'unica' ? 'única' : `${num}.ª`} ${corta}`;
 }
+
+/**
+ * Qué CLASE de precepto dice una referencia que no trae número («disposición
+ * adicional», «anexo», «preámbulo»): el artículo que se deduzca tiene que ser
+ * de esa clase. `null` si la referencia no dice ninguna.
+ */
+export function claseDePrecepto(referencia: string | null | undefined): ((clave: string) => boolean) | null {
+  const r = (referencia ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (!r.trim()) return null;
+  if (/disposicion/.test(r)) {
+    if (/adicional/.test(r)) return (c) => c.startsWith('da:');
+    if (/transitoria/.test(r)) return (c) => c.startsWith('dt:');
+    if (/final/.test(r)) return (c) => c.startsWith('df:');
+    if (/derogatoria/.test(r)) return (c) => c.startsWith('dd:');
+    return (c) => /^d[atfd]:/.test(c);
+  }
+  if (/anexo/.test(r)) return (c) => c.startsWith('anexo');
+  if (/preambulo|exposicion de motivos/.test(r)) return (c) => c === 'preambulo';
+  if (/\bart(iculo|\.)/.test(r)) return (c) => c.startsWith('art:');
+  return null;
+}
+
+/** «sacado de el tema» → «sacado del tema». */
+export const deCon = (como: string): string => (como.startsWith('el ') ? `del ${como.slice(3)}` : `de ${como}`);
 
 /** Los artículos que una explicación o un enunciado nombran («El Artículo 64 bis.2 establece…»). */
 export function articulosNombrados(texto: string | null | undefined): string[] {

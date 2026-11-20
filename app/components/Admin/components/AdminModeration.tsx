@@ -14,6 +14,7 @@ import {
 import type { ModerationCandidate, ModerationQueue, ModerationReport } from '@/app/lib/questions';
 import { avisar, confirmar } from '@/app/lib/dialogos';
 import { TIPO_REPORTE_VIGENCIA, separaEnlaceOficial } from '@/app/lib/normativa';
+import { TIPO_REPORTE_REVISION_IA } from '@/app/lib/verificacion';
 
 // Cómo se pinta cada tipo de queja. El color es el del estado: rojo la que
 // invalida la pregunta, ámbar la que la deja dudosa, gris lo menor.
@@ -27,6 +28,8 @@ const REPORT_BADGES: Record<string, { label: string; tono: Tono }> = {
   // No es de un alumno: lo deja el vigilante de la normativa (regla 137) cuando
   // el artículo que cita la pregunta ha cambiado después de escribirla.
   [TIPO_REPORTE_VIGENCIA]: { label: 'Cambio en la ley', tono: 'aviso' },
+  // El repaso contra la ley (regla 138): la IA compara la pregunta con el BOE y duda.
+  [TIPO_REPORTE_REVISION_IA]: { label: 'La IA duda', tono: 'malo' },
   other: { label: 'Otro', tono: 'apagado' },
 };
 
@@ -36,7 +39,7 @@ const REPORT_BADGES: Record<string, { label: string; tono: Tono }> = {
  * (lo que reportan los alumnos). Las pendientes ya no se aprueban aquí: se
  * revisan una a una en «Revisión → Revisar».
  */
-export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'ley' | 'quejas'; onCambio?: () => void } = {}) {
+export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'ley' | 'ia' | 'quejas'; onCambio?: () => void } = {}) {
   const [queue, setQueue] = useState<ModerationQueue>({ candidates: [], reports: [] });
   const [loading, setLoading] = useState(true);
 
@@ -60,9 +63,9 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
   const load = useCallback(async () => {
     const res = await getModerationQueue();
     if (res.success) {
-      const deLaLey = (r: ModerationReport) => r.report_type === TIPO_REPORTE_VIGENCIA;
+      const tipoDe = (r: ModerationReport) => (r.report_type === TIPO_REPORTE_VIGENCIA ? 'ley' : r.report_type === TIPO_REPORTE_REVISION_IA ? 'ia' : 'quejas');
       setQueue(soloTipo
-        ? { candidates: [], reports: res.data.reports.filter((r) => (soloTipo === 'ley' ? deLaLey(r) : !deLaLey(r))) }
+        ? { candidates: [], reports: res.data.reports.filter((r) => tipoDe(r) === soloTipo) }
         : res.data);
     }
     setLoading(false);
@@ -123,7 +126,7 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
     if (res.success) {
         // Corregir la pregunta ES la respuesta a un aviso de cambio en la ley:
         // se archiva solo. La queja de un alumno no, que puede pedir más.
-        if (reportContext?.report_type === TIPO_REPORTE_VIGENCIA) await handleResolveReport(reportContext.id);
+        if (reportContext?.report_type === TIPO_REPORTE_VIGENCIA || reportContext?.report_type === TIPO_REPORTE_REVISION_IA) await handleResolveReport(reportContext.id);
         // Actualizamos la UI localmente (tanto en candidatos como en preguntas reportadas)
         setQueue((prev) => ({
             candidates: prev.candidates.map((q) =>
@@ -169,7 +172,7 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
       {/* === QUEJAS DE LOS ALUMNOS === */}
       {activa === 'quejas' && (
         queue.reports.length === 0 ? (
-          <EmptyState icon={<ShieldAlert size={36} />} title={soloTipo === 'ley' ? 'Ningún cambio en la ley por revisar.' : 'Todo tranquilo. Sin quejas.'} bordered />
+          <EmptyState icon={<ShieldAlert size={36} />} title={soloTipo === 'ley' ? 'Ningún cambio en la ley por revisar.' : soloTipo === 'ia' ? 'La IA no duda de ninguna pregunta.' : 'Todo tranquilo. Sin quejas.'} bordered />
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {queue.reports.map((r) => {
@@ -178,7 +181,8 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
               // reventaría al leer `badge.label`.
               const badge = REPORT_BADGES[r.report_type ?? ''] ?? REPORT_BADGES.other;
               const deLaLey = r.report_type === TIPO_REPORTE_VIGENCIA;
-              const aviso = deLaLey ? separaEnlaceOficial(r.message) : null;
+              const deLaIA = r.report_type === TIPO_REPORTE_REVISION_IA;
+              const aviso = deLaLey || deLaIA ? separaEnlaceOficial(r.message) : null;
               return (
                 <Hoja key={r.id} pad="md" className="space-y-3.5">
                   <div className="flex items-start justify-between gap-3">
@@ -191,7 +195,7 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
                   {/* El comentario del alumno —o lo que ha cambiado en la ley— es lo
                       primero que hay que leer: va con la línea dorada. */}
                   <div className="border-l-[3px] border-oro py-1 pl-3 text-[13.5px]">
-                    <small className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">{deLaLey ? 'Lo que ha cambiado' : 'Lo que dijo el alumno'}</small>
+                    <small className="mb-0.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">{deLaLey ? 'Lo que ha cambiado' : deLaIA ? 'Lo que duda la IA' : 'Lo que dijo el alumno'}</small>
                     <p className="text-slate-900 dark:text-slate-100">{aviso ? aviso.texto : r.message}</p>
                     {aviso?.url && (
                       <a
@@ -211,7 +215,7 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
                       es lo único irreversible de la fila. */}
                   <div className="flex flex-wrap gap-2">
                     <Boton size="sm" icon={<Pencil size={14} />} onClick={() => openEditor(r.question, r)} title="Editar y corregir la pregunta">Editar y corregir</Boton>
-                    <Boton size="sm" variant="secondary" icon={<CheckCircle2 size={14} />} onClick={() => handleResolveReport(r.id)} title={deLaLey ? 'La pregunta sigue valiendo: archivar el aviso' : 'Archivar la queja sin tocar la pregunta'}>{deLaLey ? 'Sigue vigente' : 'Archivar la queja'}</Boton>
+                    <Boton size="sm" variant="secondary" icon={<CheckCircle2 size={14} />} onClick={() => handleResolveReport(r.id)} title={deLaLey ? 'La pregunta sigue valiendo: archivar el aviso' : deLaIA ? 'La pregunta está bien: la IA se equivoca' : 'Archivar la queja sin tocar la pregunta'}>{deLaLey ? 'Sigue vigente' : deLaIA ? 'La IA se equivoca' : 'Archivar la queja'}</Boton>
                     <Boton size="sm" variant="danger" disabled={!r.question_id} onClick={() => r.question_id && handleDisable(r.question_id, true)} title="Descartar la pregunta del banco">Descartar la pregunta</Boton>
                   </div>
                 </Hoja>
@@ -273,14 +277,15 @@ export default function AdminModeration({ soloTipo, onCambio }: { soloTipo?: 'le
       {editingQ && (
         <PanelLateral
           titulo="Editar la pregunta"
-          sub={reportContext ? (reportContext.report_type === TIPO_REPORTE_VIGENCIA ? 'Vienes de un aviso de cambio en la ley' : 'Vienes de una queja de un alumno') : editingQ.topic ?? undefined}
+          sub={reportContext ? (reportContext.report_type === TIPO_REPORTE_VIGENCIA ? 'Vienes de un aviso de cambio en la ley' : reportContext.report_type === TIPO_REPORTE_REVISION_IA ? 'Vienes de una duda de la IA' : 'Vienes de una queja de un alumno') : editingQ.topic ?? undefined}
           onCerrar={() => { setEditingQ(null); setReportContext(null); }}
         >
           <EditorPregunta
             form={editForm}
             onChange={setEditForm}
             quejaDelAlumno={reportContext?.message ?? null}
-            avisosDeLaLey={reportContext?.report_type === TIPO_REPORTE_VIGENCIA ? [separaEnlaceOficial(reportContext.message)] : null}
+            avisosDeLaLey={reportContext?.report_type === TIPO_REPORTE_VIGENCIA || reportContext?.report_type === TIPO_REPORTE_REVISION_IA ? [separaEnlaceOficial(reportContext.message)] : null}
+            tituloAviso={reportContext?.report_type === TIPO_REPORTE_REVISION_IA ? 'Lo que duda la IA' : undefined}
           />
           <div className="flex flex-wrap gap-2">
             <Boton onClick={saveChanges} disabled={saving} icon={saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}>
