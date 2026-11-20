@@ -239,3 +239,27 @@ export async function setSoloRevisadas(activo: unknown): Promise<{ success: true
   registraAccion({ actorId: auth.user.id, action: 'set_solo_revisadas', organizationId: org, detail: { activo } });
   return { success: true as const };
 }
+
+/**
+ * Lo que espera a un tutor, en un número: pendientes de publicar, cambios
+ * propuestos, avisos de la ley y quejas de alumnos. Es el contador de
+ * «Revisión» en el menú; las del banco sin revisar no entran (son el trabajo
+ * de fondo, no lo que acaba de llegar).
+ */
+export async function getPorRevisar(): Promise<{ success: true; n: number } | { success: false; error: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false as const, error: auth.error };
+  const user = auth.user as Usuario;
+  let propuestas = supabaseAdmin.from('question_proposals').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+  const alcance = alcanceOrg(user);
+  if (alcance) propuestas = propuestas.or(alcance);
+  const [pend, prop, ley, quejas] = await Promise.all([
+    cuenta(user, (q) => q.eq('status', QUESTION_STATUS.CANDIDATE)),
+    propuestas,
+    reportesAbiertos(user, true),
+    reportesAbiertos(user, false),
+  ]);
+  const error = pend.error ?? prop.error ?? ley.error ?? quejas.error;
+  if (error) return { success: false as const, error: fallo('getPorRevisar', error) ?? 'No se pudo contar.' };
+  return { success: true as const, n: pend.n + (prop.count ?? 0) + ley.n + quejas.n };
+}

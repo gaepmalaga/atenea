@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Users, Book, Building2, Activity, AlertTriangle, Database, Power, Coins,
-  BadgeEuro, FolderOpen, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays, Printer, LineChart,
+  Users, Book, Building2, Activity, Database, Power, Coins,
+  BadgeEuro, FolderOpen, Users2, Dumbbell, CalendarCheck, GraduationCap, CalendarDays, Printer, LineChart, ClipboardCheck,
 } from 'lucide-react';
+import { getPorRevisar } from '@/actions';
 
 import AdminStudents from './components/AdminStudents';
 import AdminExamenes from './components/AdminExamenes';
@@ -12,7 +13,7 @@ import AdminInforme from './components/AdminInforme';
 import AdminPayments from './components/AdminPayments';
 import AdminContent from './components/AdminContent';
 import AdminActivity from './components/AdminActivity';
-import AdminModeration from './components/AdminModeration';
+import AdminRevision from './components/AdminRevision';
 import AdminBank from './components/AdminBank';
 import AdminModules from './components/AdminModules';
 import AdminCost from './components/AdminCost';
@@ -76,7 +77,8 @@ const PESTANAS_ADMIN: (PestanaPanel & { id: AdminTab })[] = [
   // Cómo ha ido la semana y a quién hay que llamar (regla 116).
   { id: 'report', etiqueta: 'Informe semanal', icono: LineChart, seccion: 'Día a día' },
   { id: 'bank', etiqueta: 'Banco oficial', icono: Database, seccion: 'Contenido' },
-  { id: 'moderation', etiqueta: 'Moderación', icono: AlertTriangle, seccion: 'Contenido' },
+  // Todo lo que espera a un tutor, con su número en el menú (regla 138).
+  { id: 'moderation', etiqueta: 'Revisión', icono: ClipboardCheck, seccion: 'Contenido' },
   // El examen en papel: cuadernillo, hoja de respuestas y plantilla (regla 115).
   { id: 'exams', etiqueta: 'Exámenes en papel', icono: Printer, seccion: 'Contenido' },
   // La carpeta compartida de los admin (regla 134).
@@ -87,7 +89,7 @@ const PESTANAS_ADMIN: (PestanaPanel & { id: AdminTab })[] = [
 const PESTANAS_SUPERADMIN: (PestanaPanel & { id: AdminTab })[] = [
   { id: 'content', etiqueta: 'Temario & IA', icono: Book, seccion: 'Contenido' },
   { id: 'bank', etiqueta: 'Banco oficial', icono: Database, seccion: 'Contenido' },
-  { id: 'moderation', etiqueta: 'Moderación', icono: AlertTriangle, seccion: 'Contenido' },
+  { id: 'moderation', etiqueta: 'Revisión', icono: ClipboardCheck, seccion: 'Contenido' },
   { id: 'cost', etiqueta: 'Consumo IA', icono: Coins, seccion: 'Sistema' },
   { id: 'academies', etiqueta: 'Academias', icono: Building2, seccion: 'Sistema' },
 ];
@@ -127,6 +129,16 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
 
   // Truco para forzar recarga de componentes hijos sin recargar la página entera
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Lo que espera a un tutor (regla 138): el número va en el menú, junto a
+  // «Revisión», y se vuelve a contar al cambiar de pantalla o al recargar.
+  const [porRevisar, setPorRevisar] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    getPorRevisar().then((r) => { if (vivo && r.success) setPorRevisar(r.n); });
+    return () => { vivo = false; };
+  }, [activeTab, refreshKey]);
+  const pestanas = tabs.map((t) => (t.id === 'moderation' ? { ...t, cuenta: porRevisar } : t));
   const [cambiandoClave, setCambiandoClave] = useState(false);
 
   // Al cambiar de sección, arriba del todo. Mismo motivo que en el alumno: el
@@ -154,7 +166,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
       logo={MARCA.logo}
       rol={esSuperadmin ? 'Superadmin' : 'Admin'}
       correo={user.email ?? ''}
-      pestanas={tabs}
+      pestanas={pestanas}
       principales={esSuperadmin ? PRINCIPALES_SUPERADMIN : PRINCIPALES_ADMIN}
       activa={activeTab}
       onCambia={(id) => cambiaTab(id as AdminTab)}
@@ -175,7 +187,7 @@ export default function AdminView({ user, onLogout }: { user: AuthUser; onLogout
           {activeTab === 'payments' && <AdminPayments />}
           {activeTab === 'content' && <AdminContent />}
           {activeTab === 'bank' && <AdminBank esSuperadmin={esSuperadmin} />}
-          {activeTab === 'moderation' && <AdminModeration />}
+          {activeTab === 'moderation' && <AdminRevision />}
           {activeTab === 'exams' && <AdminExamenes />}
           {activeTab === 'report' && <AdminInforme />}
           {activeTab === 'documents' && <AdminDocumentos />}

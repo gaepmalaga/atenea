@@ -1702,3 +1702,53 @@ export async function subirDocumento() { return { success: true as const, id: 'd
 export async function renombrarDocumento() { return { success: true as const }; }
 export async function borrarDocumento() { return { success: true as const }; }
 export async function urlDocumento() { return { success: true as const, url: '#' }; }
+
+// --- Revisión de los tutores (regla 138) ---
+export async function getPorRevisar() { return ok({ n: 12 }); }
+export async function getBandejaRevision() {
+  const hace = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
+  return ok({
+    data: {
+      pendientes: 985, sinRevisar: 5342, revisadas: 0, propuestas: 1, avisosLey: 32, quejas: 2, soloRevisadas: false,
+      novedades: [
+        { fecha: hace(2), titulo: 'El BOE ha cambiado 1 artículo que citan 5 preguntas', detalle: 'Reglamento General de Circulación, art. 69 (en vigor desde el 1/10/2026)', autor: null, tipo: 'vigilancia' },
+        { fecha: hace(5), titulo: 'Claude propone 1 cambio', detalle: 'Quitar «según el texto proporcionado» del enunciado', autor: null, tipo: 'propuestas' },
+        { fecha: hace(26), titulo: 'Publicó 12 preguntas', detalle: null, autor: 'Ana (tutora)', tipo: 'decision:approve_questions' },
+        { fecha: hace(28), titulo: 'Revisó una pregunta y la dio por buena', detalle: '7 veces ese día', autor: 'Ana (tutora)', tipo: 'decision:review_question' },
+        { fecha: hace(50), titulo: 'Entraron 985 preguntas nuevas del Tomo I, pendientes', detalle: 'Temas 4 a 12', autor: null, tipo: 'lote' },
+      ],
+    },
+  });
+}
+let _revisadas = 0;
+export async function getParaRevisar(input: { modo?: string; despuesDe?: string } = {}) {
+  const lista = [0, 4, 8].map((i) => ({ ...pregunta(i), status: input.modo === 'pendientes' || !input.modo ? 'candidate' : 'active' }));
+  const idx = input.despuesDe ? lista.findIndex((q) => q.id === input.despuesDe) + 1 : 0;
+  const q = lista[idx];
+  if (!q) return ok({ pregunta: null, quedan: 0 });
+  return ok({
+    quedan: lista.length - idx - _revisadas,
+    pregunta: {
+      id: q.id, status: q.status, question_text: q.question_text, options: q.options, correct_index: q.correct_index,
+      explanation: q.explanation, legal_reference: idx === 0 ? 'Art. 126 RD 1155/2024' : q.legal_reference, difficulty_level: q.difficulty_level,
+      difficulty_source: q.difficulty_source, tema: 10, temaTitulo: 'Extranjería',
+      avisosLey: idx === 0 ? [{ id: 'av1', message: 'RD 1155/2024, art. 126: nueva redacción que entra en vigor el 22/9/2026 (lo cambia BOE-A-2026-15111), posterior a la pregunta. Comprueba que la pregunta y su explicación siguen valiendo. https://www.boe.es/buscar/act.php?id=BOE-A-2024-24099#a126' }] : [],
+      tienePropuesta: false,
+    },
+  });
+}
+export async function setSoloRevisadas() { return ok({}); }
+export async function marcarRevisada() { _revisadas++; return ok({}); }
+export async function getPropuestas() {
+  const q = pregunta(3);
+  return ok({
+    propuestas: [{
+      id: 'pr1', questionId: q.id, origen: 'claude', motivo: 'El enunciado dice «según el texto proporcionado», que el alumno no tiene delante: se quita sin cambiar lo que pregunta.',
+      creada: new Date(Date.now() - 5 * 3600000).toISOString(), vigente: true,
+      cambios: [{ campo: 'question_text', nombre: 'Enunciado', antes: 'Según el texto proporcionado, ¿cuál de estas afirmaciones sobre el artículo 13 es correcta?', despues: 'Según el artículo 13, ¿cuál de estas afirmaciones es correcta?' }],
+      pregunta: { question_text: 'Según el texto proporcionado, ¿cuál de estas afirmaciones sobre el artículo 13 es correcta?', options: q.options, correct_index: q.correct_index, explanation: q.explanation, legal_reference: 'Artículo 13', difficulty_level: 2, status: 'active', tema: 3 },
+    }],
+  });
+}
+export async function aprobarPropuesta() { return ok({}); }
+export async function rechazarPropuesta() { return ok({}); }
