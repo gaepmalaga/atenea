@@ -59,6 +59,7 @@ npm run familias                           # agrupa las preguntas repetidas (reg
 npm run dificultad -- --muestra            # Gemini clasifica la muestra de 150 y se compara (regla 121; solo en producción, vía «Operación»)
 npm run dificultad:medida                  # dificultad MEDIDA con respuestas reales, ensayo (regla 122; `-- --hazlo` escribe; vía «Operación»)
 npm run sesion:adaptativa -- correo 20     # la sesión que el motor le montaría a un alumno (gratis)
+npm run convocatoria                       # qué ha salido en el sumario del BOE de la oposición de Escala Básica (regla 141; `-- --hazlo` deja las novedades; el BOE no se alcanza desde la nube: vía «Operación»)
 npm run normativa                          # qué preguntas citan artículos cambiados en el BOE o la UE (regla 137; `-- --hazlo` deja los avisos; vía «Operación»)
 npm run mejoras                            # qué mejoras del banco propondría Claude: «texto proporcionado» y referencias (regla 138; `-- --hazlo` deja PROPUESTAS; vía «Operación»)
 npm run ambito                             # la IA compara cada pregunta con el programa oficial de su tema y avisa de las que no encajan (regla 139; `-- --muestra=60`, `-- --solo=idcorto`, `-- --hazlo`; de pago, vía «Operación»)
@@ -278,6 +279,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 138 | La última palabra es de los tutores: nada cambia una pregunta sin ellos (Claude, la IA y los procesos PROPONEN), cada pregunta lleva «revisada por», y «Revisión» les cuenta todo |
 | 139 | El tutor revisa lo que le toca: de la academia, la explicación; de la IA, todo. Ve cuántas ven ya los alumnos y cuántas le faltan (por bloque y por tema), con pocas opciones |
 | 140 | Si una sugerencia choca con una regla, se pregunta al dueño: ni se hace sin preguntar ni se descarta en silencio |
+| 141 | Una convocatoria nueva no se espera: el vigilante lee el sumario del BOE cada día y avisa (solo escribe en `novedades`) |
 
 ## Trampas conocidas
 

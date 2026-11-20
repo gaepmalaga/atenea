@@ -1,0 +1,59 @@
+# LA VIGILANCIA DE LA CONVOCATORIA, CADA DÍA, SOLA (regla 141).
+#
+# Lee el sumario del BOE de los últimos diez días y, si sale algo de la
+# oposición de Escala Básica de la Policía Nacional (convocatoria, admitidos,
+# tribunal, fecha del ejercicio, resultados) o la oferta de empleo público del
+# Estado, deja una línea en «Revisión → Novedades» con el enlace al texto.
+#
+# POR QUÉ ES SEGURO QUE ESCRIBA SOLO
+#  · Solo escribe en `novedades`. No toca preguntas ni la fecha de examen.
+#  · No repite un aviso: la marca [BOE-A-…] queda en el detalle.
+#  · Mirar diez días hacia atrás cada día es a propósito: un día que falle
+#    se recupera al siguiente sin perder nada.
+#  · Si el BOE no contesta, la ejecución FALLA y GitHub avisa.
+#  · No cuesta nada: el BOE es dato abierto, sin clave.
+#
+# El informe queda en el resumen de la ejecución. A mano: Run workflow (con
+# `dias` para mirar más atrás). Para un ensayo que no escribe: Operación →
+# convocatoria-ensayo.
+name: Vigilancia de la convocatoria
+
+on:
+  schedule:
+    # Cada día a las 07:23 UTC (08:23 o 09:23 en Málaga): el BOE ya ha publicado.
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: 'Cuántos días mirar hacia atrás (1 a 60). Vacío = 10.'
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://ecupmlqimmpybbrlrmpx.supabase.co' }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Comprobar que está la clave
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Falta SUPABASE_SERVICE_ROLE_KEY en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+      - run: npm ci
+      - name: Vigilar la convocatoria y dejar los avisos
+        # La entrada va por el entorno, no pegada en la orden: un texto libre
+        # del formulario no se ejecuta. El guion valida que sea un entero.
+        env:
+          DIAS: ${{ inputs.dias }}
+        run: npm run convocatoria -- --hazlo ${DIAS:+--dias=$DIAS}

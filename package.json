@@ -28,6 +28,7 @@
     "dificultad:medida": "node --experimental-strip-types scripts/operacion/medir-dificultad.mjs",
     "familias": "node --experimental-strip-types scripts/operacion/agrupar-familias.mjs",
     "normativa": "node --experimental-strip-types scripts/operacion/vigilar-normativa.mjs",
+    "convocatoria": "node --experimental-strip-types scripts/operacion/vigilar-convocatoria.mjs",
     "mejoras": "node --experimental-strip-types scripts/operacion/proponer-mejoras.mjs",
     "verificar": "node --experimental-strip-types scripts/operacion/verificar-preguntas.mjs",
     "ambito": "node --experimental-strip-types scripts/operacion/ambito-preguntas.mjs",

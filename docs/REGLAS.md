@@ -5414,3 +5414,44 @@ documento (o con una decisión anterior del dueño):
    en el mismo cambio; no se queda una excepción sin documentar.
 4. Lo que no choca con ninguna regla se decide sin preguntar (el principio
    general: solo se pregunta lo que es decisión del dueño).
+
+### 141 · Una convocatoria nueva no se espera: el vigilante lee el sumario del BOE cada día y avisa
+
+**Qué pasó (20 nov).** Al revisar repos públicos de oposiciones se vio que
+nosotros vigilamos que las preguntas sigan vigentes (regla 137) pero nada
+detectaba que saliera una convocatoria, la lista de admitidos o la oferta de
+empleo público. La convocatoria vigente (Resolución de 7 jul 2026, BOE-A-2026-15055,
+2.704 plazas, plazo cerrado el 31 jul) se buscó a mano y se dejó en «Novedades»;
+la de 2027 no estaba publicada.
+
+**La regla.**
+
+1. **Lo hace un vigilante, no una persona acordándose.**
+   `.github/workflows/vigilancia-convocatoria.yml` corre cada día
+   (`npm run convocatoria`), lee el sumario del BOE (`/datosabiertos/api/boe/sumario/AAAAMMDD`)
+   de los últimos 10 días y reconoce por el TÍTULO lo que toca a la Escala
+   Básica de la Policía Nacional (exige las dos cosas: la escala y el cuerpo) y
+   la oferta de empleo público del Estado. La lógica pura vive en
+   `app/lib/convocatoria-boe.ts` (regla 21).
+2. **Solo avisa.** Escribe en `novedades` (`tipo = 'convocatoria'`) y en nada
+   más: no toca preguntas ni la fecha de examen de «Convocatoria», que la fija el
+   admin (regla 64).
+3. **No repite.** La marca `[BOE-A-…]` queda en el detalle y se busca ahí; por
+   eso mirar 10 días hacia atrás cada día es seguro y recupera un día caído.
+4. **No calla un fallo.** Si el BOE no contesta ningún día, o contesta pero no
+   se reconoce ninguna disposición (su forma ha cambiado), la ejecución falla y
+   GitHub avisa. Un vigilante mudo parece uno tranquilo.
+5. **Desde la nube de Claude no se alcanza el BOE:** el ensayo va por
+   «Operación» → `convocatoria-ensayo` (no escribe).
+
+**Qué NO está verificado.** La forma del JSON del sumario se escribió de
+memoria y con un recorrido tolerante (un objeto o una lista en cada nivel); el
+BOE no se pudo alcanzar al escribirlo. **La primera ejecución real de
+«Operación» → `convocatoria-ensayo` es la prueba:** si el informe dice
+«disposiciones leídas: 0», la forma ha cambiado y hay que ajustar
+`itemsDelSumario`.
+
+**Cómo se vigila.** `tests/convocatoria-boe.test.ts`: el reconocimiento (la
+Guardia Civil y los destinos sueltos no valen), el no repetir, y las guardas
+estáticas del guion (solo escribe en `novedades`, falla sin BOE) y de los
+flujos. Se comprobó rompiendo el código a propósito.
