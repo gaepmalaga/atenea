@@ -1,12 +1,22 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, RefreshCw, Plus, UserPlus, Users, ShieldCheck, Coins, BadgeEuro } from 'lucide-react';
-import { getAcademiesOverview, createAcademy, addAcademyAdmin } from '@/actions';
-import type { AcademyStats } from '@/app/lib/academies';
+import { Building2, RefreshCw, Plus, UserPlus, Users, ShieldCheck, Coins, BadgeEuro, Activity } from 'lucide-react';
+import { getAcademiesOverview, createAcademy, addAcademyAdmin, removeAcademyAdmin, resendAcademyAdminInvite } from '@/actions';
+import type { AcademyStats, AdminDeAcademia } from '@/app/lib/academies';
 import { formateaUSD } from '@/app/lib/ai-cost';
 import { formateaEUR } from '@/app/lib/payments';
-import { Card, EmptyState, StatTile, Button, Modal, TextField, TEXT, cx } from '../../ui';
+import { confirmar, avisar } from '@/app/lib/dialogos';
+import { Card, EmptyState, StatTile, Button, Modal, TextField, Etiqueta, TEXT, cx } from '../../ui';
+
+/** «Hace 2 días», «Hoy», «Nunca ha entrado» — para la última conexión de un admin. */
+function formateaAcceso(iso: string | null): string {
+  if (!iso) return 'nunca ha entrado';
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  return `hace ${dias} días`;
+}
 
 /**
  * «Academias» (P11f/P11i) — SOLO la ve el `superadmin`.
@@ -25,6 +35,7 @@ export default function AdminAcademies() {
   const [error, setError] = useState<string | null>(null);
   const [nuevaAbierta, setNuevaAbierta] = useState(false);
   const [adminDe, setAdminDe] = useState<AcademyStats | null>(null);
+  const [busyAdminId, setBusyAdminId] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const res = await getAcademiesOverview();
@@ -34,6 +45,36 @@ export default function AdminAcademies() {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  async function reenviarInvitacion(academia: AcademyStats, admin: AdminDeAcademia) {
+    setBusyAdminId(admin.id);
+    setError(null);
+    const res = await resendAcademyAdminInvite(academia.id, admin.id);
+    setBusyAdminId(null);
+    if (!res.success) { setError(res.error ?? 'No se pudo reenviar la invitación.'); return; }
+    await avisar(`Se ha reenviado la invitación a ${admin.email ?? 'esa cuenta'}.`);
+    cargar();
+  }
+
+  async function quitarAdmin(academia: AcademyStats, admin: AdminDeAcademia) {
+    const quien = admin.email ?? 'este administrador';
+    const ok = await confirmar(
+      `¿Quitar a ${quien} de ${academia.name}? Su cuenta sigue existiendo; si administra otra academia, no se le toca nada ahí.`,
+    );
+    if (!ok) return;
+    setBusyAdminId(admin.id);
+    setError(null);
+    const res = await removeAcademyAdmin(academia.id, admin.id);
+    setBusyAdminId(null);
+    if (!res.success) { setError(res.error ?? 'No se pudo quitar.'); return; }
+    cargar();
+  }
+
+  function verLogs(academia: AcademyStats) {
+    window.dispatchEvent(
+      new CustomEvent('admin:pestana', { detail: { tab: 'activity', organizationId: academia.id, academyName: academia.name } }),
+    );
+  }
 
   const totales = academias.reduce(
     (acc, a) => ({
@@ -97,9 +138,14 @@ export default function AdminAcademies() {
                 <h4 className="font-black text-slate-900 dark:text-white truncate">{a.name}</h4>
                 <p className={cx(TEXT.muted, 'font-mono')}>/{a.slug}</p>
               </div>
-              <Button size="sm" variant="ghost" icon={<UserPlus size={13} />} onClick={() => setAdminDe(a)}>
-                Añadir admin
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" icon={<Activity size={13} />} onClick={() => verLogs(a)}>
+                  Ver logs
+                </Button>
+                <Button size="sm" variant="ghost" icon={<UserPlus size={13} />} onClick={() => setAdminDe(a)}>
+                  Añadir admin
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
               <MiniStat icon={<Users size={13} />} label="Alumnos" value={a.alumnos} />
@@ -108,20 +154,36 @@ export default function AdminAcademies() {
               <MiniStat icon={<BadgeEuro size={13} />} label="Cobrado (mes)" value={formateaEUR(a.ingresosMes)} />
             </div>
             {a.admins.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
                 <p className={cx(TEXT.muted, 'mb-1.5')}>Quién la administra</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {a.admins.map((admin) => (
-                    <span
-                      key={admin.id}
-                      className="inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1 font-mono text-[11px] text-slate-700 dark:text-slate-200"
-                      title={admin.id}
-                    >
-                      <ShieldCheck size={11} className="text-slate-400 shrink-0" />
-                      {admin.email ?? admin.id.slice(0, 8)}
-                    </span>
-                  ))}
-                </div>
+                {a.admins.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-950/50 px-2.5 py-2 min-w-0"
+                  >
+                    <div className="min-w-0 flex items-center gap-2">
+                      <ShieldCheck size={13} className="text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-[11px] text-slate-700 dark:text-slate-200" title={admin.id}>
+                          {admin.email ?? admin.id.slice(0, 8)}
+                        </p>
+                        <Etiqueta tono={admin.pendiente ? 'aviso' : 'ok'}>
+                          {admin.pendiente ? 'Invitación pendiente' : `Activo · entró ${formateaAcceso(admin.ultimoAcceso)}`}
+                        </Etiqueta>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {admin.pendiente && (
+                        <Button size="sm" variant="ghost" disabled={busyAdminId === admin.id} onClick={() => reenviarInvitacion(a, admin)}>
+                          Reenviar
+                        </Button>
+                      )}
+                      <Button size="sm" variant="danger" disabled={busyAdminId === admin.id} onClick={() => quitarAdmin(a, admin)}>
+                        Quitar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </Card>

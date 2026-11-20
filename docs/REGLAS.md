@@ -5429,3 +5429,46 @@ documento (o con una decisión anterior del dueño):
    en el mismo cambio; no se queda una excepción sin documentar.
 4. Lo que no choca con ninguna regla se decide sin preguntar (el principio
    general: solo se pregunta lo que es decisión del dueño).
+
+### 141 · Los admins de una academia se gestionan, no solo se invitan: reenviar, quitar y ver sus logs
+
+- **Qué pidió el dueño:** en «Academias» (superadmin) se podía invitar a un
+  admin nuevo, pero la tarjeta lo pintaba como un `<span>` inerte — sin forma
+  de reenviarle la invitación si no la usaba, ni de quitarlo de la academia.
+  Y no había manera de ver «Logs» acotado a una academia en concreto: solo el
+  registro entero de la plataforma.
+- **Pendiente/activo, sin tabla nueva.** `addAcademyAdmin` ya invitaba con
+  `auth.admin.inviteUserByEmail`, que crea el perfil AL INSTANTE: llamarlo dos
+  veces con el mismo correo ya no reinvita, solo confirma la membresía (nunca
+  fue el camino para reenviar). Lo que distingue pendiente de activo es
+  `auth.users.email_confirmed_at` (`null` = invitación sin canjear) —
+  exactamente el mismo `listUsers()` que ya usaban `academy.ts` y «Logs»
+  para el último acceso de un alumno. `getAcademiesOverview` lo trae una vez
+  y `resumeAcademias` (`lib/academies.ts`) lo reparte en `AdminDeAcademia`
+  (`{ id, email, pendiente, ultimoAcceso }`).
+- **Reenviar no es invitar otra vez.** `inviteUserByEmail` falla con un correo
+  que ya tiene cuenta. El enlace nuevo sale de
+  `auth.admin.generateLink({ type: 'recovery' })` — el mismo camino que
+  «¿Olvidaste tu contraseña?» (regla 129) — y se manda con `sendMail` y una
+  plantilla propia (`plantillaInvitacionAdmin`), no con el correo genérico de
+  Supabase: así lleva la marca de la academia. `resendAcademyAdminInvite`
+  comprueba que sigue pendiente antes de mandarlo (una cuenta que ya puso su
+  contraseña no necesita otro enlace de recuperación).
+- **Quitar no es borrar.** `removeAcademyAdmin` borra la fila de
+  `academy_members` de ESA academia y nada más: la cuenta sigue existiendo, y
+  si administra otra academia no se le toca el rol ni la otra membresía (igual
+  que `setMemberAccess` nunca borra a un alumno, solo cambia su estado). Con
+  `confirmar()` antes, como cualquier acción que no se deshace sola (regla 26).
+- **«Ver logs» filtrado por academia.** `getAdminAuditLog`, `getInicioSesiones`
+  y `getFallosRecientes` (`actions/audit.ts`) aceptan ahora un
+  `organizationId` opcional, pero **solo lo usa un `superadmin`**: para un
+  admin normal, que ya viene acotado a la suya (regla 75), el parámetro se
+  ignora — pedir la de otra academia no es su sitio. El botón de la tarjeta
+  manda a «Logs» con el mismo evento `admin:pestana` que ya usaban Calendario,
+  Pagos o Profesores para cambiar de pestaña (regla 99), pero con un objeto en
+  vez de un string (`{ tab, organizationId, academyName }`); `AdminView`
+  guarda el filtro aparte y lo limpia en cuanto se cambia de pestaña a mano,
+  para que no se quede pegado si luego se entra a «Logs» desde el menú. Como
+  «Logs» no estaba en las pestañas del superadmin (solo veía la comparativa
+  entre academias, nunca el registro de una), tuvo que añadirse ahí también —
+  de paso, sirve para ver el registro de la plataforma entera sin filtrar.

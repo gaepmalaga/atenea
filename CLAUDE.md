@@ -280,6 +280,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 138 | La última palabra es de los tutores: nada cambia una pregunta sin ellos (Claude, la IA y los procesos PROPONEN), cada pregunta lleva «revisada por», y «Revisión» les cuenta todo |
 | 139 | El tutor revisa lo que le toca: de la academia (publicadas), la explicación; de la IA (sin publicar hasta revisarlas), todo. Ve qué está publicado, con qué pendiente y qué sin publicar, por tema |
 | 140 | Si una sugerencia choca con una regla, se pregunta al dueño: ni se hace sin preguntar ni se descarta en silencio |
+| 141 | Los admins de una academia se gestionan, no solo se invitan: reenviar, quitar y ver sus logs |
 
 ## Trampas conocidas
 

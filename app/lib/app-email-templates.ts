@@ -76,6 +76,23 @@ export function plantillaAccesoRechazado(params: { academiaName: string }): { su
   };
 }
 
+/**
+ * El reenvío de la invitación a un admin de academia (`resendAcademyAdminInvite`,
+ * regla 129): el mismo enlace de «poner contraseña» que la primera invitación,
+ * pero con la marca de la app en vez del correo genérico de Supabase.
+ */
+export function plantillaInvitacionAdmin(params: { academiaName: string; enlace: string }): { subject: string; html: string } {
+  const { academiaName, enlace } = params;
+  return {
+    subject: `Tu acceso de administración en ${academiaName}`,
+    html: envoltorio(
+      'Pon tu contraseña',
+      `<p>Ya administras <strong>${academiaName}</strong> en ${MARCA.nombre}. Entra en el enlace para poner tu contraseña y acceder al panel.</p>`,
+      { texto: 'Poner mi contraseña', url: enlace },
+    ),
+  };
+}
+
 const escapa = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**

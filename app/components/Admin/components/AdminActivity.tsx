@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, RefreshCw, AlertTriangle, LogIn, Bug } from 'lucide-react';
+import { ShieldCheck, RefreshCw, AlertTriangle, LogIn, Bug, Building2, X } from 'lucide-react';
 import { getAdminAuditLog, getInicioSesiones, getFallosRecientes } from '@/actions';
 import type { AuditRow, SesionUsuario, FalloRow } from '@/app/actions/audit';
 import { ACCION_LABEL, type AccionAuditada } from '@/app/lib/audit-labels';
@@ -18,8 +18,18 @@ import { PanelTitulo, BloqueTitulo, Aviso, Boton, Filtros, FiltroChip, TablaDual
  *     borró, publicó o apagó algo.
  *   · Los FALLOS del servidor (regla 108): a quién le falló qué, y lo que
  *     dijo la base de datos. Al usuario solo se le enseña un mensaje corto.
+ *
+ * `filtro` llega desde «Academias» cuando el superadmin pide «Ver logs» de
+ * UNA academia (`admin:pestana`, en `AdminView.tsx`): sin él, el superadmin
+ * ve el registro de la plataforma entera.
  */
-export default function AdminActivity() {
+export default function AdminActivity({
+  filtro,
+  onQuitarFiltro,
+}: {
+  filtro?: { organizationId: string; academyName: string } | null;
+  onQuitarFiltro?: () => void;
+}) {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [fallos, setFallos] = useState<FalloRow[]>([]);
   const [errorFallos, setErrorFallos] = useState<string | null>(null);
@@ -29,8 +39,13 @@ export default function AdminActivity() {
   const [error, setError] = useState<string | null>(null);
   const [tablaFalta, setTablaFalta] = useState(false);
 
+  const organizationId = filtro?.organizationId;
   const cargar = useCallback(async () => {
-    const [audit, sesiones, fallosRes] = await Promise.all([getAdminAuditLog(), getInicioSesiones(), getFallosRecientes()]);
+    const [audit, sesiones, fallosRes] = await Promise.all([
+      getAdminAuditLog(50, organizationId),
+      getInicioSesiones(organizationId),
+      getFallosRecientes(50, organizationId),
+    ]);
 
     if (fallosRes.success) {
       setFallos(fallosRes.rows);
@@ -54,7 +69,7 @@ export default function AdminActivity() {
     }
 
     setLoading(false);
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     cargar();
@@ -65,17 +80,27 @@ export default function AdminActivity() {
     cargar();
   }
 
-  const [filtro, setFiltro] = useState<'todos' | 'alumnos' | 'admin'>('todos');
-  const visibles = usuarios.filter((u) => filtro === 'todos' || (filtro === 'admin' ? u.rol === 'admin' : u.rol !== 'admin'));
+  const [filtroUsuarios, setFiltroUsuarios] = useState<'todos' | 'alumnos' | 'admin'>('todos');
+  const visibles = usuarios.filter((u) => filtroUsuarios === 'todos' || (filtroUsuarios === 'admin' ? u.rol === 'admin' : u.rol !== 'admin'));
   const cuenta = (f: 'alumnos' | 'admin') => usuarios.filter((u) => (f === 'admin' ? u.rol === 'admin' : u.rol !== 'admin')).length;
 
   return (
     <div className="space-y-5 animate-in fade-in pb-24">
       <PanelTitulo
         titulo="Logs"
-        sub="Quién entra y cuándo, quién ha borrado, publicado o apagado algo, y qué ha fallado."
+        sub={filtro ? `Solo ${filtro.academyName || 'esta academia'}.` : 'Quién entra y cuándo, quién ha borrado, publicado o apagado algo, y qué ha fallado.'}
         acciones={<Boton variant="secondary" onClick={recargar} icon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}>Recargar</Boton>}
       />
+
+      {filtro && (
+        <Aviso tono="info">
+          <Building2 size={15} className="mt-0.5 shrink-0" />
+          <span className="flex-1">Filtrado a <b className="font-semibold">{filtro.academyName || 'una academia'}</b>, desde «Academias».</span>
+          {onQuitarFiltro && (
+            <Boton size="sm" variant="ghost" icon={<X size={13} />} onClick={onQuitarFiltro}>Quitar filtro</Boton>
+          )}
+        </Aviso>
+      )}
 
       {loading && (
         <div className="flex items-center justify-center gap-2 px-1 py-8 text-slate-600 dark:text-slate-400">
@@ -89,9 +114,9 @@ export default function AdminActivity() {
         <BloqueTitulo icon={<LogIn size={15} />}>Inicios de sesión</BloqueTitulo>
 
         <Filtros etiqueta="Qué usuarios ver">
-          <FiltroChip activo={filtro === 'todos'} onClick={() => setFiltro('todos')} cuenta={usuarios.length}>Todos</FiltroChip>
-          <FiltroChip activo={filtro === 'alumnos'} onClick={() => setFiltro('alumnos')} cuenta={cuenta('alumnos')}>Alumnos</FiltroChip>
-          <FiltroChip activo={filtro === 'admin'} onClick={() => setFiltro('admin')} cuenta={cuenta('admin')}>Administración</FiltroChip>
+          <FiltroChip activo={filtroUsuarios === 'todos'} onClick={() => setFiltroUsuarios('todos')} cuenta={usuarios.length}>Todos</FiltroChip>
+          <FiltroChip activo={filtroUsuarios === 'alumnos'} onClick={() => setFiltroUsuarios('alumnos')} cuenta={cuenta('alumnos')}>Alumnos</FiltroChip>
+          <FiltroChip activo={filtroUsuarios === 'admin'} onClick={() => setFiltroUsuarios('admin')} cuenta={cuenta('admin')}>Administración</FiltroChip>
         </Filtros>
 
         {sinFechas && (

@@ -721,7 +721,14 @@ export async function getAiCostOverview() {
 export async function getAcademiesOverview() {
   return ok({
     data: [
-      { id: 'org-1', slug: 'alphapol', name: 'Alphapol', alumnos: 6, admins: [{ id: 'u5', email: 'morato@atenea.com' }], costeIA: 4.32, ingresosMes: 180 },
+      {
+        id: 'org-1', slug: 'alphapol', name: 'Alphapol', alumnos: 6,
+        admins: [
+          { id: 'u5', email: 'morato@atenea.com', pendiente: false, ultimoAcceso: new Date(Date.now() - 2 * 3600e3).toISOString() },
+          { id: 'u6', email: 'nuevo.admin@alphapol.es', pendiente: true, ultimoAcceso: null },
+        ],
+        costeIA: 4.32, ingresosMes: 180,
+      },
       { id: 'org-2', slug: 'atenea', name: 'Atenea (casa)', alumnos: 1, admins: [], costeIA: 0.4, ingresosMes: 0 },
     ],
   });
@@ -731,6 +738,12 @@ export async function createAcademy() {
 }
 export async function addAcademyAdmin() {
   return { success: true as const, invitada: false };
+}
+export async function removeAcademyAdmin() {
+  return { success: true as const };
+}
+export async function resendAcademyAdminInvite() {
+  return { success: true as const };
 }
 
 // ── GRUPOS Y TIPOS DE GRUPO (P7/P8) ─────────────────────────────────────────
