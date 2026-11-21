@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-// @ts-expect-error módulo .mjs sin tipos (es un guion de operación)
 import { lineaDeTiempo, CUENTA_ATRAS } from '../scripts/reels/linea.mjs';
 
 /**
