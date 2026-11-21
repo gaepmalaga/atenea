@@ -64,6 +64,7 @@ npm run mejoras                            # qué mejoras del banco propondría 
 npm run ambito                             # la IA compara cada pregunta con el programa oficial de su tema y avisa de las que no encajan (regla 139; `-- --muestra=60`, `-- --solo=idcorto`, `-- --hazlo`; de pago, vía «Operación»)
 npm run apuntes                            # la IA comprueba las preguntas de temas SIN ley contra el apunte del tema y avisa de las que lo contradicen (regla 145; `-- --muestra=60`, `-- --hazlo`; de pago, vía «Operación»)
 npm run verificar                          # la IA repasa cada pregunta contra el texto vigente del BOE (regla 138; `-- --muestra=30`, `-- --hazlo` deja «La IA duda»; de pago, vía «Operación»)
+node scripts/reels/render.mjs              # reels de pregunta test en MP4 vertical con sonido (regla 147; `--previa`, `--solo=N`; tarda ~2,5 min por reel)
 node scripts/schema-snapshot.mjs           # refresca supabase/schema.json
 node scripts/marca/iconos.mjs              # regenera los iconos desde los SVG (regla 88)
 scripts/nube/sql.sh "select …"             # SQL contra la BD real desde la nube
@@ -289,6 +290,7 @@ Cada una salió de un fallo real. El detalle, en `docs/REGLAS.md`.
 | 144 | Cambiar una pregunta de tema lo decide un tutor (botón «Cambiar de tema»), no la da por revisada y cierra el aviso de «otro tema» |
 | 145 | Los temas sin ley se comprueban contra sus apuntes (IA, solo avisa) y se publican si no hay señal de error |
 | 146 | La pregunta escrita a mano lleva su referencia legal (formulario y columna del CSV) y su explicación nombra las opciones por letra |
+| 147 | Los reels de Alphapol salen de una plantilla (no de un generador de vídeo) y solo con preguntas de la academia o revisadas |
 
 ## Trampas conocidas
 

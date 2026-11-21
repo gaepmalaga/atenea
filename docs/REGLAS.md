@@ -5643,3 +5643,41 @@ documento (o con una decisión anterior del dueño):
   querer decirlo así, pero no por descuido.
 - **Vigilancia:** `tests/referencia-manual.test.ts` (rompiendo el guardado o la
   lectura de la columna, falla).
+
+### 147 · Los reels de Alphapol salen de una plantilla, no de un generador de vídeo, y solo con preguntas de la academia o revisadas
+
+- **Por qué plantilla:** un reel de pregunta test es texto animado (enunciado, tres
+  opciones, cuenta atrás, desvelado, explicación). Un modelo que «genera vídeo»
+  escribe mal el texto, y en una pregunta de oposición una letra mal puesta es un
+  error público con la marca delante. Aquí el texto sale de `question_bank`
+  tal cual, y la imagen la calcula el código: `scripts/reels/plantilla.html`
+  dibuja cada fotograma desde el tiempo `t` (mismo `t`, misma imagen),
+  `render.mjs` los captura con Chromium y los codifica con ffmpeg a
+  1080×1920 · 30 fps, y `sonido.mjs` sintetiza el sonido (sin ficheros de audio ni
+  derechos de nadie).
+- **Una sola línea de tiempo** (`scripts/reels/linea.mjs`, pura): imagen y sonido la
+  comparten, para que el tic caiga en el número y el golpe en el desvelado. La
+  cuenta atrás es de 5, 6 o 7 s según la dificultad. `tests/reels-linea.test.ts`
+  la vigila.
+- **Qué preguntas:** solo las de la academia o revisadas por un tutor, con
+  referencia legal. Las «publicadas sin leer» (regla 139) NO van a Instagram: un
+  error en un reel público lo ve cualquier opositor.
+- **Estilo: serio y operativo, como su Instagram** (`@alphapol_formacion`: material
+  real de pista y gimnasio, rótulos contundentes, música enérgica). Nada de
+  concurso de televisión: rectas duras, cortes secos, rótulos blancos y oro sobre
+  marino, marco táctico, cuenta atrás en formato reloj, «Fundamento» en vez de
+  «¿Por qué?». Un primer prototipo con brillos, confeti y campanas se descartó
+  por no parecerse a la marca.
+- **Música:** el sonido de `sonido.mjs` es un pulso discreto (bombo, palmada, hi-hat
+  y golpe grave) pensado para llevar debajo la canción de moda que el equipo
+  añada DENTRO de Instagram. Una canción comercial no se incrusta en el MP4: son
+  derechos de otros.
+- **Marca:** el logo oficial (`public/marca/*-oficial.webp`), el marino y el
+  dorado de `app/lib/marca.ts` y Barlow Condensed. Contenido dentro de la zona
+  segura de Instagram (sin tapar los ~250 px de arriba ni los ~340 de abajo).
+- **Cómo se usa:** `node scripts/reels/render.mjs` (los ejemplos de
+  `ejemplos.json`), `--solo=N`, `--previa` (capturas sin vídeo), `--salida=ruta`.
+  Los vídeos van a `reels-salida/` (ignorado por git).
+- **Falta (prototipo):** sacar las preguntas de la base de datos en vez del JSON,
+  voz (una persona de la academia en la intro y el cierre es lo que más engancha) y
+  música de marca.

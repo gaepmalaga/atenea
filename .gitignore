@@ -72,3 +72,4 @@ scripts/_*.mjs
 
 # Copia de public/examen para el banco de pruebas (los PDF piden los logos).
 .banco-pruebas/examen/
+reels-salida/

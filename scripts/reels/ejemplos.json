@@ -1,0 +1,35 @@
+[
+  {
+    "id": "c70b9ef7",
+    "tema": 3,
+    "temaTitulo": "La Constitución Española (II)",
+    "dificultad": 1,
+    "pregunta": "El Senado es la Cámara de representación:",
+    "opciones": ["Territorial.", "Estatal.", "Provincial."],
+    "correcta": 0,
+    "explicacion": "El Senado es la Cámara de representación territorial; el Congreso representa al pueblo español.",
+    "referencia": "Art. 69.1 CE"
+  },
+  {
+    "id": "23d17f37",
+    "tema": 2,
+    "temaTitulo": "La Constitución Española (I)",
+    "dificultad": 2,
+    "pregunta": "¿En qué artículo de la CE se afirma que los españoles son mayores de edad a los 18 años?",
+    "opciones": ["En el artículo 11.", "En el artículo 12.", "En el artículo 17."],
+    "correcta": 1,
+    "explicacion": "El artículo 12 de la Constitución establece que los españoles son mayores de edad a los dieciocho años.",
+    "referencia": "Art. 12 CE"
+  },
+  {
+    "id": "b6c5a378",
+    "tema": 1,
+    "temaTitulo": "El Derecho",
+    "dificultad": 3,
+    "pregunta": "¿Cuánto tiempo es necesario para la concesión de la nacionalidad española por posesión de estado?",
+    "opciones": ["Dos años.", "Cinco años.", "Diez años."],
+    "correcta": 2,
+    "explicacion": "Exige diez años de posesión y utilización continuada, con buena fe y basada en un título inscrito.",
+    "referencia": "Art. 18 CC"
+  }
+]

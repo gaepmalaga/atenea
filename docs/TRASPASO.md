@@ -91,6 +91,12 @@ de cada fase, por fecha: se consultan cuando se toca esa parte.
    pregunta» tiene el campo opcional «Referencia legal» y avisa si la explicación
    numera las opciones; el CSV admite la columna `referencia` (la plantilla la trae).
    Antes toda pregunta manual nacía sin referencia y el vigilante de la ley no la veía.
+2e. **Reels con IA — prototipo (21 nov, regla 147).** `scripts/reels/`: plantilla
+   animada con la marca Alphapol + sonido sintetizado + render a MP4 1080×1920.
+   Tres ejemplos reales de la academia en `ejemplos.json`. **Falta:** leer las
+   preguntas de la BD, voz y música de marca, y que el dueño decida el formato
+   (duración, cierre, si lleva persona). El repo `gaepmalaga/edit` (editor de
+   reels de otra marca, vídeo con persona) NO se usa aquí.
 3. **Preguntas que no son del temario — HECHO el repaso, falta lanzarlo
    entero.** `npm run ambito` (`app/lib/ambito-tema.ts`,
    `scripts/operacion/ambito-preguntas.mjs`; acciones de «Operación»
